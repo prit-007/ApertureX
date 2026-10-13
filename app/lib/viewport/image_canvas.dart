@@ -10,6 +10,7 @@ import '../color/histogram_view.dart';
 import '../color/lut_atlas.dart';
 import '../color/lut_texture.dart';
 import '../color/spatial_spec.dart';
+import '../edit/geometry_spec.dart';
 import '../edit/parameter.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_controller.dart';
@@ -100,24 +101,31 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final token = ++_bakeToken;
     final spec = GradeSpec.fromRecipe(recipe);
     final spatial = SpatialSpec.fromRecipe(recipe);
+    final geometry = GeometrySpec.fromRecipe(recipe);
 
-    // Spatial pass first (shadows/highlights/clarity/texture/sharpen), then the
-    // point-wise LUT — matching the export order.
-    final baseRgba = await TesseraEngine.applySpatial(
+    // Geometry (flip/rotate/straighten) then the spatial pass, then LUT grading
+    // — matching the export order. Geometry may change the pixel dimensions.
+    final geo = await TesseraEngine.applyGeometry(
       raw,
       width: _sourceWidth,
       height: _sourceHeight,
+      spec: geometry,
+    );
+    final baseRgba = await TesseraEngine.applySpatial(
+      geo.rgba,
+      width: geo.width,
+      height: geo.height,
       spec: spatial,
     );
-    final baseImage = await _imageFrom(baseRgba, _sourceWidth, _sourceHeight);
+    final baseImage = await _imageFrom(baseRgba, geo.width, geo.height);
     final data = await TesseraEngine.bakeLut3d(spec, size: _lutSize);
     final lutImage = await lutAtlasToImage(
       LutAtlas(size: data.size, rgba: data.rgba),
     );
     final histogram = await TesseraEngine.histogramGraded(
       rgba: baseRgba,
-      width: _sourceWidth,
-      height: _sourceHeight,
+      width: geo.width,
+      height: geo.height,
       sampleDim: 256,
       spec: spec,
     );

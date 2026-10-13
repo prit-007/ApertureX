@@ -141,6 +141,27 @@ void main() {
     });
   });
 
+  group('geometry', () {
+    test('rotate wraps around the four quarter turns', () {
+      notifier.rotate(-1);
+      expect(state().recipe.rotation, 3);
+      notifier.rotate(1);
+      expect(state().recipe.rotation, 0);
+    });
+
+    test('flips toggle', () {
+      notifier.toggleFlipH();
+      expect(state().recipe.flipH, isTrue);
+      notifier.toggleFlipV();
+      expect(state().recipe.flipV, isTrue);
+    });
+
+    test('straighten clamps to +/-45', () {
+      notifier.setStraighten(90);
+      expect(state().recipe.straighten, 45);
+    });
+  });
+
   group('setHsl', () {
     test('updates a band component and clamps', () {
       notifier.setHsl(0, hue: 2.0, saturation: -0.5);

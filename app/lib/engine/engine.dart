@@ -2,11 +2,13 @@ import 'dart:typed_data';
 
 import '../color/grade_spec.dart';
 import '../color/spatial_spec.dart';
+import '../edit/geometry_spec.dart';
 import '../src/rust/api/color.dart' as rust_color;
 import '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 import '../src/rust/api/decode.dart' as rust_decode;
 import '../src/rust/api/engine.dart' as rust_engine;
 import '../src/rust/api/export.dart' as rust_export;
+import '../src/rust/api/geometry.dart' as rust_geometry;
 import '../src/rust/api/histogram.dart' as rust_hist;
 import '../src/rust/api/spatial.dart' as rust_spatial;
 import '../src/rust/frb_generated.dart';
@@ -202,6 +204,25 @@ class TesseraEngine {
     highlights: highlights,
   );
 
+  // --- geometry (P2) --------------------------------------------------------
+
+  /// Applies the geometry chain (flip → rotate → straighten); the result has
+  /// new dimensions.
+  static Future<rust_geometry.GeometryResult> applyGeometry(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    required GeometrySpec spec,
+  }) => rust_geometry.geometryApply(
+    rgba: rgba,
+    width: width,
+    height: height,
+    flipH: spec.flipH,
+    flipV: spec.flipV,
+    turns: spec.rotation,
+    angle: spec.straighten,
+  );
+
   // --- export ---------------------------------------------------------------
 
   /// Encodes already-graded RGBA as a JPEG (alpha dropped).
@@ -226,19 +247,26 @@ class TesseraEngine {
     required int height,
     required GradeSpec spec,
     SpatialSpec spatial = const SpatialSpec(),
+    GeometrySpec geometry = const GeometrySpec(),
     int quality = 90,
   }) async {
-    final spatialized = await applySpatial(
+    final geo = await applyGeometry(
       rgba,
       width: width,
       height: height,
+      spec: geometry,
+    );
+    final spatialized = await applySpatial(
+      geo.rgba,
+      width: geo.width,
+      height: geo.height,
       spec: spatial,
     );
     final graded = await gradeRgba(spatialized, spec);
     return encodeJpegRgba(
       rgba: graded,
-      width: width,
-      height: height,
+      width: geo.width,
+      height: geo.height,
       quality: quality,
     );
   }

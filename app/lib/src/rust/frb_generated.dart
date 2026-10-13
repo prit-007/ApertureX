@@ -7,6 +7,7 @@ import 'api/color.dart';
 import 'api/decode.dart';
 import 'api/engine.dart';
 import 'api/export.dart';
+import 'api/geometry.dart';
 import 'api/histogram.dart';
 import 'api/spatial.dart';
 import 'dart:async';
@@ -71,7 +72,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1767020700;
+  int get rustContentHash => -1526346501;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -113,6 +114,47 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<String> crateApiEngineEngineVersion();
+
+  Future<GeometryResult> crateApiGeometryGeometryApply({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required bool flipH,
+    required bool flipV,
+    required int turns,
+    required double angle,
+  });
+
+  Future<GeometryResult> crateApiGeometryGeometryCrop({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int x,
+    required int y,
+    required int cw,
+    required int ch,
+  });
+
+  Future<GeometryResult> crateApiGeometryGeometryFlip({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required bool horizontal,
+  });
+
+  Future<GeometryResult> crateApiGeometryGeometryRotate({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int turns,
+  });
+
+  Future<GeometryResult> crateApiGeometryGeometryStraighten({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double angleDeg,
+  });
 
   Future<Uint8List> crateApiColorGradeRgba({
     required List<int> rgba,
@@ -398,6 +440,221 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "engine_version", argNames: []);
 
   @override
+  Future<GeometryResult> crateApiGeometryGeometryApply({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required bool flipH,
+    required bool flipV,
+    required int turns,
+    required double angle,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_bool(flipH, serializer);
+          sse_encode_bool(flipV, serializer);
+          sse_encode_u_32(turns, serializer);
+          sse_encode_f_32(angle, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 7,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_geometry_result,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiGeometryGeometryApplyConstMeta,
+        argValues: [rgba, width, height, flipH, flipV, turns, angle],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGeometryGeometryApplyConstMeta =>
+      const TaskConstMeta(
+        debugName: "geometry_apply",
+        argNames: [
+          "rgba",
+          "width",
+          "height",
+          "flipH",
+          "flipV",
+          "turns",
+          "angle",
+        ],
+      );
+
+  @override
+  Future<GeometryResult> crateApiGeometryGeometryCrop({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int x,
+    required int y,
+    required int cw,
+    required int ch,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_u_32(x, serializer);
+          sse_encode_u_32(y, serializer);
+          sse_encode_u_32(cw, serializer);
+          sse_encode_u_32(ch, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 8,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_geometry_result,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiGeometryGeometryCropConstMeta,
+        argValues: [rgba, width, height, x, y, cw, ch],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGeometryGeometryCropConstMeta =>
+      const TaskConstMeta(
+        debugName: "geometry_crop",
+        argNames: ["rgba", "width", "height", "x", "y", "cw", "ch"],
+      );
+
+  @override
+  Future<GeometryResult> crateApiGeometryGeometryFlip({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required bool horizontal,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_bool(horizontal, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 9,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_geometry_result,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiGeometryGeometryFlipConstMeta,
+        argValues: [rgba, width, height, horizontal],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGeometryGeometryFlipConstMeta =>
+      const TaskConstMeta(
+        debugName: "geometry_flip",
+        argNames: ["rgba", "width", "height", "horizontal"],
+      );
+
+  @override
+  Future<GeometryResult> crateApiGeometryGeometryRotate({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int turns,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_u_32(turns, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 10,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_geometry_result,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiGeometryGeometryRotateConstMeta,
+        argValues: [rgba, width, height, turns],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGeometryGeometryRotateConstMeta =>
+      const TaskConstMeta(
+        debugName: "geometry_rotate",
+        argNames: ["rgba", "width", "height", "turns"],
+      );
+
+  @override
+  Future<GeometryResult> crateApiGeometryGeometryStraighten({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double angleDeg,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_f_32(angleDeg, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 11,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_geometry_result,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiGeometryGeometryStraightenConstMeta,
+        argValues: [rgba, width, height, angleDeg],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGeometryGeometryStraightenConstMeta =>
+      const TaskConstMeta(
+        debugName: "geometry_straighten",
+        argNames: ["rgba", "width", "height", "angleDeg"],
+      );
+
+  @override
   Future<Uint8List> crateApiColorGradeRgba({
     required List<int> rgba,
     required ColorParams params,
@@ -415,7 +672,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 12,
             port: port_,
           );
         },
@@ -459,7 +716,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 13,
             port: port_,
           );
         },
@@ -497,7 +754,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 14,
             port: port_,
           );
         },
@@ -525,7 +782,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 15,
             port: port_,
           );
         },
@@ -569,7 +826,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 16,
             port: port_,
           );
         },
@@ -626,7 +883,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 17,
             port: port_,
           );
         },
@@ -667,7 +924,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 18,
             port: port_,
           );
         },
@@ -708,7 +965,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 19,
             port: port_,
           );
         },
@@ -747,7 +1004,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 20,
             port: port_,
           );
         },
@@ -782,7 +1039,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 21,
             port: port_,
           );
         },
@@ -807,6 +1064,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   String dco_decode_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as String;
+  }
+
+  @protected
+  bool dco_decode_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as bool;
   }
 
   @protected
@@ -861,6 +1124,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double dco_decode_f_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
+  }
+
+  @protected
+  GeometryResult dco_decode_geometry_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return GeometryResult(
+      width: dco_decode_u_32(arr[0]),
+      height: dco_decode_u_32(arr[1]),
+      rgba: dco_decode_list_prim_u_8_strict(arr[2]),
+    );
   }
 
   @protected
@@ -978,6 +1254,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool sse_decode_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint8() != 0;
+  }
+
+  @protected
   ColorParams sse_decode_box_autoadd_color_params(
     SseDeserializer deserializer,
   ) {
@@ -1043,6 +1325,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double sse_decode_f_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getFloat32();
+  }
+
+  @protected
+  GeometryResult sse_decode_geometry_result(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_width = sse_decode_u_32(deserializer);
+    var var_height = sse_decode_u_32(deserializer);
+    var var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
+    return GeometryResult(width: var_width, height: var_height, rgba: var_rgba);
   }
 
   @protected
@@ -1146,15 +1437,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  bool sse_decode_bool(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getUint8() != 0;
-  }
-
-  @protected
   void sse_encode_String(String self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(utf8.encoder.convert(self), serializer);
+  }
+
+  @protected
+  void sse_encode_bool(bool self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint8(self ? 1 : 0);
   }
 
   @protected
@@ -1205,6 +1496,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_f_32(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putFloat32(self);
+  }
+
+  @protected
+  void sse_encode_geometry_result(
+    GeometryResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.width, serializer);
+    sse_encode_u_32(self.height, serializer);
+    sse_encode_list_prim_u_8_strict(self.rgba, serializer);
   }
 
   @protected
@@ -1315,11 +1617,5 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_encode_unit(void self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-  }
-
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putUint8(self ? 1 : 0);
   }
 }

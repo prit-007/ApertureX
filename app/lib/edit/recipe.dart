@@ -52,6 +52,11 @@ class EditRecipe {
     this.greenCurve = ToneCurve.identity,
     this.blueCurve = ToneCurve.identity,
     this.hsl = neutralHsl,
+    // Geometry.
+    this.rotation = 0,
+    this.flipH = false,
+    this.flipV = false,
+    this.straighten = 0,
   });
 
   /// Bumped only on a breaking schema change (ARCHITECTURE §16).
@@ -59,7 +64,7 @@ class EditRecipe {
   /// v2: grouped, catalog-driven parameter model (JSON still flat, v1 keys
   /// unchanged). v3: adds color-grading (split-tone) fields; older recipes read
   /// forward with those fields neutral. `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 5;
+  static const int currentSchemaVersion = 6;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -100,6 +105,12 @@ class EditRecipe {
   /// HSL color mixer: 8 bands × (hue, saturation, luminance), each `[-1,1]`.
   final List<double> hsl;
 
+  // Geometry.
+  final int rotation; // quarter turns clockwise (0..3).
+  final bool flipH;
+  final bool flipV;
+  final double straighten; // degrees, -45..45.
+
   /// Returns a copy with the given fields replaced. Fields left `null` keep
   /// their current value; the receiver is never mutated.
   EditRecipe copyWith({
@@ -128,6 +139,10 @@ class EditRecipe {
     ToneCurve? greenCurve,
     ToneCurve? blueCurve,
     List<double>? hsl,
+    int? rotation,
+    bool? flipH,
+    bool? flipV,
+    double? straighten,
   }) {
     return EditRecipe(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -155,6 +170,10 @@ class EditRecipe {
       greenCurve: greenCurve ?? this.greenCurve,
       blueCurve: blueCurve ?? this.blueCurve,
       hsl: hsl ?? this.hsl,
+      rotation: rotation ?? this.rotation,
+      flipH: flipH ?? this.flipH,
+      flipV: flipV ?? this.flipV,
+      straighten: straighten ?? this.straighten,
     );
   }
 
@@ -185,6 +204,10 @@ class EditRecipe {
     'greenCurve': greenCurve.toJson(),
     'blueCurve': blueCurve.toJson(),
     'hsl': hsl,
+    'rotation': rotation,
+    'flipH': flipH,
+    'flipV': flipV,
+    'straighten': straighten,
   };
 
   /// Deserialises from [json], tolerating missing keys (default to neutral) and
@@ -220,6 +243,10 @@ class EditRecipe {
       hsl:
           (json['hsl'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
           neutralHsl,
+      rotation: (json['rotation'] as num?)?.toInt() ?? 0,
+      flipH: json['flipH'] as bool? ?? false,
+      flipV: json['flipV'] as bool? ?? false,
+      straighten: asDouble('straighten'),
     );
   }
 
@@ -250,7 +277,11 @@ class EditRecipe {
       other.redCurve == redCurve &&
       other.greenCurve == greenCurve &&
       other.blueCurve == blueCurve &&
-      listEquals(other.hsl, hsl);
+      listEquals(other.hsl, hsl) &&
+      other.rotation == rotation &&
+      other.flipH == flipH &&
+      other.flipV == flipV &&
+      other.straighten == straighten;
 
   @override
   int get hashCode => Object.hash(
@@ -278,6 +309,7 @@ class EditRecipe {
     ),
     Object.hash(masterCurve, redCurve, greenCurve, blueCurve),
     Object.hashAll(hsl),
+    Object.hash(rotation, flipH, flipV, straighten),
   );
 
   @override

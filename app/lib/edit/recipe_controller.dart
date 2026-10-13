@@ -73,6 +73,24 @@ class RecipeController extends Notifier<RecipeState> {
     state = state.copyWith(recipe: state.recipe.copyWith(hsl: values));
   }
 
+  /// Rotates by [delta] quarter turns clockwise.
+  void rotate(int delta) {
+    final r = ((state.recipe.rotation + delta) % 4 + 4) % 4;
+    state = state.copyWith(recipe: state.recipe.copyWith(rotation: r));
+  }
+
+  void toggleFlipH() => state = state.copyWith(
+    recipe: state.recipe.copyWith(flipH: !state.recipe.flipH),
+  );
+
+  void toggleFlipV() => state = state.copyWith(
+    recipe: state.recipe.copyWith(flipV: !state.recipe.flipV),
+  );
+
+  void setStraighten(double degrees) => state = state.copyWith(
+    recipe: state.recipe.copyWith(straighten: degrees.clamp(-45.0, 45.0)),
+  );
+
   /// Commits the live recipe as a new (optionally named) history node. Truncates
   /// the redo tail — this is where a branch happens.
   void commit({String? label}) {

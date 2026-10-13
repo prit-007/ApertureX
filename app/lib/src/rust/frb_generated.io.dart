@@ -7,6 +7,7 @@ import 'api/color.dart';
 import 'api/decode.dart';
 import 'api/engine.dart';
 import 'api/export.dart';
+import 'api/geometry.dart';
 import 'api/histogram.dart';
 import 'api/spatial.dart';
 import 'dart:async';
@@ -27,6 +28,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  bool dco_decode_bool(dynamic raw);
+
+  @protected
   ColorParams dco_decode_box_autoadd_color_params(dynamic raw);
 
   @protected
@@ -40,6 +44,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double dco_decode_f_32(dynamic raw);
+
+  @protected
+  GeometryResult dco_decode_geometry_result(dynamic raw);
 
   @protected
   Histogram dco_decode_histogram(dynamic raw);
@@ -84,6 +91,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
   ColorParams sse_decode_box_autoadd_color_params(SseDeserializer deserializer);
 
   @protected
@@ -97,6 +107,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double sse_decode_f_32(SseDeserializer deserializer);
+
+  @protected
+  GeometryResult sse_decode_geometry_result(SseDeserializer deserializer);
 
   @protected
   Histogram sse_decode_histogram(SseDeserializer deserializer);
@@ -138,10 +151,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
-  bool sse_decode_bool(SseDeserializer deserializer);
+  void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
-  void sse_encode_String(String self, SseSerializer serializer);
+  void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_color_params(
@@ -163,6 +176,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_f_32(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_geometry_result(
+    GeometryResult self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_histogram(Histogram self, SseSerializer serializer);
@@ -214,9 +233,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer);
 }
 
 // Section: wire_class

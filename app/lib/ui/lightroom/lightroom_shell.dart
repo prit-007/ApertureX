@@ -3,11 +3,12 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../color/interactive_histogram.dart';
 import '../../edit/parameter.dart';
+import '../common/geometry_controls.dart';
 import '../common/hsl_mixer.dart';
 import '../common/parameter_panel.dart';
 import '../common/tone_curve_editor.dart';
 
-enum _Tab { panel, curve, mix }
+enum _Tab { panel, curve, mix, geometry }
 
 /// Lightroom shell: histogram + tabs (categorized panels / tone curve / HSL
 /// mixer) over the shared recipe. Owns no edit state.
@@ -65,6 +66,11 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 _tab == _Tab.mix,
                 () => setState(() => _tab = _Tab.mix),
               ),
+              _tabButton(
+                'GEOMETRY',
+                _tab == _Tab.geometry,
+                () => setState(() => _tab = _Tab.geometry),
+              ),
             ],
           ),
         ),
@@ -74,6 +80,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             _Tab.panel => ParameterPanel(section: _section),
             _Tab.curve => const ToneCurveEditor(),
             _Tab.mix => const HslMixer(),
+            _Tab.geometry => const GeometryControls(),
           },
         ),
       ],
