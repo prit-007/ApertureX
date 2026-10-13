@@ -5,7 +5,7 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status:** P-1 ✅ · P0 🚧 (foundations done; real-image decode folded into P1) · P1 🚧 (viewport core + tile compositor + EditRecipe v1 + basic JPEG export done; native ROI + >100 MP profiling + tile pyramid remaining) · P2+ queued.
+**Current status:** P-1 ✅ · P0 🚧 (foundations done; real-image decode folded into P1) · P1 🚧 (viewport core + tile compositor + EditRecipe v1 + basic JPEG export done; native ROI + >100 MP profiling + tile pyramid remaining) · **P2 🚧** (recipe superset + Riverpod controller + shared ParameterControl + dual-shell skeleton + full point-wise colour pipeline (LUT, WB/exposure/contrast/vibrance/saturation/split-tone/curves) + preview==export + live histogram done; spatial passes, geometry, presets remaining) · P2.5+ queued.
 
 > **Scope note.** This roadmap grew with the dual-UI / Lightroom-parity vision
 > (ADR 0008–0010). That is multi-year, multi-person work shipped in tiers. The
@@ -116,6 +116,19 @@ multi-level tile pyramid.
   `.lrtemplate` with a per-preset **compatibility report**; ApertureX Look
   (recipe JSON) save/apply + **QR share** (open standard).
 - **Golden-image tolerance corpus** for preset fidelity.
+
+**Status — in progress.** Landed: recipe **v2/v3** (grouped parameter catalog,
+split-tone grading, tone curves, flat JSON + forward migration), the Riverpod
+`RecipeController` (undo/redo/commit/cancel), the shared `ParameterControl`
+(bidirectional/unidirectional, tap-to-type, haptics), the **dual-shell skeleton**
+(`AppShell` + Lightroom/Snapseed over one shared canvas), and the complete
+**point-wise colour pipeline** — `sRGB→linear→Von Kries WB→×2^EV→S-curve
+contrast→vibrance→saturation→split-tone→tone curves` — baked to a 33³ LUT for
+preview and reused per-pixel for export (**preview == export** by construction),
+plus a live interactive histogram. **Remaining:** spatial passes
+(clarity/texture/sharpen/dehaze/edge-aware shadows-highlights) with
+overlap-padded tiles; HSL/color-mixer; geometry (crop/rotate/perspective);
+presets/`.xmp`; project sidecars; history tree.
 
 **Exit criteria**
 - Edit a photo, kill the app, reopen: identical result from the sidecar.
