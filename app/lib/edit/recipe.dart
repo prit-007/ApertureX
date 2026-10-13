@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show listEquals;
 
+import 'adjustment_layer.dart';
 import 'tone_curve.dart';
 
 /// Neutral HSL mix: 8 bands × (hue, saturation, luminance), all zero.
@@ -59,6 +60,7 @@ class EditRecipe {
     this.flipH = false,
     this.flipV = false,
     this.straighten = 0,
+    this.layers = const <AdjustmentLayer>[],
   });
 
   /// Bumped only on a breaking schema change (ARCHITECTURE §16).
@@ -66,7 +68,7 @@ class EditRecipe {
   /// v2: grouped, catalog-driven parameter model (JSON still flat, v1 keys
   /// unchanged). v3: adds color-grading (split-tone) fields; older recipes read
   /// forward with those fields neutral. `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 7;
+  static const int currentSchemaVersion = 8;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -115,6 +117,9 @@ class EditRecipe {
   final bool flipV;
   final double straighten; // degrees, -45..45.
 
+  /// Local adjustment layers (masking, P2.5), applied in order.
+  final List<AdjustmentLayer> layers;
+
   /// Returns a copy with the given fields replaced. Fields left `null` keep
   /// their current value; the receiver is never mutated.
   EditRecipe copyWith({
@@ -149,6 +154,7 @@ class EditRecipe {
     bool? flipH,
     bool? flipV,
     double? straighten,
+    List<AdjustmentLayer>? layers,
   }) {
     return EditRecipe(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -182,6 +188,7 @@ class EditRecipe {
       flipH: flipH ?? this.flipH,
       flipV: flipV ?? this.flipV,
       straighten: straighten ?? this.straighten,
+      layers: layers ?? this.layers,
     );
   }
 
@@ -218,6 +225,7 @@ class EditRecipe {
     'flipH': flipH,
     'flipV': flipV,
     'straighten': straighten,
+    'layers': [for (final layer in layers) layer.toJson()],
   };
 
   /// Deserialises from [json], tolerating missing keys (default to neutral) and
@@ -259,6 +267,13 @@ class EditRecipe {
       flipH: json['flipH'] as bool? ?? false,
       flipV: json['flipV'] as bool? ?? false,
       straighten: asDouble('straighten'),
+      layers:
+          (json['layers'] as List?)
+              ?.map(
+                (e) => AdjustmentLayer.fromJson((e as Map).cast<String, Object?>()),
+              )
+              .toList() ??
+          const <AdjustmentLayer>[],
     );
   }
 
@@ -295,7 +310,8 @@ class EditRecipe {
       other.rotation == rotation &&
       other.flipH == flipH &&
       other.flipV == flipV &&
-      other.straighten == straighten;
+      other.straighten == straighten &&
+      listEquals(other.layers, layers);
 
   @override
   int get hashCode => Object.hash(
@@ -325,7 +341,10 @@ class EditRecipe {
     ),
     Object.hash(masterCurve, redCurve, greenCurve, blueCurve),
     Object.hashAll(hsl),
-    Object.hash(rotation, flipH, flipV, straighten),
+    Object.hash(
+      Object.hash(rotation, flipH, flipV, straighten),
+      Object.hashAll(layers),
+    ),
   );
 
   @override

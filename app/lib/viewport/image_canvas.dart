@@ -118,11 +118,17 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       height: _sourceHeight,
       spec: geometry,
     );
-    final baseRgba = await TesseraEngine.applySpatial(
+    final spatialized = await TesseraEngine.applySpatial(
       geo.rgba,
       width: geo.width,
       height: geo.height,
       spec: spatial,
+    );
+    final baseRgba = await TesseraEngine.applyMasks(
+      spatialized,
+      width: geo.width,
+      height: geo.height,
+      layers: recipe.layers,
     );
     final baseImage = await _imageFrom(baseRgba, geo.width, geo.height);
 

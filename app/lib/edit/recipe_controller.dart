@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'adjustment_layer.dart';
 import 'parameter.dart';
 import 'recipe.dart';
 import 'recipe_state.dart';
@@ -93,6 +94,24 @@ class RecipeController extends Notifier<RecipeState> {
 
   /// Resets every edit back to neutral.
   void resetAll() => loadRecipe(EditRecipe.neutral, label: 'Reset');
+
+  /// Appends a local adjustment layer (masking).
+  void addLayer(AdjustmentLayer layer) => state = state.copyWith(
+    recipe: state.recipe.copyWith(
+      layers: [...state.recipe.layers, layer],
+    ),
+  );
+
+  /// Removes the layer at [index].
+  void removeLayerAt(int index) {
+    final layers = [...state.recipe.layers];
+    if (index < 0 || index >= layers.length) return;
+    layers.removeAt(index);
+    state = state.copyWith(recipe: state.recipe.copyWith(layers: layers));
+  }
+
+  void clearLayers() =>
+      state = state.copyWith(recipe: state.recipe.copyWith(layers: const []));
 
   /// Replaces the session with [recipe] from a sidecar/preset, resetting the
   /// history to a single node.

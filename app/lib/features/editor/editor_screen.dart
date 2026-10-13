@@ -114,6 +114,7 @@ class _EditorScreenState extends State<EditorScreen> {
         spec: GradeSpec.fromRecipe(_recipe),
         spatial: SpatialSpec.fromRecipe(_recipe),
         geometry: GeometrySpec.fromRecipe(_recipe),
+        layers: _recipe.layers,
         exif: _exif,
       );
       final dir = await getApplicationDocumentsDirectory();

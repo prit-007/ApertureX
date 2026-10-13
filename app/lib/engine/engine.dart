@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../color/grade_spec.dart';
 import '../color/spatial_spec.dart';
+import '../edit/adjustment_layer.dart';
 import '../edit/geometry_spec.dart';
 import '../src/rust/api/color.dart' as rust_color;
 import '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
@@ -11,6 +12,7 @@ import '../src/rust/api/exif.dart' as rust_exif;
 import '../src/rust/api/export.dart' as rust_export;
 import '../src/rust/api/geometry.dart' as rust_geometry;
 import '../src/rust/api/histogram.dart' as rust_hist;
+import '../src/rust/api/mask.dart' as rust_mask;
 import '../src/rust/api/spatial.dart' as rust_spatial;
 import '../src/rust/frb_generated.dart';
 
@@ -226,6 +228,47 @@ class TesseraEngine {
     angle: spec.straighten,
   );
 
+  // --- masking / local adjustments (P2.5) -----------------------------------
+
+  static rust_color.ColorParams _localParams(AdjustmentLayer l) =>
+      rust_color.ColorParams(
+        exposure: l.exposure,
+        contrast: l.contrast,
+        saturation: l.saturation,
+        temperature: l.temperature,
+        tint: l.tint,
+        vibrance: 0,
+        gradeShadowHue: 0,
+        gradeShadowSat: 0,
+        gradeMidHue: 0,
+        gradeMidSat: 0,
+        gradeHighlightHue: 0,
+        gradeHighlightSat: 0,
+      );
+
+  /// Composites local adjustment [layers] over [rgba] (masks + sub-grades).
+  static Future<Uint8List> applyMasks(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    required List<AdjustmentLayer> layers,
+  }) {
+    if (layers.isEmpty) return Future.value(rgba);
+    return rust_mask.applyMasks(
+      rgba: rgba,
+      width: width,
+      height: height,
+      layers: [
+        for (final l in layers)
+          rust_mask.MaskLayer(
+            kind: l.maskKind.index,
+            mask: Float32List.fromList(l.maskParams),
+            params: _localParams(l),
+          ),
+      ],
+    );
+  }
+
   // --- export ---------------------------------------------------------------
 
   /// Encodes already-graded RGBA as a JPEG (alpha dropped). [exif] is the
@@ -259,6 +302,7 @@ class TesseraEngine {
     required GradeSpec spec,
     SpatialSpec spatial = const SpatialSpec(),
     GeometrySpec geometry = const GeometrySpec(),
+    List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
     List<int> exif = const <int>[],
     int quality = 90,
   }) async {
@@ -274,7 +318,13 @@ class TesseraEngine {
       height: geo.height,
       spec: spatial,
     );
-    final graded = await gradeRgba(spatialized, spec);
+    final masked = await applyMasks(
+      spatialized,
+      width: geo.width,
+      height: geo.height,
+      layers: layers,
+    );
+    final graded = await gradeRgba(masked, spec);
     return encodeJpegRgba(
       rgba: graded,
       width: geo.width,

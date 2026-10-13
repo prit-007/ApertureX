@@ -10,6 +10,7 @@ import 'api/exif.dart';
 import 'api/export.dart';
 import 'api/geometry.dart';
 import 'api/histogram.dart';
+import 'api/mask.dart';
 import 'api/spatial.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -59,6 +60,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImageDims dco_decode_image_dims(dynamic raw);
 
   @protected
+  List<MaskLayer> dco_decode_list_mask_layer(dynamic raw);
+
+  @protected
   List<double> dco_decode_list_prim_f_32_loose(dynamic raw);
 
   @protected
@@ -75,6 +79,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LutData dco_decode_lut_data(dynamic raw);
+
+  @protected
+  MaskLayer dco_decode_mask_layer(dynamic raw);
 
   @protected
   RgbaImage dco_decode_rgba_image(dynamic raw);
@@ -122,6 +129,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImageDims sse_decode_image_dims(SseDeserializer deserializer);
 
   @protected
+  List<MaskLayer> sse_decode_list_mask_layer(SseDeserializer deserializer);
+
+  @protected
   List<double> sse_decode_list_prim_f_32_loose(SseDeserializer deserializer);
 
   @protected
@@ -138,6 +148,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LutData sse_decode_lut_data(SseDeserializer deserializer);
+
+  @protected
+  MaskLayer sse_decode_mask_layer(SseDeserializer deserializer);
 
   @protected
   RgbaImage sse_decode_rgba_image(SseDeserializer deserializer);
@@ -194,6 +207,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_image_dims(ImageDims self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_mask_layer(
+    List<MaskLayer> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_prim_f_32_loose(
     List<double> self,
     SseSerializer serializer,
@@ -222,6 +241,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_lut_data(LutData self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_mask_layer(MaskLayer self, SseSerializer serializer);
 
   @protected
   void sse_encode_rgba_image(RgbaImage self, SseSerializer serializer);

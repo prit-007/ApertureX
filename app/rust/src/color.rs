@@ -480,6 +480,12 @@ pub fn grade_pixel_c(
     ]
 }
 
+/// Applies the point-wise colour pipeline with no curves/HSL — used by local
+/// adjustments (masks).
+pub fn grade_pointwise(c: [f32; 3], p: GradeParams) -> [f32; 3] {
+    grade_pixel_c(c[0], c[1], c[2], p, None, &ZERO_HSL)
+}
+
 /// Bakes the point-wise pipeline into a 3D LUT packed as a 2D RGBA8 atlas.
 ///
 /// **Atlas layout** (matches `shaders/lut.frag`):

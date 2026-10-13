@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tessera/edit/adjustment_layer.dart';
 import 'package:tessera/edit/parameter.dart';
 import 'package:tessera/edit/recipe.dart';
 import 'package:tessera/edit/recipe_controller.dart';
@@ -151,6 +152,21 @@ void main() {
       expect(state().recipe.exposure, 0);
       expect(state().history.length, 1);
       expect(state().history.single.label, 'Loaded');
+    });
+  });
+
+  group('layers', () {
+    test('add / remove / clear', () {
+      const layer = AdjustmentLayer(exposure: 1);
+      notifier.addLayer(layer);
+      expect(state().recipe.layers.length, 1);
+
+      notifier.removeLayerAt(0);
+      expect(state().recipe.layers, isEmpty);
+
+      notifier.addLayer(layer);
+      notifier.clearLayers();
+      expect(state().recipe.layers, isEmpty);
     });
   });
 

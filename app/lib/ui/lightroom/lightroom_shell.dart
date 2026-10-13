@@ -6,10 +6,11 @@ import '../../color/tat.dart';
 import '../../edit/parameter.dart';
 import '../common/geometry_controls.dart';
 import '../common/hsl_mixer.dart';
+import '../common/mask_controls.dart';
 import '../common/parameter_panel.dart';
 import '../common/tone_curve_editor.dart';
 
-enum _Tab { panel, curve, mix, geometry }
+enum _Tab { panel, curve, mix, geometry, mask }
 
 /// Lightroom shell: histogram + tabs (categorized panels / tone curve / HSL
 /// mixer) over the shared recipe. Owns no edit state.
@@ -88,6 +89,11 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 _tab == _Tab.geometry,
                 () => setState(() => _tab = _Tab.geometry),
               ),
+              _tabButton(
+                'MASK',
+                _tab == _Tab.mask,
+                () => setState(() => _tab = _Tab.mask),
+              ),
             ],
           ),
         ),
@@ -98,6 +104,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             _Tab.curve => const ToneCurveEditor(),
             _Tab.mix => const HslMixer(),
             _Tab.geometry => const GeometryControls(),
+            _Tab.mask => const MaskControls(),
           },
         ),
       ],
