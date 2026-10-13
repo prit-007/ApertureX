@@ -38,12 +38,14 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> {
   bool _showHistogram = false;
   GradeTool _active = GradeTool.exposure;
+  ToolCategory _category = ToolCategory.light;
   late final GestureInterpreter _fsm;
 
   @override
   void initState() {
     super.initState();
     _fsm = GestureInterpreter(
+      tools: gestureCategories[_category]!,
       onToolChanged: (tool) {
         HapticFeedback.selectionClick();
         if (mounted) setState(() => _active = tool);
@@ -60,6 +62,18 @@ class _AppShellState extends ConsumerState<AppShell> {
           .read(recipeControllerProvider.notifier)
           .reset(snapseedToolParameters[tool]!.first),
     );
+  }
+
+  void _cycleCategory() {
+    const order = ToolCategory.values;
+    final next = order[(order.indexOf(_category) + 1) % order.length];
+    final tools = gestureCategories[next]!;
+    _fsm.setTools(tools, select: tools.first);
+    HapticFeedback.selectionClick();
+    setState(() {
+      _category = next;
+      _active = tools.first;
+    });
   }
 
   @override
@@ -89,6 +103,9 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
             SnapseedShell(
               tool: _active,
+              category: _category,
+              tools: gestureCategories[_category]!,
+              onCycleCategory: _cycleCategory,
               onPickTool: (t) {
                 _fsm.setTool(t);
                 setState(() => _active = t);

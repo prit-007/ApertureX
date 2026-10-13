@@ -18,6 +18,30 @@ enum GradeTool {
   sharpen,
 }
 
+/// Tool categories, mirroring the Lightroom sections. The gesture shell cycles
+/// the *active category's* tools with a vertical swipe, so all ~12 tools stay
+/// reachable without an endlessly long list.
+enum ToolCategory { light, color, effects, detail }
+
+const Map<ToolCategory, List<GradeTool>> gestureCategories = {
+  ToolCategory.light: [
+    GradeTool.exposure,
+    GradeTool.contrast,
+    GradeTool.highlights,
+    GradeTool.shadows,
+    GradeTool.whites,
+    GradeTool.blacks,
+  ],
+  ToolCategory.color: [
+    GradeTool.temperature,
+    GradeTool.tint,
+    GradeTool.vibrance,
+    GradeTool.saturation,
+  ],
+  ToolCategory.effects: [GradeTool.clarity, GradeTool.dehaze],
+  ToolCategory.detail: [GradeTool.sharpen],
+};
+
 /// High-level phase of the invisible, Snapseed-style gesture model.
 enum GesturePhase { idle, scanning, cycling, scrubbing }
 
@@ -54,8 +78,9 @@ class GestureInterpreter {
        assert(cycleStep > 0),
        assert(fullSwipeValue > 0);
 
-  /// Ordered carousel of tools that vertical swipes cycle through.
-  final List<GradeTool> tools;
+  /// Ordered carousel of tools that vertical swipes cycle through. Replaced
+  /// when the active [ToolCategory] changes (see [setTools]).
+  List<GradeTool> tools;
 
   /// Screen-space distance a drag must cover before the axis locks, in logical
   /// pixels. Mirrors `kTouchSlop` by default.
@@ -90,6 +115,16 @@ class GestureInterpreter {
     if (index < 0 || index == _toolIndex) return;
     _toolIndex = index;
     onToolChanged?.call(tool);
+  }
+
+  /// Replaces the carousel (e.g. on a category switch) and selects [select]
+  /// (or the first tool).
+  void setTools(List<GradeTool> tools, {GradeTool? select}) {
+    assert(tools.isNotEmpty);
+    this.tools = tools;
+    final index = select == null ? 0 : tools.indexOf(select);
+    _toolIndex = index < 0 ? 0 : index;
+    onToolChanged?.call(this.tools[_toolIndex]);
   }
 
   void onPanStart(Offset localPosition) {

@@ -36,6 +36,19 @@ void main() {
     );
   });
 
+  test('gestureCategories partition every tool', () {
+    final all = [
+      for (final c in ToolCategory.values) ...gestureCategories[c]!,
+    ];
+    expect(all.toSet(), GradeTool.values.toSet());
+    expect(all.length, GradeTool.values.length); // no duplicates
+  });
+
+  test('setTools switches the carousel and selects the first tool', () {
+    fsm.setTools(gestureCategories[ToolCategory.detail]!);
+    expect(fsm.tool, GradeTool.sharpen);
+  });
+
   test('a tap below slop resets the active tool and never changes a value', () {
     fsm.onPanStart(Offset.zero);
     fsm.onPanUpdate(const Offset(3, 4)); // distance 5 < touchSlop(18)

@@ -38,15 +38,28 @@ class SnapseedShell extends ConsumerStatefulWidget {
   const SnapseedShell({
     super.key,
     required this.tool,
+    required this.category,
+    required this.tools,
+    required this.onCycleCategory,
     required this.onPickTool,
   });
 
   final GradeTool tool;
+  final ToolCategory category;
+  final List<GradeTool> tools;
+  final VoidCallback onCycleCategory;
   final ValueChanged<GradeTool> onPickTool;
 
   @override
   ConsumerState<SnapseedShell> createState() => _SnapseedShellState();
 }
+
+String _categoryLabel(ToolCategory c) => switch (c) {
+  ToolCategory.light => 'Light',
+  ToolCategory.color => 'Color',
+  ToolCategory.effects => 'Effects',
+  ToolCategory.detail => 'Detail',
+};
 
 class _SnapseedShellState extends ConsumerState<SnapseedShell> {
   bool _radialOpen = false;
@@ -97,6 +110,35 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      InkWell(
+                        onTap: widget.onCycleCategory,
+                        borderRadius: Radii.smAll,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Insets.sm,
+                            vertical: Insets.xs,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _categoryLabel(widget.category),
+                                style: themeStyle(
+                                  context,
+                                  FontWeight.w600,
+                                ).copyWith(color: scheme.onSurfaceVariant),
+                              ),
+                              const Icon(Icons.unfold_more, size: 16),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 20,
+                        color: scheme.outlineVariant,
+                      ),
+                      const SizedBox(width: Insets.md),
                       Text(
                         spec.label,
                         style: themeStyle(context, FontWeight.w600),
@@ -129,6 +171,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           Positioned.fill(
             child: _RadialMenu(
               active: widget.tool,
+              tools: widget.tools,
               iconOf: _icon,
               onDismiss: () => setState(() => _radialOpen = false),
               onPick: (t) {
@@ -149,12 +192,14 @@ TextStyle themeStyle(BuildContext context, FontWeight weight) =>
 class _RadialMenu extends StatelessWidget {
   const _RadialMenu({
     required this.active,
+    required this.tools,
     required this.iconOf,
     required this.onDismiss,
     required this.onPick,
   });
 
   final GradeTool active;
+  final List<GradeTool> tools;
   final IconData Function(GradeTool) iconOf;
   final VoidCallback onDismiss;
   final ValueChanged<GradeTool> onPick;
@@ -162,7 +207,6 @@ class _RadialMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final tools = GradeTool.values;
     const radius = 96.0;
     const itemRadius = 28.0;
     const half = radius + itemRadius;

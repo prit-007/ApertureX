@@ -9,41 +9,35 @@ void main() {
   setUp(() => container = ProviderContainer());
   tearDown(() => container.dispose());
 
-  testWidgets('shows the active tool and no radial menu by default', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          home: Scaffold(
-            body: SnapseedShell(
-              tool: GradeTool.exposure,
-              onPickTool: (_) {},
-            ),
-          ),
+  Widget harness() => UncontrolledProviderScope(
+    container: container,
+    child: MaterialApp(
+      home: Scaffold(
+        body: SnapseedShell(
+          tool: GradeTool.exposure,
+          category: ToolCategory.light,
+          tools: gestureCategories[ToolCategory.light]!,
+          onCycleCategory: () {},
+          onPickTool: (_) {},
         ),
       ),
-    );
+    ),
+  );
 
+  testWidgets('shows the active category, tool and no radial by default', (
+    tester,
+  ) async {
+    await tester.pumpWidget(harness());
+
+    expect(find.text('Light'), findsOneWidget);
     expect(find.text('Exposure'), findsOneWidget);
     expect(find.byKey(const Key('radial-exposure')), findsNothing);
   });
 
-  testWidgets('the Tools button opens the radial menu', (tester) async {
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          home: Scaffold(
-            body: SnapseedShell(
-              tool: GradeTool.exposure,
-              onPickTool: (_) {},
-            ),
-          ),
-        ),
-      ),
-    );
+  testWidgets('the Tools button opens the radial menu for the category', (
+    tester,
+  ) async {
+    await tester.pumpWidget(harness());
 
     await tester.tap(find.byTooltip('Tools'));
     await tester.pumpAndSettle();
