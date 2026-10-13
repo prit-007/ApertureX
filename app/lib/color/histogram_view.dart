@@ -25,8 +25,11 @@ class HistogramView extends StatelessWidget {
   final double height;
 
   @override
-  Widget build(BuildContext context) =>
-      CustomPaint(size: Size(double.infinity, height), painter: _HistogramPainter(histogram));
+  Widget build(BuildContext context) => SizedBox(
+    height: height,
+    width: double.infinity,
+    child: CustomPaint(painter: _HistogramPainter(histogram)),
+  );
 }
 
 class _HistogramPainter extends CustomPainter {

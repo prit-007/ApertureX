@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../color/histogram_view.dart';
+import '../../color/interactive_histogram.dart';
 import '../../edit/parameter.dart';
 import '../common/parameter_panel.dart';
 
@@ -25,18 +25,15 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
 
   @override
   Widget build(BuildContext context) {
-    final histogram = ref.watch(histogramProvider);
-
     return Column(
       children: [
-        if (histogram != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: HistogramView(histogram: histogram),
-            ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
+          child: ClipRRect(
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+            child: InteractiveHistogram(),
           ),
+        ),
         SizedBox(
           height: 44,
           child: ListView(
