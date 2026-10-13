@@ -60,4 +60,15 @@ void main() {
     expect(log.length, 1);
     expect(log.entries.single.message, 'restored');
   });
+
+  test('report renders a header and one line per entry', () {
+    final log = ActivityLog();
+    log.add(LogDomain.app, 'hello');
+    log.add(LogDomain.export, 'bye', LogLevel.info);
+
+    final report = activityLogReport(log.entries);
+    expect(report, startsWith('ApertureX activity log\n'));
+    expect(report, contains('[app/debug] hello'));
+    expect(report, contains('[export/info] bye'));
+  });
 }

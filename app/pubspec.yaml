@@ -44,6 +44,8 @@ dependencies:
   flutter_riverpod: ^3.4.3
   photo_manager: ^3.12.0
   gal: ^2.3.3
+  shared_preferences: ^2.5.5
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:

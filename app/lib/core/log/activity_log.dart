@@ -124,3 +124,14 @@ class ActivityLog extends ChangeNotifier {
     }
   }
 }
+
+/// Renders [entries] (oldest first) as a plain-text report for copy/export.
+String activityLogReport(Iterable<LogEntry> entries) {
+  final buffer = StringBuffer('ApertureX activity log\n');
+  for (final e in entries) {
+    buffer.writeln(
+      '${e.time.toIso8601String()} [${e.domain}/${e.level.name}] ${e.message}',
+    );
+  }
+  return buffer.toString();
+}

@@ -1,12 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tessera/core/log/activity_log.dart';
 import 'package:tessera/core/log/log_providers.dart';
 import 'package:tessera/features/logs/logs_screen.dart';
 
 void main() {
-  setUp(activityLog.clear);
+  setUp(() {
+    // Default: the first-run guide has already been seen.
+    SharedPreferences.setMockInitialValues({'logs_help_seen': true});
+    activityLog.clear();
+  });
   tearDown(activityLog.clear);
 
   Future<void> pump(WidgetTester tester) => tester.pumpWidget(
@@ -43,5 +48,30 @@ void main() {
 
     expect(find.text('No activity yet'), findsOneWidget);
     expect(activityLog.isEmpty, isTrue);
+  });
+
+  testWidgets('shows the first-run guide once and dismisses it', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await pump(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Welcome'), findsOneWidget);
+
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Welcome'), findsNothing);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('logs_help_seen'), isTrue);
+  });
+
+  testWidgets('the Guide action reopens the walkthrough', (tester) async {
+    await pump(tester);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Guide'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Welcome'), findsOneWidget);
   });
 }
