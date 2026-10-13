@@ -9,6 +9,7 @@ import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/recipe_mapping.dart';
 import '../../gesture/gesture_interpreter.dart';
+import 'edit_hud.dart';
 
 /// Index of the radial-menu item nearest [pointer], for a menu centred at
 /// [center] with [count] items at [radius]. Item 0 sits at the top (−90°),
@@ -53,7 +54,11 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
   void initState() {
     super.initState();
     _fsm = GestureInterpreter(
-      onToolChanged: (tool) => setState(() => _active = tool),
+      onToolChanged: (tool) {
+        // Instant-Snap: a crisp click as the carousel locks onto a tool.
+        HapticFeedback.selectionClick();
+        setState(() => _active = tool);
+      },
       onValueChanged: (tool, delta) {
         final parameter = snapseedToolParameters[tool]!.first;
         final spec = specOf(parameter);
@@ -131,22 +136,31 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                 height: 120,
                 color: const Color(0xFF141414),
                 alignment: Alignment.center,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                child: Stack(
                   children: [
-                    Text(
-                      specOf(_parameter).label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        color: scheme.primary,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                    const Positioned.fill(child: EditHud()),
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            specOf(_parameter).label,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              color: scheme.primary,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
