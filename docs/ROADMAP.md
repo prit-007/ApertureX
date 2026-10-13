@@ -5,7 +5,7 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status:** P-1 ✅ · P0 🚧 (foundations done; real-image decode folded into P1) · P1 🚧.
+**Current status:** P-1 ✅ · P0 🚧 (foundations done; real-image decode folded into P1) · P1 🚧 (viewport core + tile compositor done; native ROI + profiling remaining).
 
 ---
 
@@ -77,6 +77,17 @@ into **P1**, where the real decode path lands.
 - 200 MP-class synthetic image opens; no OOM; no engine downscale blowout.
 - Peak memory within the §9 budget on a low-tier device.
 - Steady 60 fps while panning a 100 MP image.
+
+**Status — in progress.** Viewport core is done and tested: `TileGrid`
+(seam-correct visible-tile math), `TileLru` (byte-budgeted, disposes GPU
+textures), `ViewportTransform` (focal-anchored zoom/pan + image clamping), a
+`TileViewport` widget that composites visible tiles through the grade shader,
+and a Rust `synthetic_jpeg` + `decode_jpeg_rgba`/`decode_jpeg_roi` path so a
+~12 MP image opens and zooms with no full-image texture. 11 Rust tests, 35 Dart
+tests, 3 on-device tests green. **Remaining:** native ROI decoders
+(`BitmapRegionDecoder`/`CGImageSource`) to avoid full-decode for >100 MP, a
+device-tier probe, a >100 MP corpus with memory/60 fps profiling on a low-tier
+device, and the multi-level tile pyramid.
 
 ---
 
