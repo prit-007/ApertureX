@@ -151,13 +151,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         th = math.max(1, (th * scale).round());
       }
     }
-    descriptor.dispose();
     final codec = await ui.instantiateImageCodecFromBuffer(
       buffer,
       targetWidth: tw,
       targetHeight: th,
     );
     final frame = await codec.getNextFrame();
+    codec.dispose();
+    descriptor.dispose();
     final image = frame.image;
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     // Copy into a tightly-packed buffer with an explicit offset+length — never
