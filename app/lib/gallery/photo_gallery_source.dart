@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:photo_manager/photo_manager.dart';
 
+import 'gallery_album.dart';
 import 'gallery_asset.dart';
 import 'gallery_source.dart';
 
@@ -25,13 +26,29 @@ class PhotoGallerySource implements GallerySource {
   Future<void> openAppSettings() => PhotoManager.openSetting();
 
   @override
-  Future<List<GalleryAsset>> listImages({int limit = 200}) async {
-    final paths = await PhotoManager.getAssetPathList(
-      type: RequestType.image,
-      onlyAll: true,
-    );
-    if (paths.isEmpty) return const [];
-    final entities = await paths.first.getAssetListPaged(page: 0, size: limit);
+  Future<List<GalleryAlbum>> listAlbums() async {
+    final paths = await PhotoManager.getAssetPathList(type: RequestType.image);
+    final albums = <GalleryAlbum>[];
+    for (final p in paths) {
+      albums.add(
+        GalleryAlbum(
+          id: p.id,
+          name: p.name,
+          count: await p.assetCountAsync,
+        ),
+      );
+    }
+    return albums;
+  }
+
+  @override
+  Future<List<GalleryAsset>> listImages({
+    int limit = 500,
+    String? albumId,
+  }) async {
+    final path = await _pathFor(albumId);
+    if (path == null) return const [];
+    final entities = await path.getAssetListPaged(page: 0, size: limit);
     return [
       for (final e in entities)
         GalleryAsset(
@@ -43,10 +60,38 @@ class PhotoGallerySource implements GallerySource {
     ];
   }
 
+  Future<AssetPathEntity?> _pathFor(String? albumId) async {
+    if (albumId == null) {
+      final recent = await PhotoManager.getAssetPathList(
+        type: RequestType.image,
+        onlyAll: true,
+      );
+      return recent.isEmpty ? null : recent.first;
+    }
+    final paths = await PhotoManager.getAssetPathList(type: RequestType.image);
+    for (final p in paths) {
+      if (p.id == albumId) return p;
+    }
+    return null;
+  }
+
   @override
   Future<Uint8List> loadImage(String id) async {
     final entity = await AssetEntity.fromId(id);
     return await entity?.originBytes ?? Uint8List(0);
+  }
+
+  @override
+  Future<Uint8List> loadPreview(String id, {int maxDim = 1600}) async {
+    final entity = await AssetEntity.fromId(id);
+    if (entity == null) return Uint8List(0);
+    // Never touch the full original for preview: the platform media store
+    // returns a bounded, already-downscaled JPEG (fast, low-memory).
+    return await entity.thumbnailDataWithSize(
+          ThumbnailSize(maxDim, maxDim),
+          quality: 90,
+        ) ??
+        Uint8List(0);
   }
 
   @override

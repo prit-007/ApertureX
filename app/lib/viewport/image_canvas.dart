@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -21,10 +22,16 @@ import '../engine/engine.dart';
 /// The shared editing canvas, rendered by BOTH shells (ADR 0008 invariant:
 /// switching shells must not change the image).
 ///
-/// Grades the image by sampling a **CPU-baked 3D LUT** (packed as a 2D atlas)
-/// in `shaders/lut.frag` — the recipe drives the bake, so preview matches the
-/// Rust export path. Falls back to a neutral placeholder if the engine or
-/// shader is unavailable (e.g. widget tests).
+/// Performance model (this is a **60fps editor**):
+///  * The source is decoded once at **proxy resolution** ([_maxPreviewDim]) —
+///    small enough that every CPU pass is milliseconds, big enough to look
+///    sharp on any phone. Export still runs full-resolution (see the editor).
+///  * The expensive, neighbour-aware **base** pass (geometry → spatial → masks)
+///    only re-runs when those settings change.
+///  * The point-wise **grade** is baked into a small 3D LUT (preview size) and
+///    only re-baked when a grade setting changes.
+///  * The GPU shader then grades the (already-processed) base texture in one
+///    texture fetch per pixel, so scrubbing a slider is just a cheap re-bake.
 class ImageCanvas extends ConsumerStatefulWidget {
   const ImageCanvas({super.key, this.imageBytes});
 
@@ -38,22 +45,32 @@ class ImageCanvas extends ConsumerStatefulWidget {
 
 class _ImageCanvasState extends ConsumerState<ImageCanvas>
     with SingleTickerProviderStateMixin {
-  static const int _lutSize = 65;
+  /// Longest side of the preview proxy. ~2MP for a 4:3 phone photo.
+  static const int _maxPreviewDim = 1600;
+
+  /// Preview LUT is small; export grades per-pixel exactly.
+  static const int _previewLutSize = 33;
 
   ui.FragmentProgram? _program;
-  ui.Image? _source;
-  ui.Image? _baseImage;
-  ui.Image? _lut;
+  ui.Image? _source; // proxy, unedited — for the before/after compare
   Uint8List? _sourceRgba;
   int _sourceWidth = 0;
   int _sourceHeight = 0;
-  bool _failed = false;
-  bool _comparing = false;
-  int _bakeToken = 0;
-  int _activeLutSize = _lutSize;
+
+  ui.Image? _baseImage; // geometry + spatial + masks applied
   Uint8List? _baseRgba;
   int _baseW = 0;
   int _baseH = 0;
+
+  ui.Image? _lut;
+  int _activeLutSize = _previewLutSize;
+
+  bool _failed = false;
+  bool _comparing = false;
+  int _bakeToken = 0;
+  int? _lastBaseKey;
+  int? _lastGradeKey;
+  int _importedKey = 0;
   int? _tatBand;
   Timer? _debounce;
   late final AnimationController _compare;
@@ -74,26 +91,58 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       final jpeg =
           widget.imageBytes ??
           await TesseraEngine.syntheticJpeg(width: 1024, height: 1024);
-      final decoded = await TesseraEngine.decodeJpegRgba(jpeg);
-      final source = await _imageFrom(
-        decoded.rgba,
-        decoded.width,
-        decoded.height,
-      );
+      var proxy = await _decode(jpeg);
+      // Safety: if a caller ever hands us something larger than the preview
+      // budget, re-decode downscaled rather than process full-resolution.
+      final longest = math.max(proxy.$3, proxy.$4);
+      if (longest > _maxPreviewDim) {
+        final scale = _maxPreviewDim / longest;
+        proxy.$1.dispose();
+        proxy = await _decode(
+          jpeg,
+          targetWidth: math.max(1, (proxy.$3 * scale).round()),
+          targetHeight: math.max(1, (proxy.$4 * scale).round()),
+        );
+      }
       if (!mounted) {
-        source.dispose();
+        proxy.$1.dispose();
         return;
       }
       _program = program;
-      _source = source;
-      _sourceRgba = decoded.rgba;
-      _sourceWidth = decoded.width;
-      _sourceHeight = decoded.height;
-      await _rebake(ref.read(recipeControllerProvider).recipe);
-      if (mounted) setState(() {});
+      _source = proxy.$1;
+      _sourceRgba = proxy.$2;
+      _sourceWidth = proxy.$3;
+      _sourceHeight = proxy.$4;
+      await _rebake(
+        ref.read(recipeControllerProvider).recipe,
+        baseChanged: true,
+        gradeChanged: true,
+      );
+      if (mounted && _baseImage != null) setState(() {});
     } catch (_) {
       if (mounted) setState(() => _failed = true);
     }
+  }
+
+  /// Decodes [jpeg] to an RGBA proxy. The bytes are wrapped in a length-known
+  /// [ui.ImmutableBuffer] so Skia reads them directly instead of copying through
+  /// a temp buffer; [targetWidth]/[targetHeight] let the platform codec
+  /// downscale during decode (DCT-scaled) when needed.
+  Future<(ui.Image, Uint8List, int, int)> _decode(
+    Uint8List jpeg, {
+    int? targetWidth,
+    int? targetHeight,
+  }) async {
+    final buffer = await ui.ImmutableBuffer.fromUint8List(jpeg);
+    final codec = await ui.instantiateImageCodecFromBuffer(
+      buffer,
+      targetWidth: targetWidth,
+      targetHeight: targetHeight,
+    );
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    return (image, data!.buffer.asUint8List(), image.width, image.height);
   }
 
   Future<ui.Image> _imageFrom(Uint8List rgba, int w, int h) {
@@ -108,38 +157,112 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     return completer.future;
   }
 
-  Future<void> _rebake(EditRecipe recipe) async {
-    final raw = _sourceRgba;
-    if (_program == null || raw == null) return;
-    final token = ++_bakeToken;
-    final spec = GradeSpec.fromRecipe(recipe);
-    final spatial = SpatialSpec.fromRecipe(recipe);
-    final geometry = GeometrySpec.fromRecipe(recipe);
+  // --- change detection -----------------------------------------------------
 
-    // Geometry (flip/rotate/straighten) then the spatial pass, then LUT grading
-    // — matching the export order. Geometry may change the pixel dimensions.
+  int _baseKey(EditRecipe r) => Object.hash(
+    r.rotation,
+    r.flipH,
+    r.flipV,
+    r.straighten,
+    r.shadows,
+    r.highlights,
+    r.clarity,
+    r.texture,
+    r.sharpen,
+    r.denoiseLuma,
+    r.denoiseChroma,
+    Object.hashAll(r.layers),
+  );
+
+  int _gradeKey(EditRecipe r) => Object.hash(
+    r.exposure,
+    r.contrast,
+    r.saturation,
+    r.temperature,
+    r.tint,
+    r.vibrance,
+    r.gradeShadowHue,
+    r.gradeShadowSat,
+    r.gradeMidHue,
+    r.gradeMidSat,
+    r.gradeHighlightHue,
+    r.gradeHighlightSat,
+    r.masterCurve,
+    r.redCurve,
+    r.greenCurve,
+    r.blueCurve,
+    Object.hashAll(r.hsl),
+  );
+
+  void _scheduleBake(EditRecipe recipe) {
+    if (_program == null || _sourceRgba == null) return;
+    final imported = ref.read(importedLutProvider)?.hashCode ?? 0;
+    final baseChanged = _baseKey(recipe) != _lastBaseKey;
+    final gradeChanged =
+        _gradeKey(recipe) != _lastGradeKey || imported != _importedKey;
+    if (!baseChanged && !gradeChanged) return;
+    _debounce?.cancel();
+    _debounce = Timer(
+      const Duration(milliseconds: 16),
+      () => _rebake(recipe, baseChanged: baseChanged, gradeChanged: gradeChanged),
+    );
+  }
+
+  Future<void> _rebake(
+    EditRecipe recipe, {
+    required bool baseChanged,
+    required bool gradeChanged,
+  }) async {
+    if (_program == null || _sourceRgba == null) return;
+    final token = ++_bakeToken;
+    if (baseChanged) await _rebuildBase(recipe, token);
+    if (gradeChanged) await _rebuildLut(recipe, token);
+    if (token != _bakeToken) return;
+    await _rebuildHistogram(recipe, token);
+  }
+
+  Future<void> _rebuildBase(EditRecipe recipe, int token) async {
+    final raw = _sourceRgba!;
+    final geometry = GeometrySpec.fromRecipe(recipe);
+    final spatial = SpatialSpec.fromRecipe(recipe);
+
     final geo = await TesseraEngine.applyGeometry(
       raw,
       width: _sourceWidth,
       height: _sourceHeight,
       spec: geometry,
     );
+    if (token != _bakeToken) return;
     final spatialized = await TesseraEngine.applySpatial(
       geo.rgba,
       width: geo.width,
       height: geo.height,
       spec: spatial,
     );
+    if (token != _bakeToken) return;
     final baseRgba = await TesseraEngine.applyMasks(
       spatialized,
       width: geo.width,
       height: geo.height,
       layers: recipe.layers,
     );
-    final baseImage = await _imageFrom(baseRgba, geo.width, geo.height);
+    final image = await _imageFrom(baseRgba, geo.width, geo.height);
+    if (!mounted || token != _bakeToken) {
+      image.dispose();
+      return;
+    }
+    setState(() {
+      _baseImage?.dispose();
+      _baseImage = image;
+      _baseRgba = baseRgba;
+      _baseW = geo.width;
+      _baseH = geo.height;
+      _lastBaseKey = _baseKey(recipe);
+    });
+  }
 
-    // Prefer an imported preset LUT while one is active; otherwise bake the
-    // recipe grade into the LUT atlas.
+  Future<void> _rebuildLut(EditRecipe recipe, int token) async {
+    final spec = GradeSpec.fromRecipe(recipe);
     final imported = ref.read(importedLutProvider);
     final ui.Image lutImage;
     final int lutSize;
@@ -147,42 +270,41 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       lutImage = await lutAtlasToImage(imported);
       lutSize = imported.size;
     } else {
-      final data = await TesseraEngine.bakeLut3d(spec, size: _lutSize);
+      final data = await TesseraEngine.bakeLut3d(
+        spec,
+        size: _previewLutSize,
+      );
+      if (token != _bakeToken) return;
       lutImage = await lutAtlasToImage(
         LutAtlas(size: data.size, rgba: data.rgba),
       );
       lutSize = data.size;
     }
-    final histogram = await TesseraEngine.histogramGraded(
-      rgba: baseRgba,
-      width: geo.width,
-      height: geo.height,
-      sampleDim: 256,
-      spec: spec,
-    );
-
     if (!mounted || token != _bakeToken) {
-      baseImage.dispose();
       lutImage.dispose();
       return;
     }
     setState(() {
-      _baseImage?.dispose();
-      _baseImage = baseImage;
       _lut?.dispose();
       _lut = lutImage;
       _activeLutSize = lutSize;
-      _baseRgba = baseRgba;
-      _baseW = geo.width;
-      _baseH = geo.height;
+      _lastGradeKey = _gradeKey(recipe);
+      _importedKey = imported?.hashCode ?? 0;
     });
-    ref.read(histogramProvider.notifier).publish(histogram);
   }
 
-  void _scheduleBake(EditRecipe recipe) {
-    if (_program == null) return; // not ready (or no engine, e.g. tests)
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 40), () => _rebake(recipe));
+  Future<void> _rebuildHistogram(EditRecipe recipe, int token) async {
+    final baseRgba = _baseRgba;
+    if (baseRgba == null) return;
+    final histogram = await TesseraEngine.histogramGraded(
+      rgba: baseRgba,
+      width: _baseW,
+      height: _baseH,
+      sampleDim: 256,
+      spec: GradeSpec.fromRecipe(recipe),
+    );
+    if (token != _bakeToken) return;
+    ref.read(histogramProvider.notifier).publish(histogram);
   }
 
   @override
@@ -213,10 +335,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
 
     final tat = ref.watch(tatModeProvider);
+    final content = Size(source.width.toDouble(), source.height.toDouble());
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final size = constraints.biggest;
+        final bounds = constraints.biggest;
+        final dst = _containRect(content, bounds);
         return GestureDetector(
           onLongPressStart: (_) {
             setState(() => _comparing = true);
@@ -230,8 +354,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             setState(() => _comparing = false);
             _compare.reverse();
           },
-          onPanStart: tat ? (d) => _tatTouch(d.localPosition, size) : null,
-          onPanUpdate: tat ? (d) => _tatAdjust(d, size) : null,
+          onPanStart: tat ? (d) => _tatTouch(d.localPosition, dst) : null,
+          onPanUpdate: tat ? (d) => _tatAdjust(d, dst) : null,
           onPanEnd: tat
               ? (_) => ref
                     .read(recipeControllerProvider.notifier)
@@ -248,6 +372,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                     source: source,
                     lut: lut,
                     lutSize: _activeLutSize.toDouble(),
+                    dst: dst,
                     blend: _compare.value,
                   ),
                 ),
@@ -278,6 +403,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     );
   }
 
+  /// The largest rect of aspect [content] that fits centred inside [bounds].
+  static Rect _containRect(Size content, Size bounds) {
+    if (content.isEmpty || bounds.isEmpty) return Offset.zero & bounds;
+    final fit = applyBoxFit(BoxFit.contain, content, bounds);
+    return Alignment.center.inscribe(fit.destination, Offset.zero & bounds);
+  }
+
   static const List<String> _bandNames = [
     'Red',
     'Orange',
@@ -289,32 +421,34 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     'Magenta',
   ];
 
-  int? _bandAt(Offset local, Size size) {
+  int? _bandAt(Offset local, Rect dst) {
     final rgba = _baseRgba;
-    if (rgba == null || _baseW == 0 || size.width == 0 || size.height == 0) {
+    if (rgba == null || _baseW == 0 || dst.width == 0 || dst.height == 0) {
       return null;
     }
-    final x = ((local.dx / size.width) * _baseW).clamp(0, _baseW - 1).toInt();
-    final y = ((local.dy / size.height) * _baseH).clamp(0, _baseH - 1).toInt();
+    final fx = ((local.dx - dst.left) / dst.width).clamp(0.0, 1.0);
+    final fy = ((local.dy - dst.top) / dst.height).clamp(0.0, 1.0);
+    final x = (fx * _baseW).clamp(0, _baseW - 1).toInt();
+    final y = (fy * _baseH).clamp(0, _baseH - 1).toInt();
     final i = (y * _baseW + x) * 4;
     if (i + 2 >= rgba.length) return null;
     return nearestHslBand(hueOf(rgba[i], rgba[i + 1], rgba[i + 2]));
   }
 
-  void _tatTouch(Offset local, Size size) {
-    final band = _bandAt(local, size);
+  void _tatTouch(Offset local, Rect dst) {
+    final band = _bandAt(local, dst);
     if (band != null && band != _tatBand) setState(() => _tatBand = band);
   }
 
-  void _tatAdjust(DragUpdateDetails d, Size size) {
-    final band = _bandAt(d.localPosition, size) ?? _tatBand;
+  void _tatAdjust(DragUpdateDetails d, Rect dst) {
+    final band = _bandAt(d.localPosition, dst) ?? _tatBand;
     if (band == null) return;
     if (band != _tatBand) setState(() => _tatBand = band);
     final notifier = ref.read(recipeControllerProvider.notifier);
     final saturation = ref.read(recipeControllerProvider).recipe.hsl[band * 3 + 1];
     notifier.setHsl(
       band,
-      saturation: saturation + (d.delta.dx / size.width) * 2,
+      saturation: saturation + (d.delta.dx / dst.width) * 2,
     );
   }
 
@@ -351,14 +485,16 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }
 }
 
-/// Draws the source through `lut.frag`, sampling the packed 3D LUT atlas, and
-/// crossfades to the raw source while comparing ([blend] 0..1).
+/// Draws the base texture through `lut.frag` inside the aspect-correct [dst]
+/// rect, sampling the packed 3D LUT atlas, and crossfades to the raw source
+/// while comparing ([blend] 0..1).
 class _CanvasPainter extends CustomPainter {
   _CanvasPainter({
     required this.shader,
     required this.source,
     required this.lut,
     required this.lutSize,
+    required this.dst,
     required this.blend,
   });
 
@@ -366,28 +502,27 @@ class _CanvasPainter extends CustomPainter {
   final ui.Image source;
   final ui.Image lut;
   final double lutSize;
+  final Rect dst;
   final double blend;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawColor(const Color(0xFF101010), BlendMode.src);
 
-    final rect = Offset.zero & size;
-
     shader
-      ..setFloat(0, size.width)
-      ..setFloat(1, size.height)
+      ..setFloat(0, dst.width)
+      ..setFloat(1, dst.height)
       ..setFloat(2, lutSize)
       ..setImageSampler(0, source)
       ..setImageSampler(1, lut);
-    canvas.drawRect(rect, Paint()..shader = shader);
+    canvas.drawRect(dst, Paint()..shader = shader);
 
     // Crossfade to the unedited source on top while comparing.
     if (blend > 0) {
       canvas.drawImageRect(
         source,
         Rect.fromLTWH(0, 0, source.width.toDouble(), source.height.toDouble()),
-        rect,
+        dst,
         Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: blend),
       );
     }
@@ -395,5 +530,5 @@ class _CanvasPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CanvasPainter old) =>
-      old.source != source || old.lut != lut || old.blend != blend;
+      old.source != source || old.lut != lut || old.blend != blend || old.dst != dst;
 }

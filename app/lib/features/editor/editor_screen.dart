@@ -55,7 +55,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     try {
       final bytes = widget.imageBytes ??
           (widget.asset != null
-              ? await ref.read(gallerySourceProvider).loadImage(widget.asset!.id)
+              ? await ref
+                    .read(gallerySourceProvider)
+                    .loadPreview(widget.asset!.id)
               : await TesseraEngine.syntheticJpeg(width: 1024, height: 1024));
       if (bytes.isEmpty) throw StateError('The image could not be read.');
       if (!mounted) return;
@@ -75,11 +77,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   Future<void> _export() async {
-    final bytes = _bytes;
-    if (bytes == null) return;
+    final previewBytes = _bytes;
+    if (previewBytes == null) return;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _exporting = true);
     try {
+      // Export at full resolution: fetch the original only now (never during
+      // preview), so the editor's memory stays at preview size until export.
+      final bytes = widget.asset != null
+          ? await ref.read(gallerySourceProvider).loadImage(widget.asset!.id)
+          : previewBytes;
+      if (bytes.isEmpty) throw StateError('The image could not be read.');
+
       final recipe = ref.read(recipeControllerProvider).recipe;
       final decoded = await TesseraEngine.decodeJpegRgba(bytes);
       final exif = await TesseraEngine.extractExif(bytes);

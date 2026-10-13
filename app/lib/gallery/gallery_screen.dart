@@ -10,15 +10,17 @@ import '../edit/recipe.dart';
 import '../edit/recipe_store.dart';
 import '../edit/settings_clipboard.dart';
 import '../features/editor/editor_screen.dart';
-import 'gallery_asset.dart';
-import 'gallery_controller.dart';
-import 'gallery_export.dart';
-import 'gallery_source.dart';
 import '../ui/common/app_primitives.dart';
 import '../ui/common/app_sheet.dart';
 import '../ui/common/settings_sheet.dart';
+import 'gallery_asset.dart';
+import 'gallery_controller.dart';
+import 'gallery_export.dart';
+import 'gallery_grouping.dart';
+import 'gallery_source.dart';
 
-/// The app home: the device gallery. Tap a photo to edit it; long-press to
+/// The app home: the device gallery, grouped by date (newest first) with album
+/// switching — Google-Photos style. Tap a photo to edit it; long-press to
 /// multi-select, then batch-paste a recipe or export (#12, #13).
 class GalleryScreen extends ConsumerStatefulWidget {
   const GalleryScreen({super.key});
@@ -83,6 +85,9 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _openAlbumPicker() =>
+      showAppSheet(context, const _AlbumSheet());
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(galleryControllerProvider);
@@ -90,9 +95,9 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          state.selectionMode ? '${state.selectedCount} selected' : 'Gallery',
-        ),
+        title: state.selectionMode
+            ? Text('${state.selectedCount} selected')
+            : _AlbumTitle(title: state.title, onTap: _openAlbumPicker),
         actions: [
           if (state.selectionMode)
             IconButton(
@@ -148,10 +153,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
               },
               child: const Text('Open settings'),
             ),
-            TextButton(
-              onPressed: _openSample,
-              child: const Text('Open a sample'),
-            ),
+            TextButton(onPressed: _openSample, child: const Text('Open a sample')),
           ],
         ),
       );
@@ -169,10 +171,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
               onPressed: controller.load,
               child: const Text('Retry'),
             ),
-            TextButton(
-              onPressed: _openSample,
-              child: const Text('Open a sample'),
-            ),
+            TextButton(onPressed: _openSample, child: const Text('Open a sample')),
           ],
         ),
       );
@@ -180,7 +179,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     if (state.assets.isEmpty) {
       return EmptyState(
         icon: Icons.photo_library_outlined,
-        title: 'No photos yet',
+        title: 'No photos here',
         message: 'Photos on your device will appear here. '
             'Or try the editor with a sample image.',
         action: FilledButton.tonal(
@@ -189,28 +188,110 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
         ),
       );
     }
-    return GridView.builder(
-      padding: const EdgeInsets.all(2),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 2,
-        crossAxisSpacing: 2,
-      ),
-      itemCount: state.assets.length,
-      itemBuilder: (context, i) {
-        final asset = state.assets[i];
-        final selected = state.isSelected(asset.id);
-        return _Cell(
-          source: _source,
-          asset: asset,
-          selected: selected,
-          selectionMode: state.selectionMode,
-          onTap: () => state.selectionMode
-              ? controller.toggle(asset.id)
-              : _open(asset),
-          onLongPress: () => controller.startSelection(asset.id),
+
+    final rows = buildGalleryRows(state.assets);
+    return CustomScrollView(
+      slivers: _slivers(rows, state),
+    );
+  }
+
+  List<Widget> _slivers(List<GalleryRow> rows, GalleryState state) {
+    final controller = ref.read(galleryControllerProvider.notifier);
+    final slivers = <Widget>[];
+    var i = 0;
+    while (i < rows.length) {
+      final row = rows[i];
+      if (row is GalleryDateHeader) {
+        slivers.add(
+          SliverToBoxAdapter(child: _DateHeader(label: row.label)),
         );
-      },
+        i++;
+        final photos = <GalleryAsset>[];
+        while (i < rows.length && rows[i] is GalleryPhoto) {
+          photos.add((rows[i] as GalleryPhoto).asset);
+          i++;
+        }
+        slivers.add(
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            sliver: SliverGrid.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 2,
+                crossAxisSpacing: 2,
+              ),
+              itemCount: photos.length,
+              itemBuilder: (context, j) {
+                final asset = photos[j];
+                return _Cell(
+                  source: _source,
+                  asset: asset,
+                  selected: state.isSelected(asset.id),
+                  selectionMode: state.selectionMode,
+                  onTap: () => state.selectionMode
+                      ? controller.toggle(asset.id)
+                      : _open(asset),
+                  onLongPress: () => controller.startSelection(asset.id),
+                );
+              },
+            ),
+          ),
+        );
+      } else {
+        i++;
+      }
+    }
+    slivers.add(const SliverToBoxAdapter(child: SizedBox(height: Insets.lg)));
+    return slivers;
+  }
+}
+
+class _AlbumTitle extends StatelessWidget {
+  const _AlbumTitle({required this.title, required this.onTap});
+
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: Radii.smAll,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            const Icon(Icons.arrow_drop_down),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DateHeader extends StatelessWidget {
+  const _DateHeader({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        Insets.md,
+        Insets.lg,
+        Insets.md,
+        Insets.sm,
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.titleMedium?.copyWith(
+          color: theme.colorScheme.onSurface,
+        ),
+      ),
     );
   }
 }
@@ -241,7 +322,7 @@ class _Cell extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          _Thumbnail(source: source, asset: asset),
+          GalleryThumbnail(source: source, assetId: asset.id),
           AnimatedOpacity(
             opacity: selected ? 1 : 0,
             duration: Motion.fast,
@@ -264,6 +345,57 @@ class _Cell extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// A thumbnail that resolves **once** per asset (the previous implementation
+/// re-decoded on every rebuild — a major jank source).
+class GalleryThumbnail extends StatefulWidget {
+  const GalleryThumbnail({
+    super.key,
+    required this.source,
+    required this.assetId,
+    this.size = 256,
+  });
+
+  final GallerySource source;
+  final String assetId;
+  final int size;
+
+  @override
+  State<GalleryThumbnail> createState() => _GalleryThumbnailState();
+}
+
+class _GalleryThumbnailState extends State<GalleryThumbnail> {
+  late Future<Uint8List> _future = _load();
+
+  Future<Uint8List> _load() =>
+      widget.source.loadThumbnail(widget.assetId, size: widget.size);
+
+  @override
+  void didUpdateWidget(GalleryThumbnail old) {
+    super.didUpdateWidget(old);
+    if (old.assetId != widget.assetId || old.source != widget.source) {
+      _future = _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return FutureBuilder<Uint8List>(
+      future: _future,
+      builder: (context, snapshot) {
+        final bytes = snapshot.data;
+        if (bytes == null || bytes.isEmpty) {
+          return ColoredBox(
+            color: scheme.surfaceContainerHigh,
+            child: Icon(Icons.image_outlined, color: scheme.onSurfaceVariant),
+          );
+        }
+        return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+      },
     );
   }
 }
@@ -297,30 +429,63 @@ class _SelectionBar extends StatelessWidget {
   }
 }
 
-class _Thumbnail extends StatelessWidget {
-  const _Thumbnail({required this.source, required this.asset});
-
-  final GallerySource source;
-  final GalleryAsset asset;
+/// Album picker: the default "Recent" stream plus every device album.
+class _AlbumSheet extends ConsumerWidget {
+  const _AlbumSheet();
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return FutureBuilder<Uint8List>(
-      future: source.loadThumbnail(asset.id),
-      builder: (context, snapshot) {
-        final bytes = snapshot.data;
-        if (bytes == null || bytes.isEmpty) {
-          return ColoredBox(
-            color: scheme.surfaceContainerHigh,
-            child: Icon(
-              Icons.image_outlined,
-              color: scheme.onSurfaceVariant,
-            ),
-          );
-        }
-        return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(galleryControllerProvider);
+    final controller = ref.read(galleryControllerProvider.notifier);
+    final source = ref.read(gallerySourceProvider);
+
+    Widget tile(
+      String? id,
+      String name,
+      String? coverAssetId,
+      int count, {
+      required bool selected,
+    }) => ListTile(
+      selected: selected,
+      leading: SizedBox(
+        width: 48,
+        height: 48,
+        child: ClipRRect(
+          borderRadius: Radii.smAll,
+          child: coverAssetId == null
+              ? ColoredBox(
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                  child: const Icon(Icons.photo_album_outlined, size: 20),
+                )
+              : GalleryThumbnail(
+                  source: source,
+                  assetId: coverAssetId,
+                  size: 96,
+                ),
+        ),
+      ),
+      title: Text(name),
+      subtitle: Text('$count'),
+      onTap: () {
+        controller.selectAlbum(id);
+        Navigator.of(context).maybePop();
       },
+    );
+
+    return AppSheet(
+      title: 'Albums',
+      children: [
+        tile(null, 'Recent', null, state.assets.length,
+            selected: state.selectedAlbumId == null),
+        for (final album in state.albums)
+          tile(
+            album.id,
+            album.name,
+            album.coverAssetId,
+            album.count,
+            selected: album.id == state.selectedAlbumId,
+          ),
+      ],
     );
   }
 }

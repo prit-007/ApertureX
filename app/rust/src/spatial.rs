@@ -7,33 +7,39 @@
 //! ops leave visible seams at tile boundaries (ADR 0011).
 
 /// Separable box blur of one channel (horizontal then vertical), edge-clamped.
+///
+/// Uses prefix sums so each output pixel costs **O(1)** regardless of radius —
+/// a large clarity/sharpen radius stays fast on the preview proxy.
 fn box_blur_1d(src: &[f32], w: usize, h: usize, radius: usize) -> Vec<f32> {
     if radius == 0 {
         return src.to_vec();
     }
     let mut tmp = vec![0f32; w * h];
+    let mut prefix = vec![0f32; w.max(h) + 1];
+    // Horizontal pass.
     for y in 0..h {
         let row = y * w;
+        prefix[0] = 0.0;
+        for x in 0..w {
+            prefix[x + 1] = prefix[x] + src[row + x];
+        }
         for x in 0..w {
             let lo = x.saturating_sub(radius);
             let hi = (x + radius).min(w - 1);
-            let mut sum = 0.0;
-            for k in lo..=hi {
-                sum += src[row + k];
-            }
-            tmp[row + x] = sum / (hi - lo + 1) as f32;
+            tmp[row + x] = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1) as f32;
         }
     }
+    // Vertical pass.
     let mut out = vec![0f32; w * h];
     for x in 0..w {
+        prefix[0] = 0.0;
+        for y in 0..h {
+            prefix[y + 1] = prefix[y] + tmp[y * w + x];
+        }
         for y in 0..h {
             let lo = y.saturating_sub(radius);
             let hi = (y + radius).min(h - 1);
-            let mut sum = 0.0;
-            for k in lo..=hi {
-                sum += tmp[k * w + x];
-            }
-            out[y * w + x] = sum / (hi - lo + 1) as f32;
+            out[y * w + x] = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1) as f32;
         }
     }
     out
