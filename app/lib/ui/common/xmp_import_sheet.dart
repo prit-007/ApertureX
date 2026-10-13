@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/xmp_preset.dart';
@@ -29,6 +31,10 @@ class _XmpImportSheetState extends ConsumerState<XmpImportSheet> {
     ref
         .read(recipeControllerProvider.notifier)
         .loadRecipe(import.recipe, label: 'Preset');
+    axLog(
+      LogDomain.preset,
+      'Imported .xmp preset (${import.notes.length} settings)',
+    );
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(

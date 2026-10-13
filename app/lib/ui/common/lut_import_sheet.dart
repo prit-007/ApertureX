@@ -4,6 +4,8 @@ import 'package:material_ui/material_ui.dart';
 import '../../color/cube_lut.dart';
 import '../../color/imported_lut.dart';
 import '../../color/lut_atlas.dart';
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import 'app_sheet.dart';
 
@@ -32,6 +34,7 @@ class _LutImportSheetState extends ConsumerState<LutImportSheet> {
       ref
           .read(importedLutProvider.notifier)
           .apply(LutAtlas(size: lut.size, rgba: lut.toAtlasRgba()));
+      axLog(LogDomain.preset, 'Applied .cube LUT (${lut.size}³)');
       Navigator.of(context).maybePop();
       messenger.showSnackBar(
         SnackBar(content: Text('Applied LUT (${lut.size}³)')),

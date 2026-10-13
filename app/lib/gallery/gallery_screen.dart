@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import '../core/theme/design_tokens.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_store.dart';
@@ -37,12 +39,14 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   GallerySource get _source => ref.read(gallerySourceProvider);
 
   void _open(GalleryAsset asset) {
+    axLog(LogDomain.editor, 'Opened photo ${asset.id}');
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => EditorScreen(asset: asset)),
     );
   }
 
   void _openSample() {
+    axLog(LogDomain.editor, 'Opened sample image');
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const EditorScreen()),
     );
@@ -120,6 +124,37 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   Widget _body(GalleryState state, GalleryController controller) {
     if (state.loading) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (state.permissionDenied && state.assets.isEmpty) {
+      return EmptyState(
+        icon: Icons.photo_library_outlined,
+        title: 'ApertureX needs your photos',
+        message: 'Allow photo access to browse and edit your library. '
+            'You can change this any time in settings.',
+        action: Wrap(
+          spacing: Insets.sm,
+          runSpacing: Insets.xs,
+          alignment: WrapAlignment.center,
+          children: [
+            FilledButton.icon(
+              onPressed: controller.requestAccessAgain,
+              icon: const Icon(Icons.lock_open, size: 18),
+              label: const Text('Allow access'),
+            ),
+            OutlinedButton(
+              onPressed: () {
+                axLog(LogDomain.permission, 'Opened app settings');
+                controller.openSettings();
+              },
+              child: const Text('Open settings'),
+            ),
+            TextButton(
+              onPressed: _openSample,
+              child: const Text('Open a sample'),
+            ),
+          ],
+        ),
+      );
     }
     if (state.error != null) {
       return EmptyState(

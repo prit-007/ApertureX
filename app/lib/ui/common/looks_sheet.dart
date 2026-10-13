@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/tool_definition.dart';
@@ -27,6 +29,7 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
   void _apply(ToolDefinition tool) {
     ref.read(recipeControllerProvider.notifier).applyTool(tool);
     ref.read(recipeControllerProvider.notifier).commit(label: tool.name);
+    axLog(LogDomain.preset, 'Applied look "${tool.name}"');
     Navigator.of(context).maybePop();
   }
 

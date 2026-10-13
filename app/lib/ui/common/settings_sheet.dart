@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/settings_clipboard.dart';
+import '../../features/logs/logs_screen.dart';
 import '../../settings/app_settings.dart';
 import '../../settings/shell_preference.dart';
 import 'app_sheet.dart';
@@ -106,6 +108,16 @@ class SettingsSheet extends ConsumerWidget {
           onTap: () => showAppSheet(context, const LooksSheet()),
         ),
         const SizedBox(height: Insets.lg),
+        const _Label('Diagnostics'),
+        ListenableBuilder(
+          listenable: activityLog,
+          builder: (context, _) => _Action(
+            icon: Icons.receipt_long,
+            title: 'Activity log (${activityLog.length})',
+            onTap: () => _openLogs(context),
+          ),
+        ),
+        const SizedBox(height: Insets.lg),
         Center(
           child: Text(
             'ApertureX 0.0.1 · P2',
@@ -164,4 +176,14 @@ class _Action extends StatelessWidget {
       onTap: enabled ? onTap : null,
     );
   }
+}
+
+/// Closes the settings sheet, then opens the activity log on the same
+/// navigator.
+void _openLogs(BuildContext context) {
+  final navigator = Navigator.of(context);
+  navigator.maybePop();
+  navigator.push(
+    MaterialPageRoute<void>(builder: (_) => const LogsScreen()),
+  );
 }

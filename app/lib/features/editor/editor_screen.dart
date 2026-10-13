@@ -1,12 +1,13 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gal/gal.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../color/grade_spec.dart';
 import '../../color/spatial_spec.dart';
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/geometry_spec.dart';
 import '../../edit/recipe_controller.dart';
@@ -58,11 +59,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               : await TesseraEngine.syntheticJpeg(width: 1024, height: 1024));
       if (bytes.isEmpty) throw StateError('The image could not be read.');
       if (!mounted) return;
+      axLog(LogDomain.editor, 'Opened ${widget.asset?.id ?? 'sample image'}');
       setState(() {
         _bytes = bytes;
         _loading = false;
       });
     } catch (e) {
+      axLog(LogDomain.editor, 'Open failed: $e', LogLevel.error);
       if (!mounted) return;
       setState(() {
         _error = '$e';
@@ -90,15 +93,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         layers: recipe.layers,
         exif: exif,
       );
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File(
-        '${dir.path}/aperturex_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      if (!await Gal.hasAccess()) await Gal.requestAccess();
+      await Gal.putImageBytes(
+        jpeg,
+        name: 'aperturex_${DateTime.now().millisecondsSinceEpoch}',
       );
-      await file.writeAsBytes(jpeg, flush: true);
+      axLog(
+        LogDomain.export,
+        'Exported ${decoded.width}×${decoded.height} (${jpeg.length} bytes)',
+      );
       messenger.showSnackBar(
-        const SnackBar(content: Text('Exported to your documents')),
+        const SnackBar(content: Text('Saved to your photos')),
       );
     } catch (e) {
+      axLog(LogDomain.export, 'Export failed: $e', LogLevel.error);
       messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
     } finally {
       if (mounted) setState(() => _exporting = false);
