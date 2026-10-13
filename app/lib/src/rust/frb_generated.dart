@@ -83,9 +83,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 abstract class RustLibApi extends BaseApi {
   Future<LutData> crateApiColorBakeLut3D({
     required int size,
-    required double exposure,
-    required double contrast,
-    required double saturation,
+    required ColorParams params,
   });
 
   Future<Uint8List> crateApiEngineBrightenRgba({
@@ -117,9 +115,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<Uint8List> crateApiColorGradeRgba({
     required List<int> rgba,
-    required double exposure,
-    required double contrast,
-    required double saturation,
+    required ColorParams params,
   });
 
   Future<void> crateApiEngineInitApp();
@@ -143,18 +139,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<LutData> crateApiColorBakeLut3D({
     required int size,
-    required double exposure,
-    required double contrast,
-    required double saturation,
+    required ColorParams params,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_u_32(size, serializer);
-          sse_encode_f_32(exposure, serializer);
-          sse_encode_f_32(contrast, serializer);
-          sse_encode_f_32(saturation, serializer);
+          sse_encode_box_autoadd_color_params(params, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -167,7 +159,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: null,
         ),
         constMeta: kCrateApiColorBakeLut3DConstMeta,
-        argValues: [size, exposure, contrast, saturation],
+        argValues: [size, params],
         apiImpl: this,
       ),
     );
@@ -175,7 +167,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiColorBakeLut3DConstMeta => const TaskConstMeta(
     debugName: "bake_lut3d",
-    argNames: ["size", "exposure", "contrast", "saturation"],
+    argNames: ["size", "params"],
   );
 
   @override
@@ -372,18 +364,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<Uint8List> crateApiColorGradeRgba({
     required List<int> rgba,
-    required double exposure,
-    required double contrast,
-    required double saturation,
+    required ColorParams params,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_list_prim_u_8_loose(rgba, serializer);
-          sse_encode_f_32(exposure, serializer);
-          sse_encode_f_32(contrast, serializer);
-          sse_encode_f_32(saturation, serializer);
+          sse_encode_box_autoadd_color_params(params, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -396,7 +384,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: null,
         ),
         constMeta: kCrateApiColorGradeRgbaConstMeta,
-        argValues: [rgba, exposure, contrast, saturation],
+        argValues: [rgba, params],
         apiImpl: this,
       ),
     );
@@ -404,7 +392,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiColorGradeRgbaConstMeta => const TaskConstMeta(
     debugName: "grade_rgba",
-    argNames: ["rgba", "exposure", "contrast", "saturation"],
+    argNames: ["rgba", "params"],
   );
 
   @override
@@ -504,6 +492,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ColorParams dco_decode_box_autoadd_color_params(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_color_params(raw);
+  }
+
+  @protected
+  ColorParams dco_decode_color_params(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return ColorParams(
+      exposure: dco_decode_f_32(arr[0]),
+      contrast: dco_decode_f_32(arr[1]),
+      saturation: dco_decode_f_32(arr[2]),
+      temperature: dco_decode_f_32(arr[3]),
+      tint: dco_decode_f_32(arr[4]),
+      vibrance: dco_decode_f_32(arr[5]),
+    );
+  }
+
+  @protected
   double dco_decode_f_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
@@ -592,6 +602,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ColorParams sse_decode_box_autoadd_color_params(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_color_params(deserializer));
+  }
+
+  @protected
+  ColorParams sse_decode_color_params(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_exposure = sse_decode_f_32(deserializer);
+    var var_contrast = sse_decode_f_32(deserializer);
+    var var_saturation = sse_decode_f_32(deserializer);
+    var var_temperature = sse_decode_f_32(deserializer);
+    var var_tint = sse_decode_f_32(deserializer);
+    var var_vibrance = sse_decode_f_32(deserializer);
+    return ColorParams(
+      exposure: var_exposure,
+      contrast: var_contrast,
+      saturation: var_saturation,
+      temperature: var_temperature,
+      tint: var_tint,
+      vibrance: var_vibrance,
+    );
+  }
+
+  @protected
   double sse_decode_f_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getFloat32();
@@ -676,6 +713,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_String(String self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(utf8.encoder.convert(self), serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_color_params(
+    ColorParams self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_color_params(self, serializer);
+  }
+
+  @protected
+  void sse_encode_color_params(ColorParams self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_32(self.exposure, serializer);
+    sse_encode_f_32(self.contrast, serializer);
+    sse_encode_f_32(self.saturation, serializer);
+    sse_encode_f_32(self.temperature, serializer);
+    sse_encode_f_32(self.tint, serializer);
+    sse_encode_f_32(self.vibrance, serializer);
   }
 
   @protected

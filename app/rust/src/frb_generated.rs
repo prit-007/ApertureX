@@ -70,18 +70,12 @@ fn wire__crate__api__color__bake_lut3d_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_size = <u32>::sse_decode(&mut deserializer);
-            let api_exposure = <f32>::sse_decode(&mut deserializer);
-            let api_contrast = <f32>::sse_decode(&mut deserializer);
-            let api_saturation = <f32>::sse_decode(&mut deserializer);
+            let api_params = <crate::api::color::ColorParams>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ()>((move || {
-                    let output_ok = Ok::<_, ()>(crate::api::color::bake_lut3d(
-                        api_size,
-                        api_exposure,
-                        api_contrast,
-                        api_saturation,
-                    ))?;
+                    let output_ok =
+                        Ok::<_, ()>(crate::api::color::bake_lut3d(api_size, api_params))?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -297,18 +291,12 @@ fn wire__crate__api__color__grade_rgba_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_rgba = <Vec<u8>>::sse_decode(&mut deserializer);
-            let api_exposure = <f32>::sse_decode(&mut deserializer);
-            let api_contrast = <f32>::sse_decode(&mut deserializer);
-            let api_saturation = <f32>::sse_decode(&mut deserializer);
+            let api_params = <crate::api::color::ColorParams>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ()>((move || {
-                    let output_ok = Ok::<_, ()>(crate::api::color::grade_rgba(
-                        api_rgba,
-                        api_exposure,
-                        api_contrast,
-                        api_saturation,
-                    ))?;
+                    let output_ok =
+                        Ok::<_, ()>(crate::api::color::grade_rgba(api_rgba, api_params))?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -425,6 +413,26 @@ impl SseDecode for String {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <Vec<u8>>::sse_decode(deserializer);
         return String::from_utf8(inner).unwrap();
+    }
+}
+
+impl SseDecode for crate::api::color::ColorParams {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_exposure = <f32>::sse_decode(deserializer);
+        let mut var_contrast = <f32>::sse_decode(deserializer);
+        let mut var_saturation = <f32>::sse_decode(deserializer);
+        let mut var_temperature = <f32>::sse_decode(deserializer);
+        let mut var_tint = <f32>::sse_decode(deserializer);
+        let mut var_vibrance = <f32>::sse_decode(deserializer);
+        return crate::api::color::ColorParams {
+            exposure: var_exposure,
+            contrast: var_contrast,
+            saturation: var_saturation,
+            temperature: var_temperature,
+            tint: var_tint,
+            vibrance: var_vibrance,
+        };
     }
 }
 
@@ -560,6 +568,31 @@ fn pde_ffi_dispatcher_sync_impl(
 // Section: rust2dart
 
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::color::ColorParams {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.exposure.into_into_dart().into_dart(),
+            self.contrast.into_into_dart().into_dart(),
+            self.saturation.into_into_dart().into_dart(),
+            self.temperature.into_into_dart().into_dart(),
+            self.tint.into_into_dart().into_dart(),
+            self.vibrance.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::color::ColorParams
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::color::ColorParams>
+    for crate::api::color::ColorParams
+{
+    fn into_into_dart(self) -> crate::api::color::ColorParams {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::decode::ImageDims {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -619,6 +652,18 @@ impl SseEncode for String {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Vec<u8>>::sse_encode(self.into_bytes(), serializer);
+    }
+}
+
+impl SseEncode for crate::api::color::ColorParams {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <f32>::sse_encode(self.exposure, serializer);
+        <f32>::sse_encode(self.contrast, serializer);
+        <f32>::sse_encode(self.saturation, serializer);
+        <f32>::sse_encode(self.temperature, serializer);
+        <f32>::sse_encode(self.tint, serializer);
+        <f32>::sse_encode(self.vibrance, serializer);
     }
 }
 

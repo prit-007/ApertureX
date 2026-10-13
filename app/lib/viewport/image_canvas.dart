@@ -86,6 +86,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas> {
       exposure: recipe.exposure,
       contrast: recipe.contrast,
       saturation: recipe.saturation,
+      temperature: recipe.temperature,
+      tint: recipe.tint,
+      vibrance: recipe.vibrance,
     );
     final image = await lutAtlasToImage(
       LutAtlas(size: data.size, rgba: data.rgba),

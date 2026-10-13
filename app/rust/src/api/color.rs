@@ -1,10 +1,33 @@
 //! Colour + LUT API exposed across the `flutter_rust_bridge` boundary.
 //!
-//! Thin wrappers over [`crate::color`]: bake the grade into a 2D-packed 3D LUT
-//! (preview), or apply the same pipeline per-pixel (export). Because both call
-//! the same core, preview and export agree by construction.
+//! Thin wrappers over [`crate::color`]: bake the point-wise grade into a
+//! 2D-packed 3D LUT (preview), or apply the same pipeline per-pixel (export).
+//! Both call the same core, so preview and export agree by construction.
 
-use crate::color;
+use crate::color::{self, GradeParams};
+
+/// Point-wise grade parameters (all neutral at 0).
+pub struct ColorParams {
+    pub exposure: f32,
+    pub contrast: f32,
+    pub saturation: f32,
+    pub temperature: f32,
+    pub tint: f32,
+    pub vibrance: f32,
+}
+
+impl ColorParams {
+    fn to_core(&self) -> GradeParams {
+        GradeParams {
+            exposure: self.exposure,
+            contrast: self.contrast,
+            saturation: self.saturation,
+            temperature: self.temperature,
+            tint: self.tint,
+            vibrance: self.vibrance,
+        }
+    }
+}
 
 /// A colour pipeline baked into a 2D-packed RGBA8 LUT atlas.
 pub struct LutData {
@@ -18,9 +41,9 @@ pub struct LutData {
     pub rgba: Vec<u8>,
 }
 
-/// Bakes the grade (exposure EV, contrast, saturation) into a 3D LUT atlas.
-pub fn bake_lut3d(size: u32, exposure: f32, contrast: f32, saturation: f32) -> LutData {
-    let rgba = color::bake_lut3d(size, exposure, contrast, saturation);
+/// Bakes the grade into a 3D LUT atlas.
+pub fn bake_lut3d(size: u32, params: ColorParams) -> LutData {
+    let rgba = color::bake_lut3d(size, params.to_core());
     LutData {
         size,
         width: size * size,
@@ -31,16 +54,15 @@ pub fn bake_lut3d(size: u32, exposure: f32, contrast: f32, saturation: f32) -> L
 
 /// Applies the same pipeline to an RGBA8 buffer (the export-path twin of the
 /// LUT), preserving alpha.
-pub fn grade_rgba(rgba: Vec<u8>, exposure: f32, contrast: f32, saturation: f32) -> Vec<u8> {
+pub fn grade_rgba(rgba: Vec<u8>, params: ColorParams) -> Vec<u8> {
+    let p = params.to_core();
     let mut out = rgba;
     for px in out.as_chunks_mut::<4>().0 {
         let c = color::grade_pixel_srgb(
             px[0] as f32 / 255.0,
             px[1] as f32 / 255.0,
             px[2] as f32 / 255.0,
-            exposure,
-            contrast,
-            saturation,
+            p,
         );
         px[0] = (c[0] * 255.0 + 0.5) as u8;
         px[1] = (c[1] * 255.0 + 0.5) as u8;

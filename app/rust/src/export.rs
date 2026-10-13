@@ -6,6 +6,8 @@
 
 use jpeg_encoder::{ColorType, Encoder};
 
+use crate::color;
+
 /// Grades [rgba] (RGBA8, `width*height*4` bytes) on the CPU and encodes a JPEG.
 ///
 /// Alpha is dropped (JPEG has no alpha). [exposure] is in EV; [contrast] and
@@ -37,15 +39,19 @@ pub fn encode_jpeg(
         ));
     }
 
+    let params = color::GradeParams {
+        exposure,
+        contrast,
+        saturation,
+        ..Default::default()
+    };
     let mut rgb = Vec::with_capacity(width as usize * height as usize * 3);
     for px in rgba.as_chunks::<4>().0 {
-        let c = crate::color::grade_pixel_srgb(
+        let c = color::grade_pixel_srgb(
             px[0] as f32 / 255.0,
             px[1] as f32 / 255.0,
             px[2] as f32 / 255.0,
-            exposure,
-            contrast,
-            saturation,
+            params,
         );
         rgb.push((c[0] * 255.0 + 0.5) as u8);
         rgb.push((c[1] * 255.0 + 0.5) as u8);

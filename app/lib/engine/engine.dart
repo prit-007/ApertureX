@@ -96,11 +96,19 @@ class TesseraEngine {
     double exposure = 0,
     double contrast = 0,
     double saturation = 0,
+    double temperature = 0,
+    double tint = 0,
+    double vibrance = 0,
   }) => rust_color.bakeLut3D(
     size: size,
-    exposure: exposure,
-    contrast: contrast,
-    saturation: saturation,
+    params: rust_color.ColorParams(
+      exposure: exposure,
+      contrast: contrast,
+      saturation: saturation,
+      temperature: temperature,
+      tint: tint,
+      vibrance: vibrance,
+    ),
   );
 
   /// Applies the same pipeline per-pixel over RGBA (the export twin of the
@@ -110,10 +118,18 @@ class TesseraEngine {
     double exposure = 0,
     double contrast = 0,
     double saturation = 0,
+    double temperature = 0,
+    double tint = 0,
+    double vibrance = 0,
   }) => rust_color.gradeRgba(
     rgba: rgba,
-    exposure: exposure,
-    contrast: contrast,
-    saturation: saturation,
+    params: rust_color.ColorParams(
+      exposure: exposure,
+      contrast: contrast,
+      saturation: saturation,
+      temperature: temperature,
+      tint: tint,
+      vibrance: vibrance,
+    ),
   );
 }

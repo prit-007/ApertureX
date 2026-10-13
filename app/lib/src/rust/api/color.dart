@@ -6,32 +6,58 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-/// Bakes the grade (exposure EV, contrast, saturation) into a 3D LUT atlas.
-Future<LutData> bakeLut3D({
-  required int size,
-  required double exposure,
-  required double contrast,
-  required double saturation,
-}) => RustLib.instance.api.crateApiColorBakeLut3D(
-  size: size,
-  exposure: exposure,
-  contrast: contrast,
-  saturation: saturation,
-);
+// These functions are ignored because they are not marked as `pub`: `to_core`
+
+/// Bakes the grade into a 3D LUT atlas.
+Future<LutData> bakeLut3D({required int size, required ColorParams params}) =>
+    RustLib.instance.api.crateApiColorBakeLut3D(size: size, params: params);
 
 /// Applies the same pipeline to an RGBA8 buffer (the export-path twin of the
 /// LUT), preserving alpha.
 Future<Uint8List> gradeRgba({
   required List<int> rgba,
-  required double exposure,
-  required double contrast,
-  required double saturation,
-}) => RustLib.instance.api.crateApiColorGradeRgba(
-  rgba: rgba,
-  exposure: exposure,
-  contrast: contrast,
-  saturation: saturation,
-);
+  required ColorParams params,
+}) => RustLib.instance.api.crateApiColorGradeRgba(rgba: rgba, params: params);
+
+/// Point-wise grade parameters (all neutral at 0).
+class ColorParams {
+  final double exposure;
+  final double contrast;
+  final double saturation;
+  final double temperature;
+  final double tint;
+  final double vibrance;
+
+  const ColorParams({
+    required this.exposure,
+    required this.contrast,
+    required this.saturation,
+    required this.temperature,
+    required this.tint,
+    required this.vibrance,
+  });
+
+  @override
+  int get hashCode =>
+      exposure.hashCode ^
+      contrast.hashCode ^
+      saturation.hashCode ^
+      temperature.hashCode ^
+      tint.hashCode ^
+      vibrance.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ColorParams &&
+          runtimeType == other.runtimeType &&
+          exposure == other.exposure &&
+          contrast == other.contrast &&
+          saturation == other.saturation &&
+          temperature == other.temperature &&
+          tint == other.tint &&
+          vibrance == other.vibrance;
+}
 
 /// A colour pipeline baked into a 2D-packed RGBA8 LUT atlas.
 class LutData {

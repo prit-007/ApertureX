@@ -25,6 +25,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  ColorParams dco_decode_box_autoadd_color_params(dynamic raw);
+
+  @protected
+  ColorParams dco_decode_color_params(dynamic raw);
+
+  @protected
   double dco_decode_f_32(dynamic raw);
 
   @protected
@@ -56,6 +62,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
+
+  @protected
+  ColorParams sse_decode_box_autoadd_color_params(SseDeserializer deserializer);
+
+  @protected
+  ColorParams sse_decode_color_params(SseDeserializer deserializer);
 
   @protected
   double sse_decode_f_32(SseDeserializer deserializer);
@@ -92,6 +104,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_color_params(
+    ColorParams self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_color_params(ColorParams self, SseSerializer serializer);
 
   @protected
   void sse_encode_f_32(double self, SseSerializer serializer);

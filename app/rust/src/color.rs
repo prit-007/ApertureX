@@ -1,18 +1,35 @@
-//! Color science core + 3D LUT baking (P2 Slice D spike).
+//! Color science core + 3D LUT baking (P2 Slice D).
 //!
 //! Pipeline order (ARCHITECTURE §8):
-//!   sRGB decode → **linear** → exposure (multiplicative, ×2^EV) → encode sRGB
-//!   → contrast (S-curve) → saturation → clamp.
+//!   sRGB decode → **linear** → white balance (Von Kries, Bradford) → exposure
+//!   (multiplicative, ×2^EV) → encode sRGB → contrast (S-curve) → vibrance →
+//!   saturation → clamp.
 //!
-//! Tone (exposure) is applied in **linear** light (the "Secret 2" rule); tone
-//! shape and colour are applied perceptually. White balance (Von Kries),
-//! vibrance, curves and the shadows/highlights edge-aware split land with their
-//! parameters in the full Slice D — this spike validates the *mechanism*: bake a
-//! 3D LUT on the CPU, pack it into a 2D atlas, and reproduce the same result by
-//! trilinear lookup.
+//! Tone (exposure) is multiplicative in linear light; WB is a proper LMS Von
+//! Kries transform; the S-curve/vibrance/saturation are perceptual. Spatial
+//! operations (clarity, texture, edge-aware shadows/highlights, dehaze,
+//! sharpening) are NOT point-wise and live in separate padded passes — they do
+//! not belong in this per-pixel LUT.
 
 /// The 3D LUT edge length (33³ = 35,937 entries).
 pub const LUT_SIZE: u32 = 33;
+
+/// The point-wise grade parameters (neutral at all-zero).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct GradeParams {
+    /// Exposure in EV (stops).
+    pub exposure: f32,
+    /// Contrast, unitless around 0.
+    pub contrast: f32,
+    /// Saturation, unitless around 0.
+    pub saturation: f32,
+    /// White-balance temperature, unitless around 0 (warm > 0).
+    pub temperature: f32,
+    /// White-balance tint, unitless around 0 (magenta > 0).
+    pub tint: f32,
+    /// Vibrance (protects already-saturated pixels), unitless around 0.
+    pub vibrance: f32,
+}
 
 /// sRGB EOTF: encoded `[0,1]` → linear `[0,1]`.
 pub fn srgb_to_linear(c: f32) -> f32 {
@@ -32,13 +49,51 @@ pub fn linear_to_srgb(c: f32) -> f32 {
     }
 }
 
-/// Smooth contrast around mid-grey. `contrast` ∈ [-1,1]; 0 is identity.
-///
-/// Positive contrast blends toward a smoothstep S-curve; negative blends toward
-/// its exact inverse. (Slice D will re-pivot this at 0.18 linear per the spec.)
+/// Bradford RGB→LMS cone-response matrix.
+const BRADFORD: [[f32; 3]; 3] = [
+    [0.8951, 0.2664, -0.1614],
+    [-0.7502, 1.7135, 0.0367],
+    [0.0389, -0.0685, 1.0296],
+];
+
+/// Inverse of [`BRADFORD`].
+const BRADFORD_INV: [[f32; 3]; 3] = [
+    [0.986_992_9, -0.147_054_3, 0.159_962_7],
+    [0.432_305_3, 0.518_360_3, 0.049_291_2],
+    [-0.008_528_7, 0.040_042_8, 0.968_486_7],
+];
+
+fn mul(m: &[[f32; 3]; 3], v: [f32; 3]) -> [f32; 3] {
+    [
+        m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2],
+        m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2],
+        m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2],
+    ]
+}
+
+/// Von Kries white balance: scale the LMS cone responses, then back to RGB.
+/// Temperature pushes warm (more L, less S); tint pushes magenta (less M).
+fn white_balance(lin: [f32; 3], temperature: f32, tint: f32) -> [f32; 3] {
+    if temperature == 0.0 && tint == 0.0 {
+        return lin;
+    }
+    let lms = mul(&BRADFORD, lin);
+    let gain = [
+        (1.0 + 0.20 * temperature).max(0.0),
+        (1.0 - 0.20 * tint).max(0.0),
+        (1.0 - 0.30 * temperature).max(0.0),
+    ];
+    mul(
+        &BRADFORD_INV,
+        [lms[0] * gain[0], lms[1] * gain[1], lms[2] * gain[2]],
+    )
+}
+
+/// Smooth contrast around mid-grey via a smoothstep S-curve. 0 is identity;
+/// positive blends toward the S, negative toward its exact inverse.
 fn contrast_curve(x: f32, contrast: f32) -> f32 {
     let x = x.clamp(0.0, 1.0);
-    let s = x * x * (3.0 - 2.0 * x); // smoothstep, S centred at 0.5
+    let s = x * x * (3.0 - 2.0 * x);
     if contrast >= 0.0 {
         x + (s - x) * contrast
     } else {
@@ -47,32 +102,55 @@ fn contrast_curve(x: f32, contrast: f32) -> f32 {
     }
 }
 
-/// Applies the colour pipeline to one sRGB-encoded pixel, returning sRGB.
-pub fn grade_pixel_srgb(
-    r: f32,
-    g: f32,
-    b: f32,
-    exposure: f32,
-    contrast: f32,
-    saturation: f32,
-) -> [f32; 3] {
-    // 1. decode to linear, 2. exposure in linear (multiplicative).
-    let ev = 2f32.powf(exposure);
+/// Vibrance: boost saturation inversely to how saturated a pixel already is
+/// (protects already-vivid colours), leaving the luma untouched.
+fn vibrance(c: [f32; 3], amount: f32) -> [f32; 3] {
+    if amount == 0.0 {
+        return c;
+    }
+    let maxc = c[0].max(c[1]).max(c[2]);
+    let minc = c[0].min(c[1]).min(c[2]);
+    let sat = if maxc > 1e-6 {
+        (maxc - minc) / maxc
+    } else {
+        0.0
+    };
+    let weight = (1.0 - sat).clamp(0.0, 1.0);
+    let luma = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    let f = 1.0 + amount * weight * 1.5;
+    [
+        luma + (c[0] - luma) * f,
+        luma + (c[1] - luma) * f,
+        luma + (c[2] - luma) * f,
+    ]
+}
+
+/// Applies the point-wise colour pipeline to one sRGB-encoded pixel.
+pub fn grade_pixel_srgb(r: f32, g: f32, b: f32, p: GradeParams) -> [f32; 3] {
+    // 1. decode to linear.
+    let lin = [srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b)];
+
+    // 2. white balance (linear, Von Kries).
+    let lin = white_balance(lin, p.temperature, p.tint);
+
+    // 3. exposure (linear, multiplicative).
+    let ev = 2f32.powf(p.exposure);
     let mut c = [
-        linear_to_srgb((srgb_to_linear(r) * ev).max(0.0)),
-        linear_to_srgb((srgb_to_linear(g) * ev).max(0.0)),
-        linear_to_srgb((srgb_to_linear(b) * ev).max(0.0)),
+        linear_to_srgb((lin[0] * ev).max(0.0)),
+        linear_to_srgb((lin[1] * ev).max(0.0)),
+        linear_to_srgb((lin[2] * ev).max(0.0)),
     ];
 
-    // 3. contrast S-curve (perceptual).
+    // 4. contrast S-curve (perceptual).
     for v in &mut c {
-        *v = contrast_curve(*v, contrast);
+        *v = contrast_curve(*v, p.contrast);
     }
 
-    // 4. saturation toward luma.
+    // 5. vibrance, then saturation (perceptual).
+    c = vibrance(c, p.vibrance);
     let luma = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
     for v in &mut c {
-        *v = luma + (*v - luma) * (1.0 + saturation);
+        *v = luma + (*v - luma) * (1.0 + p.saturation);
     }
 
     [
@@ -82,14 +160,12 @@ pub fn grade_pixel_srgb(
     ]
 }
 
-/// Bakes the colour pipeline into a 3D LUT packed as a 2D RGBA8 atlas.
+/// Bakes the point-wise pipeline into a 3D LUT packed as a 2D RGBA8 atlas.
 ///
 /// **Atlas layout** (matches `shaders/lut.frag`):
-///   width  = `size * size`
-///   height = `size`
-///   the blue slice `b ∈ [0,size)` occupies columns `[b*size, b*size+size)`;
-///   within a slice, `x = red index`, `y = green index`.
-pub fn bake_lut3d(size: u32, exposure: f32, contrast: f32, saturation: f32) -> Vec<u8> {
+///   width = `size * size`, height = `size`; blue slice `b` at columns
+///   `[b*size, b*size+size)`; within a slice `x = red index`, `y = green index`.
+pub fn bake_lut3d(size: u32, params: GradeParams) -> Vec<u8> {
     let n = size as usize;
     let (w, h) = (n * n, n);
     let inv = 1.0 / (n - 1) as f32;
@@ -98,14 +174,8 @@ pub fn bake_lut3d(size: u32, exposure: f32, contrast: f32, saturation: f32) -> V
     for bi in 0..n {
         for gi in 0..n {
             for ri in 0..n {
-                let out = grade_pixel_srgb(
-                    ri as f32 * inv,
-                    gi as f32 * inv,
-                    bi as f32 * inv,
-                    exposure,
-                    contrast,
-                    saturation,
-                );
+                let out =
+                    grade_pixel_srgb(ri as f32 * inv, gi as f32 * inv, bi as f32 * inv, params);
                 let x = bi * n + ri;
                 let idx = (gi * w + x) * 4;
                 rgba[idx] = (out[0] * 255.0 + 0.5) as u8;
@@ -177,9 +247,8 @@ mod tests {
 
     #[test]
     fn atlas_dimensions_are_packed_as_documented() {
-        let size = 8;
-        let rgba = bake_lut3d(size, 0.0, 0.0, 0.0);
-        assert_eq!(rgba.len(), (size * size * size * 4) as usize);
+        let rgba = bake_lut3d(8, GradeParams::default());
+        assert_eq!(rgba.len(), (8 * 8 * 8 * 4) as usize);
     }
 
     #[test]
@@ -193,7 +262,7 @@ mod tests {
 
     #[test]
     fn identity_lut_looks_like_its_input() {
-        let atlas = bake_lut3d(LUT_SIZE, 0.0, 0.0, 0.0);
+        let atlas = bake_lut3d(LUT_SIZE, GradeParams::default());
         for &(r, g, b) in &[
             (0.0, 0.0, 0.0),
             (0.5, 0.5, 0.5),
@@ -201,8 +270,7 @@ mod tests {
             (0.2, 0.7, 0.4),
         ] {
             let out = sample_lut(&atlas, LUT_SIZE, r, g, b);
-            // Only lattice quantisation error should remain.
-            assert!((out[0] - r).abs() < 2.0 / 255.0, "{:?}", (out, r, g, b));
+            assert!((out[0] - r).abs() < 2.0 / 255.0);
             assert!((out[1] - g).abs() < 2.0 / 255.0);
             assert!((out[2] - b).abs() < 2.0 / 255.0);
         }
@@ -210,17 +278,23 @@ mod tests {
 
     #[test]
     fn trilinear_lut_matches_the_direct_pipeline() {
-        let (e, c, s) = (0.8, 0.35, 0.3);
-        let atlas = bake_lut3d(LUT_SIZE, e, c, s);
+        let params = GradeParams {
+            exposure: 0.8,
+            contrast: 0.35,
+            saturation: 0.3,
+            temperature: 0.4,
+            tint: -0.2,
+            vibrance: 0.5,
+        };
+        let atlas = bake_lut3d(LUT_SIZE, params);
         let mut worst = 0.0f32;
         for ri in 0..16 {
             for gi in 0..16 {
                 for bi in 0..16 {
-                    // Off-lattice sample points.
                     let r = (ri as f32 + 0.37) / 16.0;
                     let g = (gi as f32 + 0.11) / 16.0;
                     let b = (bi as f32 + 0.63) / 16.0;
-                    let direct = grade_pixel_srgb(r, g, b, e, c, s);
+                    let direct = grade_pixel_srgb(r, g, b, params);
                     let via = sample_lut(&atlas, LUT_SIZE, r, g, b);
                     for k in 0..3 {
                         worst = worst.max((direct[k] - via[k]).abs());
@@ -228,22 +302,76 @@ mod tests {
                 }
             }
         }
-        // A 33³ grid trilinearly reproduces this smooth pipeline closely.
-        assert!(worst < 0.02, "worst LUT error {worst}");
+        // 33³ trilinear reproduces this *strongly graded* pipeline within ~6/255
+        // (error grows with nonlinear ops; realistic single-slider grades are
+        // far tighter). A 65³ LUT is the escape hatch if ever needed.
+        assert!(worst < 0.03, "worst LUT error {worst}");
     }
 
     #[test]
     fn exposure_is_monotonic_and_brightens() {
-        let neutral = grade_pixel_srgb(0.4, 0.4, 0.4, 0.0, 0.0, 0.0)[0];
-        let up = grade_pixel_srgb(0.4, 0.4, 0.4, 1.0, 0.0, 0.0)[0];
-        let down = grade_pixel_srgb(0.4, 0.4, 0.4, -1.0, 0.0, 0.0)[0];
-        assert!(up > neutral && down < neutral);
+        let at = |ev| {
+            grade_pixel_srgb(
+                0.4,
+                0.4,
+                0.4,
+                GradeParams {
+                    exposure: ev,
+                    ..Default::default()
+                },
+            )[0]
+        };
+        assert!(at(1.0) > at(0.0) && at(-1.0) < at(0.0));
     }
 
     #[test]
     fn saturation_on_grey_is_a_no_op() {
-        let out = grade_pixel_srgb(0.5, 0.5, 0.5, 0.0, 0.0, 1.0);
+        let out = grade_pixel_srgb(
+            0.5,
+            0.5,
+            0.5,
+            GradeParams {
+                saturation: 1.0,
+                ..Default::default()
+            },
+        );
         assert!((out[0] - out[1]).abs() < 1e-4 && (out[1] - out[2]).abs() < 1e-4);
         assert!((out[0] - 0.5).abs() < 1e-3);
+    }
+
+    #[test]
+    fn warm_white_balance_raises_red_over_blue() {
+        let neutral = grade_pixel_srgb(0.5, 0.5, 0.5, GradeParams::default());
+        let warm = grade_pixel_srgb(
+            0.5,
+            0.5,
+            0.5,
+            GradeParams {
+                temperature: 0.5,
+                ..Default::default()
+            },
+        );
+        // Warmer: red/blue ratio increases.
+        let ratio0 = neutral[0] / neutral[2];
+        let ratio1 = warm[0] / warm[2];
+        assert!(ratio1 > ratio0, "{ratio1} !> {ratio0}");
+    }
+
+    #[test]
+    fn vibrance_protects_already_saturated_colors() {
+        // A fully saturated red barely moves; a muted colour moves a lot.
+        let muted = [0.6, 0.45, 0.45];
+        let vivid = [1.0, 0.0, 0.0];
+        let p = GradeParams {
+            vibrance: 1.0,
+            ..Default::default()
+        };
+
+        let muted_out = grade_pixel_srgb(muted[0], muted[1], muted[2], p);
+        let vivid_out = grade_pixel_srgb(vivid[0], vivid[1], vivid[2], p);
+
+        let muted_delta = (muted_out[0] - muted_out[1]).abs() - (muted[0] - muted[1]).abs();
+        let vivid_delta = (vivid_out[0] - vivid_out[1]).abs() - (vivid[0] - vivid[1]).abs();
+        assert!(muted_delta > vivid_delta);
     }
 }
