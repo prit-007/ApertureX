@@ -1,10 +1,10 @@
 //! Colour + LUT API exposed across the `flutter_rust_bridge` boundary.
 //!
-//! Thin wrappers over [`crate::color`]: bake the point-wise grade into a
-//! 2D-packed 3D LUT (preview), or apply the same pipeline per-pixel (export).
-//! Both call the same core, so preview and export agree by construction.
+//! Thin wrappers over [`crate::color`]: bake the point-wise grade (plus tone
+//! curves) into a 2D-packed 3D LUT (preview), or apply the same pipeline
+//! per-pixel (export). Both call the same core, so preview and export agree.
 
-use crate::color::{self, GradeParams};
+use crate::color::{self, CurveSet, GradeParams};
 
 /// Point-wise grade parameters (all neutral at 0).
 pub struct ColorParams {
@@ -23,7 +23,7 @@ pub struct ColorParams {
 }
 
 impl ColorParams {
-    fn to_core(&self) -> GradeParams {
+    pub(crate) fn to_core(&self) -> GradeParams {
         GradeParams {
             exposure: self.exposure,
             contrast: self.contrast,
@@ -41,21 +41,33 @@ impl ColorParams {
     }
 }
 
+/// Tone-curve control points, flat `[x0,y0,x1,y1,...]` per curve. An empty list
+/// is the identity curve.
+pub struct CurveParams {
+    pub master: Vec<f32>,
+    pub red: Vec<f32>,
+    pub green: Vec<f32>,
+    pub blue: Vec<f32>,
+}
+
+impl CurveParams {
+    pub(crate) fn to_set(&self) -> CurveSet {
+        CurveSet::from_points(&self.master, &self.red, &self.green, &self.blue)
+    }
+}
+
 /// A colour pipeline baked into a 2D-packed RGBA8 LUT atlas.
 pub struct LutData {
-    /// LUT edge length (e.g. 33).
     pub size: u32,
-    /// Atlas width  = `size * size`.
     pub width: u32,
-    /// Atlas height = `size`.
     pub height: u32,
-    /// RGBA8 atlas, length `width * height * 4`.
     pub rgba: Vec<u8>,
 }
 
-/// Bakes the grade into a 3D LUT atlas.
-pub fn bake_lut3d(size: u32, params: ColorParams) -> LutData {
-    let rgba = color::bake_lut3d(size, params.to_core());
+/// Bakes the grade (and tone curves) into a 3D LUT atlas.
+pub fn bake_lut3d(size: u32, params: ColorParams, curves: CurveParams) -> LutData {
+    let set = curves.to_set();
+    let rgba = color::bake_lut3d_curves(size, params.to_core(), Some(&set));
     LutData {
         size,
         width: size * size,
@@ -64,17 +76,19 @@ pub fn bake_lut3d(size: u32, params: ColorParams) -> LutData {
     }
 }
 
-/// Applies the same pipeline to an RGBA8 buffer (the export-path twin of the
-/// LUT), preserving alpha.
-pub fn grade_rgba(rgba: Vec<u8>, params: ColorParams) -> Vec<u8> {
+/// Applies the same pipeline (and tone curves) per-pixel over RGBA — the
+/// export twin of the LUT.
+pub fn grade_rgba(rgba: Vec<u8>, params: ColorParams, curves: CurveParams) -> Vec<u8> {
     let p = params.to_core();
+    let set = curves.to_set();
     let mut out = rgba;
     for px in out.as_chunks_mut::<4>().0 {
-        let c = color::grade_pixel_srgb(
+        let c = color::grade_pixel_c(
             px[0] as f32 / 255.0,
             px[1] as f32 / 255.0,
             px[2] as f32 / 255.0,
             p,
+            Some(&set),
         );
         px[0] = (c[0] * 255.0 + 0.5) as u8;
         px[1] = (c[1] * 255.0 + 0.5) as u8;

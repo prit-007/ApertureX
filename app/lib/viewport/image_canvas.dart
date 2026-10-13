@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../color/grade_spec.dart';
 import '../color/histogram_view.dart';
 import '../color/lut_atlas.dart';
 import '../color/lut_texture.dart';
@@ -94,21 +95,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   Future<void> _rebake(EditRecipe recipe) async {
     if (_program == null) return;
     final token = ++_bakeToken;
-    final data = await TesseraEngine.bakeLut3d(
-      size: _lutSize,
-      exposure: recipe.exposure,
-      contrast: recipe.contrast,
-      saturation: recipe.saturation,
-      temperature: recipe.temperature,
-      tint: recipe.tint,
-      vibrance: recipe.vibrance,
-      gradeShadowHue: recipe.gradeShadowHue,
-      gradeShadowSat: recipe.gradeShadowSat,
-      gradeMidHue: recipe.gradeMidHue,
-      gradeMidSat: recipe.gradeMidSat,
-      gradeHighlightHue: recipe.gradeHighlightHue,
-      gradeHighlightSat: recipe.gradeHighlightSat,
-    );
+    final spec = GradeSpec.fromRecipe(recipe);
+
+    final data = await TesseraEngine.bakeLut3d(spec, size: _lutSize);
     final image = await lutAtlasToImage(
       LutAtlas(size: data.size, rgba: data.rgba),
     );
@@ -129,18 +118,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         width: _sourceWidth,
         height: _sourceHeight,
         sampleDim: 256,
-        exposure: recipe.exposure,
-        contrast: recipe.contrast,
-        saturation: recipe.saturation,
-        temperature: recipe.temperature,
-        tint: recipe.tint,
-        vibrance: recipe.vibrance,
-        gradeShadowHue: recipe.gradeShadowHue,
-        gradeShadowSat: recipe.gradeShadowSat,
-        gradeMidHue: recipe.gradeMidHue,
-        gradeMidSat: recipe.gradeMidSat,
-        gradeHighlightHue: recipe.gradeHighlightHue,
-        gradeHighlightSat: recipe.gradeHighlightSat,
+        spec: spec,
       );
       if (mounted && token == _bakeToken) {
         ref.read(histogramProvider.notifier).publish(histogram);

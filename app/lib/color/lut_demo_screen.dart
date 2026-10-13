@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:material_ui/material_ui.dart';
 
 import '../engine/engine.dart';
+import 'grade_spec.dart';
 import 'lut_atlas.dart';
 import 'lut_texture.dart';
 
@@ -61,10 +62,12 @@ class _LutDemoScreenState extends State<LutDemoScreen> {
   Future<void> _rebake() async {
     final token = ++_bakeToken;
     final data = await TesseraEngine.bakeLut3d(
+      GradeSpec(
+        exposure: _exposure,
+        contrast: _contrast,
+        saturation: _saturation,
+      ),
       size: _lutSize,
-      exposure: _exposure,
-      contrast: _contrast,
-      saturation: _saturation,
     );
     final image = await lutAtlasToImage(
       LutAtlas(size: data.size, rgba: data.rgba),

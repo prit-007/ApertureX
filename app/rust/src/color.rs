@@ -174,8 +174,123 @@ fn color_grade(c: [f32; 3], p: GradeParams) -> [f32; 3] {
     out
 }
 
-/// Applies the point-wise colour pipeline to one sRGB-encoded pixel.
+/// Applies the point-wise colour pipeline (identity curves) to one pixel.
 pub fn grade_pixel_srgb(r: f32, g: f32, b: f32, p: GradeParams) -> [f32; 3] {
+    grade_pixel_c(r, g, b, p, None)
+}
+
+/// Builds a 256-entry LUT from monotone-cubic control points.
+///
+/// `points` is flat `[x0,y0,x1,y1,...]` in `[0,1]²`, sorted by x. Fewer than two
+/// points yields the identity. Fritsch–Carlson tangents keep it monotone (no
+/// overshoot ringing).
+pub fn curve_lut(points: &[f32]) -> [f32; 256] {
+    let identity = || std::array::from_fn(|i| i as f32 / 255.0);
+    let n = points.len() / 2;
+    if n < 2 {
+        return identity();
+    }
+    let xs: Vec<f32> = (0..n).map(|i| points[i * 2]).collect();
+    let ys: Vec<f32> = (0..n).map(|i| points[i * 2 + 1]).collect();
+
+    let mut d = vec![0f32; n - 1];
+    for i in 0..n - 1 {
+        d[i] = (ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]).max(1e-6);
+    }
+    let mut m = vec![0f32; n];
+    m[0] = d[0];
+    m[n - 1] = d[n - 2];
+    for i in 1..n - 1 {
+        m[i] = (d[i - 1] + d[i]) / 2.0;
+    }
+    for i in 0..n - 1 {
+        if d[i].abs() < 1e-6 {
+            m[i] = 0.0;
+            m[i + 1] = 0.0;
+        } else {
+            let a = m[i] / d[i];
+            let b = m[i + 1] / d[i];
+            let s = a * a + b * b;
+            if s > 9.0 {
+                let t = 3.0 / s.sqrt();
+                m[i] = t * a * d[i];
+                m[i + 1] = t * b * d[i];
+            }
+        }
+    }
+
+    std::array::from_fn(|k| {
+        let x = k as f32 / 255.0;
+        if x <= xs[0] {
+            return ys[0].clamp(0.0, 1.0);
+        }
+        if x >= xs[n - 1] {
+            return ys[n - 1].clamp(0.0, 1.0);
+        }
+        let mut i = 0;
+        while i < n - 2 && x > xs[i + 1] {
+            i += 1;
+        }
+        let h = xs[i + 1] - xs[i];
+        let t = (x - xs[i]) / h;
+        let (t2, t3) = (t * t, t * t * t);
+        let h00 = 2.0 * t3 - 3.0 * t2 + 1.0;
+        let h10 = t3 - 2.0 * t2 + t;
+        let h01 = -2.0 * t3 + 3.0 * t2;
+        let h11 = t3 - t2;
+        (h00 * ys[i] + h10 * h * m[i] + h01 * ys[i + 1] + h11 * h * m[i + 1]).clamp(0.0, 1.0)
+    })
+}
+
+/// Tone-curve LUTs: a master (RGB) curve plus per-channel curves.
+pub struct CurveSet {
+    pub master: [f32; 256],
+    pub r: [f32; 256],
+    pub g: [f32; 256],
+    pub b: [f32; 256],
+}
+
+impl CurveSet {
+    /// All-identity curves (applying it is a no-op).
+    pub fn identity() -> Self {
+        let id = curve_lut(&[]);
+        Self {
+            master: id,
+            r: id,
+            g: id,
+            b: id,
+        }
+    }
+
+    /// Builds the set from flat control-point lists (`[x0,y0,...]`).
+    pub fn from_points(master: &[f32], r: &[f32], g: &[f32], b: &[f32]) -> Self {
+        Self {
+            master: curve_lut(master),
+            r: curve_lut(r),
+            g: curve_lut(g),
+            b: curve_lut(b),
+        }
+    }
+}
+
+fn apply_curve(v: f32, lut: &[f32; 256]) -> f32 {
+    let x = v.clamp(0.0, 1.0) * 255.0;
+    let i = x.floor() as usize;
+    let f = x - i as f32;
+    let a = lut[i.min(255)];
+    let b = lut[(i + 1).min(255)];
+    a + (b - a) * f
+}
+
+/// Applies the point-wise colour pipeline to one sRGB-encoded pixel, optionally
+/// finishing with tone curves (master then per-channel).
+pub fn grade_pixel_c(
+    r: f32,
+    g: f32,
+    b: f32,
+    p: GradeParams,
+    curves: Option<&CurveSet>,
+) -> [f32; 3] {
     // 1. decode to linear.
     let lin = [srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b)];
 
@@ -205,6 +320,15 @@ pub fn grade_pixel_srgb(r: f32, g: f32, b: f32, p: GradeParams) -> [f32; 3] {
     // 6. color grading (split tone, luma-weighted).
     c = color_grade(c, p);
 
+    // 7. tone curves (master then per-channel), optional.
+    if let Some(cs) = curves {
+        c = [
+            apply_curve(apply_curve(c[0], &cs.master), &cs.r),
+            apply_curve(apply_curve(c[1], &cs.master), &cs.g),
+            apply_curve(apply_curve(c[2], &cs.master), &cs.b),
+        ];
+    }
+
     [
         c[0].clamp(0.0, 1.0),
         c[1].clamp(0.0, 1.0),
@@ -218,6 +342,15 @@ pub fn grade_pixel_srgb(r: f32, g: f32, b: f32, p: GradeParams) -> [f32; 3] {
 ///   width = `size * size`, height = `size`; blue slice `b` at columns
 ///   `[b*size, b*size+size)`; within a slice `x = red index`, `y = green index`.
 pub fn bake_lut3d(size: u32, params: GradeParams) -> Vec<u8> {
+    bake_lut3d_curves(size, params, None)
+}
+
+/// Bakes the point-wise pipeline, optionally with tone curves, into a 3D LUT.
+///
+/// **Atlas layout** (matches `shaders/lut.frag`):
+///   width = `size * size`, height = `size`; blue slice `b` at columns
+///   `[b*size, b*size+size)`; within a slice `x = red index`, `y = green index`.
+pub fn bake_lut3d_curves(size: u32, params: GradeParams, curves: Option<&CurveSet>) -> Vec<u8> {
     let n = size as usize;
     let (w, h) = (n * n, n);
     let inv = 1.0 / (n - 1) as f32;
@@ -226,8 +359,13 @@ pub fn bake_lut3d(size: u32, params: GradeParams) -> Vec<u8> {
     for bi in 0..n {
         for gi in 0..n {
             for ri in 0..n {
-                let out =
-                    grade_pixel_srgb(ri as f32 * inv, gi as f32 * inv, bi as f32 * inv, params);
+                let out = grade_pixel_c(
+                    ri as f32 * inv,
+                    gi as f32 * inv,
+                    bi as f32 * inv,
+                    params,
+                    curves,
+                );
                 let x = bi * n + ri;
                 let idx = (gi * w + x) * 4;
                 rgba[idx] = (out[0] * 255.0 + 0.5) as u8;
@@ -487,5 +625,60 @@ mod tests {
         let out = grade_pixel_srgb(base[0], base[1], base[2], p);
         let luma = |c: [f32; 3]| 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
         assert!((luma(out) - luma(base)).abs() < 0.01, "{out:?}");
+    }
+
+    #[test]
+    fn curve_lut_identity_maps_x_to_x() {
+        let lut = curve_lut(&[]);
+        for (i, v) in lut.iter().enumerate() {
+            let x = i as f32 / 255.0;
+            assert!((v - x).abs() < 1e-4, "bin {i}");
+        }
+    }
+
+    #[test]
+    fn curve_lut_is_monotone_and_brightens() {
+        // Lift the midtones.
+        let lut = curve_lut(&[0.0, 0.0, 0.5, 0.7, 1.0, 1.0]);
+        assert!(lut[128] > 0.55, "mid lifted: {}", lut[128]);
+        for w in lut.windows(2) {
+            assert!(w[1] >= w[0] - 1e-6, "not monotone");
+        }
+    }
+
+    #[test]
+    fn master_curve_brightens_the_pipeline() {
+        let identity = CurveSet::from_points(&[0.0, 0.0, 1.0, 1.0], &[], &[], &[]);
+        // A lifting curve: [0,0, 0.5,0.65, 1,1].
+        let lifted = CurveSet::from_points(&[0.0, 0.0, 0.5, 0.65, 1.0, 1.0], &[], &[], &[]);
+        let base = grade_pixel_c(0.5, 0.5, 0.5, GradeParams::default(), Some(&identity));
+        let up = grade_pixel_c(0.5, 0.5, 0.5, GradeParams::default(), Some(&lifted));
+        assert!(up[0] > base[0] + 0.05, "{up:?} vs {base:?}");
+    }
+
+    #[test]
+    fn lut_with_curves_matches_the_direct_pipeline() {
+        let params = GradeParams {
+            exposure: 0.3,
+            contrast: 0.2,
+            ..Default::default()
+        };
+        let curves = CurveSet::from_points(
+            &[0.0, 0.0, 0.5, 0.6, 1.0, 1.0],
+            &[0.0, 0.05, 1.0, 1.0],
+            &[],
+            &[],
+        );
+        let atlas = bake_lut3d_curves(LUT_SIZE, params, Some(&curves));
+        let mut worst = 0.0f32;
+        for k in 0..24 {
+            let v = (k as f32 + 0.4) / 24.0;
+            let direct = grade_pixel_c(v, v * 0.8, v * 0.6, params, Some(&curves));
+            let via = sample_lut(&atlas, LUT_SIZE, v, v * 0.8, v * 0.6);
+            for i in 0..3 {
+                worst = worst.max((direct[i] - via[i]).abs());
+            }
+        }
+        assert!(worst < 0.03, "worst {worst}");
     }
 }

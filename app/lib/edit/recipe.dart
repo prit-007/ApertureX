@@ -1,3 +1,5 @@
+import 'tone_curve.dart';
+
 /// The non-destructive edit recipe — the single source of truth every UI shell
 /// reads and writes (ARCHITECTURE §16, ADR 0008).
 ///
@@ -27,6 +29,11 @@ class EditRecipe {
     this.gradeMidSat = 0,
     this.gradeHighlightHue = 0,
     this.gradeHighlightSat = 0,
+    // Tone curves (master + per-channel). Identity by default.
+    this.masterCurve = ToneCurve.identity,
+    this.redCurve = ToneCurve.identity,
+    this.greenCurve = ToneCurve.identity,
+    this.blueCurve = ToneCurve.identity,
   });
 
   /// Bumped only on a breaking schema change (ARCHITECTURE §16).
@@ -63,6 +70,12 @@ class EditRecipe {
   final double gradeHighlightHue;
   final double gradeHighlightSat;
 
+  // Tone curves.
+  final ToneCurve masterCurve;
+  final ToneCurve redCurve;
+  final ToneCurve greenCurve;
+  final ToneCurve blueCurve;
+
   /// Returns a copy with the given fields replaced. Fields left `null` keep
   /// their current value; the receiver is never mutated.
   EditRecipe copyWith({
@@ -83,6 +96,10 @@ class EditRecipe {
     double? gradeMidSat,
     double? gradeHighlightHue,
     double? gradeHighlightSat,
+    ToneCurve? masterCurve,
+    ToneCurve? redCurve,
+    ToneCurve? greenCurve,
+    ToneCurve? blueCurve,
   }) {
     return EditRecipe(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -102,6 +119,10 @@ class EditRecipe {
       gradeMidSat: gradeMidSat ?? this.gradeMidSat,
       gradeHighlightHue: gradeHighlightHue ?? this.gradeHighlightHue,
       gradeHighlightSat: gradeHighlightSat ?? this.gradeHighlightSat,
+      masterCurve: masterCurve ?? this.masterCurve,
+      redCurve: redCurve ?? this.redCurve,
+      greenCurve: greenCurve ?? this.greenCurve,
+      blueCurve: blueCurve ?? this.blueCurve,
     );
   }
 
@@ -124,6 +145,10 @@ class EditRecipe {
     'gradeMidSat': gradeMidSat,
     'gradeHighlightHue': gradeHighlightHue,
     'gradeHighlightSat': gradeHighlightSat,
+    'masterCurve': masterCurve.toJson(),
+    'redCurve': redCurve.toJson(),
+    'greenCurve': greenCurve.toJson(),
+    'blueCurve': blueCurve.toJson(),
   };
 
   /// Deserialises from [json], tolerating missing keys (default to neutral) and
@@ -149,6 +174,10 @@ class EditRecipe {
       gradeMidSat: asDouble('gradeMidSat'),
       gradeHighlightHue: asDouble('gradeHighlightHue'),
       gradeHighlightSat: asDouble('gradeHighlightSat'),
+      masterCurve: ToneCurve.fromJson(json['masterCurve']),
+      redCurve: ToneCurve.fromJson(json['redCurve']),
+      greenCurve: ToneCurve.fromJson(json['greenCurve']),
+      blueCurve: ToneCurve.fromJson(json['blueCurve']),
     );
   }
 
@@ -171,7 +200,11 @@ class EditRecipe {
       other.gradeMidHue == gradeMidHue &&
       other.gradeMidSat == gradeMidSat &&
       other.gradeHighlightHue == gradeHighlightHue &&
-      other.gradeHighlightSat == gradeHighlightSat;
+      other.gradeHighlightSat == gradeHighlightSat &&
+      other.masterCurve == masterCurve &&
+      other.redCurve == redCurve &&
+      other.greenCurve == greenCurve &&
+      other.blueCurve == blueCurve;
 
   @override
   int get hashCode => Object.hash(
@@ -194,6 +227,7 @@ class EditRecipe {
       gradeHighlightHue,
       gradeHighlightSat,
     ),
+    Object.hash(masterCurve, redCurve, greenCurve, blueCurve),
   );
 
   @override

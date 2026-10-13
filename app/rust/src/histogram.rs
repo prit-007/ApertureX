@@ -6,7 +6,7 @@
 //! bin the result. That makes the histogram reflect the current *grade* and
 //! stay unit-testable.
 
-use crate::color::{grade_pixel_srgb, GradeParams};
+use crate::color::{grade_pixel_c, CurveSet, GradeParams};
 
 /// Number of bins per channel.
 pub const BINS: usize = 256;
@@ -42,6 +42,7 @@ pub fn histogram_graded(
     height: u32,
     params: GradeParams,
     sample_dim: u32,
+    curves: Option<&CurveSet>,
 ) -> Histogram {
     let mut h = Histogram::empty();
     if width == 0 || height == 0 || rgba.len() < (width as usize * height as usize * 4) {
@@ -53,11 +54,12 @@ pub fn histogram_graded(
     for y in (0..height as usize).step_by(step) {
         for x in (0..width as usize).step_by(step) {
             let idx = (y * width as usize + x) * 4;
-            let c = grade_pixel_srgb(
+            let c = grade_pixel_c(
                 rgba[idx] as f32 / 255.0,
                 rgba[idx + 1] as f32 / 255.0,
                 rgba[idx + 2] as f32 / 255.0,
                 params,
+                curves,
             );
             h.r[bin(c[0])] += 1;
             h.g[bin(c[1])] += 1;
@@ -82,13 +84,20 @@ mod tests {
 
     #[test]
     fn empty_for_degenerate_input() {
-        let h = histogram_graded(&[], 0, 0, GradeParams::default(), 64);
+        let h = histogram_graded(&[], 0, 0, GradeParams::default(), 64, None);
         assert_eq!(h.r.iter().sum::<u32>(), 0u32);
     }
 
     #[test]
     fn solid_image_lands_in_one_bin() {
-        let h = histogram_graded(&solid(64, 64, 128), 64, 64, GradeParams::default(), 64);
+        let h = histogram_graded(
+            &solid(64, 64, 128),
+            64,
+            64,
+            GradeParams::default(),
+            64,
+            None,
+        );
         // Neutral grade on mid-grey: one populated bin near 128.
         assert_eq!(h.r.iter().sum::<u32>(), 64u32 * 64);
         let peak = h.r.iter().enumerate().max_by_key(|(_, c)| **c).unwrap().0;
@@ -98,7 +107,7 @@ mod tests {
     #[test]
     fn exposure_shifts_the_histogram_bright() {
         let src = solid(32, 32, 96);
-        let neutral = histogram_graded(&src, 32, 32, GradeParams::default(), 32);
+        let neutral = histogram_graded(&src, 32, 32, GradeParams::default(), 32, None);
         let brighter = histogram_graded(
             &src,
             32,
@@ -108,6 +117,7 @@ mod tests {
                 ..Default::default()
             },
             32,
+            None,
         );
         let mean = |h: &Histogram| {
             h.luma

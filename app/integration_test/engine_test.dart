@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:tessera/color/grade_spec.dart';
 import 'package:tessera/engine/engine.dart';
 
 /// On-device proof that the Dart <-> Rust bridge works end to end.
@@ -63,14 +64,13 @@ void main() {
       rgba: rgba,
       width: decoded.width,
       height: decoded.height,
-      quality: 95,
+      spec: const GradeSpec(),
     );
     final brighter = await TesseraEngine.exportJpeg(
       rgba: rgba,
       width: decoded.width,
       height: decoded.height,
-      quality: 95,
-      exposure: 1.0, // +1 EV must brighten the export
+      spec: const GradeSpec(exposure: 1.0), // +1 EV must brighten the export
     );
 
     final nImg = await TesseraEngine.decodeJpegRgba(neutral);

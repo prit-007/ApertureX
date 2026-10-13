@@ -6,23 +6,15 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-/// Grades [rgba] on the CPU and encodes a JPEG. [exposure] is in EV;
-/// [contrast] and [saturation] are unitless around 0. Returns the encoded JPEG
-/// bytes, or an error if the buffer/dimensions are invalid.
-Future<Uint8List> encodeJpegExport({
+/// Encodes an RGBA8 buffer as a JPEG (alpha dropped).
+Future<Uint8List> encodeJpegRgba({
   required List<int> rgba,
   required int width,
   required int height,
   required int quality,
-  required double exposure,
-  required double contrast,
-  required double saturation,
-}) => RustLib.instance.api.crateApiExportEncodeJpegExport(
+}) => RustLib.instance.api.crateApiExportEncodeJpegRgba(
   rgba: rgba,
   width: width,
   height: height,
   quality: quality,
-  exposure: exposure,
-  contrast: contrast,
-  saturation: saturation,
 );

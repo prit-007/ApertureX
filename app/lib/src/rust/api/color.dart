@@ -6,18 +6,30 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `to_core`
+// These functions are ignored because they are not marked as `pub`: `to_core`, `to_set`
 
-/// Bakes the grade into a 3D LUT atlas.
-Future<LutData> bakeLut3D({required int size, required ColorParams params}) =>
-    RustLib.instance.api.crateApiColorBakeLut3D(size: size, params: params);
+/// Bakes the grade (and tone curves) into a 3D LUT atlas.
+Future<LutData> bakeLut3D({
+  required int size,
+  required ColorParams params,
+  required CurveParams curves,
+}) => RustLib.instance.api.crateApiColorBakeLut3D(
+  size: size,
+  params: params,
+  curves: curves,
+);
 
-/// Applies the same pipeline to an RGBA8 buffer (the export-path twin of the
-/// LUT), preserving alpha.
+/// Applies the same pipeline (and tone curves) per-pixel over RGBA — the
+/// export twin of the LUT.
 Future<Uint8List> gradeRgba({
   required List<int> rgba,
   required ColorParams params,
-}) => RustLib.instance.api.crateApiColorGradeRgba(rgba: rgba, params: params);
+  required CurveParams curves,
+}) => RustLib.instance.api.crateApiColorGradeRgba(
+  rgba: rgba,
+  params: params,
+  curves: curves,
+);
 
 /// Point-wise grade parameters (all neutral at 0).
 class ColorParams {
@@ -83,18 +95,41 @@ class ColorParams {
           gradeHighlightSat == other.gradeHighlightSat;
 }
 
+/// Tone-curve control points, flat `[x0,y0,x1,y1,...]` per curve. An empty list
+/// is the identity curve.
+class CurveParams {
+  final Float32List master;
+  final Float32List red;
+  final Float32List green;
+  final Float32List blue;
+
+  const CurveParams({
+    required this.master,
+    required this.red,
+    required this.green,
+    required this.blue,
+  });
+
+  @override
+  int get hashCode =>
+      master.hashCode ^ red.hashCode ^ green.hashCode ^ blue.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CurveParams &&
+          runtimeType == other.runtimeType &&
+          master == other.master &&
+          red == other.red &&
+          green == other.green &&
+          blue == other.blue;
+}
+
 /// A colour pipeline baked into a 2D-packed RGBA8 LUT atlas.
 class LutData {
-  /// LUT edge length (e.g. 33).
   final int size;
-
-  /// Atlas width  = `size * size`.
   final int width;
-
-  /// Atlas height = `size`.
   final int height;
-
-  /// RGBA8 atlas, length `width * height * 4`.
   final Uint8List rgba;
 
   const LutData({

@@ -1,0 +1,72 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:tessera/color/grade_spec.dart';
+import 'package:tessera/edit/recipe.dart';
+import 'package:tessera/edit/tone_curve.dart';
+
+void main() {
+  group('ToneCurve', () {
+    test('identity maps x to x', () {
+      expect(ToneCurve.identity.isIdentity, isTrue);
+      expect(ToneCurve.identity.points, [0, 0, 1, 1]);
+    });
+
+    test('a non-identity curve is detected', () {
+      expect(const ToneCurve([0, 0, 0.5, 0.6, 1, 1]).isIdentity, isFalse);
+    });
+
+    test('JSON round-trips the points', () {
+      const curve = ToneCurve([0, 0.1, 1, 0.9]);
+      expect(ToneCurve.fromJson(curve.toJson()), curve);
+    });
+
+    test('null/missing JSON yields identity', () {
+      expect(ToneCurve.fromJson(null), ToneCurve.identity);
+      expect(ToneCurve.fromJson(<String, Object?>{}), ToneCurve.identity);
+    });
+
+    test('equality is by value, not identity', () {
+      expect(const ToneCurve([0, 0, 1, 1]), const ToneCurve([0, 0, 1, 1]));
+      expect(
+        const ToneCurve([0, 0, 1, 1]),
+        isNot(const ToneCurve([0, 0, 1, 0.9])),
+      );
+    });
+  });
+
+  group('GradeSpec.fromRecipe', () {
+    test('maps the scalars and the four curves', () {
+      final recipe = EditRecipe.neutral.copyWith(
+        exposure: 1.5,
+        saturation: 0.25,
+        masterCurve: const ToneCurve([0, 0, 0.5, 0.6, 1, 1]),
+      );
+      final spec = GradeSpec.fromRecipe(recipe);
+
+      expect(spec.exposure, 1.5);
+      expect(spec.saturation, 0.25);
+      expect(spec.masterCurve, [0, 0, 0.5, 0.6, 1, 1]);
+      expect(spec.redCurve, ToneCurve.identity.points);
+    });
+  });
+
+  group('recipe tone-curve round-trip', () {
+    test('curves survive toJson/fromJson', () {
+      final recipe = EditRecipe.neutral.copyWith(
+        masterCurve: const ToneCurve([0, 0, 0.4, 0.55, 1, 1]),
+        blueCurve: const ToneCurve([0, 0.1, 1, 0.9]),
+      );
+      expect(EditRecipe.fromJson(recipe.toJson()), recipe);
+    });
+
+    test('a v3 recipe without curve keys reads identity curves forward', () {
+      final json = EditRecipe.neutral.toJson()
+        ..remove('masterCurve')
+        ..remove('redCurve')
+        ..remove('greenCurve')
+        ..remove('blueCurve');
+      final restored = EditRecipe.fromJson(json);
+      expect(restored.masterCurve, ToneCurve.identity);
+      expect(restored.schemaVersion, EditRecipe.currentSchemaVersion);
+    });
+  });
+}

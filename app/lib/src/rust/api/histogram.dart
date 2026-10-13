@@ -7,20 +7,22 @@ import '../frb_generated.dart';
 import 'color.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-/// Downsamples [rgba] by stride, applies the colour pipeline, and bins the
-/// result. `sample_dim` caps the samples per axis (e.g. 256).
+/// Downsamples [rgba] by stride, applies the colour pipeline (and tone curves),
+/// and bins the result. `sample_dim` caps the samples per axis (e.g. 256).
 Future<Histogram> histogramGraded({
   required List<int> rgba,
   required int width,
   required int height,
   required ColorParams params,
   required int sampleDim,
+  required CurveParams curves,
 }) => RustLib.instance.api.crateApiHistogramHistogramGraded(
   rgba: rgba,
   width: width,
   height: height,
   params: params,
   sampleDim: sampleDim,
+  curves: curves,
 );
 
 /// 256-bin counts for R, G, B and luminance of the graded image.

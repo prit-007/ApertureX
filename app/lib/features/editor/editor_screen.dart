@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:material_ui/material_ui.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../color/grade_spec.dart';
 import '../../color/lut_demo_screen.dart';
 import '../../edit/grade_mapping.dart';
 import '../../edit/recipe.dart';
@@ -101,15 +102,11 @@ class _EditorScreenState extends State<EditorScreen> {
     if (rgba == null) return;
     setState(() => _exporting = true);
     try {
-      final uniforms = GradeUniforms.fromRecipe(_recipe);
       final jpeg = await TesseraEngine.exportJpeg(
         rgba: rgba,
         width: _imageWidth,
         height: _imageHeight,
-        quality: 90,
-        exposure: uniforms.exposure,
-        contrast: uniforms.contrast,
-        saturation: uniforms.saturation,
+        spec: GradeSpec.fromRecipe(_recipe),
       );
       final dir = await getApplicationDocumentsDirectory();
       final stamp = DateTime.now().millisecondsSinceEpoch;

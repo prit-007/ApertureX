@@ -31,7 +31,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ColorParams dco_decode_box_autoadd_color_params(dynamic raw);
 
   @protected
+  CurveParams dco_decode_box_autoadd_curve_params(dynamic raw);
+
+  @protected
   ColorParams dco_decode_color_params(dynamic raw);
+
+  @protected
+  CurveParams dco_decode_curve_params(dynamic raw);
 
   @protected
   double dco_decode_f_32(dynamic raw);
@@ -44,6 +50,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImageDims dco_decode_image_dims(dynamic raw);
+
+  @protected
+  Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
 
   @protected
   Uint32List dco_decode_list_prim_u_32_strict(dynamic raw);
@@ -76,7 +85,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ColorParams sse_decode_box_autoadd_color_params(SseDeserializer deserializer);
 
   @protected
+  CurveParams sse_decode_box_autoadd_curve_params(SseDeserializer deserializer);
+
+  @protected
   ColorParams sse_decode_color_params(SseDeserializer deserializer);
+
+  @protected
+  CurveParams sse_decode_curve_params(SseDeserializer deserializer);
 
   @protected
   double sse_decode_f_32(SseDeserializer deserializer);
@@ -89,6 +104,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImageDims sse_decode_image_dims(SseDeserializer deserializer);
+
+  @protected
+  Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
 
   @protected
   Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer);
@@ -127,7 +145,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_curve_params(
+    CurveParams self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_color_params(ColorParams self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_curve_params(CurveParams self, SseSerializer serializer);
 
   @protected
   void sse_encode_f_32(double self, SseSerializer serializer);
@@ -140,6 +167,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_image_dims(ImageDims self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_prim_f_32_strict(
+    Float32List self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_prim_u_32_strict(
