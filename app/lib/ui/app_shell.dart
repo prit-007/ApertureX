@@ -7,6 +7,7 @@ import '../viewport/image_canvas.dart';
 import '../viewport/tile_viewport_demo.dart';
 import 'common/history_sheet.dart';
 import 'common/lut_import_sheet.dart';
+import 'common/settings_sheet.dart';
 import 'common/xmp_import_sheet.dart';
 import 'lightroom/lightroom_shell.dart';
 import 'snapseed/snapseed_shell.dart';
@@ -61,6 +62,15 @@ class AppShell extends ConsumerWidget {
                             builder: (_) => const XmpImportSheet(),
                           ),
                           child: const Icon(Icons.auto_awesome),
+                        ),
+                        const SizedBox(height: 8),
+                        FloatingActionButton.small(
+                          heroTag: 'settings',
+                          onPressed: () => showModalBottomSheet<void>(
+                            context: context,
+                            builder: (_) => const SettingsSheet(),
+                          ),
+                          child: const Icon(Icons.more_horiz),
                         ),
                         const SizedBox(height: 8),
                         FloatingActionButton.small(

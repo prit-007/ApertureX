@@ -91,6 +91,9 @@ class RecipeController extends Notifier<RecipeState> {
     recipe: state.recipe.copyWith(straighten: degrees.clamp(-45.0, 45.0)),
   );
 
+  /// Resets every edit back to neutral.
+  void resetAll() => loadRecipe(EditRecipe.neutral, label: 'Reset');
+
   /// Replaces the session with [recipe] from a sidecar/preset, resetting the
   /// history to a single node.
   void loadRecipe(EditRecipe recipe, {String label = 'Loaded'}) {
