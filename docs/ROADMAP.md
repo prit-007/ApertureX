@@ -3,17 +3,21 @@
 Each phase is independently demoable and leaves the tree green. Phases are
 ordered to retire the highest-risk assumptions earliest.
 
-Legend: **[scope]** → *exit criteria*.
+Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
+
+**Current status:** P-1 ✅ · P0 🚧 (foundations done; real-image decode folded into P1) · P1 🚧.
 
 ---
 
-## P-1 — Spike (throwaway)
+## P-1 — Spike ✅ (folded into `app/`)
 
 Validate the two assumptions a beautiful architecture cannot rescue: the
 interaction *feels* right, and the shader *is* fast on real hardware.
 
 **Scope**
-- A disposable `flutter create` app (never merged into the main tree).
+- Originally planned as a disposable `flutter create` app. **Decision changed:**
+  the spike was folded directly into `app/` as the seed of the real editor — the
+  gesture FSM and shader proved production-worthy rather than throwaway.
 - Implement the Snapseed gesture FSM sketch: touch-slop → axis lock → tool
   cycle (vertical) / value scrub (horizontal) → tap-to-reset, over a static test
   image.
@@ -29,16 +33,21 @@ interaction *feels* right, and the shader *is* fast on real hardware.
 - If the shader path cannot hold frame rate, escalate to ADR for an alternative
   (e.g. `flutter_gpu`) *before* P1.
 
+**Status — met.** `GestureInterpreter` (pure Dart, 9 unit tests) + `grade.frag`
+run at display refresh on a mid-tier Android device (motorola edge 50 neo). No
+escalation needed: the Flutter fragment-shader path is a go. iPhone validation is
+still outstanding (needs a Mac; tracked under P5 device-matrix work).
+
 ---
 
-## P0 — Foundations
+## P0 — Foundations 🚧
 
 **Scope**
 - Repo, GPL-3 LICENSE, CI skeleton (analyze, format, Dart tests, Rust tests).
 - Flutter app shell built on **`material_ui` / `cupertino_ui`** (per ADR 0006),
   Material 3 theme factory + `dynamic_color` wiring.
 - `flutter_rust_bridge` "hello" round-trip building via `cargokit`.
-- Open a JPEG, decode a 1–2 MP proxy, display it.
+- Open a JPEG, decode a 1–2 MP proxy, display it. *(deferred to P1 — the real image-decode path lands there)*
 - Establish the **TDD workflow**: failing test first for every unit (this is the
   house standard from the spike onward).
 
@@ -46,9 +55,15 @@ interaction *feels* right, and the shader *is* fast on real hardware.
 - Green CI on a fresh clone; app opens and shows a JPEG proxy on Android + iOS.
 - Rust↔Dart boundary proven with a typed call and a non-trivial byte buffer.
 
+**Status — mostly met.** Repo + GPL-3 `LICENSE`, CI skeleton, the Material 3
+`material_ui`/`cupertino_ui` shell with `dynamic_color`, and the
+`flutter_rust_bridge` typed + byte-buffer round-trip (via cargokit, building for
+all Android ABIs) are done and green. The "JPEG proxy on screen" half is folded
+into **P1**, where the real decode path lands.
+
 ---
 
-## P1 — Viewport & tiles
+## P1 — Viewport & tiles 🚧
 
 **Scope**
 - Tile compositor, zoom/pan, world↔screen transform.
