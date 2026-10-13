@@ -74,6 +74,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   bool _failed = false;
   bool _comparing = false;
   bool _needsReset = true;
+  bool _disposed = false;
   int _bakeToken = 0;
   final ValueNotifier<bool> _busy = ValueNotifier(false);
   int? _lastBaseKey;
@@ -239,14 +240,21 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }) async {
     if (_program == null || _sourceRgba == null) return;
     final token = ++_bakeToken;
-    if (baseChanged) {
-      _busy.value = true;
-      await _rebuildBase(recipe, token);
+    try {
+      if (baseChanged) {
+        _setBusy(true);
+        await _rebuildBase(recipe, token);
+      }
+      if (gradeChanged) await _rebuildLut(recipe, token);
+      if (token != _bakeToken) return;
+      await _rebuildHistogram(recipe, token);
+    } finally {
+      if (token == _bakeToken) _setBusy(false);
     }
-    if (gradeChanged) await _rebuildLut(recipe, token);
-    if (token != _bakeToken) return;
-    await _rebuildHistogram(recipe, token);
-    if (token == _bakeToken) _busy.value = false;
+  }
+
+  void _setBusy(bool value) {
+    if (!_disposed) _busy.value = value;
   }
 
   Future<void> _rebuildBase(EditRecipe recipe, int token) async {
@@ -339,6 +347,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   @override
   void dispose() {
+    _disposed = true;
     _debounce?.cancel();
     _compare.dispose();
     _busy.dispose();
