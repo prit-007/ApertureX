@@ -9,6 +9,7 @@
 import 'api/color.dart';
 import 'api/decode.dart';
 import 'api/engine.dart';
+import 'api/exif.dart';
 import 'api/export.dart';
 import 'api/geometry.dart';
 import 'api/histogram.dart';

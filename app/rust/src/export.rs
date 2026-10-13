@@ -6,8 +6,16 @@
 
 use jpeg_encoder::{ColorType, Encoder};
 
-/// Encodes an RGBA8 buffer (`width*height*4`) as a JPEG, dropping alpha.
-pub fn encode_jpeg(rgba: &[u8], width: u32, height: u32, quality: u8) -> Result<Vec<u8>, String> {
+/// Encodes an RGBA8 buffer (`width*height*4`) as a JPEG, dropping alpha. If
+/// [exif] is non-empty (a full APP1 segment), it is injected so metadata
+/// survives export.
+pub fn encode_jpeg(
+    rgba: &[u8],
+    width: u32,
+    height: u32,
+    quality: u8,
+    exif: &[u8],
+) -> Result<Vec<u8>, String> {
     if width == 0 || height == 0 {
         return Err("export dimensions must be at least 1x1".to_string());
     }
@@ -34,7 +42,7 @@ pub fn encode_jpeg(rgba: &[u8], width: u32, height: u32, quality: u8) -> Result<
     Encoder::new(&mut out, quality)
         .encode(&rgb, width as u16, height as u16, ColorType::Rgb)
         .map_err(|e| format!("jpeg encode failed: {e}"))?;
-    Ok(out)
+    Ok(crate::exif::inject_app1(out, exif))
 }
 
 #[cfg(test)]
@@ -57,8 +65,8 @@ mod tests {
                 src.extend_from_slice(&[(x * 3 + y) as u8, (x ^ y) as u8, (x + y * 2) as u8, 255]);
             }
         }
-        let hi = encode_jpeg(&src, 64, 64, 95).unwrap();
-        let lo = encode_jpeg(&src, 64, 64, 20).unwrap();
+        let hi = encode_jpeg(&src, 64, 64, 95, &[]).unwrap();
+        let lo = encode_jpeg(&src, 64, 64, 20, &[]).unwrap();
         assert!(
             lo.len() < hi.len(),
             "quality 20 ({}) should beat 95 ({})",
@@ -69,25 +77,25 @@ mod tests {
 
     #[test]
     fn rejects_a_mismatched_buffer_length() {
-        let err = encode_jpeg(&[0u8; 9], 2, 2, 90).unwrap_err();
+        let err = encode_jpeg(&[0u8; 9], 2, 2, 90, &[]).unwrap_err();
         assert!(err.contains("expected 16"), "got: {err}");
     }
 
     #[test]
     fn rejects_zero_dimensions() {
-        assert!(encode_jpeg(&[], 0, 10, 90).is_err());
-        assert!(encode_jpeg(&[], 10, 0, 90).is_err());
+        assert!(encode_jpeg(&[], 0, 10, 90, &[]).is_err());
+        assert!(encode_jpeg(&[], 10, 0, 90, &[]).is_err());
     }
 
     #[test]
     fn encodes_a_decodable_jpeg_and_drops_alpha() {
-        let jpeg = encode_jpeg(&solid_rgba(8, 8, 200, 100, 50), 8, 8, 90).unwrap();
+        let jpeg = encode_jpeg(&solid_rgba(8, 8, 200, 100, 50), 8, 8, 90, &[]).unwrap();
         assert_eq!(crate::decode::dimensions(&jpeg).unwrap(), (8, 8));
     }
 
     #[test]
     fn round_trips_colour_within_jpeg_tolerance() {
-        let jpeg = encode_jpeg(&solid_rgba(32, 32, 128, 128, 128), 32, 32, 95).unwrap();
+        let jpeg = encode_jpeg(&solid_rgba(32, 32, 128, 128, 128), 32, 32, 95, &[]).unwrap();
         let img = crate::decode::decode_rgba(&jpeg).unwrap();
         let mean = img
             .rgba

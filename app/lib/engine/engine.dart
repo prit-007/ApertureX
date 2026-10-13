@@ -7,6 +7,7 @@ import '../src/rust/api/color.dart' as rust_color;
 import '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 import '../src/rust/api/decode.dart' as rust_decode;
 import '../src/rust/api/engine.dart' as rust_engine;
+import '../src/rust/api/exif.dart' as rust_exif;
 import '../src/rust/api/export.dart' as rust_export;
 import '../src/rust/api/geometry.dart' as rust_geometry;
 import '../src/rust/api/histogram.dart' as rust_hist;
@@ -227,18 +228,26 @@ class TesseraEngine {
 
   // --- export ---------------------------------------------------------------
 
-  /// Encodes already-graded RGBA as a JPEG (alpha dropped).
+  /// Encodes already-graded RGBA as a JPEG (alpha dropped). [exif] is the
+  /// source's APP1/Exif segment (from [extractExif]); it is injected verbatim so
+  /// GPS/DateTaken/ISO/camera metadata survives export.
   static Future<Uint8List> encodeJpegRgba({
     required Uint8List rgba,
     required int width,
     required int height,
     int quality = 90,
+    List<int> exif = const <int>[],
   }) => rust_export.encodeJpegRgba(
     rgba: rgba,
     width: width,
     height: height,
     quality: quality,
+    exif: exif,
   );
+
+  /// Extracts the source JPEG's APP1/Exif segment (empty if none).
+  static Future<Uint8List> extractExif(Uint8List jpeg) =>
+      rust_exif.extractExif(jpeg: jpeg);
 
   /// Grades [rgba] with [spec] and encodes a JPEG — preview==export by
   /// construction, since grading uses the exact path the LUT bakes. The spatial
@@ -250,6 +259,7 @@ class TesseraEngine {
     required GradeSpec spec,
     SpatialSpec spatial = const SpatialSpec(),
     GeometrySpec geometry = const GeometrySpec(),
+    List<int> exif = const <int>[],
     int quality = 90,
   }) async {
     final geo = await applyGeometry(
@@ -270,6 +280,7 @@ class TesseraEngine {
       width: geo.width,
       height: geo.height,
       quality: quality,
+      exif: exif,
     );
   }
 }

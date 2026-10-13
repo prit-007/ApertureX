@@ -36,6 +36,7 @@ class _EditorScreenState extends State<EditorScreen> {
   ui.FragmentShader? _shader;
   ui.Image? _texture;
   Uint8List? _rgba;
+  Uint8List _exif = Uint8List(0);
   int _imageWidth = 0;
   int _imageHeight = 0;
 
@@ -66,6 +67,7 @@ class _EditorScreenState extends State<EditorScreen> {
     final program = await ui.FragmentProgram.fromAsset('shaders/grade.frag');
     final jpeg = await TesseraEngine.syntheticJpeg(width: 1024, height: 1024);
     final decoded = await TesseraEngine.decodeJpegRgba(jpeg);
+    final exif = await TesseraEngine.extractExif(jpeg);
     final image = await _imageFromRgba(
       decoded.rgba,
       decoded.width,
@@ -76,6 +78,7 @@ class _EditorScreenState extends State<EditorScreen> {
       _shader = program.fragmentShader();
       _texture = image;
       _rgba = decoded.rgba;
+      _exif = exif;
       _imageWidth = decoded.width;
       _imageHeight = decoded.height;
     });
@@ -111,6 +114,7 @@ class _EditorScreenState extends State<EditorScreen> {
         spec: GradeSpec.fromRecipe(_recipe),
         spatial: SpatialSpec.fromRecipe(_recipe),
         geometry: GeometrySpec.fromRecipe(_recipe),
+        exif: _exif,
       );
       final dir = await getApplicationDocumentsDirectory();
       final stamp = DateTime.now().millisecondsSinceEpoch;

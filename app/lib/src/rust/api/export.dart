@@ -6,15 +6,18 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-/// Encodes an RGBA8 buffer as a JPEG (alpha dropped).
+/// Encodes an RGBA8 buffer as a JPEG (alpha dropped). [exif] (a full APP1
+/// segment from the source, or empty) is injected to preserve metadata.
 Future<Uint8List> encodeJpegRgba({
   required List<int> rgba,
   required int width,
   required int height,
   required int quality,
+  required List<int> exif,
 }) => RustLib.instance.api.crateApiExportEncodeJpegRgba(
   rgba: rgba,
   width: width,
   height: height,
   quality: quality,
+  exif: exif,
 );
