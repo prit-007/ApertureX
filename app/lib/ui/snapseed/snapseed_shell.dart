@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/haptics.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/recipe_mapping.dart';
@@ -27,9 +28,17 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
     super.initState();
     _fsm = GestureInterpreter(
       onToolChanged: (tool) => setState(() => _active = tool),
-      onValueChanged: (tool, delta) => ref
-          .read(recipeControllerProvider.notifier)
-          .applyDelta(snapseedToolParameters[tool]!.first, delta),
+      onValueChanged: (tool, delta) {
+        final parameter = snapseedToolParameters[tool]!.first;
+        final spec = specOf(parameter);
+        final previous = valueOf(
+          ref.read(recipeControllerProvider).recipe,
+          parameter,
+        );
+        ref.read(recipeControllerProvider.notifier).applyDelta(parameter, delta);
+        final next = clampParameter(parameter, previous + delta * spec.scale);
+        fireHaptic(hapticFor(previous, next, spec.min, spec.max));
+      },
       onReset: (tool) => ref
           .read(recipeControllerProvider.notifier)
           .reset(snapseedToolParameters[tool]!.first),

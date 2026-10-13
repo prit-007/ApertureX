@@ -68,7 +68,7 @@ Full detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 | [`docs/PARITY.md`](docs/PARITY.md) | Feature parity matrix (Snapseed/Lightroom × status × phase) |
 | [`docs/RISKS.md`](docs/RISKS.md) | The four walls, each risk, and its mitigation |
 | [`docs/FORK-STRATEGY.md`](docs/FORK-STRATEGY.md) | How we fork and maintain `pro_image_editor` |
-| [`docs/adr/`](docs/adr/) | Architecture Decision Records 0001–0010 |
+| [`docs/adr/`](docs/adr/) | Architecture Decision Records 0001–0011 |
 | [`THIRD_PARTY.md`](THIRD_PARTY.md) | Third-party components, licenses, ML-model ledger, notices |
 
 ---

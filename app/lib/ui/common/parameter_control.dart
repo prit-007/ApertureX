@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/haptics.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import 'slider_math.dart';
@@ -58,7 +59,21 @@ class ParameterControl extends ConsumerWidget {
             key: Key('param-track-${parameter.name}'),
             math: math,
             value: value,
-            onChanged: (v) => notifier.update(parameter, v),
+            onChanged: (v) {
+              final previous = valueOf(
+                ref.read(recipeControllerProvider).recipe,
+                parameter,
+              );
+              notifier.update(parameter, v);
+              fireHaptic(
+                hapticFor(
+                  previous,
+                  clampParameter(parameter, v),
+                  spec.min,
+                  spec.max,
+                ),
+              );
+            },
             onReset: () => notifier.reset(parameter),
           ),
         ],
