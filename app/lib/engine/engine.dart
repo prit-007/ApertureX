@@ -7,6 +7,7 @@ import '../src/rust/api/decode.dart' as rust_decode;
 import '../src/rust/api/engine.dart' as rust_engine;
 import '../src/rust/api/export.dart' as rust_export;
 import '../src/rust/api/histogram.dart' as rust_hist;
+import '../src/rust/api/spatial.dart' as rust_spatial;
 import '../src/rust/frb_generated.dart';
 
 export '../src/rust/api/color.dart' show LutData;
@@ -119,6 +120,64 @@ class TesseraEngine {
     sampleDim: sampleDim,
     params: _colorParams(spec),
     curves: _curveParams(spec),
+  );
+
+  // --- spatial (P2) ---------------------------------------------------------
+
+  /// Texture (fine-detail) boost on an RGBA buffer.
+  static Future<Uint8List> spatialTexture(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    double amount = 0,
+  }) => rust_spatial.spatialTexture(
+    rgba: rgba,
+    width: width,
+    height: height,
+    amount: amount,
+  );
+
+  /// Clarity (mid-frequency local contrast).
+  static Future<Uint8List> spatialClarity(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    double amount = 0,
+  }) => rust_spatial.spatialClarity(
+    rgba: rgba,
+    width: width,
+    height: height,
+    amount: amount,
+  );
+
+  /// Unsharp sharpening.
+  static Future<Uint8List> spatialSharpen(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    double amount = 0,
+    int radius = 1,
+  }) => rust_spatial.spatialSharpen(
+    rgba: rgba,
+    width: width,
+    height: height,
+    amount: amount,
+    radius: radius,
+  );
+
+  /// Edge-aware shadows/highlights.
+  static Future<Uint8List> spatialShadowHighlight(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    double shadows = 0,
+    double highlights = 0,
+  }) => rust_spatial.spatialShadowHighlight(
+    rgba: rgba,
+    width: width,
+    height: height,
+    shadows: shadows,
+    highlights: highlights,
   );
 
   // --- export ---------------------------------------------------------------

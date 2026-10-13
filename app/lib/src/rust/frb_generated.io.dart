@@ -8,6 +8,7 @@ import 'api/decode.dart';
 import 'api/engine.dart';
 import 'api/export.dart';
 import 'api/histogram.dart';
+import 'api/spatial.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;

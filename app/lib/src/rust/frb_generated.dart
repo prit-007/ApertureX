@@ -8,6 +8,7 @@ import 'api/decode.dart';
 import 'api/engine.dart';
 import 'api/export.dart';
 import 'api/histogram.dart';
+import 'api/spatial.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -70,7 +71,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 998217997;
+  int get rustContentHash => -93755978;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -130,6 +131,36 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiEngineInitApp();
 
   Future<ImageDims> crateApiDecodeJpegDimensions({required List<int> jpeg});
+
+  Future<Uint8List> crateApiSpatialSpatialClarity({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double amount,
+  });
+
+  Future<Uint8List> crateApiSpatialSpatialShadowHighlight({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double shadows,
+    required double highlights,
+  });
+
+  Future<Uint8List> crateApiSpatialSpatialSharpen({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double amount,
+    required int radius,
+  });
+
+  Future<Uint8List> crateApiSpatialSpatialTexture({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double amount,
+  });
 
   Future<Uint8List> crateApiEngineSyntheticJpeg({
     required int width,
@@ -485,6 +516,166 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "jpeg_dimensions", argNames: ["jpeg"]);
 
   @override
+  Future<Uint8List> crateApiSpatialSpatialClarity({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double amount,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_f_32(amount, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 11,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSpatialSpatialClarityConstMeta,
+        argValues: [rgba, width, height, amount],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSpatialSpatialClarityConstMeta =>
+      const TaskConstMeta(
+        debugName: "spatial_clarity",
+        argNames: ["rgba", "width", "height", "amount"],
+      );
+
+  @override
+  Future<Uint8List> crateApiSpatialSpatialShadowHighlight({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double shadows,
+    required double highlights,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_f_32(shadows, serializer);
+          sse_encode_f_32(highlights, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 12,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSpatialSpatialShadowHighlightConstMeta,
+        argValues: [rgba, width, height, shadows, highlights],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSpatialSpatialShadowHighlightConstMeta =>
+      const TaskConstMeta(
+        debugName: "spatial_shadow_highlight",
+        argNames: ["rgba", "width", "height", "shadows", "highlights"],
+      );
+
+  @override
+  Future<Uint8List> crateApiSpatialSpatialSharpen({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double amount,
+    required int radius,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_f_32(amount, serializer);
+          sse_encode_u_32(radius, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 13,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSpatialSpatialSharpenConstMeta,
+        argValues: [rgba, width, height, amount, radius],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSpatialSpatialSharpenConstMeta =>
+      const TaskConstMeta(
+        debugName: "spatial_sharpen",
+        argNames: ["rgba", "width", "height", "amount", "radius"],
+      );
+
+  @override
+  Future<Uint8List> crateApiSpatialSpatialTexture({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double amount,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_f_32(amount, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 14,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSpatialSpatialTextureConstMeta,
+        argValues: [rgba, width, height, amount],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSpatialSpatialTextureConstMeta =>
+      const TaskConstMeta(
+        debugName: "spatial_texture",
+        argNames: ["rgba", "width", "height", "amount"],
+      );
+
+  @override
   Future<Uint8List> crateApiEngineSyntheticJpeg({
     required int width,
     required int height,
@@ -498,7 +689,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 15,
             port: port_,
           );
         },
