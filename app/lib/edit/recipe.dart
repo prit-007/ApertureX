@@ -24,7 +24,12 @@ class EditRecipe {
   });
 
   /// Bumped only on a breaking schema change (ARCHITECTURE §16).
-  static const int currentSchemaVersion = 1;
+  ///
+  /// v2: the parameter model moved to a grouped, catalog-driven superset
+  /// ([`RecipeSection`] in `parameter.dart`), but the JSON stays *flat* with
+  /// the identical keys as v1, so a v1 recipe reads unchanged. `fromJson`
+  /// migrates any supported version forward to this one.
+  static const int currentSchemaVersion = 2;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -91,12 +96,13 @@ class EditRecipe {
   };
 
   /// Deserialises from [json], tolerating missing keys (default to neutral) and
-  /// ignoring unknown keys so an older reader survives a newer recipe.
+  /// ignoring unknown keys so an older reader survives a newer recipe. Any
+  /// supported version (v1 flat, v2 flat — same shape) migrates forward to
+  /// [currentSchemaVersion].
   factory EditRecipe.fromJson(Map<String, Object?> json) {
     double asDouble(String key) => (json[key] as num?)?.toDouble() ?? 0;
     return EditRecipe(
-      schemaVersion:
-          (json['schemaVersion'] as num?)?.toInt() ?? currentSchemaVersion,
+      schemaVersion: currentSchemaVersion,
       exposure: asDouble('exposure'),
       contrast: asDouble('contrast'),
       highlights: asDouble('highlights'),

@@ -90,6 +90,55 @@ void main() {
     });
   });
 
+  group('migration', () {
+    test('a v1 (flat) recipe loads unchanged and migrates forward', () {
+      final v1 = EditRecipe.fromJson(<String, Object?>{
+        'schemaVersion': 1,
+        'exposure': 1.25,
+        'contrast': -0.5,
+        'saturation': 0.6,
+        'temperature': 0.2,
+        // v2-only/unknown keys tolerated as before
+      });
+
+      expect(v1.exposure, 1.25);
+      expect(v1.contrast, -0.5);
+      expect(v1.saturation, 0.6);
+      expect(v1.temperature, 0.2);
+      expect(v1.schemaVersion, EditRecipe.currentSchemaVersion); // migrated
+    });
+
+    test('every value serialises under the current version', () {
+      final json = const EditRecipe(
+        exposure: 0.5,
+        contrast: 0.1,
+        highlights: 0.2,
+        shadows: 0.3,
+        whites: 0.4,
+        blacks: 0.5,
+        temperature: 0.6,
+        tint: 0.7,
+        vibrance: 0.8,
+        saturation: 0.9,
+      ).toJson();
+
+      expect(json['schemaVersion'], EditRecipe.currentSchemaVersion);
+      final restored = EditRecipe.fromJson(json);
+      expect(restored, const EditRecipe(
+        exposure: 0.5,
+        contrast: 0.1,
+        highlights: 0.2,
+        shadows: 0.3,
+        whites: 0.4,
+        blacks: 0.5,
+        temperature: 0.6,
+        tint: 0.7,
+        vibrance: 0.8,
+        saturation: 0.9,
+      ));
+    });
+  });
+
   group('equality', () {
     test('identical recipes are equal and share a hashCode', () {
       final a = const EditRecipe().copyWith(exposure: 0.5, saturation: 0.2);
