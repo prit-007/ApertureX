@@ -35,6 +35,8 @@ class EditRecipe {
     this.clarity = 0,
     this.texture = 0,
     this.sharpen = 0,
+    this.denoiseLuma = 0,
+    this.denoiseChroma = 0,
     this.temperature = 0,
     this.tint = 0,
     this.vibrance = 0,
@@ -64,7 +66,7 @@ class EditRecipe {
   /// v2: grouped, catalog-driven parameter model (JSON still flat, v1 keys
   /// unchanged). v3: adds color-grading (split-tone) fields; older recipes read
   /// forward with those fields neutral. `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 6;
+  static const int currentSchemaVersion = 7;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -81,6 +83,8 @@ class EditRecipe {
   final double clarity; // spatial pass, neutral 0.
   final double texture; // spatial pass, neutral 0.
   final double sharpen; // spatial pass, neutral 0.
+  final double denoiseLuma; // spatial pass, neutral 0.
+  final double denoiseChroma; // spatial pass, neutral 0.
 
   // Color.
   final double temperature; // unitless, neutral 0.
@@ -124,6 +128,8 @@ class EditRecipe {
     double? clarity,
     double? texture,
     double? sharpen,
+    double? denoiseLuma,
+    double? denoiseChroma,
     double? temperature,
     double? tint,
     double? vibrance,
@@ -155,6 +161,8 @@ class EditRecipe {
       clarity: clarity ?? this.clarity,
       texture: texture ?? this.texture,
       sharpen: sharpen ?? this.sharpen,
+      denoiseLuma: denoiseLuma ?? this.denoiseLuma,
+      denoiseChroma: denoiseChroma ?? this.denoiseChroma,
       temperature: temperature ?? this.temperature,
       tint: tint ?? this.tint,
       vibrance: vibrance ?? this.vibrance,
@@ -189,6 +197,8 @@ class EditRecipe {
     'clarity': clarity,
     'texture': texture,
     'sharpen': sharpen,
+    'denoiseLuma': denoiseLuma,
+    'denoiseChroma': denoiseChroma,
     'temperature': temperature,
     'tint': tint,
     'vibrance': vibrance,
@@ -226,6 +236,8 @@ class EditRecipe {
       clarity: asDouble('clarity'),
       texture: asDouble('texture'),
       sharpen: asDouble('sharpen'),
+      denoiseLuma: asDouble('denoiseLuma'),
+      denoiseChroma: asDouble('denoiseChroma'),
       temperature: asDouble('temperature'),
       tint: asDouble('tint'),
       vibrance: asDouble('vibrance'),
@@ -263,6 +275,8 @@ class EditRecipe {
       other.clarity == clarity &&
       other.texture == texture &&
       other.sharpen == sharpen &&
+      other.denoiseLuma == denoiseLuma &&
+      other.denoiseChroma == denoiseChroma &&
       other.temperature == temperature &&
       other.tint == tint &&
       other.vibrance == vibrance &&
@@ -295,6 +309,8 @@ class EditRecipe {
     clarity,
     texture,
     sharpen,
+    denoiseLuma,
+    denoiseChroma,
     temperature,
     tint,
     vibrance,

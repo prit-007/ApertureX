@@ -129,6 +129,67 @@ pub fn apply_shadow_highlight(
     out
 }
 
+/// Blurs a single-channel plane (separable box, `iterations` passes).
+fn blur_plane(src: &[f32], w: usize, h: usize, radius: usize, iterations: usize) -> Vec<f32> {
+    let mut b = src.to_vec();
+    for _ in 0..iterations {
+        b = box_blur_1d(&b, w, h, radius);
+    }
+    b
+}
+
+/// Luma/chroma noise reduction. Chroma noise is smoothed heavily (it is
+/// low-frequency perceptually); luma smoothing is edge-weighted so detail stays
+/// crisp (the Lightroom-style split).
+pub fn denoise(rgba: &[u8], w: usize, h: usize, luma: f32, chroma: f32) -> Vec<u8> {
+    let n = w * h;
+    if luma <= 0.0 && chroma <= 0.0 {
+        return rgba.to_vec();
+    }
+
+    let mut y = vec![0f32; n];
+    let mut cb = vec![0f32; n];
+    let mut cr = vec![0f32; n];
+    for i in 0..n {
+        let r = rgba[i * 4] as f32;
+        let g = rgba[i * 4 + 1] as f32;
+        let b = rgba[i * 4 + 2] as f32;
+        let l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        y[i] = l;
+        cb[i] = b - l;
+        cr[i] = r - l;
+    }
+
+    if chroma > 0.0 {
+        let by = blur_plane(&cb, w, h, 4, 2);
+        let br = blur_plane(&cr, w, h, 4, 2);
+        for i in 0..n {
+            cb[i] += (by[i] - cb[i]) * chroma;
+            cr[i] += (br[i] - cr[i]) * chroma;
+        }
+    }
+    if luma > 0.0 {
+        let by = blur_plane(&y, w, h, 2, 1);
+        for i in 0..n {
+            let detail = (y[i] - by[i]).abs();
+            let weight = (1.0 - detail / 40.0).clamp(0.0, 1.0); // protect edges
+            y[i] += (by[i] - y[i]) * luma * weight;
+        }
+    }
+
+    let mut out = rgba.to_vec();
+    for i in 0..n {
+        let l = y[i];
+        let r = l + cr[i];
+        let b = l + cb[i];
+        let g = (l - 0.2126 * r - 0.0722 * b) / 0.7152;
+        out[i * 4] = r.clamp(0.0, 255.0) as u8;
+        out[i * 4 + 1] = g.clamp(0.0, 255.0) as u8;
+        out[i * 4 + 2] = b.clamp(0.0, 255.0) as u8;
+    }
+    out
+}
+
 /// The spatial pass strengths (all neutral at 0).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct SpatialParams {
@@ -142,6 +203,10 @@ pub struct SpatialParams {
     pub texture: f32,
     /// Unsharp amount (radius fixed at 2).
     pub sharpen: f32,
+    /// Luma noise reduction.
+    pub denoise_luma: f32,
+    /// Chroma noise reduction.
+    pub denoise_chroma: f32,
 }
 
 impl SpatialParams {
@@ -152,16 +217,19 @@ impl SpatialParams {
             && self.clarity == 0.0
             && self.texture == 0.0
             && self.sharpen == 0.0
+            && self.denoise_luma == 0.0
+            && self.denoise_chroma == 0.0
     }
 }
 
-/// Applies the full spatial pass in a fixed order: shadows/highlights → clarity
-/// → texture → sharpen. A neutral set returns the input unchanged.
+/// Applies the full spatial pass in a fixed order: denoise → shadows/highlights
+/// → clarity → texture → sharpen. A neutral set returns the input unchanged.
 pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u8> {
     if p.is_neutral() {
         return rgba.to_vec();
     }
-    let mut out = apply_shadow_highlight(rgba, w, h, p.shadows, p.highlights);
+    let mut out = denoise(rgba, w, h, p.denoise_luma, p.denoise_chroma);
+    out = apply_shadow_highlight(&out, w, h, p.shadows, p.highlights);
     out = apply_clarity(&out, w, h, p.clarity);
     out = apply_texture(&out, w, h, p.texture);
     out = apply_sharpen(&out, w, h, p.sharpen, 2);
@@ -324,5 +392,50 @@ mod tests {
             blur_rgb(b, iw, ih, 4, 1)
         });
         assert_eq!(out.len(), 8 * 8 * 4);
+    }
+
+    #[test]
+    fn denoise_is_identity_at_zero() {
+        let src = noise(24, 24);
+        assert_eq!(denoise(&src, 24, 24, 0.0, 0.0), src);
+    }
+
+    #[test]
+    fn chroma_denoise_reduces_colour_noise() {
+        // Mid grey with per-pixel colour jitter (luma ~constant).
+        let (w, h) = (32, 32);
+        let mut src = Vec::with_capacity(w * h * 4);
+        for i in 0..w * h {
+            let j = (i % 17) as u8;
+            src.extend_from_slice(&[128 + j, 128, 128 - j, 255]);
+        }
+        let chroma_spread = |b: &[u8]| {
+            b.as_chunks::<4>()
+                .0
+                .iter()
+                .map(|p| (p[0] as i32 - p[2] as i32).unsigned_abs() as u64)
+                .sum::<u64>()
+        };
+        let out = denoise(&src, w, h, 0.0, 1.0);
+        assert!(chroma_spread(&out) < chroma_spread(&src));
+    }
+
+    #[test]
+    fn luma_denoise_preserves_a_hard_edge() {
+        let (w, h) = (32, 32);
+        let mut src = Vec::with_capacity(w * h * 4);
+        for _y in 0..h {
+            for x in 0..w {
+                let v = if x < w / 2 { 50u8 } else { 200u8 };
+                src.extend_from_slice(&[v, v, v, 255]);
+            }
+        }
+        let out = denoise(&src, w, h, 1.0, 0.0);
+        let left = out[(10 * w + 3) * 4];
+        let right = out[(10 * w + (w - 3)) * 4];
+        assert!(
+            (right as i32 - left as i32).abs() > 120,
+            "edge blurred: {left} vs {right}"
+        );
     }
 }

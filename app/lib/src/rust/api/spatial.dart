@@ -62,7 +62,23 @@ Future<Uint8List> spatialShadowHighlight({
   highlights: highlights,
 );
 
-/// The full spatial pass (shadows/highlights → clarity → texture → sharpen).
+/// Luma/chroma noise reduction.
+Future<Uint8List> spatialDenoise({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required double luma,
+  required double chroma,
+}) => RustLib.instance.api.crateApiSpatialSpatialDenoise(
+  rgba: rgba,
+  width: width,
+  height: height,
+  luma: luma,
+  chroma: chroma,
+);
+
+/// The full spatial pass (denoise → shadows/highlights → clarity → texture →
+/// sharpen).
 Future<Uint8List> spatialApply({
   required List<int> rgba,
   required int width,
@@ -72,6 +88,8 @@ Future<Uint8List> spatialApply({
   required double clarity,
   required double texture,
   required double sharpen,
+  required double denoiseLuma,
+  required double denoiseChroma,
 }) => RustLib.instance.api.crateApiSpatialSpatialApply(
   rgba: rgba,
   width: width,
@@ -81,4 +99,6 @@ Future<Uint8List> spatialApply({
   clarity: clarity,
   texture: texture,
   sharpen: sharpen,
+  denoiseLuma: denoiseLuma,
+  denoiseChroma: denoiseChroma,
 );

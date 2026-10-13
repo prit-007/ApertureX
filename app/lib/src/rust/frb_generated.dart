@@ -72,7 +72,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -1526346501;
+  int get rustContentHash => -1739139416;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -186,6 +186,8 @@ abstract class RustLibApi extends BaseApi {
     required double clarity,
     required double texture,
     required double sharpen,
+    required double denoiseLuma,
+    required double denoiseChroma,
   });
 
   Future<Uint8List> crateApiSpatialSpatialClarity({
@@ -193,6 +195,14 @@ abstract class RustLibApi extends BaseApi {
     required int width,
     required int height,
     required double amount,
+  });
+
+  Future<Uint8List> crateApiSpatialSpatialDenoise({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double luma,
+    required double chroma,
   });
 
   Future<Uint8List> crateApiSpatialSpatialShadowHighlight({
@@ -810,6 +820,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required double clarity,
     required double texture,
     required double sharpen,
+    required double denoiseLuma,
+    required double denoiseChroma,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -823,6 +835,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_f_32(clarity, serializer);
           sse_encode_f_32(texture, serializer);
           sse_encode_f_32(sharpen, serializer);
+          sse_encode_f_32(denoiseLuma, serializer);
+          sse_encode_f_32(denoiseChroma, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -844,6 +858,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           clarity,
           texture,
           sharpen,
+          denoiseLuma,
+          denoiseChroma,
         ],
         apiImpl: this,
       ),
@@ -862,6 +878,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "clarity",
           "texture",
           "sharpen",
+          "denoiseLuma",
+          "denoiseChroma",
         ],
       );
 
@@ -905,6 +923,47 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<Uint8List> crateApiSpatialSpatialDenoise({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double luma,
+    required double chroma,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_f_32(luma, serializer);
+          sse_encode_f_32(chroma, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 18,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSpatialSpatialDenoiseConstMeta,
+        argValues: [rgba, width, height, luma, chroma],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSpatialSpatialDenoiseConstMeta =>
+      const TaskConstMeta(
+        debugName: "spatial_denoise",
+        argNames: ["rgba", "width", "height", "luma", "chroma"],
+      );
+
+  @override
   Future<Uint8List> crateApiSpatialSpatialShadowHighlight({
     required List<int> rgba,
     required int width,
@@ -924,7 +983,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 19,
             port: port_,
           );
         },
@@ -965,7 +1024,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 20,
             port: port_,
           );
         },
@@ -1004,7 +1063,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 21,
             port: port_,
           );
         },
@@ -1039,7 +1098,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 22,
             port: port_,
           );
         },

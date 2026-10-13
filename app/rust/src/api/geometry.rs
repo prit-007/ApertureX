@@ -101,7 +101,7 @@ pub fn geometry_apply(
     if flip_v {
         buf = geometry::flip_v(&buf, w, h);
     }
-    if turns % 4 != 0 {
+    if !turns.is_multiple_of(4) {
         let (b, nw, nh) = geometry::rotate_quarter(&buf, w, h, turns);
         buf = b;
         w = nw;

@@ -41,7 +41,13 @@ pub fn spatial_shadow_highlight(
     spatial::apply_shadow_highlight(&rgba, width as usize, height as usize, shadows, highlights)
 }
 
-/// The full spatial pass (shadows/highlights → clarity → texture → sharpen).
+/// Luma/chroma noise reduction.
+pub fn spatial_denoise(rgba: Vec<u8>, width: u32, height: u32, luma: f32, chroma: f32) -> Vec<u8> {
+    spatial::denoise(&rgba, width as usize, height as usize, luma, chroma)
+}
+
+/// The full spatial pass (denoise → shadows/highlights → clarity → texture →
+/// sharpen).
 #[allow(
     clippy::too_many_arguments,
     reason = "flat scalar args keep the frb surface simple; a struct adds a bridge type for no gain"
@@ -55,6 +61,8 @@ pub fn spatial_apply(
     clarity: f32,
     texture: f32,
     sharpen: f32,
+    denoise_luma: f32,
+    denoise_chroma: f32,
 ) -> Vec<u8> {
     spatial::apply_spatial(
         &rgba,
@@ -66,6 +74,8 @@ pub fn spatial_apply(
             clarity,
             texture,
             sharpen,
+            denoise_luma,
+            denoise_chroma,
         },
     )
 }

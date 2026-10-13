@@ -16,6 +16,8 @@ void main() {
         clarity: 0.3,
         texture: 0.1,
         sharpen: 0.5,
+        denoiseLuma: 0.6,
+        denoiseChroma: 0.7,
       );
       final spec = SpatialSpec.fromRecipe(recipe);
 
@@ -24,6 +26,8 @@ void main() {
       expect(spec.clarity, 0.3);
       expect(spec.texture, 0.1);
       expect(spec.sharpen, 0.5);
+      expect(spec.denoiseLuma, 0.6);
+      expect(spec.denoiseChroma, 0.7);
       expect(spec.isNeutral, isFalse);
     });
   });

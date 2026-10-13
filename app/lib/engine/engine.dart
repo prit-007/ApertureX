@@ -146,6 +146,8 @@ class TesseraEngine {
     clarity: spec.clarity,
     texture: spec.texture,
     sharpen: spec.sharpen,
+    denoiseLuma: spec.denoiseLuma,
+    denoiseChroma: spec.denoiseChroma,
   );
 
   /// Texture (fine-detail) boost on an RGBA buffer.
