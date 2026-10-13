@@ -197,6 +197,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
 
   List<Widget> _slivers(List<GalleryRow> rows, GalleryState state) {
     final controller = ref.read(galleryControllerProvider.notifier);
+    final edited = ref.watch(recipeStoreProvider);
     final slivers = <Widget>[];
     var i = 0;
     while (i < rows.length) {
@@ -227,6 +228,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                   source: _source,
                   asset: asset,
                   selected: state.isSelected(asset.id),
+                  edited: edited.containsKey(asset.id),
                   selectionMode: state.selectionMode,
                   onTap: () => state.selectionMode
                       ? controller.toggle(asset.id)
@@ -301,6 +303,7 @@ class _Cell extends StatelessWidget {
     required this.source,
     required this.asset,
     required this.selected,
+    required this.edited,
     required this.selectionMode,
     required this.onTap,
     required this.onLongPress,
@@ -309,6 +312,7 @@ class _Cell extends StatelessWidget {
   final GallerySource source;
   final GalleryAsset asset;
   final bool selected;
+  final bool edited;
   final bool selectionMode;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
@@ -333,6 +337,25 @@ class _Cell extends StatelessWidget {
               ),
             ),
           ),
+          if (edited && !selectionMode)
+            Positioned(
+              left: 4,
+              bottom: 4,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.9),
+                  shape: BoxShape.circle,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(3),
+                  child: Icon(
+                    Icons.tune,
+                    size: 12,
+                    color: scheme.onPrimary,
+                  ),
+                ),
+              ),
+            ),
           if (selectionMode)
             Positioned(
               right: 4,

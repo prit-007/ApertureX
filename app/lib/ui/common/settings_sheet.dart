@@ -118,6 +118,18 @@ class SettingsSheet extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: Insets.lg),
+        const _Label('About'),
+        _Action(
+          icon: Icons.info_outline,
+          title: 'About ApertureX',
+          onTap: () => _openAbout(context),
+        ),
+        _Action(
+          icon: Icons.article_outlined,
+          title: 'Open-source licenses',
+          onTap: () => _openLicenses(context),
+        ),
+        const SizedBox(height: Insets.lg),
         Center(
           child: Text(
             'ApertureX 0.0.1 · P2',
@@ -185,5 +197,33 @@ void _openLogs(BuildContext context) {
   navigator.maybePop();
   navigator.push(
     MaterialPageRoute<void>(builder: (_) => const LogsScreen()),
+  );
+}
+
+void _openAbout(BuildContext context) {
+  final navigator = Navigator.of(context);
+  navigator.maybePop();
+  showAboutDialog(
+    context: navigator.context,
+    applicationName: 'ApertureX',
+    applicationVersion: '0.0.1 · P2',
+    applicationLegalese: '© 2026 ApertureX contributors · GPL-3.0-or-later',
+    children: const [
+      SizedBox(height: Insets.md),
+      Text(
+        'A mobile-native, non-destructive, free and open-source photo editor.',
+      ),
+    ],
+  );
+}
+
+void _openLicenses(BuildContext context) {
+  final navigator = Navigator.of(context);
+  navigator.maybePop();
+  showLicensePage(
+    context: navigator.context,
+    applicationName: 'ApertureX',
+    applicationVersion: '0.0.1 · P2',
+    applicationLegalese: 'GPL-3.0-or-later',
   );
 }

@@ -3,6 +3,10 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:tessera/edit/parameter.dart';
+import 'package:tessera/edit/recipe.dart';
+import 'package:tessera/edit/recipe_controller.dart';
+import 'package:tessera/edit/recipe_store.dart';
 import 'package:tessera/features/editor/editor_screen.dart';
 import 'package:tessera/gallery/gallery_asset.dart';
 import 'package:tessera/gallery/gallery_controller.dart';
@@ -70,5 +74,35 @@ void main() {
 
     expect(find.text('Could not open this photo'), findsOneWidget);
     expect(find.text('Try again'), findsOneWidget);
+  });
+
+  testWidgets('restores a saved recipe and saves edits back', (tester) async {
+    final container = containerWith(images: {'a': _png});
+    addTearDown(container.dispose);
+    container
+        .read(recipeStoreProvider.notifier)
+        .put('a', EditRecipe.neutral.copyWith(exposure: 1.2));
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: EditorScreen(asset: GalleryAsset(id: 'a', width: 1, height: 1)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The saved recipe was loaded into the session.
+    expect(container.read(recipeControllerProvider).recipe.exposure, 1.2);
+
+    // A new edit is persisted back to the same asset.
+    container
+        .read(recipeControllerProvider.notifier)
+        .update(Parameter.contrast, 0.5);
+    await tester.pump();
+
+    expect(container.read(recipeStoreProvider)['a']!.contrast, 0.5);
+    expect(container.read(recipeStoreProvider)['a']!.exposure, 1.2);
   });
 }

@@ -10,7 +10,9 @@ import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/geometry_spec.dart';
+import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
+import '../../edit/recipe_store.dart';
 import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
 import '../../engine/engine.dart';
@@ -62,6 +64,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       if (bytes.isEmpty) throw StateError('The image could not be read.');
       if (!mounted) return;
       axLog(LogDomain.editor, 'Opened ${widget.asset?.id ?? 'sample image'}');
+
+      // Restore this photo's saved (non-destructive) recipe, or start neutral.
+      final notifier = ref.read(recipeControllerProvider.notifier);
+      if (widget.asset != null) {
+        final saved = ref.read(recipeStoreProvider)[widget.asset!.id];
+        notifier.loadRecipe(saved ?? EditRecipe.neutral, label: 'Opened');
+      } else {
+        notifier.loadRecipe(EditRecipe.neutral, label: 'Sample');
+      }
+
       setState(() {
         _bytes = bytes;
         _loading = false;
@@ -124,6 +136,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Persist every edit back to this photo's recipe (non-destructive editing:
+    // the recipe survives leaving and re-opening the photo).
+    ref.listen(recipeControllerProvider, (previous, next) {
+      if (widget.asset != null) {
+        ref.read(recipeStoreProvider.notifier).put(widget.asset!.id, next.recipe);
+      }
+    });
+
     final state = ref.watch(recipeControllerProvider);
     final notifier = ref.read(recipeControllerProvider.notifier);
     final canUndo = state.index > 0;
