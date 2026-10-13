@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 import '../src/rust/api/decode.dart' as rust_decode;
 import '../src/rust/api/engine.dart' as rust_engine;
+import '../src/rust/api/export.dart' as rust_export;
 import '../src/rust/frb_generated.dart';
 
 export '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
@@ -58,5 +59,29 @@ class TesseraEngine {
     y: y,
     width: width,
     height: height,
+  );
+
+  // --- JPEG export (P1) -----------------------------------------------------
+
+  /// Grades [rgba] on the CPU (mirroring the preview shader) and encodes a
+  /// JPEG. [exposure] is in EV; [contrast] and [saturation] are unitless —
+  /// both fed straight from [GradeUniforms.fromRecipe] so preview and export
+  /// can never disagree on the inputs.
+  static Future<Uint8List> exportJpeg({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    int quality = 90,
+    double exposure = 0,
+    double contrast = 0,
+    double saturation = 0,
+  }) => rust_export.encodeJpegExport(
+    rgba: rgba,
+    width: width,
+    height: height,
+    quality: quality,
+    exposure: exposure,
+    contrast: contrast,
+    saturation: saturation,
   );
 }
