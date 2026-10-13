@@ -43,6 +43,7 @@ pub fn histogram_graded(
     params: GradeParams,
     sample_dim: u32,
     curves: Option<&CurveSet>,
+    hsl: &[f32; 24],
 ) -> Histogram {
     let mut h = Histogram::empty();
     if width == 0 || height == 0 || rgba.len() < (width as usize * height as usize * 4) {
@@ -60,6 +61,7 @@ pub fn histogram_graded(
                 rgba[idx + 2] as f32 / 255.0,
                 params,
                 curves,
+                hsl,
             );
             h.r[bin(c[0])] += 1;
             h.g[bin(c[1])] += 1;
@@ -73,6 +75,7 @@ pub fn histogram_graded(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::color::ZERO_HSL;
 
     fn solid(w: u32, h: u32, v: u8) -> Vec<u8> {
         let mut buf = Vec::with_capacity((w * h * 4) as usize);
@@ -84,7 +87,7 @@ mod tests {
 
     #[test]
     fn empty_for_degenerate_input() {
-        let h = histogram_graded(&[], 0, 0, GradeParams::default(), 64, None);
+        let h = histogram_graded(&[], 0, 0, GradeParams::default(), 64, None, &ZERO_HSL);
         assert_eq!(h.r.iter().sum::<u32>(), 0u32);
     }
 
@@ -97,6 +100,7 @@ mod tests {
             GradeParams::default(),
             64,
             None,
+            &ZERO_HSL,
         );
         // Neutral grade on mid-grey: one populated bin near 128.
         assert_eq!(h.r.iter().sum::<u32>(), 64u32 * 64);
@@ -107,7 +111,7 @@ mod tests {
     #[test]
     fn exposure_shifts_the_histogram_bright() {
         let src = solid(32, 32, 96);
-        let neutral = histogram_graded(&src, 32, 32, GradeParams::default(), 32, None);
+        let neutral = histogram_graded(&src, 32, 32, GradeParams::default(), 32, None, &ZERO_HSL);
         let brighter = histogram_graded(
             &src,
             32,
@@ -118,6 +122,7 @@ mod tests {
             },
             32,
             None,
+            &ZERO_HSL,
         );
         let mean = |h: &Histogram| {
             h.luma

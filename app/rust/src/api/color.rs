@@ -56,6 +56,15 @@ impl CurveParams {
     }
 }
 
+/// Pads/truncates a flat HSL list (8 bands × 3) to a fixed `[f32; 24]`.
+pub(crate) fn to_hsl24(v: &[f32]) -> [f32; 24] {
+    let mut a = [0.0f32; 24];
+    for (slot, value) in a.iter_mut().zip(v.iter()) {
+        *slot = *value;
+    }
+    a
+}
+
 /// A colour pipeline baked into a 2D-packed RGBA8 LUT atlas.
 pub struct LutData {
     pub size: u32,
@@ -64,10 +73,10 @@ pub struct LutData {
     pub rgba: Vec<u8>,
 }
 
-/// Bakes the grade (and tone curves) into a 3D LUT atlas.
-pub fn bake_lut3d(size: u32, params: ColorParams, curves: CurveParams) -> LutData {
+/// Bakes the grade (tone curves + HSL mix) into a 3D LUT atlas.
+pub fn bake_lut3d(size: u32, params: ColorParams, curves: CurveParams, hsl: Vec<f32>) -> LutData {
     let set = curves.to_set();
-    let rgba = color::bake_lut3d_curves(size, params.to_core(), Some(&set));
+    let rgba = color::bake_lut3d_curves(size, params.to_core(), Some(&set), &to_hsl24(&hsl));
     LutData {
         size,
         width: size * size,
@@ -76,11 +85,17 @@ pub fn bake_lut3d(size: u32, params: ColorParams, curves: CurveParams) -> LutDat
     }
 }
 
-/// Applies the same pipeline (and tone curves) per-pixel over RGBA — the
+/// Applies the same pipeline (tone curves + HSL) per-pixel over RGBA — the
 /// export twin of the LUT.
-pub fn grade_rgba(rgba: Vec<u8>, params: ColorParams, curves: CurveParams) -> Vec<u8> {
+pub fn grade_rgba(
+    rgba: Vec<u8>,
+    params: ColorParams,
+    curves: CurveParams,
+    hsl: Vec<f32>,
+) -> Vec<u8> {
     let p = params.to_core();
     let set = curves.to_set();
+    let hsl = to_hsl24(&hsl);
     let mut out = rgba;
     for px in out.as_chunks_mut::<4>().0 {
         let c = color::grade_pixel_c(
@@ -89,6 +104,7 @@ pub fn grade_rgba(rgba: Vec<u8>, params: ColorParams, curves: CurveParams) -> Ve
             px[2] as f32 / 255.0,
             p,
             Some(&set),
+            &hsl,
         );
         px[0] = (c[0] * 255.0 + 0.5) as u8;
         px[1] = (c[1] * 255.0 + 0.5) as u8;

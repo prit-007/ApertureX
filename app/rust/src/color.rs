@@ -174,9 +174,109 @@ fn color_grade(c: [f32; 3], p: GradeParams) -> [f32; 3] {
     out
 }
 
+/// Hue centres (in `[0,1)`) of the eight HSL color-mixer bands.
+pub const HSL_BANDS: [f32; 8] = [
+    0.0, // red
+    30.0 / 360.0,
+    60.0 / 360.0,  // yellow
+    120.0 / 360.0, // green
+    180.0 / 360.0, // aqua
+    240.0 / 360.0, // blue
+    270.0 / 360.0, // purple
+    300.0 / 360.0, // magenta
+];
+
+/// Neutral (all-zero) HSL mix.
+pub const ZERO_HSL: [f32; 24] = [0.0; 24];
+
+fn rgb_to_hsl(c: [f32; 3]) -> [f32; 3] {
+    let (r, g, b) = (c[0], c[1], c[2]);
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let l = (max + min) / 2.0;
+    let d = max - min;
+    if d < 1e-6 {
+        return [0.0, 0.0, l];
+    }
+    let s = if l > 0.5 {
+        d / (2.0 - max - min)
+    } else {
+        d / (max + min)
+    };
+    let h = if max == r {
+        ((g - b) / d + if g < b { 6.0 } else { 0.0 }) / 6.0
+    } else if max == g {
+        ((b - r) / d + 2.0) / 6.0
+    } else {
+        ((r - g) / d + 4.0) / 6.0
+    };
+    [h, s, l]
+}
+
+fn hue_to_rgb(p: f32, q: f32, t: f32) -> f32 {
+    let t = t.rem_euclid(1.0);
+    if t < 1.0 / 6.0 {
+        p + (q - p) * 6.0 * t
+    } else if t < 1.0 / 2.0 {
+        q
+    } else if t < 2.0 / 3.0 {
+        p + (q - p) * (2.0 / 3.0 - t) * 6.0
+    } else {
+        p
+    }
+}
+
+fn hsl_to_rgb(hsl: [f32; 3]) -> [f32; 3] {
+    let (h, s, l) = (hsl[0], hsl[1], hsl[2]);
+    if s < 1e-6 {
+        return [l, l, l];
+    }
+    let q = if l < 0.5 {
+        l * (1.0 + s)
+    } else {
+        l + s - l * s
+    };
+    let p = 2.0 * l - q;
+    [
+        hue_to_rgb(p, q, h + 1.0 / 3.0),
+        hue_to_rgb(p, q, h),
+        hue_to_rgb(p, q, h - 1.0 / 3.0),
+    ]
+}
+
+/// HSL color-mixer: shift hue/saturation/luminance weighted by how close a
+/// pixel's hue is to each of the eight bands. `hsl` is `[h,s,l]` per band
+/// (8×3), each in `[-1,1]`.
+pub fn apply_hsl(c: [f32; 3], hsl: &[f32; 24]) -> [f32; 3] {
+    if hsl.iter().all(|&v| v == 0.0) {
+        return c;
+    }
+    let [h, s, l] = rgb_to_hsl(c);
+    if s < 1e-4 {
+        return c; // greys have no hue to target
+    }
+    let mut dh = 0.0;
+    let mut ds = 0.0;
+    let mut dl = 0.0;
+    for (i, &center) in HSL_BANDS.iter().enumerate() {
+        let d = (h - center).abs();
+        let ang = d.min(1.0 - d); // wrap-aware
+        let w = (1.0 - ang / 0.12).clamp(0.0, 1.0);
+        if w > 0.0 {
+            dh += hsl[i * 3] * w;
+            ds += hsl[i * 3 + 1] * w;
+            dl += hsl[i * 3 + 2] * w;
+        }
+    }
+    let nh = (h + dh * (30.0 / 360.0)).rem_euclid(1.0);
+    let ns = (s + s * ds).clamp(0.0, 1.0);
+    let nl = (l + dl * 0.4).clamp(0.0, 1.0);
+    hsl_to_rgb([nh, ns, nl])
+}
+
 /// Applies the point-wise colour pipeline (identity curves) to one pixel.
 pub fn grade_pixel_srgb(r: f32, g: f32, b: f32, p: GradeParams) -> [f32; 3] {
-    grade_pixel_c(r, g, b, p, None)
+    grade_pixel_c(r, g, b, p, None, &ZERO_HSL)
 }
 
 /// Builds a 256-entry LUT from monotone-cubic control points.
@@ -290,6 +390,7 @@ pub fn grade_pixel_c(
     b: f32,
     p: GradeParams,
     curves: Option<&CurveSet>,
+    hsl: &[f32; 24],
 ) -> [f32; 3] {
     // 1. decode to linear.
     let lin = [srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b)];
@@ -320,6 +421,9 @@ pub fn grade_pixel_c(
     // 6. color grading (split tone, luma-weighted).
     c = color_grade(c, p);
 
+    // 6b. HSL color mixer (point-wise).
+    c = apply_hsl(c, hsl);
+
     // 7. tone curves (master then per-channel), optional.
     if let Some(cs) = curves {
         c = [
@@ -342,7 +446,7 @@ pub fn grade_pixel_c(
 ///   width = `size * size`, height = `size`; blue slice `b` at columns
 ///   `[b*size, b*size+size)`; within a slice `x = red index`, `y = green index`.
 pub fn bake_lut3d(size: u32, params: GradeParams) -> Vec<u8> {
-    bake_lut3d_curves(size, params, None)
+    bake_lut3d_curves(size, params, None, &ZERO_HSL)
 }
 
 /// Bakes the point-wise pipeline, optionally with tone curves, into a 3D LUT.
@@ -350,7 +454,12 @@ pub fn bake_lut3d(size: u32, params: GradeParams) -> Vec<u8> {
 /// **Atlas layout** (matches `shaders/lut.frag`):
 ///   width = `size * size`, height = `size`; blue slice `b` at columns
 ///   `[b*size, b*size+size)`; within a slice `x = red index`, `y = green index`.
-pub fn bake_lut3d_curves(size: u32, params: GradeParams, curves: Option<&CurveSet>) -> Vec<u8> {
+pub fn bake_lut3d_curves(
+    size: u32,
+    params: GradeParams,
+    curves: Option<&CurveSet>,
+    hsl: &[f32; 24],
+) -> Vec<u8> {
     let n = size as usize;
     let (w, h) = (n * n, n);
     let inv = 1.0 / (n - 1) as f32;
@@ -365,6 +474,7 @@ pub fn bake_lut3d_curves(size: u32, params: GradeParams, curves: Option<&CurveSe
                     bi as f32 * inv,
                     params,
                     curves,
+                    hsl,
                 );
                 let x = bi * n + ri;
                 let idx = (gi * w + x) * 4;
@@ -651,8 +761,22 @@ mod tests {
         let identity = CurveSet::from_points(&[0.0, 0.0, 1.0, 1.0], &[], &[], &[]);
         // A lifting curve: [0,0, 0.5,0.65, 1,1].
         let lifted = CurveSet::from_points(&[0.0, 0.0, 0.5, 0.65, 1.0, 1.0], &[], &[], &[]);
-        let base = grade_pixel_c(0.5, 0.5, 0.5, GradeParams::default(), Some(&identity));
-        let up = grade_pixel_c(0.5, 0.5, 0.5, GradeParams::default(), Some(&lifted));
+        let base = grade_pixel_c(
+            0.5,
+            0.5,
+            0.5,
+            GradeParams::default(),
+            Some(&identity),
+            &ZERO_HSL,
+        );
+        let up = grade_pixel_c(
+            0.5,
+            0.5,
+            0.5,
+            GradeParams::default(),
+            Some(&lifted),
+            &ZERO_HSL,
+        );
         assert!(up[0] > base[0] + 0.05, "{up:?} vs {base:?}");
     }
 
@@ -669,16 +793,44 @@ mod tests {
             &[],
             &[],
         );
-        let atlas = bake_lut3d_curves(LUT_SIZE, params, Some(&curves));
+        let atlas = bake_lut3d_curves(LUT_SIZE, params, Some(&curves), &ZERO_HSL);
         let mut worst = 0.0f32;
         for k in 0..24 {
             let v = (k as f32 + 0.4) / 24.0;
-            let direct = grade_pixel_c(v, v * 0.8, v * 0.6, params, Some(&curves));
+            let direct = grade_pixel_c(v, v * 0.8, v * 0.6, params, Some(&curves), &ZERO_HSL);
             let via = sample_lut(&atlas, LUT_SIZE, v, v * 0.8, v * 0.6);
             for i in 0..3 {
                 worst = worst.max((direct[i] - via[i]).abs());
             }
         }
         assert!(worst < 0.03, "worst {worst}");
+    }
+
+    #[test]
+    fn hsl_is_neutral_at_zero() {
+        let c = [0.6, 0.3, 0.2];
+        assert_eq!(apply_hsl(c, &ZERO_HSL), c);
+    }
+
+    #[test]
+    fn hsl_band_targets_the_matching_hue() {
+        let mut hsl = ZERO_HSL;
+        hsl[1] = 1.0; // red band saturation +
+        let red_before = 0.8 - 0.2;
+        let red = apply_hsl([0.8, 0.2, 0.2], &hsl);
+        let blue = apply_hsl([0.2, 0.2, 0.8], &hsl);
+        assert!(red[0] - red[1] > red_before, "red should saturate: {red:?}");
+        assert!(
+            ((blue[2] - blue[0]) - red_before).abs() < 0.05,
+            "blue should be ~untouched: {blue:?}"
+        );
+    }
+
+    #[test]
+    fn hsl_hue_shift_rotates_the_hue() {
+        let mut hsl = ZERO_HSL;
+        hsl[0] = 1.0; // red band hue shift
+        let out = apply_hsl([0.8, 0.2, 0.2], &hsl);
+        assert!(out[1] > 0.2, "hue should rotate toward orange: {out:?}");
     }
 }

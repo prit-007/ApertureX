@@ -16,6 +16,7 @@ Future<Histogram> histogramGraded({
   required ColorParams params,
   required int sampleDim,
   required CurveParams curves,
+  required List<double> hsl,
 }) => RustLib.instance.api.crateApiHistogramHistogramGraded(
   rgba: rgba,
   width: width,
@@ -23,6 +24,7 @@ Future<Histogram> histogramGraded({
   params: params,
   sampleDim: sampleDim,
   curves: curves,
+  hsl: hsl,
 );
 
 /// 256-bin counts for R, G, B and luminance of the graded image.

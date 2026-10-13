@@ -1,4 +1,18 @@
+import 'package:flutter/foundation.dart' show listEquals;
+
 import 'tone_curve.dart';
+
+/// Neutral HSL mix: 8 bands × (hue, saturation, luminance), all zero.
+const List<double> neutralHsl = <double>[
+  0, 0, 0, //
+  0, 0, 0,
+  0, 0, 0,
+  0, 0, 0,
+  0, 0, 0,
+  0, 0, 0,
+  0, 0, 0,
+  0, 0, 0,
+];
 
 /// The non-destructive edit recipe — the single source of truth every UI shell
 /// reads and writes (ARCHITECTURE §16, ADR 0008).
@@ -37,6 +51,7 @@ class EditRecipe {
     this.redCurve = ToneCurve.identity,
     this.greenCurve = ToneCurve.identity,
     this.blueCurve = ToneCurve.identity,
+    this.hsl = neutralHsl,
   });
 
   /// Bumped only on a breaking schema change (ARCHITECTURE §16).
@@ -44,7 +59,7 @@ class EditRecipe {
   /// v2: grouped, catalog-driven parameter model (JSON still flat, v1 keys
   /// unchanged). v3: adds color-grading (split-tone) fields; older recipes read
   /// forward with those fields neutral. `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 4;
+  static const int currentSchemaVersion = 5;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -82,6 +97,9 @@ class EditRecipe {
   final ToneCurve greenCurve;
   final ToneCurve blueCurve;
 
+  /// HSL color mixer: 8 bands × (hue, saturation, luminance), each `[-1,1]`.
+  final List<double> hsl;
+
   /// Returns a copy with the given fields replaced. Fields left `null` keep
   /// their current value; the receiver is never mutated.
   EditRecipe copyWith({
@@ -109,6 +127,7 @@ class EditRecipe {
     ToneCurve? redCurve,
     ToneCurve? greenCurve,
     ToneCurve? blueCurve,
+    List<double>? hsl,
   }) {
     return EditRecipe(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -135,6 +154,7 @@ class EditRecipe {
       redCurve: redCurve ?? this.redCurve,
       greenCurve: greenCurve ?? this.greenCurve,
       blueCurve: blueCurve ?? this.blueCurve,
+      hsl: hsl ?? this.hsl,
     );
   }
 
@@ -164,6 +184,7 @@ class EditRecipe {
     'redCurve': redCurve.toJson(),
     'greenCurve': greenCurve.toJson(),
     'blueCurve': blueCurve.toJson(),
+    'hsl': hsl,
   };
 
   /// Deserialises from [json], tolerating missing keys (default to neutral) and
@@ -196,6 +217,9 @@ class EditRecipe {
       redCurve: ToneCurve.fromJson(json['redCurve']),
       greenCurve: ToneCurve.fromJson(json['greenCurve']),
       blueCurve: ToneCurve.fromJson(json['blueCurve']),
+      hsl:
+          (json['hsl'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
+          neutralHsl,
     );
   }
 
@@ -225,7 +249,8 @@ class EditRecipe {
       other.masterCurve == masterCurve &&
       other.redCurve == redCurve &&
       other.greenCurve == greenCurve &&
-      other.blueCurve == blueCurve;
+      other.blueCurve == blueCurve &&
+      listEquals(other.hsl, hsl);
 
   @override
   int get hashCode => Object.hash(
@@ -252,6 +277,7 @@ class EditRecipe {
       gradeHighlightSat,
     ),
     Object.hash(masterCurve, redCurve, greenCurve, blueCurve),
+    Object.hashAll(hsl),
   );
 
   @override

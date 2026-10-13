@@ -72,11 +72,12 @@ fn wire__crate__api__color__bake_lut3d_impl(
             let api_size = <u32>::sse_decode(&mut deserializer);
             let api_params = <crate::api::color::ColorParams>::sse_decode(&mut deserializer);
             let api_curves = <crate::api::color::CurveParams>::sse_decode(&mut deserializer);
+            let api_hsl = <Vec<f32>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Ok::<_, ()>(crate::api::color::bake_lut3d(
-                        api_size, api_params, api_curves,
+                        api_size, api_params, api_curves, api_hsl,
                     ))?;
                     std::result::Result::Ok(output_ok)
                 })())
@@ -289,11 +290,12 @@ fn wire__crate__api__color__grade_rgba_impl(
             let api_rgba = <Vec<u8>>::sse_decode(&mut deserializer);
             let api_params = <crate::api::color::ColorParams>::sse_decode(&mut deserializer);
             let api_curves = <crate::api::color::CurveParams>::sse_decode(&mut deserializer);
+            let api_hsl = <Vec<f32>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Ok::<_, ()>(crate::api::color::grade_rgba(
-                        api_rgba, api_params, api_curves,
+                        api_rgba, api_params, api_curves, api_hsl,
                     ))?;
                     std::result::Result::Ok(output_ok)
                 })())
@@ -329,6 +331,7 @@ fn wire__crate__api__histogram__histogram_graded_impl(
             let api_params = <crate::api::color::ColorParams>::sse_decode(&mut deserializer);
             let api_sample_dim = <u32>::sse_decode(&mut deserializer);
             let api_curves = <crate::api::color::CurveParams>::sse_decode(&mut deserializer);
+            let api_hsl = <Vec<f32>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ()>((move || {
@@ -339,6 +342,7 @@ fn wire__crate__api__histogram__histogram_graded_impl(
                         api_params,
                         api_sample_dim,
                         api_curves,
+                        api_hsl,
                     ))?;
                     std::result::Result::Ok(output_ok)
                 })())

@@ -141,6 +141,15 @@ void main() {
     });
   });
 
+  group('setHsl', () {
+    test('updates a band component and clamps', () {
+      notifier.setHsl(0, hue: 2.0, saturation: -0.5);
+      expect(state().recipe.hsl[0], 1.0); // clamped
+      expect(state().recipe.hsl[1], -0.5);
+      expect(state().recipe.hsl[2], 0.0);
+    });
+  });
+
   group('selectParameter', () {
     test('selects and clears the active parameter', () {
       notifier.selectParameter(Parameter.whites);

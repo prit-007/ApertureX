@@ -87,6 +87,7 @@ abstract class RustLibApi extends BaseApi {
     required int size,
     required ColorParams params,
     required CurveParams curves,
+    required List<double> hsl,
   });
 
   Future<Uint8List> crateApiEngineBrightenRgba({
@@ -117,6 +118,7 @@ abstract class RustLibApi extends BaseApi {
     required List<int> rgba,
     required ColorParams params,
     required CurveParams curves,
+    required List<double> hsl,
   });
 
   Future<Histogram> crateApiHistogramHistogramGraded({
@@ -126,6 +128,7 @@ abstract class RustLibApi extends BaseApi {
     required ColorParams params,
     required int sampleDim,
     required CurveParams curves,
+    required List<double> hsl,
   });
 
   Future<void> crateApiEngineInitApp();
@@ -192,6 +195,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required int size,
     required ColorParams params,
     required CurveParams curves,
+    required List<double> hsl,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -200,6 +204,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_u_32(size, serializer);
           sse_encode_box_autoadd_color_params(params, serializer);
           sse_encode_box_autoadd_curve_params(curves, serializer);
+          sse_encode_list_prim_f_32_loose(hsl, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -212,7 +217,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: null,
         ),
         constMeta: kCrateApiColorBakeLut3DConstMeta,
-        argValues: [size, params, curves],
+        argValues: [size, params, curves, hsl],
         apiImpl: this,
       ),
     );
@@ -220,7 +225,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiColorBakeLut3DConstMeta => const TaskConstMeta(
     debugName: "bake_lut3d",
-    argNames: ["size", "params", "curves"],
+    argNames: ["size", "params", "curves", "hsl"],
   );
 
   @override
@@ -397,6 +402,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required List<int> rgba,
     required ColorParams params,
     required CurveParams curves,
+    required List<double> hsl,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -405,6 +411,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_list_prim_u_8_loose(rgba, serializer);
           sse_encode_box_autoadd_color_params(params, serializer);
           sse_encode_box_autoadd_curve_params(curves, serializer);
+          sse_encode_list_prim_f_32_loose(hsl, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -417,7 +424,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: null,
         ),
         constMeta: kCrateApiColorGradeRgbaConstMeta,
-        argValues: [rgba, params, curves],
+        argValues: [rgba, params, curves, hsl],
         apiImpl: this,
       ),
     );
@@ -425,7 +432,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiColorGradeRgbaConstMeta => const TaskConstMeta(
     debugName: "grade_rgba",
-    argNames: ["rgba", "params", "curves"],
+    argNames: ["rgba", "params", "curves", "hsl"],
   );
 
   @override
@@ -436,6 +443,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required ColorParams params,
     required int sampleDim,
     required CurveParams curves,
+    required List<double> hsl,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -447,6 +455,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_box_autoadd_color_params(params, serializer);
           sse_encode_u_32(sampleDim, serializer);
           sse_encode_box_autoadd_curve_params(curves, serializer);
+          sse_encode_list_prim_f_32_loose(hsl, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -459,7 +468,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: null,
         ),
         constMeta: kCrateApiHistogramHistogramGradedConstMeta,
-        argValues: [rgba, width, height, params, sampleDim, curves],
+        argValues: [rgba, width, height, params, sampleDim, curves, hsl],
         apiImpl: this,
       ),
     );
@@ -468,7 +477,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiHistogramHistogramGradedConstMeta =>
       const TaskConstMeta(
         debugName: "histogram_graded",
-        argNames: ["rgba", "width", "height", "params", "sampleDim", "curves"],
+        argNames: [
+          "rgba",
+          "width",
+          "height",
+          "params",
+          "sampleDim",
+          "curves",
+          "hsl",
+        ],
       );
 
   @override
@@ -879,6 +896,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<double> dco_decode_list_prim_f_32_loose(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as List<double>;
+  }
+
+  @protected
   Float32List dco_decode_list_prim_f_32_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Float32List;
@@ -1047,6 +1070,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<double> sse_decode_list_prim_f_32_loose(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getFloat32List(len_);
+  }
+
+  @protected
   Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
@@ -1197,6 +1227,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_32(self.width, serializer);
     sse_encode_u_32(self.height, serializer);
+  }
+
+  @protected
+  void sse_encode_list_prim_f_32_loose(
+    List<double> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putFloat32List(
+      self is Float32List ? self : Float32List.fromList(self),
+    );
   }
 
   @protected

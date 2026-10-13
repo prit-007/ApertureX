@@ -21,6 +21,7 @@ class GradeSpec {
     this.redCurve = const <double>[],
     this.greenCurve = const <double>[],
     this.blueCurve = const <double>[],
+    this.hsl = neutralHsl,
   });
 
   final double exposure;
@@ -42,6 +43,9 @@ class GradeSpec {
   final List<double> greenCurve;
   final List<double> blueCurve;
 
+  /// HSL mixer: 8 bands × (hue, saturation, luminance).
+  final List<double> hsl;
+
   factory GradeSpec.fromRecipe(EditRecipe recipe) => GradeSpec(
     exposure: recipe.exposure,
     contrast: recipe.contrast,
@@ -59,5 +63,6 @@ class GradeSpec {
     redCurve: recipe.redCurve.points,
     greenCurve: recipe.greenCurve.points,
     blueCurve: recipe.blueCurve.points,
+    hsl: recipe.hsl,
   );
 }

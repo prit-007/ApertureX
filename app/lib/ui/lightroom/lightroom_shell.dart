@@ -3,12 +3,14 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../color/interactive_histogram.dart';
 import '../../edit/parameter.dart';
+import '../common/hsl_mixer.dart';
 import '../common/parameter_panel.dart';
 import '../common/tone_curve_editor.dart';
 
-/// Lightroom shell skeleton (P2): a histogram + category nav over a parameter
-/// panel. Reads/writes the shared controller through [ParameterPanel]; owns no
-/// edit state.
+enum _Tab { panel, curve, mix }
+
+/// Lightroom shell: histogram + tabs (categorized panels / tone curve / HSL
+/// mixer) over the shared recipe. Owns no edit state.
 class LightroomShell extends ConsumerStatefulWidget {
   const LightroomShell({super.key});
 
@@ -25,7 +27,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   ];
 
   RecipeSection _section = RecipeSection.light;
-  bool _curve = false;
+  _Tab _tab = _Tab.panel;
 
   @override
   Widget build(BuildContext context) {
@@ -45,53 +47,54 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             children: [
               for (final section in _sections)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: TextButton(
-                    onPressed: () => setState(() {
-                      _section = section;
-                      _curve = false;
-                    }),
-                    child: Text(
-                      section.name.toUpperCase(),
-                      style: TextStyle(
-                        color: !_curve && section == _section
-                            ? Colors.white
-                            : Colors.white38,
-                        fontSize: 12,
-                        letterSpacing: 1.2,
-                        fontWeight: !_curve && section == _section
-                            ? FontWeight.w700
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  ),
+                _tabButton(
+                  section.name.toUpperCase(),
+                  _tab == _Tab.panel && section == _section,
+                  () => setState(() {
+                    _section = section;
+                    _tab = _Tab.panel;
+                  }),
                 ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: TextButton(
-                  onPressed: () => setState(() => _curve = true),
-                  child: Text(
-                    'CURVE',
-                    style: TextStyle(
-                      color: _curve ? Colors.white : Colors.white38,
-                      fontSize: 12,
-                      letterSpacing: 1.2,
-                      fontWeight: _curve ? FontWeight.w700 : FontWeight.w400,
-                    ),
-                  ),
-                ),
+              _tabButton(
+                'CURVE',
+                _tab == _Tab.curve,
+                () => setState(() => _tab = _Tab.curve),
+              ),
+              _tabButton(
+                'MIX',
+                _tab == _Tab.mix,
+                () => setState(() => _tab = _Tab.mix),
               ),
             ],
           ),
         ),
         SizedBox(
           height: 260,
-          child: _curve
-              ? const ToneCurveEditor()
-              : ParameterPanel(section: _section),
+          child: switch (_tab) {
+            _Tab.panel => ParameterPanel(section: _section),
+            _Tab.curve => const ToneCurveEditor(),
+            _Tab.mix => const HslMixer(),
+          },
         ),
       ],
+    );
+  }
+
+  Widget _tabButton(String label, bool selected, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: TextButton(
+        onPressed: onPressed,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : Colors.white38,
+            fontSize: 12,
+            letterSpacing: 1.2,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+          ),
+        ),
+      ),
     );
   }
 }

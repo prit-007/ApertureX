@@ -69,4 +69,19 @@ void main() {
       expect(restored.schemaVersion, EditRecipe.currentSchemaVersion);
     });
   });
+
+  group('hsl mixer', () {
+    test('recipe hsl round-trips', () {
+      final hsl = List<double>.filled(24, 0)..[3] = 0.5;
+      final recipe = EditRecipe.neutral.copyWith(hsl: hsl);
+      expect(EditRecipe.fromJson(recipe.toJson()), recipe);
+      expect(EditRecipe.fromJson(recipe.toJson()).hsl[3], 0.5);
+    });
+
+    test('GradeSpec carries the hsl mix', () {
+      final hsl = List<double>.filled(24, 0)..[7] = -0.3;
+      final spec = GradeSpec.fromRecipe(EditRecipe.neutral.copyWith(hsl: hsl));
+      expect(spec.hsl[7], -0.3);
+    });
+  });
 }

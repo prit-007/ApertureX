@@ -6,29 +6,33 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `to_core`, `to_set`
+// These functions are ignored because they are not marked as `pub`: `to_core`, `to_hsl24`, `to_set`
 
-/// Bakes the grade (and tone curves) into a 3D LUT atlas.
+/// Bakes the grade (tone curves + HSL mix) into a 3D LUT atlas.
 Future<LutData> bakeLut3D({
   required int size,
   required ColorParams params,
   required CurveParams curves,
+  required List<double> hsl,
 }) => RustLib.instance.api.crateApiColorBakeLut3D(
   size: size,
   params: params,
   curves: curves,
+  hsl: hsl,
 );
 
-/// Applies the same pipeline (and tone curves) per-pixel over RGBA — the
+/// Applies the same pipeline (tone curves + HSL) per-pixel over RGBA — the
 /// export twin of the LUT.
 Future<Uint8List> gradeRgba({
   required List<int> rgba,
   required ColorParams params,
   required CurveParams curves,
+  required List<double> hsl,
 }) => RustLib.instance.api.crateApiColorGradeRgba(
   rgba: rgba,
   params: params,
   curves: curves,
+  hsl: hsl,
 );
 
 /// Point-wise grade parameters (all neutral at 0).

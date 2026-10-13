@@ -95,6 +95,7 @@ class TesseraEngine {
     size: size,
     params: _colorParams(spec),
     curves: _curveParams(spec),
+    hsl: spec.hsl,
   );
 
   /// Applies the same pipeline per-pixel over RGBA (the export twin of the LUT).
@@ -103,6 +104,7 @@ class TesseraEngine {
         rgba: rgba,
         params: _colorParams(spec),
         curves: _curveParams(spec),
+        hsl: spec.hsl,
       );
 
   // --- histogram (P2) -------------------------------------------------------
@@ -121,6 +123,7 @@ class TesseraEngine {
     sampleDim: sampleDim,
     params: _colorParams(spec),
     curves: _curveParams(spec),
+    hsl: spec.hsl,
   );
 
   // --- spatial (P2) ---------------------------------------------------------

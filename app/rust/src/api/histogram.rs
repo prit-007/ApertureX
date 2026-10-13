@@ -2,7 +2,7 @@
 //!
 //! Thin wrapper over [`crate::histogram`]: downsample + grade + bin on the CPU.
 
-use crate::api::color::{ColorParams, CurveParams};
+use crate::api::color::{to_hsl24, ColorParams, CurveParams};
 use crate::histogram;
 
 /// 256-bin counts for R, G, B and luminance of the graded image.
@@ -22,6 +22,7 @@ pub fn histogram_graded(
     params: ColorParams,
     sample_dim: u32,
     curves: CurveParams,
+    hsl: Vec<f32>,
 ) -> Histogram {
     let set = curves.to_set();
     let h = histogram::histogram_graded(
@@ -31,6 +32,7 @@ pub fn histogram_graded(
         params.to_core(),
         sample_dim,
         Some(&set),
+        &to_hsl24(&hsl),
     );
     Histogram {
         r: h.r,

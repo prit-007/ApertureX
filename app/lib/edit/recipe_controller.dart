@@ -59,6 +59,20 @@ class RecipeController extends Notifier<RecipeState> {
     state = state.copyWith(recipe: recipe);
   }
 
+  /// Updates one HSL color-mixer band (0..7) component(s). Live edit.
+  void setHsl(
+    int band, {
+    double? hue,
+    double? saturation,
+    double? luminance,
+  }) {
+    final values = [...state.recipe.hsl];
+    if (hue != null) values[band * 3] = hue.clamp(-1.0, 1.0);
+    if (saturation != null) values[band * 3 + 1] = saturation.clamp(-1.0, 1.0);
+    if (luminance != null) values[band * 3 + 2] = luminance.clamp(-1.0, 1.0);
+    state = state.copyWith(recipe: state.recipe.copyWith(hsl: values));
+  }
+
   /// Commits the live recipe as a new (optionally named) history node. Truncates
   /// the redo tail — this is where a branch happens.
   void commit({String? label}) {
