@@ -141,6 +141,19 @@ void main() {
     });
   });
 
+  group('history model', () {
+    test('loadRecipe replaces the session and resets history', () {
+      notifier.update(Parameter.exposure, 1.0);
+      notifier.commit();
+      notifier.loadRecipe(EditRecipe.neutral.copyWith(contrast: 0.5));
+
+      expect(state().recipe.contrast, 0.5);
+      expect(state().recipe.exposure, 0);
+      expect(state().history.length, 1);
+      expect(state().history.single.label, 'Loaded');
+    });
+  });
+
   group('geometry', () {
     test('rotate wraps around the four quarter turns', () {
       notifier.rotate(-1);

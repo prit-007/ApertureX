@@ -91,6 +91,16 @@ class RecipeController extends Notifier<RecipeState> {
     recipe: state.recipe.copyWith(straighten: degrees.clamp(-45.0, 45.0)),
   );
 
+  /// Replaces the session with [recipe] from a sidecar/preset, resetting the
+  /// history to a single node.
+  void loadRecipe(EditRecipe recipe, {String label = 'Loaded'}) {
+    state = RecipeState(
+      recipe: recipe,
+      history: [RecipeHistoryEntry(label, recipe)],
+      index: 0,
+    );
+  }
+
   /// Commits the live recipe as a new (optionally named) history node. Truncates
   /// the redo tail — this is where a branch happens.
   void commit({String? label}) {
