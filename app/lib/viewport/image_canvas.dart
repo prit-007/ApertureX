@@ -14,30 +14,36 @@ import '../color/lut_texture.dart';
 import '../color/spatial_spec.dart';
 import '../color/tat.dart';
 import '../edit/geometry_spec.dart';
-import '../edit/parameter.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_controller.dart';
 import '../engine/engine.dart';
+import '../gesture/gesture_interpreter.dart';
 
-/// The shared editing canvas, rendered by BOTH shells (ADR 0008 invariant:
-/// switching shells must not change the image).
+/// The shared editing canvas, rendered by BOTH shells (ADR 0008 invariant).
 ///
-/// Performance model (this is a **60fps editor**):
-///  * The source is decoded once at **proxy resolution** ([_maxPreviewDim]) —
-///    small enough that every CPU pass is milliseconds, big enough to look
-///    sharp on any phone. Export still runs full-resolution (see the editor).
-///  * The expensive, neighbour-aware **base** pass (geometry → spatial → masks)
-///    only re-runs when those settings change.
-///  * The point-wise **grade** is baked into a small 3D LUT (preview size) and
-///    only re-baked when a grade setting changes.
-///  * The GPU shader then grades the (already-processed) base texture in one
-///    texture fetch per pixel, so scrubbing a slider is just a cheap re-bake.
+/// **Gesture routing** (the fix for the classic zoom-vs-edit conflict): a single
+/// scale recognizer owns the surface and routes by finger count —
+///  * **1 finger** → the edit model (Snapseed shell, via [editInterpreter]) or,
+///    in the Lightroom shell, pan; the Target-Adjust tool uses it too;
+///  * **2+ fingers** → zoom + pan (the transform is built here);
+///  * **long-press** → before/after compare; **double-tap** → reset zoom.
+///
+/// **Rendering**: the image is drawn **width-fit** and edge-to-edge; all chrome
+/// floats above it as a HUD. Processing runs at proxy resolution with split
+/// base/grade bakes (see the field docs below).
 class ImageCanvas extends ConsumerStatefulWidget {
-  const ImageCanvas({super.key, this.imageBytes});
+  const ImageCanvas({
+    super.key,
+    this.imageBytes,
+    this.editInterpreter,
+  });
 
-  /// JPEG bytes of the photo being edited. When null the canvas falls back to
-  /// the built-in sample (used by the sample-editor entry point).
+  /// JPEG bytes of the photo being edited (null → the built-in sample).
   final Uint8List? imageBytes;
+
+  /// When non-null, 1-finger drags are routed to this Snapseed gesture model
+  /// instead of panning (Lightroom).
+  final GestureInterpreter? editInterpreter;
 
   @override
   ConsumerState<ImageCanvas> createState() => _ImageCanvasState();
@@ -45,8 +51,8 @@ class ImageCanvas extends ConsumerStatefulWidget {
 
 class _ImageCanvasState extends ConsumerState<ImageCanvas>
     with SingleTickerProviderStateMixin {
-  /// Longest side of the preview proxy. ~2MP for a 4:3 phone photo.
-  static const int _maxPreviewDim = 1600;
+  /// Longest side of the preview proxy. ~1.3MP for a 3:4 phone photo.
+  static const int _maxPreviewDim = 1440;
 
   /// Preview LUT is small; export grades per-pixel exactly.
   static const int _previewLutSize = 33;
@@ -67,13 +73,24 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   bool _failed = false;
   bool _comparing = false;
+  bool _needsReset = true;
   int _bakeToken = 0;
+  final ValueNotifier<bool> _busy = ValueNotifier(false);
   int? _lastBaseKey;
   int? _lastGradeKey;
   int _importedKey = 0;
   int? _tatBand;
   Timer? _debounce;
   late final AnimationController _compare;
+
+  // Transform (own, so it never fights the edit gestures).
+  double _scale = 1;
+  Offset _offset = Offset.zero;
+  double _minScale = 1;
+  double _startScale = 1;
+  Offset _startOffset = Offset.zero;
+  Offset _startFocal = Offset.zero;
+  bool _multi = false;
 
   @override
   void initState() {
@@ -91,19 +108,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       final jpeg =
           widget.imageBytes ??
           await TesseraEngine.syntheticJpeg(width: 1024, height: 1024);
-      var proxy = await _decode(jpeg);
-      // Safety: if a caller ever hands us something larger than the preview
-      // budget, re-decode downscaled rather than process full-resolution.
-      final longest = math.max(proxy.$3, proxy.$4);
-      if (longest > _maxPreviewDim) {
-        final scale = _maxPreviewDim / longest;
-        proxy.$1.dispose();
-        proxy = await _decode(
-          jpeg,
-          targetWidth: math.max(1, (proxy.$3 * scale).round()),
-          targetHeight: math.max(1, (proxy.$4 * scale).round()),
-        );
-      }
+      final proxy = await _decode(jpeg, maxDim: _maxPreviewDim);
       if (!mounted) {
         proxy.$1.dispose();
         return;
@@ -113,6 +118,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _sourceRgba = proxy.$2;
       _sourceWidth = proxy.$3;
       _sourceHeight = proxy.$4;
+      _needsReset = true;
       await _rebake(
         ref.read(recipeControllerProvider).recipe,
         baseChanged: true,
@@ -124,25 +130,41 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
   }
 
-  /// Decodes [jpeg] to an RGBA proxy. The bytes are wrapped in a length-known
-  /// [ui.ImmutableBuffer] so Skia reads them directly instead of copying through
-  /// a temp buffer; [targetWidth]/[targetHeight] let the platform codec
-  /// downscale during decode (DCT-scaled) when needed.
+  /// Decodes [bytes] to RGBA in a **single** pass, capping the long side at
+  /// [maxDim]. Reads the header via [ui.ImageDescriptor] (no pixel decode) so
+  /// the one scaled decode is sized correctly — never decodes full-res then
+  /// shrinks.
   Future<(ui.Image, Uint8List, int, int)> _decode(
-    Uint8List jpeg, {
-    int? targetWidth,
-    int? targetHeight,
+    Uint8List bytes, {
+    int? maxDim,
   }) async {
-    final buffer = await ui.ImmutableBuffer.fromUint8List(jpeg);
+    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+    final descriptor = await ui.ImageDescriptor.encoded(buffer);
+    var tw = descriptor.width;
+    var th = descriptor.height;
+    if (maxDim != null) {
+      final longest = math.max(tw, th);
+      if (longest > maxDim) {
+        final scale = maxDim / longest;
+        tw = math.max(1, (tw * scale).round());
+        th = math.max(1, (th * scale).round());
+      }
+    }
+    descriptor.dispose();
     final codec = await ui.instantiateImageCodecFromBuffer(
       buffer,
-      targetWidth: targetWidth,
-      targetHeight: targetHeight,
+      targetWidth: tw,
+      targetHeight: th,
     );
     final frame = await codec.getNextFrame();
     final image = frame.image;
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-    return (image, data!.buffer.asUint8List(), image.width, image.height);
+    // Copy into a tightly-packed buffer with an explicit offset+length — never
+    // rely on the ByteData's backing buffer being exactly w*h*4 at offset 0.
+    final pixels = Uint8List.fromList(
+      data!.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+    );
+    return (image, pixels, image.width, image.height);
   }
 
   Future<ui.Image> _imageFrom(Uint8List rgba, int w, int h) {
@@ -153,6 +175,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       h,
       ui.PixelFormat.rgba8888,
       completer.complete,
+      rowBytes: w * 4,
     );
     return completer.future;
   }
@@ -215,10 +238,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }) async {
     if (_program == null || _sourceRgba == null) return;
     final token = ++_bakeToken;
-    if (baseChanged) await _rebuildBase(recipe, token);
+    if (baseChanged) {
+      _busy.value = true;
+      await _rebuildBase(recipe, token);
+    }
     if (gradeChanged) await _rebuildLut(recipe, token);
     if (token != _bakeToken) return;
     await _rebuildHistogram(recipe, token);
+    if (token == _bakeToken) _busy.value = false;
   }
 
   Future<void> _rebuildBase(EditRecipe recipe, int token) async {
@@ -252,12 +279,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       return;
     }
     setState(() {
+      final dimsChanged = _baseW != geo.width || _baseH != geo.height;
       _baseImage?.dispose();
       _baseImage = image;
       _baseRgba = baseRgba;
       _baseW = geo.width;
       _baseH = geo.height;
       _lastBaseKey = _baseKey(recipe);
+      if (dimsChanged) _needsReset = true;
     });
   }
 
@@ -311,6 +340,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   void dispose() {
     _debounce?.cancel();
     _compare.dispose();
+    _busy.dispose();
     _source?.dispose();
     _baseImage?.dispose();
     _lut?.dispose();
@@ -340,100 +370,184 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     return LayoutBuilder(
       builder: (context, constraints) {
         final bounds = constraints.biggest;
-        final dst = _containRect(content, bounds);
-        return GestureDetector(
-          onLongPressStart: (_) {
-            setState(() => _comparing = true);
-            _compare.forward();
-          },
-          onLongPressEnd: (_) {
-            setState(() => _comparing = false);
-            _compare.reverse();
-          },
-          onLongPressCancel: () {
-            setState(() => _comparing = false);
-            _compare.reverse();
-          },
-          onPanStart: tat ? (d) => _tatTouch(d.localPosition, dst) : null,
-          onPanUpdate: tat ? (d) => _tatAdjust(d, dst) : null,
-          onPanEnd: tat
-              ? (_) => ref
-                    .read(recipeControllerProvider.notifier)
-                    .commit(label: 'TAT')
-              : null,
-          child: Stack(
-            children: [
-              AnimatedBuilder(
-                animation: _compare,
-                builder: (context, _) => CustomPaint(
-                  size: Size.infinite,
-                  painter: _CanvasPainter(
-                    shader: program.fragmentShader(),
-                    source: source,
-                    lut: lut,
-                    lutSize: _activeLutSize.toDouble(),
-                    dst: dst,
-                    blend: _compare.value,
-                  ),
-                ),
-              ),
-              if (tat && _tatBand != null)
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xCC000000),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Target: ${_bandNames[_tatBand!]}',
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ),
-                ),
-              if (_comparing)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.92),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'BEFORE',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onPrimary,
-                        fontSize: 12,
-                        letterSpacing: 1.5,
-                        fontWeight: FontWeight.w700,
+        final fitted = _widthFit(content, bounds);
+        if (_needsReset) {
+          _needsReset = false;
+          _minScale = math.min(1.0, bounds.height / fitted.height);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _resetView(fitted, bounds));
+          });
+        }
+
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onScaleStart: (d) => _onScaleStart(d, fitted, tat),
+                onScaleUpdate: (d) => _onScaleUpdate(d, fitted, bounds, tat),
+                onScaleEnd: (_) => _onScaleEnd(),
+                onDoubleTap: () => _resetView(fitted, bounds),
+                onLongPressStart: (_) {
+                  setState(() => _comparing = true);
+                  _compare.forward();
+                },
+                onLongPressEnd: (_) {
+                  setState(() => _comparing = false);
+                  _compare.reverse();
+                },
+                onLongPressCancel: () {
+                  setState(() => _comparing = false);
+                  _compare.reverse();
+                },
+                child: ClipRect(
+                  child: Transform(
+                    alignment: Alignment.topLeft,
+                    transform: Matrix4.identity()
+                      ..translateByDouble(_offset.dx, _offset.dy, 0, 1)
+                      ..scaleByDouble(_scale, _scale, _scale, 1),
+                    child: SizedBox(
+                      width: fitted.width,
+                      height: fitted.height,
+                      child: AnimatedBuilder(
+                        animation: _compare,
+                        builder: (context, _) => CustomPaint(
+                          size: fitted,
+                          painter: _CanvasPainter(
+                            shader: program.fragmentShader(),
+                            source: source,
+                            lut: lut,
+                            lutSize: _activeLutSize.toDouble(),
+                            dst: Offset.zero & fitted,
+                            blend: _compare.value,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-            ],
-          ),
+              ),
+            ),
+            if (tat && _tatBand != null)
+              Positioned(
+                top: 8,
+                left: 8,
+                child: IgnorePointer(
+                  child: _Chip(text: 'Target: ${_bandNames[_tatBand!]}'),
+                ),
+              ),
+            if (_comparing)
+              const Positioned(
+                top: 8,
+                right: 8,
+                child: IgnorePointer(child: _Badge(text: 'BEFORE')),
+              ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _busy,
+                builder: (context, busy, _) => busy
+                    ? LinearProgressIndicator(
+                        minHeight: 2,
+                        backgroundColor: Colors.transparent,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ),
+          ],
         );
       },
     );
   }
 
-  /// The largest rect of aspect [content] that fits centred inside [bounds].
-  static Rect _containRect(Size content, Size bounds) {
-    if (content.isEmpty || bounds.isEmpty) return Offset.zero & bounds;
-    final fit = applyBoxFit(BoxFit.contain, content, bounds);
-    return Alignment.center.inscribe(fit.destination, Offset.zero & bounds);
+  // --- gesture routing ------------------------------------------------------
+
+  void _onScaleStart(ScaleStartDetails d, Size fitted, bool tat) {
+    _startScale = _scale;
+    _startOffset = _offset;
+    _startFocal = d.localFocalPoint;
+    _multi = d.pointerCount >= 2;
+    if (_multi) return;
+    if (widget.editInterpreter != null) {
+      widget.editInterpreter!.onPanStart(d.localFocalPoint);
+    } else if (tat) {
+      _tatTouch(d.localFocalPoint, fitted);
+    }
+  }
+
+  void _onScaleUpdate(
+    ScaleUpdateDetails d,
+    Size fitted,
+    Size bounds,
+    bool tat,
+  ) {
+    if (d.pointerCount >= 2 || _multi) {
+      if (!_multi) {
+        widget.editInterpreter?.onPanEnd();
+        _multi = true;
+      }
+      final scale = (_startScale * d.scale).clamp(_minScale, _maxScale);
+      final scene = (_startFocal - _startOffset) / _startScale;
+      final offset = d.localFocalPoint - scene * scale;
+      setState(() {
+        _scale = scale;
+        _offset = _clampOffset(offset, scale, fitted, bounds);
+      });
+      return;
+    }
+    if (_multi) return;
+    if (widget.editInterpreter != null) {
+      widget.editInterpreter!.onPanUpdate(d.focalPointDelta);
+    } else if (tat) {
+      _tatAdjust(d.localFocalPoint, d.focalPointDelta, fitted);
+    } else {
+      setState(() {
+        _offset = _clampOffset(
+          _offset + d.focalPointDelta,
+          _scale,
+          fitted,
+          bounds,
+        );
+      });
+    }
+  }
+
+  void _onScaleEnd() {
+    if (!_multi) widget.editInterpreter?.onPanEnd();
+    _multi = false;
+  }
+
+  static const double _maxScale = 8;
+
+  Offset _toScene(Offset viewport) => (viewport - _offset) / _scale;
+
+  Offset _clampOffset(Offset o, double scale, Size fitted, Size bounds) {
+    final cw = fitted.width * scale;
+    final ch = fitted.height * scale;
+    final cx = cw <= bounds.width
+        ? (bounds.width - cw) / 2
+        : o.dx.clamp(bounds.width - cw, 0.0);
+    final cy = ch <= bounds.height
+        ? (bounds.height - ch) / 2
+        : o.dy.clamp(bounds.height - ch, 0.0);
+    return Offset(cx, cy);
+  }
+
+  /// The width-fit display size of [content] within [bounds].
+  static Size _widthFit(Size content, Size bounds) {
+    if (content.width <= 0 || bounds.width <= 0) return bounds;
+    return Size(bounds.width, bounds.width * content.height / content.width);
+  }
+
+  void _resetView(Size fitted, Size bounds) {
+    _scale = 1;
+    _offset = Offset(
+      0,
+      fitted.height < bounds.height ? (bounds.height - fitted.height) / 2 : 0,
+    );
   }
 
   static const List<String> _bandNames = [
@@ -447,13 +561,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     'Magenta',
   ];
 
-  int? _bandAt(Offset local, Rect dst) {
+  int? _bandAt(Offset viewportLocal, Size fitted) {
     final rgba = _baseRgba;
-    if (rgba == null || _baseW == 0 || dst.width == 0 || dst.height == 0) {
+    if (rgba == null || _baseW == 0 || fitted.width == 0 || fitted.height == 0) {
       return null;
     }
-    final fx = ((local.dx - dst.left) / dst.width).clamp(0.0, 1.0);
-    final fy = ((local.dy - dst.top) / dst.height).clamp(0.0, 1.0);
+    final scene = _toScene(viewportLocal);
+    final fx = (scene.dx / fitted.width).clamp(0.0, 1.0);
+    final fy = (scene.dy / fitted.height).clamp(0.0, 1.0);
+    if (scene.dx < 0 || scene.dy < 0) return null;
     final x = (fx * _baseW).clamp(0, _baseW - 1).toInt();
     final y = (fy * _baseH).clamp(0, _baseH - 1).toInt();
     final i = (y * _baseW + x) * 4;
@@ -461,50 +577,112 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     return nearestHslBand(hueOf(rgba[i], rgba[i + 1], rgba[i + 2]));
   }
 
-  void _tatTouch(Offset local, Rect dst) {
-    final band = _bandAt(local, dst);
+  void _tatTouch(Offset local, Size fitted) {
+    final band = _bandAt(local, fitted);
     if (band != null && band != _tatBand) setState(() => _tatBand = band);
   }
 
-  void _tatAdjust(DragUpdateDetails d, Rect dst) {
-    final band = _bandAt(d.localPosition, dst) ?? _tatBand;
+  void _tatAdjust(Offset local, Offset delta, Size fitted) {
+    final band = _bandAt(local, fitted) ?? _tatBand;
     if (band == null) return;
     if (band != _tatBand) setState(() => _tatBand = band);
     final notifier = ref.read(recipeControllerProvider.notifier);
     final saturation = ref.read(recipeControllerProvider).recipe.hsl[band * 3 + 1];
     notifier.setHsl(
       band,
-      saturation: saturation + (d.delta.dx / dst.width) * 2,
+      saturation: saturation + (delta.dx / fitted.width) * 2,
     );
   }
 
   Widget _placeholder() {
-    final exposure = valueOf(
-      ref.watch(recipeControllerProvider).recipe,
-      Parameter.exposure,
-    );
-    return GestureDetector(
-      onLongPressStart: (_) => setState(() => _comparing = true),
-      onLongPressEnd: (_) => setState(() => _comparing = false),
-      onLongPressCancel: () => setState(() => _comparing = false),
-      child: Container(
-        color: Colors.black,
-        alignment: Alignment.center,
+    final scheme = Theme.of(context).colorScheme;
+    if (_failed) {
+      return ColoredBox(
+        color: scheme.surfaceContainerLowest,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.broken_image_outlined,
+                color: scheme.onSurfaceVariant,
+                size: 48,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Preview unavailable',
+                style: TextStyle(color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return ColoredBox(
+      color: scheme.surfaceContainerLowest,
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.image_outlined, color: Colors.white24, size: 64),
-            const SizedBox(height: 8),
-            Text(
-              _comparing ? 'BEFORE' : 'AFTER',
-              style: const TextStyle(color: Colors.white70, letterSpacing: 2),
+            const SizedBox(
+              width: 36,
+              height: 36,
+              child: CircularProgressIndicator(strokeWidth: 3),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 16),
             Text(
-              'EV ${exposure >= 0 ? '+' : ''}${exposure.toStringAsFixed(2)}',
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
+              'Loading image…',
+              style: TextStyle(color: scheme.onSurfaceVariant),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xCC000000),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white, fontSize: 12),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.primary.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: scheme.onPrimary,
+          fontSize: 12,
+          letterSpacing: 1.5,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -533,7 +711,7 @@ class _CanvasPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawColor(const Color(0xFF101010), BlendMode.src);
+    canvas.drawColor(const Color(0xFF000000), BlendMode.src);
 
     shader
       ..setFloat(0, dst.width)
@@ -543,7 +721,6 @@ class _CanvasPainter extends CustomPainter {
       ..setImageSampler(1, lut);
     canvas.drawRect(dst, Paint()..shader = shader);
 
-    // Crossfade to the unedited source on top while comparing.
     if (blend > 0) {
       canvas.drawImageRect(
         source,

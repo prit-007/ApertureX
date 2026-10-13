@@ -47,7 +47,8 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('Edit'), findsOneWidget);
     expect(find.text('Export'), findsOneWidget);
@@ -91,7 +92,8 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
     // The saved recipe was loaded into the session.
     expect(container.read(recipeControllerProvider).recipe.exposure, 1.2);

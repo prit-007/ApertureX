@@ -234,11 +234,24 @@ pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u
     if p.is_neutral() {
         return rgba.to_vec();
     }
-    let mut out = denoise(rgba, w, h, p.denoise_luma, p.denoise_chroma);
-    out = apply_shadow_highlight(&out, w, h, p.shadows, p.highlights);
-    out = apply_clarity(&out, w, h, p.clarity);
-    out = apply_texture(&out, w, h, p.texture);
-    out = apply_sharpen(&out, w, h, p.sharpen, 2);
+    // Run only the ops that are actually engaged — each is a full-image pass, so
+    // touching a single slider must not pay for the other four.
+    let mut out = rgba.to_vec();
+    if p.denoise_luma != 0.0 || p.denoise_chroma != 0.0 {
+        out = denoise(&out, w, h, p.denoise_luma, p.denoise_chroma);
+    }
+    if p.shadows != 0.0 || p.highlights != 0.0 {
+        out = apply_shadow_highlight(&out, w, h, p.shadows, p.highlights);
+    }
+    if p.clarity != 0.0 {
+        out = apply_clarity(&out, w, h, p.clarity);
+    }
+    if p.texture != 0.0 {
+        out = apply_texture(&out, w, h, p.texture);
+    }
+    if p.sharpen != 0.0 {
+        out = apply_sharpen(&out, w, h, p.sharpen, 2);
+    }
     out
 }
 

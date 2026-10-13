@@ -1,10 +1,10 @@
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
-import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/haptics.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/recipe_mapping.dart';
@@ -13,7 +13,7 @@ import 'edit_hud.dart';
 
 /// Index of the radial-menu item nearest [pointer], for a menu centred at
 /// [center] with [count] items at [radius]. Item 0 sits at the top (−90°),
-/// going clockwise. Pure — used by the shell and unit-tested.
+/// going clockwise. Pure — unit-tested.
 int nearestRadialItem(Offset center, Offset pointer, int count, double radius) {
   var best = 0;
   var bestD = double.infinity;
@@ -29,52 +29,27 @@ int nearestRadialItem(Offset center, Offset pointer, int count, double radius) {
   return best;
 }
 
-/// Snapseed shell: the gesture FSM (swipe up/down = tool, left/right = scrub,
-/// tap = reset) plus a **thumb-zone radial menu** — long-press anywhere blooms
-/// an M3 radial tool menu under the thumb; drag to an icon to pick a tool
-/// (ADR 0011). All writes go to the one [recipeControllerProvider].
+/// The Snapseed shell is a pure **HUD**: it owns no gestures and no edit state.
+/// The shared [ImageCanvas] owns the touch model (1-finger edit, 2-finger
+/// zoom/pan), routes 1-finger drags to the interpreter, and this layer floats
+/// the active tool + recent changes over an edge-to-edge image, plus the radial
+/// tool menu.
 class SnapseedShell extends ConsumerStatefulWidget {
-  const SnapseedShell({super.key});
+  const SnapseedShell({
+    super.key,
+    required this.tool,
+    required this.onPickTool,
+  });
+
+  final GradeTool tool;
+  final ValueChanged<GradeTool> onPickTool;
 
   @override
   ConsumerState<SnapseedShell> createState() => _SnapseedShellState();
 }
 
 class _SnapseedShellState extends ConsumerState<SnapseedShell> {
-  static const double _radius = 84;
-
-  late final GestureInterpreter _fsm;
-  GradeTool _active = GradeTool.exposure;
-  Offset? _radialCenter;
-  int _radialHover = 0;
-
-  Parameter get _parameter => snapseedToolParameters[_active]!.first;
-
-  @override
-  void initState() {
-    super.initState();
-    _fsm = GestureInterpreter(
-      onToolChanged: (tool) {
-        // Instant-Snap: a crisp click as the carousel locks onto a tool.
-        HapticFeedback.selectionClick();
-        setState(() => _active = tool);
-      },
-      onValueChanged: (tool, delta) {
-        final parameter = snapseedToolParameters[tool]!.first;
-        final spec = specOf(parameter);
-        final previous = valueOf(
-          ref.read(recipeControllerProvider).recipe,
-          parameter,
-        );
-        ref.read(recipeControllerProvider.notifier).applyDelta(parameter, delta);
-        final next = clampParameter(parameter, previous + delta * spec.scale);
-        fireHaptic(hapticFor(previous, next, spec.min, spec.max));
-      },
-      onReset: (tool) => ref
-          .read(recipeControllerProvider.notifier)
-          .reset(snapseedToolParameters[tool]!.first),
-    );
-  }
+  bool _radialOpen = false;
 
   static IconData _icon(GradeTool tool) => switch (tool) {
     GradeTool.exposure => Icons.exposure,
@@ -82,125 +57,192 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
     GradeTool.saturation => Icons.water_drop,
   };
 
-  List<Offset> get _itemCenters {
-    final center = _radialCenter ?? Offset.zero;
-    final n = GradeTool.values.length;
-    return [
-      for (var i = 0; i < n; i++)
-        center +
-            Offset(
-              math.cos(-math.pi / 2 + i * 2 * math.pi / n) * _radius,
-              math.sin(-math.pi / 2 + i * 2 * math.pi / n) * _radius,
-            ),
-    ];
-  }
-
-  int _nearest(Offset p) =>
-      nearestRadialItem(_radialCenter ?? Offset.zero, p, GradeTool.values.length, _radius);
-
   @override
   Widget build(BuildContext context) {
-    final value = valueOf(
-      ref.watch(recipeControllerProvider).recipe,
-      _parameter,
-    );
+    final recipe = ref.watch(recipeControllerProvider).recipe;
+    final parameter = snapseedToolParameters[widget.tool]!.first;
+    final spec = specOf(parameter);
+    final value = valueOf(recipe, parameter);
     final scheme = Theme.of(context).colorScheme;
 
     return Stack(
-      clipBehavior: Clip.none,
       children: [
-        Column(
-          children: [
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onPanStart: (d) => _fsm.onPanStart(d.localPosition),
-              onPanUpdate: (d) => _fsm.onPanUpdate(d.delta),
-              onPanEnd: (_) => _fsm.onPanEnd(),
-              onLongPressStart: (d) => setState(() {
-                _radialCenter = d.localPosition;
-                _radialHover = 0;
-                HapticFeedback.selectionClick();
-              }),
-              onLongPressMoveUpdate: (d) {
-                final i = _nearest(d.localPosition);
-                if (i != _radialHover) {
-                  setState(() => _radialHover = i);
-                  HapticFeedback.selectionClick();
-                }
-              },
-              onLongPressEnd: (_) => setState(() {
-                _active = GradeTool.values[_radialHover];
-                _radialCenter = null;
-              }),
-              child: Container(
-                height: 120,
-                color: scheme.surfaceContainerLow,
-                alignment: Alignment.center,
-                child: Stack(
-                  children: [
-                    const Positioned.fill(child: EditHud()),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            specOf(_parameter).label,
-                            style: TextStyle(
-                              color: scheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              color: scheme.primary,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(
-                'swipe to scrub · long-press for the radial tool menu',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
-              ),
-            ),
-          ],
-        ),
-        if (_radialCenter != null)
-          for (var i = 0; i < GradeTool.values.length; i++)
-            Positioned(
-              left: _itemCenters[i].dx - 28,
-              top: _itemCenters[i].dy - 28,
-              child: Container(
-                key: Key('radial-${GradeTool.values[i].name}'),
-                width: 56,
-                height: 56,
+        // Recent-changes HUD (top-right).
+        const Positioned(top: 0, right: 0, child: EditHud()),
+
+        // Active-tool HUD (bottom).
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: Insets.lg),
+              child: DecoratedBox(
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: i == _radialHover
-                      ? scheme.primary
-                      : scheme.surfaceContainerHighest,
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.85),
+                  borderRadius: Radii.pillAll,
                 ),
-                child: Icon(
-                  _icon(GradeTool.values[i]),
-                  color: i == _radialHover
-                      ? scheme.onPrimary
-                      : scheme.onSurfaceVariant,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(Insets.lg, Insets.xs, Insets.sm, Insets.xs),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        spec.label,
+                        style: themeStyle(context, FontWeight.w600),
+                      ),
+                      const SizedBox(width: Insets.md),
+                      Text(
+                        '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
+                        style: themeStyle(context, FontWeight.w700).copyWith(
+                          color: scheme.primary,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      const SizedBox(width: Insets.sm),
+                      IconButton(
+                        tooltip: 'Tools',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => setState(() => _radialOpen = true),
+                        icon: const Icon(Icons.radio_button_checked, size: 20),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
+          ),
+        ),
+
+        // Radial tool menu.
+        if (_radialOpen)
+          Positioned.fill(
+            child: _RadialMenu(
+              active: widget.tool,
+              iconOf: _icon,
+              onDismiss: () => setState(() => _radialOpen = false),
+              onPick: (t) {
+                setState(() => _radialOpen = false);
+                widget.onPickTool(t);
+              },
+            ),
+          ),
       ],
+    );
+  }
+}
+
+TextStyle themeStyle(BuildContext context, FontWeight weight) =>
+    Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: weight);
+
+/// A tap-to-pick radial menu of every gesture tool.
+class _RadialMenu extends StatelessWidget {
+  const _RadialMenu({
+    required this.active,
+    required this.iconOf,
+    required this.onDismiss,
+    required this.onPick,
+  });
+
+  final GradeTool active;
+  final IconData Function(GradeTool) iconOf;
+  final VoidCallback onDismiss;
+  final ValueChanged<GradeTool> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final tools = GradeTool.values;
+    const radius = 96.0;
+    const itemRadius = 28.0;
+    const half = radius + itemRadius;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: onDismiss,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: ColoredBox(color: scheme.surface.withValues(alpha: 0.5)),
+            ),
+          ),
+        ),
+        Center(
+          child: SizedBox(
+            width: half * 2,
+            height: half * 2,
+            child: Stack(
+              children: [
+                for (var i = 0; i < tools.length; i++)
+                  Positioned(
+                    left: half +
+                        math.cos(-math.pi / 2 + i * 2 * math.pi / tools.length) *
+                            radius -
+                        itemRadius,
+                    top: half +
+                        math.sin(-math.pi / 2 + i * 2 * math.pi / tools.length) *
+                            radius -
+                        itemRadius,
+                    child: _RadialItem(
+                      icon: iconOf(tools[i]),
+                      label: tools[i].name,
+                      selected: tools[i] == active,
+                      onTap: () => onPick(tools[i]),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RadialItem extends StatelessWidget {
+  const _RadialItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      key: Key('radial-$label'),
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: selected ? scheme.primary : scheme.surfaceContainerHighest,
+            ),
+            child: Icon(
+              icon,
+              color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

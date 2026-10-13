@@ -373,13 +373,14 @@ class _Cell extends StatelessWidget {
 }
 
 /// A thumbnail that resolves **once** per asset (the previous implementation
-/// re-decoded on every rebuild — a major jank source).
+/// re-decoded on every rebuild — a major jank source), and decodes at the
+/// displayed pixel size ([cacheWidth]) so the codec never inflates a big bitmap.
 class GalleryThumbnail extends StatefulWidget {
   const GalleryThumbnail({
     super.key,
     required this.source,
     required this.assetId,
-    this.size = 256,
+    this.size = 512,
   });
 
   final GallerySource source;
@@ -407,17 +408,30 @@ class _GalleryThumbnailState extends State<GalleryThumbnail> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return FutureBuilder<Uint8List>(
-      future: _future,
-      builder: (context, snapshot) {
-        final bytes = snapshot.data;
-        if (bytes == null || bytes.isEmpty) {
-          return ColoredBox(
-            color: scheme.surfaceContainerHigh,
-            child: Icon(Icons.image_outlined, color: scheme.onSurfaceVariant),
-          );
-        }
-        return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final dpr = MediaQuery.devicePixelRatioOf(context);
+        final cacheWidth = constraints.maxWidth.isFinite
+            ? (constraints.maxWidth * dpr).round()
+            : null;
+        return FutureBuilder<Uint8List>(
+          future: _future,
+          builder: (context, snapshot) {
+            final bytes = snapshot.data;
+            if (bytes == null || bytes.isEmpty) {
+              return ColoredBox(
+                color: scheme.surfaceContainerHigh,
+                child: Icon(Icons.image_outlined, color: scheme.onSurfaceVariant),
+              );
+            }
+            return Image.memory(
+              bytes,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              cacheWidth: cacheWidth,
+            );
+          },
+        );
       },
     );
   }

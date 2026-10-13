@@ -221,7 +221,7 @@ class _TrackPainter extends CustomPainter {
       Offset(0, cy),
       Offset(size.width, cy),
       Paint()
-        ..color = scheme.surfaceContainerHighest
+        ..color = scheme.onSurface.withValues(alpha: 0.20)
         ..strokeWidth = trackH
         ..strokeCap = StrokeCap.round,
     );
