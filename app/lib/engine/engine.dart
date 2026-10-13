@@ -99,6 +99,12 @@ class TesseraEngine {
     double temperature = 0,
     double tint = 0,
     double vibrance = 0,
+    double gradeShadowHue = 0,
+    double gradeShadowSat = 0,
+    double gradeMidHue = 0,
+    double gradeMidSat = 0,
+    double gradeHighlightHue = 0,
+    double gradeHighlightSat = 0,
   }) => rust_color.bakeLut3D(
     size: size,
     params: rust_color.ColorParams(
@@ -108,6 +114,12 @@ class TesseraEngine {
       temperature: temperature,
       tint: tint,
       vibrance: vibrance,
+      gradeShadowHue: gradeShadowHue,
+      gradeShadowSat: gradeShadowSat,
+      gradeMidHue: gradeMidHue,
+      gradeMidSat: gradeMidSat,
+      gradeHighlightHue: gradeHighlightHue,
+      gradeHighlightSat: gradeHighlightSat,
     ),
   );
 
@@ -121,6 +133,12 @@ class TesseraEngine {
     double temperature = 0,
     double tint = 0,
     double vibrance = 0,
+    double gradeShadowHue = 0,
+    double gradeShadowSat = 0,
+    double gradeMidHue = 0,
+    double gradeMidSat = 0,
+    double gradeHighlightHue = 0,
+    double gradeHighlightSat = 0,
   }) => rust_color.gradeRgba(
     rgba: rgba,
     params: rust_color.ColorParams(
@@ -130,6 +148,12 @@ class TesseraEngine {
       temperature: temperature,
       tint: tint,
       vibrance: vibrance,
+      gradeShadowHue: gradeShadowHue,
+      gradeShadowSat: gradeShadowSat,
+      gradeMidHue: gradeMidHue,
+      gradeMidSat: gradeMidSat,
+      gradeHighlightHue: gradeHighlightHue,
+      gradeHighlightSat: gradeHighlightSat,
     ),
   );
 }

@@ -95,6 +95,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       temperature: recipe.temperature,
       tint: recipe.tint,
       vibrance: recipe.vibrance,
+      gradeShadowHue: recipe.gradeShadowHue,
+      gradeShadowSat: recipe.gradeShadowSat,
+      gradeMidHue: recipe.gradeMidHue,
+      gradeMidSat: recipe.gradeMidSat,
+      gradeHighlightHue: recipe.gradeHighlightHue,
+      gradeHighlightSat: recipe.gradeHighlightSat,
     );
     final image = await lutAtlasToImage(
       LutAtlas(size: data.size, rgba: data.rgba),

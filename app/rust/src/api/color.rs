@@ -14,6 +14,12 @@ pub struct ColorParams {
     pub temperature: f32,
     pub tint: f32,
     pub vibrance: f32,
+    pub grade_shadow_hue: f32,
+    pub grade_shadow_sat: f32,
+    pub grade_mid_hue: f32,
+    pub grade_mid_sat: f32,
+    pub grade_highlight_hue: f32,
+    pub grade_highlight_sat: f32,
 }
 
 impl ColorParams {
@@ -25,6 +31,12 @@ impl ColorParams {
             temperature: self.temperature,
             tint: self.tint,
             vibrance: self.vibrance,
+            grade_shadow_hue: self.grade_shadow_hue,
+            grade_shadow_sat: self.grade_shadow_sat,
+            grade_mid_hue: self.grade_mid_hue,
+            grade_mid_sat: self.grade_mid_sat,
+            grade_highlight_hue: self.grade_highlight_hue,
+            grade_highlight_sat: self.grade_highlight_sat,
         }
     }
 }

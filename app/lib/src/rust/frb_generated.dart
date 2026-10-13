@@ -501,8 +501,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ColorParams dco_decode_color_params(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    if (arr.length != 12)
+      throw Exception('unexpected arr length: expect 12 but see ${arr.length}');
     return ColorParams(
       exposure: dco_decode_f_32(arr[0]),
       contrast: dco_decode_f_32(arr[1]),
@@ -510,6 +510,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       temperature: dco_decode_f_32(arr[3]),
       tint: dco_decode_f_32(arr[4]),
       vibrance: dco_decode_f_32(arr[5]),
+      gradeShadowHue: dco_decode_f_32(arr[6]),
+      gradeShadowSat: dco_decode_f_32(arr[7]),
+      gradeMidHue: dco_decode_f_32(arr[8]),
+      gradeMidSat: dco_decode_f_32(arr[9]),
+      gradeHighlightHue: dco_decode_f_32(arr[10]),
+      gradeHighlightSat: dco_decode_f_32(arr[11]),
     );
   }
 
@@ -618,6 +624,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_temperature = sse_decode_f_32(deserializer);
     var var_tint = sse_decode_f_32(deserializer);
     var var_vibrance = sse_decode_f_32(deserializer);
+    var var_gradeShadowHue = sse_decode_f_32(deserializer);
+    var var_gradeShadowSat = sse_decode_f_32(deserializer);
+    var var_gradeMidHue = sse_decode_f_32(deserializer);
+    var var_gradeMidSat = sse_decode_f_32(deserializer);
+    var var_gradeHighlightHue = sse_decode_f_32(deserializer);
+    var var_gradeHighlightSat = sse_decode_f_32(deserializer);
     return ColorParams(
       exposure: var_exposure,
       contrast: var_contrast,
@@ -625,6 +637,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       temperature: var_temperature,
       tint: var_tint,
       vibrance: var_vibrance,
+      gradeShadowHue: var_gradeShadowHue,
+      gradeShadowSat: var_gradeShadowSat,
+      gradeMidHue: var_gradeMidHue,
+      gradeMidSat: var_gradeMidSat,
+      gradeHighlightHue: var_gradeHighlightHue,
+      gradeHighlightSat: var_gradeHighlightSat,
     );
   }
 
@@ -733,6 +751,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.temperature, serializer);
     sse_encode_f_32(self.tint, serializer);
     sse_encode_f_32(self.vibrance, serializer);
+    sse_encode_f_32(self.gradeShadowHue, serializer);
+    sse_encode_f_32(self.gradeShadowSat, serializer);
+    sse_encode_f_32(self.gradeMidHue, serializer);
+    sse_encode_f_32(self.gradeMidSat, serializer);
+    sse_encode_f_32(self.gradeHighlightHue, serializer);
+    sse_encode_f_32(self.gradeHighlightSat, serializer);
   }
 
   @protected

@@ -29,6 +29,13 @@ pub struct GradeParams {
     pub tint: f32,
     /// Vibrance (protects already-saturated pixels), unitless around 0.
     pub vibrance: f32,
+    /// Split-tone: hue (0..1) and strength (0..1) per tonal zone.
+    pub grade_shadow_hue: f32,
+    pub grade_shadow_sat: f32,
+    pub grade_mid_hue: f32,
+    pub grade_mid_sat: f32,
+    pub grade_highlight_hue: f32,
+    pub grade_highlight_sat: f32,
 }
 
 /// sRGB EOTF: encoded `[0,1]` → linear `[0,1]`.
@@ -125,6 +132,48 @@ fn vibrance(c: [f32; 3], amount: f32) -> [f32; 3] {
     ]
 }
 
+/// Fully-saturated RGB for a hue in `[0,1)` (HSV with S=V=1).
+fn hue_rgb(hue: f32) -> [f32; 3] {
+    let h = hue.rem_euclid(1.0) * 6.0;
+    let x = 1.0 - (h.rem_euclid(2.0) - 1.0).abs();
+    match h as i32 {
+        0 => [1.0, x, 0.0],
+        1 => [x, 1.0, 0.0],
+        2 => [0.0, 1.0, x],
+        3 => [0.0, x, 1.0],
+        4 => [x, 0.0, 1.0],
+        _ => [1.0, 0.0, x],
+    }
+}
+
+/// Split-tone color grading: shift each pixel toward the shadow/mid/highlight
+/// hue weighted by where its luminance sits, adding a **luma-preserving** chroma
+/// offset so tones separate without darkening or brightening (ARCHITECTURE §8).
+fn color_grade(c: [f32; 3], p: GradeParams) -> [f32; 3] {
+    let luma = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    let shadow_w = (1.0 - luma * 2.0).clamp(0.0, 1.0);
+    let highlight_w = ((luma - 0.5) * 2.0).clamp(0.0, 1.0);
+    let mid_w = (1.0 - shadow_w - highlight_w).clamp(0.0, 1.0);
+
+    let mut out = c;
+    for (hue, sat, weight) in [
+        (p.grade_shadow_hue, p.grade_shadow_sat, shadow_w),
+        (p.grade_mid_hue, p.grade_mid_sat, mid_w),
+        (p.grade_highlight_hue, p.grade_highlight_sat, highlight_w),
+    ] {
+        let factor = sat * weight * 0.5;
+        if factor <= 0.0 {
+            continue;
+        }
+        let tint = hue_rgb(hue);
+        let tint_luma = 0.2126 * tint[0] + 0.7152 * tint[1] + 0.0722 * tint[2];
+        for (o, t) in out.iter_mut().zip(tint) {
+            *o += (t - tint_luma) * factor;
+        }
+    }
+    out
+}
+
 /// Applies the point-wise colour pipeline to one sRGB-encoded pixel.
 pub fn grade_pixel_srgb(r: f32, g: f32, b: f32, p: GradeParams) -> [f32; 3] {
     // 1. decode to linear.
@@ -152,6 +201,9 @@ pub fn grade_pixel_srgb(r: f32, g: f32, b: f32, p: GradeParams) -> [f32; 3] {
     for v in &mut c {
         *v = luma + (*v - luma) * (1.0 + p.saturation);
     }
+
+    // 6. color grading (split tone, luma-weighted).
+    c = color_grade(c, p);
 
     [
         c[0].clamp(0.0, 1.0),
@@ -285,6 +337,12 @@ mod tests {
             temperature: 0.4,
             tint: -0.2,
             vibrance: 0.5,
+            grade_shadow_hue: 0.6,
+            grade_shadow_sat: 0.3,
+            grade_mid_hue: 0.1,
+            grade_mid_sat: 0.2,
+            grade_highlight_hue: 0.1,
+            grade_highlight_sat: 0.25,
         };
         let atlas = bake_lut3d(LUT_SIZE, params);
         let mut worst = 0.0f32;
@@ -373,5 +431,61 @@ mod tests {
         let muted_delta = (muted_out[0] - muted_out[1]).abs() - (muted[0] - muted[1]).abs();
         let vivid_delta = (vivid_out[0] - vivid_out[1]).abs() - (vivid[0] - vivid[1]).abs();
         assert!(muted_delta > vivid_delta);
+    }
+
+    #[test]
+    fn color_grading_is_neutral_at_zero() {
+        let base = [0.4, 0.5, 0.6];
+        let out = grade_pixel_srgb(base[0], base[1], base[2], GradeParams::default());
+        for k in 0..3 {
+            assert!((out[k] - base[k]).abs() < 1e-4, "{out:?}");
+        }
+    }
+
+    #[test]
+    fn shadow_grade_tints_shadows_not_highlights() {
+        // Blue shadow tint (hue ~0.66), highlights warm (hue ~0.08).
+        let p = GradeParams {
+            grade_shadow_hue: 0.66,
+            grade_shadow_sat: 1.0,
+            ..Default::default()
+        };
+        let shadow = grade_pixel_srgb(0.15, 0.15, 0.15, p);
+        let highlight = grade_pixel_srgb(0.9, 0.9, 0.9, p);
+
+        // In the shadow, blue is pushed above red.
+        assert!(shadow[2] > shadow[0], "shadow not blue: {shadow:?}");
+        // The highlight is essentially untouched (shadow weight ~0).
+        assert!((highlight[2] - highlight[0]).abs() < 0.02, "{highlight:?}");
+    }
+
+    #[test]
+    fn highlight_grade_tints_highlights_not_shadows() {
+        let p = GradeParams {
+            grade_highlight_hue: 0.08, // warm
+            grade_highlight_sat: 1.0,
+            ..Default::default()
+        };
+        let highlight = grade_pixel_srgb(0.9, 0.9, 0.9, p);
+        let shadow = grade_pixel_srgb(0.1, 0.1, 0.1, p);
+
+        assert!(
+            highlight[0] > highlight[2],
+            "highlight not warm: {highlight:?}"
+        );
+        assert!((shadow[0] - shadow[2]).abs() < 0.02, "{shadow:?}");
+    }
+
+    #[test]
+    fn color_grading_preserves_luma() {
+        let p = GradeParams {
+            grade_mid_hue: 0.33,
+            grade_mid_sat: 0.8,
+            ..Default::default()
+        };
+        let base = [0.45, 0.5, 0.55];
+        let out = grade_pixel_srgb(base[0], base[1], base[2], p);
+        let luma = |c: [f32; 3]| 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+        assert!((luma(out) - luma(base)).abs() < 0.01, "{out:?}");
     }
 }

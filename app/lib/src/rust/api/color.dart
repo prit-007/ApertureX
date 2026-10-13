@@ -27,6 +27,12 @@ class ColorParams {
   final double temperature;
   final double tint;
   final double vibrance;
+  final double gradeShadowHue;
+  final double gradeShadowSat;
+  final double gradeMidHue;
+  final double gradeMidSat;
+  final double gradeHighlightHue;
+  final double gradeHighlightSat;
 
   const ColorParams({
     required this.exposure,
@@ -35,6 +41,12 @@ class ColorParams {
     required this.temperature,
     required this.tint,
     required this.vibrance,
+    required this.gradeShadowHue,
+    required this.gradeShadowSat,
+    required this.gradeMidHue,
+    required this.gradeMidSat,
+    required this.gradeHighlightHue,
+    required this.gradeHighlightSat,
   });
 
   @override
@@ -44,7 +56,13 @@ class ColorParams {
       saturation.hashCode ^
       temperature.hashCode ^
       tint.hashCode ^
-      vibrance.hashCode;
+      vibrance.hashCode ^
+      gradeShadowHue.hashCode ^
+      gradeShadowSat.hashCode ^
+      gradeMidHue.hashCode ^
+      gradeMidSat.hashCode ^
+      gradeHighlightHue.hashCode ^
+      gradeHighlightSat.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -56,7 +74,13 @@ class ColorParams {
           saturation == other.saturation &&
           temperature == other.temperature &&
           tint == other.tint &&
-          vibrance == other.vibrance;
+          vibrance == other.vibrance &&
+          gradeShadowHue == other.gradeShadowHue &&
+          gradeShadowSat == other.gradeShadowSat &&
+          gradeMidHue == other.gradeMidHue &&
+          gradeMidSat == other.gradeMidSat &&
+          gradeHighlightHue == other.gradeHighlightHue &&
+          gradeHighlightSat == other.gradeHighlightSat;
 }
 
 /// A colour pipeline baked into a 2D-packed RGBA8 LUT atlas.

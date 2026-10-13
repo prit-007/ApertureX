@@ -1,11 +1,10 @@
 /// The non-destructive edit recipe — the single source of truth every UI shell
 /// reads and writes (ARCHITECTURE §16, ADR 0008).
 ///
-/// Versioned JSON. The schema is a **Lightroom-aligned superset**; this first
-/// slice models the Light and Color groups. Fields the preview shader cannot
-/// yet render (highlights/shadows/whites/blacks/temperature/tint/vibrance) are
-/// carried **forward-compatible**: stored, round-tripped and equal-tested, but
-/// not yet applied by the renderer.
+/// Versioned JSON. The schema is a **Lightroom-aligned superset**; this slice
+/// models the Light, Color, and Color-Grading groups. Fields the renderer
+/// cannot yet apply are carried **forward-compatible**: stored, round-tripped
+/// and equal-tested, but not yet applied.
 ///
 /// Values are neutral-at-zero so an all-zero recipe is an identity transform.
 class EditRecipe {
@@ -21,15 +20,21 @@ class EditRecipe {
     this.tint = 0,
     this.vibrance = 0,
     this.saturation = 0,
+    // Color grading (split toning): hue + strength per tonal zone.
+    this.gradeShadowHue = 0,
+    this.gradeShadowSat = 0,
+    this.gradeMidHue = 0,
+    this.gradeMidSat = 0,
+    this.gradeHighlightHue = 0,
+    this.gradeHighlightSat = 0,
   });
 
   /// Bumped only on a breaking schema change (ARCHITECTURE §16).
   ///
-  /// v2: the parameter model moved to a grouped, catalog-driven superset
-  /// ([`RecipeSection`] in `parameter.dart`), but the JSON stays *flat* with
-  /// the identical keys as v1, so a v1 recipe reads unchanged. `fromJson`
-  /// migrates any supported version forward to this one.
-  static const int currentSchemaVersion = 2;
+  /// v2: grouped, catalog-driven parameter model (JSON still flat, v1 keys
+  /// unchanged). v3: adds color-grading (split-tone) fields; older recipes read
+  /// forward with those fields neutral. `fromJson` always migrates to this.
+  static const int currentSchemaVersion = 3;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -45,10 +50,18 @@ class EditRecipe {
   final double blacks; // unitless, neutral 0 (not yet rendered).
 
   // Color.
-  final double temperature; // unitless, neutral 0 (not yet rendered).
-  final double tint; // unitless, neutral 0 (not yet rendered).
-  final double vibrance; // unitless, neutral 0 (not yet rendered).
+  final double temperature; // unitless, neutral 0.
+  final double tint; // unitless, neutral 0.
+  final double vibrance; // unitless, neutral 0.
   final double saturation; // unitless, neutral 0.
+
+  // Color grading (split toning): hue 0..1, strength 0..1, neutral 0.
+  final double gradeShadowHue;
+  final double gradeShadowSat;
+  final double gradeMidHue;
+  final double gradeMidSat;
+  final double gradeHighlightHue;
+  final double gradeHighlightSat;
 
   /// Returns a copy with the given fields replaced. Fields left `null` keep
   /// their current value; the receiver is never mutated.
@@ -64,6 +77,12 @@ class EditRecipe {
     double? tint,
     double? vibrance,
     double? saturation,
+    double? gradeShadowHue,
+    double? gradeShadowSat,
+    double? gradeMidHue,
+    double? gradeMidSat,
+    double? gradeHighlightHue,
+    double? gradeHighlightSat,
   }) {
     return EditRecipe(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -77,10 +96,16 @@ class EditRecipe {
       tint: tint ?? this.tint,
       vibrance: vibrance ?? this.vibrance,
       saturation: saturation ?? this.saturation,
+      gradeShadowHue: gradeShadowHue ?? this.gradeShadowHue,
+      gradeShadowSat: gradeShadowSat ?? this.gradeShadowSat,
+      gradeMidHue: gradeMidHue ?? this.gradeMidHue,
+      gradeMidSat: gradeMidSat ?? this.gradeMidSat,
+      gradeHighlightHue: gradeHighlightHue ?? this.gradeHighlightHue,
+      gradeHighlightSat: gradeHighlightSat ?? this.gradeHighlightSat,
     );
   }
 
-  /// Serialises to a plain JSON-ready map.
+  /// Serialises to a plain JSON-ready map (flat keys).
   Map<String, Object?> toJson() => <String, Object?>{
     'schemaVersion': schemaVersion,
     'exposure': exposure,
@@ -93,11 +118,16 @@ class EditRecipe {
     'tint': tint,
     'vibrance': vibrance,
     'saturation': saturation,
+    'gradeShadowHue': gradeShadowHue,
+    'gradeShadowSat': gradeShadowSat,
+    'gradeMidHue': gradeMidHue,
+    'gradeMidSat': gradeMidSat,
+    'gradeHighlightHue': gradeHighlightHue,
+    'gradeHighlightSat': gradeHighlightSat,
   };
 
   /// Deserialises from [json], tolerating missing keys (default to neutral) and
-  /// ignoring unknown keys so an older reader survives a newer recipe. Any
-  /// supported version (v1 flat, v2 flat — same shape) migrates forward to
+  /// ignoring unknown keys. Any supported version migrates forward to
   /// [currentSchemaVersion].
   factory EditRecipe.fromJson(Map<String, Object?> json) {
     double asDouble(String key) => (json[key] as num?)?.toDouble() ?? 0;
@@ -113,6 +143,12 @@ class EditRecipe {
       tint: asDouble('tint'),
       vibrance: asDouble('vibrance'),
       saturation: asDouble('saturation'),
+      gradeShadowHue: asDouble('gradeShadowHue'),
+      gradeShadowSat: asDouble('gradeShadowSat'),
+      gradeMidHue: asDouble('gradeMidHue'),
+      gradeMidSat: asDouble('gradeMidSat'),
+      gradeHighlightHue: asDouble('gradeHighlightHue'),
+      gradeHighlightSat: asDouble('gradeHighlightSat'),
     );
   }
 
@@ -129,7 +165,13 @@ class EditRecipe {
       other.temperature == temperature &&
       other.tint == tint &&
       other.vibrance == vibrance &&
-      other.saturation == saturation;
+      other.saturation == saturation &&
+      other.gradeShadowHue == gradeShadowHue &&
+      other.gradeShadowSat == gradeShadowSat &&
+      other.gradeMidHue == gradeMidHue &&
+      other.gradeMidSat == gradeMidSat &&
+      other.gradeHighlightHue == gradeHighlightHue &&
+      other.gradeHighlightSat == gradeHighlightSat;
 
   @override
   int get hashCode => Object.hash(
@@ -140,7 +182,18 @@ class EditRecipe {
     shadows,
     whites,
     blacks,
-    Object.hash(temperature, tint, vibrance, saturation),
+    temperature,
+    tint,
+    vibrance,
+    saturation,
+    Object.hash(
+      gradeShadowHue,
+      gradeShadowSat,
+      gradeMidHue,
+      gradeMidSat,
+      gradeHighlightHue,
+      gradeHighlightSat,
+    ),
   );
 
   @override

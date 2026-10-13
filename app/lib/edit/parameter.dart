@@ -23,6 +23,13 @@ enum Parameter {
   tint,
   vibrance,
   saturation,
+  // Color grading (split tone): hue + strength per tonal zone.
+  gradeShadowHue,
+  gradeShadowSat,
+  gradeMidHue,
+  gradeMidSat,
+  gradeHighlightHue,
+  gradeHighlightSat,
 }
 
 /// Static metadata for a [Parameter].
@@ -128,6 +135,48 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     min: -1,
     max: 1,
   ),
+  Parameter.gradeShadowHue: ParameterSpec(
+    id: Parameter.gradeShadowHue,
+    section: RecipeSection.color,
+    label: 'Shadow Hue',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.gradeShadowSat: ParameterSpec(
+    id: Parameter.gradeShadowSat,
+    section: RecipeSection.color,
+    label: 'Shadow Strength',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.gradeMidHue: ParameterSpec(
+    id: Parameter.gradeMidHue,
+    section: RecipeSection.color,
+    label: 'Midtone Hue',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.gradeMidSat: ParameterSpec(
+    id: Parameter.gradeMidSat,
+    section: RecipeSection.color,
+    label: 'Midtone Strength',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.gradeHighlightHue: ParameterSpec(
+    id: Parameter.gradeHighlightHue,
+    section: RecipeSection.color,
+    label: 'Highlight Hue',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.gradeHighlightSat: ParameterSpec(
+    id: Parameter.gradeHighlightSat,
+    section: RecipeSection.color,
+    label: 'Highlight Strength',
+    min: 0,
+    max: 1,
+  ),
 };
 
 /// The [ParameterSpec] for [p]. Always present — the catalog covers the enum.
@@ -151,6 +200,12 @@ double valueOf(EditRecipe recipe, Parameter p) => switch (p) {
   Parameter.tint => recipe.tint,
   Parameter.vibrance => recipe.vibrance,
   Parameter.saturation => recipe.saturation,
+  Parameter.gradeShadowHue => recipe.gradeShadowHue,
+  Parameter.gradeShadowSat => recipe.gradeShadowSat,
+  Parameter.gradeMidHue => recipe.gradeMidHue,
+  Parameter.gradeMidSat => recipe.gradeMidSat,
+  Parameter.gradeHighlightHue => recipe.gradeHighlightHue,
+  Parameter.gradeHighlightSat => recipe.gradeHighlightSat,
 };
 
 /// A copy of [recipe] with [p] set to [value] (clamped). Pure.
@@ -167,5 +222,11 @@ EditRecipe withValue(EditRecipe recipe, Parameter p, double value) {
     Parameter.tint => recipe.copyWith(tint: v),
     Parameter.vibrance => recipe.copyWith(vibrance: v),
     Parameter.saturation => recipe.copyWith(saturation: v),
+    Parameter.gradeShadowHue => recipe.copyWith(gradeShadowHue: v),
+    Parameter.gradeShadowSat => recipe.copyWith(gradeShadowSat: v),
+    Parameter.gradeMidHue => recipe.copyWith(gradeMidHue: v),
+    Parameter.gradeMidSat => recipe.copyWith(gradeMidSat: v),
+    Parameter.gradeHighlightHue => recipe.copyWith(gradeHighlightHue: v),
+    Parameter.gradeHighlightSat => recipe.copyWith(gradeHighlightSat: v),
   };
 }

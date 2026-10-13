@@ -425,6 +425,12 @@ impl SseDecode for crate::api::color::ColorParams {
         let mut var_temperature = <f32>::sse_decode(deserializer);
         let mut var_tint = <f32>::sse_decode(deserializer);
         let mut var_vibrance = <f32>::sse_decode(deserializer);
+        let mut var_gradeShadowHue = <f32>::sse_decode(deserializer);
+        let mut var_gradeShadowSat = <f32>::sse_decode(deserializer);
+        let mut var_gradeMidHue = <f32>::sse_decode(deserializer);
+        let mut var_gradeMidSat = <f32>::sse_decode(deserializer);
+        let mut var_gradeHighlightHue = <f32>::sse_decode(deserializer);
+        let mut var_gradeHighlightSat = <f32>::sse_decode(deserializer);
         return crate::api::color::ColorParams {
             exposure: var_exposure,
             contrast: var_contrast,
@@ -432,6 +438,12 @@ impl SseDecode for crate::api::color::ColorParams {
             temperature: var_temperature,
             tint: var_tint,
             vibrance: var_vibrance,
+            grade_shadow_hue: var_gradeShadowHue,
+            grade_shadow_sat: var_gradeShadowSat,
+            grade_mid_hue: var_gradeMidHue,
+            grade_mid_sat: var_gradeMidSat,
+            grade_highlight_hue: var_gradeHighlightHue,
+            grade_highlight_sat: var_gradeHighlightSat,
         };
     }
 }
@@ -577,6 +589,12 @@ impl flutter_rust_bridge::IntoDart for crate::api::color::ColorParams {
             self.temperature.into_into_dart().into_dart(),
             self.tint.into_into_dart().into_dart(),
             self.vibrance.into_into_dart().into_dart(),
+            self.grade_shadow_hue.into_into_dart().into_dart(),
+            self.grade_shadow_sat.into_into_dart().into_dart(),
+            self.grade_mid_hue.into_into_dart().into_dart(),
+            self.grade_mid_sat.into_into_dart().into_dart(),
+            self.grade_highlight_hue.into_into_dart().into_dart(),
+            self.grade_highlight_sat.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -664,6 +682,12 @@ impl SseEncode for crate::api::color::ColorParams {
         <f32>::sse_encode(self.temperature, serializer);
         <f32>::sse_encode(self.tint, serializer);
         <f32>::sse_encode(self.vibrance, serializer);
+        <f32>::sse_encode(self.grade_shadow_hue, serializer);
+        <f32>::sse_encode(self.grade_shadow_sat, serializer);
+        <f32>::sse_encode(self.grade_mid_hue, serializer);
+        <f32>::sse_encode(self.grade_mid_sat, serializer);
+        <f32>::sse_encode(self.grade_highlight_hue, serializer);
+        <f32>::sse_encode(self.grade_highlight_sat, serializer);
     }
 }
 
