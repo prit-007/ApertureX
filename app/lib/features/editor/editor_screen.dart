@@ -1,15 +1,22 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:path_provider/path_provider.dart';
 
+import '../../edit/grade_mapping.dart';
+import '../../edit/recipe.dart';
 import '../../engine/engine.dart';
 import '../../gesture/gesture_interpreter.dart';
 import '../../viewport/tile_viewport_demo.dart';
 import 'grade_painter.dart';
 
 /// Seed editor screen: an invisible Snapseed-style gesture over a GPU-graded
-/// image. This is the first vertical slice of the Tessera editing experience;
-/// the tile compositor and real recipe model arrive in later phases.
+/// image, now driven by a real [EditRecipe] — the single source of truth every
+/// shell shares (ARCHITECTURE §16). Export grades on the CPU in Rust and writes
+/// a JPEG.
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key});
 
@@ -19,15 +26,18 @@ class EditorScreen extends StatefulWidget {
 
 class _EditorScreenState extends State<EditorScreen> {
   late final GestureInterpreter _fsm;
-  final Map<GradeTool, double> _values = {
-    for (final tool in GradeTool.values) tool: 0.0,
-  };
+
+  EditRecipe _recipe = EditRecipe.neutral;
 
   ui.FragmentShader? _shader;
   ui.Image? _texture;
+  Uint8List? _rgba;
+  int _imageWidth = 0;
+  int _imageHeight = 0;
 
   GradeTool _active = GradeTool.exposure;
   bool _chromeVisible = false;
+  bool _exporting = false;
 
   @override
   void initState() {
@@ -36,11 +46,11 @@ class _EditorScreenState extends State<EditorScreen> {
       onToolChanged: (tool) => setState(() => _active = tool),
       onValueChanged: (tool, delta) => setState(() {
         _active = tool;
-        _values[tool] = (_values[tool]! + delta).clamp(-1.0, 1.0);
+        _recipe = applyToolDelta(_recipe, tool, delta);
       }),
       onReset: (tool) => setState(() {
         _active = tool;
-        _values[tool] = 0.0;
+        _recipe = resetTool(_recipe, tool);
       }),
       onPhaseChanged: (phase) =>
           setState(() => _chromeVisible = phase != GesturePhase.idle),
@@ -50,12 +60,76 @@ class _EditorScreenState extends State<EditorScreen> {
 
   Future<void> _load() async {
     final program = await ui.FragmentProgram.fromAsset('shaders/grade.frag');
-    final texture = _makeTestImage(1024, 1024);
+    final jpeg = await TesseraEngine.syntheticJpeg(width: 1024, height: 1024);
+    final decoded = await TesseraEngine.decodeJpegRgba(jpeg);
+    final image = await _imageFromRgba(
+      decoded.rgba,
+      decoded.width,
+      decoded.height,
+    );
     if (!mounted) return;
     setState(() {
       _shader = program.fragmentShader();
-      _texture = texture;
+      _texture = image;
+      _rgba = decoded.rgba;
+      _imageWidth = decoded.width;
+      _imageHeight = decoded.height;
     });
+  }
+
+  Future<ui.Image> _imageFromRgba(Uint8List rgba, int width, int height) {
+    final completer = Completer<ui.Image>();
+    ui.decodeImageFromPixels(
+      rgba,
+      width,
+      height,
+      ui.PixelFormat.rgba8888,
+      completer.complete,
+    );
+    return completer.future;
+  }
+
+  double _toolValue(GradeTool tool) => switch (tool) {
+    GradeTool.exposure => _recipe.exposure,
+    GradeTool.contrast => _recipe.contrast,
+    GradeTool.saturation => _recipe.saturation,
+  };
+
+  Future<void> _export() async {
+    final rgba = _rgba;
+    if (rgba == null) return;
+    setState(() => _exporting = true);
+    try {
+      final uniforms = GradeUniforms.fromRecipe(_recipe);
+      final jpeg = await TesseraEngine.exportJpeg(
+        rgba: rgba,
+        width: _imageWidth,
+        height: _imageHeight,
+        quality: 90,
+        exposure: uniforms.exposure,
+        contrast: uniforms.contrast,
+        saturation: uniforms.saturation,
+      );
+      final dir = await getApplicationDocumentsDirectory();
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${dir.path}/aperturex_$stamp.jpg');
+      await file.writeAsBytes(jpeg, flush: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Exported ${file.path.split('/').last} (${jpeg.length} bytes)',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
   }
 
   @override
@@ -68,6 +142,7 @@ class _EditorScreenState extends State<EditorScreen> {
   Widget build(BuildContext context) {
     final shader = _shader;
     final texture = _texture;
+    final uniforms = GradeUniforms.fromRecipe(_recipe);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -91,16 +166,17 @@ class _EditorScreenState extends State<EditorScreen> {
                     painter: GradePainter(
                       shader: shader,
                       texture: texture,
-                      exposure: _values[GradeTool.exposure]! * 2.0,
-                      contrast: _values[GradeTool.contrast]!,
-                      saturation: _values[GradeTool.saturation]!,
+                      exposure: uniforms.exposure,
+                      contrast: uniforms.contrast,
+                      saturation: uniforms.saturation,
                     ),
                   ),
                   _ToolChip(
                     active: _active,
-                    value: _values[_active]!,
+                    value: _toolValue(_active),
                     visible: _chromeVisible,
                   ),
+                  _ExportButton(onPressed: _export, busy: _exporting),
                   const _EngineBadge(),
                   const _Hint(),
                 ],
@@ -126,7 +202,7 @@ class _ToolChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final pct = (value * 100).round();
+    final text = '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}';
 
     return IgnorePointer(
       child: AnimatedOpacity(
@@ -152,7 +228,7 @@ class _ToolChip extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  '${pct > 0 ? '+' : ''}$pct',
+                  text,
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: scheme.primary,
                     fontFeatures: const [ui.FontFeature.tabularFigures()],
@@ -171,6 +247,36 @@ class _ToolChip extends StatelessWidget {
     GradeTool.contrast => 'Contrast',
     GradeTool.saturation => 'Saturation',
   };
+}
+
+/// Top-right export action with a busy spinner.
+class _ExportButton extends StatelessWidget {
+  const _ExportButton({required this.onPressed, required this.busy});
+
+  final VoidCallback onPressed;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: IconButton(
+            onPressed: busy ? null : onPressed,
+            icon: busy
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_alt, color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Shows the Rust engine version to prove the typed bridge call works on-device.
@@ -221,46 +327,4 @@ class _Hint extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Builds a colourful test texture procedurally so the seed needs no assets.
-ui.Image _makeTestImage(int width, int height) {
-  final recorder = ui.PictureRecorder();
-  final canvas = Canvas(recorder);
-  final rect = Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble());
-
-  canvas.drawRect(
-    rect,
-    Paint()
-      ..shader = ui.Gradient.linear(
-        rect.topLeft,
-        rect.bottomRight,
-        const [
-          Color(0xFFB23A48),
-          Color(0xFF4A3F8F),
-          Color(0xFF2A9D8F),
-          Color(0xFFE9C46A),
-        ],
-        const [0.0, 0.35, 0.7, 1.0],
-      ),
-  );
-
-  final disc = Paint()..color = Colors.white.withValues(alpha: 0.15);
-  for (var i = 0; i < 6; i++) {
-    canvas.drawCircle(
-      Offset(
-        width * (0.2 + i * 0.14),
-        height * (0.3 + (i.isEven ? 0.1 : -0.1)),
-      ),
-      width * 0.08,
-      disc,
-    );
-  }
-
-  canvas.drawRect(
-    Rect.fromLTWH(0, height * 0.72, width.toDouble(), height * 0.28),
-    Paint()..color = Colors.black.withValues(alpha: 0.35),
-  );
-
-  return recorder.endRecording().toImageSync(width, height);
 }

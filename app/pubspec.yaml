@@ -37,6 +37,7 @@ dependencies:
   material_ui: ^1.2.0
   cupertino_ui: ^1.0.2
   dynamic_color: ^2.1.0
+  path_provider: ^2.1.4
   rust_lib_tessera:
     path: rust_builder
   flutter_rust_bridge: 2.13.0
