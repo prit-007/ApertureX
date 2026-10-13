@@ -1,19 +1,21 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../color/histogram_view.dart';
 import '../../edit/parameter.dart';
 import '../common/parameter_panel.dart';
 
-/// Lightroom shell skeleton (P2 Slice C): a category nav over a parameter
-/// panel. Reads/writes the shared controller through [ParameterPanel] — it owns
-/// no edit state.
-class LightroomShell extends StatefulWidget {
+/// Lightroom shell skeleton (P2): a histogram + category nav over a parameter
+/// panel. Reads/writes the shared controller through [ParameterPanel]; owns no
+/// edit state.
+class LightroomShell extends ConsumerStatefulWidget {
   const LightroomShell({super.key});
 
   @override
-  State<LightroomShell> createState() => _LightroomShellState();
+  ConsumerState<LightroomShell> createState() => _LightroomShellState();
 }
 
-class _LightroomShellState extends State<LightroomShell> {
+class _LightroomShellState extends ConsumerState<LightroomShell> {
   static const List<RecipeSection> _sections = [
     RecipeSection.light,
     RecipeSection.color,
@@ -23,8 +25,18 @@ class _LightroomShellState extends State<LightroomShell> {
 
   @override
   Widget build(BuildContext context) {
+    final histogram = ref.watch(histogramProvider);
+
     return Column(
       children: [
+        if (histogram != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: HistogramView(histogram: histogram),
+            ),
+          ),
         SizedBox(
           height: 44,
           child: ListView(

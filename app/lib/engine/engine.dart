@@ -5,10 +5,12 @@ import '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 import '../src/rust/api/decode.dart' as rust_decode;
 import '../src/rust/api/engine.dart' as rust_engine;
 import '../src/rust/api/export.dart' as rust_export;
+import '../src/rust/api/histogram.dart' as rust_hist;
 import '../src/rust/frb_generated.dart';
 
 export '../src/rust/api/color.dart' show LutData;
 export '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
+export '../src/rust/api/histogram.dart' show Histogram;
 export '../src/rust/frb_generated.dart' show RustLib;
 
 /// Thin, app-facing facade over the generated `flutter_rust_bridge` bindings.
@@ -89,6 +91,34 @@ class TesseraEngine {
 
   // --- colour / 3D LUT (P2 Slice D) -----------------------------------------
 
+  static rust_color.ColorParams _colorParams({
+    double exposure = 0,
+    double contrast = 0,
+    double saturation = 0,
+    double temperature = 0,
+    double tint = 0,
+    double vibrance = 0,
+    double gradeShadowHue = 0,
+    double gradeShadowSat = 0,
+    double gradeMidHue = 0,
+    double gradeMidSat = 0,
+    double gradeHighlightHue = 0,
+    double gradeHighlightSat = 0,
+  }) => rust_color.ColorParams(
+    exposure: exposure,
+    contrast: contrast,
+    saturation: saturation,
+    temperature: temperature,
+    tint: tint,
+    vibrance: vibrance,
+    gradeShadowHue: gradeShadowHue,
+    gradeShadowSat: gradeShadowSat,
+    gradeMidHue: gradeMidHue,
+    gradeMidSat: gradeMidSat,
+    gradeHighlightHue: gradeHighlightHue,
+    gradeHighlightSat: gradeHighlightSat,
+  );
+
   /// Bakes the grade into a 2D-packed 3D LUT atlas (preview path). Rust owns the
   /// colour math; the result feeds `shaders/lut.frag`.
   static Future<rust_color.LutData> bakeLut3d({
@@ -107,7 +137,7 @@ class TesseraEngine {
     double gradeHighlightSat = 0,
   }) => rust_color.bakeLut3D(
     size: size,
-    params: rust_color.ColorParams(
+    params: _colorParams(
       exposure: exposure,
       contrast: contrast,
       saturation: saturation,
@@ -141,7 +171,49 @@ class TesseraEngine {
     double gradeHighlightSat = 0,
   }) => rust_color.gradeRgba(
     rgba: rgba,
-    params: rust_color.ColorParams(
+    params: _colorParams(
+      exposure: exposure,
+      contrast: contrast,
+      saturation: saturation,
+      temperature: temperature,
+      tint: tint,
+      vibrance: vibrance,
+      gradeShadowHue: gradeShadowHue,
+      gradeShadowSat: gradeShadowSat,
+      gradeMidHue: gradeMidHue,
+      gradeMidSat: gradeMidSat,
+      gradeHighlightHue: gradeHighlightHue,
+      gradeHighlightSat: gradeHighlightSat,
+    ),
+  );
+
+  // --- histogram (P2) -------------------------------------------------------
+
+  /// Downsamples + grades + bins [rgba] into a 256-bin RGB/luma histogram
+  /// (the live-histogram trick, on the CPU so it reflects the grade).
+  static Future<rust_hist.Histogram> histogramGraded({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    int sampleDim = 256,
+    double exposure = 0,
+    double contrast = 0,
+    double saturation = 0,
+    double temperature = 0,
+    double tint = 0,
+    double vibrance = 0,
+    double gradeShadowHue = 0,
+    double gradeShadowSat = 0,
+    double gradeMidHue = 0,
+    double gradeMidSat = 0,
+    double gradeHighlightHue = 0,
+    double gradeHighlightSat = 0,
+  }) => rust_hist.histogramGraded(
+    rgba: rgba,
+    width: width,
+    height: height,
+    sampleDim: sampleDim,
+    params: _colorParams(
       exposure: exposure,
       contrast: contrast,
       saturation: saturation,

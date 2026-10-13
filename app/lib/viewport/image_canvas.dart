@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../color/histogram_view.dart';
 import '../color/lut_atlas.dart';
 import '../color/lut_texture.dart';
 import '../edit/parameter.dart';
@@ -33,6 +34,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   ui.FragmentProgram? _program;
   ui.Image? _source;
   ui.Image? _lut;
+  Uint8List? _sourceRgba;
+  int _sourceWidth = 0;
+  int _sourceHeight = 0;
   bool _failed = false;
   bool _comparing = false;
   int _bakeToken = 0;
@@ -65,6 +69,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       }
       _program = program;
       _source = source;
+      _sourceRgba = decoded.rgba;
+      _sourceWidth = decoded.width;
+      _sourceHeight = decoded.height;
       await _rebake(ref.read(recipeControllerProvider).recipe);
       if (mounted) setState(() {});
     } catch (_) {
@@ -113,6 +120,32 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _lut?.dispose();
       _lut = image;
     });
+
+    // Publish the graded histogram (downsample + grade + bin, in Rust).
+    final rgba = _sourceRgba;
+    if (rgba != null) {
+      final histogram = await TesseraEngine.histogramGraded(
+        rgba: rgba,
+        width: _sourceWidth,
+        height: _sourceHeight,
+        sampleDim: 256,
+        exposure: recipe.exposure,
+        contrast: recipe.contrast,
+        saturation: recipe.saturation,
+        temperature: recipe.temperature,
+        tint: recipe.tint,
+        vibrance: recipe.vibrance,
+        gradeShadowHue: recipe.gradeShadowHue,
+        gradeShadowSat: recipe.gradeShadowSat,
+        gradeMidHue: recipe.gradeMidHue,
+        gradeMidSat: recipe.gradeMidSat,
+        gradeHighlightHue: recipe.gradeHighlightHue,
+        gradeHighlightSat: recipe.gradeHighlightSat,
+      );
+      if (mounted && token == _bakeToken) {
+        ref.read(histogramProvider.notifier).publish(histogram);
+      }
+    }
   }
 
   void _scheduleBake(EditRecipe recipe) {

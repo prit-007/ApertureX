@@ -7,6 +7,7 @@ import 'api/color.dart';
 import 'api/decode.dart';
 import 'api/engine.dart';
 import 'api/export.dart';
+import 'api/histogram.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -69,7 +70,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1361179358;
+  int get rustContentHash => 1380000698;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -116,6 +117,14 @@ abstract class RustLibApi extends BaseApi {
   Future<Uint8List> crateApiColorGradeRgba({
     required List<int> rgba,
     required ColorParams params,
+  });
+
+  Future<Histogram> crateApiHistogramHistogramGraded({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required ColorParams params,
+    required int sampleDim,
   });
 
   Future<void> crateApiEngineInitApp();
@@ -396,6 +405,47 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<Histogram> crateApiHistogramHistogramGraded({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required ColorParams params,
+    required int sampleDim,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_box_autoadd_color_params(params, serializer);
+          sse_encode_u_32(sampleDim, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 8,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_histogram,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiHistogramHistogramGradedConstMeta,
+        argValues: [rgba, width, height, params, sampleDim],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiHistogramHistogramGradedConstMeta =>
+      const TaskConstMeta(
+        debugName: "histogram_graded",
+        argNames: ["rgba", "width", "height", "params", "sampleDim"],
+      );
+
+  @override
   Future<void> crateApiEngineInitApp() {
     return handler.executeNormal(
       NormalTask(
@@ -404,7 +454,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 9,
             port: port_,
           );
         },
@@ -432,7 +482,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 10,
             port: port_,
           );
         },
@@ -464,7 +514,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 11,
             port: port_,
           );
         },
@@ -526,6 +576,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Histogram dco_decode_histogram(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return Histogram(
+      r: dco_decode_list_prim_u_32_strict(arr[0]),
+      g: dco_decode_list_prim_u_32_strict(arr[1]),
+      b: dco_decode_list_prim_u_32_strict(arr[2]),
+      luma: dco_decode_list_prim_u_32_strict(arr[3]),
+    );
+  }
+
+  @protected
   int dco_decode_i_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
@@ -541,6 +605,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       width: dco_decode_u_32(arr[0]),
       height: dco_decode_u_32(arr[1]),
     );
+  }
+
+  @protected
+  Uint32List dco_decode_list_prim_u_32_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as Uint32List;
   }
 
   @protected
@@ -653,6 +723,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Histogram sse_decode_histogram(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_r = sse_decode_list_prim_u_32_strict(deserializer);
+    var var_g = sse_decode_list_prim_u_32_strict(deserializer);
+    var var_b = sse_decode_list_prim_u_32_strict(deserializer);
+    var var_luma = sse_decode_list_prim_u_32_strict(deserializer);
+    return Histogram(r: var_r, g: var_g, b: var_b, luma: var_luma);
+  }
+
+  @protected
   int sse_decode_i_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getInt32();
@@ -664,6 +744,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_width = sse_decode_u_32(deserializer);
     var var_height = sse_decode_u_32(deserializer);
     return ImageDims(width: var_width, height: var_height);
+  }
+
+  @protected
+  Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint32List(len_);
   }
 
   @protected
@@ -766,6 +853,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_histogram(Histogram self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_32_strict(self.r, serializer);
+    sse_encode_list_prim_u_32_strict(self.g, serializer);
+    sse_encode_list_prim_u_32_strict(self.b, serializer);
+    sse_encode_list_prim_u_32_strict(self.luma, serializer);
+  }
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putInt32(self);
@@ -776,6 +872,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_32(self.width, serializer);
     sse_encode_u_32(self.height, serializer);
+  }
+
+  @protected
+  void sse_encode_list_prim_u_32_strict(
+    Uint32List self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint32List(self);
   }
 
   @protected

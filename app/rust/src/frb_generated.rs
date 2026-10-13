@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1361179358;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1380000698;
 
 // Section: executor
 
@@ -303,6 +303,49 @@ fn wire__crate__api__color__grade_rgba_impl(
         },
     )
 }
+fn wire__crate__api__histogram__histogram_graded_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "histogram_graded",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_rgba = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_width = <u32>::sse_decode(&mut deserializer);
+            let api_height = <u32>::sse_decode(&mut deserializer);
+            let api_params = <crate::api::color::ColorParams>::sse_decode(&mut deserializer);
+            let api_sample_dim = <u32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::histogram::histogram_graded(
+                        api_rgba,
+                        api_width,
+                        api_height,
+                        api_params,
+                        api_sample_dim,
+                    ))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__engine__init_app_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -455,6 +498,22 @@ impl SseDecode for f32 {
     }
 }
 
+impl SseDecode for crate::api::histogram::Histogram {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_r = <Vec<u32>>::sse_decode(deserializer);
+        let mut var_g = <Vec<u32>>::sse_decode(deserializer);
+        let mut var_b = <Vec<u32>>::sse_decode(deserializer);
+        let mut var_luma = <Vec<u32>>::sse_decode(deserializer);
+        return crate::api::histogram::Histogram {
+            r: var_r,
+            g: var_g,
+            b: var_b,
+            luma: var_luma,
+        };
+    }
+}
+
 impl SseDecode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -471,6 +530,18 @@ impl SseDecode for crate::api::decode::ImageDims {
             width: var_width,
             height: var_height,
         };
+    }
+}
+
+impl SseDecode for Vec<u32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<u32>::sse_decode(deserializer));
+        }
+        return ans_;
     }
 }
 
@@ -558,9 +629,10 @@ fn pde_ffi_dispatcher_primary_impl(
         5 => wire__crate__api__export__encode_jpeg_export_impl(port, ptr, rust_vec_len, data_len),
         6 => wire__crate__api__engine__engine_version_impl(port, ptr, rust_vec_len, data_len),
         7 => wire__crate__api__color__grade_rgba_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__engine__init_app_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__histogram__histogram_graded_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__engine__init_app_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -607,6 +679,29 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::color::ColorParams>
     for crate::api::color::ColorParams
 {
     fn into_into_dart(self) -> crate::api::color::ColorParams {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::histogram::Histogram {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.r.into_into_dart().into_dart(),
+            self.g.into_into_dart().into_dart(),
+            self.b.into_into_dart().into_dart(),
+            self.luma.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::histogram::Histogram
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::histogram::Histogram>
+    for crate::api::histogram::Histogram
+{
+    fn into_into_dart(self) -> crate::api::histogram::Histogram {
         self
     }
 }
@@ -698,6 +793,16 @@ impl SseEncode for f32 {
     }
 }
 
+impl SseEncode for crate::api::histogram::Histogram {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<u32>>::sse_encode(self.r, serializer);
+        <Vec<u32>>::sse_encode(self.g, serializer);
+        <Vec<u32>>::sse_encode(self.b, serializer);
+        <Vec<u32>>::sse_encode(self.luma, serializer);
+    }
+}
+
 impl SseEncode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -710,6 +815,16 @@ impl SseEncode for crate::api::decode::ImageDims {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <u32>::sse_encode(self.width, serializer);
         <u32>::sse_encode(self.height, serializer);
+    }
+}
+
+impl SseEncode for Vec<u32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <u32>::sse_encode(item, serializer);
+        }
     }
 }
 
