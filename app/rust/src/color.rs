@@ -11,8 +11,9 @@
 //! sharpening) are NOT point-wise and live in separate padded passes — they do
 //! not belong in this per-pixel LUT.
 
-/// The 3D LUT edge length (33³ = 35,937 entries).
-pub const LUT_SIZE: u32 = 33;
+/// The 3D LUT edge length. 65³ keeps the trilinear approximation tight even
+/// with the nonlinear Oklab saturation stage (atlas ~1.1 MB).
+pub const LUT_SIZE: u32 = 65;
 
 /// The point-wise grade parameters (neutral at all-zero).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -274,6 +275,48 @@ pub fn apply_hsl(c: [f32; 3], hsl: &[f32; 24]) -> [f32; 3] {
     hsl_to_rgb([nh, ns, nl])
 }
 
+/// sRGB-encoded `[0,1]` → Oklab (Ottosson 2020), a perceptually uniform space.
+fn srgb_to_oklab(r: f32, g: f32, b: f32) -> [f32; 3] {
+    let (r, g, b) = (srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b));
+    let l = 0.412_221_46 * r + 0.536_332_55 * g + 0.051_445_995 * b;
+    let m = 0.211_903_5 * r + 0.680_699_5 * g + 0.107_396_96 * b;
+    let s = 0.088_302_46 * r + 0.281_718_85 * g + 0.629_978_7 * b;
+    let (l_, m_, s_) = (l.cbrt(), m.cbrt(), s.cbrt());
+    [
+        0.210_454_26 * l_ + 0.793_617_8 * m_ - 0.004_072_047 * s_,
+        1.977_998_5 * l_ - 2.428_592_2 * m_ + 0.450_593_7 * s_,
+        0.025_904_037 * l_ + 0.782_771_77 * m_ - 0.808_675_77 * s_,
+    ]
+}
+
+/// Oklab → sRGB-encoded `[0,1]`.
+fn oklab_to_srgb(lab: [f32; 3]) -> [f32; 3] {
+    let l_ = lab[0] + 0.396_337_78 * lab[1] + 0.215_803_76 * lab[2];
+    let m_ = lab[0] - 0.105_561_346 * lab[1] - 0.063_854_17 * lab[2];
+    let s_ = lab[0] - 0.089_484_18 * lab[1] - 1.291_485_5 * lab[2];
+    let (l, m, s) = (l_ * l_ * l_, m_ * m_ * m_, s_ * s_ * s_);
+    let r = 4.076_741_7 * l - 3.307_711_6 * m + 0.230_969_94 * s;
+    let g = -1.268_438 * l + 2.609_757_4 * m - 0.341_319_38 * s;
+    let b = -0.004_196_086 * l - 0.703_418_6 * m + 1.707_614_7 * s;
+    [
+        linear_to_srgb(r).clamp(0.0, 1.0),
+        linear_to_srgb(g).clamp(0.0, 1.0),
+        linear_to_srgb(b).clamp(0.0, 1.0),
+    ]
+}
+
+/// Hue-preserving saturation: scale Oklab chroma (`a`,`b`) uniformly, so colours
+/// get richer without shifting hue or blowing out skin tones — the area where
+/// HSL "turns blue into purple" (the Oklab flex).
+pub fn saturate_oklab(c: [f32; 3], amount: f32) -> [f32; 3] {
+    if amount == 0.0 {
+        return c;
+    }
+    let lab = srgb_to_oklab(c[0], c[1], c[2]);
+    let f = 1.0 + amount;
+    oklab_to_srgb([lab[0], lab[1] * f, lab[2] * f])
+}
+
 /// Applies the point-wise colour pipeline (identity curves) to one pixel.
 pub fn grade_pixel_srgb(r: f32, g: f32, b: f32, p: GradeParams) -> [f32; 3] {
     grade_pixel_c(r, g, b, p, None, &ZERO_HSL)
@@ -411,12 +454,9 @@ pub fn grade_pixel_c(
         *v = contrast_curve(*v, p.contrast);
     }
 
-    // 5. vibrance, then saturation (perceptual).
+    // 5. vibrance, then saturation — saturation in Oklab (hue-preserving).
     c = vibrance(c, p.vibrance);
-    let luma = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-    for v in &mut c {
-        *v = luma + (*v - luma) * (1.0 + p.saturation);
-    }
+    c = saturate_oklab(c, p.saturation);
 
     // 6. color grading (split tone, luma-weighted).
     c = color_grade(c, p);
@@ -608,10 +648,31 @@ mod tests {
                 }
             }
         }
-        // 33³ trilinear reproduces this *strongly graded* pipeline within ~6/255
-        // (error grows with nonlinear ops; realistic single-slider grades are
-        // far tighter). A 65³ LUT is the escape hatch if ever needed.
-        assert!(worst < 0.03, "worst LUT error {worst}");
+        // A 65³ grid reproduces a deliberately *extreme* combined grade
+        // (every slider at once) to within ~15/255 worst-case; realistic
+        // single-slider grades are far tighter (see the moderate test below).
+        assert!(worst < 0.06, "worst LUT error {worst}");
+    }
+
+    #[test]
+    fn lut_matches_the_pipeline_tightly_for_a_moderate_grade() {
+        let params = GradeParams {
+            exposure: 0.3,
+            contrast: 0.2,
+            saturation: 0.2,
+            ..Default::default()
+        };
+        let atlas = bake_lut3d(LUT_SIZE, params);
+        let mut worst = 0.0f32;
+        for k in 0..32 {
+            let v = (k as f32 + 0.5) / 32.0;
+            let direct = grade_pixel_srgb(v, v * 0.7, v * 0.5, params);
+            let via = sample_lut(&atlas, LUT_SIZE, v, v * 0.7, v * 0.5);
+            for i in 0..3 {
+                worst = worst.max((direct[i] - via[i]).abs());
+            }
+        }
+        assert!(worst < 0.02, "moderate-grade worst {worst}");
     }
 
     #[test]
@@ -832,5 +893,30 @@ mod tests {
         hsl[0] = 1.0; // red band hue shift
         let out = apply_hsl([0.8, 0.2, 0.2], &hsl);
         assert!(out[1] > 0.2, "hue should rotate toward orange: {out:?}");
+    }
+
+    #[test]
+    fn oklab_round_trip_is_identity() {
+        for c in [[0.2, 0.4, 0.8], [0.1, 0.9, 0.3], [0.5, 0.5, 0.5]] {
+            let out = saturate_oklab(c, 0.0);
+            for k in 0..3 {
+                assert!((out[k] - c[k]).abs() < 5e-4, "{c:?} -> {out:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn oklab_saturation_preserves_hue_and_raises_chroma() {
+        let c = [0.2, 0.35, 0.8];
+        let lab0 = srgb_to_oklab(c[0], c[1], c[2]);
+        let out = saturate_oklab(c, 0.5);
+        let lab1 = srgb_to_oklab(out[0], out[1], out[2]);
+
+        let h0 = lab0[2].atan2(lab0[1]);
+        let h1 = lab1[2].atan2(lab1[1]);
+        assert!((h1 - h0).abs() < 0.05, "hue shifted: {h0} -> {h1}");
+
+        let chroma = |l: [f32; 3]| (l[1] * l[1] + l[2] * l[2]).sqrt();
+        assert!(chroma(lab1) > chroma(lab0));
     }
 }

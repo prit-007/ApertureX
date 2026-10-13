@@ -20,7 +20,7 @@ class LutDemoScreen extends StatefulWidget {
 }
 
 class _LutDemoScreenState extends State<LutDemoScreen> {
-  static const int _lutSize = 33;
+  static const int _lutSize = 65;
 
   ui.FragmentProgram? _program;
   ui.Image? _source;

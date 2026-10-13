@@ -34,7 +34,7 @@ class ImageCanvas extends ConsumerStatefulWidget {
 
 class _ImageCanvasState extends ConsumerState<ImageCanvas>
     with SingleTickerProviderStateMixin {
-  static const int _lutSize = 33;
+  static const int _lutSize = 65;
 
   ui.FragmentProgram? _program;
   ui.Image? _source;
