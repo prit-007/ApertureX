@@ -1,16 +1,15 @@
-//! CPU grading + JPEG encode — the export path (P1).
+//! CPU grading + JPEG encode — the export path (P1/P2 Slice D).
 //!
-//! The math is a deliberate mirror of `shaders/grade.frag` so the exported file
-//! matches what the live GPU preview shows for the same edit (ARCHITECTURE
-//! §8/§16: the recipe drives both; this is the CPU implementation of the
-//! shader's exposure → contrast → saturation chain).
+//! Grading reuses [`crate::color`] — the *same* colour pipeline Rust bakes into
+//! the preview 3D LUT — so preview and export agree by construction
+//! (ARCHITECTURE §8/§16).
 
 use jpeg_encoder::{ColorType, Encoder};
 
 /// Grades [rgba] (RGBA8, `width*height*4` bytes) on the CPU and encodes a JPEG.
 ///
 /// Alpha is dropped (JPEG has no alpha). [exposure] is in EV; [contrast] and
-/// [saturation] are unitless around 0 — matching `shaders/grade.frag`.
+/// [saturation] are unitless around 0.
 pub fn encode_jpeg(
     rgba: &[u8],
     width: u32,
@@ -40,8 +39,17 @@ pub fn encode_jpeg(
 
     let mut rgb = Vec::with_capacity(width as usize * height as usize * 3);
     for px in rgba.as_chunks::<4>().0 {
-        let (r, g, b) = grade_pixel(px[0], px[1], px[2], exposure, contrast, saturation);
-        rgb.extend_from_slice(&[r, g, b]);
+        let c = crate::color::grade_pixel_srgb(
+            px[0] as f32 / 255.0,
+            px[1] as f32 / 255.0,
+            px[2] as f32 / 255.0,
+            exposure,
+            contrast,
+            saturation,
+        );
+        rgb.push((c[0] * 255.0 + 0.5) as u8);
+        rgb.push((c[1] * 255.0 + 0.5) as u8);
+        rgb.push((c[2] * 255.0 + 0.5) as u8);
     }
 
     let mut out = Vec::new();
@@ -49,31 +57,6 @@ pub fn encode_jpeg(
         .encode(&rgb, width as u16, height as u16, ColorType::Rgb)
         .map_err(|e| format!("jpeg encode failed: {e}"))?;
     Ok(out)
-}
-
-/// Mirrors the shader chain for one RGB triple (input/output 0..=255).
-fn grade_pixel(r: u8, g: u8, b: u8, exposure: f32, contrast: f32, saturation: f32) -> (u8, u8, u8) {
-    let mut col = [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0];
-
-    // exposure (EV)
-    let scale = 2f32.powf(exposure);
-    for c in &mut col {
-        *c *= scale;
-    }
-
-    // contrast around mid-grey
-    for c in &mut col {
-        *c = (*c - 0.5) * (1.0 + contrast) + 0.5;
-    }
-
-    // saturation (mix between luma and colour)
-    let luma = 0.2126 * col[0] + 0.7152 * col[1] + 0.0722 * col[2];
-    for c in &mut col {
-        *c = luma + (*c - luma) * (1.0 + saturation);
-    }
-
-    let to_u8 = |v: f32| (v.clamp(0.0, 1.0) * 255.0 + 0.5) as u8;
-    (to_u8(col[0]), to_u8(col[1]), to_u8(col[2]))
 }
 
 #[cfg(test)]
