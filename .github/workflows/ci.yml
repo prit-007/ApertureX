@@ -35,6 +35,11 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/rust
+
       - name: Flutter pub get
         run: flutter pub get
 
@@ -50,7 +55,7 @@ jobs:
 
       - name: Rust clippy
         working-directory: app/rust
-        run: cargo clippy --all-targets
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: Rust tests
         working-directory: app/rust
