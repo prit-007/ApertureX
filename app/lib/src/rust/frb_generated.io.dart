@@ -3,6 +3,7 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
+import 'api/color.dart';
 import 'api/decode.dart';
 import 'api/engine.dart';
 import 'api/export.dart';
@@ -39,6 +40,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  LutData dco_decode_lut_data(dynamic raw);
+
+  @protected
   RgbaImage dco_decode_rgba_image(dynamic raw);
 
   @protected
@@ -67,6 +71,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  LutData sse_decode_lut_data(SseDeserializer deserializer);
 
   @protected
   RgbaImage sse_decode_rgba_image(SseDeserializer deserializer);
@@ -103,6 +110,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     Uint8List self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_lut_data(LutData self, SseSerializer serializer);
 
   @protected
   void sse_encode_rgba_image(RgbaImage self, SseSerializer serializer);

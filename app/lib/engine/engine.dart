@@ -1,11 +1,13 @@
 import 'dart:typed_data';
 
+import '../src/rust/api/color.dart' as rust_color;
 import '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 import '../src/rust/api/decode.dart' as rust_decode;
 import '../src/rust/api/engine.dart' as rust_engine;
 import '../src/rust/api/export.dart' as rust_export;
 import '../src/rust/frb_generated.dart';
 
+export '../src/rust/api/color.dart' show LutData;
 export '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 export '../src/rust/frb_generated.dart' show RustLib;
 
@@ -80,6 +82,36 @@ class TesseraEngine {
     width: width,
     height: height,
     quality: quality,
+    exposure: exposure,
+    contrast: contrast,
+    saturation: saturation,
+  );
+
+  // --- colour / 3D LUT (P2 Slice D) -----------------------------------------
+
+  /// Bakes the grade into a 2D-packed 3D LUT atlas (preview path). Rust owns the
+  /// colour math; the result feeds `shaders/lut.frag`.
+  static Future<rust_color.LutData> bakeLut3d({
+    int size = 33,
+    double exposure = 0,
+    double contrast = 0,
+    double saturation = 0,
+  }) => rust_color.bakeLut3D(
+    size: size,
+    exposure: exposure,
+    contrast: contrast,
+    saturation: saturation,
+  );
+
+  /// Applies the same pipeline per-pixel over RGBA (the export twin of the
+  /// LUT), so preview and export agree by construction.
+  static Future<Uint8List> gradeRgba(
+    Uint8List rgba, {
+    double exposure = 0,
+    double contrast = 0,
+    double saturation = 0,
+  }) => rust_color.gradeRgba(
+    rgba: rgba,
     exposure: exposure,
     contrast: contrast,
     saturation: saturation,

@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:material_ui/material_ui.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../color/lut_demo_screen.dart';
 import '../../edit/grade_mapping.dart';
 import '../../edit/recipe.dart';
 import '../../engine/engine.dart';
@@ -146,11 +147,25 @@ class _EditorScreenState extends State<EditorScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const TileViewportDemo()),
-        ),
-        child: const Icon(Icons.zoom_out_map),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'lut-demo',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const LutDemoScreen()),
+            ),
+            child: const Icon(Icons.science),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton(
+            heroTag: 'viewport-demo',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const TileViewportDemo()),
+            ),
+            child: const Icon(Icons.zoom_out_map),
+          ),
+        ],
       ),
       body: shader == null || texture == null
           ? const Center(child: CircularProgressIndicator())
