@@ -26,7 +26,8 @@ class ImageCanvas extends ConsumerStatefulWidget {
   ConsumerState<ImageCanvas> createState() => _ImageCanvasState();
 }
 
-class _ImageCanvasState extends ConsumerState<ImageCanvas> {
+class _ImageCanvasState extends ConsumerState<ImageCanvas>
+    with SingleTickerProviderStateMixin {
   static const int _lutSize = 33;
 
   ui.FragmentProgram? _program;
@@ -36,10 +37,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas> {
   bool _comparing = false;
   int _bakeToken = 0;
   Timer? _debounce;
+  late final AnimationController _compare;
 
   @override
   void initState() {
     super.initState();
+    _compare = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
     _load();
   }
 
@@ -112,6 +118,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _compare.dispose();
     _source?.dispose();
     _lut?.dispose();
     super.dispose();
@@ -131,17 +138,29 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas> {
     }
 
     return GestureDetector(
-      onLongPressStart: (_) => setState(() => _comparing = true),
-      onLongPressEnd: (_) => setState(() => _comparing = false),
-      onLongPressCancel: () => setState(() => _comparing = false),
-      child: CustomPaint(
-        size: Size.infinite,
-        painter: _CanvasPainter(
-          shader: program.fragmentShader(),
-          source: source,
-          lut: lut,
-          lutSize: _lutSize.toDouble(),
-          bypass: _comparing,
+      onLongPressStart: (_) {
+        setState(() => _comparing = true);
+        _compare.forward();
+      },
+      onLongPressEnd: (_) {
+        setState(() => _comparing = false);
+        _compare.reverse();
+      },
+      onLongPressCancel: () {
+        setState(() => _comparing = false);
+        _compare.reverse();
+      },
+      child: AnimatedBuilder(
+        animation: _compare,
+        builder: (context, _) => CustomPaint(
+          size: Size.infinite,
+          painter: _CanvasPainter(
+            shader: program.fragmentShader(),
+            source: source,
+            lut: lut,
+            lutSize: _lutSize.toDouble(),
+            blend: _compare.value,
+          ),
         ),
       ),
     );
@@ -180,35 +199,28 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas> {
   }
 }
 
-/// Draws the source through `lut.frag`, sampling the packed 3D LUT atlas.
+/// Draws the source through `lut.frag`, sampling the packed 3D LUT atlas, and
+/// crossfades to the raw source while comparing ([blend] 0..1).
 class _CanvasPainter extends CustomPainter {
   _CanvasPainter({
     required this.shader,
     required this.source,
     required this.lut,
     required this.lutSize,
-    required this.bypass,
+    required this.blend,
   });
 
   final ui.FragmentShader shader;
   final ui.Image source;
   final ui.Image lut;
   final double lutSize;
-  final bool bypass;
+  final double blend;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawColor(const Color(0xFF101010), BlendMode.src);
 
-    if (bypass) {
-      canvas.drawImageRect(
-        source,
-        Rect.fromLTWH(0, 0, source.width.toDouble(), source.height.toDouble()),
-        _coverRect(size, source),
-        Paint(),
-      );
-      return;
-    }
+    final rect = Offset.zero & size;
 
     shader
       ..setFloat(0, size.width)
@@ -216,12 +228,20 @@ class _CanvasPainter extends CustomPainter {
       ..setFloat(2, lutSize)
       ..setImageSampler(0, source)
       ..setImageSampler(1, lut);
-    canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
-  }
+    canvas.drawRect(rect, Paint()..shader = shader);
 
-  static Rect _coverRect(Size size, ui.Image image) => Offset.zero & size;
+    // Crossfade to the unedited source on top while comparing.
+    if (blend > 0) {
+      canvas.drawImageRect(
+        source,
+        Rect.fromLTWH(0, 0, source.width.toDouble(), source.height.toDouble()),
+        rect,
+        Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: blend),
+      );
+    }
+  }
 
   @override
   bool shouldRepaint(_CanvasPainter old) =>
-      old.source != source || old.lut != lut || old.bypass != bypass;
+      old.source != source || old.lut != lut || old.blend != blend;
 }
