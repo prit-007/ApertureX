@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'parameter.dart';
 import 'recipe.dart';
 import 'recipe_state.dart';
+import 'tone_curve.dart';
 
 /// Single source of truth for an edit session. Both shells (Lightroom panels
 /// and the Snapseed gesture FSM) read and write exactly this one controller —
@@ -46,6 +47,17 @@ class RecipeController extends Notifier<RecipeState> {
   /// Resets [parameter] to neutral.
   void reset(Parameter parameter) =>
       update(parameter, specOf(parameter).neutral);
+
+  /// Replaces one tone curve (live edit; commit separately).
+  void setCurve(ToneCurveChannel channel, ToneCurve curve) {
+    final recipe = switch (channel) {
+      ToneCurveChannel.master => state.recipe.copyWith(masterCurve: curve),
+      ToneCurveChannel.red => state.recipe.copyWith(redCurve: curve),
+      ToneCurveChannel.green => state.recipe.copyWith(greenCurve: curve),
+      ToneCurveChannel.blue => state.recipe.copyWith(blueCurve: curve),
+    };
+    state = state.copyWith(recipe: recipe);
+  }
 
   /// Commits the live recipe as the new node. No-op when nothing changed.
   void commit() {

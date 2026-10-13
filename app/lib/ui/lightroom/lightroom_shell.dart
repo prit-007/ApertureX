@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../color/interactive_histogram.dart';
 import '../../edit/parameter.dart';
 import '../common/parameter_panel.dart';
+import '../common/tone_curve_editor.dart';
 
 /// Lightroom shell skeleton (P2): a histogram + category nav over a parameter
 /// panel. Reads/writes the shared controller through [ParameterPanel]; owns no
@@ -24,6 +25,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   ];
 
   RecipeSection _section = RecipeSection.light;
+  bool _curve = false;
 
   @override
   Widget build(BuildContext context) {
@@ -46,26 +48,49 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: TextButton(
-                    onPressed: () => setState(() => _section = section),
+                    onPressed: () => setState(() {
+                      _section = section;
+                      _curve = false;
+                    }),
                     child: Text(
                       section.name.toUpperCase(),
                       style: TextStyle(
-                        color: section == _section
+                        color: !_curve && section == _section
                             ? Colors.white
                             : Colors.white38,
                         fontSize: 12,
                         letterSpacing: 1.2,
-                        fontWeight: section == _section
+                        fontWeight: !_curve && section == _section
                             ? FontWeight.w700
                             : FontWeight.w400,
                       ),
                     ),
                   ),
                 ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: TextButton(
+                  onPressed: () => setState(() => _curve = true),
+                  child: Text(
+                    'CURVE',
+                    style: TextStyle(
+                      color: _curve ? Colors.white : Colors.white38,
+                      fontSize: 12,
+                      letterSpacing: 1.2,
+                      fontWeight: _curve ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-        SizedBox(height: 232, child: ParameterPanel(section: _section)),
+        SizedBox(
+          height: 260,
+          child: _curve
+              ? const ToneCurveEditor()
+              : ParameterPanel(section: _section),
+        ),
       ],
     );
   }

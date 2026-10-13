@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart' show listEquals;
 
+/// Which tone curve a control edits.
+enum ToneCurveChannel { master, red, green, blue }
+
 /// A tone curve: monotone control points in `[0,1]²` stored flat as
 /// `[x0, y0, x1, y1, ...]`. Baking to a 256-entry LUT happens in Rust
 /// (`color::curve_lut`), monotone-cubic.
