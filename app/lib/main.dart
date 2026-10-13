@@ -3,9 +3,12 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'core/theme/app_theme.dart';
+import 'engine/engine.dart';
 import 'features/editor/editor_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await TesseraEngine.init();
   runApp(const TesseraApp());
 }
 

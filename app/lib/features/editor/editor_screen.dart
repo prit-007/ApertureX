@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../engine/engine.dart';
 import '../../gesture/gesture_interpreter.dart';
 import 'grade_painter.dart';
 
@@ -93,6 +94,7 @@ class _EditorScreenState extends State<EditorScreen> {
                     value: _values[_active]!,
                     visible: _chromeVisible,
                   ),
+                  const _EngineBadge(),
                   const _Hint(),
                 ],
               ),
@@ -162,6 +164,37 @@ class _ToolChip extends StatelessWidget {
     GradeTool.contrast => 'Contrast',
     GradeTool.saturation => 'Saturation',
   };
+}
+
+/// Shows the Rust engine version to prove the typed bridge call works on-device.
+class _EngineBadge extends StatefulWidget {
+  const _EngineBadge();
+
+  @override
+  State<_EngineBadge> createState() => _EngineBadgeState();
+}
+
+class _EngineBadgeState extends State<_EngineBadge> {
+  late final Future<String> _version = TesseraEngine.version();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: FutureBuilder<String>(
+            future: _version,
+            builder: (context, snapshot) => Text(
+              snapshot.hasData ? 'engine v${snapshot.data}' : 'engine …',
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _Hint extends StatelessWidget {

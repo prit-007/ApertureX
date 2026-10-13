@@ -37,6 +37,9 @@ dependencies:
   material_ui: ^1.2.0
   cupertino_ui: ^1.0.2
   dynamic_color: ^2.1.0
+  rust_lib_tessera:
+    path: rust_builder
+  flutter_rust_bridge: 2.13.0
 
 dev_dependencies:
   flutter_test:
@@ -48,6 +51,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  integration_test:
+    sdk: flutter
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
