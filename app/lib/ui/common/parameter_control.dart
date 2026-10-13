@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/haptics.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import 'slider_math.dart';
@@ -23,13 +24,19 @@ class ParameterControl extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final spec = specOf(parameter);
     final value = valueOf(ref.watch(recipeControllerProvider).recipe, parameter);
     final notifier = ref.read(recipeControllerProvider.notifier);
     final math = SliderMath(spec);
+    final isNeutral = value == spec.neutral;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Insets.lg,
+        vertical: Insets.xs,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -39,8 +46,8 @@ class ParameterControl extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     spec.label,
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -50,15 +57,16 @@ class ParameterControl extends ConsumerWidget {
               _ValueField(
                 key: Key('param-value-${parameter.name}'),
                 value: value,
+                isNeutral: isNeutral,
                 onType: (v) => notifier.update(parameter, v),
               ),
             ],
           ),
-          const SizedBox(height: 4),
           _Track(
             key: Key('param-track-${parameter.name}'),
             math: math,
             value: value,
+            scheme: scheme,
             onChanged: (v) {
               final previous = valueOf(
                 ref.read(recipeControllerProvider).recipe,
@@ -86,9 +94,15 @@ String _format(double v) => '${v >= 0 ? '+' : ''}${v.toStringAsFixed(2)}';
 
 /// Tappable numeric readout → type an exact value.
 class _ValueField extends StatelessWidget {
-  const _ValueField({super.key, required this.value, required this.onType});
+  const _ValueField({
+    super.key,
+    required this.value,
+    required this.isNeutral,
+    required this.onType,
+  });
 
   final double value;
+  final bool isNeutral;
   final ValueChanged<double> onType;
 
   Future<void> _prompt(BuildContext context) async {
@@ -124,17 +138,19 @@ class _ValueField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return TextButton(
       onPressed: () => _prompt(context),
       style: TextButton.styleFrom(
         minimumSize: const Size(56, 32),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: Insets.sm),
+        foregroundColor: isNeutral ? scheme.onSurfaceVariant : scheme.primary,
       ),
       child: Text(
         _format(value),
         style: const TextStyle(
-          color: Colors.white,
           fontFeatures: [FontFeature.tabularFigures()],
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -147,12 +163,14 @@ class _Track extends StatelessWidget {
     super.key,
     required this.math,
     required this.value,
+    required this.scheme,
     required this.onChanged,
     required this.onReset,
   });
 
   final SliderMath math;
   final double value;
+  final ColorScheme scheme;
   final ValueChanged<double> onChanged;
   final VoidCallback onReset;
 
@@ -169,11 +187,16 @@ class _Track extends StatelessWidget {
           onTapDown: (d) => jumpTo(d.localPosition.dx),
           onDoubleTap: onReset,
           onHorizontalDragUpdate: (d) => jumpTo(d.localPosition.dx),
-          child: SizedBox(
-            height: 36,
-            child: CustomPaint(
-              size: Size(width, 36),
-              painter: _TrackPainter(math: math, value: value),
+          child: Semantics(
+            slider: true,
+            label: '${math.spec.label} value',
+            value: _format(value),
+            child: SizedBox(
+              height: 36,
+              child: CustomPaint(
+                size: Size(width, 36),
+                painter: _TrackPainter(math: math, value: value, scheme: scheme),
+              ),
             ),
           ),
         );
@@ -183,10 +206,11 @@ class _Track extends StatelessWidget {
 }
 
 class _TrackPainter extends CustomPainter {
-  _TrackPainter({required this.math, required this.value});
+  _TrackPainter({required this.math, required this.value, required this.scheme});
 
   final SliderMath math;
   final double value;
+  final ColorScheme scheme;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -197,7 +221,7 @@ class _TrackPainter extends CustomPainter {
       Offset(0, cy),
       Offset(size.width, cy),
       Paint()
-        ..color = const Color(0xFF3A3A3A)
+        ..color = scheme.surfaceContainerHighest
         ..strokeWidth = trackH
         ..strokeCap = StrokeCap.round,
     );
@@ -208,7 +232,7 @@ class _TrackPainter extends CustomPainter {
       Offset(nx, cy - 8),
       Offset(nx, cy + 8),
       Paint()
-        ..color = const Color(0x33FFFFFF)
+        ..color = scheme.onSurfaceVariant.withValues(alpha: 0.5)
         ..strokeWidth = 1,
     );
 
@@ -218,7 +242,7 @@ class _TrackPainter extends CustomPainter {
       Offset(start * size.width, cy),
       Offset(end * size.width, cy),
       Paint()
-        ..color = const Color(0xFFB0A0FF)
+        ..color = scheme.primary
         ..strokeWidth = trackH
         ..strokeCap = StrokeCap.round,
     );
@@ -227,10 +251,11 @@ class _TrackPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(math.fractionOf(value) * size.width, cy),
       9,
-      Paint()..color = Colors.white,
+      Paint()..color = scheme.primary,
     );
   }
 
   @override
-  bool shouldRepaint(_TrackPainter old) => old.value != value;
+  bool shouldRepaint(_TrackPainter old) =>
+      old.value != value || old.scheme != scheme;
 }

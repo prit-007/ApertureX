@@ -17,7 +17,7 @@ void main() {
   Future<void> pumpShell(WidgetTester tester) => tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: AppShell()),
+      child: const MaterialApp(home: Scaffold(body: AppShell())),
     ),
   );
 
@@ -43,7 +43,7 @@ void main() {
     await tester.pump();
     final before = container.read(recipeControllerProvider).recipe;
 
-    // Switch shells.
+    // Switch shells via the preference (no longer a chrome toggle).
     container
         .read(shellPreferenceProvider.notifier)
         .select(AppShellKind.snapseed);
@@ -56,15 +56,10 @@ void main() {
     expect(before.exposure, 1.5);
   });
 
-  testWidgets('the shell toggle switches between shells', (tester) async {
+  testWidgets('the editor shell exposes no debug floating buttons', (
+    tester,
+  ) async {
     await pumpShell(tester);
-
-    await tester.tap(find.text('Snapseed'));
-    await tester.pumpAndSettle();
-    expect(find.byType(SnapseedShell), findsOneWidget);
-
-    await tester.tap(find.text('Lightroom'));
-    await tester.pumpAndSettle();
-    expect(find.byType(LightroomShell), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsNothing);
   });
 }

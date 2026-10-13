@@ -12,8 +12,9 @@ import '../common/tone_curve_editor.dart';
 
 enum _Tab { panel, curve, mix, geometry, mask }
 
-/// Lightroom shell: histogram + tabs (categorized panels / tone curve / HSL
-/// mixer) over the shared recipe. Owns no edit state.
+/// Lightroom shell: histogram + categorized panels (tone / colour / effects /
+/// detail), a tone curve, an HSL mixer, geometry and masks — all over the shared
+/// recipe. Owns no edit state.
 class LightroomShell extends ConsumerStatefulWidget {
   const LightroomShell({super.key});
 
@@ -34,10 +35,28 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    Widget chip(String label, bool selected, VoidCallback onTap) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        showCheckmark: false,
+        visualDensity: VisualDensity.compact,
+        labelStyle: TextStyle(
+          fontSize: 12,
+          letterSpacing: 0.8,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+    );
+
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -54,7 +73,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 isSelected: ref.watch(tatModeProvider),
                 onPressed: () => ref.read(tatModeProvider.notifier).toggle(),
                 icon: const Icon(Icons.colorize),
-                selectedIcon: const Icon(Icons.colorize, color: Colors.white),
+                selectedIcon: Icon(Icons.colorize, color: scheme.primary),
               ),
             ],
           ),
@@ -66,39 +85,24 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             children: [
               for (final section in _sections)
-                _tabButton(
-                  section.name.toUpperCase(),
+                chip(
+                  section.name,
                   _tab == _Tab.panel && section == _section,
                   () => setState(() {
                     _section = section;
                     _tab = _Tab.panel;
                   }),
                 ),
-              _tabButton(
-                'CURVE',
-                _tab == _Tab.curve,
-                () => setState(() => _tab = _Tab.curve),
-              ),
-              _tabButton(
-                'MIX',
-                _tab == _Tab.mix,
-                () => setState(() => _tab = _Tab.mix),
-              ),
-              _tabButton(
-                'GEOMETRY',
-                _tab == _Tab.geometry,
-                () => setState(() => _tab = _Tab.geometry),
-              ),
-              _tabButton(
-                'MASK',
-                _tab == _Tab.mask,
-                () => setState(() => _tab = _Tab.mask),
-              ),
+              chip('Curve', _tab == _Tab.curve, () => setState(() => _tab = _Tab.curve)),
+              chip('Mix', _tab == _Tab.mix, () => setState(() => _tab = _Tab.mix)),
+              chip('Geometry', _tab == _Tab.geometry, () => setState(() => _tab = _Tab.geometry)),
+              chip('Mask', _tab == _Tab.mask, () => setState(() => _tab = _Tab.mask)),
             ],
           ),
         ),
+        Divider(height: 1, color: scheme.outlineVariant),
         SizedBox(
-          height: 260,
+          height: 272,
           child: switch (_tab) {
             _Tab.panel => ParameterPanel(section: _section),
             _Tab.curve => const ToneCurveEditor(),
@@ -108,24 +112,6 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
           },
         ),
       ],
-    );
-  }
-
-  Widget _tabButton(String label, bool selected, VoidCallback onPressed) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: TextButton(
-        onPressed: onPressed,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : Colors.white38,
-            fontSize: 12,
-            letterSpacing: 1.2,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-          ),
-        ),
-      ),
     );
   }
 }

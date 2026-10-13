@@ -26,7 +26,11 @@ import '../engine/engine.dart';
 /// Rust export path. Falls back to a neutral placeholder if the engine or
 /// shader is unavailable (e.g. widget tests).
 class ImageCanvas extends ConsumerStatefulWidget {
-  const ImageCanvas({super.key});
+  const ImageCanvas({super.key, this.imageBytes});
+
+  /// JPEG bytes of the photo being edited. When null the canvas falls back to
+  /// the built-in sample (used by the sample-editor entry point).
+  final Uint8List? imageBytes;
 
   @override
   ConsumerState<ImageCanvas> createState() => _ImageCanvasState();
@@ -67,7 +71,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   Future<void> _load() async {
     try {
       final program = await ui.FragmentProgram.fromAsset('shaders/lut.frag');
-      final jpeg = await TesseraEngine.syntheticJpeg(width: 1024, height: 1024);
+      final jpeg =
+          widget.imageBytes ??
+          await TesseraEngine.syntheticJpeg(width: 1024, height: 1024);
       final decoded = await TesseraEngine.decodeJpegRgba(jpeg);
       final source = await _imageFrom(
         decoded.rgba,

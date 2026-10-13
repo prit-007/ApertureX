@@ -93,6 +93,7 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final recipe = ref.watch(recipeControllerProvider).recipe;
     final curve = _curveOf(recipe);
     final histogram = ref.watch(histogramProvider);
@@ -117,7 +118,9 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
                 child: Text(
                   channel.name.toUpperCase(),
                   style: TextStyle(
-                    color: channel == _channel ? Colors.white : Colors.white38,
+                    color: channel == _channel
+                        ? scheme.onSurface
+                        : scheme.onSurfaceVariant,
                     fontSize: 12,
                     letterSpacing: 1.0,
                     fontWeight: channel == _channel
@@ -165,6 +168,7 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
                         painter: _CurvePainter(
                           points: _toPoints(curve),
                           histogram: histogram,
+                          scheme: scheme,
                         ),
                       ),
                     ),
@@ -180,17 +184,22 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
 }
 
 class _CurvePainter extends CustomPainter {
-  _CurvePainter({required this.points, required this.histogram});
+  _CurvePainter({
+    required this.points,
+    required this.histogram,
+    required this.scheme,
+  });
 
   final List<Offset> points;
   final Histogram? histogram;
+  final ColorScheme scheme;
 
   @override
   void paint(Canvas canvas, Size size) {
     final side = size.width;
     canvas.drawRect(
       Offset.zero & size,
-      Paint()..color = const Color(0xFF0A0A0A),
+      Paint()..color = scheme.surfaceContainerLowest,
     );
 
     // Histogram luma backdrop.
@@ -210,7 +219,10 @@ class _CurvePainter extends CustomPainter {
       path
         ..lineTo(side, side)
         ..close();
-      canvas.drawPath(path, Paint()..color = const Color(0x22FFFFFF));
+      canvas.drawPath(
+        path,
+        Paint()..color = scheme.onSurface.withValues(alpha: 0.13),
+      );
     }
 
     // Diagonal reference.
@@ -218,7 +230,7 @@ class _CurvePainter extends CustomPainter {
       Offset(0, side),
       Offset(side, 0),
       Paint()
-        ..color = const Color(0x22FFFFFF)
+        ..color = scheme.onSurface.withValues(alpha: 0.13)
         ..strokeWidth = 1,
     );
 
@@ -236,7 +248,7 @@ class _CurvePainter extends CustomPainter {
     canvas.drawPath(
       curve,
       Paint()
-        ..color = const Color(0xFFB0A0FF)
+        ..color = scheme.primary
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke,
     );
@@ -246,14 +258,16 @@ class _CurvePainter extends CustomPainter {
       canvas.drawCircle(
         Offset(p.dx * side, (1 - p.dy) * side),
         5,
-        Paint()..color = Colors.white,
+        Paint()..color = scheme.onSurface,
       );
     }
   }
 
   @override
   bool shouldRepaint(_CurvePainter old) =>
-      old.histogram != histogram || !_samePoints(old.points, points);
+      old.histogram != histogram ||
+      old.scheme != scheme ||
+      !_samePoints(old.points, points);
 
   static bool _samePoints(List<Offset> a, List<Offset> b) {
     if (a.length != b.length) return false;

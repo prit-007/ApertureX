@@ -5,8 +5,9 @@ import 'package:material_ui/material_ui.dart';
 import 'core/theme/app_theme.dart';
 import 'engine/engine.dart';
 import 'gallery/gallery_controller.dart';
+import 'gallery/gallery_screen.dart';
 import 'gallery/photo_gallery_source.dart';
-import 'ui/app_shell.dart';
+import 'settings/app_settings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,16 +17,17 @@ Future<void> main() async {
       overrides: [
         gallerySourceProvider.overrideWithValue(PhotoGallerySource()),
       ],
-      child: const TesseraApp(),
+      child: const ApertureXApp(),
     ),
   );
 }
 
-class TesseraApp extends StatelessWidget {
-  const TesseraApp({super.key});
+class ApertureXApp extends ConsumerWidget {
+  const ApertureXApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
     // Material You on Android S+; seed fallback elsewhere (ADR 0006).
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
@@ -34,9 +36,8 @@ class TesseraApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(lightDynamic),
           darkTheme: AppTheme.dark(darkDynamic),
-          // No localization-delegate override: material_ui's MaterialApp default
-          // (DefaultMaterialLocalizations) is used. i18n is deferred to P5 (#22).
-          home: const AppShell(),
+          themeMode: themeMode,
+          home: const GalleryScreen(),
         );
       },
     );

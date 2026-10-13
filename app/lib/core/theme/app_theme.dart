@@ -1,31 +1,151 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'design_tokens.dart';
+
 /// Central Material 3 theming for ApertureX (ADR 0011).
 ///
 /// Keeps the **dynamic accent** (wallpaper `primary`/`secondary`/`tertiary`) but
 /// forces **neutral greys** for every surface role, so grading a photo against
-/// the UI never tints the user's perception. The seed scheme is the fallback; on
-/// Android S+ the scheme from `dynamic_color` supplies the accent.
+/// the UI never tints the user's perception. Every component theme is defined
+/// here so screens and sheets never hardcode colours, shapes or motion.
 class AppTheme {
   const AppTheme._();
 
   static const Color seed = Color(0xFF6750A4);
 
-  static ThemeData light([ColorScheme? dynamic]) {
-    final scheme = dynamic ?? ColorScheme.fromSeed(seedColor: seed);
-    return ThemeData(
-      colorScheme: _neutralize(scheme, Brightness.light),
-      useMaterial3: true,
-    );
-  }
+  static ThemeData light([ColorScheme? dynamic]) => _build(
+    _neutralize(
+      dynamic ?? ColorScheme.fromSeed(seedColor: seed),
+      Brightness.light,
+    ),
+    Brightness.light,
+  );
 
-  static ThemeData dark([ColorScheme? dynamic]) {
-    final scheme =
-        dynamic ??
-        ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark);
-    return ThemeData(
-      colorScheme: _neutralize(scheme, Brightness.dark),
-      useMaterial3: true,
+  static ThemeData dark([ColorScheme? dynamic]) => _build(
+    _neutralize(
+      dynamic ??
+          ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark),
+      Brightness.dark,
+    ),
+    Brightness.dark,
+  );
+
+  static ThemeData _build(ColorScheme scheme, Brightness brightness) {
+    final base = ThemeData(colorScheme: scheme, useMaterial3: true);
+    final text = base.textTheme;
+
+    final controlShape = RoundedRectangleBorder(borderRadius: Radii.mdAll);
+    final buttonShape = RoundedRectangleBorder(borderRadius: Radii.pillAll);
+
+    return base.copyWith(
+      scaffoldBackgroundColor: scheme.surface,
+      canvasColor: scheme.surface,
+      appBarTheme: AppBarTheme(
+        backgroundColor: scheme.surface,
+        foregroundColor: scheme.onSurface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleTextStyle: text.titleLarge?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: scheme.onSurface,
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: scheme.surfaceContainerLow,
+        modalBackgroundColor: scheme.surfaceContainerLow,
+        surfaceTintColor: Colors.transparent,
+        showDragHandle: true,
+        dragHandleColor: scheme.outlineVariant,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl)),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: scheme.surfaceContainerHigh,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: Radii.xlAll),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: scheme.inverseSurface,
+        contentTextStyle: TextStyle(color: scheme.onInverseSurface),
+        shape: RoundedRectangleBorder(borderRadius: Radii.mdAll),
+      ),
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant,
+        space: 1,
+        thickness: 1,
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: scheme.onSurfaceVariant,
+        textColor: scheme.onSurface,
+        shape: RoundedRectangleBorder(borderRadius: Radii.mdAll),
+      ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: scheme.primary,
+        inactiveTrackColor: scheme.surfaceContainerHighest,
+        thumbColor: scheme.primary,
+        overlayColor: scheme.primary.withValues(alpha: 0.12),
+        trackHeight: 4,
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: Radii.mdAll),
+          ),
+          side: WidgetStatePropertyAll(
+            BorderSide(color: scheme.outlineVariant),
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: scheme.surfaceContainerHighest,
+        hintStyle: TextStyle(color: scheme.onSurfaceVariant),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: Insets.md,
+          vertical: Insets.md,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: Radii.mdAll,
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: Radii.mdAll,
+          borderSide: BorderSide(color: scheme.primary, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: Radii.mdAll,
+          borderSide: BorderSide(color: scheme.error),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(shape: buttonShape),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          shape: buttonShape,
+          side: BorderSide(color: scheme.outlineVariant),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(shape: controlShape),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(foregroundColor: scheme.onSurfaceVariant),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: scheme.primary),
+      textTheme: text.copyWith(
+        titleLarge: text.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        titleMedium: text.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        titleSmall: text.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+        labelLarge: text.labelLarge?.copyWith(
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
+        ),
+      ),
     );
   }
 

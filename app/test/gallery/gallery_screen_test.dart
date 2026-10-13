@@ -59,9 +59,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(Image), findsNWidgets(2));
 
-    // Tap selects (the first tap enters selection mode).
-    await tester.tap(find.byType(Image).at(0));
+    // Long-press enters selection mode with the first photo selected.
+    await tester.longPress(find.byType(Image).at(0));
     await tester.pumpAndSettle();
+    // In selection mode, a tap toggles the second photo in.
     await tester.tap(find.byType(Image).at(1));
     await tester.pumpAndSettle();
     expect(find.text('2 selected'), findsOneWidget);

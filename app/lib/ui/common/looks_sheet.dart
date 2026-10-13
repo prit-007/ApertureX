@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/tool_definition.dart';
+import 'app_sheet.dart';
 
-/// The tool gallery: apply a built-in look, or import a shared look (JSON).
+/// The look gallery: apply a built-in look, or import a shared look (JSON).
 class LooksSheet extends ConsumerStatefulWidget {
   const LooksSheet({super.key});
 
@@ -40,69 +42,37 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+    return AppSheet(
+      title: 'Looks',
+      subtitle: 'One-tap grades — or paste a look someone shared with you.',
+      children: [
+        for (final tool in ToolLibrary.builtins)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.auto_fix_high),
+            title: Text(tool.name),
+            subtitle: Text(tool.description),
+            onTap: () => _apply(tool),
+          ),
+        const SizedBox(height: Insets.lg),
+        TextField(
+          controller: _controller,
+          maxLines: 3,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          decoration: InputDecoration(
+            hintText: 'Paste a shared look (JSON)…',
+            errorText: _importError,
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Text(
-                'Looks',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-              ),
-            ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final tool in ToolLibrary.builtins)
-                    ListTile(
-                      leading: const Icon(Icons.auto_fix_high),
-                      title: Text(tool.name),
-                      subtitle: Text(tool.description),
-                      onTap: () => _apply(tool),
-                    ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: _controller,
-                    maxLines: 3,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
-                    decoration: InputDecoration(
-                      border: const OutlineInputBorder(),
-                      hintText: 'Paste a shared look (JSON)…',
-                      errorText: _importError,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton(
-                      onPressed: _import,
-                      child: const Text('Import look'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        const SizedBox(height: Insets.md),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: _import,
+            child: const Text('Import look'),
+          ),
         ),
-      ),
+      ],
     );
   }
 }

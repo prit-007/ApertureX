@@ -134,7 +134,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
               }),
               child: Container(
                 height: 120,
-                color: const Color(0xFF141414),
+                color: scheme.surfaceContainerLow,
                 alignment: Alignment.center,
                 child: Stack(
                   children: [
@@ -145,8 +145,8 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                         children: [
                           Text(
                             specOf(_parameter).label,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: scheme.onSurface,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -167,12 +167,12 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                 ),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.all(8),
+            Padding(
+              padding: const EdgeInsets.all(8),
               child: Text(
                 'swipe to scrub · long-press for the radial tool menu',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
               ),
             ),
           ],
@@ -194,7 +194,9 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                 ),
                 child: Icon(
                   _icon(GradeTool.values[i]),
-                  color: i == _radialHover ? scheme.onPrimary : Colors.white70,
+                  color: i == _radialHover
+                      ? scheme.onPrimary
+                      : scheme.onSurfaceVariant,
                 ),
               ),
             ),

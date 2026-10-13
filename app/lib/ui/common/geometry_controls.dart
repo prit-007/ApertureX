@@ -10,6 +10,7 @@ class GeometryControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
     final recipe = ref.watch(recipeControllerProvider).recipe;
     final notifier = ref.read(recipeControllerProvider.notifier);
 
@@ -63,10 +64,7 @@ class GeometryControls extends ConsumerWidget {
             children: [
               const SizedBox(
                 width: 84,
-                child: Text(
-                  'Straighten',
-                  style: TextStyle(color: Colors.white70),
-                ),
+                child: Text('Straighten'),
               ),
               Expanded(
                 child: Slider(
@@ -82,7 +80,7 @@ class GeometryControls extends ConsumerWidget {
                 child: Text(
                   '${recipe.straighten.toStringAsFixed(1)}°',
                   textAlign: TextAlign.end,
-                  style: const TextStyle(color: Colors.white70),
+                  style: TextStyle(color: scheme.onSurfaceVariant),
                 ),
               ),
             ],

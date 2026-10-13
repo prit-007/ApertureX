@@ -4,9 +4,11 @@ import 'package:material_ui/material_ui.dart';
 import '../../color/cube_lut.dart';
 import '../../color/imported_lut.dart';
 import '../../color/lut_atlas.dart';
+import '../../core/theme/design_tokens.dart';
+import 'app_sheet.dart';
 
-/// Bottom sheet to import a preset look by pasting `.cube` text. (A file picker
-/// entry point plugs in here later; pasting keeps the core dependency-free.)
+/// Import a preset look by pasting `.cube` text. (A file picker entry point
+/// plugs in here later; pasting keeps the core dependency-free.)
 class LutImportSheet extends ConsumerStatefulWidget {
   const LutImportSheet({super.key});
 
@@ -35,59 +37,43 @@ class _LutImportSheetState extends ConsumerState<LutImportSheet> {
         SnackBar(content: Text('Applied LUT (${lut.size}³)')),
       );
     } on FormatException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Invalid .cube: ${e.message}')));
+      messenger.showSnackBar(
+        SnackBar(content: Text('Invalid .cube: ${e.message}')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final active = ref.watch(importedLutProvider);
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: 16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+    return AppSheet(
+      title: 'Import a .cube LUT',
+      subtitle: 'Paste the contents of a .cube file to apply it.',
+      children: [
+        TextField(
+          controller: _controller,
+          maxLines: 6,
+          minLines: 4,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          decoration: const InputDecoration(hintText: 'Paste .cube contents…'),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        const SizedBox(height: Insets.md),
+        Row(
           children: [
-            const Text(
-              'Import a .cube LUT',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            TextButton(
+              onPressed: active == null
+                  ? null
+                  : () {
+                      ref.read(importedLutProvider.notifier).clear();
+                      Navigator.of(context).maybePop();
+                    },
+              child: const Text('Clear'),
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _controller,
-              maxLines: 6,
-              minLines: 4,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: 'Paste .cube contents here…',
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                TextButton(
-                  onPressed: active == null
-                      ? null
-                      : () {
-                          ref.read(importedLutProvider.notifier).clear();
-                          Navigator.of(context).maybePop();
-                        },
-                  child: const Text('Clear'),
-                ),
-                const Spacer(),
-                FilledButton(onPressed: _apply, child: const Text('Apply')),
-              ],
-            ),
+            const Spacer(),
+            FilledButton(onPressed: _apply, child: const Text('Apply')),
           ],
         ),
-      ),
+      ],
     );
   }
 }

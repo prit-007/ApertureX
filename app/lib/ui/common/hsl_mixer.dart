@@ -28,6 +28,7 @@ class _HslMixerState extends ConsumerState<HslMixer> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final hsl = ref.watch(recipeControllerProvider).recipe.hsl;
     final notifier = ref.read(recipeControllerProvider.notifier);
 
@@ -41,7 +42,7 @@ class _HslMixerState extends ConsumerState<HslMixer> {
               width: 84,
               child: Text(
                 label,
-                style: const TextStyle(color: Colors.white70),
+                style: TextStyle(color: scheme.onSurfaceVariant),
               ),
             ),
             Expanded(
@@ -62,7 +63,7 @@ class _HslMixerState extends ConsumerState<HslMixer> {
               child: Text(
                 '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
                 textAlign: TextAlign.end,
-                style: const TextStyle(color: Colors.white70),
+                style: TextStyle(color: scheme.onSurfaceVariant),
               ),
             ),
           ],
@@ -88,7 +89,7 @@ class _HslMixerState extends ConsumerState<HslMixer> {
                       color: _bands[i],
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: i == _band ? Colors.white : Colors.transparent,
+                        color: i == _band ? scheme.onSurface : Colors.transparent,
                         width: 2,
                       ),
                     ),

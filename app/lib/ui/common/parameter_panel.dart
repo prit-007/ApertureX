@@ -2,11 +2,11 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../edit/parameter.dart';
 import '../../edit/recipe_mapping.dart';
+import 'app_primitives.dart';
 import 'parameter_control.dart';
 
-/// Throwaway panel (Slice B exit criteria): renders every parameter in a
-/// [RecipeSection] through the shared [ParameterControl], proving the control
-/// works before the real shell layout exists.
+/// Renders every parameter in a [RecipeSection] through the shared
+/// [ParameterControl].
 class ParameterPanel extends StatelessWidget {
   const ParameterPanel({super.key, required this.section});
 
@@ -15,18 +15,9 @@ class ParameterPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
+      padding: const EdgeInsets.only(bottom: 8),
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-          child: Text(
-            section.name.toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 12,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ),
+        SectionHeader(section.name),
         for (final parameter in parametersIn(section))
           ParameterControl(parameter: parameter),
       ],
