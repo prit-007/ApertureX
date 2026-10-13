@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../color/interactive_histogram.dart';
+import '../../color/tat.dart';
 import '../../edit/parameter.dart';
 import '../common/geometry_controls.dart';
 import '../common/hsl_mixer.dart';
@@ -34,11 +35,27 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
-          child: ClipRRect(
-            borderRadius: BorderRadius.all(Radius.circular(8)),
-            child: InteractiveHistogram(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.all(Radius.circular(8)),
+                  child: InteractiveHistogram(),
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: 'Target Adjustment Tool: drag the image to target the '
+                    'HSL colour under the pointer',
+                isSelected: ref.watch(tatModeProvider),
+                onPressed: () => ref.read(tatModeProvider.notifier).toggle(),
+                icon: const Icon(Icons.colorize),
+                selectedIcon: const Icon(Icons.colorize, color: Colors.white),
+              ),
+            ],
           ),
         ),
         SizedBox(

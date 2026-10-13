@@ -11,6 +11,7 @@ import '../color/imported_lut.dart';
 import '../color/lut_atlas.dart';
 import '../color/lut_texture.dart';
 import '../color/spatial_spec.dart';
+import '../color/tat.dart';
 import '../edit/geometry_spec.dart';
 import '../edit/parameter.dart';
 import '../edit/recipe.dart';
@@ -46,6 +47,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   bool _comparing = false;
   int _bakeToken = 0;
   int _activeLutSize = _lutSize;
+  Uint8List? _baseRgba;
+  int _baseW = 0;
+  int _baseH = 0;
+  int? _tatBand;
   Timer? _debounce;
   late final AnimationController _compare;
 
@@ -155,6 +160,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _lut?.dispose();
       _lut = lutImage;
       _activeLutSize = lutSize;
+      _baseRgba = baseRgba;
+      _baseW = geo.width;
+      _baseH = geo.height;
     });
     ref.read(histogramProvider.notifier).publish(histogram);
   }
@@ -192,32 +200,109 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       return _placeholder();
     }
 
-    return GestureDetector(
-      onLongPressStart: (_) {
-        setState(() => _comparing = true);
-        _compare.forward();
-      },
-      onLongPressEnd: (_) {
-        setState(() => _comparing = false);
-        _compare.reverse();
-      },
-      onLongPressCancel: () {
-        setState(() => _comparing = false);
-        _compare.reverse();
-      },
-      child: AnimatedBuilder(
-        animation: _compare,
-        builder: (context, _) => CustomPaint(
-          size: Size.infinite,
-          painter: _CanvasPainter(
-            shader: program.fragmentShader(),
-            source: source,
-            lut: lut,
-            lutSize: _activeLutSize.toDouble(),
-            blend: _compare.value,
+    final tat = ref.watch(tatModeProvider);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        return GestureDetector(
+          onLongPressStart: (_) {
+            setState(() => _comparing = true);
+            _compare.forward();
+          },
+          onLongPressEnd: (_) {
+            setState(() => _comparing = false);
+            _compare.reverse();
+          },
+          onLongPressCancel: () {
+            setState(() => _comparing = false);
+            _compare.reverse();
+          },
+          onPanStart: tat ? (d) => _tatTouch(d.localPosition, size) : null,
+          onPanUpdate: tat ? (d) => _tatAdjust(d, size) : null,
+          onPanEnd: tat
+              ? (_) => ref
+                    .read(recipeControllerProvider.notifier)
+                    .commit(label: 'TAT')
+              : null,
+          child: Stack(
+            children: [
+              AnimatedBuilder(
+                animation: _compare,
+                builder: (context, _) => CustomPaint(
+                  size: Size.infinite,
+                  painter: _CanvasPainter(
+                    shader: program.fragmentShader(),
+                    source: source,
+                    lut: lut,
+                    lutSize: _activeLutSize.toDouble(),
+                    blend: _compare.value,
+                  ),
+                ),
+              ),
+              if (tat && _tatBand != null)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xCC000000),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Target: ${_bandNames[_tatBand!]}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        ),
-      ),
+        );
+      },
+    );
+  }
+
+  static const List<String> _bandNames = [
+    'Red',
+    'Orange',
+    'Yellow',
+    'Green',
+    'Aqua',
+    'Blue',
+    'Purple',
+    'Magenta',
+  ];
+
+  int? _bandAt(Offset local, Size size) {
+    final rgba = _baseRgba;
+    if (rgba == null || _baseW == 0 || size.width == 0 || size.height == 0) {
+      return null;
+    }
+    final x = ((local.dx / size.width) * _baseW).clamp(0, _baseW - 1).toInt();
+    final y = ((local.dy / size.height) * _baseH).clamp(0, _baseH - 1).toInt();
+    final i = (y * _baseW + x) * 4;
+    if (i + 2 >= rgba.length) return null;
+    return nearestHslBand(hueOf(rgba[i], rgba[i + 1], rgba[i + 2]));
+  }
+
+  void _tatTouch(Offset local, Size size) {
+    final band = _bandAt(local, size);
+    if (band != null && band != _tatBand) setState(() => _tatBand = band);
+  }
+
+  void _tatAdjust(DragUpdateDetails d, Size size) {
+    final band = _bandAt(d.localPosition, size) ?? _tatBand;
+    if (band == null) return;
+    if (band != _tatBand) setState(() => _tatBand = band);
+    final notifier = ref.read(recipeControllerProvider.notifier);
+    final saturation = ref.read(recipeControllerProvider).recipe.hsl[band * 3 + 1];
+    notifier.setHsl(
+      band,
+      saturation: saturation + (d.delta.dx / size.width) * 2,
     );
   }
 
