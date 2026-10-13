@@ -5,6 +5,7 @@ import '../color/lut_demo_screen.dart';
 import '../settings/shell_preference.dart';
 import '../viewport/image_canvas.dart';
 import '../viewport/tile_viewport_demo.dart';
+import 'common/history_sheet.dart';
 import 'lightroom/lightroom_shell.dart';
 import 'snapseed/snapseed_shell.dart';
 
@@ -33,6 +34,15 @@ class AppShell extends ConsumerWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        FloatingActionButton.small(
+                          heroTag: 'history',
+                          onPressed: () => showModalBottomSheet<void>(
+                            context: context,
+                            builder: (_) => const HistorySheet(),
+                          ),
+                          child: const Icon(Icons.history),
+                        ),
+                        const SizedBox(height: 8),
                         FloatingActionButton.small(
                           heroTag: 'lut-demo',
                           onPressed: () => Navigator.of(context).push(

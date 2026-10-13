@@ -8,40 +8,40 @@ import 'tone_curve.dart';
 /// Single source of truth for an edit session. Both shells (Lightroom panels
 /// and the Snapseed gesture FSM) read and write exactly this one controller —
 /// neither shell owns edit state (ADR 0008 §6).
-final recipeControllerProvider =
-    NotifierProvider<RecipeController, RecipeState>(RecipeController.new);
+///
+/// History is a **branchable list**: committing after an undo truncates the
+/// redo tail, so a new edit branches from the current node (ADR 0011).
+final recipeControllerProvider = NotifierProvider<RecipeController, RecipeState>(
+  RecipeController.new,
+);
 
-/// Semantics:
-/// * [update]/[applyDelta]/[reset] change the *live* [RecipeState.recipe].
-/// * [commit] pushes the previous node on the undo stack and clears redo
-///   (Snapseed "✓" / Lightroom slider release).
-/// * [cancel] discards live edits, restoring the last commit (Snapseed "✕").
-/// * [undo]/[redo] walk the committed-history stack.
 class RecipeController extends Notifier<RecipeState> {
   @override
   RecipeState build() => const RecipeState(
     recipe: EditRecipe.neutral,
-    committed: EditRecipe.neutral,
+    history: [RecipeHistoryEntry('Original', EditRecipe.neutral)],
   );
 
-  EditRecipe get _recipe => state.recipe;
+  bool get isDirty => state.isDirty;
 
-  /// Selects the UI's active parameter (also sets it on edits).
+  /// Selects the UI's active parameter (also set on edits).
   void selectParameter(Parameter? parameter) =>
       state = state.copyWith(activeParameter: parameter);
 
   /// Sets [parameter] to an absolute [value] (clamped to its range).
   void update(Parameter parameter, double value) {
     state = state.copyWith(
-      recipe: withValue(_recipe, parameter, value),
+      recipe: withValue(state.recipe, parameter, value),
       activeParameter: parameter,
     );
   }
 
   /// Applies an incremental [delta], scaled by the parameter's sensitivity.
   void applyDelta(Parameter parameter, double delta) {
-    final scale = specOf(parameter).scale;
-    update(parameter, valueOf(_recipe, parameter) + delta * scale);
+    update(
+      parameter,
+      valueOf(state.recipe, parameter) + delta * specOf(parameter).scale,
+    );
   }
 
   /// Resets [parameter] to neutral.
@@ -59,42 +59,37 @@ class RecipeController extends Notifier<RecipeState> {
     state = state.copyWith(recipe: recipe);
   }
 
-  /// Commits the live recipe as the new node. No-op when nothing changed.
-  void commit() {
+  /// Commits the live recipe as a new (optionally named) history node. Truncates
+  /// the redo tail — this is where a branch happens.
+  void commit({String? label}) {
     if (!state.isDirty) return;
-    state = state.copyWith(
-      committed: state.recipe,
-      undoStack: [...state.undoStack, state.committed],
-      redoStack: const [],
-    );
+    final history = [
+      ...state.history.sublist(0, state.index + 1),
+      RecipeHistoryEntry(label ?? 'Edit', state.recipe),
+    ];
+    state = state.copyWith(history: history, index: history.length - 1);
   }
 
-  /// Discards live edits back to the last committed node.
+  /// Discards live edits back to the current committed node.
   void cancel() => state = state.copyWith(recipe: state.committed);
 
-  /// Steps back one committed node (also replaces any live edits).
+  /// Steps back one history node.
   void undo() {
-    final undo = state.undoStack;
-    if (undo.isEmpty) return;
-    final previous = undo.last;
-    state = state.copyWith(
-      recipe: previous,
-      committed: previous,
-      undoStack: undo.sublist(0, undo.length - 1),
-      redoStack: [...state.redoStack, state.committed],
-    );
+    if (state.index == 0) return;
+    final i = state.index - 1;
+    state = state.copyWith(index: i, recipe: state.history[i].recipe);
   }
 
-  /// Redoes the last undone commit.
+  /// Steps forward one history node.
   void redo() {
-    final redo = state.redoStack;
-    if (redo.isEmpty) return;
-    final next = redo.last;
-    state = state.copyWith(
-      recipe: next,
-      committed: next,
-      undoStack: [...state.undoStack, state.committed],
-      redoStack: redo.sublist(0, redo.length - 1),
-    );
+    if (state.index >= state.history.length - 1) return;
+    final i = state.index + 1;
+    state = state.copyWith(index: i, recipe: state.history[i].recipe);
+  }
+
+  /// Jumps to a history node (viewing it). A later commit branches from here.
+  void jumpTo(int index) {
+    if (index < 0 || index >= state.history.length) return;
+    state = state.copyWith(index: index, recipe: state.history[index].recipe);
   }
 }
