@@ -67,7 +67,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -927038338;
+  int get rustContentHash => 108036744;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -99,6 +99,11 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiEngineInitApp();
 
   Future<ImageDims> crateApiDecodeJpegDimensions({required List<int> jpeg});
+
+  Future<Uint8List> crateApiEngineSyntheticJpeg({
+    required int width,
+    required int height,
+  });
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -293,6 +298,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiDecodeJpegDimensionsConstMeta =>
       const TaskConstMeta(debugName: "jpeg_dimensions", argNames: ["jpeg"]);
+
+  @override
+  Future<Uint8List> crateApiEngineSyntheticJpeg({
+    required int width,
+    required int height,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 7,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiEngineSyntheticJpegConstMeta,
+        argValues: [width, height],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineSyntheticJpegConstMeta =>
+      const TaskConstMeta(
+        debugName: "synthetic_jpeg",
+        argNames: ["width", "height"],
+      );
 
   @protected
   String dco_decode_String(dynamic raw) {

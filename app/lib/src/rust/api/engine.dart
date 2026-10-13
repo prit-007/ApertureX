@@ -19,3 +19,14 @@ Future<Uint8List> brightenRgba({
   required int amount,
 }) =>
     RustLib.instance.api.crateApiEngineBrightenRgba(rgba: rgba, amount: amount);
+
+/// Generates a synthetic JPEG test image (a gradient) of the given size.
+///
+/// A seed/demo helper so the viewport demo and large-image tests need no
+/// bundled asset. `jpeg-encoder` is also the intended full-res export encoder
+/// (roadmap P4), so it is a normal dependency.
+Future<Uint8List> syntheticJpeg({required int width, required int height}) =>
+    RustLib.instance.api.crateApiEngineSyntheticJpeg(
+      width: width,
+      height: height,
+    );

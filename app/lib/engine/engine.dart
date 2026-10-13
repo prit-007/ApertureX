@@ -24,6 +24,12 @@ class TesseraEngine {
   /// Engine crate version (typed `String` across the bridge).
   static Future<String> version() => rust_engine.engineVersion();
 
+  /// Generates a synthetic JPEG gradient of the given size (demo/test image).
+  static Future<Uint8List> syntheticJpeg({
+    required int width,
+    required int height,
+  }) => rust_engine.syntheticJpeg(width: width, height: height);
+
   /// Adds [amount] to each RGB channel of an RGBA buffer (typed byte round-trip).
   static Future<Uint8List> brighten(Uint8List rgba, int amount) =>
       rust_engine.brightenRgba(rgba: rgba, amount: amount);

@@ -35,7 +35,9 @@ pub fn dimensions(data: &[u8]) -> Result<(usize, usize), String> {
 pub fn decode_rgba(data: &[u8]) -> Result<DecodedImage, String> {
     let options = DecoderOptions::new_safe().jpeg_set_out_colorspace(ColorSpace::RGBA);
     let mut decoder = JpegDecoder::new_with_options(Cursor::new(data), options);
-    let rgba = decoder.decode().map_err(|e| format!("jpeg decode: {e:?}"))?;
+    let rgba = decoder
+        .decode()
+        .map_err(|e| format!("jpeg decode: {e:?}"))?;
     let info = decoder.info().ok_or("jpeg: no image info after decode")?;
 
     let width = info.width as usize;
@@ -50,7 +52,11 @@ pub fn decode_rgba(data: &[u8]) -> Result<DecodedImage, String> {
             rgba.len()
         ));
     }
-    Ok(DecodedImage { width, height, rgba })
+    Ok(DecodedImage {
+        width,
+        height,
+        rgba,
+    })
 }
 
 /// Crops an RGBA image to the region `(x, y, width, height)`.
@@ -76,7 +82,11 @@ pub fn crop_rgba(
         let dst = row * width * 4;
         out[dst..dst + width * 4].copy_from_slice(&img.rgba[src..src + width * 4]);
     }
-    Ok(DecodedImage { width, height, rgba: out })
+    Ok(DecodedImage {
+        width,
+        height,
+        rgba: out,
+    })
 }
 
 #[cfg(test)]

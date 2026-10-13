@@ -33,6 +33,30 @@ pub fn brighten_rgba(mut rgba: Vec<u8>, amount: i32) -> Vec<u8> {
     rgba
 }
 
+/// Generates a synthetic JPEG test image (a gradient) of the given size.
+///
+/// A seed/demo helper so the viewport demo and large-image tests need no
+/// bundled asset. `jpeg-encoder` is also the intended full-res export encoder
+/// (roadmap P4), so it is a normal dependency.
+pub fn synthetic_jpeg(width: u32, height: u32) -> Vec<u8> {
+    let w = width.max(1) as u16;
+    let h = height.max(1) as u16;
+    let mut rgb = Vec::with_capacity(w as usize * h as usize * 3);
+    for y in 0..h {
+        for x in 0..w {
+            let r = ((x as f32 / w as f32) * 255.0) as u8;
+            let g = ((y as f32 / h as f32) * 255.0) as u8;
+            let b = (((x + y) as f32 / (w + h) as f32) * 255.0) as u8;
+            rgb.extend_from_slice(&[r, g, b]);
+        }
+    }
+    let mut out = Vec::new();
+    jpeg_encoder::Encoder::new(&mut out, 85)
+        .encode(&rgb, w, h, jpeg_encoder::ColorType::Rgb)
+        .expect("encode synthetic jpeg");
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -60,5 +84,17 @@ mod tests {
         let input = vec![10, 20, 30, 40, 7];
         let out = brighten_rgba(input, 5);
         assert_eq!(out, vec![15, 25, 35, 40, 7]);
+    }
+
+    #[test]
+    fn synthetic_jpeg_round_trips_dimensions() {
+        let jpeg = synthetic_jpeg(64, 48);
+        assert_eq!(crate::decode::dimensions(&jpeg).unwrap(), (64, 48));
+    }
+
+    #[test]
+    fn synthetic_jpeg_clamps_to_at_least_one_pixel() {
+        let jpeg = synthetic_jpeg(0, 0);
+        assert_eq!(crate::decode::dimensions(&jpeg).unwrap(), (1, 1));
     }
 }

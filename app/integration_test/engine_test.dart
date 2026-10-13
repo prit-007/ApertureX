@@ -23,4 +23,26 @@ void main() {
     );
     expect(out, equals([15, 25, 35, 40]));
   });
+
+  test('synthetic JPEG decodes to dimensions and supports ROI crop', () async {
+    final jpeg = await TesseraEngine.syntheticJpeg(width: 64, height: 48);
+
+    final dims = await TesseraEngine.jpegDimensions(jpeg);
+    expect(dims.width, 64);
+    expect(dims.height, 48);
+
+    final full = await TesseraEngine.decodeJpegRgba(jpeg);
+    expect(full.rgba.length, 64 * 48 * 4);
+
+    final roi = await TesseraEngine.decodeJpegRoi(
+      jpeg,
+      x: 8,
+      y: 8,
+      width: 16,
+      height: 16,
+    );
+    expect(roi.width, 16);
+    expect(roi.height, 16);
+    expect(roi.rgba.length, 16 * 16 * 4);
+  });
 }
