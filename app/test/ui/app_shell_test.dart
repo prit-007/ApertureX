@@ -62,4 +62,19 @@ void main() {
     await pumpShell(tester);
     expect(find.byType(FloatingActionButton), findsNothing);
   });
+
+  testWidgets('the Lightroom panel can collapse for a full-screen image', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+    expect(find.byType(LightroomShell), findsOneWidget);
+
+    await tester.tap(find.text('Hide tools'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LightroomShell), findsNothing);
+
+    await tester.tap(find.text('Show tools'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LightroomShell), findsOneWidget);
+  });
 }

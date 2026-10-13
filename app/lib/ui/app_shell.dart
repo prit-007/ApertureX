@@ -37,6 +37,7 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   bool _showHistogram = false;
+  bool _panelCollapsed = false;
   GradeTool _active = GradeTool.exposure;
   ToolCategory _category = ToolCategory.light;
   late final GestureInterpreter _fsm;
@@ -130,7 +131,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       child: Column(
         children: [
           Expanded(
-            flex: 3,
+            flex: _panelCollapsed ? 10 : 3,
             child: Stack(
               children: [
                 Positioned.fill(
@@ -148,9 +149,54 @@ class _AppShellState extends ConsumerState<AppShell> {
               ],
             ),
           ),
-          Divider(height: 1, color: scheme.outlineVariant),
-          const Expanded(flex: 2, child: LightroomShell()),
+          _PanelHandle(
+            collapsed: _panelCollapsed,
+            onToggle: () => setState(() => _panelCollapsed = !_panelCollapsed),
+          ),
+          if (!_panelCollapsed)
+            const Expanded(flex: 2, child: LightroomShell()),
         ],
+      ),
+    );
+  }
+}
+
+/// The grab-handle between the image and the Lightroom panel. Tapping it
+/// collapses the tools so the photo can fill the screen.
+class _PanelHandle extends StatelessWidget {
+  const _PanelHandle({required this.collapsed, required this.onToggle});
+
+  final bool collapsed;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      child: InkWell(
+        onTap: onToggle,
+        child: SizedBox(
+          height: 28,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                collapsed ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                size: 20,
+                color: scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: Insets.xs),
+              Text(
+                collapsed ? 'Show tools' : 'Hide tools',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
