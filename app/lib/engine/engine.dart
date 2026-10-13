@@ -12,6 +12,7 @@ import '../src/rust/api/exif.dart' as rust_exif;
 import '../src/rust/api/export.dart' as rust_export;
 import '../src/rust/api/geometry.dart' as rust_geometry;
 import '../src/rust/api/histogram.dart' as rust_hist;
+import '../src/rust/api/icc.dart' as rust_icc;
 import '../src/rust/api/mask.dart' as rust_mask;
 import '../src/rust/api/spatial.dart' as rust_spatial;
 import '../src/rust/frb_generated.dart';
@@ -130,6 +131,19 @@ class TesseraEngine {
     curves: _curveParams(spec),
     hsl: spec.hsl,
   );
+
+  // --- wide-gamut input (P2 #15) --------------------------------------------
+
+  /// Detects the JPEG colour space: 0 unknown, 1 sRGB, 2 Display P3.
+  static Future<int> detectColorspace(Uint8List jpeg) =>
+      rust_icc.detectColorspace(jpeg: jpeg);
+
+  /// Converts Display-P3-encoded RGBA pixels to sRGB.
+  static Future<Uint8List> p3ToSrgb(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+  }) => rust_icc.p3ToSrgb(rgba: rgba, width: width, height: height);
 
   // --- spatial (P2) ---------------------------------------------------------
 

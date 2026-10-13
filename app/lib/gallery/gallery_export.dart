@@ -22,8 +22,19 @@ class GalleryExporter {
 
     final decoded = await TesseraEngine.decodeJpegRgba(jpeg);
     final exif = await TesseraEngine.extractExif(jpeg);
+
+    // Normalize wide-gamut input (Display P3 -> sRGB) so colours are faithful.
+    final space = await TesseraEngine.detectColorspace(jpeg);
+    final rgba = space == 2
+        ? await TesseraEngine.p3ToSrgb(
+            decoded.rgba,
+            width: decoded.width,
+            height: decoded.height,
+          )
+        : decoded.rgba;
+
     final out = await TesseraEngine.exportJpeg(
-      rgba: decoded.rgba,
+      rgba: rgba,
       width: decoded.width,
       height: decoded.height,
       spec: GradeSpec.fromRecipe(recipe),

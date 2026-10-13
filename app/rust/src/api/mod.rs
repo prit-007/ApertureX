@@ -5,5 +5,6 @@ pub mod exif;
 pub mod export;
 pub mod geometry;
 pub mod histogram;
+pub mod icc;
 pub mod mask;
 pub mod spatial;

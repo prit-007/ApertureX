@@ -13,6 +13,7 @@ import 'api/exif.dart';
 import 'api/export.dart';
 import 'api/geometry.dart';
 import 'api/histogram.dart';
+import 'api/icc.dart';
 import 'api/mask.dart';
 import 'api/spatial.dart';
 import 'dart:async';
