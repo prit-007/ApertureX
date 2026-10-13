@@ -925,4 +925,36 @@ mod tests {
         let chroma = |l: [f32; 3]| (l[1] * l[1] + l[2] * l[2]).sqrt();
         assert!(chroma(lab1) > chroma(lab0));
     }
+
+    /// Manual perf smoke (run `cargo test -- --ignored --nocapture`). Ignored so
+    /// CI timing variance can't flake; the on-device 60fps harness is #17.
+    #[test]
+    #[ignore = "manual perf smoke"]
+    fn perf_smoke_bake_and_spatial() {
+        use std::time::Instant;
+        let p = GradeParams {
+            exposure: 0.3,
+            contrast: 0.2,
+            saturation: 0.2,
+            ..Default::default()
+        };
+        let t = Instant::now();
+        let atlas = bake_lut3d(LUT_SIZE, p);
+        assert_eq!(atlas.len(), (LUT_SIZE * LUT_SIZE * LUT_SIZE * 4) as usize);
+        println!("bake 65^3: {:?}", t.elapsed());
+
+        let (w, h) = (512usize, 512usize);
+        let rgba = vec![128u8; w * h * 4];
+        let t2 = Instant::now();
+        let _ = crate::spatial::apply_spatial(
+            &rgba,
+            w,
+            h,
+            crate::spatial::SpatialParams {
+                texture: 0.5,
+                ..Default::default()
+            },
+        );
+        println!("spatial 512^2: {:?}", t2.elapsed());
+    }
 }
