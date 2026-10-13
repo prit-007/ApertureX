@@ -5,6 +5,7 @@ import 'parameter.dart';
 import 'recipe.dart';
 import 'recipe_state.dart';
 import 'tone_curve.dart';
+import 'tool_definition.dart';
 
 /// Single source of truth for an edit session. Both shells (Lightroom panels
 /// and the Snapseed gesture FSM) read and write exactly this one controller —
@@ -94,6 +95,10 @@ class RecipeController extends Notifier<RecipeState> {
 
   /// Resets every edit back to neutral.
   void resetAll() => loadRecipe(EditRecipe.neutral, label: 'Reset');
+
+  /// Applies a shareable look (tool definition) onto the current recipe.
+  void applyTool(ToolDefinition tool) =>
+      state = state.copyWith(recipe: tool.applyTo(state.recipe));
 
   /// Appends a local adjustment layer (masking).
   void addLayer(AdjustmentLayer layer) => state = state.copyWith(

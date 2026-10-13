@@ -7,6 +7,7 @@ import '../settings/shell_preference.dart';
 import '../viewport/image_canvas.dart';
 import '../viewport/tile_viewport_demo.dart';
 import 'common/history_sheet.dart';
+import 'common/looks_sheet.dart';
 import 'common/lut_import_sheet.dart';
 import 'common/settings_sheet.dart';
 import 'common/xmp_import_sheet.dart';
@@ -64,6 +65,15 @@ class AppShell extends ConsumerWidget {
                             builder: (_) => const LutImportSheet(),
                           ),
                           child: const Icon(Icons.gradient),
+                        ),
+                        const SizedBox(height: 8),
+                        FloatingActionButton.small(
+                          heroTag: 'looks',
+                          onPressed: () => showModalBottomSheet<void>(
+                            context: context,
+                            builder: (_) => const LooksSheet(),
+                          ),
+                          child: const Icon(Icons.auto_fix_high),
                         ),
                         const SizedBox(height: 8),
                         FloatingActionButton.small(
