@@ -45,4 +45,40 @@ void main() {
     expect(roi.height, 16);
     expect(roi.rgba.length, 16 * 16 * 4);
   });
+
+  test('exportJpeg grades and encodes a decodable JPEG', () async {
+    double meanLuma(Uint8List buf) {
+      var sum = 0.0;
+      for (var i = 0; i + 3 < buf.length; i += 4) {
+        sum += 0.2126 * buf[i] + 0.7152 * buf[i + 1] + 0.0722 * buf[i + 2];
+      }
+      return sum / (buf.length ~/ 4);
+    }
+
+    final jpeg = await TesseraEngine.syntheticJpeg(width: 64, height: 48);
+    final decoded = await TesseraEngine.decodeJpegRgba(jpeg);
+    final rgba = decoded.rgba;
+
+    final neutral = await TesseraEngine.exportJpeg(
+      rgba: rgba,
+      width: decoded.width,
+      height: decoded.height,
+      quality: 95,
+    );
+    final brighter = await TesseraEngine.exportJpeg(
+      rgba: rgba,
+      width: decoded.width,
+      height: decoded.height,
+      quality: 95,
+      exposure: 1.0, // +1 EV must brighten the export
+    );
+
+    final nImg = await TesseraEngine.decodeJpegRgba(neutral);
+    final bImg = await TesseraEngine.decodeJpegRgba(brighter);
+
+    expect(nImg.width, 64);
+    expect(nImg.height, 48);
+    expect(neutral, isNotEmpty);
+    expect(meanLuma(bImg.rgba), greaterThan(meanLuma(nImg.rgba)));
+  });
 }
