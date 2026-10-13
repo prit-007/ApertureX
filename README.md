@@ -1,4 +1,4 @@
-# Tessera
+# ApertureX
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Status](https://img.shields.io/badge/status-P1%20in%20progress-blue.svg)](docs/ROADMAP.md)
@@ -6,9 +6,11 @@
 
 **A mobile-native, non-destructive, free-and-open-source photo editor — the Snapseed/Lightroom replacement the FOSS world never built.**
 
-> *Tessera* (plural *tesserae*) is the individual tile of a mosaic. It is also the atomic unit of this app's rendering engine: every large photo is edited as a field of tiles, never as one giant bitmap.
+> *ApertureX* — a photo editor that opens like a camera aperture and edits like a darkroom. It ships **two UIs over one recipe**: a Lightroom-style precision panel UI (default) and a Snapseed-style gesture UI. Internally, every large photo is still edited as a field of **tiles**, never one giant bitmap — the engine's atomic unit.
 
-> **Status: in development.** Foundations (P0) are in place — a Flutter app on Material 3 with a Rust engine behind `flutter_rust_bridge`, validated gesture + shader spike folded in. We are now building the tile viewport (P1). See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase-by-phase plan.
+> **Status: in development (P1).** The tile viewport is being built now; foundations (P0) and the gesture+shader spike are done. The project is expanding toward a **Lightroom-parity, dual-UI** editor (ADR 0008–0010): one recipe, two shells, preset/LUT import, masking, and an optional F-Droid-clean on-device ML module. See [`docs/ROADMAP.md`](docs/ROADMAP.md) and the [`docs/PARITY.md`](docs/PARITY.md) ledger.
+
+> **Naming:** the product is **ApertureX**. The mechanical code rename (pubspec package `tessera`, Android applicationId `com.devparadise.tessera`, Rust crate `rust_lib_tessera`) is a deliberate follow-up, deferred so it doesn't destabilize the green P1 build; it is tracked on the roadmap.
 
 ---
 
@@ -20,9 +22,9 @@ The mobile photo-editing landscape is a ghost town for free software:
 - **Phimp.me** is abandoned and buggy.
 - A fluid, touch-first, **non-destructive** editor with a real color pipeline? It does not exist as FOSS.
 
-Four technical walls explain why nobody has built it. Tessera is architected to climb all four:
+Four technical walls explain why nobody has built it. ApertureX is architected to climb all four:
 
-| # | Wall | Tessera's answer |
+| # | Wall | ApertureX's answer |
 |---|------|------------------|
 | 1 | RAW decoding is heavy C/C++ (`LibRaw`, `lensfun`) | A Rust core behind `flutter_rust_bridge`, with a pluggable `RawDecoder` |
 | 2 | Real-time adjustment needs GPU shaders | A chained GLSL pipeline via Flutter/Impeller fragment shaders |
@@ -61,12 +63,13 @@ Full detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 | Doc | Contents |
 |-----|----------|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layers, data flow, tile engine, shader pipeline, edit model, memory budget |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | P-1 spike + phases P0–P6 with exit criteria |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layers, data flow, tile engine, shader pipeline, dual-UI shells, recipe schema, masking, ML module, memory budget |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phases P-1→P6 + P2.5/P3.5, v0.1 ship gate, exit criteria |
+| [`docs/PARITY.md`](docs/PARITY.md) | Feature parity matrix (Snapseed/Lightroom × status × phase) |
 | [`docs/RISKS.md`](docs/RISKS.md) | The four walls, each risk, and its mitigation |
 | [`docs/FORK-STRATEGY.md`](docs/FORK-STRATEGY.md) | How we fork and maintain `pro_image_editor` |
-| [`docs/adr/`](docs/adr/) | Architecture Decision Records 0001–0007 |
-| [`THIRD_PARTY.md`](THIRD_PARTY.md) | Third-party components, licenses, notices |
+| [`docs/adr/`](docs/adr/) | Architecture Decision Records 0001–0010 |
+| [`THIRD_PARTY.md`](THIRD_PARTY.md) | Third-party components, licenses, ML-model ledger, notices |
 
 ---
 

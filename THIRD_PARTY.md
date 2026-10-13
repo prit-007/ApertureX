@@ -1,6 +1,6 @@
 # Third-Party Components
 
-Tessera is licensed **GPL-3.0-or-later**. This file records the third-party
+ApertureX is licensed **GPL-3.0-or-later**. This file records the third-party
 components we adopt or fork, their licenses, and the compatibility reasoning.
 It is the human-readable companion to the machine license bundle that will ship
 in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
@@ -41,7 +41,7 @@ The fork's provenance, strip-list, and update cadence are specified in
 
 > The upstream README and package metadata advertise sponsor links. These are
 > upstream references retained for attribution; they are not endorsements of
-> Tessera.
+> ApertureX.
 
 ---
 
@@ -56,6 +56,23 @@ above with their notices.
 | Image Toolbox | Apache-2.0 | Material 3 visual language / layout density (Kotlin + Compose) |
 | Snapseed (proprietary) | — | The invisible gesture interaction model (behavioral reference only) |
 | darktable | GPL-3.0 | Color-op ordering and non-destructive pipeline design |
+
+---
+
+## Machine-learning models (planned — ADR 0010)
+
+No model ships yet. Every model added to the optional AI module **must** get a
+row here — with its **weights** license verified (not just the code) — before it
+is adopted. This is a hard gate (ADR 0010).
+
+| Model | Purpose | Runtime | Code license | Weights license | Source | Status |
+|---|---|---|---|---|---|---|
+| _(none yet)_ | — | ONNX RT / ncnn | — | — | — | — |
+
+Candidate models (verify each model's weights license before adoption):
+MobileSAM / SAM 2 small (tap-select), U²-Net-style salient (auto subject), sky
+segmentation, MODNet-class matting, Depth Anything V2 small (depth), YuNet (face,
+MIT). Explicitly avoided: RMBG (non-commercial).
 
 ---
 

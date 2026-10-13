@@ -1,7 +1,10 @@
-# Tessera — Architecture
+# ApertureX — Architecture
 
-> Status: design. This document specifies the system that phases P0–P6 will
-> build. It is intentionally implementation-guiding, not an implementation.
+> Status: design (P1 in progress). This document specifies the system the
+> phases build. It now covers the **dual-UI / Lightroom-parity direction**
+> (ADR 0008–0010): two UI shells over one Lightroom-aligned recipe, preset/LUT
+> import, masking, and an optional on-device ML module. It is implementation-
+> guiding, not an implementation.
 
 ---
 
@@ -11,8 +14,9 @@
 - **Non-destructive** editing: the source pixels are never modified; edits are a
   replayable recipe.
 - **Fluid**: adjustment previews track the finger at display refresh rate.
-- **Touch-first**: an invisible, gesture-driven interaction model (Snapseed-like)
-  layered over a Material 3 (Material You) visual system.
+- **Dual-UI**: one recipe rendered by two swappable shells — a Lightroom-style
+  precision panel UI (default) and a Snapseed-style gesture UI — over a shared
+  Material 3 (Material You) visual system (ADR 0008).
 - **Scale**: open and edit images from 48 MP to 200 MP without OOM or visible
   texture distortion.
 - **RAW-capable**: a pluggable decode engine that can grow from camera JPEG to
@@ -23,7 +27,10 @@
 - Web and desktop targets.
 - Cloud sync, collaboration, accounts.
 - Server-side processing.
-- Generative/AI editing features.
+- Generative/AI editing features (e.g. Snapseed Expand, Head Pose).
+  *Non-generative on-device ML* — subject/sky masks, lens blur, face detect —
+  is in-scope as an **optional, F-Droid-clean module** (ADR 0010), not a
+  non-goal.
 - Video editing.
 
 ---
@@ -32,9 +39,9 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  app_ui            Flutter + Material 3                               │
-│    • gesture FSM            • tool trays / bottom sheets              │
-│    • film strip / gallery   • histogram, before/after                 │
+│  app_ui            Flutter + Material 3 — TWO shells (ADR 0008)     │
+│    • Lightroom panel shell (default)  • Snapseed gesture shell      │
+│    • both read/write ONE recipe        • histogram, before/after    │
 ├──────────────────────────────────────────────────────────────────────┤
 │  viewport          Flutter / Impeller                                  │
 │    • tile compositor        • zoom / pan transform                     │
@@ -56,10 +63,16 @@
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-**Dependency direction is strictly downward.** `app_ui` never calls `engine`
-directly for pixels; it talks to `viewport`, which owns the tile/shader
-machinery. `engine` knows nothing about widgets. `edit_core` is pure Dart with no
-platform imports so it is unit-testable everywhere.
+**Dependency direction is strictly downward.** `app_ui` is *two shells* (ADR
+0008) that both read and write a single `EditRecipe` in `edit_core`; neither
+owns pixel state, so switching shells mid-edit never changes the image. `app_ui`
+never calls `engine` directly for pixels; it talks to `viewport`, which owns the
+tile/shader machinery. `engine` knows nothing about widgets. `edit_core` is pure
+Dart with no platform imports so it is unit-testable everywhere.
+
+An **optional, separable ML module** (ADR 0010) sits beside `engine`: ONNX
+Runtime / ncnn in Rust, producing masks that feed the shader chain. It is
+strip-able so the base app stays small and F-Droid-clean.
 
 ---
 
@@ -341,6 +354,9 @@ its default ceiling and thrash.
 - **Rust:** `cargo test` for decode ROI correctness, tile-edge seam math, color
   op math against golden vectors.
 - **Golden/widget:** tool panels, histogram, viewport at fixed zoom/tile grid.
+- **Preset fidelity (ADR 0009):** golden-image tolerance tests — import a
+  `.xmp`/LUT, apply to a reference image, compare to an Adobe-exported reference
+  within a documented delta-E / per-channel tolerance.
 - **Integration:** open → edit → export on a corpus of images including a
   >100 MP synthetic image; assert no OOM and pixel-consistent preview vs export
   within tolerance.
@@ -362,27 +378,134 @@ Baseline follows the org's `nook` conventions:
 ## 14. Proposed repository layout
 
 ```
-adobe/                              (repo root; product name "Tessera")
+adobe/                              (repo root; product name "ApertureX")
   README.md
-  THIRD_PARTY.md
+  THIRD_PARTY.md                    incl. ML-model license ledger (ADR 0010)
   LICENSE                           GPL-3.0
   docs/
-    ARCHITECTURE.md  ROADMAP.md  RISKS.md  FORK-STRATEGY.md
-    adr/0001..0007
+    ARCHITECTURE.md  ROADMAP.md  RISKS.md  FORK-STRATEGY.md  PARITY.md
+    adr/0001..0010
   app/                              Flutter application
     lib/
       core/                         theme, DI, platform abstractions
       features/                     gallery, editor, export, settings
-      edit/                         recipe model, undo, presets
+      edit/                         recipe model (superset), undo, presets
+      ui/                           dual shells: lightroom/ + snapseed/
+      presets/                      .xmp/.lrtemplate/.cube import + reports
+      masking/                      adjustment layers, brush/gradient/range
+      ml/                           optional AI module bindings (ADR 0010)
       viewport/                     tile compositor, shader chain, caches
       gesture/                      GestureInterpreter FSM
       engine/                       generated FFI bindings + Dart wrappers
     shaders/                        *.frag
     rust/                           cargo crate (flutter_rust_bridge)
       src/api/  src/decode/  src/tile/  src/color/  src/export/
+      src/ml/                       optional ONNX/ncnn module (ADR 0010)
   packages/
     pro_image_editor_fork/          vendored/stripped fork
   test/  integration_test/
 ```
 
 *(Exact layout may adjust in P0; the layer boundaries above are the contract.)*
+
+---
+
+## 15. Dual UI shells (ADR 0008)
+
+The engine and recipe are UI-agnostic; two *shells* render/edit them:
+
+- **Lightroom shell (default).** Panel-based. Categories: Light, Color, Effects,
+  Detail, Optics, Geometry, Masking, Presets. Fine-grain Material 3 sliders with
+  **tap-to-type numeric entry**, a **live histogram** with highlight/shadow
+  clipping warnings, **before/after**, a filmstrip, **history/snapshots**, and
+  **copy/paste/sync** of settings across images.
+- **Snapseed shell.** The existing `GestureInterpreter` FSM (ADR 0006): vertical
+  swipe cycles tools, horizontal swipe scrubs, tap resets. Each Snapseed tool is
+  a named *mapping* onto the recipe schema (e.g. Tune Image →
+  exposure/contrast/saturation/shadows/warmth).
+
+**Invariant:** neither shell owns pixel or edit state. Both read and write the
+single `EditRecipe`. Switching shells (Settings toggle or first-run choice)
+mid-edit changes nothing about the image — it only re-renders the same recipe
+through a different widget tree. The shell choice is app settings, never recipe
+data.
+
+The two shells may reach different breadth over time (tracked in `PARITY.md`);
+the recipe schema must nonetheless be complete enough that a parameter exists
+*before* either shell exposes it.
+
+## 16. Recipe schema — the Lightroom-aligned superset
+
+The `EditRecipe` is versioned JSON and a **superset** aligned to Lightroom's
+parameter model (ADR 0008), so a Snapseed tool is always a *mapping onto* it,
+never the schema's definition. Groups:
+
+- **Light:** exposure, contrast, highlights, shadows, whites, blacks.
+- **Color:** white balance (temp/tint), vibrance, saturation, HSL/color-mix
+  (per-hue hue/sat/lum), color grading (shadow/mid/highlight).
+- **Tone:** RGB tone curve + per-channel curves (represented as monotone
+  splines; baked to 1D LUTs for the shader).
+- **Effects:** texture, clarity, dehaze, vignette, grain.
+- **Detail:** sharpening (radius/detail/masking), noise reduction (lum/chroma).
+- **Optics:** lens profile, distortion, vignette, CA correction.
+- **Geometry:** crop, rotate, skew, perspective (non-destructive transforms).
+- **Masking:** a list of adjustment layers, each = mask (brush/linear/radial/
+  range/AI) + a sub-recipe of the above params.
+
+The schema is **versioned**; op order is pinned (ARCHITECTURE §8) so future
+reordering does not silently change existing edits. Recipes are tiny (KB), which
+is why undo snapshots and QR sharing are cheap.
+
+## 17. Preset & LUT import (ADR 0009)
+
+- **Open LUTs (full):** `.cube` (1D/3D), HALD CLUT PNG, `.3dl` → parsed and
+  baked into a **3D LUT texture** sampled in the shader.
+- **Lightroom `.xmp` / `.lrtemplate` (best-effort):** parsed from the documented
+  `crs:` settings namespace and mapped to the recipe schema. Every import emits a
+  **compatibility report** (per setting: applied / approximated / unsupported)
+  surfaced to the user. Embedded look/profile LUTs are extracted where present.
+- **Fidelity is measured, not promised:** golden-image tolerance tests compare an
+  imported preset applied to a reference image against an Adobe-exported
+  reference within a documented delta-E / per-channel tolerance (§12). Adobe's
+  exact rendering is proprietary and **not guaranteed**.
+- **Snapseed Looks:** no import (no portable format). We ship an open
+  **ApertureX Look** = the recipe JSON, shareable as a file or **QR code** (open
+  standard, documented in-repo).
+
+## 18. Masking & adjustment layers (P2.5)
+
+Lightroom's "local adjustments" and Snapseed's "stack" are the same model:
+**adjustment layers**, each a mask plus a sub-recipe.
+
+- **Mask kinds:** brush, linear gradient, radial gradient, range
+  (luminance/color), and (optionally, ADR 0010) AI masks (subject/sky/
+  background).
+- **Rendering:** a masked layer routes its sub-recipe through a per-mask uniform
+  set; the mask itself is a coverage texture (or analytic gradient) blended in
+  the shader, so only masked pixels receive the adjustment. Layers compose in
+  order.
+- **Non-destructive:** masks are vector/parametric where possible (gradients,
+  radii) and stored in the recipe; only brush masks add per-stroke data (still
+  KB-scale). Nothing bakes into source pixels until export.
+
+## 19. On-device ML module (optional, ADR 0010)
+
+A **separable** module for intelligent masking; the base app never depends on it.
+
+- **Runtime:** ONNX Runtime Mobile (MIT) or ncnn (BSD-3) via Rust. No ML Kit, no
+  Play Services. OpenCV (Apache-2.0) for classical CV (horizon/edge/saliency).
+- **Models** (each license verified before adoption; prefer Apache-2.0/MIT):
+  MobileSAM/SAM2-small (tap-select), U²-Net-style salient (auto subject), sky
+  segmentation (or a classical fallback), MODNet-class matting (hair), Depth
+  Anything V2 small (depth for blur), YuNet (face, MIT). RMBG avoided
+  (non-commercial).
+- **Output → shader:** a model produces a mask array; the mask becomes a coverage
+  texture that gates a sub-recipe's edits (or a bokeh blur kernel) exactly like a
+  manual mask (§18). Same rendering path, different mask source.
+- **Packaging & licensing:** small models bundled in a strippable module (F-Droid
+  builds from source; size matters). Prefer bundling over runtime download (a
+  non-free download can trigger anti-feature flags). Every model gets a
+  `THIRD_PARTY.md` ledger row (license, source, training-data note) — a hard gate
+  before shipping.
+- **Sequencing:** classical **auto-straighten** (Hough) ships in P2 geometry,
+  before any learned auto-frame.
