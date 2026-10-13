@@ -5,7 +5,7 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status:** P-1 ✅ · P0 🚧 (foundations done; real-image decode folded into P1) · P1 🚧 (viewport core + tile compositor done; native ROI + basic export + profiling remaining) · P2+ queued.
+**Current status:** P-1 ✅ · P0 🚧 (foundations done; real-image decode folded into P1) · P1 🚧 (viewport core + tile compositor + EditRecipe v1 + basic JPEG export done; native ROI + >100 MP profiling + tile pyramid remaining) · P2+ queued.
 
 > **Scope note.** This roadmap grew with the dual-UI / Lightroom-parity vision
 > (ADR 0008–0010). That is multi-year, multi-person work shipped in tiers. The
@@ -83,10 +83,13 @@ Android ABIs) are done and green. The "JPEG proxy on screen" half is folded into
 **Status — in progress.** Viewport core done and tested: `TileGrid`,
 `TileLru`, `ViewportTransform`, a `TileViewport` widget compositing tiles through
 the grade shader, and a Rust `synthetic_jpeg` + `decode_jpeg_rgba`/`decode_jpeg_roi`
-path (a ~12 MP image opens/zooms with no full-image texture). 11 Rust, 35 Dart,
-3 on-device tests green. **Remaining:** native ROI decoders to avoid full-decode
-for >100 MP, device-tier probe, basic JPEG export, a >100 MP corpus with
-memory/60 fps profiling, and the multi-level tile pyramid.
+path (a ~12 MP image opens/zooms with no full-image texture). The **`EditRecipe`
+v1 foundation** (Light + Color, versioned JSON) and a working **basic JPEG
+export** (CPU grade in Rust mirroring the shader, driven by the recipe) are done,
+so the app is usable end-to-end (open→edit→export). 18 Rust, 53 Dart, 4 on-device
+tests green. **Remaining:** native ROI decoders to avoid full-decode for >100 MP,
+device-tier probe, a >100 MP corpus with memory/60 fps profiling, and the
+multi-level tile pyramid.
 
 ---
 
@@ -101,7 +104,11 @@ memory/60 fps profiling, and the multi-level tile pyramid.
   categorized panels, numeric tap-to-type sliders, histogram + clipping,
   before/after, history/snapshots, copy/paste/sync) *and* the Snapseed gesture
   shell (existing FSM), both reading/writing the same recipe. Settings toggle +
-  first-run choice.
+  first-run choice. Both are built **to parity** over time (product decision);
+  they share one recipe *and* a common `ParameterControl` component library so
+  parity is cheap by construction — the shells must never fork their parameter
+  widgets. *(The `EditRecipe` v1 foundation — Light + Color, versioned JSON —
+  already landed in P1; P2 extends it to the full superset.)*
 - Full basic grading tool set (WB, exposure, tone, vibrance/sat, curves via LUT).
 - Histogram from the proxy; reset; copy/paste edits.
 - Crop / rotate / flip / perspective (non-destructive geometry); auto-straighten.
