@@ -54,7 +54,15 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
   static IconData _icon(GradeTool tool) => switch (tool) {
     GradeTool.exposure => Icons.exposure,
     GradeTool.contrast => Icons.contrast,
+    GradeTool.highlights => Icons.brightness_high,
+    GradeTool.shadows => Icons.brightness_low,
+    GradeTool.whites => Icons.brightness_7,
+    GradeTool.blacks => Icons.brightness_4,
+    GradeTool.temperature => Icons.thermostat,
+    GradeTool.tint => Icons.color_lens,
+    GradeTool.vibrance => Icons.auto_awesome,
     GradeTool.saturation => Icons.water_drop,
+    GradeTool.clarity => Icons.blur_on,
   };
 
   @override

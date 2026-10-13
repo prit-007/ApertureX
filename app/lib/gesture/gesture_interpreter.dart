@@ -1,10 +1,20 @@
 import 'dart:ui' show Offset;
 
-/// The adjustment tools available on the gesture carousel.
-///
-/// The seed ships only the three tools the color shader wires up (see
-/// `shaders/grade.frag`); the full P2 tool set is larger.
-enum GradeTool { exposure, contrast, saturation }
+/// The adjustment tools available on the gesture carousel. Mirrors the
+/// Lightroom panel's reach so the Ghost UI has the same arsenal.
+enum GradeTool {
+  exposure,
+  contrast,
+  highlights,
+  shadows,
+  whites,
+  blacks,
+  temperature,
+  tint,
+  vibrance,
+  saturation,
+  clarity,
+}
 
 /// High-level phase of the invisible, Snapseed-style gesture model.
 enum GesturePhase { idle, scanning, cycling, scrubbing }
@@ -70,6 +80,15 @@ class GestureInterpreter {
   GradeTool get tool => tools[_toolIndex];
   GesturePhase get phase => _phase;
   GestureAxis get axis => _axis;
+
+  /// Selects [tool] directly (e.g. picked from the radial menu) so subsequent
+  /// swipes scrub that tool — not the previously-active one.
+  void setTool(GradeTool tool) {
+    final index = tools.indexOf(tool);
+    if (index < 0 || index == _toolIndex) return;
+    _toolIndex = index;
+    onToolChanged?.call(tool);
+  }
 
   void onPanStart(Offset localPosition) {
     _accumulated = Offset.zero;

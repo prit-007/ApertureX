@@ -89,7 +89,10 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
             SnapseedShell(
               tool: _active,
-              onPickTool: (t) => setState(() => _active = t),
+              onPickTool: (t) {
+                _fsm.setTool(t);
+                setState(() => _active = t);
+              },
             ),
             if (_showHistogram && ref.watch(histogramProvider) != null)
               const Positioned(

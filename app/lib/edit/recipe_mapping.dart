@@ -12,7 +12,15 @@ import 'parameter.dart';
 const Map<GradeTool, List<Parameter>> snapseedToolParameters = {
   GradeTool.exposure: [Parameter.exposure],
   GradeTool.contrast: [Parameter.contrast],
+  GradeTool.highlights: [Parameter.highlights],
+  GradeTool.shadows: [Parameter.shadows],
+  GradeTool.whites: [Parameter.whites],
+  GradeTool.blacks: [Parameter.blacks],
+  GradeTool.temperature: [Parameter.temperature],
+  GradeTool.tint: [Parameter.tint],
+  GradeTool.vibrance: [Parameter.vibrance],
   GradeTool.saturation: [Parameter.saturation],
+  GradeTool.clarity: [Parameter.clarity],
 };
 
 /// Every parameter belonging to a [RecipeSection] (a Lightroom category).

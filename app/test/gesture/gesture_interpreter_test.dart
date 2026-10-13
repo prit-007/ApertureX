@@ -22,6 +22,20 @@ void main() {
     expect(fsm.tool, GradeTool.exposure);
   });
 
+  test('setTool makes later swipes edit the newly-selected tool', () {
+    fsm.setTool(GradeTool.saturation);
+    expect(fsm.tool, GradeTool.saturation);
+    expect(log, contains('tool:saturation'));
+
+    fsm.onPanStart(Offset.zero);
+    fsm.onPanUpdate(const Offset(200, 0));
+    expect(
+      log.any((e) => e.startsWith('value:saturation:')),
+      isTrue,
+      reason: 'swiping must scrub the selected tool, not exposure',
+    );
+  });
+
   test('a tap below slop resets the active tool and never changes a value', () {
     fsm.onPanStart(Offset.zero);
     fsm.onPanUpdate(const Offset(3, 4)); // distance 5 < touchSlop(18)
@@ -63,19 +77,18 @@ void main() {
   });
 
   test('cycling wraps forward around the carousel', () {
+    fsm.setTool(GradeTool.values.last);
     fsm.onPanStart(Offset.zero);
-    fsm.onPanUpdate(const Offset(0, -60)); // -> contrast
-    fsm.onPanUpdate(const Offset(0, -60)); // -> saturation
-    fsm.onPanUpdate(const Offset(0, -60)); // -> exposure (wrap)
+    fsm.onPanUpdate(const Offset(0, -48)); // one step up -> wrap to first
 
     expect(fsm.tool, GradeTool.exposure);
   });
 
   test('downward vertical steps to the previous tool', () {
     fsm.onPanStart(Offset.zero);
-    fsm.onPanUpdate(const Offset(0, 60));
+    fsm.onPanUpdate(const Offset(0, 48)); // one step down -> wrap to last
 
-    expect(fsm.tool, GradeTool.saturation); // wrap back from exposure
+    expect(fsm.tool, GradeTool.values.last);
   });
 
   test('scrubbing accumulates signed, normalized deltas', () {

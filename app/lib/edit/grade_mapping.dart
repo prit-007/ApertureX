@@ -43,7 +43,15 @@ class _ToolRange {
 const Map<GradeTool, _ToolRange> _ranges = {
   GradeTool.exposure: _ToolRange(2.0, -4.0, 4.0),
   GradeTool.contrast: _ToolRange(1.0, -1.0, 1.0),
+  GradeTool.highlights: _ToolRange(1.0, -1.0, 1.0),
+  GradeTool.shadows: _ToolRange(1.0, -1.0, 1.0),
+  GradeTool.whites: _ToolRange(1.0, -1.0, 1.0),
+  GradeTool.blacks: _ToolRange(1.0, -1.0, 1.0),
+  GradeTool.temperature: _ToolRange(1.0, -1.0, 1.0),
+  GradeTool.tint: _ToolRange(1.0, -1.0, 1.0),
+  GradeTool.vibrance: _ToolRange(1.0, -1.0, 1.0),
   GradeTool.saturation: _ToolRange(1.0, -1.0, 1.0),
+  GradeTool.clarity: _ToolRange(1.0, -1.0, 1.0),
 };
 
 /// Applies a gesture [delta] to [tool]'s field on [recipe], returning a new
@@ -62,12 +70,28 @@ EditRecipe resetTool(EditRecipe recipe, GradeTool tool) =>
 double _read(EditRecipe recipe, GradeTool tool) => switch (tool) {
   GradeTool.exposure => recipe.exposure,
   GradeTool.contrast => recipe.contrast,
+  GradeTool.highlights => recipe.highlights,
+  GradeTool.shadows => recipe.shadows,
+  GradeTool.whites => recipe.whites,
+  GradeTool.blacks => recipe.blacks,
+  GradeTool.temperature => recipe.temperature,
+  GradeTool.tint => recipe.tint,
+  GradeTool.vibrance => recipe.vibrance,
   GradeTool.saturation => recipe.saturation,
+  GradeTool.clarity => recipe.clarity,
 };
 
 EditRecipe _write(EditRecipe recipe, GradeTool tool, double value) =>
     switch (tool) {
       GradeTool.exposure => recipe.copyWith(exposure: value),
       GradeTool.contrast => recipe.copyWith(contrast: value),
+      GradeTool.highlights => recipe.copyWith(highlights: value),
+      GradeTool.shadows => recipe.copyWith(shadows: value),
+      GradeTool.whites => recipe.copyWith(whites: value),
+      GradeTool.blacks => recipe.copyWith(blacks: value),
+      GradeTool.temperature => recipe.copyWith(temperature: value),
+      GradeTool.tint => recipe.copyWith(tint: value),
+      GradeTool.vibrance => recipe.copyWith(vibrance: value),
       GradeTool.saturation => recipe.copyWith(saturation: value),
+      GradeTool.clarity => recipe.copyWith(clarity: value),
     };

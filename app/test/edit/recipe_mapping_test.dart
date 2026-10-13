@@ -54,7 +54,15 @@ void main() {
       expect(snapseedCarousel, [
         Parameter.exposure,
         Parameter.contrast,
+        Parameter.highlights,
+        Parameter.shadows,
+        Parameter.whites,
+        Parameter.blacks,
+        Parameter.temperature,
+        Parameter.tint,
+        Parameter.vibrance,
         Parameter.saturation,
+        Parameter.clarity,
       ]);
     });
   });

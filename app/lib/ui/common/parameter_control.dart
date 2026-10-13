@@ -83,6 +83,7 @@ class ParameterControl extends ConsumerWidget {
               );
             },
             onReset: () => notifier.reset(parameter),
+            onCommit: () => notifier.commit(label: spec.label),
           ),
         ],
       ),
@@ -157,8 +158,10 @@ class _ValueField extends StatelessWidget {
   }
 }
 
-/// Custom center-fill track: drag to scrub, double-tap to reset.
-class _Track extends StatelessWidget {
+/// Custom center-fill track with pro micro-interactions: relative drag for
+/// precision, tap beside the thumb to nudge by 5% of the range, double-tap to
+/// reset, and a commit to history when the drag ends.
+class _Track extends StatefulWidget {
   const _Track({
     super.key,
     required this.math,
@@ -166,6 +169,7 @@ class _Track extends StatelessWidget {
     required this.scheme,
     required this.onChanged,
     required this.onReset,
+    required this.onCommit,
   });
 
   final SliderMath math;
@@ -173,29 +177,54 @@ class _Track extends StatelessWidget {
   final ColorScheme scheme;
   final ValueChanged<double> onChanged;
   final VoidCallback onReset;
+  final VoidCallback onCommit;
+
+  @override
+  State<_Track> createState() => _TrackState();
+}
+
+class _TrackState extends State<_Track> {
+  double _dragValue = 0;
+
+  void _nudge(double direction) {
+    final step = widget.math.span * 0.05;
+    widget.onChanged(widget.value + direction * step);
+    widget.onCommit();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final spec = widget.math.spec;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        void jumpTo(double dx) =>
-            onChanged(math.valueAt((dx / width).clamp(0.0, 1.0)));
-
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTapDown: (d) => jumpTo(d.localPosition.dx),
-          onDoubleTap: onReset,
-          onHorizontalDragUpdate: (d) => jumpTo(d.localPosition.dx),
+          onDoubleTap: widget.onReset,
+          onTapUp: (d) {
+            final thumb = widget.math.fractionOf(widget.value) * width;
+            _nudge(d.localPosition.dx < thumb ? -1 : 1);
+          },
+          onHorizontalDragStart: (_) => _dragValue = widget.value,
+          onHorizontalDragUpdate: (d) {
+            _dragValue = (_dragValue + d.delta.dx / width * widget.math.span)
+                .clamp(spec.min, spec.max);
+            widget.onChanged(_dragValue);
+          },
+          onHorizontalDragEnd: (_) => widget.onCommit(),
           child: Semantics(
             slider: true,
-            label: '${math.spec.label} value',
-            value: _format(value),
+            label: '${spec.label} value',
+            value: _format(widget.value),
             child: SizedBox(
               height: 36,
               child: CustomPaint(
                 size: Size(width, 36),
-                painter: _TrackPainter(math: math, value: value, scheme: scheme),
+                painter: _TrackPainter(
+                  math: widget.math,
+                  value: widget.value,
+                  scheme: widget.scheme,
+                ),
               ),
             ),
           ),

@@ -59,6 +59,24 @@ void main() {
     );
   });
 
+  testWidgets('a drag commits to history so undo restores it', (tester) async {
+    await tester.pumpWidget(_harness(container, Parameter.exposure));
+
+    await tester.drag(
+      find.byKey(const Key('param-track-exposure')),
+      const Offset(100, 0),
+    );
+    await tester.pumpAndSettle();
+
+    final controller = container.read(recipeControllerProvider.notifier);
+    expect(container.read(recipeControllerProvider).index, greaterThan(0));
+    expect(container.read(recipeControllerProvider).recipe.exposure,
+        greaterThan(0));
+
+    controller.undo();
+    expect(container.read(recipeControllerProvider).recipe.exposure, 0);
+  });
+
   testWidgets('tap-to-type sets an exact value', (tester) async {
     await tester.pumpWidget(_harness(container, Parameter.contrast));
 
