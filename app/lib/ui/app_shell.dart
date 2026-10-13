@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../color/lut_demo_screen.dart';
+import '../gallery/gallery_screen.dart';
 import '../settings/shell_preference.dart';
 import '../viewport/image_canvas.dart';
 import '../viewport/tile_viewport_demo.dart';
@@ -37,6 +38,16 @@ class AppShell extends ConsumerWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        FloatingActionButton.small(
+                          heroTag: 'gallery',
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const GalleryScreen(),
+                            ),
+                          ),
+                          child: const Icon(Icons.photo_library),
+                        ),
+                        const SizedBox(height: 8),
                         FloatingActionButton.small(
                           heroTag: 'history',
                           onPressed: () => showModalBottomSheet<void>(

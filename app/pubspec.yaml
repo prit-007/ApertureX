@@ -42,6 +42,8 @@ dependencies:
     path: rust_builder
   flutter_rust_bridge: 2.13.0
   flutter_riverpod: ^3.4.3
+  photo_manager: ^3.12.0
+  gal: ^2.3.3
 
 dev_dependencies:
   flutter_test:
