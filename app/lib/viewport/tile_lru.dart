@@ -4,12 +4,17 @@ import 'dart:collection';
 ///
 /// [sizeOf] reports each value's cost in bytes; the cache evicts the
 /// least-recently-used entries (starting with the eldest) whenever the total
-/// exceeds [maxBytes]. Used for the decoded-tile cache (ARCHITECTURE §5.2).
+/// exceeds [maxBytes]. [onEvict] is invoked for every entry the cache drops —
+/// whether by budget eviction, replacement, removal, or clear — so callers can
+/// release resources (e.g. GPU textures). Used for the decoded-tile cache
+/// (ARCHITECTURE §5.2).
 class TileLru<K, V> {
-  TileLru({required this.maxBytes, required this.sizeOf}) : assert(maxBytes > 0);
+  TileLru({required this.maxBytes, required this.sizeOf, this.onEvict})
+    : assert(maxBytes > 0);
 
   final int maxBytes;
   final int Function(V value) sizeOf;
+  final void Function(K key, V value)? onEvict;
 
   final LinkedHashMap<K, V> _map = LinkedHashMap<K, V>();
   int _totalBytes = 0;
@@ -29,7 +34,10 @@ class TileLru<K, V> {
   /// the budget is met. A value larger than [maxBytes] is not retained.
   void put(K key, V value) {
     final existing = _map.remove(key);
-    if (existing != null) _totalBytes -= sizeOf(existing);
+    if (existing != null) {
+      _totalBytes -= sizeOf(existing);
+      onEvict?.call(key, existing);
+    }
     _map[key] = value;
     _totalBytes += sizeOf(value);
     _evictIfNeeded();
@@ -37,11 +45,17 @@ class TileLru<K, V> {
 
   V? remove(K key) {
     final value = _map.remove(key);
-    if (value != null) _totalBytes -= sizeOf(value);
+    if (value != null) {
+      _totalBytes -= sizeOf(value);
+      onEvict?.call(key, value);
+    }
     return value;
   }
 
   void clear() {
+    for (final entry in _map.entries) {
+      onEvict?.call(entry.key, entry.value);
+    }
     _map.clear();
     _totalBytes = 0;
   }
@@ -50,7 +64,10 @@ class TileLru<K, V> {
     while (_totalBytes > maxBytes && _map.isNotEmpty) {
       final eldestKey = _map.keys.first;
       final removed = _map.remove(eldestKey);
-      if (removed != null) _totalBytes -= sizeOf(removed);
+      if (removed != null) {
+        _totalBytes -= sizeOf(removed);
+        onEvict?.call(eldestKey, removed);
+      }
     }
   }
 }

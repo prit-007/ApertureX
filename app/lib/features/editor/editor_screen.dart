@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../engine/engine.dart';
 import '../../gesture/gesture_interpreter.dart';
+import '../../viewport/tile_viewport_demo.dart';
 import 'grade_painter.dart';
 
 /// Seed editor screen: an invisible Snapseed-style gesture over a GPU-graded
@@ -70,6 +71,12 @@ class _EditorScreenState extends State<EditorScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const TileViewportDemo()),
+        ),
+        child: const Icon(Icons.zoom_out_map),
+      ),
       body: shader == null || texture == null
           ? const Center(child: CircularProgressIndicator())
           : GestureDetector(
