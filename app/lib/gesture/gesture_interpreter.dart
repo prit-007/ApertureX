@@ -14,6 +14,8 @@ enum GradeTool {
   vibrance,
   saturation,
   clarity,
+  dehaze,
+  sharpen,
 }
 
 /// High-level phase of the invisible, Snapseed-style gesture model.

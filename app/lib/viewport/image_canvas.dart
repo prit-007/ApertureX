@@ -191,6 +191,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     r.highlights,
     r.clarity,
     r.texture,
+    r.dehaze,
     r.sharpen,
     r.denoiseLuma,
     r.denoiseChroma,

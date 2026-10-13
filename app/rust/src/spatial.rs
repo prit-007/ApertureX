@@ -213,6 +213,8 @@ pub struct SpatialParams {
     pub denoise_luma: f32,
     /// Chroma noise reduction.
     pub denoise_chroma: f32,
+    /// Dehaze (veil removal via a large-radius local-contrast estimate).
+    pub dehaze: f32,
 }
 
 impl SpatialParams {
@@ -225,7 +227,29 @@ impl SpatialParams {
             && self.sharpen == 0.0
             && self.denoise_luma == 0.0
             && self.denoise_chroma == 0.0
+            && self.dehaze == 0.0
     }
+}
+
+/// Lightweight real-time dehaze: estimate the hazy veil with a large-radius
+/// blur and pull it out as local contrast, then deepen the black point. The
+/// heavy dark-channel physics can run at export; this keeps the slider at 60fps.
+pub fn dehaze(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
+    if amount == 0.0 {
+        return rgba.to_vec();
+    }
+    let veil = blur_rgb(rgba, w, h, 24, 3);
+    let mut out = rgba.to_vec();
+    for i in 0..w * h {
+        for c in 0..3 {
+            let s = rgba[i * 4 + c] as f32;
+            let b = veil[i * 4 + c] as f32;
+            let local = (s - b) * amount * 0.9;
+            let deepen = (s - 128.0) * amount * 0.15;
+            out[i * 4 + c] = (s + local + deepen).clamp(0.0, 255.0) as u8;
+        }
+    }
+    out
 }
 
 /// Applies the full spatial pass in a fixed order: denoise → shadows/highlights
@@ -251,6 +275,9 @@ pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u
     }
     if p.sharpen != 0.0 {
         out = apply_sharpen(&out, w, h, p.sharpen, 2);
+    }
+    if p.dehaze != 0.0 {
+        out = dehaze(&out, w, h, p.dehaze);
     }
     out
 }
@@ -330,6 +357,16 @@ mod tests {
         assert_eq!(out.len(), src.len());
         assert!(out.iter().skip(3).step_by(4).all(|&a| a == 255));
         assert!(variance(&out) < variance(&src));
+    }
+
+    #[test]
+    fn dehaze_increases_local_contrast_and_size() {
+        let src = noise(32, 32);
+        let out = dehaze(&src, 32, 32, 1.0);
+        assert_eq!(out.len(), src.len());
+        assert!(variance(&out) > variance(&src));
+        // neutral amount is a no-op
+        assert_eq!(dehaze(&src, 32, 32, 0.0), src);
     }
 
     #[test]

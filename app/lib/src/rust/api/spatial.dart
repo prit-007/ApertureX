@@ -90,6 +90,7 @@ Future<Uint8List> spatialApply({
   required double sharpen,
   required double denoiseLuma,
   required double denoiseChroma,
+  required double dehaze,
 }) => RustLib.instance.api.crateApiSpatialSpatialApply(
   rgba: rgba,
   width: width,
@@ -101,4 +102,5 @@ Future<Uint8List> spatialApply({
   sharpen: sharpen,
   denoiseLuma: denoiseLuma,
   denoiseChroma: denoiseChroma,
+  dehaze: dehaze,
 );

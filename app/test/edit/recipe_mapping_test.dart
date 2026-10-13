@@ -63,6 +63,8 @@ void main() {
         Parameter.vibrance,
         Parameter.saturation,
         Parameter.clarity,
+        Parameter.dehaze,
+        Parameter.sharpen,
       ]);
     });
   });

@@ -63,6 +63,8 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
     GradeTool.vibrance => Icons.auto_awesome,
     GradeTool.saturation => Icons.water_drop,
     GradeTool.clarity => Icons.blur_on,
+    GradeTool.dehaze => Icons.filter_drama,
+    GradeTool.sharpen => Icons.details,
   };
 
   @override

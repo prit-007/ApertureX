@@ -209,6 +209,7 @@ abstract class RustLibApi extends BaseApi {
     required double sharpen,
     required double denoiseLuma,
     required double denoiseChroma,
+    required double dehaze,
   });
 
   Future<Uint8List> crateApiSpatialSpatialClarity({
@@ -975,6 +976,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required double sharpen,
     required double denoiseLuma,
     required double denoiseChroma,
+    required double dehaze,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -990,6 +992,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_f_32(sharpen, serializer);
           sse_encode_f_32(denoiseLuma, serializer);
           sse_encode_f_32(denoiseChroma, serializer);
+          sse_encode_f_32(dehaze, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -1013,6 +1016,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sharpen,
           denoiseLuma,
           denoiseChroma,
+          dehaze,
         ],
         apiImpl: this,
       ),
@@ -1033,6 +1037,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "sharpen",
           "denoiseLuma",
           "denoiseChroma",
+          "dehaze",
         ],
       );
 

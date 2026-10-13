@@ -52,6 +52,8 @@ const Map<GradeTool, _ToolRange> _ranges = {
   GradeTool.vibrance: _ToolRange(1.0, -1.0, 1.0),
   GradeTool.saturation: _ToolRange(1.0, -1.0, 1.0),
   GradeTool.clarity: _ToolRange(1.0, -1.0, 1.0),
+  GradeTool.dehaze: _ToolRange(1.0, -1.0, 1.0),
+  GradeTool.sharpen: _ToolRange(1.0, 0.0, 1.0),
 };
 
 /// Applies a gesture [delta] to [tool]'s field on [recipe], returning a new
@@ -79,6 +81,8 @@ double _read(EditRecipe recipe, GradeTool tool) => switch (tool) {
   GradeTool.vibrance => recipe.vibrance,
   GradeTool.saturation => recipe.saturation,
   GradeTool.clarity => recipe.clarity,
+  GradeTool.dehaze => recipe.dehaze,
+  GradeTool.sharpen => recipe.sharpen,
 };
 
 EditRecipe _write(EditRecipe recipe, GradeTool tool, double value) =>
@@ -94,4 +98,6 @@ EditRecipe _write(EditRecipe recipe, GradeTool tool, double value) =>
       GradeTool.vibrance => recipe.copyWith(vibrance: value),
       GradeTool.saturation => recipe.copyWith(saturation: value),
       GradeTool.clarity => recipe.copyWith(clarity: value),
+      GradeTool.dehaze => recipe.copyWith(dehaze: value),
+      GradeTool.sharpen => recipe.copyWith(sharpen: value),
     };
