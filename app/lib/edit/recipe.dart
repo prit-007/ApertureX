@@ -18,6 +18,9 @@ class EditRecipe {
     this.shadows = 0,
     this.whites = 0,
     this.blacks = 0,
+    this.clarity = 0,
+    this.texture = 0,
+    this.sharpen = 0,
     this.temperature = 0,
     this.tint = 0,
     this.vibrance = 0,
@@ -41,7 +44,7 @@ class EditRecipe {
   /// v2: grouped, catalog-driven parameter model (JSON still flat, v1 keys
   /// unchanged). v3: adds color-grading (split-tone) fields; older recipes read
   /// forward with those fields neutral. `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 3;
+  static const int currentSchemaVersion = 4;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -55,6 +58,9 @@ class EditRecipe {
   final double shadows; // unitless, neutral 0 (not yet rendered).
   final double whites; // unitless, neutral 0 (not yet rendered).
   final double blacks; // unitless, neutral 0 (not yet rendered).
+  final double clarity; // spatial pass, neutral 0.
+  final double texture; // spatial pass, neutral 0.
+  final double sharpen; // spatial pass, neutral 0.
 
   // Color.
   final double temperature; // unitless, neutral 0.
@@ -86,6 +92,9 @@ class EditRecipe {
     double? shadows,
     double? whites,
     double? blacks,
+    double? clarity,
+    double? texture,
+    double? sharpen,
     double? temperature,
     double? tint,
     double? vibrance,
@@ -109,6 +118,9 @@ class EditRecipe {
       shadows: shadows ?? this.shadows,
       whites: whites ?? this.whites,
       blacks: blacks ?? this.blacks,
+      clarity: clarity ?? this.clarity,
+      texture: texture ?? this.texture,
+      sharpen: sharpen ?? this.sharpen,
       temperature: temperature ?? this.temperature,
       tint: tint ?? this.tint,
       vibrance: vibrance ?? this.vibrance,
@@ -135,6 +147,9 @@ class EditRecipe {
     'shadows': shadows,
     'whites': whites,
     'blacks': blacks,
+    'clarity': clarity,
+    'texture': texture,
+    'sharpen': sharpen,
     'temperature': temperature,
     'tint': tint,
     'vibrance': vibrance,
@@ -164,6 +179,9 @@ class EditRecipe {
       shadows: asDouble('shadows'),
       whites: asDouble('whites'),
       blacks: asDouble('blacks'),
+      clarity: asDouble('clarity'),
+      texture: asDouble('texture'),
+      sharpen: asDouble('sharpen'),
       temperature: asDouble('temperature'),
       tint: asDouble('tint'),
       vibrance: asDouble('vibrance'),
@@ -191,6 +209,9 @@ class EditRecipe {
       other.shadows == shadows &&
       other.whites == whites &&
       other.blacks == blacks &&
+      other.clarity == clarity &&
+      other.texture == texture &&
+      other.sharpen == sharpen &&
       other.temperature == temperature &&
       other.tint == tint &&
       other.vibrance == vibrance &&
@@ -215,6 +236,9 @@ class EditRecipe {
     shadows,
     whites,
     blacks,
+    clarity,
+    texture,
+    sharpen,
     temperature,
     tint,
     vibrance,

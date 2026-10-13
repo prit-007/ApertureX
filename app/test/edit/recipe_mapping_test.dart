@@ -42,9 +42,8 @@ void main() {
     });
 
     test('parameters partition exactly across sections', () {
-      final all = {
-        ...parametersIn(RecipeSection.light),
-        ...parametersIn(RecipeSection.color),
+      final all = <Parameter>{
+        for (final section in RecipeSection.values) ...parametersIn(section),
       };
       expect(all.length, Parameter.values.length);
     });

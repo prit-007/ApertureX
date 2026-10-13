@@ -9,6 +9,7 @@ import '../color/grade_spec.dart';
 import '../color/histogram_view.dart';
 import '../color/lut_atlas.dart';
 import '../color/lut_texture.dart';
+import '../color/spatial_spec.dart';
 import '../edit/parameter.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_controller.dart';
@@ -34,6 +35,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   ui.FragmentProgram? _program;
   ui.Image? _source;
+  ui.Image? _baseImage;
   ui.Image? _lut;
   Uint8List? _sourceRgba;
   int _sourceWidth = 0;
@@ -93,37 +95,45 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }
 
   Future<void> _rebake(EditRecipe recipe) async {
-    if (_program == null) return;
+    final raw = _sourceRgba;
+    if (_program == null || raw == null) return;
     final token = ++_bakeToken;
     final spec = GradeSpec.fromRecipe(recipe);
+    final spatial = SpatialSpec.fromRecipe(recipe);
 
+    // Spatial pass first (shadows/highlights/clarity/texture/sharpen), then the
+    // point-wise LUT — matching the export order.
+    final baseRgba = await TesseraEngine.applySpatial(
+      raw,
+      width: _sourceWidth,
+      height: _sourceHeight,
+      spec: spatial,
+    );
+    final baseImage = await _imageFrom(baseRgba, _sourceWidth, _sourceHeight);
     final data = await TesseraEngine.bakeLut3d(spec, size: _lutSize);
-    final image = await lutAtlasToImage(
+    final lutImage = await lutAtlasToImage(
       LutAtlas(size: data.size, rgba: data.rgba),
     );
+    final histogram = await TesseraEngine.histogramGraded(
+      rgba: baseRgba,
+      width: _sourceWidth,
+      height: _sourceHeight,
+      sampleDim: 256,
+      spec: spec,
+    );
+
     if (!mounted || token != _bakeToken) {
-      image.dispose();
+      baseImage.dispose();
+      lutImage.dispose();
       return;
     }
     setState(() {
+      _baseImage?.dispose();
+      _baseImage = baseImage;
       _lut?.dispose();
-      _lut = image;
+      _lut = lutImage;
     });
-
-    // Publish the graded histogram (downsample + grade + bin, in Rust).
-    final rgba = _sourceRgba;
-    if (rgba != null) {
-      final histogram = await TesseraEngine.histogramGraded(
-        rgba: rgba,
-        width: _sourceWidth,
-        height: _sourceHeight,
-        sampleDim: 256,
-        spec: spec,
-      );
-      if (mounted && token == _bakeToken) {
-        ref.read(histogramProvider.notifier).publish(histogram);
-      }
-    }
+    ref.read(histogramProvider.notifier).publish(histogram);
   }
 
   void _scheduleBake(EditRecipe recipe) {
@@ -137,6 +147,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _debounce?.cancel();
     _compare.dispose();
     _source?.dispose();
+    _baseImage?.dispose();
     _lut?.dispose();
     super.dispose();
   }
@@ -148,7 +159,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     });
 
     final program = _program;
-    final source = _source;
+    final source = _baseImage ?? _source;
     final lut = _lut;
     if (_failed || program == null || source == null || lut == null) {
       return _placeholder();

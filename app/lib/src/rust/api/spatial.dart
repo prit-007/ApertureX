@@ -61,3 +61,24 @@ Future<Uint8List> spatialShadowHighlight({
   shadows: shadows,
   highlights: highlights,
 );
+
+/// The full spatial pass (shadows/highlights → clarity → texture → sharpen).
+Future<Uint8List> spatialApply({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required double shadows,
+  required double highlights,
+  required double clarity,
+  required double texture,
+  required double sharpen,
+}) => RustLib.instance.api.crateApiSpatialSpatialApply(
+  rgba: rgba,
+  width: width,
+  height: height,
+  shadows: shadows,
+  highlights: highlights,
+  clarity: clarity,
+  texture: texture,
+  sharpen: sharpen,
+);

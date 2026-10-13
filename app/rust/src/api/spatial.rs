@@ -40,3 +40,32 @@ pub fn spatial_shadow_highlight(
 ) -> Vec<u8> {
     spatial::apply_shadow_highlight(&rgba, width as usize, height as usize, shadows, highlights)
 }
+
+/// The full spatial pass (shadows/highlights → clarity → texture → sharpen).
+#[allow(
+    clippy::too_many_arguments,
+    reason = "flat scalar args keep the frb surface simple; a struct adds a bridge type for no gain"
+)]
+pub fn spatial_apply(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    shadows: f32,
+    highlights: f32,
+    clarity: f32,
+    texture: f32,
+    sharpen: f32,
+) -> Vec<u8> {
+    spatial::apply_spatial(
+        &rgba,
+        width as usize,
+        height as usize,
+        spatial::SpatialParams {
+            shadows,
+            highlights,
+            clarity,
+            texture,
+            sharpen,
+        },
+    )
+}

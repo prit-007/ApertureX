@@ -19,6 +19,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   static const List<RecipeSection> _sections = [
     RecipeSection.light,
     RecipeSection.color,
+    RecipeSection.effects,
+    RecipeSection.detail,
   ];
 
   RecipeSection _section = RecipeSection.light;

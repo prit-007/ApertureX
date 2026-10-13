@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../color/grade_spec.dart';
 import '../../color/lut_demo_screen.dart';
+import '../../color/spatial_spec.dart';
 import '../../edit/grade_mapping.dart';
 import '../../edit/recipe.dart';
 import '../../engine/engine.dart';
@@ -107,6 +108,7 @@ class _EditorScreenState extends State<EditorScreen> {
         width: _imageWidth,
         height: _imageHeight,
         spec: GradeSpec.fromRecipe(_recipe),
+        spatial: SpatialSpec.fromRecipe(_recipe),
       );
       final dir = await getApplicationDocumentsDirectory();
       final stamp = DateTime.now().millisecondsSinceEpoch;

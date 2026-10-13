@@ -129,6 +129,45 @@ pub fn apply_shadow_highlight(
     out
 }
 
+/// The spatial pass strengths (all neutral at 0).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SpatialParams {
+    /// Edge-aware shadow lift.
+    pub shadows: f32,
+    /// Edge-aware highlight recovery.
+    pub highlights: f32,
+    /// Mid-frequency local contrast.
+    pub clarity: f32,
+    /// Fine-detail boost.
+    pub texture: f32,
+    /// Unsharp amount (radius fixed at 2).
+    pub sharpen: f32,
+}
+
+impl SpatialParams {
+    /// True when the pass would be a no-op.
+    pub fn is_neutral(&self) -> bool {
+        self.shadows == 0.0
+            && self.highlights == 0.0
+            && self.clarity == 0.0
+            && self.texture == 0.0
+            && self.sharpen == 0.0
+    }
+}
+
+/// Applies the full spatial pass in a fixed order: shadows/highlights → clarity
+/// → texture → sharpen. A neutral set returns the input unchanged.
+pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u8> {
+    if p.is_neutral() {
+        return rgba.to_vec();
+    }
+    let mut out = apply_shadow_highlight(rgba, w, h, p.shadows, p.highlights);
+    out = apply_clarity(&out, w, h, p.clarity);
+    out = apply_texture(&out, w, h, p.texture);
+    out = apply_sharpen(&out, w, h, p.sharpen, 2);
+    out
+}
+
 /// Runs a neighbour-aware `op` over the `tile` rect `(x, y, tw, th)` of a full
 /// image, fetching `margin` extra pixels around it and cropping the result back
 /// to the tile — so ops are seamless across tiles. `margin` must be ≥ the op's
@@ -262,6 +301,18 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn apply_spatial_is_neutral_at_zero_and_composes() {
+        let src = noise(32, 32);
+        assert_eq!(apply_spatial(&src, 32, 32, SpatialParams::default()), src);
+        let p = SpatialParams {
+            texture: 0.8,
+            sharpen: 0.5,
+            ..Default::default()
+        };
+        assert!(variance(&apply_spatial(&src, 32, 32, p)) > variance(&src));
     }
 
     #[test]

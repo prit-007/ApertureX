@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../color/grade_spec.dart';
+import '../color/spatial_spec.dart';
 import '../src/rust/api/color.dart' as rust_color;
 import '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 import '../src/rust/api/decode.dart' as rust_decode;
@@ -124,6 +125,24 @@ class TesseraEngine {
 
   // --- spatial (P2) ---------------------------------------------------------
 
+  /// Applies the full spatial pass (shadows/highlights → clarity → texture →
+  /// sharpen). A neutral [spec] returns the input unchanged.
+  static Future<Uint8List> applySpatial(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    required SpatialSpec spec,
+  }) => rust_spatial.spatialApply(
+    rgba: rgba,
+    width: width,
+    height: height,
+    shadows: spec.shadows,
+    highlights: spec.highlights,
+    clarity: spec.clarity,
+    texture: spec.texture,
+    sharpen: spec.sharpen,
+  );
+
   /// Texture (fine-detail) boost on an RGBA buffer.
   static Future<Uint8List> spatialTexture(
     Uint8List rgba, {
@@ -196,15 +215,23 @@ class TesseraEngine {
   );
 
   /// Grades [rgba] with [spec] and encodes a JPEG — preview==export by
-  /// construction, since grading uses the exact path the LUT bakes.
+  /// construction, since grading uses the exact path the LUT bakes. The spatial
+  /// pass runs first (matching the preview order).
   static Future<Uint8List> exportJpeg({
     required Uint8List rgba,
     required int width,
     required int height,
     required GradeSpec spec,
+    SpatialSpec spatial = const SpatialSpec(),
     int quality = 90,
   }) async {
-    final graded = await gradeRgba(rgba, spec);
+    final spatialized = await applySpatial(
+      rgba,
+      width: width,
+      height: height,
+      spec: spatial,
+    );
+    final graded = await gradeRgba(spatialized, spec);
     return encodeJpegRgba(
       rgba: graded,
       width: width,
