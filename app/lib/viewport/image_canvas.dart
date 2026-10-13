@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../color/grade_spec.dart';
 import '../color/histogram_view.dart';
+import '../color/imported_lut.dart';
 import '../color/lut_atlas.dart';
 import '../color/lut_texture.dart';
 import '../color/spatial_spec.dart';
@@ -44,6 +45,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   bool _failed = false;
   bool _comparing = false;
   int _bakeToken = 0;
+  int _activeLutSize = _lutSize;
   Timer? _debounce;
   late final AnimationController _compare;
 
@@ -118,10 +120,22 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       spec: spatial,
     );
     final baseImage = await _imageFrom(baseRgba, geo.width, geo.height);
-    final data = await TesseraEngine.bakeLut3d(spec, size: _lutSize);
-    final lutImage = await lutAtlasToImage(
-      LutAtlas(size: data.size, rgba: data.rgba),
-    );
+
+    // Prefer an imported preset LUT while one is active; otherwise bake the
+    // recipe grade into the LUT atlas.
+    final imported = ref.read(importedLutProvider);
+    final ui.Image lutImage;
+    final int lutSize;
+    if (imported != null) {
+      lutImage = await lutAtlasToImage(imported);
+      lutSize = imported.size;
+    } else {
+      final data = await TesseraEngine.bakeLut3d(spec, size: _lutSize);
+      lutImage = await lutAtlasToImage(
+        LutAtlas(size: data.size, rgba: data.rgba),
+      );
+      lutSize = data.size;
+    }
     final histogram = await TesseraEngine.histogramGraded(
       rgba: baseRgba,
       width: geo.width,
@@ -140,6 +154,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _baseImage = baseImage;
       _lut?.dispose();
       _lut = lutImage;
+      _activeLutSize = lutSize;
     });
     ref.read(histogramProvider.notifier).publish(histogram);
   }
@@ -165,6 +180,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     ref.listen(recipeControllerProvider, (previous, next) {
       if (previous?.recipe != next.recipe) _scheduleBake(next.recipe);
     });
+    ref.listen(
+      importedLutProvider,
+      (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
+    );
 
     final program = _program;
     final source = _baseImage ?? _source;
@@ -194,7 +213,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             shader: program.fragmentShader(),
             source: source,
             lut: lut,
-            lutSize: _lutSize.toDouble(),
+            lutSize: _activeLutSize.toDouble(),
             blend: _compare.value,
           ),
         ),

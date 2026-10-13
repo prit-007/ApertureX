@@ -6,6 +6,7 @@ import '../settings/shell_preference.dart';
 import '../viewport/image_canvas.dart';
 import '../viewport/tile_viewport_demo.dart';
 import 'common/history_sheet.dart';
+import 'common/lut_import_sheet.dart';
 import 'lightroom/lightroom_shell.dart';
 import 'snapseed/snapseed_shell.dart';
 
@@ -41,6 +42,15 @@ class AppShell extends ConsumerWidget {
                             builder: (_) => const HistorySheet(),
                           ),
                           child: const Icon(Icons.history),
+                        ),
+                        const SizedBox(height: 8),
+                        FloatingActionButton.small(
+                          heroTag: 'lut-import',
+                          onPressed: () => showModalBottomSheet<void>(
+                            context: context,
+                            builder: (_) => const LutImportSheet(),
+                          ),
+                          child: const Icon(Icons.gradient),
                         ),
                         const SizedBox(height: 8),
                         FloatingActionButton.small(
