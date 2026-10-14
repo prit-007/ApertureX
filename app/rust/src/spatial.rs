@@ -442,6 +442,29 @@ mod tests {
     }
 
     #[test]
+    fn neutral_spatial_params_are_a_noop() {
+        let src = noise(16, 16);
+        let out = apply_spatial(
+            &src,
+            16,
+            16,
+            SpatialParams {
+                shadows: 0.0,
+                highlights: 0.0,
+                clarity: 0.0,
+                texture: 0.0,
+                sharpen: 0.0,
+                denoise_luma: 0.0,
+                denoise_chroma: 0.0,
+                dehaze: 0.0,
+                vignette: 0.0,
+                grain: 0.0,
+            },
+        );
+        assert_eq!(out, src);
+    }
+
+    #[test]
     fn dehaze_increases_local_contrast_and_size() {
         let src = noise(32, 32);
         let out = dehaze(&src, 32, 32, 1.0);

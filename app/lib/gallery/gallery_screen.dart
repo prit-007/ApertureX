@@ -42,16 +42,16 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
 
   void _open(GalleryAsset asset) {
     axLog(LogDomain.editor, 'Opened photo ${asset.id}');
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => EditorScreen(asset: asset)),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => EditorScreen(asset: asset)));
   }
 
   void _openSample() {
     axLog(LogDomain.editor, 'Opened sample image');
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const EditorScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const EditorScreen()));
   }
 
   void _paste() {
@@ -85,8 +85,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _openAlbumPicker() =>
-      showAppSheet(context, const _AlbumSheet());
+  void _openAlbumPicker() => showAppSheet(context, const _AlbumSheet());
 
   @override
   Widget build(BuildContext context) {
@@ -134,7 +133,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
       return EmptyState(
         icon: Icons.photo_library_outlined,
         title: 'ApertureX needs your photos',
-        message: 'Allow photo access to browse and edit your library. '
+        message:
+            'Allow photo access to browse and edit your library. '
             'You can change this any time in settings.',
         action: Wrap(
           spacing: Insets.sm,
@@ -153,7 +153,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
               },
               child: const Text('Open settings'),
             ),
-            TextButton(onPressed: _openSample, child: const Text('Open a sample')),
+            TextButton(
+              onPressed: _openSample,
+              child: const Text('Open a sample'),
+            ),
           ],
         ),
       );
@@ -171,7 +174,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
               onPressed: controller.load,
               child: const Text('Retry'),
             ),
-            TextButton(onPressed: _openSample, child: const Text('Open a sample')),
+            TextButton(
+              onPressed: _openSample,
+              child: const Text('Open a sample'),
+            ),
           ],
         ),
       );
@@ -180,7 +186,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
       return EmptyState(
         icon: Icons.photo_library_outlined,
         title: 'No photos here',
-        message: 'Photos on your device will appear here. '
+        message:
+            'Photos on your device will appear here. '
             'Or try the editor with a sample image.',
         action: FilledButton.tonal(
           onPressed: _openSample,
@@ -190,9 +197,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     }
 
     final rows = buildGalleryRows(state.assets);
-    return CustomScrollView(
-      slivers: _slivers(rows, state),
-    );
+    return CustomScrollView(slivers: _slivers(rows, state));
   }
 
   List<Widget> _slivers(List<GalleryRow> rows, GalleryState state) {
@@ -203,9 +208,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     while (i < rows.length) {
       final row = rows[i];
       if (row is GalleryDateHeader) {
-        slivers.add(
-          SliverToBoxAdapter(child: _DateHeader(label: row.label)),
-        );
+        slivers.add(SliverToBoxAdapter(child: _DateHeader(label: row.label)));
         i++;
         final photos = <GalleryAsset>[];
         while (i < rows.length && rows[i] is GalleryPhoto) {
@@ -320,53 +323,55 @@ class _Cell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
+    return Semantics(
+      label: 'Photo',
+      button: true,
+      selected: selected,
       onTap: onTap,
-      onLongPress: onLongPress,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          GalleryThumbnail(source: source, assetId: asset.id),
-          AnimatedOpacity(
-            opacity: selected ? 1 : 0,
-            duration: Motion.fast,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border.all(color: scheme.primary, width: 3),
-                color: scheme.primary.withValues(alpha: 0.22),
-              ),
-            ),
-          ),
-          if (edited && !selectionMode)
-            Positioned(
-              left: 4,
-              bottom: 4,
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            GalleryThumbnail(source: source, assetId: asset.id),
+            AnimatedOpacity(
+              opacity: selected ? 1 : 0,
+              duration: Motion.fast,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
+                  border: Border.all(color: scheme.primary, width: 3),
+                  color: scheme.primary.withValues(alpha: 0.22),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(3),
-                  child: Icon(
-                    Icons.tune,
-                    size: 12,
-                    color: scheme.onPrimary,
+              ),
+            ),
+            if (edited && !selectionMode)
+              Positioned(
+                left: 4,
+                bottom: 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: 0.9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: Icon(Icons.tune, size: 12, color: scheme.onPrimary),
                   ),
                 ),
               ),
-            ),
-          if (selectionMode)
-            Positioned(
-              right: 4,
-              top: 4,
-              child: Icon(
-                selected ? Icons.check_circle : Icons.circle_outlined,
-                size: 22,
-                color: selected ? scheme.primary : Colors.white70,
+            if (selectionMode)
+              Positioned(
+                right: 4,
+                top: 4,
+                child: Icon(
+                  selected ? Icons.check_circle : Icons.circle_outlined,
+                  size: 22,
+                  color: selected ? scheme.primary : Colors.white70,
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -420,7 +425,10 @@ class _GalleryThumbnailState extends State<GalleryThumbnail> {
             if (bytes == null || bytes.isEmpty) {
               return ColoredBox(
                 color: scheme.surfaceContainerHigh,
-                child: Icon(Icons.image_outlined, color: scheme.onSurfaceVariant),
+                child: Icon(
+                  Icons.image_outlined,
+                  color: scheme.onSurfaceVariant,
+                ),
               );
             }
             return Image.memory(
@@ -511,8 +519,13 @@ class _AlbumSheet extends ConsumerWidget {
     return AppSheet(
       title: 'Albums',
       children: [
-        tile(null, 'Recent', null, state.assets.length,
-            selected: state.selectedAlbumId == null),
+        tile(
+          null,
+          'Recent',
+          null,
+          state.assets.length,
+          selected: state.selectedAlbumId == null,
+        ),
         for (final album in state.albums)
           tile(
             album.id,
