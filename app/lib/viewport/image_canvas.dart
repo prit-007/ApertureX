@@ -22,6 +22,7 @@ import '../engine/engine.dart';
 import '../gesture/gesture_interpreter.dart';
 import 'compare_hold.dart';
 import 'canvas_transform.dart';
+import 'live_warp.dart';
 import 'mask_peek.dart';
 
 /// The shared editing canvas, rendered by BOTH shells (ADR 0008 invariant).
@@ -199,15 +200,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   // --- change detection -----------------------------------------------------
 
+  /// Straighten/perspective/skew are GPU-warped during editing (issue #36),
+  /// so they are excluded here — a slider tick must not re-run `applyGeometry`.
+  /// Export bakes the full [GeometrySpec] independently.
   int _baseKey(EditRecipe r) => Object.hash(
     r.rotation,
     r.flipH,
     r.flipV,
-    r.straighten,
-    r.perspectiveX,
-    r.perspectiveY,
-    r.skewX,
-    r.skewY,
     r.shadows,
     r.highlights,
     r.clarity,
@@ -288,7 +287,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   Future<void> _rebuildBase(EditRecipe recipe, int token) async {
     final raw = _sourceRgba!;
-    final geometry = GeometrySpec.fromRecipe(recipe);
+    // Rotation/flip/crop change pixel dimensions and stay CPU-baked;
+    // straighten/perspective/skew are live-warped on the GPU (issue #36).
+    final geometry = GeometrySpec(
+      rotation: recipe.rotation,
+      flipH: recipe.flipH,
+      flipV: recipe.flipV,
+      crop: recipe.crop,
+    );
     final spatial = SpatialSpec.fromRecipe(recipe);
 
     final geo = await TesseraEngine.applyGeometry(
@@ -434,6 +440,22 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
     final tat = ref.watch(tatModeProvider);
     final tatComponent = ref.watch(tatComponentProvider);
+    // Warp params no longer schedule a CPU bake (issue #36), so rebuild the
+    // Transform directly when they move.
+    ref.watch(
+      recipeControllerProvider.select(
+        (s) => Object.hash(
+          s.recipe.straighten,
+          Object.hash(
+            s.recipe.perspectiveX,
+            Object.hash(
+              s.recipe.perspectiveY,
+              Object.hash(s.recipe.skewX, s.recipe.skewY),
+            ),
+          ),
+        ),
+      ),
+    );
     final content = Size(source.width.toDouble(), source.height.toDouble());
 
     return LayoutBuilder(
@@ -469,7 +491,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 child: ClipRect(
                     child: Transform(
                       alignment: Alignment.center,
-                      transform: _computeLiveWarp(ref.read(recipeControllerProvider).recipe),
+                      transform: _computeLiveWarp(
+                        ref.read(recipeControllerProvider).recipe,
+                        content,
+                      ),
                       child: Transform(
                         alignment: Alignment.topLeft,
                         transform: Matrix4.identity()
@@ -539,22 +564,23 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     );
   }
 
-  /// Builds a Matrix4 that mimics the Rust projective warp for GPU preview.
-  /// Maps neutral (0.0) to identity, and uses typical projective ranges.
-  Matrix4 _computeLiveWarp(EditRecipe r) {
-    final m = Matrix4.identity();
-    if (r.perspectiveX == 0 && r.perspectiveY == 0 && r.skewX == 0 && r.skewY == 0) {
-      return m;
-    }
-    // Matrix4.setPerspective(d) is for 3D depth. For 2D quad-warps,
-    // we use manual skew entries in the 4x4 storage matrix.
-    m.storage[2] = r.skewX;
-    m.storage[5] = r.skewY;
-    // Perspective values in the recipe map to the [3,0] and [3,1] elements
-    // of the projection matrix to create the trapezoidal effect.
-    m.storage[12] = r.perspectiveX;
-    m.storage[13] = r.perspectiveY;
-    return m;
+  /// GPU preview of straighten/perspective/skew (issue #36), with the
+  /// auto-crop scale folded in so the rotation never reveals empty corners.
+  Matrix4 _computeLiveWarp(EditRecipe r, Size content) {
+    final m = calculateLiveGeometry(
+      straightenAngle: r.straighten,
+      perspectiveX: r.perspectiveX,
+      perspectiveY: r.perspectiveY,
+      skewX: r.skewX,
+      skewY: r.skewY,
+    );
+    if (r.straighten == 0) return m;
+    final scale = calculateAutoCropScale(
+      r.straighten * math.pi / 180,
+      content.width,
+      content.height,
+    );
+    return m.scaledByDouble(scale, scale, 1, 1);
   }
 
   void _onScaleStart(ScaleStartDetails d, Size fitted, bool tat) {
