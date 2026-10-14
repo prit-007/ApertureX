@@ -28,17 +28,25 @@ enum _NodeDrag { idle, move, resize, place }
 class NodeOverlay extends ConsumerStatefulWidget {
   const NodeOverlay({super.key});
 
+  /// Scale a logical-pixel tolerance by DPR with a sane floor/ceiling
+  /// (issue #50). The base value is calibrated at DPR 1.0; clamping keeps
+  /// extreme densities (e.g. 3.5× tablets) from ballooning the hit area.
+  static double scaleTolerance(double base, double dpr) =>
+      (base * dpr.clamp(1.0, 2.0)).clamp(base * 0.75, base * 2.0);
+
   @override
-  ConsumerState<NodeOverlay> createState() => _NodeOverlayState();
+  ConsumerState<NodeOverlay> createState() => NodeOverlayState();
 }
 
-class _NodeOverlayState extends ConsumerState<NodeOverlay> {
-  /// Screen-pixel tolerances for the centre handle and the ring.
-  static const double _centerHit = 18;
-  static const double _ringHit = 18;
+class NodeOverlayState extends ConsumerState<NodeOverlay> {
+  /// Screen-pixel tolerances for the centre handle and the ring, scaled by
+  /// device pixel ratio with a sane floor/ceiling (issue #50).
+  late double _centerHit;
+  late double _ringHit;
 
-  /// Movement before a down becomes a drag (Flutter's kTouchSlop-ish).
-  static const double _slop = 8;
+  /// Movement before a down becomes a drag (Flutter's kTouchSlop-ish), scaled
+  /// by device pixel ratio with a floor/ceiling (issue #50).
+  late double _slop;
 
   /// Radius (fraction of width) of a freshly placed node.
   static const double _defaultRadius = 0.18;
@@ -55,6 +63,15 @@ class _NodeOverlayState extends ConsumerState<NodeOverlay> {
     _mode = _NodeDrag.idle;
   }
 
+  /// Exposed for tests (issue #50).
+  double get centerHit => _centerHit;
+
+  /// Exposed for tests (issue #50).
+  double get ringHit => _ringHit;
+
+  /// Exposed for tests (issue #50).
+  double get slop => _slop;
+
   @override
   Widget build(BuildContext context) {
     final enabled = ref.watch(nodeEditorProvider.select((s) => s.enabled));
@@ -63,6 +80,10 @@ class _NodeOverlayState extends ConsumerState<NodeOverlay> {
       recipeControllerProvider.select((s) => s.recipe.layers),
     );
     final selected = ref.watch(nodeEditorProvider.select((s) => s.selected));
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    _centerHit = NodeOverlay.scaleTolerance(18, dpr);
+    _ringHit = NodeOverlay.scaleTolerance(18, dpr);
+    _slop = NodeOverlay.scaleTolerance(8, dpr);
     if (!enabled || transform == null) {
       // Zero-impact (and, importantly, no Listener): the photo below keeps
       // every gesture until the transform exists.
