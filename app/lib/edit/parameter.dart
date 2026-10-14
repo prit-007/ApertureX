@@ -52,6 +52,7 @@ class ParameterSpec {
     required this.max,
     this.neutral = 0,
     this.scale = 1,
+    this.response = ResponseCurve.linear,
   }) : assert(min < max),
        assert(min <= neutral && neutral <= max);
 
@@ -70,6 +71,22 @@ class ParameterSpec {
   /// Gesture/fine-control sensitivity: a unit delta moves the value by this
   /// (exposure is EV: a full Snapseed swipe = 2 EV via this scale).
   final double scale;
+
+  /// Track-position ↔ value response curve (issue #51). Defaults to linear
+  /// so existing behaviour is unchanged.
+  final ResponseCurve response;
+}
+
+/// Optional non-linear track mapping (issue #51): fine control near neutral,
+/// coarse near extremes. Must stay invertible.
+enum ResponseCurve {
+  /// fraction = (value - min) / span (the historical behaviour).
+  linear,
+
+  /// Piecewise-sqrt about neutral: fraction = 0.5 + sign·(|v−n|/half)^0.5·0.5
+  /// where half = max(|max−n|, |n−min|). Symmetric, invertible, gives ~7%
+  /// of track to the first 10% of a ±5 EV range (vs 1% linear).
+  squareRootHalf,
 }
 
 const Map<Parameter, ParameterSpec> parameterSpecs = {

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../edit/parameter.dart';
 
 /// Pure value ↔ track-position math for [ParameterControl] (P2 Slice B).
@@ -16,12 +18,32 @@ class SliderMath {
   double get span => spec.max - spec.min;
 
   /// Track position (0..1) for [value], clamped.
-  double fractionOf(double value) =>
-      ((value - spec.min) / span).clamp(0.0, 1.0);
+  double fractionOf(double value) {
+    final v = value.clamp(spec.min, spec.max);
+    if (spec.response == ResponseCurve.linear) {
+      return (v - spec.min) / span;
+    }
+    // Piecewise-sqrt about neutral (issue #51): half-range each side gets a
+    // sqrt ramp so the first ~10% of the range consumes ~7% of the track
+    // (vs 1% linear) — fine control where subtle grades live.
+    final half = (spec.max - spec.neutral).abs().clamp(1e-9, double.infinity);
+    final d = (v - spec.neutral) / half; // -1..1
+    return (0.5 + 0.5 * d.sign * math.sqrt(d.abs())).clamp(0.0, 1.0);
+  }
 
   /// Value at a track position [fraction] (0..1), clamped.
-  double valueAt(double fraction) =>
-      spec.min + fraction.clamp(0.0, 1.0) * span;
+  double valueAt(double fraction) {
+    final f = fraction.clamp(0.0, 1.0);
+    if (spec.response == ResponseCurve.linear) {
+      return spec.min + f * span;
+    }
+    final half = (spec.max - spec.neutral).abs().clamp(1e-9, double.infinity);
+    final d = (f - 0.5) * 2; // -1..1
+    return (spec.neutral + d.sign * d.abs() * d.abs() * half).clamp(
+      spec.min,
+      spec.max,
+    );
+  }
 
   /// Where the neutral marker / fill origin sits on the track.
   double get neutralFraction => fractionOf(spec.neutral);
