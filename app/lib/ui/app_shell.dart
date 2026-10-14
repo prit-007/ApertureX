@@ -16,6 +16,7 @@ import '../gesture/gesture_interpreter.dart';
 import '../settings/shell_preference.dart';
 import '../settings/onboarding.dart';
 import '../viewport/image_canvas.dart';
+import 'edit_activity.dart';
 import 'lightroom/lightroom_shell.dart';
 import 'snapseed/ghost_hint.dart';
 import 'snapseed/snapseed_shell.dart';
@@ -29,9 +30,14 @@ import 'snapseed/snapseed_shell.dart';
 ///
 /// Switching shells never touches the canvas or the recipe (ADR 0008).
 class AppShell extends ConsumerStatefulWidget {
-  const AppShell({super.key, this.imageBytes});
+  const AppShell({super.key, this.imageBytes, this.topHud});
 
   final Uint8List? imageBytes;
+
+  /// Floating action row rendered over the top of the image (the gesture
+  /// shell's "top gradient HUD"). Null in the Lightroom shell, whose chrome
+  /// lives in the app bar and panel instead.
+  final Widget? topHud;
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
@@ -90,9 +96,25 @@ class _AppShellState extends ConsumerState<AppShell> {
     });
   }
 
+  /// The photo, wrapped so that touching it starts/ends Active Mode (the
+  /// chrome fades while the pointer is down).
+  Widget _canvas({GestureInterpreter? interpreter}) {
+    return Listener(
+      behavior: HitTestBehavior.deferToChild,
+      onPointerDown: (_) => ref.read(editActivityProvider.notifier).begin(),
+      onPointerUp: (_) => ref.read(editActivityProvider.notifier).end(),
+      onPointerCancel: (_) => ref.read(editActivityProvider.notifier).end(),
+      child: ImageCanvas(
+        imageBytes: widget.imageBytes,
+        editInterpreter: interpreter,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final kind = ref.watch(shellPreferenceProvider);
+    final active = ref.watch(editActivityProvider);
     final scheme = Theme.of(context).colorScheme;
     // Only rebuild when the histogram's *presence* changes (not on every bake).
     final hasHistogram = ref.watch(
@@ -121,12 +143,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     .markGestureHintSeen(),
           child: Stack(
             children: [
-              Positioned.fill(
-                child: ImageCanvas(
-                  imageBytes: widget.imageBytes,
-                  editInterpreter: _fsm,
-                ),
-              ),
+              Positioned.fill(child: _canvas(interpreter: _fsm)),
               SnapseedShell(
                 tool: _active,
                 category: _category,
@@ -137,16 +154,58 @@ class _AppShellState extends ConsumerState<AppShell> {
                   setState(() => _active = t);
                 },
               ),
+              if (widget.topHud != null)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: _Fade(
+                    active: active,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.5),
+                            Colors.black.withValues(alpha: 0.0),
+                          ],
+                        ),
+                      ),
+                      child: SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Insets.xs,
+                            vertical: Insets.xs,
+                          ),
+                          child: widget.topHud,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               if (_showHistogram && hasHistogram)
-                const Positioned(
+                Positioned(
                   left: 0,
                   right: 0,
                   top: 0,
-                  child: _HistogramOverlay(),
+                  child: _Fade(
+                    active: active,
+                    child: const _HistogramOverlay(),
+                  ),
                 ),
               if (!hintSeen) const Positioned.fill(child: GhostHint()),
-              Positioned(left: Insets.sm, bottom: Insets.sm, child: overlays[0]),
-              Positioned(right: Insets.sm, bottom: Insets.sm, child: overlays[1]),
+              Positioned(
+                left: Insets.sm,
+                bottom: Insets.sm,
+                child: _Fade(active: active, child: overlays[0]),
+              ),
+              Positioned(
+                right: Insets.sm,
+                bottom: Insets.sm,
+                child: _Fade(active: active, child: overlays[1]),
+              ),
             ],
           ),
         ),
@@ -161,18 +220,24 @@ class _AppShellState extends ConsumerState<AppShell> {
             flex: _panelCollapsed ? 10 : 3,
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: ImageCanvas(imageBytes: widget.imageBytes),
-                ),
+                Positioned.fill(child: _canvas()),
                 if (_showHistogram && hasHistogram)
-                  const Positioned(
+                  Positioned(
                     left: 0,
                     right: 0,
                     top: 0,
-                    child: _HistogramOverlay(),
+                    child: _Fade(active: active, child: const _HistogramOverlay()),
                   ),
-                Positioned(left: Insets.sm, bottom: Insets.sm, child: overlays[0]),
-                Positioned(right: Insets.sm, bottom: Insets.sm, child: overlays[1]),
+                Positioned(
+                  left: Insets.sm,
+                  bottom: Insets.sm,
+                  child: _Fade(active: active, child: overlays[0]),
+                ),
+                Positioned(
+                  right: Insets.sm,
+                  bottom: Insets.sm,
+                  child: _Fade(active: active, child: overlays[1]),
+                ),
               ],
             ),
           ),
@@ -184,6 +249,25 @@ class _AppShellState extends ConsumerState<AppShell> {
             const Expanded(flex: 2, child: LightroomShell()),
         ],
       ),
+    );
+  }
+}
+
+/// Fades a piece of chrome out (and stops hit-testing it) while the user is
+/// actively editing.
+class _Fade extends StatelessWidget {
+  const _Fade({required this.active, required this.child});
+
+  final bool active;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: active ? 0 : 1,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      child: IgnorePointer(ignoring: active, child: child),
     );
   }
 }

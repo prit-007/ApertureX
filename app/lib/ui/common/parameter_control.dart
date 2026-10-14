@@ -6,6 +6,7 @@ import '../../core/haptics.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
+import '../edit_activity.dart';
 import 'slider_math.dart';
 
 /// The single parameter control shared by **both** shells (P2 Slice B) — the
@@ -162,7 +163,7 @@ class _ValueField extends StatelessWidget {
 /// Custom center-fill track with pro micro-interactions: relative drag for
 /// precision, tap beside the thumb to nudge by 5% of the range, double-tap to
 /// reset, and a commit to history when the drag ends.
-class _Track extends StatefulWidget {
+class _Track extends ConsumerStatefulWidget {
   const _Track({
     super.key,
     required this.math,
@@ -181,10 +182,10 @@ class _Track extends StatefulWidget {
   final VoidCallback onCommit;
 
   @override
-  State<_Track> createState() => _TrackState();
+  ConsumerState<_Track> createState() => _TrackState();
 }
 
-class _TrackState extends State<_Track> {
+class _TrackState extends ConsumerState<_Track> {
   double _dragValue = 0;
   final Stopwatch _sw = Stopwatch()..start();
   final HapticGradientPacer _gradient = HapticGradientPacer();
@@ -223,6 +224,7 @@ class _TrackState extends State<_Track> {
             _sw
               ..reset()
               ..start();
+            ref.read(editActivityProvider.notifier).begin();
           },
           onHorizontalDragUpdate: (d) {
             _dragValue = (_dragValue + d.delta.dx / width * widget.math.span)
@@ -230,7 +232,12 @@ class _TrackState extends State<_Track> {
             widget.onChanged(_dragValue);
             _pulse();
           },
-          onHorizontalDragEnd: (_) => widget.onCommit(),
+          onHorizontalDragEnd: (_) {
+            widget.onCommit();
+            ref.read(editActivityProvider.notifier).end();
+          },
+          onHorizontalDragCancel: () =>
+              ref.read(editActivityProvider.notifier).end(),
           child: Semantics(
             slider: true,
             label: '${spec.label} value',

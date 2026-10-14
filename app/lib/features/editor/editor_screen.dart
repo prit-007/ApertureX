@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart' show SystemChrome, SystemUiMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
 import 'package:material_ui/material_ui.dart';
@@ -21,10 +22,12 @@ import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
 import '../../engine/engine.dart';
 import '../../settings/export_settings.dart';
+import '../../settings/shell_preference.dart';
 import '../../ui/app_shell.dart';
 import '../../ui/common/app_primitives.dart';
 import '../../ui/common/app_sheet.dart';
 import '../../ui/common/settings_sheet.dart';
+import '../../ui/edit_activity.dart';
 
 /// The full-screen editor: a top app bar (back · undo · redo · export ·
 /// overflow) over the shared [AppShell] (canvas + active shell toolbar). One
@@ -177,59 +180,88 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final notifier = ref.read(recipeControllerProvider.notifier);
     final canUndo = state.index > 0;
     final canRedo = state.index < state.history.length - 1;
+    final gestureShell = ref.watch(shellPreferenceProvider) ==
+        AppShellKind.snapseed;
+    final active = ref.watch(editActivityProvider);
+
+    // Active Mode (issue #26): hand the whole screen to the photo while the
+    // user is touching it — system bars out, chrome faded; restore on lift.
+    ref.listen(editActivityProvider, (previous, next) {
+      if (previous == next) return;
+      SystemChrome.setEnabledSystemUIMode(
+        next ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+      );
+    });
+
+    final crop = IconButton(
+      tooltip: 'Crop & rotate',
+      onPressed: _bytes == null
+          ? null
+          : () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => CropScreen(imageBytes: _bytes!),
+              ),
+            ),
+      icon: const Icon(Icons.crop),
+    );
+    final undo = IconButton(
+      tooltip: 'Undo',
+      onPressed: canUndo ? notifier.undo : null,
+      icon: const Icon(Icons.undo),
+    );
+    final redo = IconButton(
+      tooltip: 'Redo',
+      onPressed: canRedo ? notifier.redo : null,
+      icon: const Icon(Icons.redo),
+    );
+    final more = IconButton(
+      tooltip: 'More',
+      onPressed: () => _openSettings(context),
+      icon: const Icon(Icons.more_vert),
+    );
+    final export = Padding(
+      padding: const EdgeInsets.only(right: Insets.sm),
+      child: FilledButton.tonalIcon(
+        onPressed: _exporting || _bytes == null ? null : _export,
+        icon: _exporting
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.ios_share, size: 18),
+        label: const Text('Export'),
+      ),
+    );
 
     return Scaffold(
-      appBar: AppBar(
-        leading: const BackButton(),
-        title: const Text('Edit'),
-        actions: [
-          IconButton(
-            tooltip: 'Crop & rotate',
-            onPressed: _bytes == null
-                ? null
-                : () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => CropScreen(imageBytes: _bytes!),
-                    ),
-                  ),
-            icon: const Icon(Icons.crop),
-          ),
-          IconButton(
-            tooltip: 'Undo',
-            onPressed: canUndo ? notifier.undo : null,
-            icon: const Icon(Icons.undo),
-          ),
-          IconButton(
-            tooltip: 'Redo',
-            onPressed: canRedo ? notifier.redo : null,
-            icon: const Icon(Icons.redo),
-          ),
-          IconButton(
-            tooltip: 'More',
-            onPressed: () => _openSettings(context),
-            icon: const Icon(Icons.more_vert),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: Insets.sm),
-            child: FilledButton.tonalIcon(
-              onPressed: _exporting || _bytes == null ? null : _export,
-              icon: _exporting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.ios_share, size: 18),
-              label: const Text('Export'),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: AnimatedOpacity(
+          opacity: active ? 0 : 1,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          child: IgnorePointer(
+            ignoring: active,
+            child: AppBar(
+              leading: const BackButton(),
+              title: const Text('Edit'),
+              // The gesture shell carries these on the floating top HUD.
+              actions: gestureShell
+                  ? null
+                  : [crop, undo, redo, more, export],
             ),
           ),
-        ],
+        ),
       ),
-      body: _body(),
+      body: _body(
+        gestureShell: gestureShell,
+        hud: Row(children: [crop, undo, redo, more, const Spacer(), export]),
+      ),
     );
   }
 
-  Widget _body() {
+  Widget _body({required bool gestureShell, required Widget hud}) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -244,7 +276,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         ),
       );
     }
-    return AppShell(imageBytes: _bytes);
+    return AppShell(imageBytes: _bytes, topHud: gestureShell ? hud : null);
   }
 
   void _openSettings(BuildContext context) {

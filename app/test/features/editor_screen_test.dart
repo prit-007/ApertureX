@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart' show MethodCall, SystemChannels;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -11,7 +12,9 @@ import 'package:aperturex/features/editor/editor_screen.dart';
 import 'package:aperturex/gallery/gallery_asset.dart';
 import 'package:aperturex/gallery/gallery_controller.dart';
 import 'package:aperturex/gallery/gallery_source.dart';
+import 'package:aperturex/settings/shell_preference.dart';
 import 'package:aperturex/ui/app_shell.dart';
+import 'package:aperturex/viewport/image_canvas.dart';
 
 /// A valid 1×1 PNG (non-empty bytes so the editor proceeds to the canvas).
 final Uint8List _png = Uint8List.fromList(const [
@@ -106,5 +109,116 @@ void main() {
 
     expect(container.read(recipeStoreProvider)['a']!.contrast, 0.5);
     expect(container.read(recipeStoreProvider)['a']!.exposure, 1.2);
+  });
+
+  group('Active Mode (issue #26)', () {
+    double appBarOpacity(WidgetTester tester) =>
+        tester
+            .widget<AnimatedOpacity>(
+              find
+                  .ancestor(
+                    of: find.byType(AppBar),
+                    matching: find.byType(AnimatedOpacity),
+                  )
+                  .first,
+            )
+            .opacity;
+
+    Future<List<MethodCall>> pumpEditor(WidgetTester tester) async {
+      final calls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          calls.add(call);
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+
+      final container = containerWith(images: {'a': _png});
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: EditorScreen(
+              asset: GalleryAsset(id: 'a', width: 1, height: 1),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      return calls;
+    }
+
+    testWidgets('hiding the app bar and system bars while touching the photo', (
+      tester,
+    ) async {
+      final calls = await pumpEditor(tester);
+      expect(appBarOpacity(tester), 1);
+
+      final center = tester.getRect(find.byType(ImageCanvas)).center;
+      final gesture = await tester.startGesture(center);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(appBarOpacity(tester), 0);
+
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(appBarOpacity(tester), 1);
+
+      final modeCalls = calls
+          .where((c) => c.method == 'SystemChrome.setEnabledSystemUIMode')
+          .toList();
+      expect(modeCalls, hasLength(2));
+      expect(modeCalls.first.arguments.toString(), contains('immersiveSticky'));
+      expect(modeCalls.last.arguments.toString(), contains('edgeToEdge'));
+    });
+
+    testWidgets('the gesture shell moves the actions onto a floating HUD', (
+      tester,
+    ) async {
+      final container = containerWith(images: {'a': _png});
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: EditorScreen(
+              asset: GalleryAsset(id: 'a', width: 1, height: 1),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      container
+          .read(shellPreferenceProvider.notifier)
+          .select(AppShellKind.snapseed);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      // AppBar is bare (back + title only) ...
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byTooltip('Undo'),
+        ),
+        findsNothing,
+      );
+      // ... the actions float over the photo instead.
+      expect(find.byTooltip('Undo'), findsOneWidget);
+      expect(find.byTooltip('Redo'), findsOneWidget);
+      expect(find.text('Export'), findsOneWidget);
+    });
   });
 }
