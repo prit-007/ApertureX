@@ -85,4 +85,61 @@ void main() {
       expect(before, EditRecipe.neutral);
     });
   });
+
+  group('withMuted (tap-to-mute bypass)', () {
+    test('neutralises exactly the muted parameters', () {
+      final recipe = EditRecipe.neutral.copyWith(
+        exposure: 1.5,
+        contrast: 0.4,
+        vignette: -0.3,
+      );
+
+      final muted = withMuted(recipe, {Parameter.exposure});
+
+      expect(muted.exposure, 0);
+      expect(muted.contrast, 0.4);
+      expect(muted.vignette, -0.3);
+      expect(recipe.exposure, 1.5); // stored value survives
+    });
+
+    test('mutes several at once', () {
+      final recipe = EditRecipe.neutral.copyWith(
+        exposure: 1,
+        saturation: 0.5,
+        sharpen: 0.8,
+      );
+
+      final muted = withMuted(recipe, {
+        Parameter.exposure,
+        Parameter.saturation,
+        Parameter.sharpen,
+      });
+
+      expect(muted.exposure, 0);
+      expect(muted.saturation, 0);
+      expect(muted.sharpen, 0);
+    });
+
+    test('an empty mute set returns the same instance', () {
+      final recipe = EditRecipe.neutral.copyWith(exposure: 2);
+      expect(identical(withMuted(recipe, const {}), recipe), isTrue);
+    });
+
+    test('every parameter can be muted independently', () {
+      for (final p in Parameter.values) {
+        final recipe = withValue(EditRecipe.neutral, p, specOf(p).max);
+        final muted = withMuted(recipe, {p});
+        expect(valueOf(muted, p), specOf(p).neutral, reason: '$p');
+        // Neighbours are untouched.
+        for (final other in Parameter.values) {
+          if (other == p) continue;
+          expect(
+            valueOf(muted, other),
+            valueOf(recipe, other),
+            reason: '$p muted must not disturb $other',
+          );
+        }
+      }
+    });
+  });
 }

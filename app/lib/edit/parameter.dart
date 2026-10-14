@@ -311,3 +311,14 @@ EditRecipe withValue(EditRecipe recipe, Parameter p, double value) {
     Parameter.gradeHighlightSat => recipe.copyWith(gradeHighlightSat: v),
   };
 }
+/// A preview copy of [recipe] with every parameter in [muted] neutralised —
+/// the "tap-to-mute" bypass (issue #31). Pure; the receiver is never touched
+/// and an empty [muted] returns the same instance.
+EditRecipe withMuted(EditRecipe recipe, Set<Parameter> muted) {
+  if (muted.isEmpty) return recipe;
+  var out = recipe;
+  for (final p in muted) {
+    out = withValue(out, p, specOf(p).neutral);
+  }
+  return out;
+}

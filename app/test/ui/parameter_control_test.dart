@@ -2,6 +2,7 @@ import 'package:flutter/services.dart' show MethodCall, SystemChannels;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:aperturex/edit/muted_parameters.dart';
 import 'package:aperturex/edit/parameter.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
 import 'package:aperturex/ui/common/parameter_control.dart';
@@ -155,5 +156,42 @@ void main() {
 
     expect(platformCalls.where(isSelectionClick), isNotEmpty);
     expect(container.read(recipeControllerProvider).recipe.exposure, 4.0);
+  });
+
+  testWidgets('long-pressing the label mutes it without losing the value', (
+    tester,
+  ) async {
+    container
+        .read(recipeControllerProvider.notifier)
+        .update(Parameter.exposure, 2.5);
+    await tester.pumpWidget(_harness(container, Parameter.exposure));
+
+    final label = find.byKey(const Key('param-label-exposure'));
+    await tester.longPress(label);
+    await tester.pump();
+
+    // Muted: bypassed in the render, value kept, label struck through.
+    expect(
+      container.read(mutedParametersProvider),
+      contains(Parameter.exposure),
+    );
+    expect(container.read(recipeControllerProvider).recipe.exposure, 2.5);
+    expect(
+      tester.widget<Text>(find.text('Exposure')).style?.decoration,
+      TextDecoration.lineThrough,
+    );
+
+    // Double-tap restores it.
+    await tester.tap(label);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(label);
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(container.read(mutedParametersProvider), isEmpty);
+    expect(container.read(recipeControllerProvider).recipe.exposure, 2.5);
+    expect(
+      tester.widget<Text>(find.text('Exposure')).style?.decoration,
+      TextDecoration.none,
+    );
   });
 }

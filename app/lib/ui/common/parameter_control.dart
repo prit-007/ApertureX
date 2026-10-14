@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/haptics.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../edit/muted_parameters.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../edit_activity.dart';
@@ -33,6 +34,9 @@ class ParameterControl extends ConsumerWidget {
     final notifier = ref.read(recipeControllerProvider.notifier);
     final math = SliderMath(spec);
     final isNeutral = value == spec.neutral;
+    final muted = ref.watch(
+      mutedParametersProvider.select((s) => s.contains(parameter)),
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -46,11 +50,31 @@ class ParameterControl extends ConsumerWidget {
             children: [
               if (showLabel)
                 Expanded(
-                  child: Text(
-                    spec.label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
+                  child: GestureDetector(
+                    key: Key('param-label-${parameter.name}'),
+                    behavior: HitTestBehavior.opaque,
+                    onLongPress: () => ref
+                        .read(mutedParametersProvider.notifier)
+                        .toggle(parameter),
+                    onDoubleTap: () => ref
+                        .read(mutedParametersProvider.notifier)
+                        .toggle(parameter),
+                    child: Semantics(
+                      button: true,
+                      excludeSemantics: true,
+                      label: muted
+                          ? '${spec.label}, muted. Double-tap to unmute'
+                          : '${spec.label}. Long-press or double-tap to mute',
+                      child: Text(
+                        spec.label,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: muted
+                              ? scheme.onSurfaceVariant.withValues(alpha: 0.5)
+                              : scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                          decoration: muted ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
                     ),
                   ),
                 )

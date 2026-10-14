@@ -14,6 +14,8 @@ import '../color/lut_texture.dart';
 import '../color/spatial_spec.dart';
 import '../color/tat.dart';
 import '../edit/geometry_spec.dart';
+import '../edit/muted_parameters.dart';
+import '../edit/parameter.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_controller.dart';
 import '../engine/engine.dart';
@@ -124,7 +126,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _sourceHeight = proxy.$4;
       _needsReset = true;
       await _rebake(
-        ref.read(recipeControllerProvider).recipe,
+        _renderRecipe(ref.read(recipeControllerProvider).recipe),
         baseChanged: true,
         gradeChanged: true,
       );
@@ -226,8 +228,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     Object.hashAll(r.hsl),
   );
 
+  /// The recipe as it should be **rendered**: muted parameters neutralised
+  /// (tap-to-mute, issue #31). The stored recipe keeps its values.
+  EditRecipe _renderRecipe(EditRecipe recipe) =>
+      withMuted(recipe, ref.read(mutedParametersProvider));
+
   void _scheduleBake(EditRecipe recipe) {
     if (_program == null || _sourceRgba == null) return;
+    recipe = _renderRecipe(recipe);
     final imported = ref.read(importedLutProvider)?.hashCode ?? 0;
     final baseChanged = _baseKey(recipe) != _lastBaseKey;
     final gradeChanged =
@@ -372,6 +380,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     });
     ref.listen(
       importedLutProvider,
+      (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
+    );
+    // Toggling a mute re-renders with that parameter neutralised.
+    ref.listen(
+      mutedParametersProvider,
       (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
     );
 
