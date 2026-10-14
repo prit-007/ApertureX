@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -7,10 +8,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../edit/crop_math.dart';
-import '../../edit/geometry_spec.dart';
-import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
+import '../../viewport/live_warp.dart';
 
 /// Aspect presets for the crop tool (`null` = free).
 const List<(String, double?)> kCropAspects = [
@@ -41,7 +41,6 @@ class _CropScreenState extends ConsumerState<CropScreen> {
   ui.Image? _image;
   bool _loading = true;
 
-  Uint8List? _sourceRgba;
   Size _sourceSize = Size.zero;
   Size _imageSize = Size.zero;
 
@@ -50,7 +49,6 @@ class _CropScreenState extends ConsumerState<CropScreen> {
   late int _rotation;
   late bool _flipH;
   double _straighten = 0;
-  int _buildToken = 0;
 
   @override
   void initState() {
@@ -77,41 +75,48 @@ class _CropScreenState extends ConsumerState<CropScreen> {
   Future<void> _init() async {
     try {
       final decoded = await TesseraEngine.decodeJpegRgba(widget.imageBytes);
-      _sourceRgba = decoded.rgba;
       _sourceSize = Size(decoded.width.toDouble(), decoded.height.toDouble());
-      await _rebuildGeometry();
+      final image = await _imageFrom(
+        decoded.rgba,
+        decoded.width,
+        decoded.height,
+      );
+      if (!mounted) {
+        image.dispose();
+        return;
+      }
+      setState(() {
+        _image = image;
+        _imageSize = _rotatedSize;
+        _crop = clampNormalized(_withAspect(_crop));
+        _loading = false;
+      });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _rebuildGeometry() async {
-    final rgba = _sourceRgba;
-    if (rgba == null) return;
-    final token = ++_buildToken;
-    final geo = await TesseraEngine.applyGeometry(
-      rgba,
-      width: _sourceSize.width.toInt(),
-      height: _sourceSize.height.toInt(),
-      spec: GeometrySpec(
-        rotation: _rotation,
-        flipH: _flipH,
-        straighten: _straighten,
-        crop: fullCrop, // show the full transformed frame while cropping
-      ),
+  /// Logical (rotated) frame size — quarter turns swap the axes.
+  Size get _rotatedSize => _rotation % 2 == 1
+      ? Size(_sourceSize.height, _sourceSize.width)
+      : _sourceSize;
+
+  /// GPU preview of rotate/flip/straighten (issue #53): no CPU resample
+  /// until Apply. Flip runs first, then the quarter turn, then straighten —
+  /// matching Rust's `geometry_apply` order.
+  Matrix4 _previewMatrix() {
+    final turn = Matrix4.rotationZ(_rotation * math.pi / 2)
+      ..scaleByDouble(_flipH ? -1.0 : 1.0, 1, 1, 1);
+    if (_straighten == 0) return turn;
+    final s = calculateAutoCropScale(
+      _straighten * math.pi / 180,
+      _sourceSize.width,
+      _sourceSize.height,
     );
-    final image = await _imageFrom(geo.rgba, geo.width, geo.height);
-    if (!mounted || token != _buildToken) {
-      image.dispose();
-      return;
-    }
-    setState(() {
-      _image?.dispose();
-      _image = image;
-      _imageSize = Size(geo.width.toDouble(), geo.height.toDouble());
-      _crop = clampNormalized(_withAspect(_crop));
-      _loading = false;
-    });
+    // Rust's sampler maps output→source with R(-a); the content therefore
+    // lands at R(+a), which is what the widget transform must apply.
+    return (Matrix4.rotationZ(_straighten * math.pi / 180) * turn)
+      ..scaleByDouble(s, s, 1, 1);
   }
 
   Future<ui.Image> _imageFrom(Uint8List rgba, int w, int h) {
@@ -143,13 +148,13 @@ class _CropScreenState extends ConsumerState<CropScreen> {
   void _rotate(int dir) {
     setState(() {
       _rotation = ((_rotation + dir) % 4 + 4) % 4;
+      _imageSize = _rotatedSize;
+      _crop = clampNormalized(_withAspect(_crop));
     });
-    _rebuildGeometry();
   }
 
   void _flip() {
     setState(() => _flipH = !_flipH);
-    _rebuildGeometry();
   }
 
   void _dragCorner(_Corner corner, Offset deltaNorm) {
@@ -227,7 +232,21 @@ class _CropScreenState extends ConsumerState<CropScreen> {
           children: [
             Positioned.fromRect(
               rect: dst,
-              child: RawImage(image: _image, fit: BoxFit.fill),
+              // The raw image is source-sized; the preview matrix performs
+              // rotate/flip/straighten on the GPU (issue #53).
+              child: ClipRect(
+                child: Transform(
+                  alignment: Alignment.center,
+                  transform: _previewMatrix(),
+                  child: Center(
+                    child: SizedBox(
+                      width: _rotation % 2 == 1 ? dst.height : dst.width,
+                      height: _rotation % 2 == 1 ? dst.width : dst.height,
+                      child: RawImage(image: _image, fit: BoxFit.fill),
+                    ),
+                  ),
+                ),
+              ),
             ),
             Positioned.fill(
               child: CustomPaint(
