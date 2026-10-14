@@ -11,7 +11,7 @@ import '../common/mask_controls.dart';
 import '../common/parameter_panel.dart';
 import '../common/tone_curve_editor.dart';
 
-enum _Tab { panel, curve, mix, geometry, mask }
+enum _Tab { panel, curve, mix }
 
 String _sectionLabel(RecipeSection section) => switch (section) {
   RecipeSection.light => 'Light',
@@ -38,8 +38,12 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   static const List<RecipeSection> _sections = [
     RecipeSection.light,
     RecipeSection.color,
+    RecipeSection.tone,
     RecipeSection.effects,
     RecipeSection.detail,
+    RecipeSection.optics,
+    RecipeSection.geometry,
+    RecipeSection.masking,
   ];
 
   RecipeSection _section = RecipeSection.light;
@@ -92,10 +96,6 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                           _tab = _Tab.panel;
                         }),
                       ),
-                    chip('Curve', _tab == _Tab.curve, () => setState(() => _tab = _Tab.curve)),
-                    chip('Mix', _tab == _Tab.mix, () => setState(() => _tab = _Tab.mix)),
-                    chip('Geometry', _tab == _Tab.geometry, () => setState(() => _tab = _Tab.geometry)),
-                    chip('Mask', _tab == _Tab.mask, () => setState(() => _tab = _Tab.mask)),
                   ],
                 ),
               ),
@@ -153,14 +153,63 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         ),
         Divider(height: 1, color: scheme.outlineVariant),
         Expanded(
-          child: switch (_tab) {
-            _Tab.panel => SafeArea(bottom: true, child: ParameterPanel(section: _section)),
-            _Tab.curve => const ToneCurveEditor(),
-            _Tab.mix => const SingleChildScrollView(child: HslMixer()),
-            _Tab.geometry => const SingleChildScrollView(child: GeometryControls()),
-            _Tab.mask => const MaskControls(),
-          },
+          child: SafeArea(bottom: true, child: _sectionBody()),
         ),
+      ],
+    );
+  }
+
+  /// The body for the selected top-level section. Color and Tone expose the
+  /// tone-curve and HSL-mixer as secondary tabs (issue #44) — they are views of
+  /// colour data, not peer sections of the top chip row.
+  Widget _sectionBody() {
+    switch (_section) {
+      case RecipeSection.color:
+      case RecipeSection.tone:
+        return Column(
+          children: [
+            _subTabs(),
+            Expanded(
+              child: switch (_tab) {
+                _Tab.curve => const ToneCurveEditor(),
+                _Tab.mix => const SingleChildScrollView(child: HslMixer()),
+                _Tab.panel => ParameterPanel(section: _section),
+              },
+            ),
+          ],
+        );
+      case RecipeSection.geometry:
+        return const SingleChildScrollView(child: GeometryControls());
+      case RecipeSection.masking:
+        return const MaskControls();
+      default:
+        return ParameterPanel(section: _section);
+    }
+  }
+
+  Widget _subTabs() {
+    Widget tab(String label, _Tab value) => TextButton(
+      onPressed: () => setState(() => _tab = value),
+      style: TextButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        foregroundColor: _tab == value
+            ? Theme.of(context).colorScheme.primary
+            : null,
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: _tab == value ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+    );
+
+    return Row(
+      children: [
+        tab('Sliders', _Tab.panel),
+        tab('Curve', _Tab.curve),
+        tab('Mix', _Tab.mix),
       ],
     );
   }
