@@ -54,6 +54,13 @@ cargo clippy --all-targets -- -D warnings
 # Android APK build
 flutter build apk --debug
 
+# On-device perf harness (issue #17) — manual run on a connected device
+flutter test integration_test/perf_harness_test.dart -d <device-id>
+#   PERF_STRICT=1   enforce the 60 fps frame gate (default: report-only)
+#   PERF_IMAGE_MP   open size in megapixels (default 3)
+#   PERF_SCRUB_STEPS scrub iterations (default 120)
+# The Dart-only scrub budget also runs in plain `flutter test` (test/perf/).
+
 # Bridge regeneration (after changing rust/src/api/*)
 flutter_rust_bridge_codegen generate
 ```
