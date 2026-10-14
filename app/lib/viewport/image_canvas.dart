@@ -199,6 +199,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     r.sharpen,
     r.denoiseLuma,
     r.denoiseChroma,
+    Object.hashAll(r.crop),
     Object.hashAll(r.layers),
   );
 

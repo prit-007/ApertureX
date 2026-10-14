@@ -93,6 +93,21 @@ class RecipeController extends Notifier<RecipeState> {
     recipe: state.recipe.copyWith(straighten: degrees.clamp(-45.0, 45.0)),
   );
 
+  /// Applies a crop (and optional rotation/flip) as one committed step.
+  void applyCrop({
+    required List<double> crop,
+    int? rotation,
+    bool? flipH,
+  }) {
+    var recipe = state.recipe.copyWith(crop: crop);
+    if (rotation != null) {
+      recipe = recipe.copyWith(rotation: ((rotation % 4) + 4) % 4);
+    }
+    if (flipH != null) recipe = recipe.copyWith(flipH: flipH);
+    state = state.copyWith(recipe: recipe);
+    commit(label: 'Crop');
+  }
+
   /// Resets every edit back to neutral.
   void resetAll() => loadRecipe(EditRecipe.neutral, label: 'Reset');
 

@@ -13,6 +13,7 @@ import '../../edit/geometry_spec.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/recipe_store.dart';
+import '../../features/crop/crop_screen.dart';
 import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
 import '../../engine/engine.dart';
@@ -154,6 +155,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         leading: const BackButton(),
         title: const Text('Edit'),
         actions: [
+          IconButton(
+            tooltip: 'Crop & rotate',
+            onPressed: _bytes == null
+                ? null
+                : () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => CropScreen(imageBytes: _bytes!),
+                    ),
+                  ),
+            icon: const Icon(Icons.crop),
+          ),
           IconButton(
             tooltip: 'Undo',
             onPressed: canUndo ? notifier.undo : null,

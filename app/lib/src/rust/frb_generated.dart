@@ -138,6 +138,10 @@ abstract class RustLibApi extends BaseApi {
     required bool flipV,
     required int turns,
     required double angle,
+    required double cropL,
+    required double cropT,
+    required double cropR,
+    required double cropB,
   });
 
   Future<GeometryResult> crateApiGeometryGeometryCrop({
@@ -576,6 +580,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required bool flipV,
     required int turns,
     required double angle,
+    required double cropL,
+    required double cropT,
+    required double cropR,
+    required double cropB,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -588,6 +596,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_bool(flipV, serializer);
           sse_encode_u_32(turns, serializer);
           sse_encode_f_32(angle, serializer);
+          sse_encode_f_32(cropL, serializer);
+          sse_encode_f_32(cropT, serializer);
+          sse_encode_f_32(cropR, serializer);
+          sse_encode_f_32(cropB, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -600,7 +612,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: null,
         ),
         constMeta: kCrateApiGeometryGeometryApplyConstMeta,
-        argValues: [rgba, width, height, flipH, flipV, turns, angle],
+        argValues: [
+          rgba,
+          width,
+          height,
+          flipH,
+          flipV,
+          turns,
+          angle,
+          cropL,
+          cropT,
+          cropR,
+          cropB,
+        ],
         apiImpl: this,
       ),
     );
@@ -617,6 +641,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "flipV",
           "turns",
           "angle",
+          "cropL",
+          "cropT",
+          "cropR",
+          "cropB",
         ],
       );
 

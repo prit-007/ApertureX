@@ -15,6 +15,9 @@ const List<double> neutralHsl = <double>[
   0, 0, 0,
 ];
 
+/// A crop covering the whole frame: normalized `[left, top, right, bottom]`.
+const List<double> fullCrop = <double>[0, 0, 1, 1];
+
 /// The non-destructive edit recipe — the single source of truth every UI shell
 /// reads and writes (ARCHITECTURE §16, ADR 0008).
 ///
@@ -61,6 +64,7 @@ class EditRecipe {
     this.flipH = false,
     this.flipV = false,
     this.straighten = 0,
+    this.crop = fullCrop,
     this.layers = const <AdjustmentLayer>[],
   });
 
@@ -69,7 +73,7 @@ class EditRecipe {
   /// v2: grouped, catalog-driven parameter model (JSON still flat, v1 keys
   /// unchanged). v3: adds color-grading (split-tone) fields; older recipes read
   /// forward with those fields neutral. `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 9;
+  static const int currentSchemaVersion = 10;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -119,6 +123,9 @@ class EditRecipe {
   final bool flipV;
   final double straighten; // degrees, -45..45.
 
+  /// Crop rect, normalized `[left, top, right, bottom]` in the transformed frame.
+  final List<double> crop;
+
   /// Local adjustment layers (masking, P2.5), applied in order.
   final List<AdjustmentLayer> layers;
 
@@ -157,6 +164,7 @@ class EditRecipe {
     bool? flipH,
     bool? flipV,
     double? straighten,
+    List<double>? crop,
     List<AdjustmentLayer>? layers,
   }) {
     return EditRecipe(
@@ -192,6 +200,7 @@ class EditRecipe {
       flipH: flipH ?? this.flipH,
       flipV: flipV ?? this.flipV,
       straighten: straighten ?? this.straighten,
+      crop: crop ?? this.crop,
       layers: layers ?? this.layers,
     );
   }
@@ -230,6 +239,7 @@ class EditRecipe {
     'flipH': flipH,
     'flipV': flipV,
     'straighten': straighten,
+    'crop': crop,
     'layers': [for (final layer in layers) layer.toJson()],
   };
 
@@ -273,6 +283,9 @@ class EditRecipe {
       flipH: json['flipH'] as bool? ?? false,
       flipV: json['flipV'] as bool? ?? false,
       straighten: asDouble('straighten'),
+      crop:
+          (json['crop'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
+          fullCrop,
       layers:
           (json['layers'] as List?)
               ?.map(
@@ -318,6 +331,7 @@ class EditRecipe {
       other.flipH == flipH &&
       other.flipV == flipV &&
       other.straighten == straighten &&
+      listEquals(other.crop, crop) &&
       listEquals(other.layers, layers);
 
   @override
@@ -346,6 +360,7 @@ class EditRecipe {
     Object.hashAll(hsl),
     Object.hash(
       Object.hash(rotation, flipH, flipV, straighten),
+      Object.hashAll(crop),
       Object.hashAll(layers),
     ),
   );

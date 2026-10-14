@@ -64,7 +64,8 @@ Future<GeometryResult> geometryStraighten({
   angleDeg: angleDeg,
 );
 
-/// Applies the whole geometry chain: flip → rotate (90° × turns) → straighten.
+/// Applies the whole geometry chain: flip → rotate (90° × turns) → straighten →
+/// crop (normalized `[0,1]`, applied in the transformed frame).
 Future<GeometryResult> geometryApply({
   required List<int> rgba,
   required int width,
@@ -73,6 +74,10 @@ Future<GeometryResult> geometryApply({
   required bool flipV,
   required int turns,
   required double angle,
+  required double cropL,
+  required double cropT,
+  required double cropR,
+  required double cropB,
 }) => RustLib.instance.api.crateApiGeometryGeometryApply(
   rgba: rgba,
   width: width,
@@ -81,6 +86,10 @@ Future<GeometryResult> geometryApply({
   flipV: flipV,
   turns: turns,
   angle: angle,
+  cropL: cropL,
+  cropT: cropT,
+  cropR: cropR,
+  cropB: cropB,
 );
 
 /// Rotated/cropped result: pixels plus the new dimensions.

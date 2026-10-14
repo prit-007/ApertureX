@@ -241,6 +241,10 @@ class TesseraEngine {
     flipV: spec.flipV,
     turns: spec.rotation,
     angle: spec.straighten,
+    cropL: spec.crop[0],
+    cropT: spec.crop[1],
+    cropR: spec.crop[2],
+    cropB: spec.crop[3],
   );
 
   // --- masking / local adjustments (P2.5) -----------------------------------

@@ -81,7 +81,9 @@ pub fn geometry_straighten(
     }
 }
 
-/// Applies the whole geometry chain: flip → rotate (90° × turns) → straighten.
+/// Applies the whole geometry chain: flip → rotate (90° × turns) → straighten →
+/// crop (normalized `[0,1]`, applied in the transformed frame).
+#[allow(clippy::too_many_arguments)]
 pub fn geometry_apply(
     rgba: Vec<u8>,
     width: u32,
@@ -90,6 +92,10 @@ pub fn geometry_apply(
     flip_v: bool,
     turns: u32,
     angle: f32,
+    crop_l: f32,
+    crop_t: f32,
+    crop_r: f32,
+    crop_b: f32,
 ) -> GeometryResult {
     let mut w = width as usize;
     let mut h = height as usize;
@@ -115,9 +121,57 @@ pub fn geometry_apply(
         h = ch;
     }
 
+    // Crop: normalized [0,1] rect in the (now transformed) frame.
+    let (cl, ct, cr, cb) = (
+        crop_l.clamp(0.0, 1.0),
+        crop_t.clamp(0.0, 1.0),
+        crop_r.clamp(0.0, 1.0),
+        crop_b.clamp(0.0, 1.0),
+    );
+    if !(cl == 0.0 && ct == 0.0 && cr == 1.0 && cb == 1.0) && cr > cl && cb > ct {
+        let x = (cl * w as f32).round() as usize;
+        let y = (ct * h as f32).round() as usize;
+        let cw = (((cr - cl) * w as f32).round() as usize).clamp(1, w - x);
+        let ch = (((cb - ct) * h as f32).round() as usize).clamp(1, h - y);
+        buf = geometry::crop(&buf, w, h, x, y, cw, ch);
+        w = cw;
+        h = ch;
+    }
+
     GeometryResult {
         width: w as u32,
         height: h as u32,
         rgba: buf,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Encodes x in R and y in G so positions are checkable.
+    fn grid(w: usize, h: usize) -> Vec<u8> {
+        let mut v = Vec::with_capacity(w * h * 4);
+        for y in 0..h {
+            for x in 0..w {
+                v.extend_from_slice(&[x as u8, y as u8, 0, 255]);
+            }
+        }
+        v
+    }
+
+    #[test]
+    fn normalized_crop_selects_the_right_region() {
+        let src = grid(4, 4);
+        let r = geometry_apply(src, 4, 4, false, false, 0, 0.0, 0.5, 0.5, 1.0, 1.0);
+        assert_eq!((r.width, r.height), (2, 2));
+        // top-left of the crop is the original (2,2): R=2, G=2.
+        assert_eq!(&r.rgba[0..4], &[2, 2, 0, 255]);
+    }
+
+    #[test]
+    fn identity_crop_leaves_dimensions() {
+        let r = geometry_apply(grid(4, 3), 4, 3, false, false, 0, 0.0, 0.0, 0.0, 1.0, 1.0);
+        assert_eq!((r.width, r.height), (4, 3));
     }
 }

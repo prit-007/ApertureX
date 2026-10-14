@@ -400,12 +400,16 @@ fn wire__crate__api__geometry__geometry_apply_impl(
             let api_flip_v = <bool>::sse_decode(&mut deserializer);
             let api_turns = <u32>::sse_decode(&mut deserializer);
             let api_angle = <f32>::sse_decode(&mut deserializer);
+            let api_crop_l = <f32>::sse_decode(&mut deserializer);
+            let api_crop_t = <f32>::sse_decode(&mut deserializer);
+            let api_crop_r = <f32>::sse_decode(&mut deserializer);
+            let api_crop_b = <f32>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Ok::<_, ()>(crate::api::geometry::geometry_apply(
                         api_rgba, api_width, api_height, api_flip_h, api_flip_v, api_turns,
-                        api_angle,
+                        api_angle, api_crop_l, api_crop_t, api_crop_r, api_crop_b,
                     ))?;
                     std::result::Result::Ok(output_ok)
                 })())
