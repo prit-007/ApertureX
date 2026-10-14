@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../color/histogram_view.dart';
+import '../../edit/curve_math.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/tone_curve.dart';
@@ -13,6 +14,15 @@ import '../../engine/engine.dart' show Histogram;
 /// behind it.
 class ToneCurveEditor extends ConsumerStatefulWidget {
   const ToneCurveEditor({super.key});
+
+  /// Hit tolerance for select/remove (issue #50). Control-point distances are
+  /// in normalized [0,1] value space, so the tolerance is a fraction of the
+  /// editor, not a pixel count — one shared function so the two call sites
+  /// can't drift apart. [size] is accepted for future per-density tuning.
+  static double toleranceFor(Size size) {
+    assert(size.shortestSide > 0);
+    return 0.09;
+  }
 
   @override
   ConsumerState<ToneCurveEditor> createState() => _ToneCurveEditorState();
@@ -49,9 +59,9 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
     (1.0 - local.dy / side).clamp(0.0, 1.0),
   );
 
-  void _selectOrAdd(Offset value, List<Offset> pts) {
+  void _selectOrAdd(Offset value, List<Offset> pts, double tolerance) {
     var best = -1;
-    var bestD = 0.09;
+    var bestD = tolerance;
     for (var i = 0; i < pts.length; i++) {
       final d = (pts[i] - value).distance;
       if (d < bestD) {
@@ -77,10 +87,10 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
     pts[i] = Offset(value.dx.clamp(lo, hi), value.dy);
   }
 
-  void _removeNearest(Offset value, List<Offset> pts) {
+  void _removeNearest(Offset value, List<Offset> pts, double tolerance) {
     if (pts.length <= 2) return;
     var best = -1;
-    var bestD = 0.09;
+    var bestD = tolerance;
     for (var i = 1; i < pts.length - 1; i++) {
       final d = (pts[i] - value).distance;
       if (d < bestD) {
@@ -137,6 +147,7 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final side = constraints.biggest.shortestSide;
+                final tolerance = ToneCurveEditor.toleranceFor(Size(side, side));
                 return Center(
                   child: SizedBox(
                     width: side,
@@ -144,12 +155,18 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTapDown: (d) => apply(
-                        (pts) =>
-                            _selectOrAdd(_toValue(d.localPosition, side), pts),
+                        (pts) => _selectOrAdd(
+                          _toValue(d.localPosition, side),
+                          pts,
+                          tolerance,
+                        ),
                       ),
                       onPanStart: (d) => apply(
-                        (pts) =>
-                            _selectOrAdd(_toValue(d.localPosition, side), pts),
+                        (pts) => _selectOrAdd(
+                          _toValue(d.localPosition, side),
+                          pts,
+                          tolerance,
+                        ),
                       ),
                       onPanUpdate: (d) => apply(
                         (pts) => _move(_toValue(d.localPosition, side), pts),
@@ -162,6 +179,7 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
                         (pts) => _removeNearest(
                           _toValue(d.localPosition, side),
                           pts,
+                          tolerance,
                         ),
                       ),
                       child: CustomPaint(
@@ -193,6 +211,10 @@ class _CurvePainter extends CustomPainter {
   final List<Offset> points;
   final Histogram? histogram;
   final ColorScheme scheme;
+
+  static List<double> _toFlat(List<Offset> pts) => [
+    for (final p in pts) ...[p.dx, p.dy],
+  ];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -234,12 +256,15 @@ class _CurvePainter extends CustomPainter {
         ..strokeWidth = 1,
     );
 
-    // Curve (straight segments between control points; Rust bakes the smooth
-    // monotone-cubic curve on the GPU/LUT).
+    // Curve: per-column monotone-cubic sampling of the same Fritsch–Carlson
+    // LUT Rust bakes, so the editor shows the curve the engine grades with
+    // (issue #49).
+    final lut = curveLut(_toFlat(points));
     final curve = Path();
-    for (var i = 0; i < points.length; i++) {
-      final s = Offset(points[i].dx * side, (1 - points[i].dy) * side);
-      if (i == 0) {
+    for (var px = 0; px <= side; px++) {
+      final y = evalCurveLut(lut, px / side);
+      final s = Offset(px.toDouble(), (1 - y) * side);
+      if (px == 0) {
         curve.moveTo(s.dx, s.dy);
       } else {
         curve.lineTo(s.dx, s.dy);

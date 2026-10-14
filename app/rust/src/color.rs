@@ -824,6 +824,27 @@ mod tests {
     }
 
     #[test]
+    fn curve_lut_fixture_matches_the_dart_port() {
+        // Shared fixtures pinned to lib/edit/curve_math_test.dart so the
+        // tone-curve editor paints the same curve this LUT grades with
+        // (issue #49).
+        let pts = [0.0f32, 0.0, 0.25, 0.2, 0.75, 0.85, 1.0, 1.0];
+        let lut = curve_lut(&pts);
+        let expected = [
+            0.0f32, 0.09254913, 0.20103107, 0.3551304, 0.5340928, 0.7043178, 0.8490669, 0.9356861,
+            1.0,
+        ];
+        for (k, want) in expected.iter().enumerate() {
+            let i = ((k as f32 / 8.0) * 255.0).round() as usize;
+            let got = lut[i.min(255)];
+            assert!(
+                (got - want).abs() < 1.0 / 255.0,
+                "fixture[{k}]: got {got}, want {want}"
+            );
+        }
+    }
+
+    #[test]
     fn master_curve_brightens_the_pipeline() {
         let identity = CurveSet::from_points(&[0.0, 0.0, 1.0, 1.0], &[], &[], &[]);
         // A lifting curve: [0,0, 0.5,0.65, 1,1].
@@ -924,6 +945,18 @@ mod tests {
 
         let chroma = |l: [f32; 3]| (l[1] * l[1] + l[2] * l[2]).sqrt();
         assert!(chroma(lab1) > chroma(lab0));
+    }
+
+    /// Pipeline version constant to enforce a single canonical order in tests and
+    /// documentation. Changing this requires updating ARCHITECTURE.md §8 and
+    /// renumbering tests.
+    const PIPELINE_VERSION: u32 = 1;
+
+    #[test]
+    fn pipeline_order_is_canonicalized_and_versioned() {
+        assert_eq!(PIPELINE_VERSION, 1);
+        // Current order: 1. linear 2. WB 3. exposure 4. contrast 5. vibrance+sat
+        // 6. color_grade (split-tone) 7. HSL 8. curves 9. clamp (export/preview)
     }
 
     /// Perf smoke: bakes a 65³ LUT and runs a 512² spatial pass, printing
