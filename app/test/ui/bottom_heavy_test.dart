@@ -72,6 +72,61 @@ void main() {
     expect(find.byType(InteractiveHistogram), findsNothing);
   });
 
+  testWidgets('a short flick opens/closes on velocity (issue #45)', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+    expect(find.byType(InteractiveHistogram), findsNothing);
+
+    // 30px of travel in 2ms steps, then lift: net displacement after
+    // kTouchSlop is ~12px — below the 24px open threshold — so only the
+    // release velocity (~1500px/s) can open the drawer.
+    var t = Duration.zero;
+    final up = await tester.createGesture();
+    await up.down(tester.getCenter(handle));
+    await tester.pump();
+    for (var i = 1; i <= 10; i++) {
+      t += const Duration(microseconds: 2000);
+      await up.moveBy(const Offset(0, -3), timeStamp: t);
+    }
+    await up.up(timeStamp: t + const Duration(microseconds: 1000));
+    await tester.pumpAndSettle();
+    expect(find.byType(InteractiveHistogram), findsOneWidget);
+
+    // Same flick downward closes it.
+    t = Duration.zero;
+    final down = await tester.createGesture();
+    await down.down(tester.getCenter(handle));
+    await tester.pump();
+    for (var i = 1; i <= 10; i++) {
+      t += const Duration(microseconds: 2000);
+      await down.moveBy(const Offset(0, 3), timeStamp: t);
+    }
+    await down.up(timeStamp: t + const Duration(microseconds: 1000));
+    await tester.pumpAndSettle();
+    expect(find.byType(InteractiveHistogram), findsNothing);
+  });
+
+  testWidgets('a slow drift below the threshold snaps back (issue #45)', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+    expect(find.byType(InteractiveHistogram), findsNothing);
+
+    // 20px up over a long time, released with no velocity: an accepted drag
+    // (past kTouchSlop) but below the displacement threshold and no flick —
+    // the drawer must not open.
+    final drift = await tester.startGesture(tester.getCenter(handle));
+    await tester.pump();
+    await drift.moveBy(const Offset(0, -10));
+    await tester.pump(const Duration(milliseconds: 80));
+    await drift.moveBy(const Offset(0, -10));
+    await tester.pump(const Duration(milliseconds: 80));
+    await drift.up();
+    await tester.pumpAndSettle();
+    expect(find.byType(InteractiveHistogram), findsNothing);
+  });
+
   testWidgets('the panel holds the compare button', (tester) async {
     await pumpShell(tester);
 

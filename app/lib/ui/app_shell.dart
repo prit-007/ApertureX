@@ -51,6 +51,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   bool _showHistogram = false;
   bool _histogramOpen = false;
   bool _panelCollapsed = false;
+  _SheetSnap _sheetSnap = _SheetSnap.half;
   GradeTool _active = GradeTool.exposure;
   ToolCategory _category = ToolCategory.light;
   late final GestureInterpreter _fsm;
@@ -206,7 +207,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                   top: 0,
                   child: _Fade(
                     active: active,
-                    child: const _HistogramOverlay(),
+                    child: const SafeArea(
+                      bottom: false,
+                      child: _HistogramOverlay(),
+                    ),
                   ),
                 ),
               if (!hintSeen) const Positioned.fill(child: GhostHint()),
@@ -218,14 +222,17 @@ class _AppShellState extends ConsumerState<AppShell> {
                   bottom: Insets.sm,
                   child: _Fade(
                     active: active,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const _SelectiveToggle(),
-                        const SizedBox(height: Insets.xs),
-                        overlays[0],
-                      ],
+                    child: SafeArea(
+                      top: false,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const _SelectiveToggle(),
+                          const SizedBox(height: Insets.xs),
+                          overlays[0],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -233,7 +240,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                 Positioned(
                   right: Insets.sm,
                   bottom: Insets.sm,
-                  child: _Fade(active: active, child: overlays[1]),
+                  child: _Fade(
+                    active: active,
+                    child: SafeArea(top: false, child: overlays[1]),
+                  ),
                 ),
               if (nodeMode)
                 Positioned(
@@ -271,13 +281,19 @@ class _AppShellState extends ConsumerState<AppShell> {
                 left: Insets.sm,
                 right: Insets.sm,
                 bottom: Insets.sm,
-                child: const NodeControls(),
+                child: const SafeArea(
+                  top: false,
+                  child: NodeControls(),
+                ),
               ),
             if (!nodeMode)
               Positioned(
                 left: Insets.sm,
                 bottom: Insets.sm,
-                child: _Fade(active: active, child: overlays[0]),
+                child: _Fade(
+                  active: active,
+                  child: SafeArea(top: false, child: overlays[0]),
+                ),
               ),
           ],
         );
@@ -319,30 +335,27 @@ class _AppShellState extends ConsumerState<AppShell> {
           );
         }
 
-        return ColoredBox(
-          color: scheme.surface,
-          child: Column(
-            children: [
-              Expanded(
-                flex: _panelCollapsed ? 10 : 3,
-                child: canvas,
+        // Floating, draggable bottom sheet (issue #32): the photo runs
+        // edge-to-edge and the tools float over it between snap points.
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: ColoredBox(color: scheme.surface, child: canvas),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _LightroomSheet(
+                availableHeight: constraints.maxHeight,
+                snap: _sheetSnap,
+                onSnap: (s) => setState(() => _sheetSnap = s),
+                hasHistogram: hasHistogram,
+                histogramOpen: _histogramOpen,
+                setHistogramOpen: (v) => setState(() => _histogramOpen = v),
               ),
-              // The histogram lives in a pull-up drawer nested at the top of
-              // the bottom panel (issue #28) — it never steals canvas space.
-              if (!_panelCollapsed && hasHistogram)
-                _HistogramDrawer(
-                  open: _histogramOpen,
-                  setOpen: (v) => setState(() => _histogramOpen = v),
-                ),
-              _PanelHandle(
-                collapsed: _panelCollapsed,
-                onToggle: () =>
-                    setState(() => _panelCollapsed = !_panelCollapsed),
-              ),
-              if (!_panelCollapsed)
-                const Expanded(flex: 2, child: LightroomShell()),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -404,6 +417,152 @@ class _PanelHandle extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Snap points for the floating Lightroom sheet (issue #32), as a fraction of
+/// the available height: fully hidden, a small peek, half, and near-full.
+enum _SheetSnap { hidden, peek, half, full }
+
+const Map<_SheetSnap, double> _sheetFractions = {
+  _SheetSnap.hidden: 0.0,
+  _SheetSnap.peek: 0.22,
+  _SheetSnap.half: 0.5,
+  _SheetSnap.full: 0.9,
+};
+
+/// A draggable, floating bottom sheet holding the Lightroom tools over the
+/// edge-to-edge photo. Drag the grab bar to move between snap points, or tap it
+/// to collapse/restore (issue #32).
+class _LightroomSheet extends StatefulWidget {
+  const _LightroomSheet({
+    required this.availableHeight,
+    required this.snap,
+    required this.onSnap,
+    required this.hasHistogram,
+    required this.histogramOpen,
+    required this.setHistogramOpen,
+  });
+
+  final double availableHeight;
+  final _SheetSnap snap;
+  final ValueChanged<_SheetSnap> onSnap;
+  final bool hasHistogram;
+  final bool histogramOpen;
+  final ValueChanged<bool> setHistogramOpen;
+
+  @override
+  State<_LightroomSheet> createState() => _LightroomSheetState();
+}
+
+class _LightroomSheetState extends State<_LightroomSheet> {
+  /// Upward drag accumulated since the gesture started (positive = taller).
+  double _dragDy = 0;
+  bool _dragging = false;
+
+  double get _height {
+    final raw = _sheetFractions[widget.snap]! * widget.availableHeight + _dragDy;
+    return raw.clamp(0.0, widget.availableHeight).toDouble();
+  }
+
+  void _onDragStart(DragStartDetails _) {
+    _dragging = true;
+    _dragDy = 0;
+  }
+
+  void _onDragUpdate(DragUpdateDetails d) {
+    setState(() => _dragDy -= d.delta.dy);
+  }
+
+  void _onDragEnd(DragEndDetails d) {
+    final velocity = -(d.primaryVelocity ?? 0); // up positive
+    final snaps = _SheetSnap.values;
+    final current = snaps.indexOf(widget.snap);
+    _SheetSnap target;
+    if (velocity > 600 && current < snaps.length - 1) {
+      target = snaps[current + 1];
+    } else if (velocity < -600 && current > 0) {
+      target = snaps[current - 1];
+    } else {
+      final measured = _height;
+      target = snaps.reduce((a, b) {
+        final da =
+            (_sheetFractions[a]! * widget.availableHeight - measured).abs();
+        final db =
+            (_sheetFractions[b]! * widget.availableHeight - measured).abs();
+        return da <= db ? a : b;
+      });
+    }
+    setState(() {
+      _dragging = false;
+      _dragDy = 0;
+    });
+    widget.onSnap(target);
+  }
+
+  void _toggle() => widget.onSnap(
+    widget.snap == _SheetSnap.hidden ? _SheetSnap.half : _SheetSnap.hidden,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final contentHeight = _height;
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragStart: _onDragStart,
+            onVerticalDragUpdate: _onDragUpdate,
+            onVerticalDragEnd: _onDragEnd,
+            child: _PanelHandle(
+              collapsed: widget.snap == _SheetSnap.hidden,
+              onToggle: _toggle,
+            ),
+          ),
+          AnimatedContainer(
+            key: const Key('lightroom-sheet-body'),
+            duration: _dragging
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            height: contentHeight,
+            child: contentHeight <= 0.5
+                ? const SizedBox.shrink()
+                : ClipRect(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: scheme.surface,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(Radii.md),
+                        ),
+                      ),
+                      child: OverflowBox(
+                        alignment: Alignment.topCenter,
+                        maxHeight: widget.availableHeight,
+                        child: SizedBox(
+                          height: widget.availableHeight,
+                          child: Column(
+                            children: [
+                              if (widget.hasHistogram)
+                                _HistogramDrawer(
+                                  open: widget.histogramOpen,
+                                  setOpen: widget.setHistogramOpen,
+                                ),
+                              const Expanded(child: LightroomShell()),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }

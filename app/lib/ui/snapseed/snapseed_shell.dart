@@ -97,8 +97,13 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
     return Stack(
       children: [
-        // Recent-changes HUD (top-right).
-        const Positioned(top: 0, right: 0, child: EditHud()),
+        // Recent-changes HUD (top-right). Clear the status bar and any
+        // leading-edge cutout (issue #47).
+        const Positioned(
+          top: 0,
+          right: 0,
+          child: SafeArea(left: false, bottom: false, child: EditHud()),
+        ),
 
         // Active-tool HUD (bottom).
         if (!nodeMode)
@@ -243,8 +248,14 @@ class _RadialMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     const radius = 96.0;
-    const itemRadius = 28.0;
-    const half = radius + itemRadius;
+    // Fixed hit-box (issue #46): each item paints a 56px circle + label but
+    // gets a symmetric target around its ring point. The box is larger than
+    // the painted circle so taps just outside the ring still hit the item
+    // instead of the dismiss backdrop; Containers don't clip, so the label
+    // painting past the box is fine.
+    const hitW = 88.0;
+    const hitH = 100.0;
+    const half = radius + hitW / 2;
     return Stack(
       children: [
         Positioned.fill(
@@ -256,30 +267,44 @@ class _RadialMenu extends StatelessWidget {
             ),
           ),
         ),
-        Center(
-          child: SizedBox(
-            width: half * 2,
-            height: half * 2,
-            child: Stack(
-              children: [
-                for (var i = 0; i < tools.length; i++)
-                  Positioned(
-                    left: half +
-                        math.cos(-math.pi / 2 + i * 2 * math.pi / tools.length) *
-                            radius -
-                        itemRadius,
-                    top: half +
-                        math.sin(-math.pi / 2 + i * 2 * math.pi / tools.length) *
-                            radius -
-                        itemRadius,
-                    child: _RadialItem(
-                      icon: iconOf(tools[i]),
-                      label: tools[i].name,
-                      selected: tools[i] == active,
-                      onTap: () => onPick(tools[i]),
+        // Recenter the ring inside the safe area so side cutouts (issue #47)
+        // don't clip the outermost items; the dismiss backdrop stays full-bleed.
+        SafeArea(
+          top: false,
+          child: Center(
+            child: SizedBox(
+              width: half * 2,
+              height: half * 2,
+              child: Stack(
+                children: [
+                  for (var i = 0; i < tools.length; i++)
+                    Positioned(
+                      left: half +
+                          math.cos(-math.pi / 2 + i * 2 * math.pi / tools.length) *
+                              radius -
+                          hitW / 2,
+                      top: half +
+                          math.sin(-math.pi / 2 + i * 2 * math.pi / tools.length) *
+                              radius -
+                          hitH / 2,
+                      child: GestureDetector(
+                        key: Key('radial-${tools[i].name}'),
+                        onTap: () => onPick(tools[i]),
+                        child: Container(
+                          width: hitW,
+                          height: hitH,
+                          color: Colors.transparent,
+                          alignment: Alignment.topCenter,
+                          child: _RadialItem(
+                            icon: iconOf(tools[i]),
+                            label: tools[i].name,
+                            selected: tools[i] == active,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -293,45 +318,39 @@ class _RadialItem extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.selected,
-    required this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      key: Key('radial-$label'),
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: selected ? scheme.primary : scheme.surfaceContainerHighest,
-            ),
-            child: Icon(
-              icon,
-              color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
-            ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: selected ? scheme.primary : scheme.surfaceContainerHighest,
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: scheme.onSurfaceVariant,
-            ),
+          child: Icon(
+            icon,
+            color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
