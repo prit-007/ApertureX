@@ -65,7 +65,7 @@ Future<GeometryResult> geometryStraighten({
 );
 
 /// Applies the whole geometry chain: flip → rotate (90° × turns) → straighten →
-/// crop (normalized `[0,1]`, applied in the transformed frame).
+/// crop (normalized `[0,1]`, applied in the transformed frame) → perspective/skew.
 Future<GeometryResult> geometryApply({
   required List<int> rgba,
   required int width,
@@ -78,6 +78,10 @@ Future<GeometryResult> geometryApply({
   required double cropT,
   required double cropR,
   required double cropB,
+  required double perspectiveX,
+  required double perspectiveY,
+  required double skewX,
+  required double skewY,
 }) => RustLib.instance.api.crateApiGeometryGeometryApply(
   rgba: rgba,
   width: width,
@@ -90,6 +94,10 @@ Future<GeometryResult> geometryApply({
   cropT: cropT,
   cropR: cropR,
   cropB: cropB,
+  perspectiveX: perspectiveX,
+  perspectiveY: perspectiveY,
+  skewX: skewX,
+  skewY: skewY,
 );
 
 /// Bilinear downscale so the longest side is at most `max_dim`.
@@ -103,6 +111,25 @@ Future<GeometryResult> geometryDownscale({
   width: width,
   height: height,
   maxDim: maxDim,
+);
+
+/// Applies trapezoidal perspective + skew. Same output dimensions as input.
+Future<GeometryResult> geometryPerspectiveRgba({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required double perspectiveX,
+  required double perspectiveY,
+  required double skewX,
+  required double skewY,
+}) => RustLib.instance.api.crateApiGeometryGeometryPerspectiveRgba(
+  rgba: rgba,
+  width: width,
+  height: height,
+  perspectiveX: perspectiveX,
+  perspectiveY: perspectiveY,
+  skewX: skewX,
+  skewY: skewY,
 );
 
 /// Rotated/cropped result: pixels plus the new dimensions.

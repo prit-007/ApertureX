@@ -47,46 +47,150 @@ class GeometryControls extends ConsumerWidget {
                 icon: const Icon(Icons.flip),
                 label: const Text('Flip H'),
               ),
-              OutlinedButton.icon(
-                onPressed: () {
-                  notifier.toggleFlipV();
-                  notifier.commit(label: 'Flip V');
-                },
-                icon: const Icon(Icons.flip_camera_android),
-                label: const Text('Flip V'),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              const SizedBox(
-                width: 84,
-                child: Text('Straighten'),
-              ),
-              Expanded(
-                child: Slider(
-                  value: recipe.straighten.clamp(-45.0, 45.0),
-                  min: -45,
-                  max: 45,
-                  onChanged: notifier.setStraighten,
-                  onChangeEnd: (_) => notifier.commit(label: 'Straighten'),
-                ),
-              ),
-              SizedBox(
-                width: 52,
-                child: Text(
-                  '${recipe.straighten.toStringAsFixed(1)}°',
-                  textAlign: TextAlign.end,
-                  style: TextStyle(color: scheme.onSurfaceVariant),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
+               OutlinedButton.icon(
+                 onPressed: () {
+                   notifier.toggleFlipV();
+                   notifier.commit(label: 'Flip V');
+                 },
+                 icon: const Icon(Icons.flip_camera_android),
+                 label: const Text('Flip V'),
+               ),
+             ],
+           ),
+         ),
+         Padding(
+           padding: const EdgeInsets.symmetric(horizontal: 12),
+           child: Column(
+             children: [
+               Row(
+                 children: [
+                   const SizedBox(
+                     width: 84,
+                     child: Text('Straighten'),
+                   ),
+                   Expanded(
+                     child: Slider(
+                       value: recipe.straighten.clamp(-45.0, 45.0),
+                       min: -45,
+                       max: 45,
+                       onChanged: notifier.setStraighten,
+                       onChangeEnd: (_) => notifier.commit(label: 'Straighten'),
+                     ),
+                   ),
+                   SizedBox(
+                     width: 52,
+                     child: Text(
+                       '${recipe.straighten.toStringAsFixed(1)}°',
+                       textAlign: TextAlign.end,
+                       style: TextStyle(color: scheme.onSurfaceVariant),
+                     ),
+                   ),
+                 ],
+               ),
+               Row(
+                 children: [
+                   const SizedBox(
+                     width: 84,
+                     child: Text('Perspective X'),
+                   ),
+                   Expanded(
+                     child: Slider(
+                       value: recipe.perspectiveX.clamp(-1.0, 1.0),
+                       min: -1,
+                       max: 1,
+                       onChanged: (v) => notifier.update(perspectiveX: v),
+                       onChangeEnd: (_) => notifier.commit(label: 'Perspective X'),
+                     ),
+                   ),
+                   SizedBox(
+                     width: 52,
+                     child: Text(
+                       recipe.perspectiveX.toStringAsFixed(2),
+                       textAlign: TextAlign.end,
+                       style: TextStyle(color: scheme.onSurfaceVariant),
+                     ),
+                   ),
+                 ],
+               ),
+               Row(
+                 children: [
+                   const SizedBox(
+                     width: 84,
+                     child: Text('Perspective Y'),
+                   ),
+                   Expanded(
+                     child: Slider(
+                       value: recipe.perspectiveY.clamp(-1.0, 1.0),
+                       min: -1,
+                       max: 1,
+                       onChanged: (v) => notifier.update(perspectiveY: v),
+                       onChangeEnd: (_) => notifier.commit(label: 'Perspective Y'),
+                     ),
+                   ),
+                   SizedBox(
+                     width: 52,
+                     child: Text(
+                       recipe.perspectiveY.toStringAsFixed(2),
+                       textAlign: TextAlign.end,
+                       style: TextStyle(color: scheme.onSurfaceVariant),
+                     ),
+                   ),
+                 ],
+               ),
+               Row(
+                 children: [
+                   const SizedBox(
+                     width: 84,
+                     child: Text('Skew X'),
+                   ),
+                   Expanded(
+                     child: Slider(
+                       value: recipe.skewX.clamp(-1.0, 1.0),
+                       min: -1,
+                       max: 1,
+                       onChanged: (v) => notifier.update(skewX: v),
+                       onChangeEnd: (_) => notifier.commit(label: 'Skew X'),
+                     ),
+                   ),
+                   SizedBox(
+                     width: 52,
+                     child: Text(
+                       recipe.skewX.toStringAsFixed(2),
+                       textAlign: TextAlign.end,
+                       style: TextStyle(color: scheme.onSurfaceVariant),
+                     ),
+                   ),
+                 ],
+               ),
+               Row(
+                 children: [
+                   const SizedBox(
+                     width: 84,
+                     child: Text('Skew Y'),
+                   ),
+                   Expanded(
+                     child: Slider(
+                       value: recipe.skewY.clamp(-1.0, 1.0),
+                       min: -1,
+                       max: 1,
+                       onChanged: (v) => notifier.update(skewY: v),
+                       onChangeEnd: (_) => notifier.commit(label: 'Skew Y'),
+                     ),
+                   ),
+                   SizedBox(
+                     width: 52,
+                     child: Text(
+                       recipe.skewY.toStringAsFixed(2),
+                       textAlign: TextAlign.end,
+                       style: TextStyle(color: scheme.onSurfaceVariant),
+                     ),
+                   ),
+                 ],
+               ),
+             ],
+           ),
+         ),
+       ],
+     );
+   }
+ }

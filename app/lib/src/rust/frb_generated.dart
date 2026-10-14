@@ -75,7 +75,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -18843463;
+  int get rustContentHash => 1999661153;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -142,6 +142,10 @@ abstract class RustLibApi extends BaseApi {
     required double cropT,
     required double cropR,
     required double cropB,
+    required double perspectiveX,
+    required double perspectiveY,
+    required double skewX,
+    required double skewY,
   });
 
   Future<GeometryResult> crateApiGeometryGeometryCrop({
@@ -166,6 +170,16 @@ abstract class RustLibApi extends BaseApi {
     required int width,
     required int height,
     required bool horizontal,
+  });
+
+  Future<GeometryResult> crateApiGeometryGeometryPerspectiveRgba({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double perspectiveX,
+    required double perspectiveY,
+    required double skewX,
+    required double skewY,
   });
 
   Future<GeometryResult> crateApiGeometryGeometryRotate({
@@ -593,6 +607,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required double cropT,
     required double cropR,
     required double cropB,
+    required double perspectiveX,
+    required double perspectiveY,
+    required double skewX,
+    required double skewY,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -609,6 +627,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_f_32(cropT, serializer);
           sse_encode_f_32(cropR, serializer);
           sse_encode_f_32(cropB, serializer);
+          sse_encode_f_32(perspectiveX, serializer);
+          sse_encode_f_32(perspectiveY, serializer);
+          sse_encode_f_32(skewX, serializer);
+          sse_encode_f_32(skewY, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -633,6 +655,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           cropT,
           cropR,
           cropB,
+          perspectiveX,
+          perspectiveY,
+          skewX,
+          skewY,
         ],
         apiImpl: this,
       ),
@@ -654,6 +680,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "cropT",
           "cropR",
           "cropB",
+          "perspectiveX",
+          "perspectiveY",
+          "skewX",
+          "skewY",
         ],
       );
 
@@ -781,6 +811,67 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<GeometryResult> crateApiGeometryGeometryPerspectiveRgba({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double perspectiveX,
+    required double perspectiveY,
+    required double skewX,
+    required double skewY,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_f_32(perspectiveX, serializer);
+          sse_encode_f_32(perspectiveY, serializer);
+          sse_encode_f_32(skewX, serializer);
+          sse_encode_f_32(skewY, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 14,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_geometry_result,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiGeometryGeometryPerspectiveRgbaConstMeta,
+        argValues: [
+          rgba,
+          width,
+          height,
+          perspectiveX,
+          perspectiveY,
+          skewX,
+          skewY,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGeometryGeometryPerspectiveRgbaConstMeta =>
+      const TaskConstMeta(
+        debugName: "geometry_perspective_rgba",
+        argNames: [
+          "rgba",
+          "width",
+          "height",
+          "perspectiveX",
+          "perspectiveY",
+          "skewX",
+          "skewY",
+        ],
+      );
+
+  @override
   Future<GeometryResult> crateApiGeometryGeometryRotate({
     required List<int> rgba,
     required int width,
@@ -798,7 +889,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 15,
             port: port_,
           );
         },
@@ -837,7 +928,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 16,
             port: port_,
           );
         },
@@ -876,7 +967,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 17,
             port: port_,
           );
         },
@@ -920,7 +1011,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 18,
             port: port_,
           );
         },
@@ -958,7 +1049,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 19,
             port: port_,
           );
         },
@@ -986,7 +1077,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 20,
             port: port_,
           );
         },
@@ -1020,7 +1111,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 21,
             port: port_,
           );
         },
@@ -1076,7 +1167,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 22,
             port: port_,
           );
         },
@@ -1143,7 +1234,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 23,
             port: port_,
           );
         },
@@ -1184,7 +1275,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 24,
             port: port_,
           );
         },
@@ -1225,7 +1316,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 25,
             port: port_,
           );
         },
@@ -1266,7 +1357,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 26,
             port: port_,
           );
         },
@@ -1305,7 +1396,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 26,
+            funcId: 27,
             port: port_,
           );
         },
@@ -1340,7 +1431,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 27,
+            funcId: 28,
             port: port_,
           );
         },

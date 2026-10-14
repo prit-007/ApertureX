@@ -260,6 +260,10 @@ class TesseraEngine {
     cropT: spec.crop[1],
     cropR: spec.crop[2],
     cropB: spec.crop[3],
+    perspectiveX: spec.perspectiveX,
+    perspectiveY: spec.perspectiveY,
+    skewX: spec.skewX,
+    skewY: spec.skewY,
   );
 
   // --- masking / local adjustments (P2.5) -----------------------------------

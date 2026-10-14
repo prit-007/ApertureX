@@ -67,6 +67,10 @@ class EditRecipe {
     this.flipV = false,
     this.straighten = 0,
     this.crop = fullCrop,
+    this.perspectiveX = 0,
+    this.perspectiveY = 0,
+    this.skewX = 0,
+    this.skewY = 0,
     this.layers = const <AdjustmentLayer>[],
   });
 
@@ -75,7 +79,7 @@ class EditRecipe {
   /// v2: grouped, catalog-driven parameter model (JSON still flat, v1 keys
   /// unchanged). v3: adds color-grading (split-tone) fields; older recipes read
   /// forward with those fields neutral. `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 11;
+  static const int currentSchemaVersion = 12;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -133,6 +137,12 @@ class EditRecipe {
   /// Local adjustment layers (masking, P2.5), applied in order.
   final List<AdjustmentLayer> layers;
 
+  // Perspective & skew geometry (GPU Matrix4 preview, Rust resample on export).
+  final double perspectiveX; // horizontal perspective, neutral 0, range ~[-1,1]
+  final double perspectiveY; // vertical perspective, neutral 0, range ~[-1,1]
+  final double skewX; // horizontal skew, neutral 0, range ~[-1,1]
+  final double skewY; // vertical skew, neutral 0, range ~[-1,1]
+
   /// Returns a copy with the given fields replaced. Fields left `null` keep
   /// their current value; the receiver is never mutated.
   EditRecipe copyWith({
@@ -171,6 +181,10 @@ class EditRecipe {
     bool? flipV,
     double? straighten,
     List<double>? crop,
+    double? perspectiveX,
+    double? perspectiveY,
+    double? skewX,
+    double? skewY,
     List<AdjustmentLayer>? layers,
   }) {
     return EditRecipe(
@@ -209,6 +223,10 @@ class EditRecipe {
       flipV: flipV ?? this.flipV,
       straighten: straighten ?? this.straighten,
       crop: crop ?? this.crop,
+      perspectiveX: perspectiveX ?? this.perspectiveX,
+      perspectiveY: perspectiveY ?? this.perspectiveY,
+      skewX: skewX ?? this.skewX,
+      skewY: skewY ?? this.skewY,
       layers: layers ?? this.layers,
     );
   }
@@ -250,6 +268,10 @@ class EditRecipe {
     'flipV': flipV,
     'straighten': straighten,
     'crop': crop,
+    'perspectiveX': perspectiveX,
+    'perspectiveY': perspectiveY,
+    'skewX': skewX,
+    'skewY': skewY,
     'layers': [for (final layer in layers) layer.toJson()],
   };
 
@@ -298,6 +320,10 @@ class EditRecipe {
       crop:
           (json['crop'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
           fullCrop,
+      perspectiveX: asDouble('perspectiveX'),
+      perspectiveY: asDouble('perspectiveY'),
+      skewX: asDouble('skewX'),
+      skewY: asDouble('skewY'),
       layers:
           (json['layers'] as List?)
               ?.map(
@@ -346,6 +372,10 @@ class EditRecipe {
       other.flipV == flipV &&
       other.straighten == straighten &&
       listEquals(other.crop, crop) &&
+      other.perspectiveX == perspectiveX &&
+      other.perspectiveY == perspectiveY &&
+      other.skewX == skewX &&
+      other.skewY == skewY &&
       listEquals(other.layers, layers);
 
   @override
@@ -375,6 +405,7 @@ class EditRecipe {
     Object.hash(
       Object.hash(rotation, flipH, flipV, straighten),
       Object.hashAll(crop),
+      Object.hash(perspectiveX, perspectiveY, skewX, skewY),
       Object.hashAll(layers),
     ),
   );

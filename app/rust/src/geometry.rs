@@ -154,9 +154,76 @@ pub fn downscale(rgba: &[u8], w: usize, h: usize, max_dim: usize) -> (Vec<u8>, u
     (out, nw, nh)
 }
 
+/// Applies trapezoidal perspective + skew as a bilinear remap. Output stays
+/// `w × h`; empty areas become black with alpha=255.  All params are neutral
+/// at zero; typical range is [-1, 1].
+pub fn perspective_warp(rgba: &[u8], w: usize, h: usize, perspective_x: f32, perspective_y: f32, skew_x: f32, skew_y: f32) -> Vec<u8> {
+    if perspective_x == 0.0 && perspective_y == 0.0 && skew_x == 0.0 && skew_y == 0.0 {
+        return rgba.to_vec();
+    }
+
+    let mut out = vec![0u8; w * h * 4];
+
+    // Corner control points (normalized). Positive perspectiveX widens the bottom (taller look),
+    // positive skewX shifts the top right relative to the bottom.
+    let tl = [
+        0.5 - 0.5 * (1.0 - perspective_x) * (1.0 - skew_x),
+        0.5 - 0.5 * (1.0 - perspective_y) * (1.0 - skew_y),
+    ];
+    let tr = [
+        0.5 + 0.5 * (1.0 - perspective_x) * (1.0 + skew_x),
+        0.5 - 0.5 * (1.0 - perspective_y) * (1.0 + skew_y),
+    ];
+    let bl = [
+        0.5 - 0.5 * (1.0 + perspective_x) * (1.0 - skew_x),
+        0.5 + 0.5 * (1.0 + perspective_y) * (1.0 - skew_y),
+    ];
+    let br = [
+        0.5 + 0.5 * (1.0 + perspective_x) * (1.0 + skew_x),
+        0.5 + 0.5 * (1.0 + perspective_y) * (1.0 + skew_y),
+    ];
+
+    for y in 0..h {
+        for x in 0..w {
+            let u = x as f32 / (w.max(1) - 1) as f32;
+            let v = y as f32 / (h.max(1) - 1) as f32;
+
+            // Bilinear interpolation onto the quad.
+            let sx = tl[0] * (1.0 - u) * (1.0 - v)
+                + tr[0] * u * (1.0 - v)
+                + bl[0] * (1.0 - u) * v
+                + br[0] * u * v;
+            let sy = tl[1] * (1.0 - u) * (1.0 - v)
+                + tr[1] * u * (1.0 - v)
+                + bl[1] * (1.0 - u) * v
+                + br[1] * u * v;
+
+            let px = sample(rgba, w, h, sx * (w.max(1) - 1) as f32, sy * (h.max(1) - 1) as f32);
+            let dst = (y * w + x) * 4;
+            out[dst..dst + 4].copy_from_slice(&px);
+        }
+    }
+
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn perspective_warp_identity_is_no_op() {
+        let src = grid(16, 16);
+        assert_eq!(perspective_warp(&src, 16, 16, 0.0, 0.0, 0.0, 0.0), src);
+    }
+
+    #[test]
+    fn perspective_warp_stays_same_dimensions() {
+        let src = grid(32, 24);
+        let out = perspective_warp(&src, 32, 24, 0.5, 0.3, 0.2, 0.1);
+        assert_eq!(out.len(), 32 * 24 * 4);
+        assert_ne!(out, src);
+    }
 
     fn pixel(w: usize, x: usize, y: usize, rgba: &[u8]) -> [u8; 4] {
         let i = (y * w + x) * 4;

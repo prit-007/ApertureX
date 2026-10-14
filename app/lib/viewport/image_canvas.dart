@@ -203,6 +203,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     r.flipH,
     r.flipV,
     r.straighten,
+    r.perspectiveX,
+    r.perspectiveY,
+    r.skewX,
+    r.skewY,
     r.shadows,
     r.highlights,
     r.clarity,
@@ -459,31 +463,36 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 onLongPressCancel: () =>
                     ref.read(compareHoldProvider.notifier).release(),
                 child: ClipRect(
-                  child: Transform(
-                    alignment: Alignment.topLeft,
-                    transform: Matrix4.identity()
-                      ..translateByDouble(_offset.dx, _offset.dy, 0, 1)
-                      ..scaleByDouble(_scale, _scale, _scale, 1),
-                    child: SizedBox(
-                      width: fitted.width,
-                      height: fitted.height,
-                      child: AnimatedBuilder(
-                        animation: Listenable.merge([_compare, _maskPeek]),
-                        builder: (context, _) => CustomPaint(
-                          size: fitted,
-                          painter: _CanvasPainter(
-                            shader: shader,
-                            source: source,
-                            lut: lut,
-                            lutSize: _activeLutSize.toDouble(),
-                            dst: Offset.zero & fitted,
-                            blend: _compare.value,
-                            maskBlend: _maskPeek.value,
+                    child: Transform(
+                      alignment: Alignment.center,
+                      transform: _computeLiveWarp(ref.read(recipeControllerProvider).recipe),
+                      child: Transform(
+                        alignment: Alignment.topLeft,
+                        transform: Matrix4.identity()
+                          ..translateByDouble(_offset.dx, _offset.dy, 0, 1)
+                          ..scaleByDouble(_scale, _scale, _scale, 1),
+                        child: SizedBox(
+                          width: fitted.width,
+                          height: fitted.height,
+                          child: AnimatedBuilder(
+                            animation: Listenable.merge([_compare, _maskPeek]),
+                            builder: (context, _) => CustomPaint(
+                              size: fitted,
+                              painter: _CanvasPainter(
+                                shader: shader,
+                                source: source,
+                                lut: lut,
+                                lutSize: _activeLutSize.toDouble(),
+                                dst: Offset.zero & fitted,
+                                blend: _compare.value,
+                                maskBlend: _maskPeek.value,
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
+
                 ),
               ),
             ),
@@ -526,7 +535,22 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     );
   }
 
-  // --- gesture routing ------------------------------------------------------
+  /// Builds a Matrix4 that mimics the Rust projective warp for GPU preview.
+  /// Maps neutral (0.0) to identity, and uses typical projective ranges.
+  Matrix4 _computeLiveWarp(EditRecipe r) {
+    final m = Matrix4.identity();
+    if (r.perspectiveX == 0 && r.perspectiveY == 0 && r.skewX == 0 && r.skewY == 0) {
+      return m;
+    }
+    // Matrix4.setPerspective(d) is for 3D depth. For 2D quad-warps,
+    // we use setSkew and manual projection entries in the 4x4.
+    m.setSkew(r.skewX, r.skewY);
+    // Perspective values in the recipe map to the [3,0] and [3,1] elements
+    // of the projection matrix to create the trapezoidal effect.
+    m.storage[12] = r.perspectiveX;
+    m.storage[13] = r.perspectiveY;
+    return m;
+  }
 
   void _onScaleStart(ScaleStartDetails d, Size fitted, bool tat) {
     _startScale = _scale;
