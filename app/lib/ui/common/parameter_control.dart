@@ -7,6 +7,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../edit/muted_parameters.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
+import '../../viewport/mask_peek.dart';
 import '../edit_activity.dart';
 import 'slider_math.dart';
 
@@ -90,6 +91,7 @@ class ParameterControl extends ConsumerWidget {
           ),
           _Track(
             key: Key('param-track-${parameter.name}'),
+            parameter: parameter,
             math: math,
             value: value,
             scheme: scheme,
@@ -190,6 +192,7 @@ class _ValueField extends StatelessWidget {
 class _Track extends ConsumerStatefulWidget {
   const _Track({
     super.key,
+    required this.parameter,
     required this.math,
     required this.value,
     required this.scheme,
@@ -198,6 +201,7 @@ class _Track extends ConsumerStatefulWidget {
     required this.onCommit,
   });
 
+  final Parameter parameter;
   final SliderMath math;
   final double value;
   final ColorScheme scheme;
@@ -249,6 +253,10 @@ class _TrackState extends ConsumerState<_Track> {
               ..reset()
               ..start();
             ref.read(editActivityProvider.notifier).begin();
+            // Detail sliders auto-peek their mask view while held (#27).
+            if (maskPeekParameters.contains(widget.parameter)) {
+              ref.read(maskPeekProvider.notifier).set(true);
+            }
           },
           onHorizontalDragUpdate: (d) {
             _dragValue = (_dragValue + d.delta.dx / width * widget.math.span)
@@ -259,9 +267,12 @@ class _TrackState extends ConsumerState<_Track> {
           onHorizontalDragEnd: (_) {
             widget.onCommit();
             ref.read(editActivityProvider.notifier).end();
+            ref.read(maskPeekProvider.notifier).set(false);
           },
-          onHorizontalDragCancel: () =>
-              ref.read(editActivityProvider.notifier).end(),
+          onHorizontalDragCancel: () {
+            ref.read(editActivityProvider.notifier).end();
+            ref.read(maskPeekProvider.notifier).set(false);
+          },
           child: Semantics(
             slider: true,
             label: '${spec.label} value',

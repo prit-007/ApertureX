@@ -21,6 +21,7 @@ import '../edit/recipe_controller.dart';
 import '../engine/engine.dart';
 import '../gesture/gesture_interpreter.dart';
 import 'compare_hold.dart';
+import 'mask_peek.dart';
 
 /// The shared editing canvas, rendered by BOTH shells (ADR 0008 invariant).
 ///
@@ -53,7 +54,7 @@ class ImageCanvas extends ConsumerStatefulWidget {
 }
 
 class _ImageCanvasState extends ConsumerState<ImageCanvas>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   /// Longest side of the preview proxy. ~1.3MP for a 3:4 phone photo.
   static const int _maxPreviewDim = 1440;
 
@@ -89,6 +90,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   Timer? _debounce;
   late final AnimationController _compare;
 
+  /// Crossfade into/out of the auto-peeking mask view (issue #27).
+  late final AnimationController _maskPeek;
+
   // Transform (own, so it never fights the edit gestures).
   double _scale = 1;
   Offset _offset = Offset.zero;
@@ -104,6 +108,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _compare = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 150),
+    );
+    _maskPeek = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
     );
     _load();
   }
@@ -366,6 +374,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _disposed = true;
     _debounce?.cancel();
     _compare.dispose();
+    _maskPeek.dispose();
     _busy.dispose();
     _shader?.dispose();
     _source?.dispose();
@@ -388,6 +397,16 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       mutedParametersProvider,
       (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
     );
+    // Auto-peeking mask view (issue #27): crossfade while a detail slider is
+    // held, back to the graded image on release.
+    ref.listen(maskPeekProvider, (previous, next) {
+      if (previous == next) return;
+      if (next) {
+        _maskPeek.forward();
+      } else {
+        _maskPeek.reverse();
+      }
+    });
     // Before/after compare: long-press on the photo or the panel's Compare
     // button both drive the same flag (issue #28).
     ref.listen(compareHoldProvider, (previous, next) {
@@ -449,7 +468,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                       width: fitted.width,
                       height: fitted.height,
                       child: AnimatedBuilder(
-                        animation: _compare,
+                        animation: Listenable.merge([_compare, _maskPeek]),
                         builder: (context, _) => CustomPaint(
                           size: fitted,
                           painter: _CanvasPainter(
@@ -459,6 +478,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                             lutSize: _activeLutSize.toDouble(),
                             dst: Offset.zero & fitted,
                             blend: _compare.value,
+                            maskBlend: _maskPeek.value,
                           ),
                         ),
                       ),
@@ -572,6 +592,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (_editing) widget.editInterpreter?.onPanEnd();
     _editing = false;
     _multi = false;
+    // Releasing the photo ends the gesture-shell mask peek (#27).
+    ref.read(maskPeekProvider.notifier).set(false);
   }
 
   static const double _maxScale = 8;
@@ -759,6 +781,7 @@ class _CanvasPainter extends CustomPainter {
     required this.lutSize,
     required this.dst,
     required this.blend,
+    required this.maskBlend,
   });
 
   final ui.FragmentShader shader;
@@ -767,6 +790,7 @@ class _CanvasPainter extends CustomPainter {
   final double lutSize;
   final Rect dst;
   final double blend;
+  final double maskBlend;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -776,6 +800,9 @@ class _CanvasPainter extends CustomPainter {
       ..setFloat(0, dst.width)
       ..setFloat(1, dst.height)
       ..setFloat(2, lutSize)
+      ..setFloat(3, maskBlend)
+      ..setFloat(4, source.width.toDouble())
+      ..setFloat(5, source.height.toDouble())
       ..setImageSampler(0, source)
       ..setImageSampler(1, lut);
     canvas.drawRect(dst, Paint()..shader = shader);

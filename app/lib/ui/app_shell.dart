@@ -16,6 +16,7 @@ import '../gesture/gesture_interpreter.dart';
 import '../settings/shell_preference.dart';
 import '../settings/onboarding.dart';
 import '../viewport/image_canvas.dart';
+import '../viewport/mask_peek.dart';
 import 'edit_activity.dart';
 import 'lightroom/lightroom_shell.dart';
 import 'snapseed/ghost_hint.dart';
@@ -69,6 +70,11 @@ class _AppShellState extends ConsumerState<AppShell> {
       onValueChanged: (tool, delta) {
         final parameter = snapseedToolParameters[tool]!.first;
         final spec = specOf(parameter);
+        // Detail tools auto-peek their mask while scrubbing (#27); the canvas
+        // clears it when the finger lifts (scale end).
+        if (maskPeekParameters.contains(parameter)) {
+          ref.read(maskPeekProvider.notifier).set(true);
+        }
         final previous = valueOf(ref.read(recipeControllerProvider).recipe, parameter);
         ref.read(recipeControllerProvider.notifier).applyDelta(parameter, delta);
         final next = clampParameter(parameter, previous + delta * spec.scale);
