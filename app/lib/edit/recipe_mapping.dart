@@ -22,6 +22,8 @@ const Map<GradeTool, List<Parameter>> snapseedToolParameters = {
   GradeTool.saturation: [Parameter.saturation],
   GradeTool.clarity: [Parameter.clarity],
   GradeTool.dehaze: [Parameter.dehaze],
+  GradeTool.vignette: [Parameter.vignette],
+  GradeTool.grain: [Parameter.grain],
   GradeTool.sharpen: [Parameter.sharpen],
 };
 

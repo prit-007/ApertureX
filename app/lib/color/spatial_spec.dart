@@ -10,6 +10,8 @@ class SpatialSpec {
     this.clarity = 0,
     this.texture = 0,
     this.dehaze = 0,
+    this.vignette = 0,
+    this.grain = 0,
     this.sharpen = 0,
     this.denoiseLuma = 0,
     this.denoiseChroma = 0,
@@ -20,6 +22,8 @@ class SpatialSpec {
   final double clarity;
   final double texture;
   final double dehaze;
+  final double vignette;
+  final double grain;
   final double sharpen;
   final double denoiseLuma;
   final double denoiseChroma;
@@ -30,6 +34,8 @@ class SpatialSpec {
       clarity == 0 &&
       texture == 0 &&
       dehaze == 0 &&
+      vignette == 0 &&
+      grain == 0 &&
       sharpen == 0 &&
       denoiseLuma == 0 &&
       denoiseChroma == 0;
@@ -40,6 +46,8 @@ class SpatialSpec {
     clarity: recipe.clarity,
     texture: recipe.texture,
     dehaze: recipe.dehaze,
+    vignette: recipe.vignette,
+    grain: recipe.grain,
     sharpen: recipe.sharpen,
     denoiseLuma: recipe.denoiseLuma,
     denoiseChroma: recipe.denoiseChroma,

@@ -23,7 +23,7 @@ void main() {
     });
 
     test('the catalog covers exactly the renderable fields today', () {
-      expect(Parameter.values.length, 22);
+      expect(Parameter.values.length, 24);
     });
   });
 

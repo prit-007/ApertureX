@@ -799,6 +799,8 @@ fn wire__crate__api__spatial__spatial_apply_impl(
             let api_denoise_luma = <f32>::sse_decode(&mut deserializer);
             let api_denoise_chroma = <f32>::sse_decode(&mut deserializer);
             let api_dehaze = <f32>::sse_decode(&mut deserializer);
+            let api_vignette = <f32>::sse_decode(&mut deserializer);
+            let api_grain = <f32>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ()>((move || {
@@ -814,6 +816,8 @@ fn wire__crate__api__spatial__spatial_apply_impl(
                         api_denoise_luma,
                         api_denoise_chroma,
                         api_dehaze,
+                        api_vignette,
+                        api_grain,
                     ))?;
                     std::result::Result::Ok(output_ok)
                 })())

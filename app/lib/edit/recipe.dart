@@ -39,6 +39,8 @@ class EditRecipe {
     this.clarity = 0,
     this.texture = 0,
     this.dehaze = 0,
+    this.vignette = 0,
+    this.grain = 0,
     this.sharpen = 0,
     this.denoiseLuma = 0,
     this.denoiseChroma = 0,
@@ -73,7 +75,7 @@ class EditRecipe {
   /// v2: grouped, catalog-driven parameter model (JSON still flat, v1 keys
   /// unchanged). v3: adds color-grading (split-tone) fields; older recipes read
   /// forward with those fields neutral. `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 10;
+  static const int currentSchemaVersion = 11;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -90,6 +92,8 @@ class EditRecipe {
   final double clarity; // spatial pass, neutral 0.
   final double texture; // spatial pass, neutral 0.
   final double dehaze; // spatial pass, neutral 0.
+  final double vignette; // spatial pass: >0 darkens edges, neutral 0.
+  final double grain; // spatial pass, 0..1 neutral 0.
   final double sharpen; // spatial pass, neutral 0.
   final double denoiseLuma; // spatial pass, neutral 0.
   final double denoiseChroma; // spatial pass, neutral 0.
@@ -142,6 +146,8 @@ class EditRecipe {
     double? clarity,
     double? texture,
     double? dehaze,
+    double? vignette,
+    double? grain,
     double? sharpen,
     double? denoiseLuma,
     double? denoiseChroma,
@@ -178,6 +184,8 @@ class EditRecipe {
       clarity: clarity ?? this.clarity,
       texture: texture ?? this.texture,
       dehaze: dehaze ?? this.dehaze,
+      vignette: vignette ?? this.vignette,
+      grain: grain ?? this.grain,
       sharpen: sharpen ?? this.sharpen,
       denoiseLuma: denoiseLuma ?? this.denoiseLuma,
       denoiseChroma: denoiseChroma ?? this.denoiseChroma,
@@ -217,6 +225,8 @@ class EditRecipe {
     'clarity': clarity,
     'texture': texture,
     'dehaze': dehaze,
+    'vignette': vignette,
+    'grain': grain,
     'sharpen': sharpen,
     'denoiseLuma': denoiseLuma,
     'denoiseChroma': denoiseChroma,
@@ -259,6 +269,8 @@ class EditRecipe {
       clarity: asDouble('clarity'),
       texture: asDouble('texture'),
       dehaze: asDouble('dehaze'),
+      vignette: asDouble('vignette'),
+      grain: asDouble('grain'),
       sharpen: asDouble('sharpen'),
       denoiseLuma: asDouble('denoiseLuma'),
       denoiseChroma: asDouble('denoiseChroma'),
@@ -309,6 +321,8 @@ class EditRecipe {
       other.clarity == clarity &&
       other.texture == texture &&
       other.dehaze == dehaze &&
+      other.vignette == vignette &&
+      other.grain == grain &&
       other.sharpen == sharpen &&
       other.denoiseLuma == denoiseLuma &&
       other.denoiseChroma == denoiseChroma &&
@@ -343,7 +357,7 @@ class EditRecipe {
     shadows,
     whites,
     blacks,
-    Object.hash(clarity, texture, dehaze, sharpen, denoiseLuma, denoiseChroma),
+    Object.hash(clarity, texture, dehaze, vignette, grain, sharpen, denoiseLuma, denoiseChroma),
     temperature,
     tint,
     vibrance,

@@ -53,6 +53,8 @@ const Map<GradeTool, _ToolRange> _ranges = {
   GradeTool.saturation: _ToolRange(1.0, -1.0, 1.0),
   GradeTool.clarity: _ToolRange(1.0, -1.0, 1.0),
   GradeTool.dehaze: _ToolRange(1.0, -1.0, 1.0),
+  GradeTool.vignette: _ToolRange(1.0, -1.0, 1.0),
+  GradeTool.grain: _ToolRange(1.0, 0.0, 1.0),
   GradeTool.sharpen: _ToolRange(1.0, 0.0, 1.0),
 };
 
@@ -82,6 +84,8 @@ double _read(EditRecipe recipe, GradeTool tool) => switch (tool) {
   GradeTool.saturation => recipe.saturation,
   GradeTool.clarity => recipe.clarity,
   GradeTool.dehaze => recipe.dehaze,
+  GradeTool.vignette => recipe.vignette,
+  GradeTool.grain => recipe.grain,
   GradeTool.sharpen => recipe.sharpen,
 };
 
@@ -99,5 +103,7 @@ EditRecipe _write(EditRecipe recipe, GradeTool tool, double value) =>
       GradeTool.saturation => recipe.copyWith(saturation: value),
       GradeTool.clarity => recipe.copyWith(clarity: value),
       GradeTool.dehaze => recipe.copyWith(dehaze: value),
+      GradeTool.vignette => recipe.copyWith(vignette: value),
+      GradeTool.grain => recipe.copyWith(grain: value),
       GradeTool.sharpen => recipe.copyWith(sharpen: value),
     };

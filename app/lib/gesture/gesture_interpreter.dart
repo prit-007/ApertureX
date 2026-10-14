@@ -15,6 +15,8 @@ enum GradeTool {
   saturation,
   clarity,
   dehaze,
+  vignette,
+  grain,
   sharpen,
 }
 
@@ -38,7 +40,12 @@ const Map<ToolCategory, List<GradeTool>> gestureCategories = {
     GradeTool.vibrance,
     GradeTool.saturation,
   ],
-  ToolCategory.effects: [GradeTool.clarity, GradeTool.dehaze],
+  ToolCategory.effects: [
+    GradeTool.clarity,
+    GradeTool.dehaze,
+    GradeTool.vignette,
+    GradeTool.grain,
+  ],
   ToolCategory.detail: [GradeTool.sharpen],
 };
 

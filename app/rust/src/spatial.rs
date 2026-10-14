@@ -215,6 +215,10 @@ pub struct SpatialParams {
     pub denoise_chroma: f32,
     /// Dehaze (veil removal via a large-radius local-contrast estimate).
     pub dehaze: f32,
+    /// Vignette: >0 darkens the edges, <0 lightens them.
+    pub vignette: f32,
+    /// Film grain amount (`0..1`).
+    pub grain: f32,
 }
 
 impl SpatialParams {
@@ -228,7 +232,62 @@ impl SpatialParams {
             && self.denoise_luma == 0.0
             && self.denoise_chroma == 0.0
             && self.dehaze == 0.0
+            && self.vignette == 0.0
+            && self.grain == 0.0
     }
+}
+
+/// Radial vignette: darkens (`amount > 0`) or lightens (`amount < 0`) toward the
+/// corners with a smooth falloff.
+pub fn vignette(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
+    if amount == 0.0 {
+        return rgba.to_vec();
+    }
+    let (cx, cy) = ((w as f32 - 1.0) / 2.0, (h as f32 - 1.0) / 2.0);
+    let maxd = (cx * cx + cy * cy).sqrt().max(1.0);
+    let mut out = rgba.to_vec();
+    for y in 0..h {
+        for x in 0..w {
+            let dx = x as f32 - cx;
+            let dy = y as f32 - cy;
+            let d = (dx * dx + dy * dy).sqrt() / maxd; // 0 centre .. 1 corner
+            let t = ((d - 0.3) / 0.7).clamp(0.0, 1.0);
+            let f = (1.0 - amount * t * t).max(0.0);
+            let i = (y * w + x) * 4;
+            for c in 0..3 {
+                out[i + c] = (rgba[i + c] as f32 * f).clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
+    out
+}
+
+/// Deterministic film grain (same seed per pixel → stable, no flicker).
+pub fn grain(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
+    if amount == 0.0 {
+        return rgba.to_vec();
+    }
+    let strength = amount * 40.0;
+    let mut out = rgba.to_vec();
+    for y in 0..h {
+        for x in 0..w {
+            let n = hash_noise(x as u32, y as u32);
+            let d = n * strength;
+            let i = (y * w + x) * 4;
+            for c in 0..3 {
+                out[i + c] = (rgba[i + c] as f32 + d).clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
+    out
+}
+
+fn hash_noise(x: u32, y: u32) -> f32 {
+    let mut h = x
+        .wrapping_mul(374_761_393)
+        .wrapping_add(y.wrapping_mul(668_265_263));
+    h = (h ^ (h >> 13)).wrapping_mul(1_274_126_177);
+    ((h ^ (h >> 16)) as f32 / u32::MAX as f32) * 2.0 - 1.0
 }
 
 /// Lightweight real-time dehaze: estimate the hazy veil with a large-radius
@@ -278,6 +337,12 @@ pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u
     }
     if p.dehaze != 0.0 {
         out = dehaze(&out, w, h, p.dehaze);
+    }
+    if p.vignette != 0.0 {
+        out = vignette(&out, w, h, p.vignette);
+    }
+    if p.grain != 0.0 {
+        out = grain(&out, w, h, p.grain);
     }
     out
 }
@@ -357,6 +422,23 @@ mod tests {
         assert_eq!(out.len(), src.len());
         assert!(out.iter().skip(3).step_by(4).all(|&a| a == 255));
         assert!(variance(&out) < variance(&src));
+    }
+
+    #[test]
+    fn vignette_darkens_corners_not_centre() {
+        let src = vec![200u8; 8 * 8 * 4];
+        let out = vignette(&src, 8, 8, 1.0);
+        let center = out[((4 * 8) + 4) * 4] as i32;
+        let corner = out[0] as i32;
+        assert!(corner < center, "corner {corner} centre {center}");
+        assert_eq!(vignette(&src, 8, 8, 0.0), src);
+    }
+
+    #[test]
+    fn grain_is_deterministic_and_bounded() {
+        let src = vec![128u8; 8 * 8 * 4];
+        assert_eq!(grain(&src, 8, 8, 0.5), grain(&src, 8, 8, 0.5));
+        assert_eq!(grain(&src, 8, 8, 0.0), src);
     }
 
     #[test]

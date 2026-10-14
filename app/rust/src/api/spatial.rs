@@ -64,6 +64,8 @@ pub fn spatial_apply(
     denoise_luma: f32,
     denoise_chroma: f32,
     dehaze: f32,
+    vignette: f32,
+    grain: f32,
 ) -> Vec<u8> {
     spatial::apply_spatial(
         &rgba,
@@ -78,6 +80,8 @@ pub fn spatial_apply(
             denoise_luma,
             denoise_chroma,
             dehaze,
+            vignette,
+            grain,
         },
     )
 }

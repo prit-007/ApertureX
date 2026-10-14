@@ -64,6 +64,8 @@ void main() {
         Parameter.saturation,
         Parameter.clarity,
         Parameter.dehaze,
+        Parameter.vignette,
+        Parameter.grain,
         Parameter.sharpen,
       ]);
     });
