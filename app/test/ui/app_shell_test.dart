@@ -47,7 +47,9 @@ void main() {
     container
         .read(shellPreferenceProvider.notifier)
         .select(AppShellKind.snapseed);
-    await tester.pumpAndSettle();
+    // The first-run ghost hint loops forever, so don't pumpAndSettle here.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(SnapseedShell), findsOneWidget);
     expect(find.byType(LightroomShell), findsNothing);

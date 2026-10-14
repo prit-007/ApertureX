@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -185,11 +186,22 @@ class _Track extends StatefulWidget {
 
 class _TrackState extends State<_Track> {
   double _dragValue = 0;
+  final Stopwatch _sw = Stopwatch()..start();
+  final HapticGradientPacer _gradient = HapticGradientPacer();
 
   void _nudge(double direction) {
     final step = widget.math.span * 0.05;
     widget.onChanged(widget.value + direction * step);
     widget.onCommit();
+  }
+
+  void _pulse() {
+    final spec = widget.math.spec;
+    final elapsed = _sw.elapsed;
+    _sw.reset();
+    if (_gradient.tick(elapsed, value: _dragValue, min: spec.min, max: spec.max)) {
+      HapticFeedback.selectionClick();
+    }
   }
 
   @override
@@ -205,11 +217,18 @@ class _TrackState extends State<_Track> {
             final thumb = widget.math.fractionOf(widget.value) * width;
             _nudge(d.localPosition.dx < thumb ? -1 : 1);
           },
-          onHorizontalDragStart: (_) => _dragValue = widget.value,
+          onHorizontalDragStart: (_) {
+            _dragValue = widget.value;
+            _gradient.reset();
+            _sw
+              ..reset()
+              ..start();
+          },
           onHorizontalDragUpdate: (d) {
             _dragValue = (_dragValue + d.delta.dx / width * widget.math.span)
                 .clamp(spec.min, spec.max);
             widget.onChanged(_dragValue);
+            _pulse();
           },
           onHorizontalDragEnd: (_) => widget.onCommit(),
           child: Semantics(

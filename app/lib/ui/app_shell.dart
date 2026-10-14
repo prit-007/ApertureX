@@ -43,6 +43,8 @@ class _AppShellState extends ConsumerState<AppShell> {
   GradeTool _active = GradeTool.exposure;
   ToolCategory _category = ToolCategory.light;
   late final GestureInterpreter _fsm;
+  final HapticGradientPacer _gradient = HapticGradientPacer();
+  final Stopwatch _gestureSw = Stopwatch()..start();
 
   @override
   void initState() {
@@ -51,6 +53,10 @@ class _AppShellState extends ConsumerState<AppShell> {
       tools: gestureCategories[_category]!,
       onToolChanged: (tool) {
         HapticFeedback.selectionClick();
+        _gradient.reset();
+        _gestureSw
+          ..reset()
+          ..start();
         if (mounted) setState(() => _active = tool);
       },
       onValueChanged: (tool, delta) {
@@ -60,6 +66,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         ref.read(recipeControllerProvider.notifier).applyDelta(parameter, delta);
         final next = clampParameter(parameter, previous + delta * spec.scale);
         fireHaptic(hapticFor(previous, next, spec.min, spec.max));
+        final elapsed = _gestureSw.elapsed;
+        _gestureSw.reset();
+        if (_gradient.tick(elapsed, value: next, min: spec.min, max: spec.max)) {
+          HapticFeedback.selectionClick();
+        }
       },
       onReset: (tool) => ref
           .read(recipeControllerProvider.notifier)
