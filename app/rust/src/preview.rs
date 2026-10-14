@@ -38,10 +38,11 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
-use crate::api::color::to_hsl24;
+use crate::api::color::{to_hsl24, ColorParams, CurveParams};
 use crate::api::decode::RgbaImage;
 use crate::api::mask::MaskLayer;
 use crate::api::preview::PreviewBaseSpec;
+use crate::color;
 use crate::geometry;
 use crate::histogram;
 use crate::mask::{self, LocalAdjustment, MaskSpec};
@@ -63,6 +64,10 @@ struct Resident {
     /// Last `run_base` output — the histogram bins from this, never from
     /// the raw source, so the drawer reflects geometry + spatial + masks.
     base: Option<Arc<RgbaImage>>,
+    /// Spike B: platform window backing a Flutter `Texture` (an
+    /// `ANativeWindow*` on Android, as `usize`). 0 = unbound; unbound
+    /// handles use the return-frame path instead.
+    window: usize,
 }
 
 static STORE: LazyLock<Mutex<Store>> = LazyLock::new(|| Mutex::new(Store::default()));
@@ -86,6 +91,7 @@ pub fn open(rgba: Vec<u8>, width: u32, height: u32) -> u64 {
             width,
             height,
             base: None,
+            window: 0,
         },
     );
     id
@@ -94,7 +100,151 @@ pub fn open(rgba: Vec<u8>, width: u32, height: u32) -> u64 {
 /// Drops the resident image for [handle]. Unknown handles are ignored so
 /// double-close from Dart teardown is safe.
 pub fn close(handle: u64) {
-    lock_store().images.remove(&handle);
+    let window = {
+        let mut store = lock_store();
+        store.images.remove(&handle).map(|r| r.window)
+    };
+    // Release outside the lock — ANativeWindow_release may block on the
+    // compositor.
+    if let Some(w) = window.filter(|w| *w != 0) {
+        anative_window::release(w);
+    }
+}
+
+/// Binds a platform window (spike B) to [handle]: `render` will write its
+/// frames there instead of returning them across the bridge.
+///
+/// [window_ptr] is an `ANativeWindow*` obtained by the platform via
+/// `ANativeWindow_fromSurface` (Android only — other targets always error,
+/// and Dart falls back to the return-frame path).
+pub fn bind_window(handle: u64, window_ptr: i64) -> Result<(), String> {
+    if window_ptr == 0 {
+        return Err("preview_bind_window: null window pointer".into());
+    }
+    let previous = {
+        let mut store = lock_store();
+        let resident = store
+            .images
+            .get_mut(&handle)
+            .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+        std::mem::replace(&mut resident.window, window_ptr as usize)
+    };
+    if previous != 0 {
+        anative_window::release(previous);
+    }
+    Ok(())
+}
+
+/// Fused base (+ optional grade) baked straight into the bound platform
+/// window — **zero pixels cross the bridge** (spike B). The pre-grade frame
+/// is still cached for [`histogram_from_base`], so the histogram keeps its
+/// spike-A semantics.
+///
+/// Errors when no window is bound; Dart catches that and uses the
+/// return-frame path ([`run_base`]) instead.
+#[allow(clippy::too_many_arguments)]
+pub fn render(
+    handle: u64,
+    spec: &PreviewBaseSpec,
+    layers: &[MaskLayer],
+    params: &ColorParams,
+    curves: &CurveParams,
+    hsl: &[f32],
+    base_changed: bool,
+) -> Result<(u32, u32), String> {
+    // 1. Borrow source + window under the lock; drop it before any math.
+    let (source, src_w, src_h, window) = {
+        let store = lock_store();
+        let resident = store
+            .images
+            .get(&handle)
+            .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+        if resident.window == 0 {
+            return Err(format!(
+                "preview handle {handle} has no bound texture; \
+                 use preview_base (return-frame path) or bind a window first"
+            ));
+        }
+        (
+            Arc::clone(&resident.source),
+            resident.width,
+            resident.height,
+            resident.window,
+        )
+    };
+
+    // 2. Resolve the cache when this is a grade-only tick.
+    let cached = if base_changed {
+        None
+    } else {
+        let store = lock_store();
+        store.images.get(&handle).and_then(|r| r.base.clone())
+    };
+
+    // 3a. Neutral grade + cached base: write straight from the shared Arc —
+    //     no copy, no bake.
+    if let Some(base) = &cached {
+        if grade_is_neutral(params, curves, hsl) {
+            anative_window::write_rgba(window, &base.rgba, base.width, base.height)?;
+            return Ok((base.width, base.height));
+        }
+    }
+
+    // 3b. Otherwise own the frame: clone the cache, or bake + cache it.
+    let mut frame = match cached {
+        Some(base) => (*base).clone(),
+        None => {
+            let fb = bake_base(&source, src_w, src_h, spec, layers);
+            cache_base(handle, &fb);
+            fb
+        }
+    };
+
+    // 4. Grade in place (skipped when neutral).
+    if !grade_is_neutral(params, curves, hsl) {
+        let p = params.to_core();
+        let set = curves.to_set();
+        let hsl24 = to_hsl24(hsl);
+        for px in frame.rgba.as_chunks_mut::<4>().0 {
+            let c = color::grade_pixel_c(
+                px[0] as f32 / 255.0,
+                px[1] as f32 / 255.0,
+                px[2] as f32 / 255.0,
+                p,
+                Some(&set),
+                &hsl24,
+            );
+            px[0] = (c[0] * 255.0 + 0.5) as u8;
+            px[1] = (c[1] * 255.0 + 0.5) as u8;
+            px[2] = (c[2] * 255.0 + 0.5) as u8;
+        }
+    }
+
+    // 5. Straight into the platform window.
+    anative_window::write_rgba(window, &frame.rgba, frame.width, frame.height)?;
+
+    Ok((frame.width, frame.height))
+}
+
+/// True when the grade contributes nothing, so [`render`] can skip it.
+fn grade_is_neutral(params: &ColorParams, curves: &CurveParams, hsl: &[f32]) -> bool {
+    params.exposure == 0.0
+        && params.contrast == 0.0
+        && params.saturation == 0.0
+        && params.temperature == 0.0
+        && params.tint == 0.0
+        && params.vibrance == 0.0
+        && params.grade_shadow_hue == 0.0
+        && params.grade_shadow_sat == 0.0
+        && params.grade_mid_hue == 0.0
+        && params.grade_mid_sat == 0.0
+        && params.grade_highlight_hue == 0.0
+        && params.grade_highlight_sat == 0.0
+        && curves.master.is_empty()
+        && curves.red.is_empty()
+        && curves.green.is_empty()
+        && curves.blue.is_empty()
+        && hsl.iter().all(|v| *v == 0.0)
 }
 
 /// Fused base pipeline on the resident source: flip → rotate → normalized
@@ -127,10 +277,27 @@ pub fn run_base(
         )
     };
 
-    // 2. Heavy math with no lock held. `Cow::Borrowed` until an op engages,
-    //    so the neutral path never copies the source.
-    let (mut buf, mut w, mut h): (Cow<'_, [u8]>, u32, u32) =
-        (Cow::Borrowed(source.as_ref()), src_w, src_h);
+    // 2. Heavy math with no lock held.
+    let frame = bake_base(&source, src_w, src_h, spec, layers);
+
+    // 3. Re-lock only to cache an Arc of the result for the histogram.
+    cache_base(handle, &frame);
+
+    Ok(frame)
+}
+
+/// The fused pipeline proper: flip → rotate → normalized crop → spatial →
+/// masks, on borrowed slices (`Cow::Borrowed` until an op engages, so the
+/// neutral path never copies the source). Shared by [`run_base`] and
+/// [`render`] so the texture and return-frame paths cannot drift.
+fn bake_base(
+    source: &[u8],
+    src_w: u32,
+    src_h: u32,
+    spec: &PreviewBaseSpec,
+    layers: &[MaskLayer],
+) -> RgbaImage {
+    let (mut buf, mut w, mut h): (Cow<'_, [u8]>, u32, u32) = (Cow::Borrowed(source), src_w, src_h);
 
     if spec.flip_h {
         buf = Cow::Owned(geometry::flip_h(&buf, w as usize, h as usize));
@@ -194,25 +361,24 @@ pub fn run_base(
         buf = Cow::Owned(mask::apply_local(&buf, w as usize, h as usize, &core));
     }
 
-    let frame = RgbaImage {
+    RgbaImage {
         width: w,
         height: h,
         rgba: buf.into_owned(),
-    };
-
-    // 3. Re-lock only to cache an Arc of the result for the histogram.
-    {
-        let mut store = lock_store();
-        if let Some(resident) = store.images.get_mut(&handle) {
-            resident.base = Some(Arc::new(RgbaImage {
-                width: frame.width,
-                height: frame.height,
-                rgba: frame.rgba.clone(),
-            }));
-        }
     }
+}
 
-    Ok(frame)
+/// Stores an Arc of [frame] as the histogram source for [handle]. A missing
+/// handle (closed mid-bake) is fine — the result is simply dropped.
+fn cache_base(handle: u64, frame: &RgbaImage) {
+    let mut store = lock_store();
+    if let Some(resident) = store.images.get_mut(&handle) {
+        resident.base = Some(Arc::new(RgbaImage {
+            width: frame.width,
+            height: frame.height,
+            rgba: frame.rgba.clone(),
+        }));
+    }
 }
 
 /// Bins the **cached base** (after geometry/spatial/masks) through the
@@ -285,4 +451,157 @@ pub fn crop_opt(
         cw as u32,
         ch as u32,
     ))
+}
+
+// --- platform window (spike B) --------------------------------------------
+//
+// Flutter's `FragmentShader.setImageSampler` accepts only a `ui.Image`, never
+// a `Texture` widget, so a texture-based preview must carry the **graded**
+// frame — the grade is baked in Rust (LUT) before the write. This module owns
+// the `ANativeWindow` write path (Android) and a stub for every other target
+// (which simply errors, so Dart keeps the spike-A return-frame fallback).
+
+#[cfg(target_os = "android")]
+mod anative_window {
+    use std::ffi::c_void;
+
+    /// Opaque NDK handle; only used behind a pointer.
+    #[repr(C)]
+    pub struct ANativeWindow {
+        _private: [u8; 0],
+    }
+
+    /// Public lock-output buffer (NDK `ANativeWindow_Buffer`). Only the
+    /// leading fields are read; `bits` is the mapped pixel base.
+    #[repr(C)]
+    pub struct ANativeWindowBuffer {
+        pub width: i32,
+        pub height: i32,
+        pub stride: i32,
+        pub format: i32,
+        pub bits: *mut c_void,
+        pub reserved: [u32; 6],
+    }
+
+    /// `WINDOW_FORMAT_RGBA_8888` from the NDK pixel-format enum.
+    const WINDOW_FORMAT_RGBA_8888: i32 = 1;
+
+    #[link(name = "android")]
+    extern "C" {
+        fn ANativeWindow_fromSurface(env: *mut c_void, surface: *mut c_void) -> *mut ANativeWindow;
+        fn ANativeWindow_release(window: *mut ANativeWindow);
+        fn ANativeWindow_setBuffersGeometry(
+            window: *mut ANativeWindow,
+            width: i32,
+            height: i32,
+            format: i32,
+        ) -> i32;
+        fn ANativeWindow_lock(
+            window: *mut ANativeWindow,
+            out_buffer: *mut *mut ANativeWindowBuffer,
+            in_out_dirty: *mut c_void,
+        ) -> i32;
+        fn ANativeWindow_unlockAndPost(window: *mut ANativeWindow) -> i32;
+    }
+
+    /// Wraps a Java `Surface` (received via JNI) in a refcounted
+    /// `ANativeWindow*`. The caller owns the returned window.
+    pub fn from_surface(env: *mut c_void, surface: *mut c_void) -> usize {
+        if surface.is_null() {
+            return 0;
+        }
+        unsafe { ANativeWindow_fromSurface(env, surface) as usize }
+    }
+
+    /// Releases a window obtained from [`from_surface`]. Safe on 0.
+    pub fn release(window: usize) {
+        if window == 0 {
+            return;
+        }
+        unsafe { ANativeWindow_release(window as *mut ANativeWindow) };
+    }
+
+    /// Copies an RGBA frame into the window's back buffer and posts it, so
+    /// Flutter's texture registry picks it up on the next vsync.
+    pub fn write_rgba(window: usize, rgba: &[u8], width: u32, height: u32) -> Result<(), String> {
+        if window == 0 {
+            return Err("write_rgba: null window".into());
+        }
+        let win = window as *mut ANativeWindow;
+        unsafe {
+            // Keep the buffer geometry in sync — crop/rotate change dims.
+            let geo = ANativeWindow_setBuffersGeometry(
+                win,
+                width as i32,
+                height as i32,
+                WINDOW_FORMAT_RGBA_8888,
+            );
+            if geo != 0 {
+                return Err(format!("ANativeWindow_setBuffersGeometry failed: {geo}"));
+            }
+
+            let mut buffer: *mut ANativeWindowBuffer = std::ptr::null_mut();
+            let locked = ANativeWindow_lock(win, &mut buffer, std::ptr::null_mut());
+            if locked != 0 || buffer.is_null() {
+                return Err(format!("ANativeWindow_lock failed: {locked}"));
+            }
+
+            let stride = (*buffer).stride as usize;
+            let bits = (*buffer).bits as *mut u8;
+            if bits.is_null() {
+                ANativeWindow_unlockAndPost(win);
+                return Err("ANativeWindow_lock returned a null buffer".into());
+            }
+            // The buffer stride may be padded past width*4; copy row by row.
+            let row_bytes = width as usize * 4;
+            for y in 0..height as usize {
+                let src = &rgba[y * row_bytes..][..row_bytes];
+                let dst = std::slice::from_raw_parts_mut(bits.add(y * stride * 4), row_bytes);
+                dst.copy_from_slice(src);
+            }
+            ANativeWindow_unlockAndPost(win);
+        }
+        Ok(())
+    }
+}
+
+/// Non-Android targets have no `ANativeWindow`; every write errors so Dart
+/// keeps the return-frame fallback (spike A). The JNI entry point is
+/// Android-only, so `from_surface` is never referenced here.
+#[cfg(not(target_os = "android"))]
+mod anative_window {
+    pub fn release(_window: usize) {}
+
+    pub fn write_rgba(
+        _window: usize,
+        _rgba: &[u8],
+        _width: u32,
+        _height: u32,
+    ) -> Result<(), String> {
+        Err("preview textures are Android-only (spike B); use preview_base".into())
+    }
+}
+
+/// JNI entry point invoked by `MainActivity.bindPreviewSurface`. Wraps the
+/// Java `Surface` in an `ANativeWindow` and binds it to the preview [handle].
+/// Returns the window pointer (0 on failure) so the Kotlin side can log it.
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub extern "system" fn Java_com_devparadise_tessera_MainActivity_bindPreviewSurface(
+    env: *mut std::ffi::c_void,
+    _this: *mut std::ffi::c_void,
+    surface: *mut std::ffi::c_void,
+    handle: i64,
+) -> i64 {
+    let window = anative_window::from_surface(env, surface);
+    if window == 0 {
+        return 0;
+    }
+    match bind_window(handle as u64, window as i64) {
+        Ok(()) => window as i64,
+        Err(_) => {
+            anative_window::release(window);
+            0
+        }
+    }
 }

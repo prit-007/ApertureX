@@ -18,6 +18,7 @@ import '../edit/parameter.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_controller.dart';
 import '../engine/engine.dart';
+import '../engine/preview_texture.dart';
 import '../gesture/gesture_interpreter.dart';
 import 'compare_hold.dart';
 import 'canvas_transform.dart';
@@ -73,6 +74,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   Uint8List? _baseRgba;
   int _baseW = 0;
   int _baseH = 0;
+
+  /// Spike B: platform texture id when Rust writes frames straight into a
+  /// Flutter `Texture` (zero pixels over the bridge). Null → spike-A
+  /// return-frame + shader path. `_useTexture` is false while an imported LUT
+  /// is active (the Rust render path doesn't carry an external atlas), so the
+  /// shader path keeps imported-LUT support.
+  int? _textureId;
+  bool _useTexture = false;
 
   ui.Image? _lut;
   int _activeLutSize = _previewLutSize;
@@ -144,17 +153,46 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         return;
       }
       _previewHandle = handle;
+      // Spike B: prefer zero-copy texture delivery when the platform supports
+      // it (Android). Any failure leaves `_textureId` null and we keep the
+      // spike-A return-frame path.
+      await _tryBindTexture(handle, proxy.$3, proxy.$4);
+      _useTexture = _computeUseTexture();
       _needsReset = true;
       await _rebake(
         _renderRecipe(ref.read(recipeControllerProvider).recipe),
         baseChanged: true,
         gradeChanged: true,
       );
-      if (mounted && _baseImage != null) setState(() {});
+      if (mounted && (_baseImage != null || _useTexture)) setState(() {});
     } catch (_) {
       if (mounted) setState(() => _failed = true);
     }
   }
+
+  /// Registers a platform texture and binds it to the resident [handle].
+  /// Silent no-op on platforms without the plugin (iOS, widget tests).
+  Future<void> _tryBindTexture(int handle, int width, int height) async {
+    final tex = await PreviewTextureChannel.create(
+      width: width,
+      height: height,
+    );
+    if (tex == null) return;
+    final bound = await PreviewTextureChannel.bind(
+      textureId: tex,
+      handle: handle,
+    );
+    if (!mounted || !bound) {
+      unawaited(PreviewTextureChannel.dispose(tex));
+      return;
+    }
+    _textureId = tex;
+  }
+
+  /// Texture delivery is used only when a texture is bound and no imported LUT
+  /// is active (imported atlases are applied by `lut.frag`, not Rust).
+  bool _computeUseTexture() =>
+      _textureId != null && ref.read(importedLutProvider) == null;
 
   /// Decodes [bytes] to RGBA in a **single** pass, capping the long side at
   /// [maxDim]. Reads the header via [ui.ImageDescriptor] (no pixel decode) so
@@ -259,9 +297,18 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (_program == null || _previewHandle == null) return;
     recipe = _renderRecipe(recipe);
     final imported = ref.read(importedLutProvider)?.hashCode ?? 0;
-    final baseChanged = _baseKey(recipe) != _lastBaseKey;
+    // Switch delivery path when texture availability changes (e.g. an imported
+    // LUT is selected, or a failed write dropped us to the shader path). Force
+    // a full rebuild across the seam so neither path renders a stale frame.
+    final useTexture = _computeUseTexture();
+    final modeChanged = useTexture != _useTexture;
+    _useTexture = useTexture;
+    final baseChanged =
+        modeChanged || _baseKey(recipe) != _lastBaseKey;
     final gradeChanged =
-        _gradeKey(recipe) != _lastGradeKey || imported != _importedKey;
+        modeChanged ||
+        _gradeKey(recipe) != _lastGradeKey ||
+        imported != _importedKey;
     if (!baseChanged && !gradeChanged) return;
     _debounce?.cancel();
     _debounce = Timer(
@@ -278,11 +325,22 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (_program == null || _previewHandle == null) return;
     final token = ++_bakeToken;
     try {
-      if (baseChanged) {
-        _setBusy(true);
-        await _rebuildBase(recipe, token);
+      if (_useTexture) {
+        // Zero-copy: Rust bakes base + grade and writes the bound texture; no
+        // pixels cross the bridge. Histogram still reads Rust's cached base.
+        await _rebuildTexture(
+          recipe,
+          token,
+          baseChanged: baseChanged,
+          gradeChanged: gradeChanged,
+        );
+      } else {
+        if (baseChanged) {
+          _setBusy(true);
+          await _rebuildBase(recipe, token);
+        }
+        if (gradeChanged) await _rebuildLut(recipe, token);
       }
-      if (gradeChanged) await _rebuildLut(recipe, token);
       if (token != _bakeToken) return;
       await _rebuildHistogram(recipe, token);
     } finally {
@@ -290,6 +348,31 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
   }
 
+  /// Spike B: one Rust round trip (params in, size out) bakes base + grade
+  /// straight into the platform texture. On any failure the texture is dropped
+  /// and we rebuild through the return-frame path so the preview never stalls.
+  PreviewBaseSpec _baseSpec(EditRecipe recipe) {
+    final spatial = SpatialSpec.fromRecipe(recipe);
+    return PreviewBaseSpec(
+      flipH: recipe.flipH,
+      flipV: recipe.flipV,
+      turns: recipe.rotation,
+      cropL: recipe.crop[0],
+      cropT: recipe.crop[1],
+      cropR: recipe.crop[2],
+      cropB: recipe.crop[3],
+      shadows: spatial.shadows,
+      highlights: spatial.highlights,
+      clarity: spatial.clarity,
+      texture: spatial.texture,
+      sharpen: spatial.sharpen,
+      denoiseLuma: spatial.denoiseLuma,
+      denoiseChroma: spatial.denoiseChroma,
+      dehaze: spatial.dehaze,
+      vignette: spatial.vignette,
+      grain: spatial.grain,
+    );
+  }
   void _setBusy(bool value) {
     if (!_disposed) _busy.value = value;
   }
@@ -297,33 +380,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   Future<void> _rebuildBase(EditRecipe recipe, int token) async {
     final handle = _previewHandle;
     if (handle == null) return;
-    // Rotation/flip/crop change pixel dimensions and stay CPU-baked;
-    // straighten/perspective/skew are live-warped on the GPU (issue #36).
-    // Geometry → spatial → masks run fused inside Rust now (#37 spike A),
-    // so the source pixels never cross the bridge — only this one frame.
-    final spatial = SpatialSpec.fromRecipe(recipe);
 
     final frame = await TesseraEngine.previewBase(
       handle,
-      spec: PreviewBaseSpec(
-        flipH: recipe.flipH,
-        flipV: recipe.flipV,
-        turns: recipe.rotation,
-        cropL: recipe.crop[0],
-        cropT: recipe.crop[1],
-        cropR: recipe.crop[2],
-        cropB: recipe.crop[3],
-        shadows: spatial.shadows,
-        highlights: spatial.highlights,
-        clarity: spatial.clarity,
-        texture: spatial.texture,
-        sharpen: spatial.sharpen,
-        denoiseLuma: spatial.denoiseLuma,
-        denoiseChroma: spatial.denoiseChroma,
-        dehaze: spatial.dehaze,
-        vignette: spatial.vignette,
-        grain: spatial.grain,
-      ),
+      spec: _baseSpec(recipe),
       layers: recipe.layers,
     );
     final image = await _imageFrom(frame.rgba, frame.width, frame.height);
@@ -389,6 +449,48 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     ref.read(histogramProvider.notifier).publish(histogram);
   }
 
+
+  Future<void> _rebuildTexture(
+    EditRecipe recipe,
+    int token, {
+    required bool baseChanged,
+    required bool gradeChanged,
+  }) async {
+    final handle = _previewHandle;
+    if (handle == null) return;
+    try {
+      final size = await TesseraEngine.previewRender(
+        handle,
+        spec: _baseSpec(recipe),
+        layers: recipe.layers,
+        grade: GradeSpec.fromRecipe(recipe),
+        baseChanged: baseChanged,
+      );
+      if (!mounted || token != _bakeToken) return;
+      setState(() {
+        final dimsChanged = _baseW != size.width || _baseH != size.height;
+        _baseW = size.width;
+        _baseH = size.height;
+        _lastBaseKey = _baseKey(recipe);
+        _lastGradeKey = _gradeKey(recipe);
+        _importedKey = 0;
+        _baseRgba = null;
+        if (dimsChanged) _needsReset = true;
+      });
+    } catch (_) {
+      _dropTexture();
+      if (baseChanged) await _rebuildBase(recipe, token);
+      if (gradeChanged) await _rebuildLut(recipe, token);
+    }
+  }
+
+  void _dropTexture() {
+    final id = _textureId;
+    _textureId = null;
+    _useTexture = false;
+    _baseRgba = null;
+    if (id != null) unawaited(PreviewTextureChannel.dispose(id));
+  }
   @override
   void dispose() {
     _disposed = true;

@@ -368,6 +368,34 @@ class TesseraEngine {
     hsl: spec.hsl,
   );
 
+  /// Spike B: fuses base + [spec] grade and writes the frame straight into the
+  /// platform texture bound for [handle]. **Zero pixels cross the bridge** —
+  /// only the rendered size comes back. [baseChanged] lets Rust reuse its
+  /// cached base on grade-only ticks. Errors when no texture is bound, which
+  /// callers treat as "fall back to [previewBase]".
+  static Future<rust_preview.RenderedSize> previewRender(
+    int handle, {
+    required PreviewBaseSpec spec,
+    required List<AdjustmentLayer> layers,
+    required GradeSpec grade,
+    required bool baseChanged,
+  }) => rust_preview.previewRender(
+    handle: BigInt.from(handle),
+    spec: spec,
+    layers: [
+      for (final l in layers)
+        rust_mask.MaskLayer(
+          kind: l.maskKind.index,
+          mask: Float32List.fromList(l.maskParams),
+          params: _localParams(l),
+        ),
+    ],
+    params: _colorParams(grade),
+    curves: _curveParams(grade),
+    hsl: grade.hsl,
+    baseChanged: baseChanged,
+  );
+
   // --- export ---------------------------------------------------------------
 
   /// Encodes already-graded RGBA as a JPEG (alpha dropped). [exif] is the

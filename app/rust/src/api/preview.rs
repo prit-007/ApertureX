@@ -91,6 +91,36 @@ pub fn preview_histogram(
     })
 }
 
+/// Dimensions of the frame a [`preview_render`] just wrote into the bound
+/// texture. No pixels cross the bridge in texture mode — only this size.
+#[derive(Clone, Copy)]
+pub struct RenderedSize {
+    pub width: u32,
+    pub height: u32,
+}
+
+/// Spike B: fuses base + grade and writes the result straight into the
+/// platform texture bound via `bindPreviewSurface` (MainActivity). **Zero
+/// pixels cross the bridge.** The ungraded base is still cached for
+/// [`preview_histogram`], so the histogram keeps its spike-A semantics.
+///
+/// The grade is baked in Rust (the `FragmentShader` cannot sample a `Texture`
+/// widget). Errors when no texture is bound — Dart catches that and falls
+/// back to [`preview_base`] (spike A, return-frame + shader).
+pub fn preview_render(
+    handle: u64,
+    spec: PreviewBaseSpec,
+    layers: Vec<MaskLayer>,
+    params: ColorParams,
+    curves: CurveParams,
+    hsl: Vec<f32>,
+    base_changed: bool,
+) -> Result<RenderedSize, String> {
+    let (width, height) =
+        crate::preview::render(handle, &spec, &layers, &params, &curves, &hsl, base_changed)?;
+    Ok(RenderedSize { width, height })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

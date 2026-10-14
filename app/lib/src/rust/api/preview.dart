@@ -10,6 +10,8 @@ import 'histogram.dart';
 import 'mask.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`
+
 /// Uploads a decoded RGBA proxy into the resident store; returns a handle.
 ///
 /// This is the only point where the source pixels cross the bridge — every
@@ -58,6 +60,32 @@ Future<Histogram> previewHistogram({
   sampleDim: sampleDim,
   curves: curves,
   hsl: hsl,
+);
+
+/// Spike B: fuses base + grade and writes the result straight into the
+/// platform texture bound via `bindPreviewSurface` (MainActivity). **Zero
+/// pixels cross the bridge.** The ungraded base is still cached for
+/// [`preview_histogram`], so the histogram keeps its spike-A semantics.
+///
+/// The grade is baked in Rust (the `FragmentShader` cannot sample a `Texture`
+/// widget). Errors when no texture is bound — Dart catches that and falls
+/// back to [`preview_base`] (spike A, return-frame + shader).
+Future<RenderedSize> previewRender({
+  required BigInt handle,
+  required PreviewBaseSpec spec,
+  required List<MaskLayer> layers,
+  required ColorParams params,
+  required CurveParams curves,
+  required List<double> hsl,
+  required bool baseChanged,
+}) => RustLib.instance.api.crateApiPreviewPreviewRender(
+  handle: handle,
+  spec: spec,
+  layers: layers,
+  params: params,
+  curves: curves,
+  hsl: hsl,
+  baseChanged: baseChanged,
 );
 
 /// Everything `preview_base` bakes on the CPU. Perspective/skew/straighten
@@ -147,4 +175,24 @@ class PreviewBaseSpec {
           dehaze == other.dehaze &&
           vignette == other.vignette &&
           grain == other.grain;
+}
+
+/// Dimensions of the frame a [`preview_render`] just wrote into the bound
+/// texture. No pixels cross the bridge in texture mode — only this size.
+class RenderedSize {
+  final int width;
+  final int height;
+
+  const RenderedSize({required this.width, required this.height});
+
+  @override
+  int get hashCode => width.hashCode ^ height.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RenderedSize &&
+          runtimeType == other.runtimeType &&
+          width == other.width &&
+          height == other.height;
 }

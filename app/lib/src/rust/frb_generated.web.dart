@@ -94,6 +94,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PreviewBaseSpec dco_decode_preview_base_spec(dynamic raw);
 
   @protected
+  RenderedSize dco_decode_rendered_size(dynamic raw);
+
+  @protected
   RgbaImage dco_decode_rgba_image(dynamic raw);
 
   @protected
@@ -172,6 +175,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PreviewBaseSpec sse_decode_preview_base_spec(SseDeserializer deserializer);
+
+  @protected
+  RenderedSize sse_decode_rendered_size(SseDeserializer deserializer);
 
   @protected
   RgbaImage sse_decode_rgba_image(SseDeserializer deserializer);
@@ -280,6 +286,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     PreviewBaseSpec self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_rendered_size(RenderedSize self, SseSerializer serializer);
 
   @protected
   void sse_encode_rgba_image(RgbaImage self, SseSerializer serializer);

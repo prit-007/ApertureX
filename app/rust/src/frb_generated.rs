@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1623755276;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -138577832;
 
 // Section: executor
 
@@ -1054,6 +1054,53 @@ fn wire__crate__api__preview__preview_open_impl(
         },
     )
 }
+fn wire__crate__api__preview__preview_render_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "preview_render",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_handle = <u64>::sse_decode(&mut deserializer);
+            let api_spec = <crate::api::preview::PreviewBaseSpec>::sse_decode(&mut deserializer);
+            let api_layers = <Vec<crate::api::mask::MaskLayer>>::sse_decode(&mut deserializer);
+            let api_params = <crate::api::color::ColorParams>::sse_decode(&mut deserializer);
+            let api_curves = <crate::api::color::CurveParams>::sse_decode(&mut deserializer);
+            let api_hsl = <Vec<f32>>::sse_decode(&mut deserializer);
+            let api_base_changed = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok = crate::api::preview::preview_render(
+                        api_handle,
+                        api_spec,
+                        api_layers,
+                        api_params,
+                        api_curves,
+                        api_hsl,
+                        api_base_changed,
+                    )?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__spatial__spatial_apply_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1587,6 +1634,18 @@ impl SseDecode for crate::api::preview::PreviewBaseSpec {
     }
 }
 
+impl SseDecode for crate::api::preview::RenderedSize {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_width = <u32>::sse_decode(deserializer);
+        let mut var_height = <u32>::sse_decode(deserializer);
+        return crate::api::preview::RenderedSize {
+            width: var_width,
+            height: var_height,
+        };
+    }
+}
+
 impl SseDecode for crate::api::decode::RgbaImage {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1671,18 +1730,19 @@ fn pde_ffi_dispatcher_primary_impl(
         24 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
         25 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
         26 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
+        27 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        31 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1892,6 +1952,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::preview::PreviewBaseSpec>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::preview::RenderedSize {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.width.into_into_dart().into_dart(),
+            self.height.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::preview::RenderedSize
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::preview::RenderedSize>
+    for crate::api::preview::RenderedSize
+{
+    fn into_into_dart(self) -> crate::api::preview::RenderedSize {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::decode::RgbaImage {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -2073,6 +2154,14 @@ impl SseEncode for crate::api::preview::PreviewBaseSpec {
         <f32>::sse_encode(self.dehaze, serializer);
         <f32>::sse_encode(self.vignette, serializer);
         <f32>::sse_encode(self.grain, serializer);
+    }
+}
+
+impl SseEncode for crate::api::preview::RenderedSize {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.width, serializer);
+        <u32>::sse_encode(self.height, serializer);
     }
 }
 

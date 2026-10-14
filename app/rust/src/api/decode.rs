@@ -13,6 +13,7 @@ pub struct ImageDims {
 }
 
 /// A decoded RGBA8 image buffer with its dimensions.
+#[derive(Clone)]
 pub struct RgbaImage {
     pub width: u32,
     pub height: u32,
