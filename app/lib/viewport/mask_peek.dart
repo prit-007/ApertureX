@@ -28,3 +28,17 @@ class MaskPeek extends Notifier<bool> {
 }
 
 final maskPeekProvider = NotifierProvider<MaskPeek, bool>(MaskPeek.new);
+
+/// True when "Stylus-only mode" is active — touch input is routed to zoom/pan
+/// while only the stylus drives painting/eraser mask strokes.
+class StylusOnlyMode extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) {
+    if (state == value) return;
+    state = value;
+  }
+}
+
+final stylusOnlyModeProvider = NotifierProvider<StylusOnlyMode, bool>(StylusOnlyMode.new);

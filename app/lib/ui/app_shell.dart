@@ -10,6 +10,7 @@ import '../color/interactive_histogram.dart';
 import '../core/haptics.dart';
 import '../core/theme/design_tokens.dart';
 import '../edit/parameter.dart';
+import '../edit/node_editor.dart';
 import '../edit/recipe_controller.dart';
 import '../edit/recipe_mapping.dart';
 import '../gesture/gesture_interpreter.dart';
@@ -19,6 +20,8 @@ import '../viewport/image_canvas.dart';
 import '../viewport/mask_peek.dart';
 import 'edit_activity.dart';
 import 'lightroom/lightroom_shell.dart';
+import 'common/node_controls.dart';
+import 'common/node_overlay.dart';
 import 'snapseed/ghost_hint.dart';
 import 'snapseed/snapseed_shell.dart';
 
@@ -122,6 +125,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget build(BuildContext context) {
     final kind = ref.watch(shellPreferenceProvider);
     final active = ref.watch(editActivityProvider);
+    final nodeMode = ref.watch(nodeEditorProvider.select((s) => s.enabled));
     final scheme = Theme.of(context).colorScheme;
     // Only rebuild when the histogram's *presence* changes (not on every bake).
     final hasHistogram = ref.watch(
@@ -151,6 +155,9 @@ class _AppShellState extends ConsumerState<AppShell> {
           child: Stack(
             children: [
               Positioned.fill(child: _canvas(interpreter: _fsm)),
+              // Selective editing (issue #25): the node layer sits above the
+              // canvas and absorbs every pointer until Done is tapped.
+              if (nodeMode) const Positioned.fill(child: NodeOverlay()),
               SnapseedShell(
                 tool: _active,
                 category: _category,
@@ -203,16 +210,44 @@ class _AppShellState extends ConsumerState<AppShell> {
                   ),
                 ),
               if (!hintSeen) const Positioned.fill(child: GhostHint()),
-              Positioned(
-                left: Insets.sm,
-                bottom: Insets.sm,
-                child: _Fade(active: active, child: overlays[0]),
-              ),
-              Positioned(
-                right: Insets.sm,
-                bottom: Insets.sm,
-                child: _Fade(active: active, child: overlays[1]),
-              ),
+              // The bottom-corner affordances make room for the node adjust
+              // bar while node mode is active.
+              if (!nodeMode)
+                Positioned(
+                  left: Insets.sm,
+                  bottom: Insets.sm,
+                  child: _Fade(
+                    active: active,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _SelectiveToggle(),
+                        const SizedBox(height: Insets.xs),
+                        overlays[0],
+                      ],
+                    ),
+                  ),
+                ),
+              if (!nodeMode)
+                Positioned(
+                  right: Insets.sm,
+                  bottom: Insets.sm,
+                  child: _Fade(active: active, child: overlays[1]),
+                ),
+              if (nodeMode)
+                Positioned(
+                  left: Insets.sm,
+                  right: Insets.sm,
+                  bottom: 0,
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: Insets.lg),
+                      child: const NodeControls(),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -228,11 +263,22 @@ class _AppShellState extends ConsumerState<AppShell> {
             child: Stack(
               children: [
                 Positioned.fill(child: _canvas()),
-                Positioned(
-                  left: Insets.sm,
-                  bottom: Insets.sm,
-                  child: _Fade(active: active, child: overlays[0]),
-                ),
+                // Selective editing (issue #25) over the photo, with the
+                // adjust bar floating at its bottom edge.
+                if (nodeMode) const Positioned.fill(child: NodeOverlay()),
+                if (nodeMode)
+                  Positioned(
+                    left: Insets.sm,
+                    right: Insets.sm,
+                    bottom: Insets.sm,
+                    child: const NodeControls(),
+                  ),
+                if (!nodeMode)
+                  Positioned(
+                    left: Insets.sm,
+                    bottom: Insets.sm,
+                    child: _Fade(active: active, child: overlays[0]),
+                  ),
               ],
             ),
           ),
@@ -479,6 +525,48 @@ class _CompareHint extends StatelessWidget {
               const SizedBox(width: Insets.xs),
               Text(
                 'Hold to compare',
+                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Entry point for node-based selective editing (issue #25) in the gesture
+/// shell: drops radial control points on the photo. Steps aside for the
+/// node adjust bar while node mode is active.
+class _SelectiveToggle extends ConsumerWidget {
+  const _SelectiveToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+      borderRadius: Radii.smAll,
+      child: InkWell(
+        key: const Key('selective-toggle'),
+        borderRadius: Radii.smAll,
+        onTap: () => ref.read(nodeEditorProvider.notifier).enable(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Insets.sm,
+            vertical: Insets.xs,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.add_location_alt,
+                size: 14,
+                color: scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: Insets.xs),
+              Text(
+                'Selective',
                 style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
               ),
             ],

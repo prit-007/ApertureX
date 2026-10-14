@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../color/tat.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../edit/node_editor.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/recipe_mapping.dart';
@@ -90,6 +91,9 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
     final spec = specOf(parameter);
     final value = valueOf(recipe, parameter);
     final scheme = Theme.of(context).colorScheme;
+    // Node mode swaps the bottom chrome for the node adjust bar, so the
+    // tool pill (and its Selective entry) steps aside until Done.
+    final nodeMode = ref.watch(nodeEditorProvider.select((s) => s.enabled));
 
     return Stack(
       children: [
@@ -97,7 +101,8 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
         const Positioned(top: 0, right: 0, child: EditHud()),
 
         // Active-tool HUD (bottom).
-        Align(
+        if (!nodeMode)
+          Align(
           alignment: Alignment.bottomCenter,
           child: SafeArea(
             top: false,

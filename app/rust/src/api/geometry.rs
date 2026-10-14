@@ -132,18 +132,19 @@ pub fn geometry_apply(
         crop_r.clamp(0.0, 1.0),
         crop_b.clamp(0.0, 1.0),
     );
-        if !(cl == 0.0 && ct == 0.0 && cr == 1.0 && cb == 1.0) && cr > cl && cb > ct {
-            let x = (cl * w as f32).round() as usize;
-            let y = (ct * h as f32).round() as usize;
-            let cw = (((cr - cl) * w as f32).round() as usize).clamp(1, w - x);
-            let ch = (((cb - ct) * h as f32).round() as usize).clamp(1, h - y);
-            buf = geometry::crop(&buf, w, h, x, y, cw, ch);
-            w = cw;
-            h = ch;
-        }
+    if !(cl == 0.0 && ct == 0.0 && cr == 1.0 && cb == 1.0) && cr > cl && cb > ct {
+        let x = (cl * w as f32).round() as usize;
+        let y = (ct * h as f32).round() as usize;
+        let cw = (((cr - cl) * w as f32).round() as usize).clamp(1, w - x);
+        let ch = (((cb - ct) * h as f32).round() as usize).clamp(1, h - y);
+        buf = geometry::crop(&buf, w, h, x, y, cw, ch);
+        w = cw;
+        h = ch;
+    }
 
     // Perspective/skew: bilinear remap on same dimensions.
-    let warped = crate::geometry::perspective_warp(&buf, w, h, perspective_x, perspective_y, skew_x, skew_y);
+    let warped =
+        crate::geometry::perspective_warp(&buf, w, h, perspective_x, perspective_y, skew_x, skew_y);
 
     GeometryResult {
         width: w as u32,
@@ -163,9 +164,25 @@ pub fn geometry_downscale(rgba: Vec<u8>, width: u32, height: u32, max_dim: u32) 
 }
 
 /// Applies trapezoidal perspective + skew. Same output dimensions as input.
-pub fn geometry_perspective_rgba(rgba: Vec<u8>, width: u32, height: u32, perspective_x: f32, perspective_y: f32, skew_x: f32, skew_y: f32) -> GeometryResult {
+pub fn geometry_perspective_rgba(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    perspective_x: f32,
+    perspective_y: f32,
+    skew_x: f32,
+    skew_y: f32,
+) -> GeometryResult {
     let (w, h) = (width as usize, height as usize);
-    let out = crate::geometry::perspective_warp(&rgba, w, h, perspective_x, perspective_y, skew_x, skew_y);
+    let out = crate::geometry::perspective_warp(
+        &rgba,
+        w,
+        h,
+        perspective_x,
+        perspective_y,
+        skew_x,
+        skew_y,
+    );
     GeometryResult {
         width,
         height,
@@ -191,7 +208,9 @@ mod tests {
     #[test]
     fn normalized_crop_selects_the_right_region() {
         let src = grid(4, 4);
-        let r = geometry_apply(src, 4, 4, false, false, 0, 0.0, 0.5, 0.5, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0);
+        let r = geometry_apply(
+            src, 4, 4, false, false, 0, 0.0, 0.5, 0.5, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+        );
         assert_eq!((r.width, r.height), (2, 2));
         // top-left of the crop is the original (2,2): R=2, G=2.
         assert_eq!(&r.rgba[0..4], &[2, 2, 0, 255]);
@@ -199,7 +218,23 @@ mod tests {
 
     #[test]
     fn identity_crop_leaves_dimensions() {
-        let r = geometry_apply(grid(4, 3), 4, 3, false, false, 0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0);
+        let r = geometry_apply(
+            grid(4, 3),
+            4,
+            3,
+            false,
+            false,
+            0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        );
         assert_eq!((r.width, r.height), (4, 3));
     }
 }

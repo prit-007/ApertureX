@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../edit/adjustment_layer.dart';
+import '../../edit/node_editor.dart';
+import '../../viewport/mask_peek.dart';
 import '../../edit/recipe_controller.dart';
 
 /// Local-adjustment (masking) controls: add analytic masks and manage the
@@ -13,6 +15,8 @@ class MaskControls extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layers = ref.watch(recipeControllerProvider).recipe.layers;
     final notifier = ref.read(recipeControllerProvider.notifier);
+    final stylusOnly = ref.watch(stylusOnlyModeProvider);
+    final nodeMode = ref.watch(nodeEditorProvider.select((s) => s.enabled));
 
     return ListView(
       children: [
@@ -22,6 +26,17 @@ class MaskControls extends ConsumerWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
+              OutlinedButton.icon(
+                key: const Key('edit-on-canvas'),
+                onPressed: () =>
+                    ref.read(nodeEditorProvider.notifier).toggle(),
+                icon: Icon(
+                  nodeMode ? Icons.check : Icons.touch_app,
+                ),
+                label: Text(
+                  nodeMode ? 'Done placing' : 'Edit on canvas',
+                ),
+              ),
               OutlinedButton.icon(
                 onPressed: () => notifier.addLayer(
                   const AdjustmentLayer(exposure: 0.7),
@@ -51,6 +66,13 @@ class MaskControls extends ConsumerWidget {
                 icon: const Icon(Icons.dark_mode),
                 label: const Text('Darks +'),
               ),
+              OutlinedButton.icon(
+                onPressed: () => _toggleStylusOnly(ref, !stylusOnly),
+                icon: const Icon(Icons.brush),
+                label: stylusOnly
+                    ? const Text('Touch mode')
+                    : const Text('Stylus mode'),
+              ),
             ],
           ),
         ),
@@ -79,5 +101,9 @@ class MaskControls extends ConsumerWidget {
           ),
       ],
     );
+  }
+
+  void _toggleStylusOnly(WidgetRef ref, bool value) {
+    ref.read(stylusOnlyModeProvider.notifier).set(value);
   }
 }

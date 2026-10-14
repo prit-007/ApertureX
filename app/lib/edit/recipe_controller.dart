@@ -89,6 +89,22 @@ class RecipeController extends Notifier<RecipeState> {
     recipe: state.recipe.copyWith(flipV: !state.recipe.flipV),
   );
 
+  void setPerspectiveX(double degrees) => state = state.copyWith(
+    recipe: state.recipe.copyWith(perspectiveX: degrees.clamp(-1.0, 1.0)),
+  );
+
+  void setPerspectiveY(double degrees) => state = state.copyWith(
+    recipe: state.recipe.copyWith(perspectiveY: degrees.clamp(-1.0, 1.0)),
+  );
+
+  void setSkewX(double degrees) => state = state.copyWith(
+    recipe: state.recipe.copyWith(skewX: degrees.clamp(-1.0, 1.0)),
+  );
+
+  void setSkewY(double degrees) => state = state.copyWith(
+    recipe: state.recipe.copyWith(skewY: degrees.clamp(-1.0, 1.0)),
+  );
+
   void setStraighten(double degrees) => state = state.copyWith(
     recipe: state.recipe.copyWith(straighten: degrees.clamp(-45.0, 45.0)),
   );
@@ -127,6 +143,15 @@ class RecipeController extends Notifier<RecipeState> {
     final layers = [...state.recipe.layers];
     if (index < 0 || index >= layers.length) return;
     layers.removeAt(index);
+    state = state.copyWith(recipe: state.recipe.copyWith(layers: layers));
+  }
+
+  /// Replaces the layer at [index] (node moves/resizes/parameter edits,
+  /// issue #25). Out-of-range indices are ignored.
+  void updateLayerAt(int index, AdjustmentLayer layer) {
+    final layers = [...state.recipe.layers];
+    if (index < 0 || index >= layers.length) return;
+    layers[index] = layer;
     state = state.copyWith(recipe: state.recipe.copyWith(layers: layers));
   }
 

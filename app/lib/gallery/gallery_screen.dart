@@ -92,36 +92,38 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     final state = ref.watch(galleryControllerProvider);
     final controller = ref.read(galleryControllerProvider.notifier);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: state.selectionMode
-            ? Text('${state.selectedCount} selected')
-            : _AlbumTitle(title: state.title, onTap: _openAlbumPicker),
-        actions: [
-          if (state.selectionMode)
-            IconButton(
-              tooltip: 'Clear selection',
-              onPressed: controller.clearSelection,
-              icon: const Icon(Icons.close),
-            )
-          else ...[
-            IconButton(
-              tooltip: 'Select',
-              onPressed: controller.selectAll,
-              icon: const Icon(Icons.checklist),
-            ),
-            IconButton(
-              tooltip: 'Settings',
-              onPressed: () => showAppSheet(context, const SettingsSheet()),
-              icon: const Icon(Icons.more_vert),
-            ),
+    return SafeArea(
+      child: Scaffold(
+        appBar: AppBar(
+          title: state.selectionMode
+              ? Text('${state.selectedCount} selected')
+              : _AlbumTitle(title: state.title, onTap: _openAlbumPicker),
+          actions: [
+            if (state.selectionMode)
+              IconButton(
+                tooltip: 'Clear selection',
+                onPressed: controller.clearSelection,
+                icon: const Icon(Icons.close),
+              )
+            else ...[
+              IconButton(
+                tooltip: 'Select',
+                onPressed: controller.selectAll,
+                icon: const Icon(Icons.checklist),
+              ),
+              IconButton(
+                tooltip: 'Settings',
+                onPressed: () => showAppSheet(context, const SettingsSheet()),
+                icon: const Icon(Icons.more_vert),
+              ),
+            ],
           ],
-        ],
+        ),
+        body: _body(state, controller),
+        bottomNavigationBar: state.selectionMode
+            ? _SelectionBar(onPaste: _paste, onExport: _export)
+            : null,
       ),
-      body: _body(state, controller),
-      bottomNavigationBar: state.selectionMode
-          ? _SelectionBar(onPaste: _paste, onExport: _export)
-          : null,
     );
   }
 

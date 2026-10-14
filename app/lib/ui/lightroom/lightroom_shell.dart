@@ -154,7 +154,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         Divider(height: 1, color: scheme.outlineVariant),
         Expanded(
           child: switch (_tab) {
-            _Tab.panel => ParameterPanel(section: _section),
+            _Tab.panel => SafeArea(bottom: true, child: ParameterPanel(section: _section)),
             _Tab.curve => const ToneCurveEditor(),
             _Tab.mix => const SingleChildScrollView(child: HslMixer()),
             _Tab.geometry => const SingleChildScrollView(child: GeometryControls()),

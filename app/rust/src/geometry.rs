@@ -157,7 +157,15 @@ pub fn downscale(rgba: &[u8], w: usize, h: usize, max_dim: usize) -> (Vec<u8>, u
 /// Applies trapezoidal perspective + skew as a bilinear remap. Output stays
 /// `w × h`; empty areas become black with alpha=255.  All params are neutral
 /// at zero; typical range is [-1, 1].
-pub fn perspective_warp(rgba: &[u8], w: usize, h: usize, perspective_x: f32, perspective_y: f32, skew_x: f32, skew_y: f32) -> Vec<u8> {
+pub fn perspective_warp(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    perspective_x: f32,
+    perspective_y: f32,
+    skew_x: f32,
+    skew_y: f32,
+) -> Vec<u8> {
     if perspective_x == 0.0 && perspective_y == 0.0 && skew_x == 0.0 && skew_y == 0.0 {
         return rgba.to_vec();
     }
@@ -198,7 +206,13 @@ pub fn perspective_warp(rgba: &[u8], w: usize, h: usize, perspective_x: f32, per
                 + bl[1] * (1.0 - u) * v
                 + br[1] * u * v;
 
-            let px = sample(rgba, w, h, sx * (w.max(1) - 1) as f32, sy * (h.max(1) - 1) as f32);
+            let px = sample(
+                rgba,
+                w,
+                h,
+                sx * (w.max(1) - 1) as f32,
+                sy * (h.max(1) - 1) as f32,
+            );
             let dst = (y * w + x) * 4;
             out[dst..dst + 4].copy_from_slice(&px);
         }

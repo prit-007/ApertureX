@@ -21,6 +21,7 @@ import '../edit/recipe_controller.dart';
 import '../engine/engine.dart';
 import '../gesture/gesture_interpreter.dart';
 import 'compare_hold.dart';
+import 'canvas_transform.dart';
 import 'mask_peek.dart';
 
 /// The shared editing canvas, rendered by BOTH shells (ADR 0008 invariant).
@@ -439,6 +440,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       builder: (context, constraints) {
         final bounds = constraints.biggest;
         final fitted = _widthFit(content, bounds);
+        // Publish the view transform so overlays outside this widget (the
+        // selective-editing nodes, issue #25) can map image ↔ screen.
+        _publishTransform(CanvasTransform(fitted: fitted, offset: _offset, scale: _scale));
         if (_needsReset) {
           _needsReset = false;
           _minScale = math.min(1.0, bounds.height / fitted.height);
@@ -543,8 +547,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       return m;
     }
     // Matrix4.setPerspective(d) is for 3D depth. For 2D quad-warps,
-    // we use setSkew and manual projection entries in the 4x4.
-    m.setSkew(r.skewX, r.skewY);
+    // we use manual skew entries in the 4x4 storage matrix.
+    m.storage[2] = r.skewX;
+    m.storage[5] = r.skewY;
     // Perspective values in the recipe map to the [3,0] and [3,1] elements
     // of the projection matrix to create the trapezoidal effect.
     m.storage[12] = r.perspectiveX;
@@ -640,6 +645,17 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   static Size _widthFit(Size content, Size bounds) {
     if (content.width <= 0 || bounds.width <= 0) return bounds;
     return Size(bounds.width, bounds.width * content.height / content.width);
+  }
+
+  /// Hands the current view to [canvasTransformProvider], deferred to a
+  /// microtask so a widget build never mutates another provider
+  /// synchronously; the write is skipped when the value is unchanged.
+  void _publishTransform(CanvasTransform next) {
+    Future.microtask(() {
+      if (!mounted) return;
+      if (ref.read(canvasTransformProvider) == next) return;
+      ref.read(canvasTransformProvider.notifier).set(next);
+    });
   }
 
   void _resetView(Size fitted, Size bounds) {
