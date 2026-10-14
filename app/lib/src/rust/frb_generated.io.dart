@@ -12,6 +12,7 @@ import 'api/geometry.dart';
 import 'api/histogram.dart';
 import 'api/icc.dart';
 import 'api/mask.dart';
+import 'api/preview.dart';
 import 'api/spatial.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -38,6 +39,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CurveParams dco_decode_box_autoadd_curve_params(dynamic raw);
+
+  @protected
+  PreviewBaseSpec dco_decode_box_autoadd_preview_base_spec(dynamic raw);
 
   @protected
   ColorParams dco_decode_color_params(dynamic raw);
@@ -85,10 +89,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MaskLayer dco_decode_mask_layer(dynamic raw);
 
   @protected
+  PreviewBaseSpec dco_decode_preview_base_spec(dynamic raw);
+
+  @protected
   RgbaImage dco_decode_rgba_image(dynamic raw);
 
   @protected
   int dco_decode_u_32(dynamic raw);
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -107,6 +117,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CurveParams sse_decode_box_autoadd_curve_params(SseDeserializer deserializer);
+
+  @protected
+  PreviewBaseSpec sse_decode_box_autoadd_preview_base_spec(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ColorParams sse_decode_color_params(SseDeserializer deserializer);
@@ -154,10 +169,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MaskLayer sse_decode_mask_layer(SseDeserializer deserializer);
 
   @protected
+  PreviewBaseSpec sse_decode_preview_base_spec(SseDeserializer deserializer);
+
+  @protected
   RgbaImage sse_decode_rgba_image(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -180,6 +201,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_curve_params(
     CurveParams self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_preview_base_spec(
+    PreviewBaseSpec self,
     SseSerializer serializer,
   );
 
@@ -247,10 +274,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_mask_layer(MaskLayer self, SseSerializer serializer);
 
   @protected
+  void sse_encode_preview_base_spec(
+    PreviewBaseSpec self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_rgba_image(RgbaImage self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);

@@ -65,6 +65,9 @@ class ColorParams {
     required this.gradeHighlightSat,
   });
 
+  static Future<ColorParams> default_() =>
+      RustLib.instance.api.crateApiColorColorParamsDefault();
+
   @override
   int get hashCode =>
       exposure.hashCode ^

@@ -13,7 +13,6 @@ import '../color/lut_atlas.dart';
 import '../color/lut_texture.dart';
 import '../color/spatial_spec.dart';
 import '../color/tat.dart';
-import '../edit/geometry_spec.dart';
 import '../edit/muted_parameters.dart';
 import '../edit/parameter.dart';
 import '../edit/recipe.dart';
@@ -66,9 +65,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   ui.FragmentProgram? _program;
   ui.FragmentShader? _shader;
   ui.Image? _source; // proxy, unedited — for the before/after compare
-  Uint8List? _sourceRgba;
-  int _sourceWidth = 0;
-  int _sourceHeight = 0;
+  /// Handle of the decoded proxy resident in Rust (#37 spike A); all base
+  /// bakes and histograms reference it instead of shuttling pixels.
+  int? _previewHandle;
 
   ui.Image? _baseImage; // geometry + spatial + masks applied
   Uint8List? _baseRgba;
@@ -132,9 +131,19 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _program = program;
       _shader = program.fragmentShader();
       _source = proxy.$1;
-      _sourceRgba = proxy.$2;
-      _sourceWidth = proxy.$3;
-      _sourceHeight = proxy.$4;
+      // Upload once into the Rust-resident store (#37 spike A); the pixels
+      // never need to come back — every bake addresses the handle.
+      final handle = await TesseraEngine.previewOpen(
+        rgba: proxy.$2,
+        width: proxy.$3,
+        height: proxy.$4,
+      );
+      if (!mounted) {
+        proxy.$1.dispose();
+        unawaited(TesseraEngine.previewClose(handle));
+        return;
+      }
+      _previewHandle = handle;
       _needsReset = true;
       await _rebake(
         _renderRecipe(ref.read(recipeControllerProvider).recipe),
@@ -202,7 +211,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   /// Straighten/perspective/skew are GPU-warped during editing (issue #36),
   /// so they are excluded here — a slider tick must not re-run `applyGeometry`.
-  /// Export bakes the full [GeometrySpec] independently.
+  /// Export bakes the full GeometrySpec independently.
   int _baseKey(EditRecipe r) => Object.hash(
     r.rotation,
     r.flipH,
@@ -247,7 +256,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       withMuted(recipe, ref.read(mutedParametersProvider));
 
   void _scheduleBake(EditRecipe recipe) {
-    if (_program == null || _sourceRgba == null) return;
+    if (_program == null || _previewHandle == null) return;
     recipe = _renderRecipe(recipe);
     final imported = ref.read(importedLutProvider)?.hashCode ?? 0;
     final baseChanged = _baseKey(recipe) != _lastBaseKey;
@@ -266,7 +275,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     required bool baseChanged,
     required bool gradeChanged,
   }) async {
-    if (_program == null || _sourceRgba == null) return;
+    if (_program == null || _previewHandle == null) return;
     final token = ++_bakeToken;
     try {
       if (baseChanged) {
@@ -286,49 +295,49 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }
 
   Future<void> _rebuildBase(EditRecipe recipe, int token) async {
-    final raw = _sourceRgba!;
+    final handle = _previewHandle;
+    if (handle == null) return;
     // Rotation/flip/crop change pixel dimensions and stay CPU-baked;
     // straighten/perspective/skew are live-warped on the GPU (issue #36).
-    final geometry = GeometrySpec(
-      rotation: recipe.rotation,
-      flipH: recipe.flipH,
-      flipV: recipe.flipV,
-      crop: recipe.crop,
-    );
+    // Geometry → spatial → masks run fused inside Rust now (#37 spike A),
+    // so the source pixels never cross the bridge — only this one frame.
     final spatial = SpatialSpec.fromRecipe(recipe);
 
-    final geo = await TesseraEngine.applyGeometry(
-      raw,
-      width: _sourceWidth,
-      height: _sourceHeight,
-      spec: geometry,
-    );
-    if (token != _bakeToken) return;
-    final spatialized = await TesseraEngine.applySpatial(
-      geo.rgba,
-      width: geo.width,
-      height: geo.height,
-      spec: spatial,
-    );
-    if (token != _bakeToken) return;
-    final baseRgba = await TesseraEngine.applyMasks(
-      spatialized,
-      width: geo.width,
-      height: geo.height,
+    final frame = await TesseraEngine.previewBase(
+      handle,
+      spec: PreviewBaseSpec(
+        flipH: recipe.flipH,
+        flipV: recipe.flipV,
+        turns: recipe.rotation,
+        cropL: recipe.crop[0],
+        cropT: recipe.crop[1],
+        cropR: recipe.crop[2],
+        cropB: recipe.crop[3],
+        shadows: spatial.shadows,
+        highlights: spatial.highlights,
+        clarity: spatial.clarity,
+        texture: spatial.texture,
+        sharpen: spatial.sharpen,
+        denoiseLuma: spatial.denoiseLuma,
+        denoiseChroma: spatial.denoiseChroma,
+        dehaze: spatial.dehaze,
+        vignette: spatial.vignette,
+        grain: spatial.grain,
+      ),
       layers: recipe.layers,
     );
-    final image = await _imageFrom(baseRgba, geo.width, geo.height);
+    final image = await _imageFrom(frame.rgba, frame.width, frame.height);
     if (!mounted || token != _bakeToken) {
       image.dispose();
       return;
     }
     setState(() {
-      final dimsChanged = _baseW != geo.width || _baseH != geo.height;
+      final dimsChanged = _baseW != frame.width || _baseH != frame.height;
       _baseImage?.dispose();
       _baseImage = image;
-      _baseRgba = baseRgba;
-      _baseW = geo.width;
-      _baseH = geo.height;
+      _baseRgba = frame.rgba;
+      _baseW = frame.width;
+      _baseH = frame.height;
       _lastBaseKey = _baseKey(recipe);
       if (dimsChanged) _needsReset = true;
     });
@@ -367,12 +376,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }
 
   Future<void> _rebuildHistogram(EditRecipe recipe, int token) async {
-    final baseRgba = _baseRgba;
-    if (baseRgba == null) return;
-    final histogram = await TesseraEngine.histogramGraded(
-      rgba: baseRgba,
-      width: _baseW,
-      height: _baseH,
+    final handle = _previewHandle;
+    if (handle == null) return;
+    // Binned from the Rust-resident cached base (#37 spike A) — zero pixels
+    // cross the bridge, so scrubbing the grade no longer re-uploads the frame.
+    final histogram = await TesseraEngine.previewHistogram(
+      handle,
       sampleDim: 256,
       spec: GradeSpec.fromRecipe(recipe),
     );
@@ -391,6 +400,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _source?.dispose();
     _baseImage?.dispose();
     _lut?.dispose();
+    final handle = _previewHandle;
+    if (handle != null) {
+      unawaited(TesseraEngine.previewClose(handle));
+    }
     super.dispose();
   }
 

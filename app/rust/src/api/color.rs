@@ -7,6 +7,7 @@
 use crate::color::{self, CurveSet, GradeParams};
 
 /// Point-wise grade parameters (all neutral at 0).
+#[derive(Default)]
 pub struct ColorParams {
     pub exposure: f32,
     pub contrast: f32,

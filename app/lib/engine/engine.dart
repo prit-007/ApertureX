@@ -14,12 +14,15 @@ import '../src/rust/api/geometry.dart' as rust_geometry;
 import '../src/rust/api/histogram.dart' as rust_hist;
 import '../src/rust/api/icc.dart' as rust_icc;
 import '../src/rust/api/mask.dart' as rust_mask;
+import '../src/rust/api/preview.dart' as rust_preview;
+import '../src/rust/api/preview.dart' show PreviewBaseSpec;
 import '../src/rust/api/spatial.dart' as rust_spatial;
 import '../src/rust/frb_generated.dart';
 
 export '../src/rust/api/color.dart' show LutData;
 export '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 export '../src/rust/api/histogram.dart' show Histogram;
+export '../src/rust/api/preview.dart' show PreviewBaseSpec;
 export '../src/rust/frb_generated.dart' show RustLib;
 
 /// Thin, app-facing facade over the generated `flutter_rust_bridge` bindings.
@@ -306,6 +309,64 @@ class TesseraEngine {
       ],
     );
   }
+
+  // --- Rust-resident preview (#37 spike A) -----------------------------------
+
+  /// Uploads decoded proxy pixels into the Rust-resident store and returns an
+  /// opaque handle. This is the only bridge crossing for source pixels —
+  /// every later bake references the handle instead.
+  static Future<int> previewOpen({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+  }) async =>
+      (
+        await rust_preview.previewOpen(
+          rgba: rgba,
+          width: width,
+          height: height,
+        )
+      ).toInt();
+
+  /// Drops the resident image for [handle]. Unknown and double closes are
+  /// safe, so widget teardown can call it unconditionally.
+  static Future<void> previewClose(int handle) =>
+      rust_preview.previewClose(handle: BigInt.from(handle));
+
+  /// Fused geometry → spatial → masks bake on the resident source in **one**
+  /// round trip (spike A). Straighten/perspective/skew stay GPU-warped live
+  /// (issues #36/#52), so [PreviewBaseSpec] deliberately omits them; export
+  /// keeps its own full-parity path via [exportJpeg].
+  static Future<RgbaImage> previewBase(
+    int handle, {
+    required PreviewBaseSpec spec,
+    required List<AdjustmentLayer> layers,
+  }) => rust_preview.previewBase(
+    handle: BigInt.from(handle),
+    spec: spec,
+    layers: [
+      for (final l in layers)
+        rust_mask.MaskLayer(
+          kind: l.maskKind.index,
+          mask: Float32List.fromList(l.maskParams),
+          params: _localParams(l),
+        ),
+    ],
+  );
+
+  /// Histogram binned from the **cached** base inside Rust — zero pixels
+  /// cross the bridge (spike A). Errors if [previewBase] hasn't run yet.
+  static Future<rust_hist.Histogram> previewHistogram(
+    int handle, {
+    required GradeSpec spec,
+    int sampleDim = 256,
+  }) => rust_preview.previewHistogram(
+    handle: BigInt.from(handle),
+    params: _colorParams(spec),
+    sampleDim: sampleDim,
+    curves: _curveParams(spec),
+    hsl: spec.hsl,
+  );
 
   // --- export ---------------------------------------------------------------
 

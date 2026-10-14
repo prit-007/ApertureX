@@ -7,4 +7,5 @@ pub mod geometry;
 pub mod histogram;
 pub mod icc;
 pub mod mask;
+pub mod preview;
 pub mod spatial;

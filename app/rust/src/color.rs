@@ -926,10 +926,10 @@ mod tests {
         assert!(chroma(lab1) > chroma(lab0));
     }
 
-    /// Manual perf smoke (run `cargo test -- --ignored --nocapture`). Ignored so
-    /// CI timing variance can't flake; the on-device 60fps harness is #17.
+    /// Perf smoke: bakes a 65³ LUT and runs a 512² spatial pass, printing
+    /// timings. Deterministic with no timing assertions, so it cannot flake;
+    /// the on-device 60fps gate is #17.
     #[test]
-    #[ignore = "manual perf smoke"]
     fn perf_smoke_bake_and_spatial() {
         use std::time::Instant;
         let p = GradeParams {

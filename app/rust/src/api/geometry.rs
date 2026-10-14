@@ -126,20 +126,12 @@ pub fn geometry_apply(
     }
 
     // Crop: normalized [0,1] rect in the (now transformed) frame.
-    let (cl, ct, cr, cb) = (
-        crop_l.clamp(0.0, 1.0),
-        crop_t.clamp(0.0, 1.0),
-        crop_r.clamp(0.0, 1.0),
-        crop_b.clamp(0.0, 1.0),
-    );
-    if !(cl == 0.0 && ct == 0.0 && cr == 1.0 && cb == 1.0) && cr > cl && cb > ct {
-        let x = (cl * w as f32).round() as usize;
-        let y = (ct * h as f32).round() as usize;
-        let cw = (((cr - cl) * w as f32).round() as usize).clamp(1, w - x);
-        let ch = (((cb - ct) * h as f32).round() as usize).clamp(1, h - y);
-        buf = geometry::crop(&buf, w, h, x, y, cw, ch);
-        w = cw;
-        h = ch;
+    if let Some((cropped, cw, ch)) =
+        crate::preview::crop_opt(&buf, w as u32, h as u32, crop_l, crop_t, crop_r, crop_b)
+    {
+        buf = cropped;
+        w = cw as usize;
+        h = ch as usize;
     }
 
     // Perspective/skew: bilinear remap on same dimensions.

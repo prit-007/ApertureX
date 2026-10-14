@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1999661153;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1623755276;
 
 // Section: executor
 
@@ -152,6 +152,38 @@ fn wire__crate__api__engine__brighten_rgba_impl(
                 transform_result_sse::<_, ()>((move || {
                     let output_ok =
                         Ok::<_, ()>(crate::api::engine::brighten_rgba(api_rgba, api_amount))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__color__color_params_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "color_params_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::color::ColorParams::default())?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -871,6 +903,157 @@ fn wire__crate__api__icc__p3_to_srgb_impl(
         },
     )
 }
+fn wire__crate__api__preview__preview_base_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "preview_base",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_handle = <u64>::sse_decode(&mut deserializer);
+            let api_spec = <crate::api::preview::PreviewBaseSpec>::sse_decode(&mut deserializer);
+            let api_layers = <Vec<crate::api::mask::MaskLayer>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok =
+                        crate::api::preview::preview_base(api_handle, api_spec, api_layers)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__preview__preview_close_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "preview_close",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_handle = <u64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>({
+                        crate::api::preview::preview_close(api_handle);
+                    })?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__preview__preview_histogram_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "preview_histogram",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_handle = <u64>::sse_decode(&mut deserializer);
+            let api_params = <crate::api::color::ColorParams>::sse_decode(&mut deserializer);
+            let api_sample_dim = <u32>::sse_decode(&mut deserializer);
+            let api_curves = <crate::api::color::CurveParams>::sse_decode(&mut deserializer);
+            let api_hsl = <Vec<f32>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok = crate::api::preview::preview_histogram(
+                        api_handle,
+                        api_params,
+                        api_sample_dim,
+                        api_curves,
+                        api_hsl,
+                    )?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__preview__preview_open_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "preview_open",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_rgba = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_width = <u32>::sse_decode(&mut deserializer);
+            let api_height = <u32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::preview::preview_open(
+                        api_rgba, api_width, api_height,
+                    ))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__spatial__spatial_apply_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1362,6 +1545,48 @@ impl SseDecode for crate::api::mask::MaskLayer {
     }
 }
 
+impl SseDecode for crate::api::preview::PreviewBaseSpec {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_flipH = <bool>::sse_decode(deserializer);
+        let mut var_flipV = <bool>::sse_decode(deserializer);
+        let mut var_turns = <u32>::sse_decode(deserializer);
+        let mut var_cropL = <f32>::sse_decode(deserializer);
+        let mut var_cropT = <f32>::sse_decode(deserializer);
+        let mut var_cropR = <f32>::sse_decode(deserializer);
+        let mut var_cropB = <f32>::sse_decode(deserializer);
+        let mut var_shadows = <f32>::sse_decode(deserializer);
+        let mut var_highlights = <f32>::sse_decode(deserializer);
+        let mut var_clarity = <f32>::sse_decode(deserializer);
+        let mut var_texture = <f32>::sse_decode(deserializer);
+        let mut var_sharpen = <f32>::sse_decode(deserializer);
+        let mut var_denoiseLuma = <f32>::sse_decode(deserializer);
+        let mut var_denoiseChroma = <f32>::sse_decode(deserializer);
+        let mut var_dehaze = <f32>::sse_decode(deserializer);
+        let mut var_vignette = <f32>::sse_decode(deserializer);
+        let mut var_grain = <f32>::sse_decode(deserializer);
+        return crate::api::preview::PreviewBaseSpec {
+            flip_h: var_flipH,
+            flip_v: var_flipV,
+            turns: var_turns,
+            crop_l: var_cropL,
+            crop_t: var_cropT,
+            crop_r: var_cropR,
+            crop_b: var_cropB,
+            shadows: var_shadows,
+            highlights: var_highlights,
+            clarity: var_clarity,
+            texture: var_texture,
+            sharpen: var_sharpen,
+            denoise_luma: var_denoiseLuma,
+            denoise_chroma: var_denoiseChroma,
+            dehaze: var_dehaze,
+            vignette: var_vignette,
+            grain: var_grain,
+        };
+    }
+}
+
 impl SseDecode for crate::api::decode::RgbaImage {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1380,6 +1605,13 @@ impl SseDecode for u32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         deserializer.cursor.read_u32::<NativeEndian>().unwrap()
+    }
+}
+
+impl SseDecode for u64 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_u64::<NativeEndian>().unwrap()
     }
 }
 
@@ -1407,45 +1639,50 @@ fn pde_ffi_dispatcher_primary_impl(
         1 => wire__crate__api__mask__apply_masks_impl(port, ptr, rust_vec_len, data_len),
         2 => wire__crate__api__color__bake_lut3d_impl(port, ptr, rust_vec_len, data_len),
         3 => wire__crate__api__engine__brighten_rgba_impl(port, ptr, rust_vec_len, data_len),
-        4 => wire__crate__api__decode__decode_jpeg_rgba_impl(port, ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__decode__decode_jpeg_roi_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__icc__detect_colorspace_impl(port, ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__export__encode_jpeg_rgba_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__engine__engine_version_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__exif__extract_exif_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__geometry__geometry_apply_impl(port, ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__geometry__geometry_crop_impl(port, ptr, rust_vec_len, data_len),
-        12 => {
+        4 => wire__crate__api__color__color_params_default_impl(port, ptr, rust_vec_len, data_len),
+        5 => wire__crate__api__decode__decode_jpeg_rgba_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__decode__decode_jpeg_roi_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__icc__detect_colorspace_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__export__encode_jpeg_rgba_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__engine__engine_version_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__exif__extract_exif_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__geometry__geometry_apply_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__geometry__geometry_crop_impl(port, ptr, rust_vec_len, data_len),
+        13 => {
             wire__crate__api__geometry__geometry_downscale_impl(port, ptr, rust_vec_len, data_len)
         }
-        13 => wire__crate__api__geometry__geometry_flip_impl(port, ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__geometry__geometry_perspective_rgba_impl(
+        14 => wire__crate__api__geometry__geometry_flip_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__geometry__geometry_perspective_rgba_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        15 => wire__crate__api__geometry__geometry_rotate_impl(port, ptr, rust_vec_len, data_len),
-        16 => {
+        16 => wire__crate__api__geometry__geometry_rotate_impl(port, ptr, rust_vec_len, data_len),
+        17 => {
             wire__crate__api__geometry__geometry_straighten_impl(port, ptr, rust_vec_len, data_len)
         }
-        17 => wire__crate__api__color__grade_rgba_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__histogram__histogram_graded_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__engine__init_app_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__icc__p3_to_srgb_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
+        18 => wire__crate__api__color__grade_rgba_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__histogram__histogram_graded_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__engine__init_app_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__icc__p3_to_srgb_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__preview__preview_base_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        26 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1619,6 +1856,42 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::mask::MaskLayer>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::preview::PreviewBaseSpec {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.flip_h.into_into_dart().into_dart(),
+            self.flip_v.into_into_dart().into_dart(),
+            self.turns.into_into_dart().into_dart(),
+            self.crop_l.into_into_dart().into_dart(),
+            self.crop_t.into_into_dart().into_dart(),
+            self.crop_r.into_into_dart().into_dart(),
+            self.crop_b.into_into_dart().into_dart(),
+            self.shadows.into_into_dart().into_dart(),
+            self.highlights.into_into_dart().into_dart(),
+            self.clarity.into_into_dart().into_dart(),
+            self.texture.into_into_dart().into_dart(),
+            self.sharpen.into_into_dart().into_dart(),
+            self.denoise_luma.into_into_dart().into_dart(),
+            self.denoise_chroma.into_into_dart().into_dart(),
+            self.dehaze.into_into_dart().into_dart(),
+            self.vignette.into_into_dart().into_dart(),
+            self.grain.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::preview::PreviewBaseSpec
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::preview::PreviewBaseSpec>
+    for crate::api::preview::PreviewBaseSpec
+{
+    fn into_into_dart(self) -> crate::api::preview::PreviewBaseSpec {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::decode::RgbaImage {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -1780,6 +2053,29 @@ impl SseEncode for crate::api::mask::MaskLayer {
     }
 }
 
+impl SseEncode for crate::api::preview::PreviewBaseSpec {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.flip_h, serializer);
+        <bool>::sse_encode(self.flip_v, serializer);
+        <u32>::sse_encode(self.turns, serializer);
+        <f32>::sse_encode(self.crop_l, serializer);
+        <f32>::sse_encode(self.crop_t, serializer);
+        <f32>::sse_encode(self.crop_r, serializer);
+        <f32>::sse_encode(self.crop_b, serializer);
+        <f32>::sse_encode(self.shadows, serializer);
+        <f32>::sse_encode(self.highlights, serializer);
+        <f32>::sse_encode(self.clarity, serializer);
+        <f32>::sse_encode(self.texture, serializer);
+        <f32>::sse_encode(self.sharpen, serializer);
+        <f32>::sse_encode(self.denoise_luma, serializer);
+        <f32>::sse_encode(self.denoise_chroma, serializer);
+        <f32>::sse_encode(self.dehaze, serializer);
+        <f32>::sse_encode(self.vignette, serializer);
+        <f32>::sse_encode(self.grain, serializer);
+    }
+}
+
 impl SseEncode for crate::api::decode::RgbaImage {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -1793,6 +2089,13 @@ impl SseEncode for u32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_u32::<NativeEndian>(self).unwrap();
+    }
+}
+
+impl SseEncode for u64 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_u64::<NativeEndian>(self).unwrap();
     }
 }
 
