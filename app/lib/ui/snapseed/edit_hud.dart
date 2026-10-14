@@ -10,6 +10,11 @@ import '../../edit/recipe_controller.dart';
 class EditHud extends ConsumerWidget {
   const EditHud({super.key});
 
+  /// Half the two-decimal display resolution: a value below this renders as
+  /// `±0.00` and counts as neutral (issue #42 — float noise from fractional
+  /// drags must not stick a badge in the HUD forever).
+  static const double neutralEpsilon = 0.005;
+
   static const Map<Parameter, String> _abbr = {
     Parameter.exposure: 'EXP',
     Parameter.contrast: 'CON',
@@ -31,7 +36,7 @@ class EditHud extends ConsumerWidget {
     final recipe = ref.watch(recipeControllerProvider).recipe;
     final changed = [
       for (final p in Parameter.values)
-        if (valueOf(recipe, p) != 0) p,
+        if (valueOf(recipe, p).abs() > neutralEpsilon) p,
     ];
     if (changed.isEmpty) return const SizedBox.shrink();
 
