@@ -411,9 +411,8 @@ class _GalleryThumbnailState extends State<GalleryThumbnail> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final dpr = MediaQuery.devicePixelRatioOf(context);
-        final cacheWidth = constraints.maxWidth.isFinite
-            ? (constraints.maxWidth * dpr).round()
-            : null;
+        final w = constraints.maxWidth;
+        final cacheWidth = w.isFinite && w > 0 ? (w * dpr).round() : null;
         return FutureBuilder<Uint8List>(
           future: _future,
           builder: (context, snapshot) {

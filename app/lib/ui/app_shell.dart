@@ -20,9 +20,9 @@ import 'snapseed/snapseed_shell.dart';
 
 /// The editor body shared by the app: one [ImageCanvas] over one recipe.
 ///
-/// * **Gestures** ship (the Snapseed "Ghost UI") renders the photo
-///   **edge-to-edge** with the tool HUD floating above it — the canvas owns all
-///   touch (1-finger edits, 2-finger zoom/pan).
+/// * **Gestures** (the Snapseed "Ghost UI") renders the photo **edge-to-edge**
+///   with the tool HUD floating above it — the canvas owns all touch (1-finger
+///   edits, 2-finger zoom/pan).
 /// * **Lightroom** renders the canvas above a scrollable tool panel.
 ///
 /// Switching shells never touches the canvas or the recipe (ADR 0008).
@@ -81,11 +81,15 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget build(BuildContext context) {
     final kind = ref.watch(shellPreferenceProvider);
     final scheme = Theme.of(context).colorScheme;
+    // Only rebuild when the histogram's *presence* changes (not on every bake).
+    final hasHistogram = ref.watch(
+      histogramProvider.select((h) => h != null),
+    );
 
     final overlays = <Widget>[
       _CompareHint(),
       _HistogramToggle(
-        enabled: ref.watch(histogramProvider) != null,
+        enabled: hasHistogram,
         selected: _showHistogram,
         onPressed: () => setState(() => _showHistogram = !_showHistogram),
       ),
@@ -137,7 +141,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 Positioned.fill(
                   child: ImageCanvas(imageBytes: widget.imageBytes),
                 ),
-                if (_showHistogram && ref.watch(histogramProvider) != null)
+                if (_showHistogram && hasHistogram)
                   const Positioned(
                     left: 0,
                     right: 0,

@@ -167,6 +167,16 @@ class GestureInterpreter {
     _cycleAccumulator = 0;
   }
 
+  /// Aborts the in-progress gesture **without** firing the tap-reset — used when
+  /// a gesture turns into a multi-finger zoom (placing a second finger must not
+  /// reset the active parameter).
+  void cancel() {
+    _setPhase(GesturePhase.idle);
+    _axis = GestureAxis.undecided;
+    _accumulated = Offset.zero;
+    _cycleAccumulator = 0;
+  }
+
   void _apply(Offset delta) {
     switch (_axis) {
       case GestureAxis.horizontal:

@@ -58,6 +58,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   static const int _previewLutSize = 33;
 
   ui.FragmentProgram? _program;
+  ui.FragmentShader? _shader;
   ui.Image? _source; // proxy, unedited — for the before/after compare
   Uint8List? _sourceRgba;
   int _sourceWidth = 0;
@@ -115,6 +116,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         return;
       }
       _program = program;
+      _shader = program.fragmentShader();
       _source = proxy.$1;
       _sourceRgba = proxy.$2;
       _sourceWidth = proxy.$3;
@@ -352,6 +354,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _debounce?.cancel();
     _compare.dispose();
     _busy.dispose();
+    _shader?.dispose();
     _source?.dispose();
     _baseImage?.dispose();
     _lut?.dispose();
@@ -369,9 +372,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     );
 
     final program = _program;
+    final shader = _shader;
     final source = _baseImage ?? _source;
     final lut = _lut;
-    if (_failed || program == null || source == null || lut == null) {
+    if (_failed || program == null || shader == null || source == null || lut == null) {
       return _placeholder();
     }
 
@@ -425,7 +429,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                         builder: (context, _) => CustomPaint(
                           size: fitted,
                           painter: _CanvasPainter(
-                            shader: program.fragmentShader(),
+                            shader: shader,
                             source: source,
                             lut: lut,
                             lutSize: _activeLutSize.toDouble(),
@@ -497,8 +501,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   ) {
     if (d.pointerCount >= 2 || _multi) {
       if (!_multi) {
-        widget.editInterpreter?.onPanEnd();
+        // Transition 1 -> 2 fingers: cancel the edit (no tap-reset) and
+        // re-anchor so the pinch doesn't jump.
+        widget.editInterpreter?.cancel();
         _multi = true;
+        _startScale = _scale;
+        _startOffset = _offset;
+        _startFocal = d.localFocalPoint;
       }
       final scale = (_startScale * d.scale).clamp(_minScale, _maxScale);
       final scene = (_startFocal - _startOffset) / _startScale;

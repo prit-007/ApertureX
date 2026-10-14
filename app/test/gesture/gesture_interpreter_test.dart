@@ -49,6 +49,13 @@ void main() {
     expect(fsm.tool, GradeTool.sharpen);
   });
 
+  test('cancel aborts the gesture WITHOUT firing the tap-reset', () {
+    fsm.onPanStart(Offset.zero);
+    fsm.cancel();
+    expect(log.any((e) => e.startsWith('reset:')), isFalse);
+    expect(fsm.phase, GesturePhase.idle);
+  });
+
   test('a tap below slop resets the active tool and never changes a value', () {
     fsm.onPanStart(Offset.zero);
     fsm.onPanUpdate(const Offset(3, 4)); // distance 5 < touchSlop(18)
