@@ -90,6 +90,19 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                   ],
                 ),
               ),
+              if (ref.watch(tatModeProvider))
+                TextButton(
+                  onPressed: () =>
+                      ref.read(tatComponentProvider.notifier).cycle(),
+                  child: Text(
+                    tatComponentLabels[ref.watch(tatComponentProvider)],
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: scheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               IconButton(
                 tooltip: 'Target Adjustment: drag the image to target the HSL '
                     'colour under your finger',

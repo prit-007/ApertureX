@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tessera/color/tat.dart';
 
@@ -21,5 +22,19 @@ void main() {
     test('greys have no hue', () {
       expect(hueOf(128, 128, 128), 0);
     });
+  });
+
+  test('the TAT component cycles hue -> saturation -> luminance', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(tatComponentProvider.notifier);
+
+    expect(container.read(tatComponentProvider), 1); // saturation default
+    notifier.cycle();
+    expect(container.read(tatComponentProvider), 2);
+    notifier.cycle();
+    expect(container.read(tatComponentProvider), 0);
+    notifier.cycle();
+    expect(container.read(tatComponentProvider), 1);
   });
 }

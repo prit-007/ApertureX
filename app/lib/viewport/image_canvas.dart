@@ -74,6 +74,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   bool _failed = false;
   bool _comparing = false;
+  bool _editing = false;
   bool _needsReset = true;
   bool _disposed = false;
   int _bakeToken = 0;
@@ -383,6 +384,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
 
     final tat = ref.watch(tatModeProvider);
+    final tatComponent = ref.watch(tatComponentProvider);
     final content = Size(source.width.toDouble(), source.height.toDouble());
 
     return LayoutBuilder(
@@ -451,7 +453,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 top: 8,
                 left: 8,
                 child: IgnorePointer(
-                  child: _Chip(text: 'Target: ${_bandNames[_tatBand!]}'),
+                  child: _Chip(
+                    text:
+                        'Target: ${_bandNames[_tatBand!]} · '
+                        '${tatComponentLabels[tatComponent]}',
+                  ),
                 ),
               ),
             if (_comparing)
@@ -488,11 +494,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _startOffset = _offset;
     _startFocal = d.localFocalPoint;
     _multi = d.pointerCount >= 2;
+    _editing = false;
     if (_multi) return;
-    if (widget.editInterpreter != null) {
-      widget.editInterpreter!.onPanStart(d.localFocalPoint);
-    } else if (tat) {
+    if (tat) {
       _tatTouch(d.localFocalPoint, fitted);
+    } else if (widget.editInterpreter != null) {
+      widget.editInterpreter!.onPanStart(d.localFocalPoint);
+      _editing = true;
     }
   }
 
@@ -506,7 +514,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       if (!_multi) {
         // Transition 1 -> 2 fingers: cancel the edit (no tap-reset) and
         // re-anchor so the pinch doesn't jump.
-        widget.editInterpreter?.cancel();
+        if (_editing) {
+          widget.editInterpreter?.cancel();
+          _editing = false;
+        }
         _multi = true;
         _startScale = _scale;
         _startOffset = _offset;
@@ -522,10 +533,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       return;
     }
     if (_multi) return;
-    if (widget.editInterpreter != null) {
-      widget.editInterpreter!.onPanUpdate(d.focalPointDelta);
-    } else if (tat) {
+    if (tat) {
       _tatAdjust(d.localFocalPoint, d.focalPointDelta, fitted);
+    } else if (_editing) {
+      widget.editInterpreter!.onPanUpdate(d.focalPointDelta);
     } else {
       setState(() {
         _offset = _clampOffset(
@@ -539,7 +550,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }
 
   void _onScaleEnd() {
-    if (!_multi) widget.editInterpreter?.onPanEnd();
+    if (_editing) widget.editInterpreter?.onPanEnd();
+    _editing = false;
     _multi = false;
   }
 
@@ -610,11 +622,16 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (band == null) return;
     if (band != _tatBand) setState(() => _tatBand = band);
     final notifier = ref.read(recipeControllerProvider.notifier);
-    final saturation = ref.read(recipeControllerProvider).recipe.hsl[band * 3 + 1];
-    notifier.setHsl(
-      band,
-      saturation: saturation + (delta.dx / fitted.width) * 2,
-    );
+    final recipe = ref.read(recipeControllerProvider).recipe;
+    final amount = (delta.dx / fitted.width) * 2;
+    switch (ref.read(tatComponentProvider)) {
+      case 0:
+        notifier.setHsl(band, hue: recipe.hsl[band * 3] + amount);
+      case 1:
+        notifier.setHsl(band, saturation: recipe.hsl[band * 3 + 1] + amount);
+      default:
+        notifier.setHsl(band, luminance: recipe.hsl[band * 3 + 2] + amount);
+    }
   }
 
   Widget _placeholder() {

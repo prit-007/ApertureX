@@ -57,3 +57,18 @@ class TatMode extends Notifier<bool> {
 }
 
 final tatModeProvider = NotifierProvider<TatMode, bool>(TatMode.new);
+
+/// Which HSL component the Target Adjustment Tool edits: 0 hue, 1 saturation,
+/// 2 luminance.
+const List<String> tatComponentLabels = ['Hue', 'Saturation', 'Luminance'];
+
+class TatComponent extends Notifier<int> {
+  @override
+  int build() => 1; // saturation is the most-used
+  void set(int value) => state = value.clamp(0, 2);
+  void cycle() => state = (state + 1) % 3;
+}
+
+final tatComponentProvider = NotifierProvider<TatComponent, int>(
+  TatComponent.new,
+);

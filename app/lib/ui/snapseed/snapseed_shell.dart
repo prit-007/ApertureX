@@ -4,6 +4,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../color/tat.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
@@ -154,6 +155,33 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                         ),
                       ),
                       const SizedBox(width: Insets.sm),
+                      if (ref.watch(tatModeProvider))
+                        InkWell(
+                          onTap: () =>
+                              ref.read(tatComponentProvider.notifier).cycle(),
+                          borderRadius: Radii.smAll,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Insets.sm,
+                              vertical: Insets.xs,
+                            ),
+                            child: Text(
+                              'HSL · ${tatComponentLabels[ref.watch(tatComponentProvider)]}',
+                              style: themeStyle(context, FontWeight.w700)
+                                  .copyWith(color: scheme.primary),
+                            ),
+                          ),
+                        ),
+                      IconButton(
+                        tooltip: 'HSL target: tap a colour in the photo, then '
+                            'drag to adjust it',
+                        visualDensity: VisualDensity.compact,
+                        isSelected: ref.watch(tatModeProvider),
+                        onPressed: () =>
+                            ref.read(tatModeProvider.notifier).toggle(),
+                        icon: const Icon(Icons.colorize, size: 20),
+                        selectedIcon: Icon(Icons.colorize, size: 20, color: scheme.primary),
+                      ),
                       IconButton(
                         tooltip: 'Tools',
                         visualDensity: VisualDensity.compact,
