@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/edit/crop_math.dart';
+import 'package:aperturex/edit/crop_math.dart';
 
 void main() {
   group('fitAspectWithin', () {

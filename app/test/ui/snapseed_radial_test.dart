@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:tessera/gesture/gesture_interpreter.dart';
-import 'package:tessera/ui/snapseed/snapseed_shell.dart';
+import 'package:aperturex/gesture/gesture_interpreter.dart';
+import 'package:aperturex/ui/snapseed/snapseed_shell.dart';
 
 void main() {
   late ProviderContainer container;

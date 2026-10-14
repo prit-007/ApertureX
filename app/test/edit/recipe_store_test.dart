@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/edit/recipe.dart';
-import 'package:tessera/edit/recipe_store.dart';
+import 'package:aperturex/edit/recipe.dart';
+import 'package:aperturex/edit/recipe_store.dart';
 
 void main() {
   test('put/get and pasteTo', () {

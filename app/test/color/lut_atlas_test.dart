@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/color/lut_atlas.dart';
+import 'package:aperturex/color/lut_atlas.dart';
 
 /// A `size³` identity LUT (output == input) for the documented layout.
 LutAtlas identityAtlas(int size) {

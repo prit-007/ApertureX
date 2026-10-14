@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tessera/settings/export_settings.dart';
+import 'package:aperturex/settings/export_settings.dart';
 
 void main() {
   test('persists and restores export quality + max size', () async {

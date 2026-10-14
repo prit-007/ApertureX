@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/edit/adjustment_layer.dart';
-import 'package:tessera/edit/recipe.dart';
+import 'package:aperturex/edit/adjustment_layer.dart';
+import 'package:aperturex/edit/recipe.dart';
 
 void main() {
   test('layer JSON round-trips', () {

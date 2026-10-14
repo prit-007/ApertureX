@@ -3,9 +3,9 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:tessera/color/imported_lut.dart';
-import 'package:tessera/color/lut_atlas.dart';
-import 'package:tessera/ui/common/lut_import_sheet.dart';
+import 'package:aperturex/color/imported_lut.dart';
+import 'package:aperturex/color/lut_atlas.dart';
+import 'package:aperturex/ui/common/lut_import_sheet.dart';
 
 const _identity2 = '''
 LUT_3D_SIZE 2

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/edit/parameter.dart';
-import 'package:tessera/ui/common/slider_math.dart';
+import 'package:aperturex/edit/parameter.dart';
+import 'package:aperturex/ui/common/slider_math.dart';
 
 void main() {
   group('bidirectional (exposure: -4..4, neutral 0)', () {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/gesture/gesture_interpreter.dart';
+import 'package:aperturex/gesture/gesture_interpreter.dart';
 
 void main() {
   late List<String> log;

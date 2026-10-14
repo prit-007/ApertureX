@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:tessera/gallery/gallery_screen.dart';
-import 'package:tessera/gallery/gallery_source.dart';
+import 'package:aperturex/gallery/gallery_screen.dart';
+import 'package:aperturex/gallery/gallery_source.dart';
 
 final Uint8List _png = Uint8List.fromList(const [
   0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, //

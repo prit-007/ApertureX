@@ -3,10 +3,10 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:tessera/color/histogram_view.dart';
-import 'package:tessera/color/interactive_histogram.dart';
-import 'package:tessera/edit/recipe_controller.dart';
-import 'package:tessera/engine/engine.dart';
+import 'package:aperturex/color/histogram_view.dart';
+import 'package:aperturex/color/interactive_histogram.dart';
+import 'package:aperturex/edit/recipe_controller.dart';
+import 'package:aperturex/engine/engine.dart';
 
 Histogram _histogram() => Histogram(
   r: Uint32List(256)..[200] = 10,

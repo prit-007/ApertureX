@@ -2,9 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tessera/core/log/activity_log.dart';
-import 'package:tessera/core/log/log_providers.dart';
-import 'package:tessera/features/logs/logs_screen.dart';
+import 'package:aperturex/core/log/activity_log.dart';
+import 'package:aperturex/core/log/log_providers.dart';
+import 'package:aperturex/features/logs/logs_screen.dart';
 
 void main() {
   setUp(() {

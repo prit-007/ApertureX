@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/color/grade_spec.dart';
-import 'package:tessera/edit/recipe.dart';
-import 'package:tessera/edit/tone_curve.dart';
+import 'package:aperturex/color/grade_spec.dart';
+import 'package:aperturex/edit/recipe.dart';
+import 'package:aperturex/edit/tone_curve.dart';
 
 void main() {
   group('ToneCurve', () {

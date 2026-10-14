@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:tessera/color/grade_spec.dart';
-import 'package:tessera/engine/engine.dart';
+import 'package:aperturex/color/grade_spec.dart';
+import 'package:aperturex/engine/engine.dart';
 
 /// On-device proof that the Dart <-> Rust bridge works end to end.
 /// Run with: `flutter test integration_test/engine_test.dart -d <device>`.

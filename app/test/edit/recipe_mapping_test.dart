@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/edit/parameter.dart';
-import 'package:tessera/edit/recipe_mapping.dart';
-import 'package:tessera/gesture/gesture_interpreter.dart' show GradeTool;
+import 'package:aperturex/edit/parameter.dart';
+import 'package:aperturex/edit/recipe_mapping.dart';
+import 'package:aperturex/gesture/gesture_interpreter.dart' show GradeTool;
 
 void main() {
   group('snapseedToolParameters', () {

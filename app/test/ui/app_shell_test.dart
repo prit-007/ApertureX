@@ -1,13 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:tessera/edit/parameter.dart';
-import 'package:tessera/edit/recipe_controller.dart';
-import 'package:tessera/settings/shell_preference.dart';
-import 'package:tessera/ui/app_shell.dart';
-import 'package:tessera/ui/lightroom/lightroom_shell.dart';
-import 'package:tessera/ui/snapseed/snapseed_shell.dart';
-import 'package:tessera/viewport/image_canvas.dart';
+import 'package:aperturex/edit/parameter.dart';
+import 'package:aperturex/edit/recipe_controller.dart';
+import 'package:aperturex/settings/shell_preference.dart';
+import 'package:aperturex/ui/app_shell.dart';
+import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
+import 'package:aperturex/ui/snapseed/snapseed_shell.dart';
+import 'package:aperturex/viewport/image_canvas.dart';
 
 void main() {
   late ProviderContainer container;

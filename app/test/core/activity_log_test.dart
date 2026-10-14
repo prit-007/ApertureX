@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/core/log/activity_log.dart';
+import 'package:aperturex/core/log/activity_log.dart';
 
 void main() {
   test('encode/decode round-trips an entry', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/gallery/gallery_asset.dart';
-import 'package:tessera/gallery/gallery_grouping.dart';
+import 'package:aperturex/gallery/gallery_asset.dart';
+import 'package:aperturex/gallery/gallery_grouping.dart';
 
 GalleryAsset _asset(String id, DateTime? created) =>
     GalleryAsset(id: id, width: 1, height: 1, created: created);

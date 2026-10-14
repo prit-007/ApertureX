@@ -3,15 +3,15 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:tessera/edit/parameter.dart';
-import 'package:tessera/edit/recipe.dart';
-import 'package:tessera/edit/recipe_controller.dart';
-import 'package:tessera/edit/recipe_store.dart';
-import 'package:tessera/features/editor/editor_screen.dart';
-import 'package:tessera/gallery/gallery_asset.dart';
-import 'package:tessera/gallery/gallery_controller.dart';
-import 'package:tessera/gallery/gallery_source.dart';
-import 'package:tessera/ui/app_shell.dart';
+import 'package:aperturex/edit/parameter.dart';
+import 'package:aperturex/edit/recipe.dart';
+import 'package:aperturex/edit/recipe_controller.dart';
+import 'package:aperturex/edit/recipe_store.dart';
+import 'package:aperturex/features/editor/editor_screen.dart';
+import 'package:aperturex/gallery/gallery_asset.dart';
+import 'package:aperturex/gallery/gallery_controller.dart';
+import 'package:aperturex/gallery/gallery_source.dart';
+import 'package:aperturex/ui/app_shell.dart';
 
 /// A valid 1×1 PNG (non-empty bytes so the editor proceeds to the canvas).
 final Uint8List _png = Uint8List.fromList(const [

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/edit/xmp_preset.dart';
+import 'package:aperturex/edit/xmp_preset.dart';
 
 const _xmp = '''
 <x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">

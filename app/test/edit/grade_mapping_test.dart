@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/edit/grade_mapping.dart';
-import 'package:tessera/edit/recipe.dart';
-import 'package:tessera/gesture/gesture_interpreter.dart' show GradeTool;
+import 'package:aperturex/edit/grade_mapping.dart';
+import 'package:aperturex/edit/recipe.dart';
+import 'package:aperturex/gesture/gesture_interpreter.dart' show GradeTool;
 
 void main() {
   group('GradeUniforms.fromRecipe', () {

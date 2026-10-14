@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/gallery/gallery_asset.dart';
-import 'package:tessera/gallery/gallery_controller.dart';
-import 'package:tessera/gallery/gallery_source.dart';
+import 'package:aperturex/gallery/gallery_asset.dart';
+import 'package:aperturex/gallery/gallery_controller.dart';
+import 'package:aperturex/gallery/gallery_source.dart';
 
 void main() {
   late ProviderContainer container;

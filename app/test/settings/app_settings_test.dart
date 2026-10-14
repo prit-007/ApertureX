@@ -2,8 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tessera/settings/app_settings.dart';
-import 'package:tessera/settings/shell_preference.dart';
+import 'package:aperturex/settings/app_settings.dart';
+import 'package:aperturex/settings/shell_preference.dart';
 
 void main() {
   test('persists the chosen theme mode', () async {

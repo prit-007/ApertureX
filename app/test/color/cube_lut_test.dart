@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/color/cube_lut.dart';
+import 'package:aperturex/color/cube_lut.dart';
 
 const _identity2 = '''
 # a 2x2x2 identity LUT

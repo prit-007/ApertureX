@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:tessera/edit/parameter.dart';
-import 'package:tessera/edit/recipe_controller.dart';
-import 'package:tessera/ui/snapseed/edit_hud.dart';
+import 'package:aperturex/edit/parameter.dart';
+import 'package:aperturex/edit/recipe_controller.dart';
+import 'package:aperturex/ui/snapseed/edit_hud.dart';
 
 void main() {
   late ProviderContainer container;

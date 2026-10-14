@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:tessera/edit/recipe_controller.dart';
-import 'package:tessera/ui/common/xmp_import_sheet.dart';
+import 'package:aperturex/edit/recipe_controller.dart';
+import 'package:aperturex/ui/common/xmp_import_sheet.dart';
 
 const _xmp = '''
 <rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"

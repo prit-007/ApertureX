@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/edit/recipe.dart';
-import 'package:tessera/edit/tool_definition.dart';
+import 'package:aperturex/edit/recipe.dart';
+import 'package:aperturex/edit/tool_definition.dart';
 
 void main() {
   test('applyTo sets the known parameters', () {

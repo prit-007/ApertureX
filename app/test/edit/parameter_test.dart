@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/edit/parameter.dart';
-import 'package:tessera/edit/recipe.dart';
+import 'package:aperturex/edit/parameter.dart';
+import 'package:aperturex/edit/recipe.dart';
 
 void main() {
   group('parameter catalog', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/color/spatial_spec.dart';
-import 'package:tessera/edit/recipe.dart';
+import 'package:aperturex/color/spatial_spec.dart';
+import 'package:aperturex/edit/recipe.dart';
 
 void main() {
   group('SpatialSpec', () {

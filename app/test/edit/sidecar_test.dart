@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tessera/edit/recipe.dart';
-import 'package:tessera/edit/sidecar.dart';
+import 'package:aperturex/edit/recipe.dart';
+import 'package:aperturex/edit/sidecar.dart';
 
 void main() {
   test('encode/decode round-trips a full recipe', () {
