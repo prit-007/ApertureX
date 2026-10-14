@@ -3,6 +3,8 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../color/tat.dart';
 import '../../edit/parameter.dart';
+import '../../edit/recipe_controller.dart';
+import '../../viewport/compare_hold.dart';
 import '../common/geometry_controls.dart';
 import '../common/hsl_mixer.dart';
 import '../common/mask_controls.dart';
@@ -46,6 +48,13 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final canUndo = ref.watch(
+      recipeControllerProvider.select((s) => s.index > 0),
+    );
+    final canRedo = ref.watch(
+      recipeControllerProvider.select((s) => s.index < s.history.length - 1),
+    );
+    final controller = ref.read(recipeControllerProvider.notifier);
 
     Widget chip(String label, bool selected, VoidCallback onTap) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -110,6 +119,34 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 onPressed: () => ref.read(tatModeProvider.notifier).toggle(),
                 icon: const Icon(Icons.colorize),
                 selectedIcon: Icon(Icons.colorize, color: scheme.primary),
+              ),
+              // History + compare live at the bottom, in the thumb zone
+              // (issue #28) — the app bar keeps only crop/more/export.
+              IconButton(
+                tooltip: 'Undo',
+                onPressed: canUndo ? controller.undo : null,
+                icon: const Icon(Icons.undo),
+              ),
+              IconButton(
+                tooltip: 'Redo',
+                onPressed: canRedo ? controller.redo : null,
+                icon: const Icon(Icons.redo),
+              ),
+              Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (_) =>
+                    ref.read(compareHoldProvider.notifier).hold(),
+                onPointerUp: (_) =>
+                    ref.read(compareHoldProvider.notifier).release(),
+                onPointerCancel: (_) =>
+                    ref.read(compareHoldProvider.notifier).release(),
+                child: IconButton(
+                  tooltip: 'Hold to compare',
+                  // The Listener above drives the compare; the button only
+                  // provides the affordance and the ripple.
+                  onPressed: () {},
+                  icon: const Icon(Icons.compare),
+                ),
               ),
             ],
           ),

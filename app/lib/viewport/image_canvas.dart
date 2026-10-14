@@ -20,6 +20,7 @@ import '../edit/recipe.dart';
 import '../edit/recipe_controller.dart';
 import '../engine/engine.dart';
 import '../gesture/gesture_interpreter.dart';
+import 'compare_hold.dart';
 
 /// The shared editing canvas, rendered by BOTH shells (ADR 0008 invariant).
 ///
@@ -387,6 +388,17 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       mutedParametersProvider,
       (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
     );
+    // Before/after compare: long-press on the photo or the panel's Compare
+    // button both drive the same flag (issue #28).
+    ref.listen(compareHoldProvider, (previous, next) {
+      if (previous == next) return;
+      setState(() => _comparing = next);
+      if (next) {
+        _compare.forward();
+      } else {
+        _compare.reverse();
+      }
+    });
 
     final program = _program;
     final shader = _shader;
@@ -421,18 +433,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 onScaleUpdate: (d) => _onScaleUpdate(d, fitted, bounds, tat),
                 onScaleEnd: (_) => _onScaleEnd(),
                 onDoubleTap: () => _resetView(fitted, bounds),
-                onLongPressStart: (_) {
-                  setState(() => _comparing = true);
-                  _compare.forward();
-                },
-                onLongPressEnd: (_) {
-                  setState(() => _comparing = false);
-                  _compare.reverse();
-                },
-                onLongPressCancel: () {
-                  setState(() => _comparing = false);
-                  _compare.reverse();
-                },
+                onLongPressStart: (_) =>
+                    ref.read(compareHoldProvider.notifier).hold(),
+                onLongPressEnd: (_) =>
+                    ref.read(compareHoldProvider.notifier).release(),
+                onLongPressCancel: () =>
+                    ref.read(compareHoldProvider.notifier).release(),
                 child: ClipRect(
                   child: Transform(
                     alignment: Alignment.topLeft,

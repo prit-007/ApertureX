@@ -45,6 +45,7 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   bool _showHistogram = false;
+  bool _histogramOpen = false;
   bool _panelCollapsed = false;
   GradeTool _active = GradeTool.exposure;
   ToolCategory _category = ToolCategory.light;
@@ -221,26 +222,21 @@ class _AppShellState extends ConsumerState<AppShell> {
             child: Stack(
               children: [
                 Positioned.fill(child: _canvas()),
-                if (_showHistogram && hasHistogram)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    child: _Fade(active: active, child: const _HistogramOverlay()),
-                  ),
                 Positioned(
                   left: Insets.sm,
                   bottom: Insets.sm,
                   child: _Fade(active: active, child: overlays[0]),
                 ),
-                Positioned(
-                  right: Insets.sm,
-                  bottom: Insets.sm,
-                  child: _Fade(active: active, child: overlays[1]),
-                ),
               ],
             ),
           ),
+          // The histogram lives in a pull-up drawer nested at the top of the
+          // bottom panel (issue #28) — it never steals canvas space.
+          if (!_panelCollapsed && hasHistogram)
+            _HistogramDrawer(
+              open: _histogramOpen,
+              setOpen: (v) => setState(() => _histogramOpen = v),
+            ),
           _PanelHandle(
             collapsed: _panelCollapsed,
             onToggle: () => setState(() => _panelCollapsed = !_panelCollapsed),
@@ -308,6 +304,90 @@ class _PanelHandle extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The histogram as a pull-up drawer nested at the top of the bottom panel
+/// (issue #28): tap the handle — or swipe it up/down — to reveal/hide it, so
+/// it never steals canvas space.
+class _HistogramDrawer extends StatelessWidget {
+  const _HistogramDrawer({required this.open, required this.setOpen});
+
+  final bool open;
+  final ValueChanged<bool> setOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            key: const Key('histogram-drawer-handle'),
+            onTap: () => setOpen(!open),
+            onVerticalDragUpdate: (d) {
+              final dy = d.primaryDelta ?? 0;
+              if (!open && dy < -6) {
+                setOpen(true);
+              } else if (open && dy > 6) {
+                setOpen(false);
+              }
+            },
+            child: SizedBox(
+              height: 30,
+              child: Row(
+                children: [
+                  const SizedBox(width: Insets.sm),
+                  const Icon(Icons.bar_chart, size: 16),
+                  const SizedBox(width: Insets.xs),
+                  Text(
+                    'Histogram',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: scheme.onSurfaceVariant,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    open ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+                    size: 18,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: Insets.sm),
+                ],
+              ),
+            ),
+          ),
+          ClipRect(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: open
+                  ? SizedBox(
+                      height: 96,
+                      width: double.infinity,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          Insets.md,
+                          0,
+                          Insets.md,
+                          Insets.xs,
+                        ),
+                        child: const InteractiveHistogram(height: 90),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ),
+          Divider(height: 1, color: scheme.outlineVariant),
+        ],
       ),
     );
   }

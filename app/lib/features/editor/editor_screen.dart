@@ -246,10 +246,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             child: AppBar(
               leading: const BackButton(),
               title: const Text('Edit'),
-              // The gesture shell carries these on the floating top HUD.
-              actions: gestureShell
-                  ? null
-                  : [crop, undo, redo, more, export],
+              // History lives with the Lightroom tabs (bottom, thumb zone)
+              // and on the gesture shell's floating HUD (issue #28).
+              actions: gestureShell ? null : [crop, more, export],
             ),
           ),
         ),

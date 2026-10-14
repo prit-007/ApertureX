@@ -13,6 +13,7 @@ import 'package:aperturex/gallery/gallery_asset.dart';
 import 'package:aperturex/gallery/gallery_controller.dart';
 import 'package:aperturex/gallery/gallery_source.dart';
 import 'package:aperturex/settings/shell_preference.dart';
+import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
 import 'package:aperturex/ui/app_shell.dart';
 import 'package:aperturex/viewport/image_canvas.dart';
 
@@ -219,6 +220,72 @@ void main() {
       expect(find.byTooltip('Undo'), findsOneWidget);
       expect(find.byTooltip('Redo'), findsOneWidget);
       expect(find.text('Export'), findsOneWidget);
+    });
+  });
+
+  group('bottom-heavy ergonomics (issue #28)', () {
+    testWidgets('undo/redo live with the Lightroom tabs, not the app bar', (
+      tester,
+    ) async {
+      final container = containerWith(images: {'a': _png});
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: EditorScreen(
+              asset: GalleryAsset(id: 'a', width: 1, height: 1),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // The app bar keeps only crop / more / export.
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byTooltip('Undo'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byTooltip('Redo'),
+        ),
+        findsNothing,
+      );
+
+      // History + compare sit with the tabs at the bottom.
+      final shell = find.byType(LightroomShell);
+      expect(
+        find.descendant(of: shell, matching: find.byTooltip('Undo')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: shell, matching: find.byTooltip('Redo')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: shell, matching: find.byTooltip('Hold to compare')),
+        findsOneWidget,
+      );
+
+      // And undo works from there.
+      final controller = container.read(recipeControllerProvider.notifier);
+      controller
+        ..update(Parameter.exposure, 1.5)
+        ..commit(label: 'Exposure');
+      await tester.pump();
+      expect(container.read(recipeControllerProvider).recipe.exposure, 1.5);
+
+      await tester.tap(
+        find.descendant(of: shell, matching: find.byTooltip('Undo')),
+      );
+      await tester.pump();
+      expect(container.read(recipeControllerProvider).recipe.exposure, 0);
     });
   });
 }
