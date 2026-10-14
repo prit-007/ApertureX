@@ -79,4 +79,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(LightroomShell), findsOneWidget);
   });
+
+  group('adaptive layout (issue #34)', () {
+    testWidgets('portrait phone stacks the panel under the canvas', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpShell(tester);
+
+      // Portrait: canvas and panel share the column (canvas gets flex 3).
+      expect(find.byType(LightroomShell), findsOneWidget);
+      expect(find.byType(ImageCanvas), findsOneWidget);
+    });
+
+    testWidgets('landscape/tablet splits canvas + fixed sidebar', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpShell(tester);
+
+      // Wide: the sidebar hosts the panel; both halves still exist.
+      expect(find.byType(LightroomShell), findsOneWidget);
+      expect(find.byType(ImageCanvas), findsOneWidget);
+
+      final row = find.descendant(
+        of: find.byType(AppShell),
+        matching: find.byType(Row),
+      );
+      expect(row, findsWidgets);
+    });
+  });
 }

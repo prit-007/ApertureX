@@ -254,49 +254,97 @@ class _AppShellState extends ConsumerState<AppShell> {
       );
     }
 
-    return ColoredBox(
-      color: scheme.surface,
-      child: Column(
-        children: [
-          Expanded(
-            flex: _panelCollapsed ? 10 : 3,
-            child: Stack(
+    // Adaptive layout (issue #34): landscape or tablet widths split into a
+    // canvas + fixed sidebar; portrait phones keep the stacked panel.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth > constraints.maxHeight ||
+            constraints.maxWidth >= 600;
+        final canvas = Stack(
+          children: [
+            Positioned.fill(child: _canvas()),
+            // Selective editing (issue #25) over the photo, with the
+            // adjust bar floating at its bottom edge.
+            if (nodeMode) const Positioned.fill(child: NodeOverlay()),
+            if (nodeMode)
+              Positioned(
+                left: Insets.sm,
+                right: Insets.sm,
+                bottom: Insets.sm,
+                child: const NodeControls(),
+              ),
+            if (!nodeMode)
+              Positioned(
+                left: Insets.sm,
+                bottom: Insets.sm,
+                child: _Fade(active: active, child: overlays[0]),
+              ),
+          ],
+        );
+
+        if (wide) {
+          return ColoredBox(
+            color: scheme.surface,
+            child: Row(
               children: [
-                Positioned.fill(child: _canvas()),
-                // Selective editing (issue #25) over the photo, with the
-                // adjust bar floating at its bottom edge.
-                if (nodeMode) const Positioned.fill(child: NodeOverlay()),
-                if (nodeMode)
-                  Positioned(
-                    left: Insets.sm,
-                    right: Insets.sm,
-                    bottom: Insets.sm,
-                    child: const NodeControls(),
+                Expanded(child: canvas),
+                // Notch/punch-hole protection on the trailing edge.
+                SafeArea(
+                  left: false,
+                  right: true,
+                  child: SizedBox(
+                    width: 350,
+                    child: Column(
+                      children: [
+                        _PanelHandle(
+                          collapsed: _panelCollapsed,
+                          onToggle: () => setState(
+                            () => _panelCollapsed = !_panelCollapsed,
+                          ),
+                        ),
+                        if (!_panelCollapsed && hasHistogram)
+                          _HistogramDrawer(
+                            open: _histogramOpen,
+                            setOpen: (v) =>
+                                setState(() => _histogramOpen = v),
+                          ),
+                        if (!_panelCollapsed)
+                          const Expanded(child: LightroomShell()),
+                      ],
+                    ),
                   ),
-                if (!nodeMode)
-                  Positioned(
-                    left: Insets.sm,
-                    bottom: Insets.sm,
-                    child: _Fade(active: active, child: overlays[0]),
-                  ),
+                ),
               ],
             ),
+          );
+        }
+
+        return ColoredBox(
+          color: scheme.surface,
+          child: Column(
+            children: [
+              Expanded(
+                flex: _panelCollapsed ? 10 : 3,
+                child: canvas,
+              ),
+              // The histogram lives in a pull-up drawer nested at the top of
+              // the bottom panel (issue #28) — it never steals canvas space.
+              if (!_panelCollapsed && hasHistogram)
+                _HistogramDrawer(
+                  open: _histogramOpen,
+                  setOpen: (v) => setState(() => _histogramOpen = v),
+                ),
+              _PanelHandle(
+                collapsed: _panelCollapsed,
+                onToggle: () =>
+                    setState(() => _panelCollapsed = !_panelCollapsed),
+              ),
+              if (!_panelCollapsed)
+                const Expanded(flex: 2, child: LightroomShell()),
+            ],
           ),
-          // The histogram lives in a pull-up drawer nested at the top of the
-          // bottom panel (issue #28) — it never steals canvas space.
-          if (!_panelCollapsed && hasHistogram)
-            _HistogramDrawer(
-              open: _histogramOpen,
-              setOpen: (v) => setState(() => _histogramOpen = v),
-            ),
-          _PanelHandle(
-            collapsed: _panelCollapsed,
-            onToggle: () => setState(() => _panelCollapsed = !_panelCollapsed),
-          ),
-          if (!_panelCollapsed)
-            const Expanded(flex: 2, child: LightroomShell()),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -362,13 +410,54 @@ class _PanelHandle extends StatelessWidget {
 }
 
 /// The histogram as a pull-up drawer nested at the top of the bottom panel
-/// (issue #28): tap the handle — or swipe it up/down — to reveal/hide it, so
-/// it never steals canvas space.
-class _HistogramDrawer extends StatelessWidget {
+/// (issue #28): tap the handle — or swipe/flick it up/down — to reveal/hide
+/// it, so it never steals canvas space.
+///
+/// Open/close is decided on release (issue #45): velocity first (so a fast
+/// flick shorter than the displacement threshold still works), then net
+/// displacement with hysteresis (close needs a slightly larger drift than
+/// open); anything below both thresholds snaps back to the previous state.
+class _HistogramDrawer extends StatefulWidget {
   const _HistogramDrawer({required this.open, required this.setOpen});
 
   final bool open;
   final ValueChanged<bool> setOpen;
+
+  @override
+  State<_HistogramDrawer> createState() => _HistogramDrawerState();
+}
+
+class _HistogramDrawerState extends State<_HistogramDrawer> {
+  /// Flick threshold in logical px/s (a slow drag never reaches it).
+  static const double _flickVelocity = 400;
+
+  /// Net-displacement fallback, with hysteresis: opening is a lighter
+  /// gesture than closing so a jittery hold can't toggle both ways.
+  /// A tester.drag(±48) delivers ~±28px after kTouchSlop (~18) is eaten,
+  /// so both thresholds must sit below that.
+  static const double _openOffset = 24;
+  static const double _closeOffset = 28;
+
+  double _netDy = 0;
+
+  void _onUpdate(DragUpdateDetails d) {
+    _netDy += d.primaryDelta ?? 0;
+  }
+
+  void _onEnd(DragEndDetails d) {
+    final dy = d.velocity.pixelsPerSecond.dy;
+    if (dy <= -_flickVelocity) {
+      widget.setOpen(true);
+    } else if (dy >= _flickVelocity) {
+      widget.setOpen(false);
+    } else if (_netDy <= -_openOffset) {
+      widget.setOpen(true);
+    } else if (_netDy >= _closeOffset) {
+      widget.setOpen(false);
+    }
+    // Below both thresholds: snap back — leave state untouched.
+    _netDy = 0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -381,15 +470,9 @@ class _HistogramDrawer extends StatelessWidget {
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             key: const Key('histogram-drawer-handle'),
-            onTap: () => setOpen(!open),
-            onVerticalDragUpdate: (d) {
-              final dy = d.primaryDelta ?? 0;
-              if (!open && dy < -6) {
-                setOpen(true);
-              } else if (open && dy > 6) {
-                setOpen(false);
-              }
-            },
+            onTap: () => widget.setOpen(!widget.open),
+            onVerticalDragUpdate: _onUpdate,
+            onVerticalDragEnd: _onEnd,
             child: SizedBox(
               height: 30,
               child: Row(
@@ -407,7 +490,9 @@ class _HistogramDrawer extends StatelessWidget {
                   ),
                   const Spacer(),
                   Icon(
-                    open ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+                    widget.open
+                        ? Icons.keyboard_arrow_down
+                        : Icons.keyboard_arrow_up,
                     size: 18,
                     color: scheme.onSurfaceVariant,
                   ),
@@ -421,7 +506,7 @@ class _HistogramDrawer extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOutCubic,
               alignment: Alignment.topCenter,
-              child: open
+              child: widget.open
                   ? SizedBox(
                       height: 96,
                       width: double.infinity,
