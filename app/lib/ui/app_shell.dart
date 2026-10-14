@@ -14,8 +14,10 @@ import '../edit/recipe_controller.dart';
 import '../edit/recipe_mapping.dart';
 import '../gesture/gesture_interpreter.dart';
 import '../settings/shell_preference.dart';
+import '../settings/onboarding.dart';
 import '../viewport/image_canvas.dart';
 import 'lightroom/lightroom_shell.dart';
+import 'snapseed/ghost_hint.dart';
 import 'snapseed/snapseed_shell.dart';
 
 /// The editor body shared by the app: one [ImageCanvas] over one recipe.
@@ -96,36 +98,46 @@ class _AppShellState extends ConsumerState<AppShell> {
     ];
 
     if (kind == AppShellKind.snapseed) {
+      final hintSeen = ref.watch(gestureHintSeenProvider);
       return ColoredBox(
         color: scheme.surface,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: ImageCanvas(
-                imageBytes: widget.imageBytes,
-                editInterpreter: _fsm,
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: hintSeen
+              ? null
+              : (_) => ref
+                    .read(gestureHintSeenProvider.notifier)
+                    .markGestureHintSeen(),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ImageCanvas(
+                  imageBytes: widget.imageBytes,
+                  editInterpreter: _fsm,
+                ),
               ),
-            ),
-            SnapseedShell(
-              tool: _active,
-              category: _category,
-              tools: gestureCategories[_category]!,
-              onCycleCategory: _cycleCategory,
-              onPickTool: (t) {
-                _fsm.setTool(t);
-                setState(() => _active = t);
-              },
-            ),
-            if (_showHistogram && ref.watch(histogramProvider) != null)
-              const Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                child: _HistogramOverlay(),
+              SnapseedShell(
+                tool: _active,
+                category: _category,
+                tools: gestureCategories[_category]!,
+                onCycleCategory: _cycleCategory,
+                onPickTool: (t) {
+                  _fsm.setTool(t);
+                  setState(() => _active = t);
+                },
               ),
-            Positioned(left: Insets.sm, bottom: Insets.sm, child: overlays[0]),
-            Positioned(right: Insets.sm, bottom: Insets.sm, child: overlays[1]),
-          ],
+              if (_showHistogram && hasHistogram)
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: _HistogramOverlay(),
+                ),
+              if (!hintSeen) const Positioned.fill(child: GhostHint()),
+              Positioned(left: Insets.sm, bottom: Insets.sm, child: overlays[0]),
+              Positioned(right: Insets.sm, bottom: Insets.sm, child: overlays[1]),
+            ],
+          ),
         ),
       );
     }
