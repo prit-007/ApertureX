@@ -131,6 +131,29 @@ pub fn inscribed_rect(w: usize, h: usize, angle_deg: f32) -> [usize; 4] {
     [(w - cw) / 2, (h - ch) / 2, cw, ch]
 }
 
+/// Bilinear downscale so the longest side is at most `max_dim`. A `max_dim` of
+/// 0 (or an already-small image) returns a copy at the original size.
+pub fn downscale(rgba: &[u8], w: usize, h: usize, max_dim: usize) -> (Vec<u8>, usize, usize) {
+    let longest = w.max(h);
+    if max_dim == 0 || longest <= max_dim {
+        return (rgba.to_vec(), w, h);
+    }
+    let scale = max_dim as f32 / longest as f32;
+    let nw = ((w as f32 * scale).round() as usize).max(1);
+    let nh = ((h as f32 * scale).round() as usize).max(1);
+    let mut out = vec![0u8; nw * nh * 4];
+    for y in 0..nh {
+        for x in 0..nw {
+            let sx = (x as f32 + 0.5) / scale - 0.5;
+            let sy = (y as f32 + 0.5) / scale - 0.5;
+            let px = sample(rgba, w, h, sx, sy);
+            let i = (y * nw + x) * 4;
+            out[i..i + 4].copy_from_slice(&px);
+        }
+    }
+    (out, nw, nh)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,6 +172,17 @@ mod tests {
             }
         }
         v
+    }
+
+    #[test]
+    fn downscale_caps_the_long_side() {
+        let src = grid(40, 20);
+        let (out, w, h) = downscale(&src, 40, 20, 10);
+        assert_eq!(w.max(h), 10);
+        assert_eq!(out.len(), w * h * 4);
+        // max_dim 0 means no resize
+        let (_, w2, h2) = downscale(&src, 40, 20, 0);
+        assert_eq!((w2, h2), (40, 20));
     }
 
     #[test]

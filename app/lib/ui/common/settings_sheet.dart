@@ -7,6 +7,7 @@ import '../../edit/recipe_controller.dart';
 import '../../edit/settings_clipboard.dart';
 import '../../features/logs/logs_screen.dart';
 import '../../settings/app_settings.dart';
+import '../../settings/export_settings.dart';
 import '../../settings/shell_preference.dart';
 import 'app_sheet.dart';
 import 'looks_sheet.dart';
@@ -107,6 +108,9 @@ class SettingsSheet extends ConsumerWidget {
           title: 'Browse looks',
           onTap: () => showAppSheet(context, const LooksSheet()),
         ),
+        const SizedBox(height: Insets.lg),
+        const _Label('Export'),
+        const _ExportSection(),
         const SizedBox(height: Insets.lg),
         const _Label('Diagnostics'),
         ListenableBuilder(
@@ -226,4 +230,63 @@ void _openLicenses(BuildContext context) {
     applicationVersion: '0.0.1 · P2',
     applicationLegalese: 'GPL-3.0-or-later',
   );
+}
+
+/// Export quality + maximum-size controls (persisted).
+class _ExportSection extends ConsumerWidget {
+  const _ExportSection();
+
+  static const _sizes = <(String, int)>[
+    ('Original', 0),
+    ('2048', 2048),
+    ('1080', 1080),
+    ('720', 720),
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(exportSettingsProvider);
+    final notifier = ref.read(exportSettingsProvider.notifier);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const SizedBox(width: 72, child: Text('Quality')),
+            Expanded(
+              child: Slider(
+                value: settings.quality.toDouble(),
+                min: 60,
+                max: 100,
+                divisions: 40,
+                label: '${settings.quality}',
+                onChanged: (v) => notifier.setQuality(v.round()),
+              ),
+            ),
+            SizedBox(
+              width: 32,
+              child: Text('${settings.quality}', textAlign: TextAlign.end),
+            ),
+          ],
+        ),
+        const SizedBox(height: Insets.sm),
+        const Padding(
+          padding: EdgeInsets.only(bottom: Insets.sm),
+          child: Text('Max size (long side)'),
+        ),
+        Wrap(
+          spacing: Insets.sm,
+          children: [
+            for (final (label, dim) in _sizes)
+              ChoiceChip(
+                label: Text(label),
+                selected: settings.maxDim == dim,
+                showCheckmark: false,
+                onSelected: (_) => notifier.setMaxDim(dim),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
 }

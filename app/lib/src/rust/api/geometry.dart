@@ -92,6 +92,19 @@ Future<GeometryResult> geometryApply({
   cropB: cropB,
 );
 
+/// Bilinear downscale so the longest side is at most `max_dim`.
+Future<GeometryResult> geometryDownscale({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required int maxDim,
+}) => RustLib.instance.api.crateApiGeometryGeometryDownscale(
+  rgba: rgba,
+  width: width,
+  height: height,
+  maxDim: maxDim,
+);
+
 /// Rotated/cropped result: pixels plus the new dimensions.
 class GeometryResult {
   final int width;

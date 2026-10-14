@@ -8,6 +8,7 @@ enum AppShellKind { lightroom, snapseed }
 
 class ShellPreference extends Notifier<AppShellKind> {
   static const String _key = 'shell_kind';
+  bool _userSet = false;
 
   @override
   AppShellKind build() {
@@ -16,6 +17,7 @@ class ShellPreference extends Notifier<AppShellKind> {
   }
 
   void select(AppShellKind kind) {
+    _userSet = true;
     state = kind;
     _persist(kind);
   }
@@ -23,6 +25,7 @@ class ShellPreference extends Notifier<AppShellKind> {
   Future<void> _restore() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (_userSet) return;
       final name = prefs.getString(_key);
       state = name == AppShellKind.snapseed.name
           ? AppShellKind.snapseed

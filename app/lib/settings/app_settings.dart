@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// persisted on-device.
 class AppSettings extends Notifier<ThemeMode> {
   static const String _key = 'theme_mode';
+  bool _userSet = false;
 
   @override
   ThemeMode build() {
@@ -15,6 +16,7 @@ class AppSettings extends Notifier<ThemeMode> {
   }
 
   void setThemeMode(ThemeMode mode) {
+    _userSet = true;
     state = mode;
     _persist(mode);
   }
@@ -22,6 +24,7 @@ class AppSettings extends Notifier<ThemeMode> {
   Future<void> _restore() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (_userSet) return;
       state = _fromName(prefs.getString(_key));
     } catch (_) {
       // No storage available (e.g. tests) — keep the dark default.

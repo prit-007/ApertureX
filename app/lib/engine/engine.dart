@@ -228,6 +228,19 @@ class TesseraEngine {
 
   // --- geometry (P2) --------------------------------------------------------
 
+  /// Bilinear downscale so the longest side is at most [maxDim] (0 = no-op).
+  static Future<rust_geometry.GeometryResult> downscale(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    int maxDim = 0,
+  }) => rust_geometry.geometryDownscale(
+    rgba: rgba,
+    width: width,
+    height: height,
+    maxDim: maxDim,
+  );
+
   /// Applies the geometry chain (flip → rotate → straighten); the result has
   /// new dimensions.
   static Future<rust_geometry.GeometryResult> applyGeometry(
@@ -326,6 +339,7 @@ class TesseraEngine {
     List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
     List<int> exif = const <int>[],
     int quality = 90,
+    int? maxDim,
   }) async {
     final geo = await applyGeometry(
       rgba,
@@ -346,10 +360,21 @@ class TesseraEngine {
       layers: layers,
     );
     final graded = await gradeRgba(masked, spec);
+
+    var outRgba = graded;
+    var outW = geo.width;
+    var outH = geo.height;
+    if (maxDim != null && maxDim > 0) {
+      final d = await downscale(graded, width: outW, height: outH, maxDim: maxDim);
+      outRgba = d.rgba;
+      outW = d.width;
+      outH = d.height;
+    }
+
     return encodeJpegRgba(
-      rgba: graded,
-      width: geo.width,
-      height: geo.height,
+      rgba: outRgba,
+      width: outW,
+      height: outH,
       quality: quality,
       exif: exif,
     );

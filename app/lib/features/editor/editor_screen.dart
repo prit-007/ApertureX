@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../color/grade_spec.dart';
 import '../../color/spatial_spec.dart';
@@ -17,6 +20,7 @@ import '../../features/crop/crop_screen.dart';
 import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
 import '../../engine/engine.dart';
+import '../../settings/export_settings.dart';
 import '../../ui/app_shell.dart';
 import '../../ui/common/app_primitives.dart';
 import '../../ui/common/app_sheet.dart';
@@ -103,6 +107,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       if (bytes.isEmpty) throw StateError('The image could not be read.');
 
       final recipe = ref.read(recipeControllerProvider).recipe;
+      final settings = ref.read(exportSettingsProvider);
       final decoded = await TesseraEngine.decodeJpegRgba(bytes);
       final exif = await TesseraEngine.extractExif(bytes);
       final jpeg = await TesseraEngine.exportJpeg(
@@ -114,6 +119,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         geometry: GeometrySpec.fromRecipe(recipe),
         layers: recipe.layers,
         exif: exif,
+        quality: settings.quality,
+        maxDim: settings.maxDim == 0 ? null : settings.maxDim,
       );
       if (!await Gal.hasAccess()) await Gal.requestAccess();
       await Gal.putImageBytes(
@@ -122,16 +129,37 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       );
       axLog(
         LogDomain.export,
-        'Exported ${decoded.width}×${decoded.height} (${jpeg.length} bytes)',
+        'Exported ${decoded.width}×${decoded.height} '
+            '(q${settings.quality}, ${jpeg.length} bytes)',
       );
       messenger.showSnackBar(
-        const SnackBar(content: Text('Saved to your photos')),
+        SnackBar(
+          content: const Text('Saved to your photos'),
+          action: SnackBarAction(
+            label: 'Share',
+            onPressed: () => _share(jpeg),
+          ),
+        ),
       );
     } catch (e) {
       axLog(LogDomain.export, 'Export failed: $e', LogLevel.error);
       messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
     } finally {
       if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  Future<void> _share(Uint8List jpeg) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/aperturex-share.jpg');
+      await file.writeAsBytes(jpeg, flush: true);
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(file.path, mimeType: 'image/jpeg')]),
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Share failed: $e')));
     }
   }
 

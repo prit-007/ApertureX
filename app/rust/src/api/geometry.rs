@@ -145,6 +145,16 @@ pub fn geometry_apply(
     }
 }
 
+/// Bilinear downscale so the longest side is at most `max_dim`.
+pub fn geometry_downscale(rgba: Vec<u8>, width: u32, height: u32, max_dim: u32) -> GeometryResult {
+    let (out, w, h) = geometry::downscale(&rgba, width as usize, height as usize, max_dim as usize);
+    GeometryResult {
+        width: w as u32,
+        height: h as u32,
+        rgba: out,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
