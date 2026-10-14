@@ -1,16 +1,25 @@
 # ApertureX
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Status](https://img.shields.io/badge/status-P1%20in%20progress-blue.svg)](docs/ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-v0.1%20prep-blue.svg)](docs/ROADMAP.md)
 [![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-lightgrey.svg)](#)
 
 **A mobile-native, non-destructive, free-and-open-source photo editor — the Snapseed/Lightroom replacement the FOSS world never built.**
 
 > *ApertureX* — a photo editor that opens like a camera aperture and edits like a darkroom. It ships **two UIs over one recipe**: a Lightroom-style precision panel UI (default) and a Snapseed-style gesture UI. Internally, every large photo is still edited as a field of **tiles**, never one giant bitmap — the engine's atomic unit.
 
-> **Status: in development (P1).** The tile viewport is being built now; foundations (P0) and the gesture+shader spike are done. The project is expanding toward a **Lightroom-parity, dual-UI** editor (ADR 0008–0010): one recipe, two shells, preset/LUT import, masking, and an optional F-Droid-clean on-device ML module. See [`docs/ROADMAP.md`](docs/ROADMAP.md) and the [`docs/PARITY.md`](docs/PARITY.md) ledger.
+> **Status: pre-v0.1.** Both UI shells (Lightroom panels + Snapseed gestures) are
+> feature-complete for P2: a Rust color/spatial/geometry/mask engine, a 60fps
+> preview (proxy-resolution + split bakes), crop, batch gallery, presets, and
+> on-device offline activity logs. The project is now in **release hardening**
+> (icons, signing, metadata). See [`docs/ROADMAP.md`](docs/ROADMAP.md) and the
+> [`docs/PARITY.md`](docs/PARITY.md) ledger.
 
-> **Naming:** the product is **ApertureX**. The mechanical code rename (pubspec package `tessera`, Android applicationId `com.devparadise.tessera`, Rust crate `rust_lib_tessera`) is a deliberate follow-up, deferred so it doesn't destabilize the green P1 build; it is tracked on the roadmap.
+> **Naming:** the product is **ApertureX**. The Dart package is now
+> `aperturex`; the Android `applicationId` (`com.devparadise.tessera`) and the
+> Rust crate (`rust_lib_tessera`) still carry the historical name and are the
+> remaining rename step (changing the applicationId would break existing
+> installs/keys).
 
 ---
 
