@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -8,6 +9,7 @@ import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
 import '../../edit/recipe_controller.dart';
 import '../../viewport/canvas_transform.dart';
+import '../../viewport/mask_peek.dart';
 
 /// How an active pointer is interacting with a node.
 enum _NodeDrag { idle, move, resize, place }
@@ -88,6 +90,12 @@ class _NodeOverlayState extends ConsumerState<NodeOverlay> {
   }
 
   void _onDown(PointerDownEvent e, CanvasTransform t, List<AdjustmentLayer> layers) {
+    // Palm rejection (issue #35): stylus-only mode drops every non-stylus
+    // pointer before it can place or drag a node.
+    final stylusOnly = ref.read(stylusOnlyModeProvider);
+    final isStylus = e.kind == PointerDeviceKind.stylus ||
+        e.kind == PointerDeviceKind.invertedStylus;
+    if (stylusOnly && !isStylus) return;
     if (_down != null) {
       // A second finger lands: abandon the node gesture (no accidental edits
       // while the user reaches to re-enter two-finger zoom via the HUD).

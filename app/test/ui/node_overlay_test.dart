@@ -3,6 +3,8 @@ import 'package:aperturex/edit/node_editor.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
 import 'package:aperturex/ui/common/node_overlay.dart';
 import 'package:aperturex/viewport/canvas_transform.dart';
+import 'package:aperturex/viewport/mask_peek.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -127,5 +129,40 @@ void main() {
     await tester.pump();
 
     expect(layers(), isEmpty);
+  });
+
+  group('palm rejection (issue #35)', () {
+    testWidgets('stylus-only mode ignores touch pointers', (tester) async {
+      container.read(stylusOnlyModeProvider.notifier).set(true);
+      await pumpOverlay(tester);
+      await tester.tapAt(const Offset(100, 200));
+      await tester.pump();
+
+      expect(layers(), isEmpty);
+    });
+
+    testWidgets('stylus-only mode still places with a stylus', (tester) async {
+      container.read(stylusOnlyModeProvider.notifier).set(true);
+      await pumpOverlay(tester);
+      final gesture = await tester.startGesture(
+        const Offset(100, 200),
+        kind: PointerDeviceKind.stylus,
+      );
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      expect(layers(), hasLength(1));
+      expect(layers().single.maskKind, MaskKind.radial);
+    });
+
+    testWidgets('touch mode places with touch as before', (tester) async {
+      container.read(stylusOnlyModeProvider.notifier).set(false);
+      await pumpOverlay(tester);
+      await tester.tapAt(const Offset(100, 200));
+      await tester.pump();
+
+      expect(layers(), hasLength(1));
+    });
   });
 }
