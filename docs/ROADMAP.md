@@ -5,7 +5,7 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status:** P-1 ✅ · P0 ✅ (foundations + JPEG proxy folded into P1) · P1 🚧 (viewport + tile compositor + zero-copy preview *partly* wired + EditRecipe v1 + basic JPEG export done; a **bug blocks the zero-copy Texture display** (#54), and native ROI + >100 MP profiling + tile pyramid remain (#16)) · **P2 🚧** (recipe superset + Riverpod controller + shared ParameterControl + dual-shell skeleton + full point-wise colour pipeline (LUT, WB/exposure/contrast/vibrance/saturation/split-tone/curves) + **spatial passes** + **geometry** + **presets/LUT/.xmp import** + preview==export + live histogram done; whites/blacks + Adobe vibrance (#59), sidecar persistence (#61), `.lrtemplate` (#62), guided-filter/quality refinements remain) · P2.5 🚧 (linear/radial/luminance masks + layer model landed; **brush wiring** pending #63) · P3 🚧 (rawler RAW decode/demosaic/matrices/orientation/ROI/export landed; corpus, EXIF passthrough, lens-correction wiring (#66), DCP profiles (#64), highlight reconstruction (#65) remain).
+**Current status:** P-1 ✅ · P0 ✅ (foundations + JPEG proxy folded into P1) · P1 🚧 (viewport + tile compositor + zero-copy preview *partly* wired + EditRecipe v1 + basic JPEG export done; native ROI + >100 MP profiling + tile pyramid remain (#16)) · **P2 🚧** (recipe superset + Riverpod controller + shared ParameterControl + dual-shell skeleton + full point-wise colour pipeline (LUT, WB/exposure/contrast/vibrance/saturation/split-tone/curves) + **spatial passes** + **geometry** + **presets/LUT/.xmp import** + preview==export + live histogram done; whites/blacks + Adobe vibrance (#59), sidecar persistence (#61), `.lrtemplate` (#62), guided-filter/quality refinements remain) · P2.5 🚧 (linear/radial/luminance masks + layer model landed; **brush wiring** pending #63) · P3 🚧 (rawler RAW decode/demosaic/matrices/orientation/ROI/export landed; corpus, EXIF passthrough, lens-correction wiring (#66), DCP profiles (#64), highlight reconstruction (#65) remain).
 
 > **Forward plan.** The consolidated, file-by-file plan — including the exact
 > gaps found by the latest audit and the GitHub issue carrying each — is
@@ -93,10 +93,12 @@ v1 foundation** (Light + Color, versioned JSON) and a working **basic JPEG
 export** (CPU grade in Rust mirroring the shader, driven by the recipe) are done,
 so the app is usable end-to-end (open→edit→export). 18 Rust, 53 Dart, 4 on-device
 tests green. The **zero-copy preview** (Rust-resident store + `ANativeWindow`
-texture) is implemented and Rust-tested, but **not yet integrated into the widget
-tree** — the viewport never mounts a `Texture` widget, so texture mode falls back
-to the "Loading image…" placeholder ([#54](https://github.com/prit-007/ApertureX/issues/54)); the shader/atlas path is the
-working fallback. **Remaining:** finish zero-copy display (#54), native ROI
+texture) is now **mounted by the viewport on Android** ([#54](https://github.com/prit-007/ApertureX/issues/54) fixed:
+`PreviewSurface` displays the bound texture and `useTextureDelivery` switches to
+the shader path while compare/peek crossfades or imported-LUT sessions are
+active); the shader/atlas path remains the universal fallback — and the only
+path on iOS (no texture registration yet). **Remaining:** iOS texture
+registration, native ROI
 decoders + multi-level tile pyramid to avoid full-decode for >100 MP (#16),
 high-zoom ROI overlay (#55), device-tier probe + >100 MP corpus with
 memory/60 fps profiling, and SIMD spatial kernels for the 60 fps gate (#56).

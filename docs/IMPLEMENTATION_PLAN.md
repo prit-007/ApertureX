@@ -34,12 +34,13 @@ Verified against the tree with the P4 export wiring present (`export_pipeline.rs
 | P3 ICC detect (sRGB / Display-P3) + P3→sRGB on gallery batch export | `app/rust/src/icc.rs` |
 | Perf harness (60 fps scrub gate + 512 MB RSS budget) | `app/integration_test/perf_harness_test.dart`, `app/test/perf/scrub_perf_test.dart` |
 | Full-res banded export, single-call FRB + cancel (#68 wiring) | `app/rust/src/export_pipeline.rs` (`run_export_tiled`/`run_export_single` parity oracle, `ExportOutcome::Cancelled`), `app/rust/src/api/export.rs` (`exportFull`, cancel-token registry), `TesseraEngine.exportJpegFull` + editor Cancel button; band-parity tests for spatial + masks |
+| Zero-copy preview delivery, Android (#54) | `PreviewSurface` mounts the bound `Texture` with shader fallback; `previewNeedsPlaceholder`/`useTextureDelivery` gate delivery; 10 widget/unit tests |
 
 ### 🟡 Partial (present but a piece is unwired — these are the bugs)
 
 | Subsystem | What's missing | Issue |
 |---|---|---|
-| Zero-copy preview (spike B) | Rust renders into an `ANativeWindow` texture, but **no `Texture` widget consumes it** → preview shows the placeholder; iOS has no texture registration | **#54** |
+| Zero-copy preview (spike B) | Mounted + scheduled on Android (`PreviewSurface` in `image_canvas.dart`, with shader-path switching for compare/peek fades and imported LUTs); **iOS has no texture registration** (shader path only); cross-vendor on-device validation pending | **#54** |
 | Full-res export memory cap | Pipeline is wired end-to-end with cancel, but `jpeg_encoder` has **no streaming API** → the full graded frame is still held for the final encode (~2-frame peak); no progress events, no >50 MP RSS regression gate | **#68** |
 | RAW lens corrections | `raw::lens` (vignette + Brown–Conrady distortion) implemented + tested but **not called** by `decode_from_raw`; RAW export drops EXIF | **#66** |
 | Basic panel | `whites`/`blacks` are schema-only (never rendered); vibrance is generic, not Adobe skin-tone-weighted | **#59** |
@@ -163,10 +164,14 @@ Each workstream lists its goal, the exact files, and its issue(s).
   `app/lib/engine/engine.dart`, `app/lib/features/editor/editor_screen.dart`,
   `app/lib/gallery/gallery_export.dart`.
 
-### W2 — Finish zero-copy preview (#54)
-- Mount `Texture(textureId: _textureId)` when the Rust binding is active; schedule `preview_render` on change; keep the shader/atlas path as fallback.
-- iOS: implement texture registration or gate the path to Android and document.
-- Files: `app/lib/viewport/image_canvas.dart`, `app/lib/engine/preview_texture.dart`, `app/rust/src/api/preview.rs`, `MainActivity.kt`.
+### W2 — Finish zero-copy preview (#54) — ✅ Android landed (iOS registration remains)
+- ✅ Mount `Texture(textureId: _textureId)` when the Rust binding is active (`PreviewSurface`), with the shader/atlas paint as fallback.
+- ✅ Placeholder gate no longer demands a baked LUT in texture mode (`previewNeedsPlaceholder`) — that gate was what pinned the viewport to "Loading image…".
+- ✅ Delivery switching (`useTextureDelivery`): compare/peek crossfades and imported-LUT sessions force the shader path for the gesture and return to zero-copy when the animation settles (status + provider listeners re-schedule the bake).
+- ✅ `dispose()` now releases the platform texture (was leaked).
+- ⬜ iOS: implement texture registration or explicitly document Android-only gating (the channel already degrades to `null` off-Android).
+- ⬜ On-device validation of the mounted texture path (integration tests cover the FFI/render, not the widget mount).
+- Files: `app/lib/viewport/preview_surface.dart`, `app/lib/viewport/image_canvas.dart`, `app/lib/engine/preview_texture.dart`, `app/rust/src/api/preview.rs`, `MainActivity.kt`.
 
 ### W3 — Tiles & viewport resolution (#16 + #55)
 - **#16**: native `BitmapRegionDecoder`/`CGImageSource` ROI + multi-level tile pyramid + tier probe + >100 MP corpus.

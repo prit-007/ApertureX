@@ -37,19 +37,21 @@ compilation can stall first use.
 
 - **Likelihood:** medium · **Impact:** medium
 - **Status:** *partially retired.* `grade.frag` + a 65³ LUT-atlas shader hold
-  display refresh on a mid-tier Android device (P-1 met). A Rust-owned
-  `ANativeWindow` **zero-copy texture** path also exists — but its Flutter
-  integration is **incomplete**: the widget tree never mounts a `Texture`, so
-  texture mode falls back to the placeholder (issue #54). This is now the live
-  shader-path risk.
+  display refresh on a mid-tier Android device (P-1 met). The Rust-owned
+  `ANativeWindow` **zero-copy texture** path is now **mounted by the viewport on
+  Android** (`PreviewSurface`, issue #54): delivery switches to the shader path
+  while compare/peek crossfades or imported-LUT sessions are active and returns
+  to zero-copy when idle. The shader/atlas path remains the universal fallback;
+  the remaining gap is **no iOS texture registration**.
 - **Mitigations:**
   - Constrain the shader dialect to the documented safe subset; centralize UV
     handling (incl. GLES un-flip) in one helper.
   - Feature-detect Impeller-only paths; provide non-shader fallbacks.
   - Precach shader programs at startup; reuse `FragmentShader` instances.
   - Carry golden-image tests across at least two GPU vendor families.
-  - **Finish the zero-copy texture wiring (#54)** with the shader/atlas path as a
-    tested fallback.
+  - ~~Finish the zero-copy texture wiring (#54)~~ **landed on Android**
+    (`PreviewSurface` + delivery switching); remaining: iOS texture registration
+    or an explicit Android-only gate, plus cross-vendor on-device validation.
   - P-1 spike is the early kill-switch: if the shader path cannot hold frame
     rate, pivot to `flutter_gpu` before committing.
 
@@ -102,7 +104,7 @@ Android does. Gesture interactions that fight pan/zoom feel broken.
 | Battery/thermal on long edits | med/med | Progressive refinement, throttle background decode, avoid per-frame LUT rebuilds. |
 | No initial Rust unit-test harness | med/low | CI adds `cargo test`/`clippy` in P0. — **retired** |
 | F-Droid reproducibility | med/med | Follow the org's existing `nook` F-Droid recipe; pin toolchains (ADR 0004). |
-| **Built-but-unwired features** (zero-copy texture #54, lens corrections #66, brush masks #63, sidecar #61) | high/med | Each has a tracked issue; verify "wired + demoable + tested" before closing — presence of a Rust function is not shipped. |
+| **Built-but-unwired features** (lens corrections #66, brush masks #63, sidecar #61) | high/med | Each has a tracked issue; verify "wired + demoable + tested" before closing — presence of a Rust function is not shipped. |
 | **LGPL surface if LibRaw/lensfun enabled** | med/high | Dynamically link (`.so`/`.dylib`) + notices; keep rawler the default (issue #67). |
 
 ---
@@ -112,8 +114,8 @@ Android does. Gesture interactions that fight pan/zoom feel broken.
 Revisit the architecture if any of these hold at the end of a phase:
 
 - P-1: shaders cannot hold frame rate → pivot render path (e.g. `flutter_gpu`).
-  *(Not triggered: shader path holds refresh; zero-copy texture display still to
-  be finished — #54.)*
+  *(Not triggered: shader path holds refresh; zero-copy display is wired on
+  Android (#54) with the shader path as the fallback.)*
 - P1: ROI decode on low-tier devices cannot meet budget at any tile size →
   re-scope huge-image support (proxy-only beyond a megapixel ceiling).
   *(Watch item: native ROI #16 not landed yet.)*

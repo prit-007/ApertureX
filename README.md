@@ -14,7 +14,7 @@
 > bakes), crop, batch gallery, presets/LUT import, and on-device offline activity
 > logs. The **banded full-res export** is now wired end-to-end (single Rust call
 > with cancel). Several other parts are **built but not yet wired end-to-end** —
-> the zero-copy preview texture, native ROI tiles for >100 MP, brush masks,
+> native ROI tiles for >100 MP, brush masks,
 > sidecar persistence, and RAW lens corrections — each tracked by a
 > GitHub issue. See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)
 > for the current status and gaps, [`docs/ROADMAP.md`](docs/ROADMAP.md) for phase

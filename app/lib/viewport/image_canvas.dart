@@ -25,6 +25,7 @@ import 'compare_hold.dart';
 import 'canvas_transform.dart';
 import 'live_warp.dart';
 import 'mask_peek.dart';
+import 'preview_surface.dart';
 
 /// The shared editing canvas, rendered by BOTH shells (ADR 0008 invariant).
 ///
@@ -124,6 +125,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
+    // Re-evaluate delivery whenever a compare/peek crossfade settles: the
+    // fade runs on the shader path, idle returns to zero-copy (#54).
+    _compare.addStatusListener(_onDeliveryGestureSettled);
+    _maskPeek.addStatusListener(_onDeliveryGestureSettled);
     _load();
   }
 
@@ -190,10 +195,27 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _textureId = tex;
   }
 
-  /// Texture delivery is used only when a texture is bound and no imported LUT
-  /// is active (imported atlases are applied by `lut.frag`, not Rust).
-  bool _computeUseTexture() =>
-      _textureId != null && ref.read(importedLutProvider) == null;
+  /// Texture delivery is used only when a texture is bound, no imported LUT
+  /// is active (imported atlases are applied by `lut.frag`, not Rust), and no
+  /// compare/peek crossfade is running — those fades are drawn by `lut.frag`
+  /// (`blend`/`maskBlend`), which the Rust texture path doesn't carry.
+  bool _computeUseTexture() => useTextureDelivery(
+    textureId: _textureId,
+    hasImportedLut: ref.read(importedLutProvider) != null,
+    gestureActive: _gestureActive,
+  );
+
+  /// Compare (issue #28) + mask-peek (issue #27) crossfades are active (or
+  /// animating towards/away from rest) — delivery must stay on the shader path
+  /// for the whole gesture, and flip back to zero-copy once it settles.
+  bool get _gestureActive =>
+      _comparing ||
+      _compare.status != AnimationStatus.dismissed ||
+      _maskPeek.status != AnimationStatus.dismissed;
+
+  void _onDeliveryGestureSettled(AnimationStatus _) => _scheduleBake(
+    _renderRecipe(ref.read(recipeControllerProvider).recipe),
+  );
 
   /// Decodes [bytes] to RGBA in a **single** pass, capping the long side at
   /// [maxDim]. Reads the header via [ui.ImageDescriptor] (no pixel decode) so
@@ -532,6 +554,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _source?.dispose();
     _baseImage?.dispose();
     _lut?.dispose();
+    _dropTexture(); // release the platform texture (#54)
     final handle = _previewHandle;
     if (handle != null) {
       unawaited(TesseraEngine.previewClose(handle));
@@ -562,6 +585,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       } else {
         _maskPeek.reverse();
       }
+      // The crossfade only renders on the shader path — switch delivery for
+      // the gesture and back (#54).
+      _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
     });
     // Before/after compare: long-press on the photo or the panel's Compare
     // button both drive the same flag (issue #28).
@@ -573,15 +599,30 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       } else {
         _compare.reverse();
       }
+      _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
     });
 
     final program = _program;
     final shader = _shader;
     final source = _baseImage ?? _source;
     final lut = _lut;
-    if (_failed || program == null || shader == null || source == null || lut == null) {
+    final zeroCopy = _useTexture && _textureId != null;
+    // Texture delivery never bakes `lut`/`base` images, so requiring them
+    // would pin the viewport to the placeholder forever (#54).
+    if (previewNeedsPlaceholder(
+      failed: _failed,
+      hasProgram: program != null,
+      hasShader: shader != null,
+      hasSource: source != null,
+      hasLut: lut != null,
+      useTexture: zeroCopy,
+    )) {
       return _placeholder();
     }
+    // The gate above proved the shader-path inputs (it only passes texture
+    // mode without a LUT); the `!`s feed definite-assignment analysis.
+    final fragShader = shader!;
+    final proxySource = source!;
 
     final tat = ref.watch(tatModeProvider);
     final tatComponent = ref.watch(tatComponentProvider);
@@ -601,7 +642,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         ),
       ),
     );
-    final content = Size(source.width.toDouble(), source.height.toDouble());
+    // The texture frame carries its own (possibly cropped/rotated) dimensions;
+    // fall back to the proxy source until the first render reports them.
+    final content = zeroCopy && _baseW > 0 && _baseH > 0
+        ? Size(_baseW.toDouble(), _baseH.toDouble())
+        : Size(source.width.toDouble(), source.height.toDouble());
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -650,16 +695,24 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                           height: fitted.height,
                           child: AnimatedBuilder(
                             animation: Listenable.merge([_compare, _maskPeek]),
-                            builder: (context, _) => CustomPaint(
-                              size: fitted,
-                              painter: _CanvasPainter(
-                                shader: shader,
-                                source: source,
-                                lut: lut,
-                                lutSize: _activeLutSize.toDouble(),
-                                dst: Offset.zero & fitted,
-                                blend: _compare.value,
-                                maskBlend: _maskPeek.value,
+                            builder: (context, _) => PreviewSurface(
+                              // Issue #54: actually display the texture Rust is
+                              // writing into; the shader paint is the fallback
+                              // (imported LUTs, iOS/tests, compare/peek fades).
+                              textureId: zeroCopy ? _textureId : null,
+                              fallback: (_) => CustomPaint(
+                                size: fitted,
+                                painter: _CanvasPainter(
+                                  shader: fragShader,
+                                  source: proxySource,
+                                  // Only ever built when `!zeroCopy`, where the
+                                  // placeholder gate proved the LUT exists.
+                                  lut: lut!,
+                                  lutSize: _activeLutSize.toDouble(),
+                                  dst: Offset.zero & fitted,
+                                  blend: _compare.value,
+                                  maskBlend: _maskPeek.value,
+                                ),
                               ),
                             ),
                           ),
