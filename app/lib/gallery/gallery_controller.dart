@@ -88,7 +88,7 @@ class GalleryController extends Notifier<GalleryState> {
     try {
       final permission = await source.requestPermission();
       if (!permission.canRead) {
-        axLog(LogDomain.permission, 'Photo access denied', LogLevel.warning);
+        axLog(LogDomain.permission, 'Photo access denied', level: LogLevel.warning);
         state = state.copyWith(loading: false, permission: permission);
         return;
       }
@@ -102,7 +102,7 @@ class GalleryController extends Notifier<GalleryState> {
         permission: permission,
       );
     } catch (e) {
-      axLog(LogDomain.gallery, 'Gallery load failed: $e', LogLevel.error);
+      axLog(LogDomain.gallery, 'Gallery load failed: $e', level: LogLevel.error);
       state = state.copyWith(loading: false, error: '$e');
     }
   }

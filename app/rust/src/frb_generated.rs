@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1008915569;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1879629468;
 
 // Section: executor
 
@@ -1094,6 +1094,41 @@ fn wire__crate__api__engine__init_app_impl(
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Ok::<_, ()>({
                         crate::api::engine::init_app();
+                    })?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__logging__init_panic_hook_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "init_panic_hook",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_dir = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>({
+                        crate::api::logging::init_panic_hook(api_dir);
                     })?;
                     std::result::Result::Ok(output_ok)
                 })())
@@ -2175,28 +2210,29 @@ fn pde_ffi_dispatcher_primary_impl(
         25 => wire__crate__api__color__grade_rgba_impl(port, ptr, rust_vec_len, data_len),
         26 => wire__crate__api__histogram__histogram_graded_impl(port, ptr, rust_vec_len, data_len),
         27 => wire__crate__api__engine__init_app_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__icc__p3_to_srgb_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__preview__preview_base_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
+        28 => wire__crate__api__logging__init_panic_hook_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__icc__p3_to_srgb_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__preview__preview_base_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        42 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

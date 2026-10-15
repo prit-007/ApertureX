@@ -20,11 +20,15 @@ Future<Uint8List> brightenRgba({
 }) =>
     RustLib.instance.api.crateApiEngineBrightenRgba(rgba: rgba, amount: amount);
 
-/// Generates a synthetic JPEG test image (a gradient) of the given size.
+/// Generates a synthetic JPEG test image of the given size.
 ///
-/// A seed/demo helper so the viewport demo and large-image tests need no
-/// bundled asset. `jpeg-encoder` is also the intended full-res export encoder
-/// (roadmap P4), so it is a normal dependency.
+/// A seed/demo helper so the viewport demo, the >100 MP corpus harness and
+/// large-image tests need no bundled asset. Content is a smooth gradient base
+/// plus a position-encoded high-frequency hash: JPEG is lossy, but the result
+/// is deterministic, so a decoded pixel pins its (x,y) — tile-seam validation
+/// (#16) can detect any row/column misalignment between adjacent tiles.
+/// `jpeg-encoder` is also the intended full-res export encoder (roadmap P4),
+/// so it is a normal dependency.
 Future<Uint8List> syntheticJpeg({required int width, required int height}) =>
     RustLib.instance.api.crateApiEngineSyntheticJpeg(
       width: width,

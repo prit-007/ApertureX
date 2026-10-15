@@ -13,6 +13,7 @@ import '../src/rust/api/export.dart' as rust_export;
 import '../src/rust/api/geometry.dart' as rust_geometry;
 import '../src/rust/api/histogram.dart' as rust_hist;
 import '../src/rust/api/icc.dart' as rust_icc;
+import '../src/rust/api/logging.dart' as rust_logging;
 import '../src/rust/api/mask.dart' as rust_mask;
 import '../src/rust/api/preview.dart' as rust_preview;
 import '../src/rust/api/preview.dart' show PreviewBaseSpec;
@@ -36,6 +37,12 @@ class TesseraEngine {
 
   /// Initialises the Rust library. Must be awaited before any engine call.
   static Future<void> init() => RustLib.init();
+
+  /// Installs the Rust panic hook once (ADR 0012 §7): a panic appends payload
+  /// + location to `<dir>/rust_panic.log` **before** unwinding to the Dart
+  /// boundary, where it is logged and surfaced like any other fatal error.
+  static Future<void> initPanicHook({required String dir}) =>
+      rust_logging.initPanicHook(dir: dir);
 
   // --- engine introspection -------------------------------------------------
 

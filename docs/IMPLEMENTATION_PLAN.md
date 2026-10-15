@@ -212,6 +212,13 @@ Each workstream lists its goal, the exact files, and its issue(s).
 - Build optional LibRaw/lensfun as **dynamic** libs with runtime loading + notices; default build stays pure `rawler`.
 - Files: `app/rust/Cargo.toml`, `THIRD_PARTY.md`, platform build scripts.
 
+### W13 — Crash resilience & observability (ADR 0012)
+- **Pure error boundary**: `runZonedGuarded` + `FlutterError.onError` + `PlatformDispatcher.onError` (return true → app lives) + `ErrorWidget.builder` fallback; Rust panic hook; Kotlin channel `try/catch` audit + `AxApplication` uncaught handler with crash marker.
+- **`ErrorReporter`**: classify/dedupe/throttle → `axLog` with `error`/`stack` fields → `ErrorDialog` (View logs → `LogsScreen(initialDomain:)`, Copy, Dismiss) via root `navigatorKey`; next-launch `CrashReportDialog` reads the Dart marker **or** Kotlin's marker (channel) — either way: View logs / Copy / Dismiss, markers consumed once.
+- **Log schema v2** (optional `error`/`stack`/`meta`, new domains `error`/`crash`/`nav`/`native`/`engine`), `LogFileStore` 2 MiB rotation, `hydrateActivityLog` merges `activity.log` + `native.log` (channel) + `rust_panic.log` (LogEntry-JSONL from the panic hook) on startup, nav + lifecycle observers.
+- Slices TDD'd in order: schema/rotation → reporter → boundary wiring → dialog/fallback UI → observers → LogsScreen stack detail → Kotlin (APK gate) → Rust hook (cargo) → docs.
+- Files: `app/lib/core/log/{activity_log,log_file_store,log_providers,native_log_bridge,nav_observer,lifecycle_observer}.dart`, `app/lib/core/error/*` (new), `app/lib/features/logs/logs_screen.dart`, `app/lib/main.dart`, `app/android/.../AxApplication.kt` + `NativeLog.kt` (new), `app/rust/src/api/logging.rs` (new).
+
 ---
 
 ## 6. Sequencing & dependencies
@@ -229,6 +236,7 @@ W7 brush (P2.5)      W9 persistence/presets      W10 RAW colour (after W5)      
 - **W4 → W5**: SIMD the box backbone before the guided filter so the filter is fast on day one.
 - **W8** should start early and grow; it gates colour regressions from W5/W6/W10.
 - **W11** only matters when `raw-libraw`/lensfun are enabled (not the default build).
+- **W13 (ADR 0012)** is cross-cutting UX insurance: it can start any time, unblocks nothing, and is ordered after the ROI overlay so crash evidence covers the new decode paths too.
 
 ---
 

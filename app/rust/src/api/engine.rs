@@ -33,11 +33,15 @@ pub fn brighten_rgba(mut rgba: Vec<u8>, amount: i32) -> Vec<u8> {
     rgba
 }
 
-/// Generates a synthetic JPEG test image (a gradient) of the given size.
+/// Generates a synthetic JPEG test image of the given size.
 ///
-/// A seed/demo helper so the viewport demo and large-image tests need no
-/// bundled asset. `jpeg-encoder` is also the intended full-res export encoder
-/// (roadmap P4), so it is a normal dependency.
+/// A seed/demo helper so the viewport demo, the >100 MP corpus harness and
+/// large-image tests need no bundled asset. Content is a smooth gradient base
+/// plus a position-encoded high-frequency hash: JPEG is lossy, but the result
+/// is deterministic, so a decoded pixel pins its (x,y) — tile-seam validation
+/// (#16) can detect any row/column misalignment between adjacent tiles.
+/// `jpeg-encoder` is also the intended full-res export encoder (roadmap P4),
+/// so it is a normal dependency.
 pub fn synthetic_jpeg(width: u32, height: u32) -> Vec<u8> {
     let w = width.max(1) as u16;
     let h = height.max(1) as u16;
@@ -46,7 +50,15 @@ pub fn synthetic_jpeg(width: u32, height: u32) -> Vec<u8> {
         for x in 0..w {
             let r = ((x as f32 / w as f32) * 255.0) as u8;
             let g = ((y as f32 / h as f32) * 255.0) as u8;
-            let b = (((x + y) as f32 / (w + h) as f32) * 255.0) as u8;
+            let hash = (x as u32)
+                .wrapping_mul(0x9E37_79B1)
+                .wrapping_add((y as u32).wrapping_mul(0x85EB_CA6D))
+                ^ ((x as u32) << 8)
+                ^ (y as u32);
+            // 6-bit noise: still position-pinning (any misalignment shifts
+            // decoded bytes) without letting a >100 MP corpus balloon into a
+            // hundreds-of-MB file the channel could not copy per tile fetch.
+            let b = (((hash & 0x3F) as u8) << 2) | 0x07;
             rgb.extend_from_slice(&[r, g, b]);
         }
     }
@@ -90,6 +102,13 @@ mod tests {
     fn synthetic_jpeg_round_trips_dimensions() {
         let jpeg = synthetic_jpeg(64, 48);
         assert_eq!(crate::decode::dimensions(&jpeg).unwrap(), (64, 48));
+    }
+
+    #[test]
+    fn synthetic_jpeg_is_deterministic() {
+        // Seam validation (#16) compares pixels across separately decoded
+        // tile windows; that is only meaningful if the corpus is stable.
+        assert_eq!(synthetic_jpeg(32, 32), synthetic_jpeg(32, 32));
     }
 
     #[test]

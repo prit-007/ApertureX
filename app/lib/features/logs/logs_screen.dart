@@ -13,13 +13,19 @@ import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../ui/common/app_primitives.dart';
 
-Color _domainColor(String domain, ColorScheme scheme) => switch (domain) {
+Color domainColor(String domain, ColorScheme scheme) => switch (domain) {
   LogDomain.app => scheme.primary,
   LogDomain.gallery => const Color(0xFF16A085),
   LogDomain.editor => const Color(0xFFF39C12),
   LogDomain.export => const Color(0xFF2E7D32),
   LogDomain.permission => const Color(0xFFD81B60),
   LogDomain.preset => const Color(0xFF8E44AD),
+  // Resilience buckets (ADR 0012): failures must pop out of the feed.
+  LogDomain.error => scheme.error,
+  LogDomain.crash => const Color(0xFFB71C1C),
+  LogDomain.nav => scheme.tertiary,
+  LogDomain.native => scheme.secondary,
+  LogDomain.engine => const Color(0xFF00ACC1),
   _ => scheme.onSurfaceVariant,
 };
 
@@ -41,7 +47,11 @@ IconData _levelIcon(LogLevel level) => switch (level) {
 /// permission action and error, filterable by domain. Mirrors the nook "App
 /// Logs" experience, built natively for ApertureX's Material theme.
 class LogsScreen extends ConsumerStatefulWidget {
-  const LogsScreen({super.key});
+  /// Pre-selects a domain filter — the error popup's "View logs" lands here
+  /// already narrowed to what failed (ADR 0012 §2).
+  const LogsScreen({super.key, this.initialDomain});
+
+  final String? initialDomain;
 
   @override
   ConsumerState<LogsScreen> createState() => _LogsScreenState();
@@ -56,6 +66,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
   @override
   void initState() {
     super.initState();
+    _domain = widget.initialDomain;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final prefs = await SharedPreferences.getInstance();
       if (!(prefs.getBool(_helpSeenKey) ?? false) && mounted) {
@@ -206,7 +217,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
         selected: selected,
         avatar: domain == null
             ? null
-            : CircleAvatar(backgroundColor: _domainColor(domain, scheme)),
+            : CircleAvatar(backgroundColor: domainColor(domain, scheme)),
         showCheckmark: false,
         onSelected: (_) => setState(() => _domain = domain),
       ),
@@ -214,46 +225,99 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
   }
 }
 
-class _EntryTile extends StatelessWidget {
+class _EntryTile extends StatefulWidget {
   const _EntryTile({required this.entry});
 
   final LogEntry entry;
 
   @override
+  State<_EntryTile> createState() => _EntryTileState();
+}
+
+class _EntryTileState extends State<_EntryTile> {
+  bool _expanded = false;
+
+  /// Only failure entries carry an error/stack detail worth revealing.
+  bool get _hasDetail =>
+      widget.entry.error != null || widget.entry.stack != null;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final entry = widget.entry;
     final time =
         '${entry.time.hour.toString().padLeft(2, '0')}:'
         '${entry.time.minute.toString().padLeft(2, '0')}:'
         '${entry.time.second.toString().padLeft(2, '0')}';
-    return ListTile(
-      dense: true,
-      leading: Icon(
-        _levelIcon(entry.level),
-        color: _levelColor(entry.level, scheme),
-        size: 20,
-      ),
-      title: Text(entry.message, style: theme.textTheme.bodyMedium),
-      subtitle: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            margin: const EdgeInsets.only(right: 6),
-            decoration: BoxDecoration(
-              color: _domainColor(entry.domain, scheme),
-              shape: BoxShape.circle,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListTile(
+          dense: true,
+          onTap: _hasDetail
+              ? () => setState(() => _expanded = !_expanded)
+              : null,
+          leading: Icon(
+            _levelIcon(entry.level),
+            color: _levelColor(entry.level, scheme),
+            size: 20,
+          ),
+          trailing: _hasDetail
+              ? Icon(
+                  _expanded ? Icons.unfold_less : Icons.unfold_more,
+                  size: 18,
+                  color: scheme.onSurfaceVariant,
+                )
+              : null,
+          title: Text(entry.message, style: theme.textTheme.bodyMedium),
+          subtitle: Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(right: 6),
+                decoration: BoxDecoration(
+                  color: domainColor(entry.domain, scheme),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              Text(
+                '${entry.domain} · $time',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_expanded && _hasDetail)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(72, 0, Insets.lg, Insets.sm),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (entry.error != null)
+                  SelectableText(
+                    'error: ${entry.error}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.error,
+                    ),
+                  ),
+                if (entry.stack != null) ...[
+                  const SizedBox(height: Insets.xs),
+                  SelectableText(
+                    entry.stack!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          Text(
-            '${entry.domain} · $time',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }

@@ -90,7 +90,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _loading = false;
       });
     } catch (e) {
-      axLog(LogDomain.editor, 'Open failed: $e', LogLevel.error);
+      axLog(LogDomain.editor, 'Open failed: $e', level: LogLevel.error);
       if (!mounted) return;
       setState(() {
         _error = '$e';
@@ -171,7 +171,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         ),
       );
     } catch (e) {
-      axLog(LogDomain.export, 'Export failed: $e', LogLevel.error);
+      axLog(LogDomain.export, 'Export failed: $e', level: LogLevel.error);
       messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
     } finally {
       if (token != 0) {

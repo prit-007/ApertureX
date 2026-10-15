@@ -17,11 +17,11 @@ import java.util.concurrent.Executors
  * Hosts spike B's zero-copy preview texture and the high-zoom ROI region
  * decoder (#16/#55).
  *
- * Android owns a `SurfaceTexture`-backed texture from the Flutter
+ * Android owns a `SurfaceProducer`-backed texture from the Flutter
  * `TextureRegistry`; Dart drives creation/binding over the [CHANNEL] method
  * channel, and Rust ([bindPreviewSurface]) writes graded frames straight into
- * the surface's `ANativeWindow`. When this class is absent (iOS/tests) every
- * call degrades and Dart keeps the return-frame path.
+ * the producer's `Surface`/`ANativeWindow`. When this class is absent
+ * (iOS/tests) every call degrades and Dart keeps the return-frame path.
  *
  * [ROI_CHANNEL] decodes full-width source bands with `BitmapRegionDecoder`
  * so a >100 MP frame never materialises as a full RGBA buffer; any failure
@@ -29,35 +29,67 @@ import java.util.concurrent.Executors
  * decoder.
  */
 class MainActivity : FlutterActivity() {
-    private val textures = mutableMapOf<Long, TextureRegistry.SurfaceTextureEntry>()
-    private val surfaces = mutableMapOf<Long, Surface>()
+    private val producers = mutableMapOf<Long, TextureRegistry.SurfaceProducer>()
     private val roiExecutor = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        // ADR 0012 §6: every handler is fault-contained — a platform throw
+        // becomes a Dart `PlatformException` (popup + log, app lives), never a
+        // process death.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "create" -> createTexture(flutterEngine, call.argument("width"), call.argument("height"), result)
-                    "bind" -> bindTexture(call.argument("textureId"), call.argument("handle"), result)
-                    "dispose" -> disposeTexture(call.argument("textureId"), result)
-                    else -> result.notImplemented()
+                try {
+                    when (call.method) {
+                        "create" -> createTexture(flutterEngine, call.argument("width"), call.argument("height"), result)
+                        "bind" -> bindTexture(call.argument("textureId"), call.argument("handle"), result)
+                        "dispose" -> disposeTexture(call.argument("textureId"), result)
+                        else -> result.notImplemented()
+                    }
+                } catch (t: Throwable) {
+                    NativeLog.record("preview channel '${call.method}' failed", t)
+                    result.error("native_error", t.message, null)
                 }
             }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ROI_CHANNEL)
             .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "decodeBand" -> decodeBand(
-                        call.argument<ByteArray>("jpeg"),
-                        call.argument<Int>("x") ?: 0,
-                        call.argument<Int>("y") ?: 0,
-                        call.argument<Int>("width") ?: -1,
-                        call.argument<Int>("height") ?: -1,
-                        result,
-                    )
-                    else -> result.notImplemented()
+                try {
+                    when (call.method) {
+                        "decodeBand" -> decodeBand(
+                            call.argument<ByteArray>("jpeg"),
+                            call.argument<Int>("x") ?: 0,
+                            call.argument<Int>("y") ?: 0,
+                            call.argument<Int>("width") ?: -1,
+                            call.argument<Int>("height") ?: -1,
+                            result,
+                        )
+                        else -> result.notImplemented()
+                    }
+                } catch (t: Throwable) {
+                    NativeLog.record("roi channel '${call.method}' failed", t)
+                    result.error("native_error", t.message, null)
+                }
+            }
+
+        // Kotlin's own evidence, read by Dart at startup (ADR 0012 §4).
+        NativeLog.init(this)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NATIVE_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                try {
+                    when (call.method) {
+                        "readEntries" -> result.success(NativeLog.readEntries(call.argument<Int>("limit") ?: 100))
+                        "readCrashMarker" -> result.success(NativeLog.readCrashMarker())
+                        "clearCrashMarker" -> {
+                            NativeLog.clearCrashMarker()
+                            result.success(null)
+                        }
+                        else -> result.notImplemented()
+                    }
+                } catch (t: Throwable) {
+                    NativeLog.record("native_log channel '${call.method}' failed", t)
+                    result.error("native_error", t.message, null)
                 }
             }
     }
@@ -66,25 +98,31 @@ class MainActivity : FlutterActivity() {
         val width = widthArg ?: 1
         val height = heightArg ?: 1
         try {
-            val entry = flutterEngine.renderer.createSurfaceTexture()
-            entry.surfaceTexture().setDefaultBufferSize(width, height)
-            textures[entry.id()] = entry
-            result.success(entry.id().toInt())
+            // SurfaceProducer, not createSurfaceTexture: the embedding logs a
+            // migration warning for SurfaceTexture entries and Impeller prefers
+            // this path. getSurface() below yields the Surface directly.
+            val producer = flutterEngine.renderer.createSurfaceProducer()
+            producer.setSize(width, height)
+            producers[producer.id()] = producer
+            result.success(producer.id().toInt())
         } catch (t: Throwable) {
             result.error("create_failed", t.message, null)
         }
     }
 
     private fun bindTexture(textureIdArg: Number?, handleArg: Number?, result: MethodChannel.Result) {
-        val entry = textures[textureIdArg?.toLong()]
-        if (entry == null) {
+        val producer = producers[textureIdArg?.toLong()]
+        if (producer == null) {
             result.success(false)
             return
         }
         val handle = handleArg?.toLong() ?: -1L
-        // `SurfaceTextureEntry` exposes only `surfaceTexture()` (no `surface()`
-        // in the embedding); wrap it in a Surface the way the producer would.
-        val surface = surfaces.getOrPut(entry.id()) { Surface(entry.surfaceTexture()) }
+        val surface = try {
+            producer.getSurface()
+        } catch (t: Throwable) {
+            result.success(false)
+            return
+        }
         val ptr = try {
             bindPreviewSurface(surface, handle)
         } catch (t: Throwable) {
@@ -96,8 +134,11 @@ class MainActivity : FlutterActivity() {
     private fun disposeTexture(textureIdArg: Number?, result: MethodChannel.Result) {
         val id = textureIdArg?.toLong()
         if (id != null) {
-            textures.remove(id)?.release()
-            surfaces.remove(id)?.release()
+            try {
+                producers.remove(id)?.release()
+            } catch (t: Throwable) {
+                NativeLog.record("texture release failed", t, level = "warning")
+            }
         }
         result.success(null)
     }
@@ -156,10 +197,8 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         roiExecutor.shutdown()
-        for (surface in surfaces.values) surface.release()
-        surfaces.clear()
-        for (entry in textures.values) entry.release()
-        textures.clear()
+        for (producer in producers.values) producer.release()
+        producers.clear()
         super.onDestroy()
     }
 
@@ -170,6 +209,7 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val CHANNEL = "aperturex/preview_texture"
         private const val ROI_CHANNEL = "aperturex/roi_decode"
+        private const val NATIVE_CHANNEL = "aperturex/native_log"
 
         init {
             System.loadLibrary("rust_lib_tessera")

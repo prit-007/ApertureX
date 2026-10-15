@@ -14,6 +14,7 @@ import 'api/export.dart';
 import 'api/geometry.dart';
 import 'api/histogram.dart';
 import 'api/icc.dart';
+import 'api/logging.dart';
 import 'api/mask.dart';
 import 'api/preview.dart';
 import 'api/raw.dart';

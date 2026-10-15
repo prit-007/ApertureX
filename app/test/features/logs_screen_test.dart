@@ -74,4 +74,42 @@ void main() {
 
     expect(find.text('Welcome'), findsOneWidget);
   });
+
+  test('maps every domain to a colour, including the resilience buckets', () {
+    const scheme = ColorScheme.light();
+    expect(domainColor(LogDomain.error, scheme), scheme.error);
+    expect(domainColor(LogDomain.crash, scheme), const Color(0xFFB71C1C));
+    expect(domainColor(LogDomain.nav, scheme), scheme.tertiary);
+    expect(domainColor(LogDomain.native, scheme), scheme.secondary);
+    expect(domainColor(LogDomain.engine, scheme), const Color(0xFF00ACC1));
+    for (final domain in LogDomain.all) {
+      expect(domainColor(domain, scheme), isNotNull);
+    }
+  });
+
+  testWidgets('error entries expand to reveal the error and stack', (tester) async {
+    activityLog.add(
+      LogDomain.error,
+      'bake failed',
+      level: LogLevel.error,
+      error: 'StateError: bad LUT',
+      stack: '#0 bake()\n#1 main()',
+    );
+    activityLog.add(LogDomain.app, 'plain note');
+
+    await pump(tester);
+    expect(find.textContaining('StateError: bad LUT'), findsNothing);
+
+    await tester.tap(find.text('bake failed'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('StateError: bad LUT'), findsOneWidget);
+    expect(find.textContaining('#0 bake()'), findsOneWidget);
+
+    await tester.tap(find.text('bake failed'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('StateError: bad LUT'), findsNothing);
+
+    // Only the failed entry carries the expand affordance.
+    expect(find.byIcon(Icons.unfold_more), findsOneWidget);
+  });
 }

@@ -6,6 +6,7 @@ pub mod export;
 pub mod geometry;
 pub mod histogram;
 pub mod icc;
+pub mod logging;
 pub mod mask;
 pub mod preview;
 pub mod raw;

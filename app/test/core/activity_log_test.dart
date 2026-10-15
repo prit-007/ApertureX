@@ -64,7 +64,7 @@ void main() {
   test('report renders a header and one line per entry', () {
     final log = ActivityLog();
     log.add(LogDomain.app, 'hello');
-    log.add(LogDomain.export, 'bye', LogLevel.info);
+    log.add(LogDomain.export, 'bye', level: LogLevel.info);
 
     final report = activityLogReport(log.entries);
     expect(report, startsWith('ApertureX activity log\n'));

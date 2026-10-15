@@ -16,7 +16,27 @@ abstract final class LogDomain {
   static const permission = 'permission';
   static const preset = 'preset';
 
-  static const all = [app, gallery, editor, export, permission, preset];
+  // Resilience domains (ADR 0012): boundaries, crashes, navigation,
+  // platform-native and engine events.
+  static const error = 'error';
+  static const crash = 'crash';
+  static const nav = 'nav';
+  static const native = 'native';
+  static const engine = 'engine';
+
+  static const all = [
+    app,
+    gallery,
+    editor,
+    export,
+    permission,
+    preset,
+    error,
+    crash,
+    nav,
+    native,
+    engine,
+  ];
 }
 
 /// A single, immutable local activity record.
@@ -27,6 +47,9 @@ class LogEntry {
     required this.domain,
     required this.level,
     required this.message,
+    this.error,
+    this.stack,
+    this.meta,
   });
 
   final DateTime time;
@@ -34,11 +57,24 @@ class LogEntry {
   final LogLevel level;
   final String message;
 
+  /// Short error description (`Object.toString()`), when the entry records a
+  /// failure (ADR 0012).
+  final String? error;
+
+  /// Stack trace text, truncated by the reporter before it reaches the log.
+  final String? stack;
+
+  /// Small structured extras (counts, keys) — values must be JSON-safe.
+  final Map<String, Object?>? meta;
+
   Map<String, Object?> toJson() => {
     't': time.toIso8601String(),
     'd': domain,
     'l': level.name,
     'm': message,
+    if (error != null) 'e': error,
+    if (stack != null) 's': stack,
+    if (meta != null) 'x': meta,
   };
 
   /// One JSON object per line — the on-disk format.
@@ -56,6 +92,9 @@ class LogEntry {
           orElse: () => LogLevel.debug,
         ),
         message: map['m'] as String,
+        error: map['e'] as String?,
+        stack: map['s'] as String?,
+        meta: (map['x'] as Map?)?.cast<String, Object?>(),
       );
     } catch (_) {
       return null;
@@ -97,14 +136,20 @@ class ActivityLog extends ChangeNotifier {
 
   void add(
     String domain,
-    String message, [
+    String message, {
     LogLevel level = LogLevel.debug,
-  ]) {
+    String? error,
+    String? stack,
+    Map<String, Object?>? meta,
+  }) {
     final entry = LogEntry(
       time: DateTime.now(),
       domain: domain,
       level: level,
       message: message,
+      error: error,
+      stack: stack,
+      meta: meta,
     );
     _entries.add(entry);
     _trim();
@@ -125,6 +170,13 @@ class ActivityLog extends ChangeNotifier {
   }
 }
 
+/// Time-merges the local stream with the platform-native stream for
+/// hydration (ADR 0012 §4): one chronological feed across both writers.
+List<LogEntry> mergeLogEntries(
+  Iterable<LogEntry> local,
+  Iterable<LogEntry> native,
+) => [...local, ...native]..sort((a, b) => a.time.compareTo(b.time));
+
 /// Renders [entries] (oldest first) as a plain-text report for copy/export.
 String activityLogReport(Iterable<LogEntry> entries) {
   final buffer = StringBuffer('ApertureX activity log\n');
@@ -132,6 +184,12 @@ String activityLogReport(Iterable<LogEntry> entries) {
     buffer.writeln(
       '${e.time.toIso8601String()} [${e.domain}/${e.level.name}] ${e.message}',
     );
+    if (e.error != null) buffer.writeln('    error: ${e.error}');
+    if (e.stack != null) {
+      for (final line in e.stack!.split('\n')) {
+        buffer.writeln('    $line');
+      }
+    }
   }
   return buffer.toString();
 }
