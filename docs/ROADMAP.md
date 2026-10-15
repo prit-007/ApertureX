@@ -5,7 +5,7 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status:** P-1 ✅ · P0 ✅ (foundations + JPEG proxy folded into P1) · P1 🚧 (viewport + tile compositor + zero-copy preview *partly* wired + **high-zoom ROI overlay wired on Android** + EditRecipe v1 + basic JPEG export done; iOS ROI decode + >100 MP profiling + tile pyramid remain (#16)) · **P2 🚧** (recipe superset + Riverpod controller + shared ParameterControl + dual-shell skeleton + full point-wise colour pipeline (LUT, WB/exposure/contrast/vibrance/saturation/split-tone/curves) + **spatial passes** + **geometry** + **presets/LUT/.xmp import** + preview==export + live histogram done; whites/blacks + Adobe vibrance (#59), sidecar persistence (#61), `.lrtemplate` (#62), guided-filter/quality refinements remain) · P2.5 🚧 (linear/radial/luminance masks + layer model landed; **brush wiring** pending #63) · P3 🚧 (rawler RAW decode/demosaic/matrices/orientation/ROI/export landed; corpus, EXIF passthrough, lens-correction wiring (#66), DCP profiles (#64), highlight reconstruction (#65) remain).
+**Current status:** P-1 ✅ · P0 ✅ (foundations + JPEG proxy folded into P1) · P1 🚧 (viewport + tile compositor + zero-copy preview *partly* wired + **high-zoom ROI overlay wired on Android+iOS** + **tile pyramid wired + >100 MP corpus/seam harness written (device run pending)** + EditRecipe v1 + basic JPEG export done; iOS texture registration + on-device corpus run + SIMD spatial remain (#16/#54/#56)) · **P2 🚧** (recipe superset + Riverpod controller + shared ParameterControl + dual-shell skeleton + full point-wise colour pipeline (LUT, WB/exposure/contrast/vibrance/saturation/split-tone/curves) + **spatial passes** + **geometry** + **presets/LUT/.xmp import** + preview==export + live histogram done; whites/blacks + Adobe vibrance (#59), sidecar persistence (#61), `.lrtemplate` (#62), guided-filter/quality refinements remain) · P2.5 🚧 (linear/radial/luminance masks + layer model landed; **brush wiring** pending #63) · P3 🚧 (rawler RAW decode/demosaic/matrices/orientation/ROI/export landed; corpus, EXIF passthrough, lens-correction wiring (#66), DCP profiles (#64), highlight reconstruction (#65) remain).
 
 > **Forward plan.** The consolidated, file-by-file plan — including the exact
 > gaps found by the latest audit and the GitHub issue carrying each — is
@@ -96,15 +96,19 @@ tests green. The **zero-copy preview** (Rust-resident store + `ANativeWindow`
 texture) is now **mounted by the viewport on Android** ([#54](https://github.com/prit-007/ApertureX/issues/54) fixed:
 `PreviewSurface` displays the bound texture and `useTextureDelivery` switches to
 the shader path while compare/peek crossfades or imported-LUT sessions are
-active); the shader/atlas path remains the universal fallback — and the only
-path on iOS (no texture registration yet). The **high-zoom ROI overlay**
-([#55](https://github.com/prit-007/ApertureX/issues/55), Android slice of
+active); the shader/atlas path remains the universal fallback. The **high-zoom ROI
+overlay** ([#55](https://github.com/prit-007/ApertureX/issues/55),
 [#16](https://github.com/prit-007/ApertureX/issues/16)) replaces the upscaled
-proxy with a native `BitmapRegionDecoder` band baked at full resolution once
-zoom crosses the proxy ceiling. **Remaining:** iOS texture + ROI registration,
-multi-level tile pyramid wiring to avoid full-decode for >100 MP (#16),
-device-tier probe + >100 MP corpus with
-memory/60 fps profiling, and SIMD spatial kernels for the 60 fps gate (#56).
+proxy with a native region-decode band (`BitmapRegionDecoder` on Android,
+`CGImageSource` on iOS) baked at full resolution once zoom crosses the proxy
+ceiling, and the **multi-level tile pyramid** is wired end-to-end
+(`TileSource`/`JpegTileSource` behind `TileViewport`: zoom-matched levels,
+coarse-ancestor instant paint, byte-budgeted footprints, seam-exact box
+downsample) with a generated >100 MP corpus + on-device seam/memory harness
+(`integration_test/tile_corpus_test.dart`, report-only until first device
+run). **Remaining:** an on-device run of the corpus harness + iOS build
+verification of the new channel, iOS texture registration, device-tier probe,
+and SIMD spatial kernels for the 60 fps gate (#56).
 
 ---
 
@@ -270,13 +274,25 @@ indicator, batch/preset export, and background export
 
 ---
 
-## P5 — Polish & distribution ⬜
+## P5 — Polish & distribution 🚧
 
 **Scope**
 - F-Droid metadata + per-ABI version codes (ADR 0004); reproducible release.
 - HEIC import/export; accessibility (TalkBack/VoiceOver, dynamic type); i18n;
   onboarding; error/empty states.
 - Performance pass on the low-tier device matrix; iPhone validation (P-1 gap).
+
+**Status — release automation live.** Tag-driven CI/CD is in place
+(`.github/workflows/ci.yml`, modelled on the org's `nook`): analyze + Dart/Rust
+tests on every push/PR; signed per-ABI + universal release APKs built **inside
+the F-Droid buildserver container** (so the GitHub artifact and a future
+F-Droid build are the same build, from the same `tool/ci/*` scripts); `vX.Y.Z`
+tags are checked against `app/pubspec.yaml` and publish a GitHub Release with
+APKs + CHANGELOG notes. Signing is provisioned (`tool/ci/make_release_keystore.sh`,
+secrets on the `ci` environment). F-Droid prep: metadata draft
+(`fdroid-metadata.yml`) + store listing/changelogs (`metadata/`). **Remaining:**
+offline vendored crates + fdroiddata MR (#69), iOS CI build (#70), HEIC, a11y,
+i18n.
 
 **Exit criteria**
 - Signed Android release + F-Droid build; iOS TestFlight build.

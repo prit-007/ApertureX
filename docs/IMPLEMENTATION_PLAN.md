@@ -36,6 +36,7 @@ Verified against the tree with the P4 export wiring present (`export_pipeline.rs
 | Full-res banded export, single-call FRB + cancel (#68 wiring) | `app/rust/src/export_pipeline.rs` (`run_export_tiled`/`run_export_single` parity oracle, `ExportOutcome::Cancelled`), `app/rust/src/api/export.rs` (`exportFull`, cancel-token registry), `TesseraEngine.exportJpegFull` + editor Cancel button; band-parity tests for spatial + masks |
 | Zero-copy preview delivery, Android (#54) | `PreviewSurface` mounts the bound `Texture` with shader fallback; `previewNeedsPlaceholder`/`useTextureDelivery` gate delivery; 10 widget/unit tests |
 | High-zoom ROI overlay + native region decode, Android (#55, #16 part) | `planRoiOverlay` planner (geometry gate, viewport→band mapping, 32 MiB band budget) + `roiStripRect`/`roiBlockedByGeometry`; `RoiDecoder` (native `aperturex/roi_decode` channel when full RGBA > 64 MiB, Rust `decodeJpegRoi` fallback); `spatial::apply_spatial_roi` + `api/roi::{roi_halo,bake_roi_band}` (halo context, geometry-identity guard, parity vs `preview_base`); `MainActivity.kt` `BitmapRegionDecoder`; canvas wiring (debounced `_runRoi`, token-guarded, shader-path strip). 400 Dart / 152 Rust tests |
+| iOS `CGImageSource` ROI channel + tile pyramid wiring (#16 part) | `AppDelegate.swift` registers `aperturex/roi_decode` (lazy `CGImageSource` crop + flipped `CGBitmapContext` → top-origin RGBA, serial decode queue, `bad_args`/`decode_failed` contract matching Android); `RoiDecoder.decodeRect` (arbitrary rects, shared tier/fallback with `decodeBand`); `TileSource`/`JpegTileSource`/`footprintForTile`/`downsampleBox`/`coarseAncestors` + `TileViewport` source mode (zoom-matched level, byte-budget clamp, coarse-ancestor instant paint); `synthetic_jpeg` position-encoded pattern; `examples/gen_corpus.rs`; on-device harness `integration_test/tile_corpus_test.dart` (byte-exact seams vs oracle strips, RSS/latency report, `CORPUS_STRICT` gates). 20 new Dart + 3 new Rust tests |
 
 ### 🟡 Partial (present but a piece is unwired — these are the bugs)
 
@@ -48,13 +49,12 @@ Verified against the tree with the P4 export wiring present (`export_pipeline.rs
 | Masking | Linear/radial/luminance layers wired; **brush** (`paint_brush.dart`) is a standalone, tested class not wired to the recipe/preview/export | **#63** |
 | Persistence | `sidecar.dart` exists + is tested but **never saved/loaded** in the app (P2 exit criterion unmet) | **#61** |
 | Wide gamut | Only sRGB + P3→sRGB; no f16/linear-P3 working space, no true ICC matrix parse | #15 (existing) |
-| High-zoom ROI overlay + native ROI decode | Planner/decoder/Rust bake/Android channel wired and tested; **iOS has no `CGImageSource` region decode** (channel degrades to the Rust full-decode fallback); no on-device seam validation of the mounted strip yet | **#16**, **#55** |
+| High-zoom ROI overlay + native ROI decode | Planner/decoder/Rust bake/both platform channels/pyramid wiring tested; **the >100 MP corpus + seam harness has not had its first on-device run** (`tile_corpus_test.dart`, report-only until `CORPUS_STRICT=1` passes on the pinned device); iOS channel needs an Xcode build to verify | **#16**, **#55** |
 
 ### ⬜ Not started (the remaining roadmap)
 
 | Subsystem | Issue |
 |---|---|
-| Native ROI: iOS `CGImageSource` channel + tile pyramid + >100 MP memory profile (Android `BitmapRegionDecoder` landed) | #16 (existing) |
 | SIMD-vectorized spatial passes | **#56** |
 | Guided-filter edge-aware shadows/highlights + clarity | **#57** |
 | Dark-channel dehaze | **#58** |
@@ -174,11 +174,12 @@ Each workstream lists its goal, the exact files, and its issue(s).
 - ⬜ On-device validation of the mounted texture path (integration tests cover the FFI/render, not the widget mount).
 - Files: `app/lib/viewport/preview_surface.dart`, `app/lib/viewport/image_canvas.dart`, `app/lib/engine/preview_texture.dart`, `app/rust/src/api/preview.rs`, `MainActivity.kt`.
 
-### W3 — Tiles & viewport resolution (#16 + #55) 🟡 *(Android slice landed)*
+### W3 — Tiles & viewport resolution (#16 + #55) 🟢 *(code complete; on-device corpus run pending)*
 - ✅ **#55** high-zoom ROI overlay: `planRoiOverlay` (threshold at `scale·fitted ≥ proxyW`, geometry-identity gate, 32 MiB band budget), `roiStripRect`/`roiBlockedByGeometry`, `RoiDecoder` (native `aperturex/roi_decode` above 64 MiB full-RGBA, Rust `decodeJpegRoi` fallback), `spatial::apply_spatial_roi` + `api/roi::{roi_halo,bake_roi_band}` with halo rows + geometry guard + `preview_base` parity, canvas wiring (debounced `_runRoi`, token-guarded, overlay strip through `lut.frag`, `useTextureDelivery(roiActive:)` forces the shader path).
-- ✅ **#16 (Android)** `BitmapRegionDecoder` region decode behind `aperturex/roi_decode` (single-thread executor, tight RGBA repack, `runOnUiThread` results).
-- ⬜ **#16 (remaining)**: iOS `CGImageSource` channel registration (today: Rust full-decode fallback), multi-level tile pyramid wiring (`tile_viewport.dart` remains an unwired demo), device-tier probe + >100 MP corpus with memory/60 fps profiling, on-device seam validation.
-- Files: `app/lib/viewport/roi_overlay.dart`, `app/lib/viewport/roi_decoder.dart`, `app/lib/viewport/image_canvas.dart`, `app/lib/viewport/preview_surface.dart`, `app/rust/src/spatial.rs`, `app/rust/src/api/roi.rs`, `app/android/app/src/main/kotlin/com/devparadise/tessera/MainActivity.kt`.
+- ✅ **#16 (both platforms)** `aperturex/roi_decode`: Android `BitmapRegionDecoder` (single-thread executor, tight RGBA repack) + iOS `CGImageSource` (`AppDelegate.swift`: lazy crop, flipped bitmap context for top-origin RGBA, serial queue, matching error contract); Dart `decodeBand`/`decodeRect` share one tier probe + Rust fallback.
+- ✅ **#16 (pyramid)** `TileSource`/`JpegTileSource` + `TileViewport` source mode: zoom-matched levels via `TilePyramid.levelForScale`, byte-budgeted footprints (default 64 MiB → level 3 at 512-tile for ~100 MP), box downsample with factor-aligned seams, coarse-ancestor instant paint, failed-key memoisation. Seam/footprint/downsample/clamp covered by 20 unit tests; corpus pattern position-encoded (`synthetic_jpeg` determinism test).
+- ✅ **#16 (corpus + harness)** `examples/gen_corpus.rs` (file corpus, never committed) + `integration_test/tile_corpus_test.dart`: generates/loads >100 MP JPEG, byte-exact seam sweep against oracle strips at every feasible level, zoom-out clamp walk, RSS + latency report with `CORPUS_STRICT` gates. **First on-device run outstanding** (Android channel live; iOS awaits an Xcode build).
+- Files: `app/lib/viewport/roi_overlay.dart`, `app/lib/viewport/roi_decoder.dart`, `app/lib/viewport/tile_source.dart`, `app/lib/viewport/tile_viewport.dart`, `app/lib/viewport/tile_pyramid.dart`, `app/lib/viewport/image_canvas.dart`, `app/lib/viewport/preview_surface.dart`, `app/rust/src/spatial.rs`, `app/rust/src/api/roi.rs`, `app/rust/src/api/engine.rs`, `app/rust/examples/gen_corpus.rs`, `app/integration_test/tile_corpus_test.dart`, `MainActivity.kt`, `ios/Runner/AppDelegate.swift`.
 
 ### W4 — SIMD spatial kernels (#56)
 - Portable SIMD abstraction (`std::simd` / NEON) behind one module; vectorize separable blurs and guided/bilateral inner loops; scalar reference + epsilon parity test.
@@ -275,5 +276,13 @@ W7 brush (P2.5)      W9 persistence/presets      W10 RAW colour (after W5)      
 | [#66](https://github.com/prit-007/ApertureX/issues/66) | RAW lens corrections + EXIF | W10 | P3 |
 | [#67](https://github.com/prit-007/ApertureX/issues/67) | LGPL dynamic-linking packaging | W11 | P3 |
 | [#68](https://github.com/prit-007/ApertureX/issues/68) | Rust export wiring + memory cap | W1 | P4 |
+
+**Distribution / infrastructure** (CI + releases + F-Droid are built — see
+ROADMAP P5 and ADR 0004):
+
+| # | Title | Workstream | Phase |
+|---|---|---|---|
+| [#69](https://github.com/prit-007/ApertureX/issues/69) | F-Droid submission: vendored crates + fdroiddata MR | W12 | P5 |
+| [#70](https://github.com/prit-007/ApertureX/issues/70) | iOS CI build (macOS runner, unsigned) | W12 | P5 |
 
 Pre-existing trackers referenced above: [#16](https://github.com/prit-007/ApertureX/issues/16) (native ROI + tiles), [#19](https://github.com/prit-007/ApertureX/issues/19) (RAW import), [#15](https://github.com/prit-007/ApertureX/issues/15) (wide gamut), [#20](https://github.com/prit-007/ApertureX/issues/20) (Ultra HDR), [#21](https://github.com/prit-007/ApertureX/issues/21) (ML module), [#41](https://github.com/prit-007/ApertureX/issues/41) (edge-to-edge shell), [#33](https://github.com/prit-007/ApertureX/issues/33) (rename).
