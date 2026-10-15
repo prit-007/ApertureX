@@ -121,13 +121,18 @@ jobs:
           echo "$FLUTTER_HOME/bin" >> "$GITHUB_PATH"
           "$FLUTTER_HOME/bin/flutter" config --no-analytics
           "$FLUTTER_HOME/bin/flutter" precache --android
-          # Pinned Rust with the Android targets preinstalled, so cargokit's
-          # rustup checks find them without a network roundtrip.
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-            sh -s -- -y --default-toolchain 1.99.0 --profile minimal --no-modify-path
-          echo "/root/.cargo/bin" >> "$GITHUB_PATH"
-          /root/.cargo/bin/rustup target add --toolchain 1.99.0 \
-            aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+
+      # Pinned Rust via the same action as analyze-and-test. A manual
+      # `curl | sh` rustup in this container job installed into
+      # $HOME/.cargo (/github/home) while the script invoked
+      # /root/.cargo/bin/rustup — exit 127. The action owns
+      # CARGO_HOME/PATH end-to-end, and `targets:` preinstalls the
+      # Android triples so cargokit's rustup checks stay offline.
+      - name: Set up Rust (Android targets preinstalled)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.99.0"
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
       - name: Prebuild (pinned pub get)
         run: tool/ci/android_prebuild.sh
