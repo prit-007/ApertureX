@@ -5,7 +5,12 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status:** P-1 ✅ · P0 🚧 (foundations done; real-image decode folded into P1) · P1 🚧 (viewport core + tile compositor + EditRecipe v1 + basic JPEG export done; native ROI + >100 MP profiling + tile pyramid remaining) · **P2 🚧** (recipe superset + Riverpod controller + shared ParameterControl + dual-shell skeleton + full point-wise colour pipeline (LUT, WB/exposure/contrast/vibrance/saturation/split-tone/curves) + preview==export + live histogram done; spatial passes, geometry, presets remaining) · P2.5+ queued.
+**Current status:** P-1 ✅ · P0 ✅ (foundations + JPEG proxy folded into P1) · P1 🚧 (viewport + tile compositor + zero-copy preview *partly* wired + EditRecipe v1 + basic JPEG export done; a **bug blocks the zero-copy Texture display** (#54), and native ROI + >100 MP profiling + tile pyramid remain (#16)) · **P2 🚧** (recipe superset + Riverpod controller + shared ParameterControl + dual-shell skeleton + full point-wise colour pipeline (LUT, WB/exposure/contrast/vibrance/saturation/split-tone/curves) + **spatial passes** + **geometry** + **presets/LUT/.xmp import** + preview==export + live histogram done; whites/blacks + Adobe vibrance (#59), sidecar persistence (#61), `.lrtemplate` (#62), guided-filter/quality refinements remain) · P2.5 🚧 (linear/radial/luminance masks + layer model landed; **brush wiring** pending #63) · P3 🚧 (rawler RAW decode/demosaic/matrices/orientation/ROI/export landed; corpus, EXIF passthrough, lens-correction wiring (#66), DCP profiles (#64), highlight reconstruction (#65) remain).
+
+> **Forward plan.** The consolidated, file-by-file plan — including the exact
+> gaps found by the latest audit and the GitHub issue carrying each — is
+> [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md). This roadmap stays the
+> phase-gate view; the plan is the work breakdown.
 
 > **Scope note.** This roadmap grew with the dual-UI / Lightroom-parity vision
 > (ADR 0008–0010). That is multi-year, multi-person work shipped in tiers. The
@@ -87,9 +92,14 @@ path (a ~12 MP image opens/zooms with no full-image texture). The **`EditRecipe`
 v1 foundation** (Light + Color, versioned JSON) and a working **basic JPEG
 export** (CPU grade in Rust mirroring the shader, driven by the recipe) are done,
 so the app is usable end-to-end (open→edit→export). 18 Rust, 53 Dart, 4 on-device
-tests green. **Remaining:** native ROI decoders to avoid full-decode for >100 MP,
-device-tier probe, a >100 MP corpus with memory/60 fps profiling, and the
-multi-level tile pyramid.
+tests green. The **zero-copy preview** (Rust-resident store + `ANativeWindow`
+texture) is implemented and Rust-tested, but **not yet integrated into the widget
+tree** — the viewport never mounts a `Texture` widget, so texture mode falls back
+to the "Loading image…" placeholder ([#54](https://github.com/prit-007/ApertureX/issues/54)); the shader/atlas path is the
+working fallback. **Remaining:** finish zero-copy display (#54), native ROI
+decoders + multi-level tile pyramid to avoid full-decode for >100 MP (#16),
+high-zoom ROI overlay (#55), device-tier probe + >100 MP corpus with
+memory/60 fps profiling, and SIMD spatial kernels for the 60 fps gate (#56).
 
 ---
 
@@ -121,14 +131,19 @@ multi-level tile pyramid.
 split-tone grading, tone curves, flat JSON + forward migration), the Riverpod
 `RecipeController` (undo/redo/commit/cancel), the shared `ParameterControl`
 (bidirectional/unidirectional, tap-to-type, haptics), the **dual-shell skeleton**
-(`AppShell` + Lightroom/Snapseed over one shared canvas), and the complete
+(`AppShell` + Lightroom/Snapseed over one shared canvas), the complete
 **point-wise colour pipeline** — `sRGB→linear→Von Kries WB→×2^EV→S-curve
 contrast→vibrance→saturation→split-tone→tone curves` — baked to a 65³ LUT for
 preview and reused per-pixel for export (**preview == export** by construction),
-plus a live interactive histogram. **Remaining:** spatial passes
-(clarity/texture/sharpen/dehaze/edge-aware shadows-highlights) with
-overlap-padded tiles; HSL/color-mixer; geometry (crop/rotate/perspective);
-presets/`.xmp`; project sidecars; history tree.
+a live interactive histogram, the **spatial passes** (texture/clarity/sharpen/
+denoise/edge-aware shadows-highlights/vignette/grain/dehaze) wired to the
+recipe, **geometry** (crop/rotate/flip/straighten/perspective/skew) with a GPU
+live warp, and **preset/LUT import** (`.cube` 1D/3D, `.3dl`, HALD, `.xmp` with a
+compatibility report). **Remaining:** render `whites`/`blacks` and make vibrance
+Adobe-skintone-accurate (#59), **sidecar persistence** — the encoder exists and
+is tested but is never saved/loaded in the app (#61), `.lrtemplate` import (#62),
+halo-free guided-filter shadows/highlights + clarity (#57), dark-channel dehaze
+(#58), SIMD spatial (#56), and the golden-image tolerance corpus (#60).
 
 **Exit criteria**
 - Edit a photo, kill the app, reopen: identical result from the sidecar.
@@ -150,6 +165,16 @@ presets/`.xmp`; project sidecars; history tree.
 - Range masks (luminance / color) — start with luminance.
 - Mask edits feed the same recipe and the same shader chain (masked regions
   route through per-mask uniform sets / blend).
+
+**Status — in progress.** The layer model and analytic masks landed:
+`MaskKind {linear, radial, luminance}` in `edit/adjustment_layer.dart`, layer
+add/update/remove in `RecipeController`, `apply_masks` in Rust (`mask.rs`:
+`coverage`/`apply_local`/`apply_local_band`), node editing UI/overlay, and
+preview+export both carry `recipe.layers` — all tested. **Remaining:** the
+**brush** mask. `features/masking/paint_brush.dart` (pressure-aware, unit-tested)
+exists but is a standalone class, not wired to `AdjustmentLayer`/preview/export;
+stylus-only filtering + `invertedStylus` eraser pending
+([#63](https://github.com/prit-007/ApertureX/issues/63)).
 
 **Exit criteria**
 - A linear + radial + brush mask stack edits only its masked region, non-
@@ -173,8 +198,12 @@ presets/`.xmp`; project sidecars; history tree.
 - [x] EXIF orientation applied on decode (upright pixels + display dimensions).
 - [x] ROI (decode-full-then-crop) and FFI (`api/raw.rs`) + Dart viewport/crop wiring.
 - [x] RAW → JPEG export (editor + gallery), reusing the graded export path.
+- [x] Lens-correction *primitives* (`raw::lens`: Brown–Conrady distortion + radial vignette), unit-tested.
+- [ ] **Wire** lens corrections into the decode path (currently implemented but never called) ([#66](https://github.com/prit-007/ApertureX/issues/66)).
+- [ ] **RAW EXIF passthrough on export** (currently empty EXIF for RAF/RAW exports) ([#66](https://github.com/prit-007/ApertureX/issues/66)).
+- [ ] DCP camera profile `HueSatMap`/`LookTable` parse + apply (Adobe Standard parity) ([#64](https://github.com/prit-007/ApertureX/issues/64)).
+- [ ] Highlight reconstruction for clipped RAW highlights ([#65](https://github.com/prit-007/ApertureX/issues/65)).
 - [ ] RAW corpus across real CR2/NEF/ARW/RAF (colour + orientation).
-- [ ] RAW EXIF passthrough on export.
 - [ ] Embedded-preview fast path (needs parity-safe progressive swap).
 - [ ] DNG 16-bit export / re-encode.
 
@@ -211,6 +240,23 @@ presets/`.xmp`; project sidecars; history tree.
   progress; metadata pass-through.
 - Batch export; preset apply at export.
 - Background export surviving app backgrounding on both platforms.
+
+**Status — wired end-to-end (single-call + cancel).** The banded, overlap-padded,
+cancellable full-res export lives in `app/rust/src/export_pipeline.rs`
+(`run_export_tiled` vs `run_export_single` byte-exact parity oracle;
+`ExportOutcome::Cancelled`) and is now **exposed over FRB** as `exportFull` with
+an opaque cancel-token registry (`exportCancelNew/Set/Drop`). Dart's
+`TesseraEngine.exportJpegFull` runs the whole recipe inside Rust — geometry →
+banded spatial → masks → grade → optional downscale → JPEG — in **one** bridge
+crossing instead of five; `exportJpeg` now delegates to it, so the legacy
+multi-round-trip chain is retired. The editor drives a Cancel button off the
+token (returns `null` on abort). Verified: 142 Rust tests (spatial/mask band
+parity, tiled-vs-single parity, FFI cancel), `cargo fmt`/`clippy` clean, and the
+crate cross-compiles for all four Android targets. **Remaining:** a hard
+peak-memory cap via streamed encode (the `jpeg_encoder` crate has no streaming
+API, so the graded frame is still held for the final encode), a progress
+indicator, batch/preset export, and background export
+([#68](https://github.com/prit-007/ApertureX/issues/68)).
 
 **Exit criteria**
 - Export a 200 MP image without exceeding the memory budget; output pixel-
@@ -258,6 +304,9 @@ A deliberately small, releasable slice that proves the product end-to-end:
 ---
 
 ## Cross-cutting workstreams (continuous)
+
+> The file-by-file breakdown and issue mapping for all of the above is in
+> [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
 - **Fork maintenance** of `pro_image_editor` (`FORK-STRATEGY.md`).
 - **Color correctness** golden tests, expanded each phase (incl. preset

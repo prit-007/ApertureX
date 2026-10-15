@@ -13,14 +13,20 @@ ARM without wrecking battery/build times is hard. Wrong engine choice creates a
 lock-in we cannot escape cheaply.
 
 - **Likelihood:** high · **Impact:** high
+- **Status:** *substantially retired.* ADR 0005 decided **rawler-first** (pure
+  Rust, LGPL-2.1, F-Droid from-source friendly); LibRaw is optional behind
+  `--features raw-libraw`. `raw::decode`/`metadata`/`color`/`lens` implement
+  Bayer/CFA demosaic, camera matrices, orientation, and DCraw-class lens
+  primitives, with RAW ROI + export wired through Dart. **Remaining risk:** real
+  multi-vendor corpus coverage, and that LibRaw/lensfun (if ever enabled) are
+  LGPL and must be dynamically linked (issue #67).
 - **Mitigations:**
-  - Defer the engine choice behind a fixed `RawDecoder`/`ImageSource` trait
-    (ADR 0005). Either LibRaw-via-Rust or a pure-Rust decoder drops in.
+  - Engine choice deferred behind the fixed `ImageSource` trait (ADR 0005) —
+    **done**; either implementation drops in.
   - Ship the embedded-preview fast path first so RAW "works" before full
-    demosaic lands.
-  - Keep RAW out of the critical path for P0–P2 (JPEG-first proves everything
-    else).
-  - Test against a fixed multi-vendor RAW corpus in CI.
+    demosaic lands. *(Deferred deliberately: a camera preview as the graded base
+    would break preview==export; must be a transient placeholder.)*
+  - Test against a fixed multi-vendor RAW corpus in CI. *(Pending — issue #19.)*
 
 ## Wall 2 — GPU shaders
 
@@ -30,12 +36,20 @@ A shader that works on one Android GPU may break or misbehave on another;
 compilation can stall first use.
 
 - **Likelihood:** medium · **Impact:** medium
+- **Status:** *partially retired.* `grade.frag` + a 65³ LUT-atlas shader hold
+  display refresh on a mid-tier Android device (P-1 met). A Rust-owned
+  `ANativeWindow` **zero-copy texture** path also exists — but its Flutter
+  integration is **incomplete**: the widget tree never mounts a `Texture`, so
+  texture mode falls back to the placeholder (issue #54). This is now the live
+  shader-path risk.
 - **Mitigations:**
   - Constrain the shader dialect to the documented safe subset; centralize UV
     handling (incl. GLES un-flip) in one helper.
   - Feature-detect Impeller-only paths; provide non-shader fallbacks.
   - Precach shader programs at startup; reuse `FragmentShader` instances.
   - Carry golden-image tests across at least two GPU vendor families.
+  - **Finish the zero-copy texture wiring (#54)** with the shader/atlas path as a
+    tested fallback.
   - P-1 spike is the early kill-switch: if the shader path cannot hold frame
     rate, pivot to `flutter_gpu` before committing.
 
@@ -46,13 +60,20 @@ Impeller's max texture size (8192–16384 px, else silent downscale), and the OS
 memory killer. A single full-res decode can be hundreds of MB.
 
 - **Likelihood:** high · **Impact:** high
+- **Status:** *open, partly mitigated.* The tile compositor + byte-budgeted LRU exist; native ROI
+  decoders and the tile pyramid do **not** (JPEG/RAW ROI currently decode-full-
+  then-crop), so a >100 MP open still materializes more than it should. The
+  banded, overlap-padded, cancellable export is **wired end-to-end to Dart**
+  (`export_pipeline.rs` → `exportFull` → editor Cancel, #68 wiring done), but it
+  has **no hard memory cap**: `jpeg_encoder` has no streaming API, so the peak
+  stays ~2 frames (source + output) regardless of banding.
 - **Mitigations:**
   - Tile-based viewport with ROI decode; **never** materialize full-res as one
-    texture (ARCHITECTURE §5).
+    texture (ARCHITECTURE §5). *(Native ROI + pyramid pending — issue #16.)*
   - Byte-budgeted LRU tile cache + device-tier probe; cap decode parallelism.
-  - Streamed export that frees tiles after encode.
+  - Streamed export that frees tiles after encode; hard peak-RSS cap.
   - Explicit handling of `ImageCache.maxByteSize` to avoid thrash.
-  - Regression benchmark on a low-tier device in CI.
+  - Regression benchmark on a low-tier device in CI (>50 MP export RSS gate).
 
 ## Wall 4 — The FOSS UI curse
 
@@ -79,8 +100,10 @@ Android does. Gesture interactions that fight pan/zoom feel broken.
 | Scope creep (AI, video, cloud) | high/high | Explicit non-goals in README; new scope requires an ADR. |
 | GPU fragmentation across Android vendors | med/med | Safe shader subset + fallbacks + multi-vendor goldens. |
 | Battery/thermal on long edits | med/med | Progressive refinement, throttle background decode, avoid per-frame LUT rebuilds. |
-| No initial Rust unit-test harness | med/low | CI adds `cargo test`/`clippy` in P0. |
+| No initial Rust unit-test harness | med/low | CI adds `cargo test`/`clippy` in P0. — **retired** |
 | F-Droid reproducibility | med/med | Follow the org's existing `nook` F-Droid recipe; pin toolchains (ADR 0004). |
+| **Built-but-unwired features** (zero-copy texture #54, lens corrections #66, brush masks #63, sidecar #61) | high/med | Each has a tracked issue; verify "wired + demoable + tested" before closing — presence of a Rust function is not shipped. |
+| **LGPL surface if LibRaw/lensfun enabled** | med/high | Dynamically link (`.so`/`.dylib`) + notices; keep rawler the default (issue #67). |
 
 ---
 
@@ -89,7 +112,11 @@ Android does. Gesture interactions that fight pan/zoom feel broken.
 Revisit the architecture if any of these hold at the end of a phase:
 
 - P-1: shaders cannot hold frame rate → pivot render path (e.g. `flutter_gpu`).
+  *(Not triggered: shader path holds refresh; zero-copy texture display still to
+  be finished — #54.)*
 - P1: ROI decode on low-tier devices cannot meet budget at any tile size →
   re-scope huge-image support (proxy-only beyond a megapixel ceiling).
+  *(Watch item: native ROI #16 not landed yet.)*
 - P3: RAW ROI decode is infeasible on the target hardware → ship RAW as
-  proxy-edit + deferred full decode at export.
+  proxy-edit + deferred full decode at export. *(rawler ROI is decode+crop;
+  revisit if tiles are needed.)*

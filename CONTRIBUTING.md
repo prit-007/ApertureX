@@ -53,4 +53,6 @@ flutter_rust_bridge_codegen generate
 ## Architecture
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), the ADRs in
-[`docs/adr/`](docs/adr/), and the plan in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+[`docs/adr/`](docs/adr/), and the forward plan in
+[`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) /
+[`docs/ROADMAP.md`](docs/ROADMAP.md).

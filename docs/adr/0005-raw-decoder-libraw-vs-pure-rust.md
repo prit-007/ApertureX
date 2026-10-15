@@ -1,6 +1,7 @@
 # ADR 0005 — RAW decoder: LibRaw vs pure-Rust
 
-- **Status:** **Proposed** (Phase C spike complete; decision recorded in spike)
+- **Status:** **Accepted — rawler-first** (Phase C spike complete; rawler is the
+  default shipped decoder. Real-corpus/perf evidence still being gathered in P3.)
 - **Date:** 2026-10-13
 - **Deciders:** Developer's Paradise
 
@@ -35,20 +36,34 @@ pure-Rust path can be added for supported cameras or for constrained builds.
 
 ## Decision
 
-**Provisional (spike):** The `ImageSource` trait (ARCHITECTURE §7.2) is fixed. Phase C spike (rawler 0.8.0 + libraw 0.1.1/system 0.21.2) favors **rawler-first** for FOSS/mobile/F-Droid (single toolchain, in-memory decode, easier ROI, simpler cross-compile). LibRaw remains a fallback if coverage gaps arise. Final acceptance/confirmation remains in **P3** with measured evidence (frame time, peak RSS, camera corpus, build reproducibility). See [raw-engine-spike.md](../spikes/raw-engine-spike.md).
+**Accepted — rawler-first.** The `ImageSource` trait (ARCHITECTURE §7.2) is fixed
+and the **pure-Rust `rawler` path is the default shipped decoder**. Phase C spike
+(rawler 0.8.0 + libraw 0.1.1/system 0.21.2) favored rawler for FOSS/mobile/
+F-Droid (single toolchain, in-memory decode, easier ROI, simpler cross-compile),
+and the implementation has since landed: `raw::decode` (Bayer/CFA demosaic),
+`raw::metadata`, `raw::color` (DNG matrices), and `raw::lens` (distortion +
+vignette), with RAW ROI and RAW→JPEG export wired through Dart. LibRaw remains a
+fallback behind `--features raw-libraw` if coverage gaps arise, and **must be
+dynamically linked** (LGPL) if it ever ships. See
+[raw-engine-spike.md](../spikes/raw-engine-spike.md). Remaining P3 evidence work:
+real multi-vendor corpus coverage, lens-correction wiring, DCP profiles, and
+highlight reconstruction.
 
 ## Consequences
 
 - P0–P2 must not assume LibRaw-specific behavior anywhere above the engine.
 - The RAW corpus test harness is defined before the choice so both options can be
   scored identically.
-- Both licenses are compatible with GPL-3 (LibRaw: LGPL-2.1/CDDL; pure-Rust crates:
-  typically MIT/Apache-2.0) — pending final crate selection and notice capture.
+- Default build is pure-Rust (LGPL-2.1 rawler), GPL-3 compatible and F-Droid
+  from-source clean. Adopting LibRaw/lensfun later requires dynamic linking +
+  notices (issue #67); see [`THIRD_PARTY.md`](../THIRD_PARTY.md).
 
-## Follow-ups (P3 entry criteria)
+## Follow-ups (P3)
 
-1. Stand up the RAW corpus (DNG, CR2, NEF, ARW, RAF, ORF).
-2. Prototype ROI decode in each option.
-3. Measure frame time, peak RSS, build time, binary size, F-Droid
-   build-from-source feasibility.
-4. Decide, set status to Accepted, update [`THIRD_PARTY.md`](../THIRD_PARTY.md).
+1. Stand up the RAW corpus (DNG, CR2, NEF, ARW, RAF, ORF). *(Pending.)*
+2. Prototype ROI decode in each option. *(rawler ROI = decode-full-then-crop;
+   native tiles pending.)*
+3. Measure frame time, peak RSS, build time, binary size, F-Droid build-from-source
+   feasibility.
+4. **Done:** status set to Accepted; keep [`THIRD_PARTY.md`](../THIRD_PARTY.md)
+   current (LibRaw/lensfun rows added only when the optional feature is enabled).

@@ -8,12 +8,17 @@
 
 > *ApertureX* — a photo editor that opens like a camera aperture and edits like a darkroom. It ships **two UIs over one recipe**: a Lightroom-style precision panel UI (default) and a Snapseed-style gesture UI. Internally, every large photo is still edited as a field of **tiles**, never one giant bitmap — the engine's atomic unit.
 
-> **Status: pre-v0.1.** Both UI shells (Lightroom panels + Snapseed gestures) are
-> feature-complete for P2: a Rust color/spatial/geometry/mask engine, a 60fps
-> preview (proxy-resolution + split bakes), crop, batch gallery, presets, and
-> on-device offline activity logs. The project is now in **release hardening**
-> (icons, signing, metadata). See [`docs/ROADMAP.md`](docs/ROADMAP.md) and the
-> [`docs/PARITY.md`](docs/PARITY.md) ledger.
+> **Status: pre-v0.1 (P1–P2 in progress).** Both UI shells (Lightroom panels +
+> Snapseed gestures) and the bulk of the edit engine are built: a Rust
+> color/spatial/geometry/mask pipeline, a 60fps preview (proxy-resolution + split
+> bakes), crop, batch gallery, presets/LUT import, and on-device offline activity
+> logs. The **banded full-res export** is now wired end-to-end (single Rust call
+> with cancel). Several other parts are **built but not yet wired end-to-end** —
+> the zero-copy preview texture, native ROI tiles for >100 MP, brush masks,
+> sidecar persistence, and RAW lens corrections — each tracked by a
+> GitHub issue. See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)
+> for the current status and gaps, [`docs/ROADMAP.md`](docs/ROADMAP.md) for phase
+> gates, and the [`docs/PARITY.md`](docs/PARITY.md) ledger.
 
 > **Naming:** the product is **ApertureX**. The Dart package is now
 > `aperturex`; the Android `applicationId` (`com.devparadise.tessera`) and the
@@ -74,6 +79,7 @@ Full detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 |-----|----------|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layers, data flow, tile engine, shader pipeline, dual-UI shells, recipe schema, masking, ML module, memory budget |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phases P-1→P6 + P2.5/P3.5, v0.1 ship gate, exit criteria |
+| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Current status audit, file-by-file workstreams, perf tiers, and the issue carrying each remaining task |
 | [`docs/PARITY.md`](docs/PARITY.md) | Feature parity matrix (Snapseed/Lightroom × status × phase) |
 | [`docs/RISKS.md`](docs/RISKS.md) | The four walls, each risk, and its mitigation |
 | [`docs/FORK-STRATEGY.md`](docs/FORK-STRATEGY.md) | How we fork and maintain `pro_image_editor` |

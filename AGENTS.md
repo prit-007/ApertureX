@@ -134,7 +134,7 @@ Engine (Rust via flutter_rust_bridge)
 
 ### Testing Gotchas
 - **Memory budget**: Tile LRU respects ~512MB device limit
-- **Performance**: Debug Rust profile has 10-50x slower color/spatial math
+- **Performance**: The Cargo `dev` profile sets `opt-level = 3` (see `app/rust/Cargo.toml`), so debug/`flutter run` builds are usable; only a truly unoptimized profile shows the 10-50x color/spatial penalty.
 - **Shader compilation**: `flutter build apk --debug` verifies shaders compile
 - **Preview == Export**: Grading math lives once in Rust, shared by preview LUT and export path
 

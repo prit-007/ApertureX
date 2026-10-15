@@ -1,10 +1,20 @@
 # ApertureX — Architecture
 
-> Status: design (P1 in progress). This document specifies the system the
-> phases build. It now covers the **dual-UI / Lightroom-parity direction**
-> (ADR 0008–0010): two UI shells over one Lightroom-aligned recipe, preset/LUT
-> import, masking, and an optional on-device ML module. It is implementation-
-> guiding, not an implementation.
+> Status: design + partial implementation (P1/P2 in progress). This document
+> specifies the system the phases build. It now covers the **dual-UI /
+> Lightroom-parity direction** (ADR 0008–0010): two UI shells over one
+> Lightroom-aligned recipe, preset/LUT import, masking, and an optional on-device
+> ML module. It is implementation-guiding, not an implementation. For the
+> **current build status and the gap between this design and the tree**, see
+> [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
+
+> **Implementation snapshot (kept intentionally short).** The point-wise colour
+> pipeline, dual-shell skeleton, geometry (CPU + GPU live warp), spatial passes,
+> preset/LUT import, histogram, and rawler-based RAW decode are **built**. The
+> banded full-res export is **built and wired** (single `exportFull` bridge call,
+> cancellable; streamed encode still pending). The zero-copy texture display and
+> native ROI decoders/tile pyramid are **built but not yet wired end-to-end**.
+> See the plan for the issue-tracked breakdown.
 
 ---
 
@@ -183,7 +193,9 @@ Never materialize the full image as one texture. Decompose into a tile field:
 - **ROI decode:** the engine exposes `decodeTile(rect, targetScale)`. On Android
   this maps to `BitmapRegionDecoder`; on iOS to `CGImageSourceCreateThumbnailAtIndex`
   / `CIImage` cropping; RAW goes through the `RawDecoder` (see §7). No full-image
-  decode is ever required to show the viewport.
+  decode is ever required to show the viewport. *(Current tree: JPEG and RAW ROI
+  both decode-full-then-crop — native ROI decoders and the tile pyramid are the
+  remaining P1 work, issue #16.)*
 - **Compositing:** the viewport draws each visible tile as a textured quad at its
   world position, then the fragment-shader chain (§6) is applied per tile before
   it hits the screen, so seams are invisible (each tile shares the same UV math
@@ -271,9 +283,14 @@ pub trait ImageSource {
 
 Implementations:
 - `PlatformJpegSource` / `PlatformHeicSource` — native decoders for ROI speed.
+  *(Still the decode-full-then-crop fallback in the tree; native
+  `BitmapRegionDecoder`/`CGImageSource` ROI is pending — see
+  [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) and issue #16.)*
 - `RawSource` — backed by either **LibRaw** (via a Rust binding) or a
-  **pure-Rust** decoder. Selected by feature flag at build time; the decision is
-  recorded in ADR 0005 when phase P3 runs.
+  **pure-Rust** decoder. **Decision (ADR 0005): rawler-first** — the pure-Rust
+  `rawler` crate is the default (`raw::decode`/`metadata`/`color`/`lens`); LibRaw
+  stays optional behind `--features raw-libraw` and would require dynamic linking
+  for LGPL compliance.
 
 ### 7.3 Threading
 - Decode runs off the UI thread (Rust thread pool / async).
@@ -289,16 +306,29 @@ Implementations:
 - **Precision:** 16-bit float intermediates where available; 8-bit only at the
   final encode.
 - **Op order (fixed):**
-  1. Decode → linear, apply camera WB (RAW) / as-shot (JPEG)
-  2. Lens corrections (distortion, vignette, CA) — RAW, via lensfun-class profiles
-  3. Exposure
-  4. Tone (white/black point, highlights/shadows, contrast)
-  5. Color (temperature/tint, vibrance/saturation, HSL, curves, split-tone)
-  6. Detail (clarity, sharpen, noise reduction) — export-fidelity
-  7. Geometry (crop, rotate, flip, perspective)
-  8. Output transform (color space, gamma) → encode
-- The order is versioned inside the recipe so future reordering does not silently
+  1. Decode → linear
+  2. Lens corrections (distortion, vignette, CA)
+  3. Camera white balance (RAW) / as-shot (JPEG)
+  4. Camera-profile matrices — DNG `ColorMatrix`, temperature-interpolated
+  5. Camera profile CLUT — DCP `HueSatMap` / `LookTable` (Adobe-standard parity)
+  6. Exposure
+  7. Tone (highlights/shadows, whites/blacks, contrast, curve)
+  8. Color (temperature/tint, vibrance/saturation, HSL)
+  9. Split-tone / colour grading
+  10. Detail (clarity, texture, sharpen, dehaze, noise reduction) — spatial
+  11. **User HALD / 3D LUT — applied last among edits**
+  12. Geometry (crop, rotate, flip, perspective) — warped live on the GPU, baked
+      into the final `Matrix4` resample at export
+  13. Output transform (color space, gamma) → encode
+- Op order is versioned inside the recipe so future reordering does not silently
   change existing edits.
+
+> **Ordering rules.** (a) Profile `HueSatMap` (5) runs **after** the camera
+> matrices and **before** the Basic sliders, mirroring Lightroom's profile →
+> Basic order. (b) A user-imported 3D/HALD LUT (11) runs **last among edits**,
+> after every parametric slider, so it behaves like a finishing look. (c) Spatial
+> detail filters (10) run with overlap padding so tiled export bands blend
+> seamlessly (see §5, §9).
 
 ---
 
@@ -383,7 +413,7 @@ adobe/                              (repo root; product name "ApertureX")
   THIRD_PARTY.md                    incl. ML-model license ledger (ADR 0010)
   LICENSE                           GPL-3.0
   docs/
-    ARCHITECTURE.md  ROADMAP.md  RISKS.md  FORK-STRATEGY.md  PARITY.md
+    ARCHITECTURE.md  ROADMAP.md  IMPLEMENTATION_PLAN.md  RISKS.md  FORK-STRATEGY.md  PARITY.md
     adr/0001..0010
   app/                              Flutter application
     lib/

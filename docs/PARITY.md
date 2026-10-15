@@ -7,6 +7,8 @@ when the feature is actually demoable with tests.
 
 **Status:** ✅ shipped · 🚧 planned (phase) · ⬜ later · ❌ not planned · ⚠️ constrained
 **Phases:** see [`ROADMAP.md`](ROADMAP.md). P2.5 = masking, P3.5 = optional AI module.
+Issue numbers in parentheses are the GitHub issue carrying the remaining work;
+the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
 ---
 
@@ -14,25 +16,26 @@ when the feature is actually demoable with tests.
 
 | Feature | Snapseed analogue | Lightroom analogue | Status | Phase |
 |---|---|---|---|---|
-| Exposure / contrast / saturation | Tune Image | Basic panel | ✅ (preview) | P0 |
-| Highlights / shadows / whites / blacks | Tune Image | Basic panel | 🚧 | P2 |
-| White balance (temp/tint) | White Balance | Basic panel | 🚧 | P2 |
-| Vibrance | Tune Image | Basic panel | 🚧 | P2 |
-| Full basic panel (numeric, tap-to-type) | — | Basic panel | 🚧 | P2 |
-| RGB tone curve (+ per-channel) | Curves | Tone Curve | 🚧 | P2 |
-| HSL / color mix | Selective | HSL/Color | 🚧 | P2 |
-| Color grading (shadow/mid/high) | — | Color Grading | ⬜ | P2/P6 |
-| Texture / clarity / dehaze | Details/Structure | Effects panel | 🚧 | P2 |
-| Vignette / grain | Vignette / Grain | Effects panel | 🚧 | P2 |
-| Sharpening (radius/detail/masking) | Details | Detail panel | 🚧 | P2 |
-| Noise reduction | Details | Detail panel | 🚧 | P2 |
-| Crop / rotate / skew / perspective | Crop | Geometry | 🚧 | P2 |
+| Exposure / contrast / saturation | Tune Image | Basic panel | ✅ | P0 |
+| Highlights / shadows | Tune Image | Basic panel | ✅ | P2 |
+| Whites / blacks | Tune Image | Basic panel | 🚧 (#59) | P2 |
+| White balance (temp/tint) | White Balance | Basic panel | ✅ | P2 |
+| Vibrance | Tune Image | Basic panel | ✅ (skintone-weight refinement in #59) | P2 |
+| Full basic panel (numeric, tap-to-type) | — | Basic panel | 🚧 (#59) | P2 |
+| RGB tone curve (+ per-channel) | Curves | Tone Curve | ✅ | P2 |
+| HSL / color mix | Selective | HSL/Color | ✅ | P2 |
+| Color grading (shadow/mid/high) | — | Color Grading | ✅ (split-tone) | P2 |
+| Texture / clarity / dehaze | Details/Structure | Effects panel | ✅ (halo-free guided refine in #57, dark-channel dehaze in #58) | P2 |
+| Vignette / grain | Vignette / Grain | Effects panel | ✅ | P2 |
+| Sharpening (radius/detail/masking) | Details | Detail panel | ✅ | P2 |
+| Noise reduction | Details | Detail panel | ✅ | P2 |
+| Crop / rotate / skew / perspective | Crop | Geometry | ✅ | P2 |
 
 ## Geometry & framing
 
 | Feature | Source | Status | Phase |
 |---|---|---|---|
-| Crop (free / aspect / straighten) | Both | 🚧 | P2 |
+| Crop (free / aspect / straighten) | Both | ✅ | P2 |
 | Auto-straighten (classical horizon) | Lightroom | 🚧 | P2 |
 | Auto-frame (face + saliency) | — | ⬜ (AI) | P3.5 |
 | Expand (generative fill) | Snapseed Expand | ❌ (non-goal; generative) | — |
@@ -41,11 +44,11 @@ when the feature is actually demoable with tests.
 
 | Feature | Lightroom analogue | Status | Phase |
 |---|---|---|---|
-| Linear gradient mask | Linear Gradient | 🚧 | P2.5 |
-| Radial gradient mask | Radial Gradient | 🚧 | P2.5 |
-| Brush mask | Brush | 🚧 | P2.5 |
-| Range mask (luminance/color) | Range Mask | ⬜ | P2.5/P6 |
-| Adjustment layers over masks | Masks + local adj | 🚧 | P2.5 |
+| Linear gradient mask | Linear Gradient | ✅ | P2.5 |
+| Radial gradient mask | Radial Gradient | ✅ | P2.5 |
+| Brush mask | Brush | 🚧 (paint_brush standalone; wiring #63) | P2.5 |
+| Range mask (luminance/color) | Range Mask | ✅ (luminance); color ⬜ | P2.5/P6 |
+| Adjustment layers over masks | Masks + local adj | ✅ (analytic masks) | P2.5 |
 | Snapseed stack == adjustment layers | Stack | 🚧 | P2.5 |
 
 ## Intelligent / AI masking (optional module — ADR 0010)
@@ -65,9 +68,9 @@ when the feature is actually demoable with tests.
 | Feature | Status | Phase |
 |---|---|---|
 | `.cube` (1D/3D) / HALD / `.3dl` LUT import | ✅ | P2 |
-| Lightroom `.xmp` import (+ compatibility report) | 🚧 | P2 |
-| Lightroom `.lrtemplate` import | 🚧 | P2 |
-| Golden-image tolerance tests for preset fidelity | 🚧 | P2 |
+| Lightroom `.xmp` import (+ compatibility report) | ✅ | P2 |
+| Lightroom `.lrtemplate` import | 🚧 (#62) | P2 |
+| Golden-image tolerance tests for preset fidelity | 🚧 (#60) | P2 |
 | ApertureX Look (recipe JSON) save/apply | 🚧 | P2 |
 | Look share via QR (open standard) | 🚧 | P2 |
 | Snapseed Look import | ❌ (no portable format) | — |
@@ -76,7 +79,7 @@ when the feature is actually demoable with tests.
 
 | Feature | Status | Phase |
 |---|---|---|
-| Live histogram + clipping warnings | 🚧 | P2 |
+| Live histogram + clipping warnings | ✅ (histogram) | P2 |
 | Before/after | 🚧 | P2 |
 | History / snapshots | 🚧 | P2 |
 | Copy / paste / sync settings | 🚧 | P2 |
@@ -86,10 +89,10 @@ when the feature is actually demoable with tests.
 
 | Feature | Status | Phase |
 |---|---|---|
-| JPEG / PNG import | 🚧 | P1 |
+| JPEG / PNG import | ✅ | P1 |
 | HEIC import | ⬜ | P5 |
-| RAW import (DNG/CR2/NEF/ARW/RAF) | 🚧 | P3 |
-| JPEG / PNG full-res export | ⬜ | P4 (basic moved forward) |
+| RAW import (DNG/CR2/NEF/ARW/RAF) | 🚧 (rawler: decode/demosaic/matrices/orientation/ROI done; corpus + #64/#65/#66) | P3 |
+| JPEG / PNG full-res export | ✅ (basic, P1); tuned/tiled path #68 | P4 |
 | DNG / TIFF 16-bit export | ⬜ | P6 |
 | Background / batch export | ⬜ | P4 |
 
