@@ -17,7 +17,9 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 |-----------|---------|---------|-----|------------|
 | [`dynamic_color`](https://pub.dev/packages/dynamic_color) | ^2.1.0 | Apache-2.0 | Material You wallpaper theming (Android S+; seed fallback elsewhere) | ✅ |
 | [`extended_image`](https://pub.dev/packages/extended_image) | ^10.1.0 | MIT | Gallery grid, pinch/pan gesture layer, `ExtendedRawImage.sourceRect` tile blits | ✅ |
+| [`file_picker`](https://pub.dev/packages/file_picker) | ^11.0.3 | MIT | Native file picker for importing HALD CLUT PNGs | ✅ |
 | [`flutter_rust_bridge`](https://pub.dev/packages/flutter_rust_bridge) | v2.x | MIT / Apache-2.0 | Dart ↔ Rust FFI codegen | ✅ |
+| [`image`](https://pub.dev/packages/image) | ^4.12.0 | MIT | Pure-Dart PNG decode for HALD CLUT LUT import (ADR 0009) | ✅ |
 
 Apache-2.0 and GPL-3.0 are mutually compatible (both are modern, patent-granting
 licenses); the Apache NOTICE must be carried through, which we do here.

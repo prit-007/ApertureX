@@ -64,7 +64,7 @@ when the feature is actually demoable with tests.
 
 | Feature | Status | Phase |
 |---|---|---|
-| `.cube` / HALD / `.3dl` LUT import | 🚧 | P2 |
+| `.cube` (1D/3D) / HALD / `.3dl` LUT import | ✅ | P2 |
 | Lightroom `.xmp` import (+ compatibility report) | 🚧 | P2 |
 | Lightroom `.lrtemplate` import | 🚧 | P2 |
 | Golden-image tolerance tests for preset fidelity | 🚧 | P2 |
