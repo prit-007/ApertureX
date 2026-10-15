@@ -36,6 +36,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::ffi::c_void;
 use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
 use crate::api::color::{to_hsl24, ColorParams, CurveParams};
@@ -442,27 +443,48 @@ pub fn crop_opt(
 // the `ANativeWindow` write path (Android) and a stub for every other target
 // (which simply errors, so Dart keeps the spike-A return-frame fallback).
 
+/// Opaque NDK handle; only used behind a pointer.
+#[repr(C)]
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub struct ANativeWindow {
+    _private: [u8; 0],
+}
+
+/// NDK `ANativeWindow_Buffer` (android/window.h). Defined on every target so
+/// the layout test below can run in host CI — a wrong offset here makes
+/// `bits` read `height | stride << 32` and segfaults on the first frame.
+#[repr(C)]
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub struct ANativeWindowBuffer {
+    pub width: i32,
+    pub height: i32,
+    pub stride: i32,
+    pub format: i32,
+    pub bits: *mut c_void,
+    pub reserved: [u32; 6],
+}
+
+#[cfg(test)]
+mod anative_window_buffer_layout {
+    use super::ANativeWindowBuffer;
+    use std::mem::{align_of, offset_of, size_of};
+
+    #[test]
+    fn matches_ndk_anative_window_buffer() {
+        assert_eq!(size_of::<ANativeWindowBuffer>(), 48);
+        assert_eq!(align_of::<ANativeWindowBuffer>(), 8);
+        assert_eq!(offset_of!(ANativeWindowBuffer, width), 0);
+        assert_eq!(offset_of!(ANativeWindowBuffer, height), 4);
+        assert_eq!(offset_of!(ANativeWindowBuffer, stride), 8);
+        assert_eq!(offset_of!(ANativeWindowBuffer, format), 12);
+        assert_eq!(offset_of!(ANativeWindowBuffer, bits), 16);
+    }
+}
+
 #[cfg(target_os = "android")]
 mod anative_window {
+    use super::{ANativeWindow, ANativeWindowBuffer};
     use std::ffi::c_void;
-
-    /// Opaque NDK handle; only used behind a pointer.
-    #[repr(C)]
-    pub struct ANativeWindow {
-        _private: [u8; 0],
-    }
-
-    /// Public lock-output buffer (NDK `ANativeWindow_Buffer`). Only the
-    /// leading fields are read; `bits` is the mapped pixel base.
-    #[repr(C)]
-    pub struct ANativeWindowBuffer {
-        pub width: i32,
-        pub height: i32,
-        pub stride: i32,
-        pub format: i32,
-        pub bits: *mut c_void,
-        pub reserved: [u32; 6],
-    }
 
     /// `WINDOW_FORMAT_RGBA_8888` from the NDK pixel-format enum.
     const WINDOW_FORMAT_RGBA_8888: i32 = 1;
@@ -477,9 +499,15 @@ mod anative_window {
             height: i32,
             format: i32,
         ) -> i32;
+        /// Fills `out_buffer` **in place** (`ANativeWindow_Buffer*`, exactly
+        /// like the NDK header) — it is NOT a pointer-to-pointer. Declaring it
+        /// as `*mut *mut` makes the NDK scribble the 48-byte struct over the
+        /// caller's 8-byte stack slot (width/height reinterpreting as a
+        /// pointer, stride/format/bits/reserved smashing the frame), which
+        /// segfaults on `(*buffer).bits` at the first lock.
         fn ANativeWindow_lock(
             window: *mut ANativeWindow,
-            out_buffer: *mut *mut ANativeWindowBuffer,
+            out_buffer: *mut ANativeWindowBuffer,
             in_out_dirty: *mut c_void,
         ) -> i32;
         fn ANativeWindow_unlockAndPost(window: *mut ANativeWindow) -> i32;
@@ -508,6 +536,16 @@ mod anative_window {
         if window == 0 {
             return Err("write_rgba: null window".into());
         }
+        let needed = (width as usize)
+            .checked_mul(height as usize)
+            .and_then(|px| px.checked_mul(4))
+            .ok_or_else(|| "write_rgba: frame dimensions overflow".to_string())?;
+        if rgba.len() < needed {
+            return Err(format!(
+                "write_rgba: rgba buffer too small ({} < {needed} for {width}x{height})",
+                rgba.len()
+            ));
+        }
         let win = window as *mut ANativeWindow;
         unsafe {
             // Keep the buffer geometry in sync — crop/rotate change dims.
@@ -521,17 +559,28 @@ mod anative_window {
                 return Err(format!("ANativeWindow_setBuffersGeometry failed: {geo}"));
             }
 
-            let mut buffer: *mut ANativeWindowBuffer = std::ptr::null_mut();
-            let locked = ANativeWindow_lock(win, &mut buffer, std::ptr::null_mut());
-            if locked != 0 || buffer.is_null() {
+            let mut buffer = std::mem::MaybeUninit::<ANativeWindowBuffer>::uninit();
+            let locked = ANativeWindow_lock(win, buffer.as_mut_ptr(), std::ptr::null_mut());
+            if locked != 0 {
                 return Err(format!("ANativeWindow_lock failed: {locked}"));
             }
+            let buffer = buffer.assume_init();
 
-            let stride = (*buffer).stride as usize;
-            let bits = (*buffer).bits as *mut u8;
+            let bits = buffer.bits as *mut u8;
+            let stride = buffer.stride.max(0) as usize;
             if bits.is_null() {
                 ANativeWindow_unlockAndPost(win);
                 return Err("ANativeWindow_lock returned a null buffer".into());
+            }
+            // The buffer may come back smaller or more padded than asked;
+            // never write past it, and never read past the source frame.
+            let buf_w = buffer.width.max(0) as usize;
+            let buf_h = buffer.height.max(0) as usize;
+            if stride < width as usize || buf_w < width as usize || buf_h < height as usize {
+                ANativeWindow_unlockAndPost(win);
+                return Err(format!(
+                    "window buffer too small: {buf_w}x{buf_h} stride {stride} for {width}x{height} frame"
+                ));
             }
             // The buffer stride may be padded past width*4; copy row by row.
             let row_bytes = width as usize * 4;
