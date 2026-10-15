@@ -10,6 +10,8 @@ crate-type = ["cdylib", "staticlib"]
 flutter_rust_bridge = "=2.13.0"
 zune-jpeg = "0.5.15"
 jpeg-encoder = "0.7.1"
+rawler = "0.8.0"
+libraw = "0.1.1"
 
 # The Flutter debug build maps to Cargo's `dev` profile. Without optimization
 # the colour/spatial math runs 10-50x slower — the cause of multi-second slider
