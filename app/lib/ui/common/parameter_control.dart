@@ -9,6 +9,7 @@ import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../viewport/mask_peek.dart';
 import '../edit_activity.dart';
+import '../precision_gear.dart';
 import 'slider_math.dart';
 
 /// The single parameter control shared by **both** shells (P2 Slice B) — the
@@ -38,6 +39,9 @@ class ParameterControl extends ConsumerWidget {
     final muted = ref.watch(
       mutedParametersProvider.select((s) => s.contains(parameter)),
     );
+    // Precision gear (#71): while two fingers are on screen every readout
+    // gains a decimal and the track shows its fine-mode badge.
+    final precise = ref.watch(precisionGearProvider.select(precisionEngaged));
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -88,8 +92,23 @@ class ParameterControl extends ConsumerWidget {
                 value: value,
                 isNeutral: isNeutral,
                 muted: muted,
+                precise: precise,
                 onType: (v) => notifier.update(parameter, v),
               ),
+              if (precise)
+                Padding(
+                  padding: const EdgeInsets.only(left: Insets.xs),
+                  child: Semantics(
+                    label: 'Precision gear engaged',
+                    excludeSemantics: true,
+                    child: Icon(
+                      Icons.zoom_in,
+                      key: Key('param-precision-${parameter.name}'),
+                      size: 18,
+                      color: scheme.primary,
+                    ),
+                  ),
+                ),
             ],
           ),
           _Track(
@@ -99,6 +118,7 @@ class ParameterControl extends ConsumerWidget {
             value: value,
             scheme: scheme,
             muted: muted,
+            precise: precise,
             onChanged: (v) {
               final previous = valueOf(
                 ref.read(recipeControllerProvider).recipe,
@@ -123,7 +143,10 @@ class ParameterControl extends ConsumerWidget {
   }
 }
 
-String _format(double v) => '${v >= 0 ? '+' : ''}${v.toStringAsFixed(2)}';
+/// [decimals] rises to 3 while the precision gear (#71) is engaged so the
+/// fine scrub shows its extra digit.
+String _format(double v, {int decimals = 2}) =>
+    '${v >= 0 ? '+' : ''}${v.toStringAsFixed(decimals)}';
 
 /// Tappable numeric readout → type an exact value.
 class _ValueField extends StatelessWidget {
@@ -132,12 +155,14 @@ class _ValueField extends StatelessWidget {
     required this.value,
     required this.isNeutral,
     required this.muted,
+    required this.precise,
     required this.onType,
   });
 
   final double value;
   final bool isNeutral;
   final bool muted;
+  final bool precise;
   final ValueChanged<double> onType;
 
   /// Bottom-sheet numeric entry (thumb zone, not a centred dialog). The
@@ -166,7 +191,7 @@ class _ValueField extends StatelessWidget {
       child: Opacity(
         opacity: muted ? 0.3 : 1.0,
         child: Text(
-          _format(value),
+          _format(value, decimals: precise ? 3 : 2),
           style: const TextStyle(
             fontFeatures: [FontFeature.tabularFigures()],
             fontWeight: FontWeight.w600,
@@ -270,6 +295,7 @@ class _Track extends ConsumerStatefulWidget {
     required this.value,
     required this.scheme,
     required this.muted,
+    required this.precise,
     required this.onChanged,
     required this.onReset,
     required this.onCommit,
@@ -280,6 +306,7 @@ class _Track extends ConsumerStatefulWidget {
   final double value;
   final ColorScheme scheme;
   final bool muted;
+  final bool precise;
   final ValueChanged<double> onChanged;
   final VoidCallback onReset;
   final VoidCallback onCommit;
@@ -292,6 +319,19 @@ class _TrackState extends ConsumerState<_Track> {
   double _dragValue = 0;
   final Stopwatch _sw = Stopwatch()..start();
   final HapticGradientPacer _gradient = HapticGradientPacer();
+
+  /// True while this track holds the [activeTrackProvider] lease. A rejected
+  /// drag start (another track is already scrubbing) sets [_rejected] instead
+  /// so its updates/end can be ignored without unbalancing edit-activity.
+  bool _dragging = false;
+  bool _rejected = false;
+
+  /// Whether the press currently resolving on this track was made under the
+  /// precision gear (issue #71). Refreshed at pointer-down and raised by an
+  /// engage transition, so it is correct no matter which finger lands first
+  /// (order-independent); a resting second finger must never turn its lift
+  /// into a 5% tap nudge.
+  bool _pressSawPrecision = false;
 
   void _nudge(double direction) {
     final step = widget.math.span * 0.05;
@@ -311,62 +351,120 @@ class _TrackState extends ConsumerState<_Track> {
   @override
   Widget build(BuildContext context) {
     final spec = widget.math.spec;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onDoubleTap: widget.onReset,
-          onTapUp: (d) {
-            final thumb = widget.math.fractionOf(widget.value) * width;
-            _nudge(d.localPosition.dx < thumb ? -1 : 1);
-          },
-          onHorizontalDragStart: (_) {
-            _dragValue = widget.value;
-            _gradient.reset();
-            _sw
-              ..reset()
-              ..start();
-            ref.read(editActivityProvider.notifier).begin();
-            // Detail sliders auto-peek their mask view while held (#27).
-            if (maskPeekParameters.contains(widget.parameter)) {
-              ref.read(maskPeekProvider.notifier).set(true);
-            }
-          },
-          onHorizontalDragUpdate: (d) {
-            _dragValue = (_dragValue + d.delta.dx / width * widget.math.span)
-                .clamp(spec.min, spec.max);
-            widget.onChanged(_dragValue);
-            _pulse();
-          },
-          onHorizontalDragEnd: (_) {
-            widget.onCommit();
-            ref.read(editActivityProvider.notifier).end();
-            ref.read(maskPeekProvider.notifier).set(false);
-          },
-          onHorizontalDragCancel: () {
-            ref.read(editActivityProvider.notifier).end();
-            ref.read(maskPeekProvider.notifier).set(false);
-          },
-          child: Semantics(
-            slider: true,
-            label: '${spec.label} value',
-            value: _format(widget.value),
-            child: SizedBox(
-              height: 36,
-              child: CustomPaint(
-                size: Size(width, 36),
-                painter: _TrackPainter(
-                  math: widget.math,
-                  value: widget.value,
-                  scheme: widget.scheme,
-                  muted: widget.muted,
+    // Gear engage transition (#71): announce once — only the track that is
+    // actually scrubbing ticks, so a second finger landing anywhere feels
+    // like one click — and raise nudge suppression on every track so a
+    // resting finger's lift never counts as a tap.
+    ref.listen(precisionGearProvider, (previous, next) {
+      if (!precisionEngaged(next) || precisionEngaged(previous ?? 0)) return;
+      _pressSawPrecision = true;
+      if (_dragging) HapticFeedback.selectionClick();
+    });
+    return Listener(
+      // Refreshed at down (before the gear can see this pointer): the press
+      // either starts under an already-engaged gear or never does.
+      onPointerDown: (_) {
+        _pressSawPrecision = precisionEngaged(
+          ref.read(precisionGearProvider),
+        );
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onDoubleTap: widget.onReset,
+            onTapUp: (d) {
+              // Precision mode: a tap beside the thumb must not jump the
+              // value while the other hand is holding the screen (#71).
+              if (_pressSawPrecision ||
+                  precisionEngaged(ref.read(precisionGearProvider))) {
+                return;
+              }
+              final thumb = widget.math.fractionOf(widget.value) * width;
+              _nudge(d.localPosition.dx < thumb ? -1 : 1);
+            },
+            onHorizontalDragStart: (_) {
+              // Single-scrub lease: only one track may be dragging at a
+              // time, or a second finger doubles two values at once (#71).
+              if (!ref
+                  .read(activeTrackProvider.notifier)
+                  .claim(widget.parameter)) {
+                _rejected = true;
+                return;
+              }
+              _rejected = false;
+              _dragging = true;
+              _dragValue = widget.value;
+              _gradient.reset();
+              _sw
+                ..reset()
+                ..start();
+              ref.read(editActivityProvider.notifier).begin();
+              // Detail sliders auto-peek their mask view while held (#27).
+              if (maskPeekParameters.contains(widget.parameter)) {
+                ref.read(maskPeekProvider.notifier).set(true);
+              }
+            },
+            onHorizontalDragUpdate: (d) {
+              if (_rejected) return;
+              // Precision gear (#71): engaged fingers divide the scrub so
+              // long drags land on exact numbers instead of overshooting.
+              final scale =
+                  precisionEngaged(ref.read(precisionGearProvider))
+                  ? 1 / kPrecisionDivisor
+                  : 1.0;
+              _dragValue = (_dragValue +
+                      d.delta.dx / width * widget.math.span * scale)
+                  .clamp(spec.min, spec.max);
+              widget.onChanged(_dragValue);
+              _pulse();
+            },
+            onHorizontalDragEnd: (_) {
+              if (_rejected) {
+                _rejected = false;
+                return;
+              }
+              _dragging = false;
+              widget.onCommit();
+              ref.read(editActivityProvider.notifier).end();
+              ref.read(maskPeekProvider.notifier).set(false);
+              ref.read(activeTrackProvider.notifier).release(
+                widget.parameter,
+              );
+            },
+            onHorizontalDragCancel: () {
+              if (_rejected) {
+                _rejected = false;
+                return;
+              }
+              _dragging = false;
+              ref.read(editActivityProvider.notifier).end();
+              ref.read(maskPeekProvider.notifier).set(false);
+              ref.read(activeTrackProvider.notifier).release(
+                widget.parameter,
+              );
+            },
+            child: Semantics(
+              slider: true,
+              label: '${spec.label} value',
+              value: _format(widget.value, decimals: widget.precise ? 3 : 2),
+              child: SizedBox(
+                height: 36,
+                child: CustomPaint(
+                  size: Size(width, 36),
+                  painter: _TrackPainter(
+                    math: widget.math,
+                    value: widget.value,
+                    scheme: widget.scheme,
+                    muted: widget.muted,
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

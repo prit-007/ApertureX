@@ -23,6 +23,7 @@ import 'gallery/gallery_controller.dart';
 import 'gallery/gallery_screen.dart';
 import 'gallery/photo_gallery_source.dart';
 import 'settings/app_settings.dart';
+import 'ui/precision_gear.dart';
 
 /// The whole app runs inside the error boundary (ADR 0012): the framework
 /// hooks are installed first, then bootstrap + UI are guarded by a zone so
@@ -48,7 +49,7 @@ void main() {
           overrides: [
             gallerySourceProvider.overrideWithValue(PhotoGallerySource()),
           ],
-          child: const ApertureXApp(),
+          child: PrecisionListener(child: const ApertureXApp()),
         ),
       );
     },
