@@ -5,7 +5,7 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status:** P-1 ✅ · P0 ✅ (foundations + JPEG proxy folded into P1) · P1 🚧 (viewport + tile compositor + zero-copy preview *partly* wired + EditRecipe v1 + basic JPEG export done; native ROI + >100 MP profiling + tile pyramid remain (#16)) · **P2 🚧** (recipe superset + Riverpod controller + shared ParameterControl + dual-shell skeleton + full point-wise colour pipeline (LUT, WB/exposure/contrast/vibrance/saturation/split-tone/curves) + **spatial passes** + **geometry** + **presets/LUT/.xmp import** + preview==export + live histogram done; whites/blacks + Adobe vibrance (#59), sidecar persistence (#61), `.lrtemplate` (#62), guided-filter/quality refinements remain) · P2.5 🚧 (linear/radial/luminance masks + layer model landed; **brush wiring** pending #63) · P3 🚧 (rawler RAW decode/demosaic/matrices/orientation/ROI/export landed; corpus, EXIF passthrough, lens-correction wiring (#66), DCP profiles (#64), highlight reconstruction (#65) remain).
+**Current status:** P-1 ✅ · P0 ✅ (foundations + JPEG proxy folded into P1) · P1 🚧 (viewport + tile compositor + zero-copy preview *partly* wired + **high-zoom ROI overlay wired on Android** + EditRecipe v1 + basic JPEG export done; iOS ROI decode + >100 MP profiling + tile pyramid remain (#16)) · **P2 🚧** (recipe superset + Riverpod controller + shared ParameterControl + dual-shell skeleton + full point-wise colour pipeline (LUT, WB/exposure/contrast/vibrance/saturation/split-tone/curves) + **spatial passes** + **geometry** + **presets/LUT/.xmp import** + preview==export + live histogram done; whites/blacks + Adobe vibrance (#59), sidecar persistence (#61), `.lrtemplate` (#62), guided-filter/quality refinements remain) · P2.5 🚧 (linear/radial/luminance masks + layer model landed; **brush wiring** pending #63) · P3 🚧 (rawler RAW decode/demosaic/matrices/orientation/ROI/export landed; corpus, EXIF passthrough, lens-correction wiring (#66), DCP profiles (#64), highlight reconstruction (#65) remain).
 
 > **Forward plan.** The consolidated, file-by-file plan — including the exact
 > gaps found by the latest audit and the GitHub issue carrying each — is
@@ -97,10 +97,13 @@ texture) is now **mounted by the viewport on Android** ([#54](https://github.com
 `PreviewSurface` displays the bound texture and `useTextureDelivery` switches to
 the shader path while compare/peek crossfades or imported-LUT sessions are
 active); the shader/atlas path remains the universal fallback — and the only
-path on iOS (no texture registration yet). **Remaining:** iOS texture
-registration, native ROI
-decoders + multi-level tile pyramid to avoid full-decode for >100 MP (#16),
-high-zoom ROI overlay (#55), device-tier probe + >100 MP corpus with
+path on iOS (no texture registration yet). The **high-zoom ROI overlay**
+([#55](https://github.com/prit-007/ApertureX/issues/55), Android slice of
+[#16](https://github.com/prit-007/ApertureX/issues/16)) replaces the upscaled
+proxy with a native `BitmapRegionDecoder` band baked at full resolution once
+zoom crosses the proxy ceiling. **Remaining:** iOS texture + ROI registration,
+multi-level tile pyramid wiring to avoid full-decode for >100 MP (#16),
+device-tier probe + >100 MP corpus with
 memory/60 fps profiling, and SIMD spatial kernels for the 60 fps gate (#56).
 
 ---

@@ -35,6 +35,7 @@ Verified against the tree with the P4 export wiring present (`export_pipeline.rs
 | Perf harness (60 fps scrub gate + 512 MB RSS budget) | `app/integration_test/perf_harness_test.dart`, `app/test/perf/scrub_perf_test.dart` |
 | Full-res banded export, single-call FRB + cancel (#68 wiring) | `app/rust/src/export_pipeline.rs` (`run_export_tiled`/`run_export_single` parity oracle, `ExportOutcome::Cancelled`), `app/rust/src/api/export.rs` (`exportFull`, cancel-token registry), `TesseraEngine.exportJpegFull` + editor Cancel button; band-parity tests for spatial + masks |
 | Zero-copy preview delivery, Android (#54) | `PreviewSurface` mounts the bound `Texture` with shader fallback; `previewNeedsPlaceholder`/`useTextureDelivery` gate delivery; 10 widget/unit tests |
+| High-zoom ROI overlay + native region decode, Android (#55, #16 part) | `planRoiOverlay` planner (geometry gate, viewport→band mapping, 32 MiB band budget) + `roiStripRect`/`roiBlockedByGeometry`; `RoiDecoder` (native `aperturex/roi_decode` channel when full RGBA > 64 MiB, Rust `decodeJpegRoi` fallback); `spatial::apply_spatial_roi` + `api/roi::{roi_halo,bake_roi_band}` (halo context, geometry-identity guard, parity vs `preview_base`); `MainActivity.kt` `BitmapRegionDecoder`; canvas wiring (debounced `_runRoi`, token-guarded, shader-path strip). 400 Dart / 152 Rust tests |
 
 ### 🟡 Partial (present but a piece is unwired — these are the bugs)
 
@@ -47,13 +48,13 @@ Verified against the tree with the P4 export wiring present (`export_pipeline.rs
 | Masking | Linear/radial/luminance layers wired; **brush** (`paint_brush.dart`) is a standalone, tested class not wired to the recipe/preview/export | **#63** |
 | Persistence | `sidecar.dart` exists + is tested but **never saved/loaded** in the app (P2 exit criterion unmet) | **#61** |
 | Wide gamut | Only sRGB + P3→sRGB; no f16/linear-P3 working space, no true ICC matrix parse | #15 (existing) |
+| High-zoom ROI overlay + native ROI decode | Planner/decoder/Rust bake/Android channel wired and tested; **iOS has no `CGImageSource` region decode** (channel degrades to the Rust full-decode fallback); no on-device seam validation of the mounted strip yet | **#16**, **#55** |
 
 ### ⬜ Not started (the remaining roadmap)
 
 | Subsystem | Issue |
 |---|---|
-| Native ROI tile decoders (`BitmapRegionDecoder`/`CGImageSource`) + tile pyramid + >100 MP memory profile | #16 (existing) |
-| Viewport high-zoom ROI overlay | **#55** |
+| Native ROI: iOS `CGImageSource` channel + tile pyramid + >100 MP memory profile (Android `BitmapRegionDecoder` landed) | #16 (existing) |
 | SIMD-vectorized spatial passes | **#56** |
 | Guided-filter edge-aware shadows/highlights + clarity | **#57** |
 | Dark-channel dehaze | **#58** |
@@ -173,10 +174,11 @@ Each workstream lists its goal, the exact files, and its issue(s).
 - ⬜ On-device validation of the mounted texture path (integration tests cover the FFI/render, not the widget mount).
 - Files: `app/lib/viewport/preview_surface.dart`, `app/lib/viewport/image_canvas.dart`, `app/lib/engine/preview_texture.dart`, `app/rust/src/api/preview.rs`, `MainActivity.kt`.
 
-### W3 — Tiles & viewport resolution (#16 + #55)
-- **#16**: native `BitmapRegionDecoder`/`CGImageSource` ROI + multi-level tile pyramid + tier probe + >100 MP corpus.
-- **#55**: high-zoom ROI overlay composited over the proxy, driven by the viewport `Matrix4`, debounced.
-- Files: `app/rust/src/decode.rs`, `app/rust/src/api/decode.rs`, `app/lib/viewport/image_canvas.dart`, `app/lib/viewport/live_warp.dart`.
+### W3 — Tiles & viewport resolution (#16 + #55) 🟡 *(Android slice landed)*
+- ✅ **#55** high-zoom ROI overlay: `planRoiOverlay` (threshold at `scale·fitted ≥ proxyW`, geometry-identity gate, 32 MiB band budget), `roiStripRect`/`roiBlockedByGeometry`, `RoiDecoder` (native `aperturex/roi_decode` above 64 MiB full-RGBA, Rust `decodeJpegRoi` fallback), `spatial::apply_spatial_roi` + `api/roi::{roi_halo,bake_roi_band}` with halo rows + geometry guard + `preview_base` parity, canvas wiring (debounced `_runRoi`, token-guarded, overlay strip through `lut.frag`, `useTextureDelivery(roiActive:)` forces the shader path).
+- ✅ **#16 (Android)** `BitmapRegionDecoder` region decode behind `aperturex/roi_decode` (single-thread executor, tight RGBA repack, `runOnUiThread` results).
+- ⬜ **#16 (remaining)**: iOS `CGImageSource` channel registration (today: Rust full-decode fallback), multi-level tile pyramid wiring (`tile_viewport.dart` remains an unwired demo), device-tier probe + >100 MP corpus with memory/60 fps profiling, on-device seam validation.
+- Files: `app/lib/viewport/roi_overlay.dart`, `app/lib/viewport/roi_decoder.dart`, `app/lib/viewport/image_canvas.dart`, `app/lib/viewport/preview_surface.dart`, `app/rust/src/spatial.rs`, `app/rust/src/api/roi.rs`, `app/android/app/src/main/kotlin/com/devparadise/tessera/MainActivity.kt`.
 
 ### W4 — SIMD spatial kernels (#56)
 - Portable SIMD abstraction (`std::simd` / NEON) behind one module; vectorize separable blurs and guided/bilateral inner loops; scalar reference + epsilon parity test.

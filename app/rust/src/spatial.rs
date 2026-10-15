@@ -459,6 +459,89 @@ pub fn apply_spatial_band(
     band
 }
 
+/// Spatial chain for a **decoded full-width band** of the original frame —
+/// the high-zoom ROI overlay bake (#55/#16), where the full image never
+/// exists in memory.
+///
+/// `band` holds rows `decode_top ..` of the `full` image (width `full.0`),
+/// including at least [`spatial_local_margin`] halo rows above and below the
+/// requested output `[out_top, out_top + out_rows)`. With the halo present the
+/// local ops read **true** context from the band itself; where the band edge
+/// *is* the image edge, [`process_tile_padded`]'s clamp reproduces the
+/// full-image clamp. Vignette and grain use the band's absolute row offset,
+/// and radius/margin derive from the **full** frame — so the output is
+/// byte-for-byte [`apply_spatial_band`] on the complete image.
+///
+/// A short halo away from an image edge is an error, never a silent seam.
+pub fn apply_spatial_roi(
+    band: &[u8],
+    full: (usize, usize),
+    decode_top: usize,
+    out_top: usize,
+    out_rows: usize,
+    p: SpatialParams,
+) -> Result<Vec<u8>, String> {
+    let (w, h) = full;
+    if w == 0 || h == 0 {
+        return Err("full frame must be non-empty".to_string());
+    }
+    if out_rows == 0 {
+        return Err("out_rows must be at least 1".to_string());
+    }
+    if !band.len().is_multiple_of(w * 4) {
+        return Err(format!(
+            "band has {} bytes, not a whole number of {w}-wide rows",
+            band.len()
+        ));
+    }
+    let band_rows = band.len() / (w * 4);
+    if out_top < decode_top || out_top + out_rows > decode_top + band_rows {
+        return Err(format!(
+            "output rows {out_top}..{} outside decoded band {decode_top}..{}",
+            out_top + out_rows,
+            decode_top + band_rows
+        ));
+    }
+    if out_top + out_rows > h {
+        return Err(format!(
+            "output rows {out_top}..{} outside full height {h}",
+            out_top + out_rows
+        ));
+    }
+
+    let margin = spatial_local_margin(p, w, h);
+    let y0_buf = out_top - decode_top;
+    if decode_top > 0 && y0_buf < margin {
+        return Err(format!(
+            "missing top halo: {y0_buf} rows, margin {margin} (decode_top {decode_top})"
+        ));
+    }
+    let below = band_rows - (y0_buf + out_rows);
+    if decode_top + band_rows < h && below < margin {
+        return Err(format!(
+            "missing bottom halo: {below} rows, margin {margin}"
+        ));
+    }
+
+    if p.is_neutral() {
+        let start = y0_buf * w * 4;
+        return Ok(band[start..start + out_rows * w * 4].to_vec());
+    }
+
+    let radius = clarity_radius(w, h);
+    let mut out = process_tile_padded(
+        band,
+        w,
+        band_rows,
+        (0, y0_buf, w, out_rows),
+        margin,
+        |b, iw, ih| apply_spatial_local_ctx(b, iw, ih, p, radius),
+    );
+    vignette_band(&mut out, w, h, out_top, p.vignette);
+    grain_band(&mut out, w, out_top, p.grain);
+    Ok(out)
+}
+
 /// In-place radial vignette for a band of rows `y0..y0+band_rows` of a `w x h`
 /// image. Uses the **full** image centre so bands stitch seamlessly.
 pub fn vignette_band(band: &mut [u8], w: usize, h: usize, y0: usize, amount: f32) {
@@ -854,5 +937,111 @@ mod tests {
             (right as i32 - left as i32).abs() > 120,
             "edge blurred: {left} vs {right}"
         );
+    }
+
+    // --- ROI band bake (#55/#16) ------------------------------------------
+
+    /// Every spatial op engaged — including the absolute-coordinate ops — so
+    /// halo and row-offset mistakes surface in the byte comparison.
+    fn engaged_spatial() -> SpatialParams {
+        SpatialParams {
+            shadows: 0.3,
+            highlights: -0.2,
+            clarity: 0.4,
+            texture: 0.2,
+            sharpen: 0.3,
+            denoise_luma: 0.2,
+            denoise_chroma: 0.3,
+            dehaze: 0.1,
+            vignette: 0.2,
+            grain: 0.1,
+        }
+    }
+
+    fn rows(full: &[u8], w: usize, top: usize, count: usize) -> Vec<u8> {
+        full[top * w * 4..(top + count) * w * 4].to_vec()
+    }
+
+    #[test]
+    fn roi_band_matches_the_full_band_in_the_interior() {
+        let (w, h) = (64, 320);
+        let full = noise(w, h);
+        let p = engaged_spatial();
+        let margin = spatial_local_margin(p, w, h);
+        let out_top = margin + 50;
+        let out_rows = 40;
+        let decode_top = out_top - margin;
+        let band = rows(&full, w, decode_top, out_rows + 2 * margin);
+        let out = apply_spatial_roi(&band, (w, h), decode_top, out_top, out_rows, p)
+            .expect("roi band bake");
+        assert_eq!(out, apply_spatial_band(&full, w, h, out_top, out_rows, p));
+    }
+
+    #[test]
+    fn roi_band_clamps_context_at_the_image_edges() {
+        let (w, h) = (64, 320);
+        let full = noise(w, h);
+        let p = engaged_spatial();
+        let margin = spatial_local_margin(p, w, h);
+        let out_rows = 30;
+
+        // Top edge: the decode starts at row 0, so the clamp must match the
+        // full-image clamp exactly.
+        let band = rows(&full, w, 0, out_rows + margin);
+        let top = apply_spatial_roi(&band, (w, h), 0, 0, out_rows, p).expect("top edge");
+        assert_eq!(top, apply_spatial_band(&full, w, h, 0, out_rows, p));
+
+        // Bottom edge: the decode ends at row h.
+        let out_top = h - out_rows;
+        let band = rows(&full, w, out_top - margin, margin + out_rows);
+        let bottom = apply_spatial_roi(&band, (w, h), out_top - margin, out_top, out_rows, p)
+            .expect("bottom edge");
+        assert_eq!(
+            bottom,
+            apply_spatial_band(&full, w, h, out_top, out_rows, p)
+        );
+    }
+
+    #[test]
+    fn roi_band_errors_when_the_halo_is_insufficient() {
+        let (w, h) = (64, 320);
+        let full = noise(w, h);
+        let p = engaged_spatial();
+        let margin = spatial_local_margin(p, w, h);
+        assert!(margin > 1, "test assumes an engaged margin");
+        let out_top = margin + 10;
+        // decode_top > 0 but one row short of the required halo -> seam risk.
+        let decode_top = out_top - (margin - 1);
+        let band = rows(&full, w, decode_top, (margin - 1) + 20);
+        assert!(
+            apply_spatial_roi(&band, (w, h), decode_top, out_top, 20, p).is_err(),
+            "short halo must be rejected, not clamped into a seam"
+        );
+    }
+
+    #[test]
+    fn neutral_roi_band_returns_the_source_rows() {
+        let (w, h) = (32, 64);
+        let full = noise(w, h);
+        let band = rows(&full, w, 8, 16);
+        let out = apply_spatial_roi(&band, (w, h), 8, 10, 12, SpatialParams::default())
+            .expect("neutral band");
+        assert_eq!(out, rows(&full, w, 10, 12));
+    }
+
+    #[test]
+    fn roi_band_rejects_malformed_arguments() {
+        let (w, h) = (32, 64);
+        let full = noise(w, h);
+        let p = SpatialParams::default();
+        let band = rows(&full, w, 0, 16);
+        // Not a whole number of full-width rows.
+        assert!(apply_spatial_roi(&band[..8], (w, h), 0, 0, 4, p).is_err());
+        // Output outside the decoded band.
+        assert!(apply_spatial_roi(&band, (w, h), 0, 12, 8, p).is_err());
+        // Output outside the full frame.
+        assert!(apply_spatial_roi(&band, (w, h), 0, 60, 8, p).is_err());
+        // Empty output.
+        assert!(apply_spatial_roi(&band, (w, h), 0, 0, 0, p).is_err());
     }
 }

@@ -112,6 +112,7 @@ void main() {
           textureId: null,
           hasImportedLut: false,
           gestureActive: false,
+          roiActive: false,
         ),
         isFalse,
       );
@@ -123,6 +124,7 @@ void main() {
           textureId: 3,
           hasImportedLut: true,
           gestureActive: false,
+          roiActive: false,
         ),
         isFalse,
       );
@@ -134,6 +136,21 @@ void main() {
           textureId: 3,
           hasImportedLut: false,
           gestureActive: true,
+          roiActive: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('yields to the shader path while the ROI overlay is active', () {
+      // The overlay is drawn through the grading shader (lut.frag), which
+      // needs the baked LUT atlas — texture mode has none (#55/#16).
+      expect(
+        useTextureDelivery(
+          textureId: 3,
+          hasImportedLut: false,
+          gestureActive: false,
+          roiActive: true,
         ),
         isFalse,
       );
@@ -145,6 +162,7 @@ void main() {
           textureId: 3,
           hasImportedLut: false,
           gestureActive: false,
+          roiActive: false,
         ),
         isTrue,
       );

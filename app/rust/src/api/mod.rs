@@ -9,4 +9,5 @@ pub mod icc;
 pub mod mask;
 pub mod preview;
 pub mod raw;
+pub mod roi;
 pub mod spatial;

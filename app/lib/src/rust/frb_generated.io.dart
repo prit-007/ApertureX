@@ -14,6 +14,7 @@ import 'api/icc.dart';
 import 'api/mask.dart';
 import 'api/preview.dart';
 import 'api/raw.dart';
+import 'api/roi.dart';
 import 'api/spatial.dart';
 import 'dart:async';
 import 'dart:convert';

@@ -17,6 +17,7 @@ import '../src/rust/api/mask.dart' as rust_mask;
 import '../src/rust/api/preview.dart' as rust_preview;
 import '../src/rust/api/preview.dart' show PreviewBaseSpec;
 import '../src/rust/api/raw.dart' as rust_raw;
+import '../src/rust/api/roi.dart' as rust_roi;
 import '../src/rust/api/spatial.dart' as rust_spatial;
 import '../src/rust/frb_generated.dart';
 
@@ -369,6 +370,54 @@ class TesseraEngine {
     required List<AdjustmentLayer> layers,
   }) => rust_preview.previewBase(
     handle: BigInt.from(handle),
+    spec: spec,
+    layers: [
+      for (final l in layers)
+        rust_mask.MaskLayer(
+          kind: l.maskKind.index,
+          mask: Float32List.fromList(l.maskParams),
+          params: _localParams(l),
+        ),
+    ],
+  );
+
+  /// Halo rows of context ([spatial margin]) the high-zoom ROI overlay (#55)
+  /// must decode above and below its output band so [bakeRoiBand] sees true
+  /// neighbours. Geometry never affects the halo.
+  static Future<int> roiHalo({
+    required PreviewBaseSpec spec,
+    required int fullWidth,
+    required int fullHeight,
+  }) => rust_roi.roiHalo(
+    spec: spec,
+    fullWidth: fullWidth,
+    fullHeight: fullHeight,
+  );
+
+  /// Bakes the spatial + mask chain of [previewBase] onto a decoded
+  /// full-width band of the **original** frame — byte-parity with the rows the
+  /// proxy shows, so the overlay stitches without a seam (#55/#16).
+  ///
+  /// [band] holds rows [decodeTop].. of the source, with [roiHalo] context
+  /// around [outTop]..[outTop + outRows). The spec's geometry must be
+  /// identity (the viewport gates on crop/rotate/flip); the grade stays
+  /// shader-side, as in preview.
+  static Future<RgbaImage> bakeRoiBand(
+    Uint8List band, {
+    required int decodeTop,
+    required int outTop,
+    required int outRows,
+    required int fullWidth,
+    required int fullHeight,
+    required PreviewBaseSpec spec,
+    required List<AdjustmentLayer> layers,
+  }) => rust_roi.bakeRoiBand(
+    band: band,
+    decodeTop: decodeTop,
+    outTop: outTop,
+    outRows: outRows,
+    fullWidth: fullWidth,
+    fullHeight: fullHeight,
     spec: spec,
     layers: [
       for (final l in layers)

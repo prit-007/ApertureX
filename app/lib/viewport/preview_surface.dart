@@ -51,5 +51,6 @@ bool useTextureDelivery({
   required int? textureId,
   required bool hasImportedLut,
   required bool gestureActive,
+  required bool roiActive,
 }) =>
-    textureId != null && !hasImportedLut && !gestureActive;
+    textureId != null && !hasImportedLut && !gestureActive && !roiActive;

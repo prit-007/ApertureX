@@ -71,7 +71,9 @@ memory killer. A single full-res decode can be hundreds of MB.
   stays ~2 frames (source + output) regardless of banding.
 - **Mitigations:**
   - Tile-based viewport with ROI decode; **never** materialize full-res as one
-    texture (ARCHITECTURE §5). *(Native ROI + pyramid pending — issue #16.)*
+    texture (ARCHITECTURE §5). *(Android `BitmapRegionDecoder` band decode + the
+    high-zoom ROI overlay landed (#16/#55); iOS region decode + the tile
+    pyramid remain.)*
   - Byte-budgeted LRU tile cache + device-tier probe; cap decode parallelism.
   - Streamed export that frees tiles after encode; hard peak-RSS cap.
   - Explicit handling of `ImageCache.maxByteSize` to avoid thrash.
@@ -118,7 +120,8 @@ Revisit the architecture if any of these hold at the end of a phase:
   Android (#54) with the shader path as the fallback.)*
 - P1: ROI decode on low-tier devices cannot meet budget at any tile size →
   re-scope huge-image support (proxy-only beyond a megapixel ceiling).
-  *(Watch item: native ROI #16 not landed yet.)*
+  *(Watch item: Android `BitmapRegionDecoder` + ROI overlay landed (#16/#55);
+  iOS `CGImageSource` + pyramid not landed yet, and no on-device seam validation.)*
 - P3: RAW ROI decode is infeasible on the target hardware → ship RAW as
   proxy-edit + deferred full decode at export. *(rawler ROI is decode+crop;
   revisit if tiles are needed.)*

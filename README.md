@@ -13,8 +13,10 @@
 > color/spatial/geometry/mask pipeline, a 60fps preview (proxy-resolution + split
 > bakes), crop, batch gallery, presets/LUT import, and on-device offline activity
 > logs. The **banded full-res export** is now wired end-to-end (single Rust call
-> with cancel). Several other parts are **built but not yet wired end-to-end** —
-> native ROI tiles for >100 MP, brush masks,
+> with cancel), and the **high-zoom ROI overlay** (native region decode on
+> Android) swaps in a full-res band when zoom crosses the proxy ceiling.
+> Several other parts are **built but not yet wired end-to-end** —
+> the multi-level tile pyramid for >100 MP, brush masks,
 > sidecar persistence, and RAW lens corrections — each tracked by a
 > GitHub issue. See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)
 > for the current status and gaps, [`docs/ROADMAP.md`](docs/ROADMAP.md) for phase

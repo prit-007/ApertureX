@@ -26,6 +26,8 @@ import 'canvas_transform.dart';
 import 'live_warp.dart';
 import 'mask_peek.dart';
 import 'preview_surface.dart';
+import 'roi_decoder.dart';
+import 'roi_overlay.dart';
 
 /// The shared editing canvas, rendered by BOTH shells (ADR 0008 invariant).
 ///
@@ -100,6 +102,22 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   int _importedKey = 0;
   int? _tatBand;
   Timer? _debounce;
+
+  // --- high-zoom ROI overlay (#55/#16) -------------------------------------
+  // A full-width band of the ORIGINAL frame, decoded natively (never the full
+  // frame) and baked with the same spatial+mask chain as the proxy, drawn over
+  // it through the grading shader once the proxy would upscale.
+  final RoiDecoder _roiDecoder = RoiDecoder();
+  Timer? _roiDebounce;
+  int _roiToken = 0;
+  ui.Image? _roiImage;
+  RoiOverlayPlan? _roiPlan;
+  int? _roiKey; // (bandTop, bandBottom, baseKey) — skip unchanged re-runs
+  Uint8List? _roiBytes; // the bytes actually loaded (widget bytes or sample)
+  int _fullW = 0; // original source dims; 0 while unknown or RAW (no ROI)
+  int _fullH = 0;
+  Size _lastFitted = Size.zero;
+  Size _lastBounds = Size.zero;
   late final AnimationController _compare;
 
   /// Crossfade into/out of the auto-peeking mask view (issue #27).
@@ -138,6 +156,22 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       final jpeg =
           widget.imageBytes ??
           await TesseraEngine.syntheticJpeg(width: 1024, height: 1024);
+      // Original frame dims for the ROI overlay (#55): header-only, RAW
+      // excluded (no region decode path for demosaiced data).
+      _roiBytes = jpeg;
+      if (isRawImage(jpeg)) {
+        _fullW = 0;
+        _fullH = 0;
+      } else {
+        try {
+          final dims = await TesseraEngine.jpegDimensions(jpeg);
+          _fullW = dims.width;
+          _fullH = dims.height;
+        } catch (_) {
+          _fullW = 0;
+          _fullH = 0;
+        }
+      }
       final proxy = await _decode(jpeg, maxDim: _maxPreviewDim);
       if (!mounted) {
         proxy.$1.dispose();
@@ -203,6 +237,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     textureId: _textureId,
     hasImportedLut: ref.read(importedLutProvider) != null,
     gestureActive: _gestureActive,
+    roiActive: _roiImage != null,
   );
 
   /// Compare (issue #28) + mask-peek (issue #27) crossfades are active (or
@@ -216,6 +251,110 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   void _onDeliveryGestureSettled(AnimationStatus _) => _scheduleBake(
     _renderRecipe(ref.read(recipeControllerProvider).recipe),
   );
+
+  /// Debounced (#55): re-plans the high-zoom ROI overlay after the viewport
+  /// settles (pan/zoom end) or a recipe change the band must bake.
+  void _scheduleRoi() {
+    if (_roiBytes == null || _source == null) return;
+    _roiDebounce?.cancel();
+    _roiDebounce = Timer(const Duration(milliseconds: 180), _runRoi);
+  }
+
+  /// Plans, decodes (native region decode for big frames), bakes and mounts
+  /// the overlay band — or clears it when the plan goes inactive. Every await
+  /// is token-guarded so a newer gesture wins over stale work.
+  Future<void> _runRoi() async {
+    if (!mounted) return;
+    final bytes = _roiBytes;
+    final proxy = _source;
+    if (bytes == null || proxy == null) return;
+    final fitted = _lastFitted;
+    final bounds = _lastBounds;
+    if (fitted == Size.zero || bounds == Size.zero) return;
+    final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
+
+    final plan = planRoiOverlay(
+      imageW: _fullW,
+      imageH: _fullH,
+      proxyW: proxy.width,
+      fitted: fitted,
+      scale: _scale,
+      offset: _offset,
+      viewport: bounds,
+      geometryActive: roiBlockedByGeometry(recipe),
+      roiSupported: _fullW > 0 && _fullH > 0,
+    );
+    final key = plan == null
+        ? null
+        : Object.hash(plan.bandTop, Object.hash(plan.bandBottom, _baseKey(recipe)));
+    final hasOverlay = _roiImage != null;
+    if (key == null && !hasOverlay) return;
+    if (key != null && key == _roiKey && hasOverlay) return;
+
+    final token = ++_roiToken;
+    if (plan == null) {
+      _roiKey = null;
+      setState(() {
+        _roiImage?.dispose();
+        _roiImage = null;
+        _roiPlan = null;
+      });
+      _scheduleBake(recipe); // idle → zero-copy may resume
+      return;
+    }
+
+    // Geometry is gated to identity above, so the band bakes with the same
+    // spec as the proxy; halo rows give the spatial chain true context.
+    final spec = _baseSpec(recipe);
+    final halo = await TesseraEngine.roiHalo(
+      spec: spec,
+      fullWidth: _fullW,
+      fullHeight: _fullH,
+    );
+    final decodeTop = math.max(0, plan.bandTop - halo);
+    final decodeBottom = math.min(_fullH, plan.bandBottom + halo);
+    final band = await _roiDecoder.decodeBand(
+      bytes: bytes,
+      imageW: _fullW,
+      imageH: _fullH,
+      bandTop: decodeTop,
+      bandBottom: decodeBottom,
+    );
+    if (!mounted || token != _roiToken) return;
+    if (band == null) {
+      setState(() {
+        _roiImage?.dispose();
+        _roiImage = null;
+        _roiPlan = null;
+        _roiKey = null;
+      });
+      _scheduleBake(recipe);
+      return;
+    }
+    final baked = await TesseraEngine.bakeRoiBand(
+      band.rgba,
+      decodeTop: decodeTop,
+      outTop: plan.bandTop,
+      outRows: plan.bandBottom - plan.bandTop,
+      fullWidth: _fullW,
+      fullHeight: _fullH,
+      spec: spec,
+      layers: recipe.layers,
+    );
+    if (!mounted || token != _roiToken) return;
+    final image = await _imageFrom(baked.rgba, baked.width, baked.height);
+    if (!mounted || token != _roiToken) {
+      image.dispose();
+      return;
+    }
+    setState(() {
+      _roiImage?.dispose();
+      _roiImage = image;
+      _roiPlan = plan;
+      _roiKey = key;
+    });
+    _scheduleBake(recipe); // texture delivery must yield to the overlay pass
+  }
 
   /// Decodes [bytes] to RGBA in a **single** pass, capping the long side at
   /// [maxDim]. Reads the header via [ui.ImageDescriptor] (no pixel decode) so
@@ -555,6 +694,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _baseImage?.dispose();
     _lut?.dispose();
     _dropTexture(); // release the platform texture (#54)
+    _roiDebounce?.cancel();
+    _roiToken++; // invalidate any in-flight overlay decode/bake
+    _roiImage?.dispose();
+    _roiImage = null;
     final handle = _previewHandle;
     if (handle != null) {
       unawaited(TesseraEngine.previewClose(handle));
@@ -565,7 +708,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   @override
   Widget build(BuildContext context) {
     ref.listen(recipeControllerProvider, (previous, next) {
-      if (previous?.recipe != next.recipe) _scheduleBake(next.recipe);
+      if (previous?.recipe != next.recipe) {
+        _scheduleBake(next.recipe);
+        _scheduleRoi(); // spatial/mask changes must re-bake the overlay band
+      }
     });
     ref.listen(
       importedLutProvider,
@@ -652,6 +798,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       builder: (context, constraints) {
         final bounds = constraints.biggest;
         final fitted = _widthFit(content, bounds);
+        // Remembered for the ROI overlay planner (#55) — it runs after the
+        // viewport settles, outside this build.
+        _lastFitted = fitted;
+        _lastBounds = bounds;
         // Publish the view transform so overlays outside this widget (the
         // selective-editing nodes, issue #25) can map image ↔ screen.
         _publishTransform(CanvasTransform(fitted: fitted, offset: _offset, scale: _scale));
@@ -693,12 +843,27 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                         child: SizedBox(
                           width: fitted.width,
                           height: fitted.height,
-                          child: AnimatedBuilder(
-                            animation: Listenable.merge([_compare, _maskPeek]),
-                            builder: (context, _) => PreviewSurface(
+                        child: AnimatedBuilder(
+                          animation: Listenable.merge([_compare, _maskPeek]),
+                          builder: (context, _) {
+                            // High-zoom ROI overlay (#55): the baked band
+                            // strip, drawn over the proxy through the shader.
+                            final overlayImage = _roiImage;
+                            final overlayRect =
+                                overlayImage != null &&
+                                    _roiPlan != null &&
+                                    _fullH > 0
+                                ? roiStripRect(
+                                    _roiPlan!,
+                                    fullHeight: _fullH,
+                                    fitted: fitted,
+                                  )
+                                : null;
+                            return PreviewSurface(
                               // Issue #54: actually display the texture Rust is
                               // writing into; the shader paint is the fallback
-                              // (imported LUTs, iOS/tests, compare/peek fades).
+                              // (imported LUTs, iOS/tests, compare/peek fades,
+                              // ROI overlay).
                               textureId: zeroCopy ? _textureId : null,
                               fallback: (_) => CustomPaint(
                                 size: fitted,
@@ -712,10 +877,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                                   dst: Offset.zero & fitted,
                                   blend: _compare.value,
                                   maskBlend: _maskPeek.value,
+                                  overlay: overlayImage,
+                                  overlayRect: overlayRect,
                                 ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
+                        ),
                         ),
                       ),
                     ),
@@ -847,6 +1015,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _multi = false;
     // Releasing the photo ends the gesture-shell mask peek (#27).
     ref.read(maskPeekProvider.notifier).set(false);
+    // The viewport settled → maybe a sharp band replaces the upscaled proxy.
+    _scheduleRoi();
   }
 
   static const double _maxScale = 8;
@@ -1046,6 +1216,8 @@ class _CanvasPainter extends CustomPainter {
     required this.dst,
     required this.blend,
     required this.maskBlend,
+    this.overlay,
+    this.overlayRect,
   });
 
   final ui.FragmentShader shader;
@@ -1055,6 +1227,12 @@ class _CanvasPainter extends CustomPainter {
   final Rect dst;
   final double blend;
   final double maskBlend;
+
+  /// High-zoom ROI band (#55): baked full-width strip of the original frame,
+  /// drawn through the same uniforms over the proxy at [overlayRect] (world
+  /// coords). Null while the overlay is inactive.
+  final ui.Image? overlay;
+  final Rect? overlayRect;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1079,9 +1257,39 @@ class _CanvasPainter extends CustomPainter {
         Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: blend),
       );
     }
+
+    final ov = overlay;
+    final ovRect = overlayRect;
+    if (ov != null && ovRect != null) {
+      // Translate so the band strip's own rect is the shader's local origin —
+      // `FlutterFragCoord` is local-canvas space, so uSize covers the strip
+      // exactly, mirroring the proxy pass (which draws at the content origin).
+      canvas.save();
+      canvas.clipRect(Offset.zero & size);
+      canvas.translate(ovRect.left, ovRect.top);
+      shader
+        ..setFloat(0, ovRect.width)
+        ..setFloat(1, ovRect.height)
+        ..setFloat(2, lutSize)
+        ..setFloat(3, maskBlend)
+        ..setFloat(4, ov.width.toDouble())
+        ..setFloat(5, ov.height.toDouble())
+        ..setImageSampler(0, ov)
+        ..setImageSampler(1, lut);
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, ovRect.width, ovRect.height),
+        Paint()..shader = shader,
+      );
+      canvas.restore();
+    }
   }
 
   @override
   bool shouldRepaint(_CanvasPainter old) =>
-      old.source != source || old.lut != lut || old.blend != blend || old.dst != dst;
+      old.source != source ||
+      old.lut != lut ||
+      old.blend != blend ||
+      old.dst != dst ||
+      old.overlay != overlay ||
+      old.overlayRect != overlayRect;
 }
