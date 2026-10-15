@@ -115,10 +115,15 @@ class TesseraEngine {
         vibrance: s.vibrance,
         gradeShadowHue: s.gradeShadowHue,
         gradeShadowSat: s.gradeShadowSat,
+        gradeShadowLum: s.gradeShadowLum,
         gradeMidHue: s.gradeMidHue,
         gradeMidSat: s.gradeMidSat,
+        gradeMidLum: s.gradeMidLum,
         gradeHighlightHue: s.gradeHighlightHue,
         gradeHighlightSat: s.gradeHighlightSat,
+        gradeHighlightLum: s.gradeHighlightLum,
+        gradeBlending: s.gradeBlending,
+        gradeBalance: s.gradeBalance,
       );
 
   static rust_color.CurveParams _curveParams(GradeSpec s) =>
@@ -315,10 +320,15 @@ class TesseraEngine {
         vibrance: 0,
         gradeShadowHue: 0,
         gradeShadowSat: 0,
+        gradeShadowLum: 0,
         gradeMidHue: 0,
         gradeMidSat: 0,
+        gradeMidLum: 0,
         gradeHighlightHue: 0,
         gradeHighlightSat: 0,
+        gradeHighlightLum: 0,
+        gradeBlending: 0.5,
+        gradeBalance: 0,
       );
 
   /// Composites local adjustment [layers] over [rgba] (masks + sub-grades).

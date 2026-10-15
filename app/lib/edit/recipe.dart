@@ -48,13 +48,18 @@ class EditRecipe {
     this.tint = 0,
     this.vibrance = 0,
     this.saturation = 0,
-    // Color grading (split toning): hue + strength per tonal zone.
+    // Color grading (split toning / 3-way color wheels): hue, saturation, luminance, plus blending and balance.
     this.gradeShadowHue = 0,
     this.gradeShadowSat = 0,
+    this.gradeShadowLum = 0,
     this.gradeMidHue = 0,
     this.gradeMidSat = 0,
+    this.gradeMidLum = 0,
     this.gradeHighlightHue = 0,
     this.gradeHighlightSat = 0,
+    this.gradeHighlightLum = 0,
+    this.gradeBlending = 0.5,
+    this.gradeBalance = 0,
     // Tone curves (master + per-channel). Identity by default.
     this.masterCurve = ToneCurve.identity,
     this.redCurve = ToneCurve.identity,
@@ -78,8 +83,9 @@ class EditRecipe {
   ///
   /// v2: grouped, catalog-driven parameter model (JSON still flat, v1 keys
   /// unchanged). v3: adds color-grading (split-tone) fields; older recipes read
-  /// forward with those fields neutral. `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 12;
+  /// forward with those fields neutral. v13: adds 3-way color wheel luminance,
+  /// blending, and balance. `fromJson` always migrates to this.
+  static const int currentSchemaVersion = 13;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -108,13 +114,18 @@ class EditRecipe {
   final double vibrance; // unitless, neutral 0.
   final double saturation; // unitless, neutral 0.
 
-  // Color grading (split toning): hue 0..1, strength 0..1, neutral 0.
+  // Color grading (3-way color wheels): hue 0..1, sat 0..1, lum -1..1, blending 0..1, balance -1..1.
   final double gradeShadowHue;
   final double gradeShadowSat;
+  final double gradeShadowLum;
   final double gradeMidHue;
   final double gradeMidSat;
+  final double gradeMidLum;
   final double gradeHighlightHue;
   final double gradeHighlightSat;
+  final double gradeHighlightLum;
+  final double gradeBlending;
+  final double gradeBalance;
 
   // Tone curves.
   final ToneCurve masterCurve;
@@ -167,10 +178,15 @@ class EditRecipe {
     double? saturation,
     double? gradeShadowHue,
     double? gradeShadowSat,
+    double? gradeShadowLum,
     double? gradeMidHue,
     double? gradeMidSat,
+    double? gradeMidLum,
     double? gradeHighlightHue,
     double? gradeHighlightSat,
+    double? gradeHighlightLum,
+    double? gradeBlending,
+    double? gradeBalance,
     ToneCurve? masterCurve,
     ToneCurve? redCurve,
     ToneCurve? greenCurve,
@@ -209,10 +225,15 @@ class EditRecipe {
       saturation: saturation ?? this.saturation,
       gradeShadowHue: gradeShadowHue ?? this.gradeShadowHue,
       gradeShadowSat: gradeShadowSat ?? this.gradeShadowSat,
+      gradeShadowLum: gradeShadowLum ?? this.gradeShadowLum,
       gradeMidHue: gradeMidHue ?? this.gradeMidHue,
       gradeMidSat: gradeMidSat ?? this.gradeMidSat,
+      gradeMidLum: gradeMidLum ?? this.gradeMidLum,
       gradeHighlightHue: gradeHighlightHue ?? this.gradeHighlightHue,
       gradeHighlightSat: gradeHighlightSat ?? this.gradeHighlightSat,
+      gradeHighlightLum: gradeHighlightLum ?? this.gradeHighlightLum,
+      gradeBlending: gradeBlending ?? this.gradeBlending,
+      gradeBalance: gradeBalance ?? this.gradeBalance,
       masterCurve: masterCurve ?? this.masterCurve,
       redCurve: redCurve ?? this.redCurve,
       greenCurve: greenCurve ?? this.greenCurve,
@@ -254,10 +275,15 @@ class EditRecipe {
     'saturation': saturation,
     'gradeShadowHue': gradeShadowHue,
     'gradeShadowSat': gradeShadowSat,
+    'gradeShadowLum': gradeShadowLum,
     'gradeMidHue': gradeMidHue,
     'gradeMidSat': gradeMidSat,
+    'gradeMidLum': gradeMidLum,
     'gradeHighlightHue': gradeHighlightHue,
     'gradeHighlightSat': gradeHighlightSat,
+    'gradeHighlightLum': gradeHighlightLum,
+    'gradeBlending': gradeBlending,
+    'gradeBalance': gradeBalance,
     'masterCurve': masterCurve.toJson(),
     'redCurve': redCurve.toJson(),
     'greenCurve': greenCurve.toJson(),
@@ -302,10 +328,15 @@ class EditRecipe {
       saturation: asDouble('saturation'),
       gradeShadowHue: asDouble('gradeShadowHue'),
       gradeShadowSat: asDouble('gradeShadowSat'),
+      gradeShadowLum: asDouble('gradeShadowLum'),
       gradeMidHue: asDouble('gradeMidHue'),
       gradeMidSat: asDouble('gradeMidSat'),
+      gradeMidLum: asDouble('gradeMidLum'),
       gradeHighlightHue: asDouble('gradeHighlightHue'),
       gradeHighlightSat: asDouble('gradeHighlightSat'),
+      gradeHighlightLum: asDouble('gradeHighlightLum'),
+      gradeBlending: (json['gradeBlending'] as num?)?.toDouble() ?? 0.5,
+      gradeBalance: asDouble('gradeBalance'),
       masterCurve: ToneCurve.fromJson(json['masterCurve']),
       redCurve: ToneCurve.fromJson(json['redCurve']),
       greenCurve: ToneCurve.fromJson(json['greenCurve']),
@@ -358,10 +389,15 @@ class EditRecipe {
       other.saturation == saturation &&
       other.gradeShadowHue == gradeShadowHue &&
       other.gradeShadowSat == gradeShadowSat &&
+      other.gradeShadowLum == gradeShadowLum &&
       other.gradeMidHue == gradeMidHue &&
       other.gradeMidSat == gradeMidSat &&
+      other.gradeMidLum == gradeMidLum &&
       other.gradeHighlightHue == gradeHighlightHue &&
       other.gradeHighlightSat == gradeHighlightSat &&
+      other.gradeHighlightLum == gradeHighlightLum &&
+      other.gradeBlending == gradeBlending &&
+      other.gradeBalance == gradeBalance &&
       other.masterCurve == masterCurve &&
       other.redCurve == redCurve &&
       other.greenCurve == greenCurve &&
@@ -395,10 +431,15 @@ class EditRecipe {
     Object.hash(
       gradeShadowHue,
       gradeShadowSat,
+      gradeShadowLum,
       gradeMidHue,
       gradeMidSat,
+      gradeMidLum,
       gradeHighlightHue,
       gradeHighlightSat,
+      gradeHighlightLum,
+      gradeBlending,
+      gradeBalance,
     ),
     Object.hash(masterCurve, redCurve, greenCurve, blueCurve),
     Object.hashAll(hsl),

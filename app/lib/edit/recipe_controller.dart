@@ -17,6 +17,9 @@ final recipeControllerProvider = NotifierProvider<RecipeController, RecipeState>
   RecipeController.new,
 );
 
+/// Target tonal region for 3-way color grading wheels.
+enum GradeWheelZone { shadows, midtones, highlights }
+
 class RecipeController extends Notifier<RecipeState> {
   @override
   RecipeState build() => const RecipeState(
@@ -73,6 +76,46 @@ class RecipeController extends Notifier<RecipeState> {
     if (saturation != null) values[band * 3 + 1] = saturation.clamp(-1.0, 1.0);
     if (luminance != null) values[band * 3 + 2] = luminance.clamp(-1.0, 1.0);
     state = state.copyWith(recipe: state.recipe.copyWith(hsl: values));
+  }
+
+  /// Updates a 3-way color grading wheel (shadows, midtones, highlights).
+  void setGradeWheel(
+    GradeWheelZone zone, {
+    double? hue,
+    double? sat,
+    double? lum,
+  }) {
+    final recipe = switch (zone) {
+      GradeWheelZone.shadows => state.recipe.copyWith(
+        gradeShadowHue: hue?.clamp(0.0, 360.0),
+        gradeShadowSat: sat?.clamp(0.0, 1.0),
+        gradeShadowLum: lum?.clamp(-1.0, 1.0),
+      ),
+      GradeWheelZone.midtones => state.recipe.copyWith(
+        gradeMidHue: hue?.clamp(0.0, 360.0),
+        gradeMidSat: sat?.clamp(0.0, 1.0),
+        gradeMidLum: lum?.clamp(-1.0, 1.0),
+      ),
+      GradeWheelZone.highlights => state.recipe.copyWith(
+        gradeHighlightHue: hue?.clamp(0.0, 360.0),
+        gradeHighlightSat: sat?.clamp(0.0, 1.0),
+        gradeHighlightLum: lum?.clamp(-1.0, 1.0),
+      ),
+    };
+    state = state.copyWith(recipe: recipe);
+  }
+
+  /// Updates global color grading parameters (blending, balance).
+  void setGradeGlobal({
+    double? blending,
+    double? balance,
+  }) {
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(
+        gradeBlending: blending?.clamp(0.0, 1.0),
+        gradeBalance: balance?.clamp(-1.0, 1.0),
+      ),
+    );
   }
 
   /// Rotates by [delta] quarter turns clockwise.

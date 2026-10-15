@@ -32,13 +32,18 @@ enum Parameter {
   tint,
   vibrance,
   saturation,
-  // Color grading (split tone): hue + strength per tonal zone.
+  // Color grading (split tone / 3-way color wheels): hue, saturation, luminance, blending, balance.
   gradeShadowHue,
   gradeShadowSat,
+  gradeShadowLum,
   gradeMidHue,
   gradeMidSat,
+  gradeMidLum,
   gradeHighlightHue,
   gradeHighlightSat,
+  gradeHighlightLum,
+  gradeBlending,
+  gradeBalance,
 }
 
 /// Static metadata for a [Parameter].
@@ -231,6 +236,13 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     min: 0,
     max: 1,
   ),
+  Parameter.gradeShadowLum: ParameterSpec(
+    id: Parameter.gradeShadowLum,
+    section: RecipeSection.color,
+    label: 'Shadow Luminance',
+    min: -1,
+    max: 1,
+  ),
   Parameter.gradeMidHue: ParameterSpec(
     id: Parameter.gradeMidHue,
     section: RecipeSection.color,
@@ -245,6 +257,13 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     min: 0,
     max: 1,
   ),
+  Parameter.gradeMidLum: ParameterSpec(
+    id: Parameter.gradeMidLum,
+    section: RecipeSection.color,
+    label: 'Midtone Luminance',
+    min: -1,
+    max: 1,
+  ),
   Parameter.gradeHighlightHue: ParameterSpec(
     id: Parameter.gradeHighlightHue,
     section: RecipeSection.color,
@@ -257,6 +276,28 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     section: RecipeSection.color,
     label: 'Highlight Strength',
     min: 0,
+    max: 1,
+  ),
+  Parameter.gradeHighlightLum: ParameterSpec(
+    id: Parameter.gradeHighlightLum,
+    section: RecipeSection.color,
+    label: 'Highlight Luminance',
+    min: -1,
+    max: 1,
+  ),
+  Parameter.gradeBlending: ParameterSpec(
+    id: Parameter.gradeBlending,
+    section: RecipeSection.color,
+    label: 'Blending',
+    min: 0,
+    max: 1,
+    neutral: 0.5,
+  ),
+  Parameter.gradeBalance: ParameterSpec(
+    id: Parameter.gradeBalance,
+    section: RecipeSection.color,
+    label: 'Balance',
+    min: -1,
     max: 1,
   ),
 };
@@ -292,10 +333,15 @@ double valueOf(EditRecipe recipe, Parameter p) => switch (p) {
   Parameter.saturation => recipe.saturation,
   Parameter.gradeShadowHue => recipe.gradeShadowHue,
   Parameter.gradeShadowSat => recipe.gradeShadowSat,
+  Parameter.gradeShadowLum => recipe.gradeShadowLum,
   Parameter.gradeMidHue => recipe.gradeMidHue,
   Parameter.gradeMidSat => recipe.gradeMidSat,
+  Parameter.gradeMidLum => recipe.gradeMidLum,
   Parameter.gradeHighlightHue => recipe.gradeHighlightHue,
   Parameter.gradeHighlightSat => recipe.gradeHighlightSat,
+  Parameter.gradeHighlightLum => recipe.gradeHighlightLum,
+  Parameter.gradeBlending => recipe.gradeBlending,
+  Parameter.gradeBalance => recipe.gradeBalance,
 };
 
 /// A copy of [recipe] with [p] set to [value] (clamped). Pure.
@@ -322,10 +368,15 @@ EditRecipe withValue(EditRecipe recipe, Parameter p, double value) {
     Parameter.saturation => recipe.copyWith(saturation: v),
     Parameter.gradeShadowHue => recipe.copyWith(gradeShadowHue: v),
     Parameter.gradeShadowSat => recipe.copyWith(gradeShadowSat: v),
+    Parameter.gradeShadowLum => recipe.copyWith(gradeShadowLum: v),
     Parameter.gradeMidHue => recipe.copyWith(gradeMidHue: v),
     Parameter.gradeMidSat => recipe.copyWith(gradeMidSat: v),
+    Parameter.gradeMidLum => recipe.copyWith(gradeMidLum: v),
     Parameter.gradeHighlightHue => recipe.copyWith(gradeHighlightHue: v),
     Parameter.gradeHighlightSat => recipe.copyWith(gradeHighlightSat: v),
+    Parameter.gradeHighlightLum => recipe.copyWith(gradeHighlightLum: v),
+    Parameter.gradeBlending => recipe.copyWith(gradeBlending: v),
+    Parameter.gradeBalance => recipe.copyWith(gradeBalance: v),
   };
 }
 /// A preview copy of [recipe] with every parameter in [muted] neutralised —

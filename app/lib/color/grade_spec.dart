@@ -13,10 +13,15 @@ class GradeSpec {
     this.vibrance = 0,
     this.gradeShadowHue = 0,
     this.gradeShadowSat = 0,
+    this.gradeShadowLum = 0,
     this.gradeMidHue = 0,
     this.gradeMidSat = 0,
+    this.gradeMidLum = 0,
     this.gradeHighlightHue = 0,
     this.gradeHighlightSat = 0,
+    this.gradeHighlightLum = 0,
+    this.gradeBlending = 0.5,
+    this.gradeBalance = 0,
     this.masterCurve = const <double>[],
     this.redCurve = const <double>[],
     this.greenCurve = const <double>[],
@@ -32,10 +37,15 @@ class GradeSpec {
   final double vibrance;
   final double gradeShadowHue;
   final double gradeShadowSat;
+  final double gradeShadowLum;
   final double gradeMidHue;
   final double gradeMidSat;
+  final double gradeMidLum;
   final double gradeHighlightHue;
   final double gradeHighlightSat;
+  final double gradeHighlightLum;
+  final double gradeBlending;
+  final double gradeBalance;
 
   /// Flat tone-curve control points (`[x0,y0,...]`); empty = identity.
   final List<double> masterCurve;
@@ -55,10 +65,15 @@ class GradeSpec {
     vibrance: recipe.vibrance,
     gradeShadowHue: recipe.gradeShadowHue,
     gradeShadowSat: recipe.gradeShadowSat,
+    gradeShadowLum: recipe.gradeShadowLum,
     gradeMidHue: recipe.gradeMidHue,
     gradeMidSat: recipe.gradeMidSat,
+    gradeMidLum: recipe.gradeMidLum,
     gradeHighlightHue: recipe.gradeHighlightHue,
     gradeHighlightSat: recipe.gradeHighlightSat,
+    gradeHighlightLum: recipe.gradeHighlightLum,
+    gradeBlending: recipe.gradeBlending,
+    gradeBalance: recipe.gradeBalance,
     masterCurve: recipe.masterCurve.points,
     redCurve: recipe.redCurve.points,
     greenCurve: recipe.greenCurve.points,
