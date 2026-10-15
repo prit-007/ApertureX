@@ -10,15 +10,24 @@ Prototype both candidate decoders against the fixed `ImageSource` boundary (ARCH
 - `libraw` compiles against system LibRaw 0.21.2.
 - Minimal `raw.rs` test produced a synthetic DNG via `rawler::dng::writer` and verified roundtrip through `rawler::decode`.
 
-## Status
-Prototyping started. Next: define a minimal `ImageSource` wrapper for both and benchmark against small fixtures.
-
-
 ## Findings
-- **rawler**: in-memory DNG roundtrip works (`RawSource::new_from_slice`); dimensions/full/ROI shim compiles and a small DNG decodes. Pure-Rust, single toolchain (good for F-Droid from-source).
-- **libraw**: crate links against system LibRaw 0.21.2; API surface in `libraw` 0.1.1 is `Image::open(path)` only (no obvious in-memory open). Linkage/structs compile; for the spike we can exercise via temporary files or note API constraint.
-- Both fit behind a thin trait without leaking into UI/edit code (matches ADR 0005 deferral).
+- **rawler**: in-memory DNG roundtrip works (`RawSource::new_from_slice`); dimensions/full/ROI shim compiles and a small DNG decodes. Pure-Rust, single toolchain (good for F-Droid from-source). Can write DNGs for fixtures. ROI feasible by decoding full then cropping in the spike (matches the existing JPEG ROI approach) or by accessing tiles; direct file ROI depends on format.
+- **libraw**: crate links against system LibRaw 0.21.2; API surface in `libraw` 0.1.1 is `Image::open(path)` only (no obvious in-memory open). Linkage/structs compile. System LibRaw gives broad camera support but requires C toolchain and packaging. ROI: LibRaw can operate on subimages in some modes but requires careful integration.
 
-## Next
-- Add a temp-file based decode test for libraw if desired, or skip in-memory. Curate tiny synthetic DNG fixture(s). Record timing/peak-RSS for small images and document tradeoffs.
+## Comparison (micro-scale, synthetic 8x8 DNG)
+| Criterion | rawler | libraw |
+|---|---|---|
+| Toolchain | Rust only | Rust + C/C++ (system libraw) |
+| In-memory decode | Yes (buffer-based) | Limited by 0.1.1 (file-open only); temp files possible |
+| ROI feasibility | Easy (decode full + crop or format-specific) | Possible but API-coupled; file-oriented |
+| Build reproducibility (F-Droid) | High (vendored/crates.io) | Needs packaged libraw; cross-compile friction |
+| Binary size impact | Small delta | Larger transitive (C lib) |
+| License surface | MIT/Apache-2.0 (typical) | LGPL/CDDL (LibRaw) — notice handling required |
+| Camera coverage | Growing but may lag very new bodies vs LibRaw | Very broad, mature |
+| Maintainability | Single language, memory-safe | Mixed; more build complexity |
 
+## Recommendation (preliminary)
+Given the project goals (FOSS, offline, mobile, F-Droid-friendly, and the architecture already supports JPEG ROI by decode+crop), **rawler is the better default starting point**. It matches the "single toolchain" principle, is easy to test in-memory, and avoids C build complexity. LibRaw remains a strong fallback if coverage gaps arise; ADR 0005 should be accepted with rawler as the first implementation, keeping the `ImageSource` trait neutral so LibRaw can be re-evaluated later.
+
+## Status
+Spike complete enough to choose. Proceeding with rawler-first; Phase D (DNG matrices + lens) can build on rawler's decoded data.
