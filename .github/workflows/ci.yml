@@ -1,19 +1,23 @@
-name: CI
+name: CI & Release
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
+    tags:
+      - 'v*' # Triggers the workflow when you push tags like 'v0.1.0'
   pull_request:
     branches: [main]
-  workflow_dispatch:
 
+# Grant permission to create a release and upload assets
+permissions:
+  contents: write
+
+# Auto-cancel superseded runs on the same branch/PR so CI never queues stale
+# work behind newer commits.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-defaults:
-  run:
-    working-directory: app
 
 jobs:
   analyze-and-test:
@@ -26,6 +30,8 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          # Pinned: this version is the single source of truth — the F-Droid
+          # metadata reads it from this file via tool/ci/fdroid_flutter_setup.sh.
           flutter-version: '3.44.8'
           channel: stable
           cache: true
@@ -33,6 +39,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.99.0"
           components: rustfmt, clippy
 
       - name: Cache Rust build
@@ -40,13 +47,29 @@ jobs:
         with:
           workspaces: app/rust
 
+      - name: Verify tag matches pubspec version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          VER=$(sed -n 's/^version: *\([0-9][0-9.]*\).*/\1/p' app/pubspec.yaml)
+          if [ "$TAG" != "$VER" ]; then
+            echo "Tag v$TAG does not match pubspec version $VER." \
+              "Bump app/pubspec.yaml or retag." >&2
+            exit 1
+          fi
+          echo "Releasing $VER (tag $GITHUB_REF_NAME)"
+
       - name: Flutter pub get
+        working-directory: app
         run: flutter pub get
 
       - name: Analyze
+        working-directory: app
         run: flutter analyze
 
       - name: Dart tests
+        working-directory: app
         run: flutter test
 
       - name: Rust format check
@@ -61,36 +84,143 @@ jobs:
         working-directory: app/rust
         run: cargo test
 
-  build-apk:
-    name: Build debug APK (shaders + plugins compile)
+  build-android:
+    name: Release APKs (F-Droid buildserver container)
+    needs: analyze-and-test
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # Signing secrets live on the 'ci' environment (see tool/ci/make_release_keystore.sh).
+    # Builds still succeed unsigned when the secrets are absent (PRs, forks).
+    environment: ci
+    container:
+      image: registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie
+      options: --user root
+    timeout-minutes: 75
+    env:
+      PUB_CACHE: ${{ github.workspace }}/.pub-cache
+      FLUTTER_HOME: /opt/flutter
+      ANDROID_HOME: /opt/android-sdk
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - name: Set up build environment
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git curl unzip xz-utils zip sudo \
+            binutils clang cmake make ninja-build pkg-config
+          # Pinned Android toolchain (ADR 0004). The NDK matches the Flutter
+          # 3.44.x default so `ndkVersion = flutter.ndkVersion` resolves offline.
+          yes | sdkmanager "ndk;28.2.13676358" "build-tools;36.0.0"
+          # Pinned Flutter — same version as analyze-and-test.
+          git clone --depth 1 --branch 3.44.8 \
+            https://github.com/flutter/flutter.git "$FLUTTER_HOME"
+          echo "$FLUTTER_HOME/bin" >> "$GITHUB_PATH"
+          "$FLUTTER_HOME/bin/flutter" config --no-analytics
+          "$FLUTTER_HOME/bin/flutter" precache --android
+          # Pinned Rust with the Android targets preinstalled, so cargokit's
+          # rustup checks find them without a network roundtrip.
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+            sh -s -- -y --default-toolchain 1.99.0 --profile minimal --no-modify-path
+          echo "/root/.cargo/bin" >> "$GITHUB_PATH"
+          /root/.cargo/bin/rustup target add --toolchain 1.99.0 \
+            aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+
+      - name: Prebuild (pinned pub get)
+        run: tool/ci/android_prebuild.sh
+
+      - name: Build release APKs (per-ABI + universal, reproducible)
+        env:
+          APERTUREX_KEYSTORE_BASE64: ${{ secrets.APERTUREX_KEYSTORE_BASE64 }}
+          APERTUREX_KEYSTORE_PASSWORD: ${{ secrets.APERTUREX_KEYSTORE_PASSWORD }}
+          APERTUREX_KEY_PASSWORD: ${{ secrets.APERTUREX_KEY_PASSWORD }}
+          APERTUREX_KEY_ALIAS: ${{ secrets.APERTUREX_KEY_ALIAS }}
+        run: tool/ci/android_build.sh
+
+      - name: Verify native libraries in every APK
+        run: |
+          set -euo pipefail
+          TMP=$(mktemp -d)
+          trap 'rm -rf "$TMP"' EXIT
+          # Every per-ABI APK must ship a non-empty libapp.so (Dart AOT) and
+          # librust_lib_tessera.so (Rust engine), and each .so must match its
+          # ABI's machine type — the "wrong .so got packaged" failure mode.
+          for abi in armeabi-v7a arm64-v8a x86_64; do
+            apk="app/build/app/outputs/flutter-apk/app-${abi}-release.apk"
+            test -f "$apk" || { echo "Missing $apk"; exit 1; }
+            unzip -o -q "$apk" \
+              "lib/$abi/libapp.so" "lib/$abi/librust_lib_tessera.so" -d "$TMP"
+            for so in "$TMP/lib/$abi/libapp.so" "$TMP/lib/$abi/librust_lib_tessera.so"; do
+              test -s "$so" || { echo "Empty or missing $so"; exit 1; }
+              machine=$(readelf -h "$so" | awk '/Machine:/ {print $2, $3}')
+              case "$abi:$machine" in
+                armeabi-v7a:ARM) ;;
+                arm64-v8a:AArch64) ;;
+                x86_64:X86-64) ;;
+                *) echo "$so: machine '$machine' does not match ABI $abi"; exit 1 ;;
+              esac
+              echo "$abi: $(basename "$so") OK ($machine)"
+            done
+          done
+          test -s app/build/app/outputs/flutter-apk/app-release.apk \
+            || { echo "Missing universal app-release.apk"; exit 1; }
+          echo "Universal APK OK"
+
+      - name: Upload Dart symbol files
+        uses: actions/upload-artifact@v4
         with:
-          flutter-version: '3.44.8'
-          channel: stable
-          cache: true
+          name: aperturex-symbols
+          path: app/build/symbols
+          if-no-files-found: warn
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2
+      - name: Upload APK artifacts (workflow summary)
+        uses: actions/upload-artifact@v4
         with:
-          workspaces: app/rust
+          name: aperturex-apks
+          path: app/build/app/outputs/flutter-apk/*-release.apk
+          if-no-files-found: error
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
+  release:
+    name: GitHub Release
+    needs: [analyze-and-test, build-android]
+    # Android is required for a release. Only runs on tags.
+    if: startsWith(github.ref, 'refs/tags/') &&
+        !cancelled() &&
+        needs.build-android.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download APK artifacts
+        uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: '17'
+          name: aperturex-apks
+          path: release/apks
 
-      - name: Flutter pub get
-        run: flutter pub get
+      - name: Prepare release body from CHANGELOG
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v ver="[$VERSION]" '
+            /^## \[/ {
+              if (index($0, "## " ver) == 1) { on = 1; print; next }
+              if (on) exit
+            }
+            on
+          ' app/CHANGELOG.md > release-body.md
+          if [ ! -s release-body.md ]; then
+            echo "No '## [$VERSION]' section found in app/CHANGELOG.md" >&2
+            exit 1
+          fi
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Create Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-body.md
+          allowUpdates: true
+          update_release_body: true
+          files: |
+            release/apks/**/*.apk
+          name: Release ${{ github.ref_name }}

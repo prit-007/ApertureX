@@ -1,0 +1,55 @@
+# ApertureX — F-Droid metadata (fdroiddata entry draft for com.devparadise.tessera).
+#
+# Mirrors the org's `nook` recipe (docs/adr/0004) and shares the same build
+# scripts as GitHub CI (tool/ci/*), so F-Droid and CI builds are the same build.
+#
+# VALIDATION BEFORE THE fdroiddata MR:
+#   * `flutter pub get` and cargo need network; the F-Droid builder has none.
+#     For the release that goes to F-Droid, commit the vendored crates first:
+#         tool/ci/rust_vendor.sh
+#         git add -f app/rust/vendor app/rust/.cargo
+#     and gate the build with `tool/ci/rust_vendor.sh --check` in Init.
+#   * Confirm the Rust toolchain source at MR time: the buildserver trixie
+#     image may provide Debian rustc, otherwise add an srclib (e.g.
+#     `Rust/1.99.0`) and put `rustup target add aarch64-linux-android ...`
+#     into Init. The pinned Flutter srclib below is wired up by
+#     tool/ci/fdroid_flutter_setup.sh (reads the version from ci.yml).
+#   * Run `fdroid server lint` on this file; then open the fdroiddata MR and
+#     add the signing-key fingerprint + screenshots (tracked in the
+#     "F-Droid submission" issue).
+
+Categories:
+  - Photography
+License: GPL-3.0-or-later
+AuthorName: Developer's Paradise
+SourceCode: https://github.com/prit-007/ApertureX
+IssueTracker: https://github.com/prit-007/ApertureX/issues
+Changelog: https://github.com/prit-007/ApertureX/blob/main/app/CHANGELOG.md
+AutoName: ApertureX
+Name: ApertureX
+
+Builds:
+  - versionName: 0.1.0
+    # Per-ABI scheme (ADR 0004): the gradle build emits base×10+{1,2,3}
+    # (11/12/13); VercodeOperation accepts all three from one base code.
+    versionCode: 1
+    VercodeOperation:
+      - '%c * 10 + 1'
+      - '%c * 10 + 2'
+      - '%c * 10 + 3'
+    commit: v0.1.0
+    subdir: app/android
+    sudo:
+      - apt-get update
+      - apt-get install -y --no-install-recommends clang cmake ninja-build pkg-config make binutils
+    srclibs:
+      - Flutter/3.44.8
+    init:
+      - tool/ci/fdroid_flutter_setup.sh $$flutter$$
+      - tool/ci/android_prebuild.sh
+      # Offline Rust crates (see header): uncomment for the F-Droid release.
+      # - tool/ci/rust_vendor.sh --check
+    build:
+      # Same command as GitHub CI (tool/ci/android_build.sh), unsigned —
+      # F-Droid signs with its own key.
+      - flutter build apk --release

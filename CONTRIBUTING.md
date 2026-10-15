@@ -50,6 +50,21 @@ flutter_rust_bridge_codegen generate
   (feature/task/chore/spike), `phase:P*`.
 - Milestones track phases (`P1`, `P2`, `P2.5`, `P3`, `P3.5`, `P4`).
 
+## Releases (maintainers)
+
+1. Add a `## [X.Y.Z] - date` section to `app/CHANGELOG.md`.
+2. Bump `version: X.Y.Z+N` in `app/pubspec.yaml` (the `+N` is the Android
+   build number; the per-ABI `×10+{1,2,3}` codes are derived from it).
+3. Tag and push:
+   ```sh
+   git tag vX.Y.Z && git push origin vX.Y.Z
+   ```
+CI verifies the tag matches `pubspec.yaml`, builds signed per-ABI + universal
+APKs in the F-Droid buildserver container, and publishes a GitHub Release with
+the APKs and the changelog section. First-time signing setup:
+`tool/ci/make_release_keystore.sh` (keystore + passwords stay on your machine;
+secrets go to the `ci` environment — **back the keystore up**).
+
 ## Architecture
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), the ADRs in

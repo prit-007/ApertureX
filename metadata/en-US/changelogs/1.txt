@@ -1,0 +1,7 @@
+First public pre-release.
+* Dual UIs over one recipe (Lightroom panels + Snapseed gestures).
+* Rust color/geometry/spatial/mask engine, 60fps preview, full-res export.
+* Crop + aspect ratios; dehaze, vignette, grain.
+* Date-grouped gallery with albums and batch editing.
+* Non-destructive per-photo recipes; preset/LUT/look import.
+* On-device offline activity log; permission flow.

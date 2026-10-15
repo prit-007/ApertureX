@@ -42,5 +42,21 @@ compatible with a GPL-3.0 outbound project.
   hooks.
 
 **Follow-ups**
-- Confirm iOS/App Store GPL-3 distribution approach before P5 iOS release.
-- Set up F-Droid metadata repo early (P5) but structure the build for it from P0.
+- [x] **CI & release pipeline** — `.github/workflows/ci.yml`: analyze/test
+  (Dart + Rust) on every push/PR; signed per-ABI release APKs built inside the
+  F-Droid buildserver container on every push; a `vX.Y.Z` tag (verified against
+  `app/pubspec.yaml`) publishes a GitHub Release with the APKs + CHANGELOG
+  notes. Build scripts shared with F-Droid: `tool/ci/*`.
+- [x] **Per-ABI version codes + metadata draft** — `base×10+{1,2,3}` in
+  `app/android/app/build.gradle.kts`; `VercodeOperation` and pinned Flutter
+  srclib in [`fdroid-metadata.yml`](../fdroid-metadata.yml); store listing +
+  versionCode-keyed changelogs under `metadata/`; release signing via
+  `tool/ci/make_release_keystore.sh` (keystore + secrets on the `ci`
+  environment).
+- [ ] **Offline Rust crates** for the F-Droid builder: `tool/ci/rust_vendor.sh`
+  → commit `app/rust/vendor` + `app/rust/.cargo` in the release that ships to
+  F-Droid (issue #69).
+- [ ] **fdroiddata MR** — `fdroid server lint`, Rust-toolchain source on the
+  builder, signing fingerprint + screenshots (issue #69).
+- [ ] Confirm iOS/App Store GPL-3 distribution approach before a signed iOS
+  release.
