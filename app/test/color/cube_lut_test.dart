@@ -153,4 +153,20 @@ void main() {
       expect(CubeLut.parseAuto(_identity3dl).data.length, 8 * 3);
     });
   });
+
+  group('CubeLut.toCubeText', () {
+    test('exports standard .cube format that round-trips through parse', () {
+      final original = CubeLut.parse(_identity2);
+      final text = original.toCubeText(title: 'Exported Grade');
+      expect(text, contains('TITLE "Exported Grade"'));
+      expect(text, contains('LUT_3D_SIZE 2'));
+      expect(text, contains('DOMAIN_MIN 0.0 0.0 0.0'));
+      expect(text, contains('DOMAIN_MAX 1.0 1.0 1.0'));
+
+      final parsed = CubeLut.parse(text);
+      expect(parsed.size, 2);
+      expect(parsed.title, 'Exported Grade');
+      expect(parsed.toAtlasRgba(), original.toAtlasRgba());
+    });
+  });
 }

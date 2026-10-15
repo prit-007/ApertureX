@@ -123,3 +123,21 @@ pub fn grade_rgba(
     }
     out
 }
+
+/// Exports the grade (tone curves + HSL mix + color wheels) as a DaVinci Resolve / Premiere compliant `.cube` 3D LUT string.
+pub fn export_cube_lut(
+    size: u32,
+    params: ColorParams,
+    curves: CurveParams,
+    hsl: Vec<f32>,
+    title: Option<String>,
+) -> String {
+    let set = curves.to_set();
+    color::export_cube_lut(
+        size,
+        params.to_core(),
+        Some(&set),
+        &to_hsl24(&hsl),
+        title.as_deref(),
+    )
+}

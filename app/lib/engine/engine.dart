@@ -156,6 +156,19 @@ class TesseraEngine {
         hsl: spec.hsl,
       );
 
+  /// Exports the grade (and tone curves / color wheels) as a DaVinci Resolve / Premiere compliant `.cube` string.
+  static Future<String> exportCubeLut(
+    GradeSpec spec, {
+    int size = 33,
+    String? title,
+  }) => rust_color.exportCubeLut(
+    size: size,
+    params: _colorParams(spec),
+    curves: _curveParams(spec),
+    hsl: spec.hsl,
+    title: title,
+  );
+
   // --- histogram (P2) -------------------------------------------------------
 
   /// Downsamples + grades + bins [rgba] into a 256-bin RGB/luma histogram.

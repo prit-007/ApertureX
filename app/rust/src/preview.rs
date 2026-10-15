@@ -347,6 +347,7 @@ fn bake_base(
         grain: spec.grain,
         grain_size: spec.grain_size,
         grain_roughness: spec.grain_roughness,
+        ..Default::default()
     };
     let optics_params = OpticsParams {
         remove_chromatic_aberration: spec.remove_chromatic_aberration,

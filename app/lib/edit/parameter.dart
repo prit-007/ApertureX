@@ -2,7 +2,7 @@ import 'recipe.dart';
 
 /// The recipe's parameter groups (ARCHITECTURE §16, P2). Lightroom categories
 /// map 1:1 onto sections; Snapseed tools map onto parameters *within* them.
-enum RecipeSection { light, color, tone, retouch, blur, effects, detail, optics, geometry, masking }
+enum RecipeSection { light, color, tone, retouch, blur, effects, detail, optics, geometry, masking, film, lab }
 
 /// How a parameter is manipulated. The seed ships sliders only; the catalog is
 /// the seam a future `curve` or `hueGrid` parameter slots into.
@@ -63,6 +63,19 @@ enum Parameter {
   blurFocalPoint,
   blurFocalRange,
   blurBokehBoost,
+  // Film Emulation
+  filmHalation,
+  filmHalationRadius,
+  filmHalationThreshold,
+  filmBloom,
+  filmBloomRadius,
+  filmBloomThreshold,
+  filmDust,
+  filmScratches,
+  // Shader Lab
+  shaderParam1,
+  shaderParam2,
+  shaderParam3,
 }
 
 /// Static metadata for a [Parameter].
@@ -448,6 +461,89 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     min: 0,
     max: 1,
   ),
+  // Film Emulation
+  Parameter.filmHalation: ParameterSpec(
+    id: Parameter.filmHalation,
+    section: RecipeSection.film,
+    label: 'Halation',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.filmHalationRadius: ParameterSpec(
+    id: Parameter.filmHalationRadius,
+    section: RecipeSection.film,
+    label: 'Halation Radius',
+    min: 0.1,
+    max: 1,
+    neutral: 0.5,
+  ),
+  Parameter.filmHalationThreshold: ParameterSpec(
+    id: Parameter.filmHalationThreshold,
+    section: RecipeSection.film,
+    label: 'Halation Threshold',
+    min: 0.1,
+    max: 1,
+    neutral: 0.8,
+  ),
+  Parameter.filmBloom: ParameterSpec(
+    id: Parameter.filmBloom,
+    section: RecipeSection.film,
+    label: 'Bloom',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.filmBloomRadius: ParameterSpec(
+    id: Parameter.filmBloomRadius,
+    section: RecipeSection.film,
+    label: 'Bloom Radius',
+    min: 0.1,
+    max: 1,
+    neutral: 0.5,
+  ),
+  Parameter.filmBloomThreshold: ParameterSpec(
+    id: Parameter.filmBloomThreshold,
+    section: RecipeSection.film,
+    label: 'Bloom Threshold',
+    min: 0.1,
+    max: 1,
+    neutral: 0.75,
+  ),
+  Parameter.filmDust: ParameterSpec(
+    id: Parameter.filmDust,
+    section: RecipeSection.film,
+    label: 'Dust Flecks',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.filmScratches: ParameterSpec(
+    id: Parameter.filmScratches,
+    section: RecipeSection.film,
+    label: 'Film Scratches',
+    min: 0,
+    max: 1,
+  ),
+  // Shader Lab
+  Parameter.shaderParam1: ParameterSpec(
+    id: Parameter.shaderParam1,
+    section: RecipeSection.lab,
+    label: 'Intensity',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.shaderParam2: ParameterSpec(
+    id: Parameter.shaderParam2,
+    section: RecipeSection.lab,
+    label: 'Dispersion / Freq',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.shaderParam3: ParameterSpec(
+    id: Parameter.shaderParam3,
+    section: RecipeSection.lab,
+    label: 'Noise / Jitter',
+    min: 0,
+    max: 1,
+  ),
 };
 
 /// The [ParameterSpec] for [p]. Always present — the catalog covers the enum.
@@ -507,6 +603,17 @@ double valueOf(EditRecipe recipe, Parameter p) => switch (p) {
   Parameter.blurFocalPoint => recipe.blurFocalPoint,
   Parameter.blurFocalRange => recipe.blurFocalRange,
   Parameter.blurBokehBoost => recipe.blurBokehBoost,
+  Parameter.filmHalation => recipe.filmHalation,
+  Parameter.filmHalationRadius => recipe.filmHalationRadius,
+  Parameter.filmHalationThreshold => recipe.filmHalationThreshold,
+  Parameter.filmBloom => recipe.filmBloom,
+  Parameter.filmBloomRadius => recipe.filmBloomRadius,
+  Parameter.filmBloomThreshold => recipe.filmBloomThreshold,
+  Parameter.filmDust => recipe.filmDust,
+  Parameter.filmScratches => recipe.filmScratches,
+  Parameter.shaderParam1 => recipe.shaderParam1,
+  Parameter.shaderParam2 => recipe.shaderParam2,
+  Parameter.shaderParam3 => recipe.shaderParam3,
 };
 
 /// A copy of [recipe] with [p] set to [value] (clamped). Pure.
@@ -560,6 +667,17 @@ EditRecipe withValue(EditRecipe recipe, Parameter p, double value) {
     Parameter.blurFocalPoint => recipe.copyWith(blurFocalPoint: v),
     Parameter.blurFocalRange => recipe.copyWith(blurFocalRange: v),
     Parameter.blurBokehBoost => recipe.copyWith(blurBokehBoost: v),
+    Parameter.filmHalation => recipe.copyWith(filmHalation: v),
+    Parameter.filmHalationRadius => recipe.copyWith(filmHalationRadius: v),
+    Parameter.filmHalationThreshold => recipe.copyWith(filmHalationThreshold: v),
+    Parameter.filmBloom => recipe.copyWith(filmBloom: v),
+    Parameter.filmBloomRadius => recipe.copyWith(filmBloomRadius: v),
+    Parameter.filmBloomThreshold => recipe.copyWith(filmBloomThreshold: v),
+    Parameter.filmDust => recipe.copyWith(filmDust: v),
+    Parameter.filmScratches => recipe.copyWith(filmScratches: v),
+    Parameter.shaderParam1 => recipe.copyWith(shaderParam1: v),
+    Parameter.shaderParam2 => recipe.copyWith(shaderParam2: v),
+    Parameter.shaderParam3 => recipe.copyWith(shaderParam3: v),
   };
 }
 /// A preview copy of [recipe] with every parameter in [muted] neutralised —

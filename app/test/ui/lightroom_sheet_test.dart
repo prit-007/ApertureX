@@ -71,4 +71,24 @@ void main() {
     expect(bodyHeight(tester), closeTo(844 * 0.5, 1));
     expect(find.byType(LightroomShell), findsOneWidget);
   });
+
+  testWidgets('the tool panel within the sheet scrolls properly within bounds', (
+    tester,
+  ) async {
+    await pumpPortrait(tester);
+    expect(bodyHeight(tester), closeTo(844 * 0.5, 1));
+
+    // In LightroomShell at half-height, the parameter list should be bounded to the sheet
+    // and allow smooth vertical scrolling.
+    final scrollable = find.byType(Scrollable).last;
+    expect(scrollable, findsOneWidget);
+
+    final scrollState = tester.state<ScrollableState>(scrollable);
+    expect(scrollState.position.pixels, 0.0);
+
+    // Drag up to scroll the parameters down
+    await tester.drag(scrollable, const Offset(0, -150));
+    await tester.pumpAndSettle();
+    expect(scrollState.position.pixels, greaterThan(0.0));
+  });
 }

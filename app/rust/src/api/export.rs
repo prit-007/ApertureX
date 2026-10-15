@@ -233,6 +233,7 @@ pub fn export_full(
             grain: spec.grain,
             grain_size: spec.grain_size,
             grain_roughness: spec.grain_roughness,
+            ..Default::default()
         },
         layers: layers
             .iter()

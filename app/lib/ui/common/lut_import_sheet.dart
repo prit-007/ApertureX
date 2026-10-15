@@ -12,6 +12,7 @@ import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import 'app_sheet.dart';
+import 'lut_export_sheet.dart';
 
 /// Import a preset look by pasting `.cube` text or picking a HALD CLUT PNG.
 class LutImportSheet extends ConsumerStatefulWidget {
@@ -113,6 +114,15 @@ class _LutImportSheetState extends ConsumerState<LutImportSheet> {
                       Navigator.of(context).maybePop();
                     },
               child: const Text('Clear'),
+            ),
+            const SizedBox(width: Insets.xs),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).maybePop();
+                showAppSheet(context, const LutExportSheet());
+              },
+              icon: const Icon(Icons.file_upload, size: 16),
+              label: const Text('Export .CUBE'),
             ),
             const Spacer(),
             OutlinedButton(

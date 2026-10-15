@@ -542,21 +542,17 @@ class _LightroomSheetState extends State<_LightroomSheet> {
                           top: Radius.circular(Radii.md),
                         ),
                       ),
-                      child: OverflowBox(
-                        alignment: Alignment.topCenter,
-                        maxHeight: widget.availableHeight,
-                        child: SizedBox(
-                          height: widget.availableHeight,
-                          child: Column(
-                            children: [
-                              if (widget.hasHistogram)
-                                _HistogramDrawer(
-                                  open: widget.histogramOpen,
-                                  setOpen: widget.setHistogramOpen,
-                                ),
-                              const Expanded(child: LightroomShell()),
-                            ],
-                          ),
+                      child: SizedBox(
+                        height: contentHeight,
+                        child: Column(
+                          children: [
+                            if (widget.hasHistogram)
+                              _HistogramDrawer(
+                                open: widget.histogramOpen,
+                                setOpen: widget.setHistogramOpen,
+                              ),
+                            const Expanded(child: LightroomShell()),
+                          ],
                         ),
                       ),
                     ),

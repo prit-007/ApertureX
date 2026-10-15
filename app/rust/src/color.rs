@@ -597,6 +597,53 @@ pub fn bake_lut3d_curves(
     rgba
 }
 
+/// Exports the point-wise color pipeline as a DaVinci Resolve / Adobe Premiere compliant `.cube` 3D LUT string.
+/// `size` is the cube edge length (typically 17, 33, or 65).
+pub fn export_cube_lut(
+    size: u32,
+    params: GradeParams,
+    curves: Option<&CurveSet>,
+    hsl: &[f32; 24],
+    title: Option<&str>,
+) -> String {
+    use std::fmt::Write;
+    let n = size as usize;
+    let inv = 1.0 / (n - 1).max(1) as f32;
+    let mut out_str = String::with_capacity(n * n * n * 28 + 128);
+
+    writeln!(out_str, "# Created by ApertureX").unwrap();
+    writeln!(out_str, "TITLE \"{}\"", title.unwrap_or("ApertureX Grade")).unwrap();
+    writeln!(out_str, "LUT_3D_SIZE {}", size).unwrap();
+    writeln!(out_str, "DOMAIN_MIN 0.0 0.0 0.0").unwrap();
+    writeln!(out_str, "DOMAIN_MAX 1.0 1.0 1.0").unwrap();
+    writeln!(out_str).unwrap();
+
+    // Standard Adobe .CUBE order: red changes fastest, green second, blue slowest.
+    for bi in 0..n {
+        for gi in 0..n {
+            for ri in 0..n {
+                let out = grade_pixel_c(
+                    ri as f32 * inv,
+                    gi as f32 * inv,
+                    bi as f32 * inv,
+                    params,
+                    curves,
+                    hsl,
+                );
+                writeln!(
+                    out_str,
+                    "{:.6} {:.6} {:.6}",
+                    out[0].clamp(0.0, 1.0),
+                    out[1].clamp(0.0, 1.0),
+                    out[2].clamp(0.0, 1.0)
+                )
+                .unwrap();
+            }
+        }
+    }
+    out_str
+}
+
 /// Trilinear lookup into a `bake_lut3d` atlas — the CPU twin of `lut.frag`.
 pub fn sample_lut(atlas: &[u8], size: u32, r: f32, g: f32, b: f32) -> [f32; 3] {
     let n = size as usize;
@@ -1116,5 +1163,68 @@ mod tests {
             },
         );
         println!("spatial 512^2: {:?}", t2.elapsed());
+    }
+
+    #[test]
+    fn export_cube_lut_header_has_required_cube_tokens() {
+        let p = GradeParams::default();
+        let cube = export_cube_lut(17, p, None, &ZERO_HSL, Some("Cinematic Test"));
+        assert!(cube.contains("TITLE \"Cinematic Test\""));
+        assert!(cube.contains("LUT_3D_SIZE 17"));
+        assert!(cube.contains("DOMAIN_MIN 0.0 0.0 0.0"));
+        assert!(cube.contains("DOMAIN_MAX 1.0 1.0 1.0"));
+        // Total lines: 5 header lines + 1 empty line + 17^3 (4913 data lines) = 4919 lines
+        let lines: Vec<&str> = cube.trim().lines().collect();
+        assert_eq!(lines.len(), 6 + 17 * 17 * 17);
+    }
+
+    #[test]
+    fn export_cube_lut_identity_matches_domain_range() {
+        let p = GradeParams::default();
+        let cube = export_cube_lut(2, p, None, &ZERO_HSL, None);
+        let data_lines: Vec<&str> = cube
+            .lines()
+            .filter(|l| {
+                !l.is_empty()
+                    && !l.starts_with('#')
+                    && !l.starts_with("TITLE")
+                    && !l.starts_with("LUT")
+                    && !l.starts_with("DOMAIN")
+            })
+            .collect();
+        assert_eq!(data_lines.len(), 8); // 2^3
+                                         // In .cube order: red fastest, green next, blue slowest
+                                         // First entry: r=0, g=0, b=0 -> 0.000000 0.000000 0.000000
+        assert_eq!(data_lines[0], "0.000000 0.000000 0.000000");
+        // Second entry: r=1, g=0, b=0 -> 1.000000 0.000000 0.000000
+        assert_eq!(data_lines[1], "1.000000 0.000000 0.000000");
+        // Last entry: r=1, g=1, b=1 -> 1.000000 1.000000 1.000000
+        assert_eq!(data_lines[7], "1.000000 1.000000 1.000000");
+    }
+
+    #[test]
+    fn export_cube_lut_with_grade_alters_entries() {
+        let p = GradeParams {
+            exposure: 1.0, // +1 EV pushes values brighter
+            ..Default::default()
+        };
+        let cube = export_cube_lut(3, p, None, &ZERO_HSL, None);
+        let data_lines: Vec<&str> = cube
+            .lines()
+            .filter(|l| {
+                !l.is_empty()
+                    && !l.starts_with('#')
+                    && !l.starts_with("TITLE")
+                    && !l.starts_with("LUT")
+                    && !l.starts_with("DOMAIN")
+            })
+            .collect();
+        assert_eq!(data_lines.len(), 27);
+        // Middle grey (r=0.5, g=0.5, b=0.5 at index 13) should be shifted brighter (> 0.5)
+        let mid_parts: Vec<f32> = data_lines[13]
+            .split_whitespace()
+            .map(|s| s.parse().unwrap())
+            .collect();
+        assert!(mid_parts[0] > 0.55);
     }
 }

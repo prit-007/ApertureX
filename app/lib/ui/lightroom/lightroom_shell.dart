@@ -7,8 +7,10 @@ import '../../edit/recipe_controller.dart';
 import '../../viewport/compare_hold.dart';
 import '../common/blur_controls.dart';
 import '../common/color_grading_editor.dart';
+import '../common/film_controls.dart';
 import '../common/geometry_controls.dart';
 import '../common/hsl_mixer.dart';
+import '../common/lab_controls.dart';
 import '../common/mask_controls.dart';
 import '../common/optics_controls.dart';
 import '../common/parameter_panel.dart';
@@ -28,6 +30,8 @@ String _sectionLabel(RecipeSection section) => switch (section) {
   RecipeSection.optics => 'Optics',
   RecipeSection.geometry => 'Geometry',
   RecipeSection.masking => 'Masking',
+  RecipeSection.film => 'Film',
+  RecipeSection.lab => 'Lab',
 };
 
 /// Lightroom shell: a scrollable row of tool tabs over the shared recipe. The
@@ -52,6 +56,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     RecipeSection.optics,
     RecipeSection.geometry,
     RecipeSection.masking,
+    RecipeSection.film,
+    RecipeSection.lab,
   ];
 
   RecipeSection _section = RecipeSection.light;
@@ -203,6 +209,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         return const MaskControls();
       case RecipeSection.optics:
         return const OpticsControls();
+      case RecipeSection.film:
+        return const FilmControls();
+      case RecipeSection.lab:
+        return const LabControls();
       default:
         return ParameterPanel(section: _section);
     }

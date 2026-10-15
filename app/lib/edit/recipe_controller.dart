@@ -181,6 +181,20 @@ class RecipeController extends Notifier<RecipeState> {
     commit(label: 'Bokeh Shape');
   }
 
+  void setShaderLabPreset(int preset) {
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(shaderLabPreset: preset),
+    );
+    commit(label: 'Shader Preset');
+  }
+
+  void setCustomGlslCode(String code) {
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(customGlslCode: code),
+    );
+    commit(label: 'Custom Shader');
+  }
+
   /// Applies a crop (and optional rotation/flip) as one committed step.
   void applyCrop({
     required List<double> crop,

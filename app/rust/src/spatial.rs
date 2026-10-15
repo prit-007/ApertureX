@@ -347,6 +347,22 @@ pub struct SpatialParams {
     pub grain_size: f32,
     /// Film grain roughness (0..1, default: 0.5).
     pub grain_roughness: f32,
+    /// Film halation (red highlight bleeding across emulsion): 0..1.
+    pub film_halation: f32,
+    pub film_halation_radius: f32,
+    pub film_halation_threshold: f32,
+    /// Film optical bloom (diffusion / pro-mist): 0..1.
+    pub film_bloom: f32,
+    pub film_bloom_radius: f32,
+    pub film_bloom_threshold: f32,
+    /// Archival film dust flecks: 0..1.
+    pub film_dust: f32,
+    pub film_scratches: f32,
+    /// Shader Lab preset: 0=none, 1=vhs, 2=prism, 3=crt, 4=pixelate, 5=custom.
+    pub shader_lab_preset: u32,
+    pub shader_param1: f32,
+    pub shader_param2: f32,
+    pub shader_param3: f32,
 }
 
 impl SpatialParams {
@@ -362,6 +378,11 @@ impl SpatialParams {
             && self.dehaze == 0.0
             && self.vignette == 0.0
             && self.grain == 0.0
+            && self.film_halation == 0.0
+            && self.film_bloom == 0.0
+            && self.film_dust == 0.0
+            && self.film_scratches == 0.0
+            && self.shader_lab_preset == 0
     }
 }
 
@@ -438,8 +459,224 @@ pub fn dehaze(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
     out
 }
 
+/// Simulates photochemical film halation (red light bleeding from specular highlights into emulsion backing).
+pub fn film_halation(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    amount: f32,
+    radius_norm: f32,
+    threshold: f32,
+) -> Vec<u8> {
+    if amount <= 0.0 || w == 0 || h == 0 {
+        return rgba.to_vec();
+    }
+    let n = w * h;
+    let thresh = (threshold * 255.0).clamp(0.0, 254.0);
+    let mut highlight = vec![0.0f32; n];
+
+    for i in 0..n {
+        let r = rgba[i * 4] as f32;
+        let g = rgba[i * 4 + 1] as f32;
+        let b = rgba[i * 4 + 2] as f32;
+        let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        if luma > thresh {
+            highlight[i] = ((luma - thresh) / (255.0 - thresh)).clamp(0.0, 1.0);
+        }
+    }
+
+    let r_px = ((w.min(h) as f32 * 0.04 * radius_norm).round() as usize).max(1);
+    let blurred = box_blur_1d(&highlight, w, h, r_px);
+
+    let mut out = rgba.to_vec();
+    for i in 0..n {
+        let b_val = blurred[i];
+        if b_val > 0.001 {
+            let r = out[i * 4] as f32;
+            let g = out[i * 4 + 1] as f32;
+            let b = out[i * 4 + 2] as f32;
+            // Warm red glow: R receives 1.2 * 255 * amount, G receives 0.25, B receives 0.05
+            out[i * 4] = (r + b_val * 255.0 * amount * 1.2).clamp(0.0, 255.0) as u8;
+            out[i * 4 + 1] = (g + b_val * 255.0 * amount * 0.25).clamp(0.0, 255.0) as u8;
+            out[i * 4 + 2] = (b + b_val * 255.0 * amount * 0.05).clamp(0.0, 255.0) as u8;
+        }
+    }
+    out
+}
+
+/// Simulates optical diffusion bloom (Pro-Mist filter highlight scattering).
+pub fn film_bloom(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    amount: f32,
+    radius_norm: f32,
+    threshold: f32,
+) -> Vec<u8> {
+    if amount <= 0.0 || w == 0 || h == 0 {
+        return rgba.to_vec();
+    }
+    let n = w * h;
+    let thresh = (threshold * 255.0).clamp(0.0, 254.0);
+    let mut highlight = vec![0.0f32; n];
+
+    for i in 0..n {
+        let r = rgba[i * 4] as f32;
+        let g = rgba[i * 4 + 1] as f32;
+        let b = rgba[i * 4 + 2] as f32;
+        let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        if luma > thresh {
+            highlight[i] = ((luma - thresh) / (255.0 - thresh)).clamp(0.0, 1.0);
+        }
+    }
+
+    let r_px = ((w.min(h) as f32 * 0.10 * radius_norm).round() as usize).max(2);
+    let mut blurred = box_blur_1d(&highlight, w, h, r_px);
+    blurred = box_blur_1d(&blurred, w, h, r_px);
+
+    let mut out = rgba.to_vec();
+    for i in 0..n {
+        let b_val = blurred[i];
+        if b_val > 0.001 {
+            let add = b_val * 255.0 * amount * 0.8;
+            out[i * 4] = (out[i * 4] as f32 + add).clamp(0.0, 255.0) as u8;
+            out[i * 4 + 1] = (out[i * 4 + 1] as f32 + add).clamp(0.0, 255.0) as u8;
+            out[i * 4 + 2] = (out[i * 4 + 2] as f32 + add).clamp(0.0, 255.0) as u8;
+        }
+    }
+    out
+}
+
+/// Simulates physical archival film dust flecks and hairline scratches.
+pub fn film_dust_and_scratches(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    dust: f32,
+    scratches: f32,
+) -> Vec<u8> {
+    if dust <= 0.0 && scratches <= 0.0 {
+        return rgba.to_vec();
+    }
+    let mut out = rgba.to_vec();
+    for y in 0..h {
+        for x in 0..w {
+            let idx = (y * w + x) * 4;
+            let mut factor = 1.0f32;
+
+            if dust > 0.0 {
+                let n = hash_noise((x / 2) as u32, (y / 2) as u32);
+                let thresh = 1.0 - dust * 0.025;
+                if n > thresh {
+                    factor *= 0.25; // dark dust speck
+                }
+            }
+
+            if scratches > 0.0 {
+                // Vertical scratch line with slight horizontal wobble
+                let wobble = (hash_noise(y as u32 / 8, 42) * 1.5).round() as i32;
+                let sx = (x as i32 + wobble).max(0) as u32;
+                let sn = hash_noise(sx, 1337);
+                let sthresh = 1.0 - scratches * 0.008;
+                if sn > sthresh {
+                    factor *= 0.4; // dark vertical scratch
+                }
+            }
+
+            if factor < 1.0 {
+                out[idx] = (out[idx] as f32 * factor) as u8;
+                out[idx + 1] = (out[idx + 1] as f32 * factor) as u8;
+                out[idx + 2] = (out[idx + 2] as f32 * factor) as u8;
+            }
+        }
+    }
+    out
+}
+
+/// Applies Shader Lab creative tools (VHS, Prism, CRT, Pixelate).
+pub fn shader_lab_effect(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    preset: u32,
+    p1: f32,
+    _p2: f32,
+    _p3: f32,
+) -> Vec<u8> {
+    match preset {
+        1 => {
+            // VHS / Retro Tape: scanline displacement & chromatic fringing
+            let offset = ((p1 * 6.0).round() as usize).max(1);
+            let mut out = rgba.to_vec();
+            for y in 0..h {
+                let line_shift = if y % 4 == 0 { offset } else { 0 };
+                for x in 0..w {
+                    let idx = (y * w + x) * 4;
+                    let rx = (x + line_shift + offset).min(w - 1);
+                    let bx = x.saturating_sub(offset);
+                    out[idx] = rgba[(y * w + rx) * 4]; // R shifted
+                                                       // G stays original
+                    out[idx + 2] = rgba[(y * w + bx) * 4 + 2]; // B shifted
+                }
+            }
+            out
+        }
+        2 => {
+            // Prism / Chromatic Dispersion
+            let shift = ((p1 * 8.0).round() as usize).max(1);
+            let mut out = rgba.to_vec();
+            for y in 0..h {
+                for x in 0..w {
+                    let idx = (y * w + x) * 4;
+                    let rx = (x + shift).min(w - 1);
+                    let bx = x.saturating_sub(shift);
+                    out[idx] = rgba[(y * w + rx) * 4];
+                    out[idx + 2] = rgba[(y * w + bx) * 4 + 2];
+                }
+            }
+            out
+        }
+        3 => {
+            // CRT Scanlines
+            let mut out = rgba.to_vec();
+            let dark = 1.0 - p1 * 0.4;
+            for y in 0..h {
+                let factor = if y % 2 == 0 { 1.0 } else { dark };
+                for x in 0..w {
+                    let idx = (y * w + x) * 4;
+                    out[idx] = (out[idx] as f32 * factor) as u8;
+                    out[idx + 1] = (out[idx + 1] as f32 * factor) as u8;
+                    out[idx + 2] = (out[idx + 2] as f32 * factor) as u8;
+                }
+            }
+            out
+        }
+        4 => {
+            // Pixelate / Mosaic
+            let block = ((p1 * 16.0).round() as usize).max(2);
+            let mut out = rgba.to_vec();
+            for by in (0..h).step_by(block) {
+                for bx in (0..w).step_by(block) {
+                    let sample_idx = (by * w + bx) * 4;
+                    let (r, g, b) = (rgba[sample_idx], rgba[sample_idx + 1], rgba[sample_idx + 2]);
+                    for y in by..(by + block).min(h) {
+                        for x in bx..(bx + block).min(w) {
+                            let idx = (y * w + x) * 4;
+                            out[idx] = r;
+                            out[idx + 1] = g;
+                            out[idx + 2] = b;
+                        }
+                    }
+                }
+            }
+            out
+        }
+        _ => rgba.to_vec(),
+    }
+}
+
 /// Applies the full spatial pass in a fixed order: denoise → shadows/highlights
-/// → clarity → texture → sharpen → dehaze → vignette → grain. A neutral set
+/// → clarity → texture → sharpen → dehaze → vignette → grain → film → shader lab. A neutral set
 /// returns the input unchanged.
 pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u8> {
     if p.is_neutral() {
@@ -480,6 +717,46 @@ pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u
             p.grain_roughness
         };
         out = grain_advanced(&out, w, h, p.grain, sz, ro);
+    }
+    if p.film_halation != 0.0 {
+        let rad = if p.film_halation_radius == 0.0 {
+            0.5
+        } else {
+            p.film_halation_radius
+        };
+        let thr = if p.film_halation_threshold == 0.0 {
+            0.8
+        } else {
+            p.film_halation_threshold
+        };
+        out = film_halation(&out, w, h, p.film_halation, rad, thr);
+    }
+    if p.film_bloom != 0.0 {
+        let rad = if p.film_bloom_radius == 0.0 {
+            0.5
+        } else {
+            p.film_bloom_radius
+        };
+        let thr = if p.film_bloom_threshold == 0.0 {
+            0.75
+        } else {
+            p.film_bloom_threshold
+        };
+        out = film_bloom(&out, w, h, p.film_bloom, rad, thr);
+    }
+    if p.film_dust != 0.0 || p.film_scratches != 0.0 {
+        out = film_dust_and_scratches(&out, w, h, p.film_dust, p.film_scratches);
+    }
+    if p.shader_lab_preset != 0 {
+        out = shader_lab_effect(
+            &out,
+            w,
+            h,
+            p.shader_lab_preset,
+            p.shader_param1,
+            p.shader_param2,
+            p.shader_param3,
+        );
     }
     out
 }
@@ -1152,6 +1429,7 @@ mod tests {
                 grain: 0.0,
                 grain_size: 0.25,
                 grain_roughness: 0.5,
+                ..Default::default()
             },
         );
         assert_eq!(out, src);
@@ -1324,6 +1602,7 @@ mod tests {
             grain: 0.2,
             grain_size: 0.25,
             grain_roughness: 0.5,
+            ..Default::default()
         };
         let full = apply_spatial(&src, w, h, p);
         for band_rows in [1, 7, 16, 31, 80] {
@@ -1466,6 +1745,7 @@ mod tests {
             grain: 0.1,
             grain_size: 0.25,
             grain_roughness: 0.5,
+            ..Default::default()
         }
     }
 
@@ -1554,5 +1834,117 @@ mod tests {
         assert!(apply_spatial_roi(&band, (w, h), 0, 60, 8, p).is_err());
         // Empty output.
         assert!(apply_spatial_roi(&band, (w, h), 0, 0, 0, p).is_err());
+    }
+
+    #[test]
+    fn film_halation_brightens_high_contrast_edges_with_red_bias() {
+        let (w, h) = (32, 32);
+        let mut img = vec![10u8; w * h * 4];
+        for i in 0..w * h {
+            img[i * 4 + 3] = 255;
+        }
+        // Center 4x4 specular highlight: full white
+        for y in 14..18 {
+            for x in 14..18 {
+                let idx = (y * w + x) * 4;
+                img[idx] = 255;
+                img[idx + 1] = 255;
+                img[idx + 2] = 255;
+            }
+        }
+
+        let p = SpatialParams {
+            film_halation: 1.0,
+            film_halation_radius: 0.5,
+            film_halation_threshold: 0.7,
+            ..Default::default()
+        };
+        let out = apply_spatial(&img, w, h, p);
+
+        // Spot-check adjacent neighbor (14, 13) which was dark (10, 10, 10)
+        let n_idx = (14 * w + 13) * 4;
+        let r = out[n_idx];
+        let g = out[n_idx + 1];
+        let b = out[n_idx + 2];
+        // Halation should cause red channel to brighten more than green or blue
+        assert!(r > 10, "halation must brighten surrounding red channel");
+        assert!(
+            r > g && r > b,
+            "halation must exhibit red emulsion bias: r={}, g={}, b={}",
+            r,
+            g,
+            b
+        );
+    }
+
+    #[test]
+    fn film_bloom_diffuses_specular_highlights() {
+        let (w, h) = (32, 32);
+        let mut img = vec![0u8; w * h * 4];
+        for i in 0..w * h {
+            img[i * 4 + 3] = 255;
+        }
+        // Center bright highlight
+        for y in 14..18 {
+            for x in 14..18 {
+                let idx = (y * w + x) * 4;
+                img[idx] = 255;
+                img[idx + 1] = 255;
+                img[idx + 2] = 255;
+            }
+        }
+
+        let p = SpatialParams {
+            film_bloom: 1.0,
+            film_bloom_radius: 0.5,
+            film_bloom_threshold: 0.6,
+            ..Default::default()
+        };
+        let out = apply_spatial(&img, w, h, p);
+
+        // Adjacent dark pixel should receive optical diffusion bloom
+        let n_idx = (14 * w + 12) * 4;
+        assert!(out[n_idx] > 0, "bloom must diffuse light to surround");
+        assert_eq!(
+            out[n_idx],
+            out[n_idx + 1],
+            "bloom is neutral optical diffusion"
+        );
+    }
+
+    #[test]
+    fn film_dust_and_scratches_adds_deterministic_emulsion_flecks() {
+        let (w, h) = (64, 64);
+        let mut img = vec![180u8; w * h * 4];
+        for i in 0..w * h {
+            img[i * 4 + 3] = 255;
+        }
+
+        let p = SpatialParams {
+            film_dust: 0.8,
+            film_scratches: 0.8,
+            ..Default::default()
+        };
+        let out1 = apply_spatial(&img, w, h, p);
+        let out2 = apply_spatial(&img, w, h, p);
+
+        // Deterministic: multiple runs give identical results
+        assert_eq!(out1, out2);
+        // And flecks / scratches alter pixel values from pure 180
+        assert_ne!(out1, img);
+    }
+
+    #[test]
+    fn shader_lab_preset_vhs_applies_chromatic_jitter() {
+        let (w, h) = (32, 32);
+        let img = noise(w, h);
+
+        let p = SpatialParams {
+            shader_lab_preset: 1, // VHS
+            shader_param1: 0.8,
+            ..Default::default()
+        };
+        let out = apply_spatial(&img, w, h, p);
+        assert_ne!(out, img, "VHS shader must apply analog effect");
     }
 }

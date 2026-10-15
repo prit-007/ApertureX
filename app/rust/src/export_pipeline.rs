@@ -223,6 +223,7 @@ mod tests {
                 grain: 0.1,
                 grain_size: 0.25,
                 grain_roughness: 0.5,
+                ..Default::default()
             },
             layers: vec![LocalAdjustment {
                 mask: MaskSpec {

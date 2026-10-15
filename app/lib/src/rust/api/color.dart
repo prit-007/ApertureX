@@ -35,6 +35,21 @@ Future<Uint8List> gradeRgba({
   hsl: hsl,
 );
 
+/// Exports the grade (tone curves + HSL mix + color wheels) as a DaVinci Resolve / Premiere compliant `.cube` 3D LUT string.
+Future<String> exportCubeLut({
+  required int size,
+  required ColorParams params,
+  required CurveParams curves,
+  required List<double> hsl,
+  String? title,
+}) => RustLib.instance.api.crateApiColorExportCubeLut(
+  size: size,
+  params: params,
+  curves: curves,
+  hsl: hsl,
+  title: title,
+);
+
 /// Point-wise grade parameters (all neutral at 0).
 class ColorParams {
   final double exposure;

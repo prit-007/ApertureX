@@ -11,6 +11,7 @@ import '../../settings/export_settings.dart';
 import '../../settings/shell_preference.dart';
 import 'app_sheet.dart';
 import 'looks_sheet.dart';
+import 'lut_export_sheet.dart';
 import 'lut_import_sheet.dart';
 import 'xmp_import_sheet.dart';
 
@@ -97,6 +98,11 @@ class SettingsSheet extends ConsumerWidget {
           icon: Icons.gradient,
           title: 'Import a .cube LUT',
           onTap: () => showAppSheet(context, const LutImportSheet()),
+        ),
+        _Action(
+          icon: Icons.file_upload,
+          title: 'Export Grade as .CUBE LUT',
+          onTap: () => showAppSheet(context, const LutExportSheet()),
         ),
         _Action(
           icon: Icons.auto_awesome,

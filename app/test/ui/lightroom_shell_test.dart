@@ -4,7 +4,9 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:aperturex/ui/common/blur_controls.dart';
 import 'package:aperturex/ui/common/color_grading_editor.dart';
+import 'package:aperturex/ui/common/film_controls.dart';
 import 'package:aperturex/ui/common/hsl_mixer.dart';
+import 'package:aperturex/ui/common/lab_controls.dart';
 import 'package:aperturex/ui/common/optics_controls.dart';
 import 'package:aperturex/ui/common/retouch_controls.dart';
 import 'package:aperturex/ui/common/tone_curve_editor.dart';
@@ -49,9 +51,25 @@ void main() {
       'Optics',
       'Geometry',
       'Masking',
+      'Film',
+      'Lab',
     ]) {
       expect(find.text(label), findsOneWidget, reason: 'missing $label chip');
     }
+  });
+
+  testWidgets('Film section displays FilmControls', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('Film'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FilmControls), findsOneWidget);
+  });
+
+  testWidgets('Lab section displays LabControls', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('Lab'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LabControls), findsOneWidget);
   });
 
   testWidgets('empty section (Tone) is not offered as a chip, while Optics is offered', (

@@ -100,6 +100,7 @@ pub fn spatial_apply(
             grain,
             grain_size,
             grain_roughness,
+            ..Default::default()
         },
     )
 }

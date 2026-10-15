@@ -22,8 +22,14 @@ void main() {
             p == Parameter.vignetteMidpoint ||
             p == Parameter.vignetteFeather ||
             p == Parameter.grainRoughness ||
-            p == Parameter.blurFocalPoint) {
+            p == Parameter.blurFocalPoint ||
+            p == Parameter.filmHalationRadius ||
+            p == Parameter.filmBloomRadius) {
           expect(specOf(p).neutral, 0.5);
+        } else if (p == Parameter.filmHalationThreshold) {
+          expect(specOf(p).neutral, 0.8);
+        } else if (p == Parameter.filmBloomThreshold) {
+          expect(specOf(p).neutral, 0.75);
         } else if (p == Parameter.sharpenRadius ||
             p == Parameter.profileDistortion ||
             p == Parameter.profileVignetting) {
@@ -39,7 +45,7 @@ void main() {
     });
 
     test('the catalog covers exactly the renderable fields today', () {
-      expect(Parameter.values.length, 46);
+      expect(Parameter.values.length, 57);
     });
   });
 

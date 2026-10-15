@@ -106,6 +106,21 @@ class EditRecipe {
     this.blurFocalRange = 0.2,
     this.blurBokehShape = 0,
     this.blurBokehBoost = 0,
+    // Film emulation physics.
+    this.filmHalation = 0,
+    this.filmHalationRadius = 0.5,
+    this.filmHalationThreshold = 0.8,
+    this.filmBloom = 0,
+    this.filmBloomRadius = 0.5,
+    this.filmBloomThreshold = 0.75,
+    this.filmDust = 0,
+    this.filmScratches = 0,
+    // Shader Lab.
+    this.shaderLabPreset = 0,
+    this.shaderParam1 = 0,
+    this.shaderParam2 = 0,
+    this.shaderParam3 = 0,
+    this.customGlslCode = '',
   });
 
   /// Bumped only on a breaking schema change (ARCHITECTURE §16).
@@ -118,8 +133,9 @@ class EditRecipe {
   /// v16: adds optics, chromatic aberration, defringe, and lens profile controls.
   /// v17: adds retouch patches (healing brush & clone stamp).
   /// v18: adds depth-aware lens blur and synthetic bokeh.
+  /// v19: adds photochemical film physics (halation, bloom, dust/scratches) and shader lab.
   /// `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 18;
+  static const int currentSchemaVersion = 19;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -213,6 +229,22 @@ class EditRecipe {
   final double blurFocalRange;
   final int blurBokehShape;
   final double blurBokehBoost;
+  // Film emulation physics.
+  final double filmHalation;
+  final double filmHalationRadius;
+  final double filmHalationThreshold;
+  final double filmBloom;
+  final double filmBloomRadius;
+  final double filmBloomThreshold;
+  final double filmDust;
+  final double filmScratches;
+
+  // Shader Lab creative tools.
+  final int shaderLabPreset;
+  final double shaderParam1;
+  final double shaderParam2;
+  final double shaderParam3;
+  final String customGlslCode;
 
   // Perspective & skew geometry (GPU Matrix4 preview, Rust resample on export).
   final double perspectiveX; // horizontal perspective, neutral 0, range ~[-1,1]
@@ -294,6 +326,19 @@ class EditRecipe {
     double? blurFocalRange,
     int? blurBokehShape,
     double? blurBokehBoost,
+    double? filmHalation,
+    double? filmHalationRadius,
+    double? filmHalationThreshold,
+    double? filmBloom,
+    double? filmBloomRadius,
+    double? filmBloomThreshold,
+    double? filmDust,
+    double? filmScratches,
+    int? shaderLabPreset,
+    double? shaderParam1,
+    double? shaderParam2,
+    double? shaderParam3,
+    String? customGlslCode,
   }) {
     return EditRecipe(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -368,6 +413,19 @@ class EditRecipe {
       blurFocalRange: blurFocalRange ?? this.blurFocalRange,
       blurBokehShape: blurBokehShape ?? this.blurBokehShape,
       blurBokehBoost: blurBokehBoost ?? this.blurBokehBoost,
+      filmHalation: filmHalation ?? this.filmHalation,
+      filmHalationRadius: filmHalationRadius ?? this.filmHalationRadius,
+      filmHalationThreshold: filmHalationThreshold ?? this.filmHalationThreshold,
+      filmBloom: filmBloom ?? this.filmBloom,
+      filmBloomRadius: filmBloomRadius ?? this.filmBloomRadius,
+      filmBloomThreshold: filmBloomThreshold ?? this.filmBloomThreshold,
+      filmDust: filmDust ?? this.filmDust,
+      filmScratches: filmScratches ?? this.filmScratches,
+      shaderLabPreset: shaderLabPreset ?? this.shaderLabPreset,
+      shaderParam1: shaderParam1 ?? this.shaderParam1,
+      shaderParam2: shaderParam2 ?? this.shaderParam2,
+      shaderParam3: shaderParam3 ?? this.shaderParam3,
+      customGlslCode: customGlslCode ?? this.customGlslCode,
     );
   }
 
@@ -444,6 +502,19 @@ class EditRecipe {
     'blurFocalRange': blurFocalRange,
     'blurBokehShape': blurBokehShape,
     'blurBokehBoost': blurBokehBoost,
+    'filmHalation': filmHalation,
+    'filmHalationRadius': filmHalationRadius,
+    'filmHalationThreshold': filmHalationThreshold,
+    'filmBloom': filmBloom,
+    'filmBloomRadius': filmBloomRadius,
+    'filmBloomThreshold': filmBloomThreshold,
+    'filmDust': filmDust,
+    'filmScratches': filmScratches,
+    'shaderLabPreset': shaderLabPreset,
+    'shaderParam1': shaderParam1,
+    'shaderParam2': shaderParam2,
+    'shaderParam3': shaderParam3,
+    'customGlslCode': customGlslCode,
   };
 
   /// Deserialises from [json], tolerating missing keys (default to neutral) and
@@ -546,6 +617,22 @@ class EditRecipe {
       blurFocalRange: (json['blurFocalRange'] as num?)?.toDouble() ?? 0.2,
       blurBokehShape: (json['blurBokehShape'] as num?)?.toInt() ?? 0,
       blurBokehBoost: asDouble('blurBokehBoost'),
+      filmHalation: asDouble('filmHalation'),
+      filmHalationRadius:
+          (json['filmHalationRadius'] as num?)?.toDouble() ?? 0.5,
+      filmHalationThreshold:
+          (json['filmHalationThreshold'] as num?)?.toDouble() ?? 0.8,
+      filmBloom: asDouble('filmBloom'),
+      filmBloomRadius: (json['filmBloomRadius'] as num?)?.toDouble() ?? 0.5,
+      filmBloomThreshold:
+          (json['filmBloomThreshold'] as num?)?.toDouble() ?? 0.75,
+      filmDust: asDouble('filmDust'),
+      filmScratches: asDouble('filmScratches'),
+      shaderLabPreset: (json['shaderLabPreset'] as num?)?.toInt() ?? 0,
+      shaderParam1: asDouble('shaderParam1'),
+      shaderParam2: asDouble('shaderParam2'),
+      shaderParam3: asDouble('shaderParam3'),
+      customGlslCode: json['customGlslCode'] as String? ?? '',
     );
   }
 
@@ -622,7 +709,20 @@ class EditRecipe {
       other.blurFocalPoint == blurFocalPoint &&
       other.blurFocalRange == blurFocalRange &&
       other.blurBokehShape == blurBokehShape &&
-      other.blurBokehBoost == blurBokehBoost;
+      other.blurBokehBoost == blurBokehBoost &&
+      other.filmHalation == filmHalation &&
+      other.filmHalationRadius == filmHalationRadius &&
+      other.filmHalationThreshold == filmHalationThreshold &&
+      other.filmBloom == filmBloom &&
+      other.filmBloomRadius == filmBloomRadius &&
+      other.filmBloomThreshold == filmBloomThreshold &&
+      other.filmDust == filmDust &&
+      other.filmScratches == filmScratches &&
+      other.shaderLabPreset == shaderLabPreset &&
+      other.shaderParam1 == shaderParam1 &&
+      other.shaderParam2 == shaderParam2 &&
+      other.shaderParam3 == shaderParam3 &&
+      other.customGlslCode == customGlslCode;
 
   @override
   int get hashCode => Object.hash(
@@ -695,6 +795,21 @@ class EditRecipe {
       blurFocalRange,
       blurBokehShape,
       blurBokehBoost,
+    ),
+    Object.hash(
+      filmHalation,
+      filmHalationRadius,
+      filmHalationThreshold,
+      filmBloom,
+      filmBloomRadius,
+      filmBloomThreshold,
+      filmDust,
+      filmScratches,
+      shaderLabPreset,
+      shaderParam1,
+      shaderParam2,
+      shaderParam3,
+      customGlslCode,
     ),
   );
 

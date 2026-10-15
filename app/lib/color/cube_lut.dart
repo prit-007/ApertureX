@@ -38,6 +38,23 @@ class CubeLut {
     return rgba;
   }
 
+  /// Serializes this 3D LUT to standard Adobe `.cube` format (DaVinci Resolve / Premiere compliant).
+  String toCubeText({String? title}) {
+    final buf = StringBuffer();
+    buf.writeln('# Created by ApertureX');
+    buf.writeln('TITLE "${title ?? this.title ?? 'ApertureX Grade'}"');
+    buf.writeln('LUT_3D_SIZE $size');
+    buf.writeln('DOMAIN_MIN 0.0 0.0 0.0');
+    buf.writeln('DOMAIN_MAX 1.0 1.0 1.0');
+    buf.writeln('');
+    for (var i = 0; i < data.length; i += 3) {
+      buf.writeln(
+        '${data[i].toStringAsFixed(6)} ${data[i + 1].toStringAsFixed(6)} ${data[i + 2].toStringAsFixed(6)}',
+      );
+    }
+    return buf.toString();
+  }
+
   /// Expands a per-channel 1D `curve` (`size1D` × RGB) into a separable 3D LUT.
   ///
   /// The cube is resampled to `min(size1D, max1DExpand)` per axis (or `resample`
