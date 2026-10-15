@@ -29,10 +29,10 @@ bool needsNativeRoiDecoder(int imageW, int imageH) =>
 /// Decodes full-width source bands for the high-zoom ROI overlay (#55/#16).
 ///
 /// Large frames go through the `aperturex/roi_decode` platform channel
-/// (Android's `BitmapRegionDecoder`); small frames — and every platform
-/// failure, including iOS and widget tests where no plugin is registered —
-/// fall back to the Rust decoder, which decodes the frame in-process and
-/// crops the band.
+/// (Android's `BitmapRegionDecoder`, iOS's `CGImageSource`); small frames —
+/// and every platform failure, including widget tests where no plugin is
+/// registered — fall back to the Rust decoder, which decodes the frame
+/// in-process and crops.
 class RoiDecoder {
   RoiDecoder({Future<RoiBand> Function({
     required Uint8List bytes,
@@ -89,13 +89,62 @@ class RoiDecoder {
     if (bandTop < 0 || bandBottom > imageH || bandBottom <= bandTop) {
       return null;
     }
+    return _decode(
+      bytes: bytes,
+      imageW: imageW,
+      imageH: imageH,
+      x: 0,
+      y: bandTop,
+      width: imageW,
+      height: bandBottom - bandTop,
+    );
+  }
+
+  /// Decodes the arbitrary rect `(x, y, width, height)` of [imageW]×[imageH]
+  /// — the tile fetch path (#16). Same tier probe, platform contract and
+  /// fallbacks as [decodeBand]: the native handlers take any rect
+  /// (`BitmapRegionDecoder.decodeRegion` on Android, `CGImageSource` crop on
+  /// iOS), and small frames stay on the in-process Rust decoder.
+  Future<RoiBand?> decodeRect({
+    required Uint8List bytes,
+    required int imageW,
+    required int imageH,
+    required int x,
+    required int y,
+    required int width,
+    required int height,
+  }) async {
+    if (imageW <= 0 || imageH <= 0 || width <= 0 || height <= 0) return null;
+    if (x < 0 || y < 0 || x + width > imageW || y + height > imageH) {
+      return null;
+    }
+    return _decode(
+      bytes: bytes,
+      imageW: imageW,
+      imageH: imageH,
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+    );
+  }
+
+  Future<RoiBand?> _decode({
+    required Uint8List bytes,
+    required int imageW,
+    required int imageH,
+    required int x,
+    required int y,
+    required int width,
+    required int height,
+  }) async {
     if (!needsNativeRoiDecoder(imageW, imageH)) {
       return _rustFallback(
         bytes: bytes,
-        x: 0,
-        y: bandTop,
-        width: imageW,
-        height: bandBottom - bandTop,
+        x: x,
+        y: y,
+        width: width,
+        height: height,
       );
     }
     try {
@@ -103,10 +152,10 @@ class RoiDecoder {
         'decodeBand',
         <String, Object?>{
           'jpeg': bytes,
-          'x': 0,
-          'y': bandTop,
-          'width': imageW,
-          'height': bandBottom - bandTop,
+          'x': x,
+          'y': y,
+          'width': width,
+          'height': height,
         },
       );
       if (result == null) return null;
@@ -120,18 +169,18 @@ class RoiDecoder {
     } on MissingPluginException {
       return _rustFallback(
         bytes: bytes,
-        x: 0,
-        y: bandTop,
-        width: imageW,
-        height: bandBottom - bandTop,
+        x: x,
+        y: y,
+        width: width,
+        height: height,
       );
     } on PlatformException {
       return _rustFallback(
         bytes: bytes,
-        x: 0,
-        y: bandTop,
-        width: imageW,
-        height: bandBottom - bandTop,
+        x: x,
+        y: y,
+        width: width,
+        height: height,
       );
     }
   }
