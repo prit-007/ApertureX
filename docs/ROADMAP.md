@@ -123,7 +123,7 @@ split-tone grading, tone curves, flat JSON + forward migration), the Riverpod
 (bidirectional/unidirectional, tap-to-type, haptics), the **dual-shell skeleton**
 (`AppShell` + Lightroom/Snapseed over one shared canvas), and the complete
 **point-wise colour pipeline** — `sRGB→linear→Von Kries WB→×2^EV→S-curve
-contrast→vibrance→saturation→split-tone→tone curves` — baked to a 33³ LUT for
+contrast→vibrance→saturation→split-tone→tone curves` — baked to a 65³ LUT for
 preview and reused per-pixel for export (**preview == export** by construction),
 plus a live interactive histogram. **Remaining:** spatial passes
 (clarity/texture/sharpen/dehaze/edge-aware shadows-highlights) with

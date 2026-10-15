@@ -25,7 +25,7 @@ A mobile-native FOSS photo editor (Android + iOS) with Flutter UI + Rust engine 
 ### Zero-Copy 60FPS Pipeline
 - **Rust Holds:** Decoded image memory resident in Rust
 - **Flutter Textures:** Zero-copy texture rendering for instant updates
-- **3D LUT Magic:** Slider changes generate 33x33x33 LUTs (<1ms) rendered via Impeller shader
+- **3D LUT Magic:** Slider changes generate 65x65x65 LUTs (<1ms) rendered via Impeller shader
 - **No Dart-Rust roundtrips** for edit previews
 
 ## Quick Start

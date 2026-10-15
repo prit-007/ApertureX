@@ -18,7 +18,7 @@ non-destructive, fully offline photo editor.
   spatial ops (clarity, texture, sharpen, denoise, dehaze, vignette, grain),
   local-adjustment masks, JPEG decode/export, EXIF carry-over, ICC/P3 handling.
 - **60fps preview**: proxy-resolution decode, split base/grade bakes, a baked
-  33³ LUT sampled by one fragment shader; export grades at full resolution.
+  65³ LUT sampled by one fragment shader; export grades at full resolution.
 - **Crop tool** with aspect presets and rotate/flip.
 - **Gallery**: date-grouped (newest first), album switching, multi-select batch
   paste/export, "edited" badges.
