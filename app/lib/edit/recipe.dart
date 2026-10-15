@@ -99,6 +99,13 @@ class EditRecipe {
     this.profileDistortion = 1.0,
     this.profileVignetting = 1.0,
     this.retouchPatches = const <RetouchPatch>[],
+    // Lens blur.
+    this.blurEnabled = false,
+    this.blurAmount = 0,
+    this.blurFocalPoint = 0.5,
+    this.blurFocalRange = 0.2,
+    this.blurBokehShape = 0,
+    this.blurBokehBoost = 0,
   });
 
   /// Bumped only on a breaking schema change (ARCHITECTURE §16).
@@ -110,8 +117,9 @@ class EditRecipe {
   /// v15: adds advanced vignette and grain controls.
   /// v16: adds optics, chromatic aberration, defringe, and lens profile controls.
   /// v17: adds retouch patches (healing brush & clone stamp).
+  /// v18: adds depth-aware lens blur and synthetic bokeh.
   /// `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 17;
+  static const int currentSchemaVersion = 18;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -198,6 +206,14 @@ class EditRecipe {
   /// Retouch patches (healing brush & clone stamp), applied in order.
   final List<RetouchPatch> retouchPatches;
 
+  // Lens blur.
+  final bool blurEnabled;
+  final double blurAmount;
+  final double blurFocalPoint;
+  final double blurFocalRange;
+  final int blurBokehShape;
+  final double blurBokehBoost;
+
   // Perspective & skew geometry (GPU Matrix4 preview, Rust resample on export).
   final double perspectiveX; // horizontal perspective, neutral 0, range ~[-1,1]
   final double perspectiveY; // vertical perspective, neutral 0, range ~[-1,1]
@@ -272,6 +288,12 @@ class EditRecipe {
     bool? profileCorrections,
     double? profileDistortion,
     double? profileVignetting,
+    bool? blurEnabled,
+    double? blurAmount,
+    double? blurFocalPoint,
+    double? blurFocalRange,
+    int? blurBokehShape,
+    double? blurBokehBoost,
   }) {
     return EditRecipe(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -340,6 +362,12 @@ class EditRecipe {
       skewY: skewY ?? this.skewY,
       layers: layers ?? this.layers,
       retouchPatches: retouchPatches ?? this.retouchPatches,
+      blurEnabled: blurEnabled ?? this.blurEnabled,
+      blurAmount: blurAmount ?? this.blurAmount,
+      blurFocalPoint: blurFocalPoint ?? this.blurFocalPoint,
+      blurFocalRange: blurFocalRange ?? this.blurFocalRange,
+      blurBokehShape: blurBokehShape ?? this.blurBokehShape,
+      blurBokehBoost: blurBokehBoost ?? this.blurBokehBoost,
     );
   }
 
@@ -410,6 +438,12 @@ class EditRecipe {
     'skewY': skewY,
     'layers': [for (final layer in layers) layer.toJson()],
     'retouchPatches': [for (final patch in retouchPatches) patch.toJson()],
+    'blurEnabled': blurEnabled,
+    'blurAmount': blurAmount,
+    'blurFocalPoint': blurFocalPoint,
+    'blurFocalRange': blurFocalRange,
+    'blurBokehShape': blurBokehShape,
+    'blurBokehBoost': blurBokehBoost,
   };
 
   /// Deserialises from [json], tolerating missing keys (default to neutral) and
@@ -506,6 +540,12 @@ class EditRecipe {
               )
               .toList() ??
           const <RetouchPatch>[],
+      blurEnabled: json['blurEnabled'] as bool? ?? false,
+      blurAmount: asDouble('blurAmount'),
+      blurFocalPoint: (json['blurFocalPoint'] as num?)?.toDouble() ?? 0.5,
+      blurFocalRange: (json['blurFocalRange'] as num?)?.toDouble() ?? 0.2,
+      blurBokehShape: (json['blurBokehShape'] as num?)?.toInt() ?? 0,
+      blurBokehBoost: asDouble('blurBokehBoost'),
     );
   }
 
@@ -576,7 +616,13 @@ class EditRecipe {
       other.skewX == skewX &&
       other.skewY == skewY &&
       listEquals(other.layers, layers) &&
-      listEquals(other.retouchPatches, retouchPatches);
+      listEquals(other.retouchPatches, retouchPatches) &&
+      other.blurEnabled == blurEnabled &&
+      other.blurAmount == blurAmount &&
+      other.blurFocalPoint == blurFocalPoint &&
+      other.blurFocalRange == blurFocalRange &&
+      other.blurBokehShape == blurBokehShape &&
+      other.blurBokehBoost == blurBokehBoost;
 
   @override
   int get hashCode => Object.hash(
@@ -643,6 +689,12 @@ class EditRecipe {
       Object.hash(perspectiveX, perspectiveY, skewX, skewY),
       Object.hashAll(layers),
       Object.hashAll(retouchPatches),
+      blurEnabled,
+      blurAmount,
+      blurFocalPoint,
+      blurFocalRange,
+      blurBokehShape,
+      blurBokehBoost,
     ),
   );
 

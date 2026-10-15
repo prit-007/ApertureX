@@ -167,6 +167,20 @@ class RecipeController extends Notifier<RecipeState> {
     commit(label: 'Profile Corrections');
   }
 
+  void setBlurEnabled(bool value) {
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(blurEnabled: value),
+    );
+    commit(label: 'Lens Blur');
+  }
+
+  void setBlurBokehShape(int shapeIndex) {
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(blurBokehShape: shapeIndex),
+    );
+    commit(label: 'Bokeh Shape');
+  }
+
   /// Applies a crop (and optional rotation/flip) as one committed step.
   void applyCrop({
     required List<double> crop,

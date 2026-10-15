@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:aperturex/ui/common/blur_controls.dart';
 import 'package:aperturex/ui/common/color_grading_editor.dart';
 import 'package:aperturex/ui/common/hsl_mixer.dart';
 import 'package:aperturex/ui/common/optics_controls.dart';
@@ -42,6 +43,7 @@ void main() {
       'Light',
       'Color',
       'Retouch',
+      'Blur',
       'Effects',
       'Detail',
       'Optics',
@@ -75,6 +77,13 @@ void main() {
     await tester.tap(find.text('Retouch'));
     await tester.pumpAndSettle();
     expect(find.byType(RetouchControls), findsOneWidget);
+  });
+
+  testWidgets('Blur section displays BlurControls', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('Blur'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BlurControls), findsOneWidget);
   });
 
   testWidgets(

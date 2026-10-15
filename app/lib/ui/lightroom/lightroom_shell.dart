@@ -5,6 +5,7 @@ import '../../color/tat.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../viewport/compare_hold.dart';
+import '../common/blur_controls.dart';
 import '../common/color_grading_editor.dart';
 import '../common/geometry_controls.dart';
 import '../common/hsl_mixer.dart';
@@ -21,6 +22,7 @@ String _sectionLabel(RecipeSection section) => switch (section) {
   RecipeSection.color => 'Color',
   RecipeSection.tone => 'Tone',
   RecipeSection.retouch => 'Retouch',
+  RecipeSection.blur => 'Blur',
   RecipeSection.effects => 'Effects',
   RecipeSection.detail => 'Detail',
   RecipeSection.optics => 'Optics',
@@ -39,15 +41,12 @@ class LightroomShell extends ConsumerStatefulWidget {
 }
 
 class _LightroomShellState extends ConsumerState<LightroomShell> {
-  /// Sections rendered as chips. `tone` is intentionally absent: its
-  /// Curve/Mix views live inside Color (issue #44) and it carries no sliders
-  /// of its own, so its panel used to render empty; `optics` stays out until
-  /// lens-correction parameters exist (issue #66) — an empty panel reads as a
-  /// broken tool.
+  /// Sections rendered as chips.
   static const List<RecipeSection> _sections = [
     RecipeSection.light,
     RecipeSection.color,
     RecipeSection.retouch,
+    RecipeSection.blur,
     RecipeSection.effects,
     RecipeSection.detail,
     RecipeSection.optics,
@@ -198,6 +197,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         return const SingleChildScrollView(child: GeometryControls());
       case RecipeSection.retouch:
         return const RetouchControls();
+      case RecipeSection.blur:
+        return const BlurControls();
       case RecipeSection.masking:
         return const MaskControls();
       case RecipeSection.optics:

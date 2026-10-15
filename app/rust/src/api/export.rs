@@ -212,6 +212,7 @@ pub fn export_full(
             profile_distortion: 1.0,
             profile_vignetting: 1.0,
         },
+        blur: crate::blur::LensBlurParams::default(),
         spatial: SpatialParams {
             shadows: spec.shadows,
             highlights: spec.highlights,

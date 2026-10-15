@@ -21,7 +21,8 @@ void main() {
         if (p == Parameter.gradeBlending ||
             p == Parameter.vignetteMidpoint ||
             p == Parameter.vignetteFeather ||
-            p == Parameter.grainRoughness) {
+            p == Parameter.grainRoughness ||
+            p == Parameter.blurFocalPoint) {
           expect(specOf(p).neutral, 0.5);
         } else if (p == Parameter.sharpenRadius ||
             p == Parameter.profileDistortion ||
@@ -29,6 +30,8 @@ void main() {
           expect(specOf(p).neutral, 1.0);
         } else if (p == Parameter.sharpenDetail || p == Parameter.grainSize) {
           expect(specOf(p).neutral, 0.25);
+        } else if (p == Parameter.blurFocalRange) {
+          expect(specOf(p).neutral, 0.2);
         } else {
           expect(specOf(p).neutral, 0);
         }
@@ -36,7 +39,7 @@ void main() {
     });
 
     test('the catalog covers exactly the renderable fields today', () {
-      expect(Parameter.values.length, 42);
+      expect(Parameter.values.length, 46);
     });
   });
 
@@ -72,6 +75,10 @@ void main() {
         defringeGreenAmount: 0.4,
         profileDistortion: 1.2,
         profileVignetting: 0.8,
+        blurAmount: 0.75,
+        blurFocalPoint: 0.45,
+        blurFocalRange: 0.15,
+        blurBokehBoost: 0.6,
       );
       expect(valueOf(r, Parameter.exposure), 1);
       expect(valueOf(r, Parameter.contrast), 2);
@@ -102,6 +109,10 @@ void main() {
       expect(valueOf(r, Parameter.defringeGreenAmount), 0.4);
       expect(valueOf(r, Parameter.profileDistortion), 1.2);
       expect(valueOf(r, Parameter.profileVignetting), 0.8);
+      expect(valueOf(r, Parameter.blurAmount), 0.75);
+      expect(valueOf(r, Parameter.blurFocalPoint), 0.45);
+      expect(valueOf(r, Parameter.blurFocalRange), 0.15);
+      expect(valueOf(r, Parameter.blurBokehBoost), 0.6);
     });
   });
 

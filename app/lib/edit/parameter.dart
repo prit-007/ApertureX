@@ -2,7 +2,7 @@ import 'recipe.dart';
 
 /// The recipe's parameter groups (ARCHITECTURE §16, P2). Lightroom categories
 /// map 1:1 onto sections; Snapseed tools map onto parameters *within* them.
-enum RecipeSection { light, color, tone, retouch, effects, detail, optics, geometry, masking }
+enum RecipeSection { light, color, tone, retouch, blur, effects, detail, optics, geometry, masking }
 
 /// How a parameter is manipulated. The seed ships sliders only; the catalog is
 /// the seam a future `curve` or `hueGrid` parameter slots into.
@@ -58,6 +58,11 @@ enum Parameter {
   defringeGreenAmount,
   profileDistortion,
   profileVignetting,
+  // Blur
+  blurAmount,
+  blurFocalPoint,
+  blurFocalRange,
+  blurBokehBoost,
 }
 
 /// Static metadata for a [Parameter].
@@ -413,6 +418,36 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     max: 2,
     neutral: 1.0,
   ),
+  Parameter.blurAmount: ParameterSpec(
+    id: Parameter.blurAmount,
+    section: RecipeSection.blur,
+    label: 'Blur Amount',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.blurFocalPoint: ParameterSpec(
+    id: Parameter.blurFocalPoint,
+    section: RecipeSection.blur,
+    label: 'Focal Point',
+    min: 0,
+    max: 1,
+    neutral: 0.5,
+  ),
+  Parameter.blurFocalRange: ParameterSpec(
+    id: Parameter.blurFocalRange,
+    section: RecipeSection.blur,
+    label: 'Focal Range',
+    min: 0.01,
+    max: 1,
+    neutral: 0.2,
+  ),
+  Parameter.blurBokehBoost: ParameterSpec(
+    id: Parameter.blurBokehBoost,
+    section: RecipeSection.blur,
+    label: 'Bokeh Boost',
+    min: 0,
+    max: 1,
+  ),
 };
 
 /// The [ParameterSpec] for [p]. Always present — the catalog covers the enum.
@@ -468,6 +503,10 @@ double valueOf(EditRecipe recipe, Parameter p) => switch (p) {
   Parameter.defringeGreenAmount => recipe.defringeGreenAmount,
   Parameter.profileDistortion => recipe.profileDistortion,
   Parameter.profileVignetting => recipe.profileVignetting,
+  Parameter.blurAmount => recipe.blurAmount,
+  Parameter.blurFocalPoint => recipe.blurFocalPoint,
+  Parameter.blurFocalRange => recipe.blurFocalRange,
+  Parameter.blurBokehBoost => recipe.blurBokehBoost,
 };
 
 /// A copy of [recipe] with [p] set to [value] (clamped). Pure.
@@ -517,6 +556,10 @@ EditRecipe withValue(EditRecipe recipe, Parameter p, double value) {
     Parameter.defringeGreenAmount => recipe.copyWith(defringeGreenAmount: v),
     Parameter.profileDistortion => recipe.copyWith(profileDistortion: v),
     Parameter.profileVignetting => recipe.copyWith(profileVignetting: v),
+    Parameter.blurAmount => recipe.copyWith(blurAmount: v),
+    Parameter.blurFocalPoint => recipe.copyWith(blurFocalPoint: v),
+    Parameter.blurFocalRange => recipe.copyWith(blurFocalRange: v),
+    Parameter.blurBokehBoost => recipe.copyWith(blurBokehBoost: v),
   };
 }
 /// A preview copy of [recipe] with every parameter in [muted] neutralised —

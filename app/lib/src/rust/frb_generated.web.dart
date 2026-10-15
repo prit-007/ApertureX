@@ -6,6 +6,7 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'api/blur.dart';
 import 'api/color.dart';
 import 'api/decode.dart';
 import 'api/engine.dart';
@@ -39,10 +40,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  ApiLensBlurParams dco_decode_api_lens_blur_params(dynamic raw);
+
+  @protected
   ApiRetouchPatch dco_decode_api_retouch_patch(dynamic raw);
 
   @protected
   bool dco_decode_bool(dynamic raw);
+
+  @protected
+  ApiLensBlurParams dco_decode_box_autoadd_api_lens_blur_params(dynamic raw);
 
   @protected
   ColorParams dco_decode_box_autoadd_color_params(dynamic raw);
@@ -111,6 +118,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MaskLayer dco_decode_mask_layer(dynamic raw);
 
   @protected
+  Float32List? dco_decode_opt_list_prim_f_32_strict(dynamic raw);
+
+  @protected
   PreviewBaseSpec dco_decode_preview_base_spec(dynamic raw);
 
   @protected
@@ -135,10 +145,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  ApiLensBlurParams sse_decode_api_lens_blur_params(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ApiRetouchPatch sse_decode_api_retouch_patch(SseDeserializer deserializer);
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  ApiLensBlurParams sse_decode_box_autoadd_api_lens_blur_params(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ColorParams sse_decode_box_autoadd_color_params(SseDeserializer deserializer);
@@ -211,6 +231,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MaskLayer sse_decode_mask_layer(SseDeserializer deserializer);
 
   @protected
+  Float32List? sse_decode_opt_list_prim_f_32_strict(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   PreviewBaseSpec sse_decode_preview_base_spec(SseDeserializer deserializer);
 
   @protected
@@ -235,6 +260,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_api_lens_blur_params(
+    ApiLensBlurParams self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_api_retouch_patch(
     ApiRetouchPatch self,
     SseSerializer serializer,
@@ -242,6 +273,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_api_lens_blur_params(
+    ApiLensBlurParams self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_color_params(
@@ -341,6 +378,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_mask_layer(MaskLayer self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_list_prim_f_32_strict(
+    Float32List? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_preview_base_spec(

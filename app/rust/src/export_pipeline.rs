@@ -24,6 +24,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::blur::{self, LensBlurParams};
 use crate::color::{self, CurveSet, GradeParams};
 use crate::geometry::{self, GeometrySpec};
 use crate::mask::{self, LocalAdjustment};
@@ -34,6 +35,7 @@ use crate::spatial::{self, SpatialParams};
 pub struct ExportRecipe {
     pub geometry: GeometrySpec,
     pub optics: OpticsParams,
+    pub blur: LensBlurParams,
     pub spatial: SpatialParams,
     pub layers: Vec<LocalAdjustment>,
     pub grade: GradeParams,
@@ -72,6 +74,9 @@ pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) 
     let (mut buf, gw, gh) = geometry::apply_spec(src, w, h, &recipe.geometry);
     if !recipe.optics.is_neutral() {
         buf = optics::apply_optics(&buf, gw, gh, recipe.optics);
+    }
+    if !recipe.blur.is_neutral() {
+        buf = blur::apply_lens_blur(&buf, gw, gh, recipe.blur, None);
     }
     if !recipe.spatial.is_neutral() {
         buf = spatial::apply_spatial(&buf, gw, gh, recipe.spatial);
@@ -112,6 +117,9 @@ pub fn run_export_tiled(
     let (mut frame, gw, gh) = geometry::apply_spec(src, w, h, &recipe.geometry);
     if !recipe.optics.is_neutral() {
         frame = optics::apply_optics(&frame, gw, gh, recipe.optics);
+    }
+    if !recipe.blur.is_neutral() {
+        frame = blur::apply_lens_blur(&frame, gw, gh, recipe.blur, None);
     }
     let band_rows = band_rows.min(gh.max(1));
     let mut out = vec![0u8; gw * gh * 4];
@@ -194,6 +202,7 @@ mod tests {
                 ..Default::default()
             },
             optics: OpticsParams::default(),
+            blur: LensBlurParams::default(),
             spatial: SpatialParams {
                 shadows: 0.3,
                 highlights: -0.2,
@@ -243,6 +252,7 @@ mod tests {
         ExportRecipe {
             geometry: GeometrySpec::default(),
             optics: OpticsParams::default(),
+            blur: LensBlurParams::default(),
             spatial: SpatialParams::default(),
             layers: Vec::new(),
             grade: GradeParams::default(),

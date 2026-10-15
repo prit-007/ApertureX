@@ -1,4 +1,5 @@
 pub mod api;
+pub mod blur;
 pub mod color;
 pub mod decode;
 pub mod exif;
