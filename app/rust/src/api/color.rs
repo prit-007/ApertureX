@@ -17,10 +17,15 @@ pub struct ColorParams {
     pub vibrance: f32,
     pub grade_shadow_hue: f32,
     pub grade_shadow_sat: f32,
+    pub grade_shadow_lum: f32,
     pub grade_mid_hue: f32,
     pub grade_mid_sat: f32,
+    pub grade_mid_lum: f32,
     pub grade_highlight_hue: f32,
     pub grade_highlight_sat: f32,
+    pub grade_highlight_lum: f32,
+    pub grade_blending: f32,
+    pub grade_balance: f32,
 }
 
 impl ColorParams {
@@ -34,10 +39,15 @@ impl ColorParams {
             vibrance: self.vibrance,
             grade_shadow_hue: self.grade_shadow_hue,
             grade_shadow_sat: self.grade_shadow_sat,
+            grade_shadow_lum: self.grade_shadow_lum,
             grade_mid_hue: self.grade_mid_hue,
             grade_mid_sat: self.grade_mid_sat,
+            grade_mid_lum: self.grade_mid_lum,
             grade_highlight_hue: self.grade_highlight_hue,
             grade_highlight_sat: self.grade_highlight_sat,
+            grade_highlight_lum: self.grade_highlight_lum,
+            grade_blending: self.grade_blending,
+            grade_balance: self.grade_balance,
         }
     }
 }

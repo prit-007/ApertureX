@@ -45,10 +45,15 @@ class ColorParams {
   final double vibrance;
   final double gradeShadowHue;
   final double gradeShadowSat;
+  final double gradeShadowLum;
   final double gradeMidHue;
   final double gradeMidSat;
+  final double gradeMidLum;
   final double gradeHighlightHue;
   final double gradeHighlightSat;
+  final double gradeHighlightLum;
+  final double gradeBlending;
+  final double gradeBalance;
 
   const ColorParams({
     required this.exposure,
@@ -59,10 +64,15 @@ class ColorParams {
     required this.vibrance,
     required this.gradeShadowHue,
     required this.gradeShadowSat,
+    required this.gradeShadowLum,
     required this.gradeMidHue,
     required this.gradeMidSat,
+    required this.gradeMidLum,
     required this.gradeHighlightHue,
     required this.gradeHighlightSat,
+    required this.gradeHighlightLum,
+    required this.gradeBlending,
+    required this.gradeBalance,
   });
 
   static Future<ColorParams> default_() =>
@@ -78,10 +88,15 @@ class ColorParams {
       vibrance.hashCode ^
       gradeShadowHue.hashCode ^
       gradeShadowSat.hashCode ^
+      gradeShadowLum.hashCode ^
       gradeMidHue.hashCode ^
       gradeMidSat.hashCode ^
+      gradeMidLum.hashCode ^
       gradeHighlightHue.hashCode ^
-      gradeHighlightSat.hashCode;
+      gradeHighlightSat.hashCode ^
+      gradeHighlightLum.hashCode ^
+      gradeBlending.hashCode ^
+      gradeBalance.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -96,10 +111,15 @@ class ColorParams {
           vibrance == other.vibrance &&
           gradeShadowHue == other.gradeShadowHue &&
           gradeShadowSat == other.gradeShadowSat &&
+          gradeShadowLum == other.gradeShadowLum &&
           gradeMidHue == other.gradeMidHue &&
           gradeMidSat == other.gradeMidSat &&
+          gradeMidLum == other.gradeMidLum &&
           gradeHighlightHue == other.gradeHighlightHue &&
-          gradeHighlightSat == other.gradeHighlightSat;
+          gradeHighlightSat == other.gradeHighlightSat &&
+          gradeHighlightLum == other.gradeHighlightLum &&
+          gradeBlending == other.gradeBlending &&
+          gradeBalance == other.gradeBalance;
 }
 
 /// Tone-curve control points, flat `[x0,y0,x1,y1,...]` per curve. An empty list

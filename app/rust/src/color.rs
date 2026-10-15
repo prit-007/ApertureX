@@ -16,7 +16,7 @@
 pub const LUT_SIZE: u32 = 65;
 
 /// The point-wise grade parameters (neutral at all-zero).
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GradeParams {
     /// Exposure in EV (stops).
     pub exposure: f32,
@@ -30,13 +30,44 @@ pub struct GradeParams {
     pub tint: f32,
     /// Vibrance (protects already-saturated pixels), unitless around 0.
     pub vibrance: f32,
-    /// Split-tone: hue (0..1) and strength (0..1) per tonal zone.
+    /// Split-tone / 3-way Color Wheels: hue (0..1), sat (0..1), lum (-1..1) per tonal zone.
     pub grade_shadow_hue: f32,
     pub grade_shadow_sat: f32,
+    pub grade_shadow_lum: f32,
     pub grade_mid_hue: f32,
     pub grade_mid_sat: f32,
+    pub grade_mid_lum: f32,
     pub grade_highlight_hue: f32,
     pub grade_highlight_sat: f32,
+    pub grade_highlight_lum: f32,
+    /// Blending (crossover width) between zones: 0..1, default 0.5.
+    pub grade_blending: f32,
+    /// Balance (midpoint bias): -1..1, default 0.0.
+    pub grade_balance: f32,
+}
+
+impl Default for GradeParams {
+    fn default() -> Self {
+        Self {
+            exposure: 0.0,
+            contrast: 0.0,
+            saturation: 0.0,
+            temperature: 0.0,
+            tint: 0.0,
+            vibrance: 0.0,
+            grade_shadow_hue: 0.0,
+            grade_shadow_sat: 0.0,
+            grade_shadow_lum: 0.0,
+            grade_mid_hue: 0.0,
+            grade_mid_sat: 0.0,
+            grade_mid_lum: 0.0,
+            grade_highlight_hue: 0.0,
+            grade_highlight_sat: 0.0,
+            grade_highlight_lum: 0.0,
+            grade_blending: 0.5,
+            grade_balance: 0.0,
+        }
+    }
 }
 
 /// sRGB EOTF: encoded `[0,1]` → linear `[0,1]`.
@@ -147,29 +178,61 @@ fn hue_rgb(hue: f32) -> [f32; 3] {
     }
 }
 
-/// Split-tone color grading: shift each pixel toward the shadow/mid/highlight
-/// hue weighted by where its luminance sits, adding a **luma-preserving** chroma
-/// offset so tones separate without darkening or brightening (ARCHITECTURE §8).
+/// Split-tone / 3-way color grading: shift each pixel toward the shadow/mid/highlight
+/// hue and luminance, weighted by where its luminance sits (ARCHITECTURE §8).
 fn color_grade(c: [f32; 3], p: GradeParams) -> [f32; 3] {
     let luma = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-    let shadow_w = (1.0 - luma * 2.0).clamp(0.0, 1.0);
-    let highlight_w = ((luma - 0.5) * 2.0).clamp(0.0, 1.0);
+
+    // Midtone center modulated by balance (-1..1: positive favors highlights, negative favors shadows).
+    let mid_center = (0.5 - p.grade_balance * 0.25).clamp(0.1, 0.9);
+
+    // Blending controls crossover softness (0 = sharp, 1 = wide overlap, default 0.5).
+    let blend = p.grade_blending.clamp(0.01, 1.0);
+    let shadow_w = if luma < mid_center {
+        (1.0 - (luma / mid_center))
+            .powf(1.0 / (blend * 2.0).max(0.01))
+            .clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let highlight_w = if luma > mid_center {
+        ((luma - mid_center) / (1.0 - mid_center))
+            .powf(1.0 / (blend * 2.0).max(0.01))
+            .clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
     let mid_w = (1.0 - shadow_w - highlight_w).clamp(0.0, 1.0);
 
     let mut out = c;
-    for (hue, sat, weight) in [
-        (p.grade_shadow_hue, p.grade_shadow_sat, shadow_w),
-        (p.grade_mid_hue, p.grade_mid_sat, mid_w),
-        (p.grade_highlight_hue, p.grade_highlight_sat, highlight_w),
+    for (hue, sat, lum, weight) in [
+        (
+            p.grade_shadow_hue,
+            p.grade_shadow_sat,
+            p.grade_shadow_lum,
+            shadow_w,
+        ),
+        (p.grade_mid_hue, p.grade_mid_sat, p.grade_mid_lum, mid_w),
+        (
+            p.grade_highlight_hue,
+            p.grade_highlight_sat,
+            p.grade_highlight_lum,
+            highlight_w,
+        ),
     ] {
         let factor = sat * weight * 0.5;
-        if factor <= 0.0 {
-            continue;
+        if factor > 0.0 {
+            let tint = hue_rgb(hue);
+            let tint_luma = 0.2126 * tint[0] + 0.7152 * tint[1] + 0.0722 * tint[2];
+            for (o, t) in out.iter_mut().zip(tint) {
+                *o += (t - tint_luma) * factor;
+            }
         }
-        let tint = hue_rgb(hue);
-        let tint_luma = 0.2126 * tint[0] + 0.7152 * tint[1] + 0.0722 * tint[2];
-        for (o, t) in out.iter_mut().zip(tint) {
-            *o += (t - tint_luma) * factor;
+        if lum != 0.0 {
+            let lum_delta = lum * weight * 0.5;
+            for o in out.iter_mut() {
+                *o += lum_delta;
+            }
         }
     }
     out
@@ -637,6 +700,7 @@ mod tests {
             grade_mid_sat: 0.2,
             grade_highlight_hue: 0.1,
             grade_highlight_sat: 0.25,
+            ..Default::default()
         };
         let atlas = bake_lut3d(LUT_SIZE, params);
         let mut worst = 0.0f32;
@@ -802,6 +866,69 @@ mod tests {
         let out = grade_pixel_srgb(base[0], base[1], base[2], p);
         let luma = |c: [f32; 3]| 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
         assert!((luma(out) - luma(base)).abs() < 0.01, "{out:?}");
+    }
+
+    #[test]
+    fn shadow_luminance_modifies_shadows_not_highlights() {
+        let p = GradeParams {
+            grade_shadow_lum: 0.5,
+            ..Default::default()
+        };
+        let shadow = grade_pixel_srgb(0.1, 0.1, 0.1, p);
+        let highlight = grade_pixel_srgb(0.9, 0.9, 0.9, p);
+
+        // Shadow should be lifted (brighter than 0.1)
+        assert!(shadow[0] > 0.15, "shadow not lifted: {shadow:?}");
+        // Highlight should remain untouched
+        assert!(
+            (highlight[0] - 0.9).abs() < 0.02,
+            "highlight shifted: {highlight:?}"
+        );
+    }
+
+    #[test]
+    fn highlight_luminance_modifies_highlights_not_shadows() {
+        let p = GradeParams {
+            grade_highlight_lum: -0.5,
+            ..Default::default()
+        };
+        let highlight = grade_pixel_srgb(0.9, 0.9, 0.9, p);
+        let shadow = grade_pixel_srgb(0.1, 0.1, 0.1, p);
+
+        // Highlight should be pulled down
+        assert!(
+            highlight[0] < 0.85,
+            "highlight not pulled down: {highlight:?}"
+        );
+        // Shadow should remain untouched
+        assert!((shadow[0] - 0.1).abs() < 0.02, "shadow shifted: {shadow:?}");
+    }
+
+    #[test]
+    fn color_grading_balance_shifts_weight() {
+        // With balance shifted towards highlights (+1.0), shadow tinting falls off sooner.
+        let p_neutral = GradeParams {
+            grade_shadow_sat: 1.0,
+            grade_shadow_hue: 0.66,
+            grade_balance: 0.0,
+            ..Default::default()
+        };
+        let p_highlight_biased = GradeParams {
+            grade_shadow_sat: 1.0,
+            grade_shadow_hue: 0.66,
+            grade_balance: 1.0,
+            ..Default::default()
+        };
+        // At mid-dark level (0.35), highlight-biased balance should have less shadow tint effect
+        let neutral_mid = grade_pixel_srgb(0.35, 0.35, 0.35, p_neutral);
+        let biased_mid = grade_pixel_srgb(0.35, 0.35, 0.35, p_highlight_biased);
+
+        let neutral_blue_lift = neutral_mid[2] - neutral_mid[0];
+        let biased_blue_lift = biased_mid[2] - biased_mid[0];
+        assert!(
+            neutral_blue_lift > biased_blue_lift,
+            "balance didn't shift weight: {neutral_blue_lift} vs {biased_blue_lift}"
+        );
     }
 
     #[test]
