@@ -208,7 +208,76 @@ pub fn apply_defringe(
     out
 }
 
-/// Runs the full optics pass: lateral CA removal → longitudinal defringe.
+/// Applies lens profile geometric distortion and vignetting correction.
+///
+/// - `distortion_scale`: scaling factor for lens distortion correction (barrel/pincushion).
+/// - `vignetting_scale`: scaling factor for lens profile vignetting compensation.
+pub fn apply_lens_profile(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    distortion_scale: f32,
+    vignetting_scale: f32,
+) -> Vec<u8> {
+    if w <= 1 || h <= 1 || (distortion_scale == 0.0 && vignetting_scale == 0.0) {
+        return rgba.to_vec();
+    }
+
+    let mut out = vec![0u8; w * h * 4];
+    let cx = (w - 1) as f32 * 0.5;
+    let cy = (h - 1) as f32 * 0.5;
+    let half_diag = (cx * cx + cy * cy).sqrt().max(f32::EPSILON);
+
+    // Standard profile polynomial coefficients scaled by user parameters.
+    // k_dist represents typical wide/zoom lens barrel distortion (k0 < 0, k1 > 0).
+    let k_dist = [-0.04 * distortion_scale, 0.01 * distortion_scale, 0.0];
+    let k_vig = [0.3 * vignetting_scale, 0.1 * vignetting_scale, 0.0];
+
+    for y in 0..h {
+        let dy = (y as f32 - cy) / half_diag;
+        for x in 0..w {
+            let dx = (x as f32 - cx) / half_diag;
+            let r = (dx * dx + dy * dy).sqrt();
+
+            let (src_x, src_y) = if distortion_scale != 0.0 && r > 1e-6 {
+                let src_r = crate::raw::lens::undistort_radius(r, &k_dist);
+                let scale = src_r / r;
+                (cx + dx * scale * half_diag, cy + dy * scale * half_diag)
+            } else {
+                (x as f32, y as f32)
+            };
+
+            let gain = if vignetting_scale != 0.0 {
+                crate::raw::lens::vignette_gain(r, &k_vig)
+            } else {
+                1.0
+            };
+
+            let r_val = (sample_channel_bilinear(rgba, w, h, src_x, src_y, 0) * gain)
+                .round()
+                .clamp(0.0, 255.0) as u8;
+            let g_val = (sample_channel_bilinear(rgba, w, h, src_x, src_y, 1) * gain)
+                .round()
+                .clamp(0.0, 255.0) as u8;
+            let b_val = (sample_channel_bilinear(rgba, w, h, src_x, src_y, 2) * gain)
+                .round()
+                .clamp(0.0, 255.0) as u8;
+            let a_val = sample_channel_bilinear(rgba, w, h, src_x, src_y, 3)
+                .round()
+                .clamp(0.0, 255.0) as u8;
+
+            let idx = (y * w + x) * 4;
+            out[idx] = r_val;
+            out[idx + 1] = g_val;
+            out[idx + 2] = b_val;
+            out[idx + 3] = a_val;
+        }
+    }
+
+    out
+}
+
+/// Runs the full optics pass: lateral CA removal → lens profile corrections → longitudinal defringe.
 pub fn apply_optics(rgba: &[u8], w: usize, h: usize, p: OpticsParams) -> Vec<u8> {
     if p.is_neutral() || w == 0 || h == 0 {
         return rgba.to_vec();
@@ -220,9 +289,16 @@ pub fn apply_optics(rgba: &[u8], w: usize, h: usize, p: OpticsParams) -> Vec<u8>
         rgba.to_vec()
     };
 
+    let profile_buf =
+        if p.profile_corrections && (p.profile_distortion != 0.0 || p.profile_vignetting != 0.0) {
+            apply_lens_profile(&ca_buf, w, h, p.profile_distortion, p.profile_vignetting)
+        } else {
+            ca_buf
+        };
+
     if p.defringe_purple_amount > 0.0 || p.defringe_green_amount > 0.0 {
         apply_defringe(
-            &ca_buf,
+            &profile_buf,
             w,
             h,
             p.defringe_purple_amount,
@@ -233,7 +309,7 @@ pub fn apply_optics(rgba: &[u8], w: usize, h: usize, p: OpticsParams) -> Vec<u8>
             p.defringe_green_hue_max,
         )
     } else {
-        ca_buf
+        profile_buf
     }
 }
 
@@ -373,5 +449,51 @@ mod tests {
         assert_eq!(out[center_idx], src[center_idx]);
         assert_eq!(out[center_idx + 1], src[center_idx + 1]);
         assert_eq!(out[center_idx + 2], src[center_idx + 2]);
+    }
+
+    #[test]
+    fn lens_profile_neutral_is_noop() {
+        let src = vec![128u8; 16 * 16 * 4];
+        let out = apply_lens_profile(&src, 16, 16, 0.0, 0.0);
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn lens_profile_vignette_brightens_corners_not_center() {
+        let (w, h) = (33, 33);
+        let src = vec![100u8; w * h * 4];
+        let out = apply_lens_profile(&src, w, h, 0.0, 1.0);
+
+        let (cx, cy) = (16, 16);
+        let center_idx = (cy * w + cx) * 4;
+        let corner_idx = 0; // (0, 0)
+
+        // Center gain is 1.0, pixel should remain 100
+        assert_eq!(out[center_idx], 100);
+        assert_eq!(out[center_idx + 1], 100);
+        assert_eq!(out[center_idx + 2], 100);
+
+        // Corner gain > 1.0, pixel should be brightened
+        assert!(
+            out[corner_idx] > 100,
+            "Corner should be brightened: got {}",
+            out[corner_idx]
+        );
+    }
+
+    #[test]
+    fn lens_profile_distortion_leaves_center_unchanged() {
+        let (w, h) = (33, 33);
+        let mut src = vec![120u8; w * h * 4];
+        let (cx, cy) = (16, 16);
+        src[(cy * w + cx) * 4] = 200;
+        src[(cy * w + cx) * 4 + 1] = 150;
+        src[(cy * w + cx) * 4 + 2] = 80;
+
+        let out = apply_lens_profile(&src, w, h, 1.0, 0.0);
+        let center_idx = (cy * w + cx) * 4;
+        assert_eq!(out[center_idx], 200);
+        assert_eq!(out[center_idx + 1], 150);
+        assert_eq!(out[center_idx + 2], 80);
     }
 }

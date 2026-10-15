@@ -70,3 +70,18 @@ Future<Uint8List> opticsLateralCa({
   width: width,
   height: height,
 );
+
+/// Applies lens profile geometric distortion and vignetting correction alone.
+Future<Uint8List> opticsLensProfile({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required double distortion,
+  required double vignetting,
+}) => RustLib.instance.api.crateApiOpticsOpticsLensProfile(
+  rgba: rgba,
+  width: width,
+  height: height,
+  distortion: distortion,
+  vignetting: vignetting,
+);

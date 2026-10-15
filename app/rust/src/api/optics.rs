@@ -68,3 +68,20 @@ pub fn optics_defringe(
 pub fn optics_lateral_ca(rgba: Vec<u8>, width: u32, height: u32) -> Vec<u8> {
     optics::apply_lateral_ca(&rgba, width as usize, height as usize)
 }
+
+/// Applies lens profile geometric distortion and vignetting correction alone.
+pub fn optics_lens_profile(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    distortion: f32,
+    vignetting: f32,
+) -> Vec<u8> {
+    optics::apply_lens_profile(
+        &rgba,
+        width as usize,
+        height as usize,
+        distortion,
+        vignetting,
+    )
+}
