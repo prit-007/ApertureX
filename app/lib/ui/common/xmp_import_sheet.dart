@@ -7,6 +7,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/xmp_preset.dart';
 import 'app_sheet.dart';
+import 'paste_button.dart';
 
 /// Import a Lightroom `.xmp` preset (best-effort) and show the per-setting
 /// compatibility report (ADR 0009).
@@ -35,38 +36,40 @@ class _XmpImportSheetState extends ConsumerState<XmpImportSheet> {
       LogDomain.preset,
       'Imported .xmp preset (${import.notes.length} settings)',
     );
-    showDialog<void>(
+    // Thumb-zone report sheet (ADR-consistent AppSheet), not a centred
+    // dialog: the user's thumb is already at the bottom of the screen.
+    showModalBottomSheet<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Preset compatibility'),
-        content: SizedBox(
-          width: 320,
-          height: 320,
-          child: import.notes.isEmpty
-              ? const Center(child: Text('Nothing to import.'))
-              : ListView(
-                  shrinkWrap: true,
-                  children: [
-                    for (final note in import.notes)
-                      ListTile(
-                        dense: true,
-                        leading: Icon(_icon(note.status), size: 18),
-                        title: Text(note.setting),
-                        subtitle: note.detail.isEmpty
-                            ? null
-                            : Text(note.detail),
-                      ),
-                  ],
-                ),
-        ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => AppSheet(
+        title: 'Preset compatibility',
+        maxHeightFactor: 0.6,
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(); // dialog
-              Navigator.of(this.context).maybePop(); // sheet
+              Navigator.of(context).pop(); // report sheet
+              Navigator.of(this.context).maybePop(); // import sheet
             },
             child: const Text('OK'),
           ),
+        ],
+        children: [
+          if (import.notes.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: Insets.lg),
+              child: Center(child: Text('Nothing to import.')),
+            )
+          else
+            for (final note in import.notes)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(_icon(note.status), size: 18),
+                title: Text(note.setting),
+                subtitle: note.detail.isEmpty ? null : Text(note.detail),
+              ),
         ],
       ),
     );
@@ -89,7 +92,10 @@ class _XmpImportSheetState extends ConsumerState<XmpImportSheet> {
           maxLines: 6,
           minLines: 4,
           style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          decoration: const InputDecoration(hintText: 'Paste .xmp contents…'),
+          decoration: InputDecoration(
+            hintText: 'Paste .xmp contents…',
+            suffixIcon: PasteButton(controller: _controller),
+          ),
         ),
         const SizedBox(height: Insets.md),
         Align(

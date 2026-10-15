@@ -66,14 +66,16 @@ class ParameterControl extends ConsumerWidget {
                       label: muted
                           ? '${spec.label}, muted. Double-tap to unmute'
                           : '${spec.label}. Long-press or double-tap to mute',
-                      child: Text(
-                        spec.label,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: muted
-                              ? scheme.onSurfaceVariant.withValues(alpha: 0.5)
-                              : scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                          decoration: muted ? TextDecoration.lineThrough : null,
+                      child: Opacity(
+                        // Bypassed, not deleted: dim instead of striking
+                        // through (pro audio/video mute semantics).
+                        opacity: muted ? 0.3 : 1.0,
+                        child: Text(
+                          spec.label,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ),
@@ -85,6 +87,7 @@ class ParameterControl extends ConsumerWidget {
                 key: Key('param-value-${parameter.name}'),
                 value: value,
                 isNeutral: isNeutral,
+                muted: muted,
                 onType: (v) => notifier.update(parameter, v),
               ),
             ],
@@ -95,6 +98,7 @@ class ParameterControl extends ConsumerWidget {
             math: math,
             value: value,
             scheme: scheme,
+            muted: muted,
             onChanged: (v) {
               final previous = valueOf(
                 ref.read(recipeControllerProvider).recipe,
@@ -127,40 +131,24 @@ class _ValueField extends StatelessWidget {
     super.key,
     required this.value,
     required this.isNeutral,
+    required this.muted,
     required this.onType,
   });
 
   final double value;
   final bool isNeutral;
+  final bool muted;
   final ValueChanged<double> onType;
 
+  /// Bottom-sheet numeric entry (thumb zone, not a centred dialog). The
+  /// existing number is **selected** so the first keystroke replaces it.
   Future<void> _prompt(BuildContext context) async {
-    final controller = TextEditingController(text: value.toStringAsFixed(2));
-    final result = await showDialog<double>(
+    final result = await showModalBottomSheet<double>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Set value'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(
-            signed: true,
-            decimal: true,
-          ),
-          onSubmitted: (t) => Navigator.of(context).pop(double.tryParse(t)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.of(context).pop(double.tryParse(controller.text)),
-            child: const Text('Set'),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _ValueSheet(initial: value.toStringAsFixed(2)),
     );
     if (result != null) onType(result);
   }
@@ -175,11 +163,96 @@ class _ValueField extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: Insets.sm),
         foregroundColor: isNeutral ? scheme.onSurfaceVariant : scheme.primary,
       ),
-      child: Text(
-        _format(value),
-        style: const TextStyle(
-          fontFeatures: [FontFeature.tabularFigures()],
-          fontWeight: FontWeight.w600,
+      child: Opacity(
+        opacity: muted ? 0.3 : 1.0,
+        child: Text(
+          _format(value),
+          style: const TextStyle(
+            fontFeatures: [FontFeature.tabularFigures()],
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The sheet body: owns its [TextEditingController] so it is disposed with
+/// the route element (after the exit animation), never under the field.
+class _ValueSheet extends StatefulWidget {
+  const _ValueSheet({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_ValueSheet> createState() => _ValueSheetState();
+}
+
+class _ValueSheetState extends State<_ValueSheet> {
+  late final TextEditingController _controller;
+  bool _popped = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initial)
+      ..selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: widget.initial.length,
+      );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _pop(double? value) {
+    if (_popped || !mounted) return;
+    _popped = true;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Padding(
+        padding: Insets.sheet,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Set value', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: Insets.md),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(
+                signed: true,
+                decimal: true,
+              ),
+              onSubmitted: (t) => _pop(double.tryParse(t)),
+            ),
+            const SizedBox(height: Insets.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => _pop(null),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: Insets.sm),
+                FilledButton(
+                  onPressed: () => _pop(double.tryParse(_controller.text)),
+                  child: const Text('Set'),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -196,6 +269,7 @@ class _Track extends ConsumerStatefulWidget {
     required this.math,
     required this.value,
     required this.scheme,
+    required this.muted,
     required this.onChanged,
     required this.onReset,
     required this.onCommit,
@@ -205,6 +279,7 @@ class _Track extends ConsumerStatefulWidget {
   final SliderMath math;
   final double value;
   final ColorScheme scheme;
+  final bool muted;
   final ValueChanged<double> onChanged;
   final VoidCallback onReset;
   final VoidCallback onCommit;
@@ -285,6 +360,7 @@ class _TrackState extends ConsumerState<_Track> {
                   math: widget.math,
                   value: widget.value,
                   scheme: widget.scheme,
+                  muted: widget.muted,
                 ),
               ),
             ),
@@ -296,11 +372,20 @@ class _TrackState extends ConsumerState<_Track> {
 }
 
 class _TrackPainter extends CustomPainter {
-  _TrackPainter({required this.math, required this.value, required this.scheme});
+  _TrackPainter({
+    required this.math,
+    required this.value,
+    required this.scheme,
+    required this.muted,
+  });
 
   final SliderMath math;
   final double value;
   final ColorScheme scheme;
+
+  /// A muted (bypassed) parameter paints its fill in the surface colour so
+  /// the track reads as inactive without looking deleted.
+  final bool muted;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -326,13 +411,14 @@ class _TrackPainter extends CustomPainter {
         ..strokeWidth = 1,
     );
 
-    // Fill between neutral and the current value.
+    // Fill between neutral and the current value (dimmed while muted).
+    final accent = muted ? scheme.surfaceContainerHighest : scheme.primary;
     final (start, end) = math.fillRange(value);
     canvas.drawLine(
       Offset(start * size.width, cy),
       Offset(end * size.width, cy),
       Paint()
-        ..color = scheme.primary
+        ..color = accent
         ..strokeWidth = trackH
         ..strokeCap = StrokeCap.round,
     );
@@ -341,11 +427,11 @@ class _TrackPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(math.fractionOf(value) * size.width, cy),
       9,
-      Paint()..color = scheme.primary,
+      Paint()..color = accent,
     );
   }
 
   @override
   bool shouldRepaint(_TrackPainter old) =>
-      old.value != value || old.scheme != scheme;
+      old.value != value || old.scheme != scheme || old.muted != muted;
 }

@@ -1,3 +1,5 @@
+import 'dart:ui' show Color, ImageByteFormat, PictureRecorder;
+
 import 'package:flutter/services.dart' show MethodCall, SystemChannels;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -109,6 +111,36 @@ void main() {
     );
   });
 
+  testWidgets('tap-to-type selects the existing text so typing overwrites', (
+    tester,
+  ) async {
+    container
+        .read(recipeControllerProvider.notifier)
+        .update(Parameter.contrast, 0.25);
+    await tester.pumpWidget(_harness(container, Parameter.contrast));
+
+    await tester.tap(find.byKey(const Key('param-value-contrast')));
+    await tester.pumpAndSettle();
+
+    final editable = tester.widget<EditableText>(find.byType(EditableText));
+    expect(editable.controller.text, '0.25');
+    expect(editable.controller.selection.baseOffset, 0);
+    expect(editable.controller.selection.extentOffset, '0.25'.length);
+  });
+
+  testWidgets('tap-to-type opens a bottom sheet, not a centred dialog', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_harness(container, Parameter.contrast));
+
+    await tester.tap(find.byKey(const Key('param-value-contrast')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+  });
+
   testWidgets('dragging toward the limit fires the haptic gradient', (
     tester,
   ) async {
@@ -170,16 +202,23 @@ void main() {
     await tester.longPress(label);
     await tester.pump();
 
-    // Muted: bypassed in the render, value kept, label struck through.
+    // Muted: bypassed in the render, value kept; label + readout dimmed to
+    // 0.3 (no strikethrough — that reads as "deleted", not "bypassed").
     expect(
       container.read(mutedParametersProvider),
       contains(Parameter.exposure),
     );
     expect(container.read(recipeControllerProvider).recipe.exposure, 2.5);
-    expect(
-      tester.widget<Text>(find.text('Exposure')).style?.decoration,
-      TextDecoration.lineThrough,
+    final labelText = tester.widget<Text>(find.text('Exposure'));
+    expect(labelText.style?.decoration, isNot(TextDecoration.lineThrough));
+    final labelOpacity = tester.widget<Opacity>(
+      find.ancestor(of: find.text('Exposure'), matching: find.byType(Opacity)),
     );
+    expect(labelOpacity.opacity, 0.3);
+    final valueOpacity = tester.widget<Opacity>(
+      find.ancestor(of: find.text('+2.50'), matching: find.byType(Opacity)),
+    );
+    expect(valueOpacity.opacity, 0.3);
 
     // Double-tap restores it.
     await tester.tap(label);
@@ -193,5 +232,58 @@ void main() {
       tester.widget<Text>(find.text('Exposure')).style?.decoration,
       TextDecoration.none,
     );
+    expect(
+      tester
+          .widget<Opacity>(
+            find.ancestor(of: find.text('Exposure'), matching: find.byType(Opacity)),
+          )
+          .opacity,
+      1.0,
+    );
+  });
+
+  Future<Color> paintTrackPixel(WidgetTester tester, {required Key key}) async {
+    final custom = tester.widget<CustomPaint>(
+      find.descendant(of: find.byKey(key), matching: find.byType(CustomPaint)),
+    );
+    return tester.runAsync(() async {
+      final recorder = PictureRecorder();
+      custom.painter!.paint(Canvas(recorder), const Size(300, 36));
+      final image = await recorder.endRecording().toImage(300, 36);
+      final bytes = await image.toByteData(format: ImageByteFormat.rawRgba);
+      final data = bytes!.buffer.asUint8List();
+      // Centre pixel = the neutral marker: the fill (and thumb) sit here.
+      const cx = 150, cy = 18;
+      final i = (cy * 300 + cx) * 4;
+      return Color.fromARGB(data[i + 3], data[i], data[i + 1], data[i + 2]);
+    }).then((c) => c!);
+  }
+
+  testWidgets('a muted parameter dims the track fill to the surface colour', (
+    tester,
+  ) async {
+    container
+        .read(recipeControllerProvider.notifier)
+        .update(Parameter.exposure, 2.5);
+    await tester.pumpWidget(_harness(container, Parameter.exposure));
+
+    final scheme = Theme.of(
+      tester.element(find.byKey(const Key('param-track-exposure'))),
+    ).colorScheme;
+    final active = await paintTrackPixel(
+      tester,
+      key: const Key('param-track-exposure'),
+    );
+    expect(active, scheme.primary);
+
+    await tester.longPress(find.byKey(const Key('param-label-exposure')));
+    await tester.pump();
+
+    final bypassed = await paintTrackPixel(
+      tester,
+      key: const Key('param-track-exposure'),
+    );
+    expect(bypassed, scheme.surfaceContainerHighest);
+    expect(bypassed, isNot(scheme.primary));
   });
 }

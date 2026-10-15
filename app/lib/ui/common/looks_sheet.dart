@@ -7,6 +7,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/tool_definition.dart';
 import 'app_sheet.dart';
+import 'paste_button.dart';
 
 /// The look gallery: apply a built-in look, or import a shared look (JSON).
 class LooksSheet extends ConsumerStatefulWidget {
@@ -65,6 +66,7 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
           decoration: InputDecoration(
             hintText: 'Paste a shared look (JSON)…',
             errorText: _importError,
+            suffixIcon: PasteButton(controller: _controller),
           ),
         ),
         const SizedBox(height: Insets.md),

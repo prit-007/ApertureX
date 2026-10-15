@@ -82,15 +82,27 @@ class _HslMixerState extends ConsumerState<HslMixer> {
               for (var i = 0; i < _bands.length; i++)
                 GestureDetector(
                   onTap: () => setState(() => _band = i),
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: _bands[i],
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: i == _band ? scheme.onSurface : Colors.transparent,
-                        width: 2,
+                  // Opaque so the whole 48px target is hit-testable, not
+                  // just the 30px painted circle.
+                  behavior: HitTestBehavior.opaque,
+                  // 30px circle inside a 48px (Material a11y minimum) target.
+                  child: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Center(
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: _bands[i],
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: i == _band
+                                ? scheme.onSurface
+                                : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
                       ),
                     ),
                   ),
