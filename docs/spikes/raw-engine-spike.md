@@ -22,7 +22,7 @@ Prototype both candidate decoders against the fixed `ImageSource` boundary (ARCH
 | ROI feasibility | Easy (decode full + crop or format-specific) | Possible but API-coupled; file-oriented |
 | Build reproducibility (F-Droid) | High (vendored/crates.io) | Needs packaged libraw; cross-compile friction |
 | Binary size impact | Small delta | Larger transitive (C lib) |
-| License surface | MIT/Apache-2.0 (typical) | LGPL/CDDL (LibRaw) — notice handling required |
+| License surface | LGPL-2.1 (rawler), GPL-3 compatible via §3 | Rust crate MIT; LibRaw C++ LGPL-2.1/CDDL — notice handling required |
 | Camera coverage | Growing but may lag very new bodies vs LibRaw | Very broad, mature |
 | Maintainability | Single language, memory-safe | Mixed; more build complexity |
 
@@ -30,4 +30,4 @@ Prototype both candidate decoders against the fixed `ImageSource` boundary (ARCH
 Given the project goals (FOSS, offline, mobile, F-Droid-friendly, and the architecture already supports JPEG ROI by decode+crop), **rawler is the better default starting point**. It matches the "single toolchain" principle, is easy to test in-memory, and avoids C build complexity. LibRaw remains a strong fallback if coverage gaps arise; ADR 0005 should be accepted with rawler as the first implementation, keeping the `ImageSource` trait neutral so LibRaw can be re-evaluated later.
 
 ## Status
-Spike complete enough to choose. Proceeding with rawler-first; Phase D (DNG matrices + lens) can build on rawler's decoded data.
+Spike complete. Decision: **rawler-first** (LibRaw kept optional behind `--features raw-libraw`). `raw::decode`/`raw::metadata` now sit on rawler; Phase D (DNG colour matrices + lens) builds on that surface.

@@ -20,9 +20,17 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 | [`file_picker`](https://pub.dev/packages/file_picker) | ^11.0.3 | MIT | Native file picker for importing HALD CLUT PNGs | ✅ |
 | [`flutter_rust_bridge`](https://pub.dev/packages/flutter_rust_bridge) | v2.x | MIT / Apache-2.0 | Dart ↔ Rust FFI codegen | ✅ |
 | [`image`](https://pub.dev/packages/image) | ^4.12.0 | MIT | Pure-Dart PNG decode for HALD CLUT LUT import (ADR 0009) | ✅ |
+| [`rawler`](https://crates.io/crates/rawler) | ^0.8.0 | LGPL-2.1 | Pure-Rust RAW/DNG decode (ADR 0005, `rawler`-first) | ✅ |
 
 Apache-2.0 and GPL-3.0 are mutually compatible (both are modern, patent-granting
 licenses); the Apache NOTICE must be carried through, which we do here.
+
+`rawler` is **LGPL-2.1**. LGPL-2.1 §3 permits converting the covered code to
+GPL-2.0-or-later, which is compatible with this project's GPL-3.0-or-later
+outbound license, so the combined work may be distributed under GPL-3 while
+preserving rawler's notice. (An optional LibRaw fallback, `raw-libraw`, is
+**not** part of the default build: the Rust `libraw` crate is MIT while the
+underlying C++ LibRaw is LGPL-2.1/CDDL — see the ADR 0005 spike notes.)
 
 ## Forked component
 

@@ -1,6 +1,6 @@
 # ADR 0005 — RAW decoder: LibRaw vs pure-Rust
 
-- **Status:** **Proposed / deferred to phase P3**
+- **Status:** **Proposed** (Phase C spike complete; decision recorded in spike)
 - **Date:** 2026-10-13
 - **Deciders:** Developer's Paradise
 
@@ -35,11 +35,7 @@ pure-Rust path can be added for supported cameras or for constrained builds.
 
 ## Decision
 
-**Deferred.** The `ImageSource` trait (ARCHITECTURE §7.2) is fixed now so either
-implementation drops in without touching the UI, viewport, or edit model. The
-final choice is made in **P3** against measured evidence (frame time, peak memory,
-camera-corpus coverage, build reproducibility) and recorded by moving this ADR to
-**Accepted**.
+**Provisional (spike):** The `ImageSource` trait (ARCHITECTURE §7.2) is fixed. Phase C spike (rawler 0.8.0 + libraw 0.1.1/system 0.21.2) favors **rawler-first** for FOSS/mobile/F-Droid (single toolchain, in-memory decode, easier ROI, simpler cross-compile). LibRaw remains a fallback if coverage gaps arise. Final acceptance/confirmation remains in **P3** with measured evidence (frame time, peak RSS, camera corpus, build reproducibility). See [raw-engine-spike.md](../spikes/raw-engine-spike.md).
 
 ## Consequences
 
