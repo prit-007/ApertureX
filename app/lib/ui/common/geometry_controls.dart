@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../edit/recipe_controller.dart';
+import 'precision_rotation_dial.dart';
 
 /// Geometry controls: rotate (90°), flip, and straighten. Writes to the shared
 /// recipe; the transform is non-destructive.
@@ -62,31 +63,8 @@ class GeometryControls extends ConsumerWidget {
            padding: const EdgeInsets.symmetric(horizontal: 12),
            child: Column(
              children: [
-               Row(
-                 children: [
-                   const SizedBox(
-                     width: 84,
-                     child: Text('Straighten'),
-                   ),
-                   Expanded(
-                     child: Slider(
-                       value: recipe.straighten.clamp(-45.0, 45.0),
-                       min: -45,
-                       max: 45,
-                       onChanged: notifier.setStraighten,
-                       onChangeEnd: (_) => notifier.commit(label: 'Straighten'),
-                     ),
-                   ),
-                   SizedBox(
-                     width: 52,
-                     child: Text(
-                       '${recipe.straighten.toStringAsFixed(1)}°',
-                       textAlign: TextAlign.end,
-                       style: TextStyle(color: scheme.onSurfaceVariant),
-                     ),
-                   ),
-                 ],
-               ),
+               const PrecisionRotationDial(),
+               const SizedBox(height: 8),
                Row(
                  children: [
                    const SizedBox(

@@ -66,11 +66,7 @@ class NodeControls extends ConsumerWidget {
     );
 
     final i = editor.selected;
-    if (i == null ||
-        i < 0 ||
-        i >= layers.length ||
-        layers[i].maskKind != MaskKind.radial ||
-        layers[i].maskParams.length < 5) {
+    if (i == null || i < 0 || i >= layers.length) {
       // Nothing selected (or the selection went stale after a recipe change).
       return card(
         Column(
@@ -84,8 +80,7 @@ class NodeControls extends ConsumerWidget {
                 bottom: Insets.xs,
               ),
               child: Text(
-                'Tap the photo to place a control point; drag it to move, '
-                'drag its ring to resize.',
+                'Select or add a mask above; drag on canvas to adjust.',
                 style: TextStyle(
                   fontSize: 12,
                   color: scheme.onSurfaceVariant,
@@ -98,13 +93,15 @@ class NodeControls extends ConsumerWidget {
     }
 
     final layer = layers[i];
+    final notifier = ref.read(recipeControllerProvider.notifier);
+
     return card(
       Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Icon(Icons.add_location_alt, size: 16, color: scheme.primary),
+              Icon(_maskIcon(layer.maskKind), size: 16, color: scheme.primary),
               const SizedBox(width: Insets.xs),
               Text(
                 'Node ${i + 1}',
@@ -113,14 +110,24 @@ class NodeControls extends ConsumerWidget {
                   color: scheme.onSurface,
                 ),
               ),
+              const SizedBox(width: Insets.xs),
+              FilterChip(
+                label: const Text('Invert', style: TextStyle(fontSize: 11)),
+                selected: layer.inverted,
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                onSelected: (val) {
+                  notifier.updateLayerAt(i, layer.copyWith(inverted: val));
+                },
+              ),
               const Spacer(),
               IconButton(
                 key: const Key('node-delete'),
-                tooltip: 'Delete control point',
+                tooltip: 'Delete layer',
                 visualDensity: VisualDensity.compact,
                 iconSize: 20,
                 onPressed: () {
-                  ref.read(recipeControllerProvider.notifier).removeLayerAt(i);
+                  notifier.removeLayerAt(i);
                   ref.read(nodeEditorProvider.notifier).select(null);
                 },
                 icon: const Icon(Icons.delete_outline),
@@ -146,40 +153,56 @@ class NodeControls extends ConsumerWidget {
             min: -2,
             max: 2,
             sliderKey: const Key('node-exposure-slider'),
-            onChanged: (v) => ref
-                .read(recipeControllerProvider.notifier)
-                .updateLayerAt(i, layer.copyWith(exposure: v)),
+            onChanged: (v) => notifier.updateLayerAt(i, layer.copyWith(exposure: v)),
           ),
-          _LayerSlider(
-            label: 'Radius',
-            valueLabel: '${(layer.maskParams[2] * 100).round()}%',
-            value: layer.maskParams[2].clamp(0.03, 0.6),
-            min: 0.03,
-            max: 0.6,
-            sliderKey: const Key('node-radius-slider'),
-            onChanged: (v) {
-              // Keep the ellipse circular on screen: ry scales with the
-              // image aspect (or the layer's current ratio as fallback).
-              final t = ref.read(canvasTransformProvider);
-              final p = layer.maskParams;
-              final aspect =
-                  t != null
-                      ? t.aspect
-                      : (p[2] > 0 ? p[3] / p[2] : 1.0);
-              ref
-                  .read(recipeControllerProvider.notifier)
-                  .updateLayerAt(
-                    i,
-                    layer.copyWith(
-                      maskParams: [p[0], p[1], v, v * aspect, p[4]],
-                    ),
-                  );
-            },
-          ),
+          if (layer.maskKind == MaskKind.radial && layer.maskParams.length >= 5)
+            _LayerSlider(
+              label: 'Radius',
+              valueLabel: '${(layer.maskParams[2] * 100).round()}%',
+              value: layer.maskParams[2].clamp(0.03, 0.6),
+              min: 0.03,
+              max: 0.6,
+              sliderKey: const Key('node-radius-slider'),
+              onChanged: (v) {
+                final t = ref.read(canvasTransformProvider);
+                final p = layer.maskParams;
+                final aspect =
+                    t != null
+                        ? t.aspect
+                        : (p[2] > 0 ? p[3] / p[2] : 1.0);
+                notifier.updateLayerAt(
+                  i,
+                  layer.copyWith(
+                    maskParams: [p[0], p[1], v, v * aspect, p[4]],
+                  ),
+                );
+              },
+            ),
+          if (layer.maskKind == MaskKind.linear)
+            _LayerSlider(
+              label: 'Contrast',
+              valueLabel:
+                  '${layer.contrast >= 0 ? '+' : ''}'
+                  '${layer.contrast.toStringAsFixed(2)}',
+              value: layer.contrast.clamp(-1.0, 1.0),
+              min: -1,
+              max: 1,
+              sliderKey: const Key('node-contrast-slider'),
+              onChanged: (v) => notifier.updateLayerAt(i, layer.copyWith(contrast: v)),
+            ),
         ],
       ),
     );
   }
+
+  static IconData _maskIcon(MaskKind kind) => switch (kind) {
+    MaskKind.brush => Icons.brush,
+    MaskKind.linear => Icons.gradient,
+    MaskKind.radial => Icons.brightness_5,
+    MaskKind.subject => Icons.person,
+    MaskKind.sky => Icons.cloud_outlined,
+    MaskKind.luminance => Icons.dark_mode,
+  };
 }
 
 /// One label → slider → value row, matching the geometry panel's layout.

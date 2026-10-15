@@ -1,0 +1,124 @@
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+
+import 'package:aperturex/edit/adjustment_layer.dart';
+import 'package:aperturex/edit/node_editor.dart';
+import 'package:aperturex/edit/recipe_controller.dart';
+import 'package:aperturex/ui/common/mask_controls.dart';
+import 'package:aperturex/ui/common/node_overlay.dart';
+import 'package:aperturex/viewport/canvas_transform.dart';
+
+void main() {
+  const transform = CanvasTransform(
+    fitted: Size(400, 400),
+    offset: Offset(0, 0),
+    scale: 1,
+  );
+
+  late ProviderContainer container;
+
+  setUp(() {
+    container = ProviderContainer();
+    container.read(canvasTransformProvider.notifier).set(transform);
+  });
+
+  tearDown(() {
+    container.dispose();
+  });
+
+  Future<void> pumpMaskingApp(WidgetTester tester) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: [
+                Positioned.fill(child: NodeOverlay()),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 300,
+                  child: MaskControls(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+  }
+
+  testWidgets('MaskControls offers Brush, Subject, Sky and Radial/Linear buttons', (
+    tester,
+  ) async {
+    await pumpMaskingApp(tester);
+
+    expect(find.text('Brush +'), findsOneWidget);
+    expect(find.text('Linear +'), findsOneWidget);
+    expect(find.text('Radial +'), findsOneWidget);
+    expect(find.text('Subject +'), findsOneWidget);
+    expect(find.text('Sky +'), findsOneWidget);
+  });
+
+  testWidgets('tapping Brush + creates a brush layer and selects it for painting', (
+    tester,
+  ) async {
+    await pumpMaskingApp(tester);
+
+    await tester.tap(find.text('Brush +'));
+    await tester.pumpAndSettle();
+
+    final layers = container.read(recipeControllerProvider).recipe.layers;
+    expect(layers, hasLength(1));
+    expect(layers.first.maskKind, MaskKind.brush);
+    expect(container.read(nodeEditorProvider).enabled, isTrue);
+    expect(container.read(nodeEditorProvider).selected, 0);
+
+    // Paint a stroke across the photo with stylus
+    final gesture = await tester.startGesture(
+      const Offset(100, 100),
+      kind: PointerDeviceKind.stylus,
+    );
+    await tester.pump();
+    await gesture.moveTo(const Offset(200, 200));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final updated = container.read(recipeControllerProvider).recipe.layers.first;
+    expect(updated.maskParams.length, greaterThan(3));
+    // Check that count of points is recorded
+    expect(updated.maskParams[2], greaterThanOrEqualTo(2));
+  });
+
+  testWidgets('tapping Subject + creates an AI Subject adjustment layer', (
+    tester,
+  ) async {
+    await pumpMaskingApp(tester);
+
+    await tester.tap(find.text('Subject +'));
+    await tester.pumpAndSettle();
+
+    final layers = container.read(recipeControllerProvider).recipe.layers;
+    expect(layers, hasLength(1));
+    expect(layers.first.maskKind, MaskKind.subject);
+  });
+
+  testWidgets('tapping Sky + creates an AI Sky adjustment layer', (
+    tester,
+  ) async {
+    await pumpMaskingApp(tester);
+
+    await tester.tap(find.text('Sky +'));
+    await tester.pumpAndSettle();
+
+    final layers = container.read(recipeControllerProvider).recipe.layers;
+    expect(layers, hasLength(1));
+    expect(layers.first.maskKind, MaskKind.sky);
+  });
+}

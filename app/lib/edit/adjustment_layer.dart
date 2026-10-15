@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show listEquals;
 
 /// Mask kinds (must match the Rust `MASK_*` constants).
-enum MaskKind { linear, radial, luminance }
+enum MaskKind { linear, radial, luminance, brush, subject, sky }
 
 /// A local adjustment layer (P2.5): an analytic mask + a point-wise sub-grade.
 /// Non-destructive and small (parametric) — the Lightroom "local adjustment" /
@@ -10,6 +10,7 @@ class AdjustmentLayer {
   const AdjustmentLayer({
     this.maskKind = MaskKind.radial,
     this.maskParams = const <double>[0.5, 0.5, 0.3, 0.3, 0.3],
+    this.inverted = false,
     this.exposure = 0,
     this.contrast = 0,
     this.saturation = 0,
@@ -21,8 +22,13 @@ class AdjustmentLayer {
 
   final MaskKind maskKind;
 
-  /// linear `[x0,y0,x1,y1]`, radial `[cx,cy,rx,ry,feather]`, luminance `[lo,hi]`.
+  /// linear `[x0,y0,x1,y1]`, radial `[cx,cy,rx,ry,feather]`, luminance `[lo,hi]`,
+  /// brush `[radius, feather, count, x0, y0, p0, ...]`, subject `[cx,cy,rx,ry,feather]`,
+  /// sky `[horizon_y, feather, blue_weight]`.
   final List<double> maskParams;
+
+  /// Whether the mask coverage should be inverted `(1.0 - coverage)`.
+  final bool inverted;
 
   final double exposure;
   final double contrast;
@@ -35,6 +41,7 @@ class AdjustmentLayer {
   AdjustmentLayer copyWith({
     MaskKind? maskKind,
     List<double>? maskParams,
+    bool? inverted,
     double? exposure,
     double? contrast,
     double? saturation,
@@ -45,6 +52,7 @@ class AdjustmentLayer {
   }) => AdjustmentLayer(
     maskKind: maskKind ?? this.maskKind,
     maskParams: maskParams ?? this.maskParams,
+    inverted: inverted ?? this.inverted,
     exposure: exposure ?? this.exposure,
     contrast: contrast ?? this.contrast,
     saturation: saturation ?? this.saturation,
@@ -57,6 +65,7 @@ class AdjustmentLayer {
   Map<String, Object?> toJson() => <String, Object?>{
     'maskKind': maskKind.index,
     'maskParams': maskParams,
+    'inverted': inverted,
     'exposure': exposure,
     'contrast': contrast,
     'saturation': saturation,
@@ -74,6 +83,7 @@ class AdjustmentLayer {
       maskParams:
           (json['maskParams'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
           const <double>[],
+      inverted: (json['inverted'] as bool?) ?? false,
       exposure: d('exposure'),
       contrast: d('contrast'),
       saturation: d('saturation'),
@@ -89,6 +99,7 @@ class AdjustmentLayer {
       other is AdjustmentLayer &&
       other.maskKind == maskKind &&
       listEquals(other.maskParams, maskParams) &&
+      other.inverted == inverted &&
       other.exposure == exposure &&
       other.contrast == contrast &&
       other.saturation == saturation &&
@@ -101,6 +112,7 @@ class AdjustmentLayer {
   int get hashCode => Object.hash(
     maskKind,
     Object.hashAll(maskParams),
+    inverted,
     exposure,
     contrast,
     saturation,

@@ -38,22 +38,85 @@ class MaskControls extends ConsumerWidget {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: () => notifier.addLayer(
-                  const AdjustmentLayer(exposure: 0.7),
-                ),
+                onPressed: () {
+                  final idx = layers.length;
+                  notifier.addLayer(
+                    const AdjustmentLayer(
+                      maskKind: MaskKind.brush,
+                      maskParams: [0.06, 0.25, 0],
+                      exposure: 0.6,
+                    ),
+                  );
+                  ref.read(nodeEditorProvider.notifier).enable();
+                  ref.read(nodeEditorProvider.notifier).select(idx);
+                },
+                icon: const Icon(Icons.brush),
+                label: const Text('Brush +'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  final idx = layers.length;
+                  notifier.addLayer(
+                    const AdjustmentLayer(
+                      maskKind: MaskKind.linear,
+                      maskParams: [0.5, 0.2, 0.5, 0.8],
+                      exposure: 0.6,
+                    ),
+                  );
+                  ref.read(nodeEditorProvider.notifier).enable();
+                  ref.read(nodeEditorProvider.notifier).select(idx);
+                },
+                icon: const Icon(Icons.gradient),
+                label: const Text('Linear +'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  final idx = layers.length;
+                  notifier.addLayer(
+                    const AdjustmentLayer(
+                      maskKind: MaskKind.radial,
+                      maskParams: [0.5, 0.5, 0.25, 0.25, 0.3],
+                      exposure: 0.7,
+                    ),
+                  );
+                  ref.read(nodeEditorProvider.notifier).enable();
+                  ref.read(nodeEditorProvider.notifier).select(idx);
+                },
                 icon: const Icon(Icons.brightness_5),
                 label: const Text('Radial +'),
               ),
               OutlinedButton.icon(
-                onPressed: () => notifier.addLayer(
-                  const AdjustmentLayer(
-                    maskKind: MaskKind.linear,
-                    maskParams: [0, 0, 0, 1],
-                    exposure: 0.6,
-                  ),
-                ),
-                icon: const Icon(Icons.gradient),
-                label: const Text('Linear +'),
+                onPressed: () {
+                  final idx = layers.length;
+                  notifier.addLayer(
+                    const AdjustmentLayer(
+                      maskKind: MaskKind.subject,
+                      maskParams: [0.5, 0.5, 0.28, 0.38, 0.25],
+                      exposure: 0.5,
+                    ),
+                  );
+                  ref.read(nodeEditorProvider.notifier).enable();
+                  ref.read(nodeEditorProvider.notifier).select(idx);
+                },
+                icon: const Icon(Icons.person),
+                label: const Text('Subject +'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  final idx = layers.length;
+                  notifier.addLayer(
+                    const AdjustmentLayer(
+                      maskKind: MaskKind.sky,
+                      maskParams: [0.5, 0.15, 0.6],
+                      highlights: -0.6,
+                      saturation: 0.2,
+                    ),
+                  );
+                  ref.read(nodeEditorProvider.notifier).enable();
+                  ref.read(nodeEditorProvider.notifier).select(idx);
+                },
+                icon: const Icon(Icons.cloud_outlined),
+                label: const Text('Sky +'),
               ),
               OutlinedButton.icon(
                 onPressed: () => notifier.addLayer(
@@ -68,7 +131,7 @@ class MaskControls extends ConsumerWidget {
               ),
               OutlinedButton.icon(
                 onPressed: () => _toggleStylusOnly(ref, !stylusOnly),
-                icon: const Icon(Icons.brush),
+                icon: const Icon(Icons.gesture),
                 label: stylusOnly
                     ? const Text('Touch mode')
                     : const Text('Stylus mode'),
@@ -87,12 +150,20 @@ class MaskControls extends ConsumerWidget {
         for (var i = 0; i < layers.length; i++)
           ListTile(
             dense: true,
-            leading: const Icon(Icons.adjust, size: 18),
+            selected: i == ref.watch(nodeEditorProvider.select((s) => s.selected)),
+            leading: Icon(_maskIcon(layers[i].maskKind), size: 18),
             title: Text(
-              '${layers[i].maskKind.name} layer  '
+              '${layers[i].maskKind.name.toUpperCase()} layer  '
               'EV ${layers[i].exposure.toStringAsFixed(2)}',
               style: const TextStyle(fontSize: 13),
             ),
+            subtitle: layers[i].inverted
+                ? const Text('Inverted', style: TextStyle(fontSize: 11, color: Colors.orange))
+                : null,
+            onTap: () {
+              ref.read(nodeEditorProvider.notifier).select(i);
+              ref.read(nodeEditorProvider.notifier).enable();
+            },
             trailing: IconButton(
               tooltip: 'Remove layer',
               icon: const Icon(Icons.delete_outline, size: 18),
@@ -102,6 +173,15 @@ class MaskControls extends ConsumerWidget {
       ],
     );
   }
+
+  IconData _maskIcon(MaskKind kind) => switch (kind) {
+    MaskKind.brush => Icons.brush,
+    MaskKind.linear => Icons.gradient,
+    MaskKind.radial => Icons.brightness_5,
+    MaskKind.subject => Icons.person,
+    MaskKind.sky => Icons.cloud_outlined,
+    MaskKind.luminance => Icons.dark_mode,
+  };
 
   void _toggleStylusOnly(WidgetRef ref, bool value) {
     ref.read(stylusOnlyModeProvider.notifier).set(value);
