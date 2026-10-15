@@ -54,3 +54,44 @@ Future<RgbaImage> bakeRoiBand({
   spec: spec,
   layers: layers,
 );
+
+/// Bakes the preview base chain (spatial → mask layers) onto a decoded
+/// **rect (tile)** of the **original** frame — the tiled viewport bake (#16),
+/// the 2D sibling of [`bake_roi_band`].
+///
+/// * `rect` holds the pixels `(decode_x, decode_y, decode_w, decode_h)` of
+///   the source, with at least [`roi_halo`] context on **all four** sides
+///   around `[out_x, out_x + out_w) × [out_y, out_y + out_h)` (except at the
+///   image edges);
+/// * `spec`'s geometry fields **must be identity** (same contract as the band
+///   path — the viewport gates on crop/rotate/flip);
+/// * the grade is shader-side for preview and not applied here.
+Future<RgbaImage> bakeRoiRect({
+  required List<int> rect,
+  required int decodeX,
+  required int decodeY,
+  required int decodeW,
+  required int decodeH,
+  required int outX,
+  required int outY,
+  required int outW,
+  required int outH,
+  required int fullWidth,
+  required int fullHeight,
+  required PreviewBaseSpec spec,
+  required List<MaskLayer> layers,
+}) => RustLib.instance.api.crateApiRoiBakeRoiRect(
+  rect: rect,
+  decodeX: decodeX,
+  decodeY: decodeY,
+  decodeW: decodeW,
+  decodeH: decodeH,
+  outX: outX,
+  outY: outY,
+  outW: outW,
+  outH: outH,
+  fullWidth: fullWidth,
+  fullHeight: fullHeight,
+  spec: spec,
+  layers: layers,
+);

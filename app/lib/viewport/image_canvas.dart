@@ -28,6 +28,21 @@ import 'mask_peek.dart';
 import 'preview_surface.dart';
 import 'roi_decoder.dart';
 import 'roi_overlay.dart';
+import 'tile_grid.dart';
+import 'tile_lru.dart';
+
+/// The contain-fit display size of [content] within [bounds]: the largest
+/// size at which the whole content is visible with its aspect preserved.
+/// (Top-level so unit tests can pin the behaviour directly.)
+Size fitContained(Size content, Size bounds) {
+  if (content.width <= 0 || content.height <= 0) return bounds;
+  if (bounds.width <= 0 || bounds.height <= 0) return bounds;
+  final scale = math.min(
+    bounds.width / content.width,
+    bounds.height / content.height,
+  );
+  return Size(content.width * scale, content.height * scale);
+}
 
 /// The shared editing canvas, rendered by BOTH shells (ADR 0008 invariant).
 ///
@@ -38,7 +53,8 @@ import 'roi_overlay.dart';
 ///  * **2+ fingers** → zoom + pan (the transform is built here);
 ///  * **long-press** → before/after compare; **double-tap** → reset zoom.
 ///
-/// **Rendering**: the image is drawn **width-fit** and edge-to-edge; all chrome
+/// **Rendering**: the image is drawn **contain-fit** (the whole photo is
+/// always visible, centred, aspect preserved — Lightroom-style) and the chrome
 /// floats above it as a HUD. Processing runs at proxy resolution with split
 /// base/grade bakes (see the field docs below).
 class ImageCanvas extends ConsumerStatefulWidget {
@@ -103,19 +119,41 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   int? _tatBand;
   Timer? _debounce;
 
-  // --- high-zoom ROI overlay (#55/#16) -------------------------------------
-  // A full-width band of the ORIGINAL frame, decoded natively (never the full
-  // frame) and baked with the same spatial+mask chain as the proxy, drawn over
-  // it through the grading shader once the proxy would upscale.
+  // --- high-zoom tiles (#16) ----------------------------------------------
+  // Level-0 tiles of the ORIGINAL frame, decoded natively (never the full
+  // frame), baked with the same spatial+mask chain as the proxy through
+  // `bake_roi_rect`, and drawn over the proxy through the grading shader
+  // once the proxy would upscale. The multi-level pyramid stays wired for the
+  // `TileViewport` demo/corpus harness; the editing canvas uses level 0 only,
+  // because the proxy itself already covers every zoom below the ROI gate
+  // (`scale * fitted.width >= proxyW`).
+  static const int _tileSize = 512;
+
+  /// Decoded-tile cache budget. A 512×512 RGBA tile is 1 MiB; 64 tiles is
+  /// comfortably more than one screenful at the worst zoom.
+  static const int _tileBudgetBytes = 64 << 20;
+
   final RoiDecoder _roiDecoder = RoiDecoder();
+  final TileLru<TileCoord, ui.Image> _tiles = TileLru<TileCoord, ui.Image>(
+    maxBytes: _tileBudgetBytes,
+    sizeOf: (img) => img.width * img.height * 4,
+    onEvict: (_, img) => img.dispose(),
+  );
   Timer? _roiDebounce;
   int _roiToken = 0;
-  ui.Image? _roiImage;
-  RoiOverlayPlan? _roiPlan;
-  int? _roiKey; // (bandTop, bandBottom, baseKey) — skip unchanged re-runs
   Uint8List? _roiBytes; // the bytes actually loaded (widget bytes or sample)
   int _fullW = 0; // original source dims; 0 while unknown or RAW (no ROI)
   int _fullH = 0;
+  /// Level-0 tile grid once the full-res dims are known; null → no tiles.
+  TileGrid? _tileGrid;
+  /// Key of the spatial/mask recipe the cached tiles were baked with; any
+  /// other change (including the first tile schedule) re-bakes. Grade-only
+  /// edits don't invalidate — the shader picks up the new LUT on repaint.
+  int? _tileBaseKey;
+  /// True while any tile is decoding/baking — the painter shows the proxy
+  /// underneath until the first tiles land, and `useTextureDelivery` stays
+  /// off so the shader path (which draws the tiles) is live.
+  bool _tilesActive = false;
   Size _lastFitted = Size.zero;
   Size _lastBounds = Size.zero;
   late final AnimationController _compare;
@@ -162,14 +200,21 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       if (isRawImage(jpeg)) {
         _fullW = 0;
         _fullH = 0;
+        _tileGrid = null;
       } else {
         try {
           final dims = await TesseraEngine.jpegDimensions(jpeg);
           _fullW = dims.width;
           _fullH = dims.height;
+          _tileGrid = TileGrid(
+            imageWidth: _fullW,
+            imageHeight: _fullH,
+            tileSize: _tileSize,
+          );
         } catch (_) {
           _fullW = 0;
           _fullH = 0;
+          _tileGrid = null;
         }
       }
       final proxy = await _decode(jpeg, maxDim: _maxPreviewDim);
@@ -230,15 +275,24 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }
 
   /// Texture delivery is used only when a texture is bound, no imported LUT
-  /// is active (imported atlases are applied by `lut.frag`, not Rust), and no
+  /// is active (imported atlases are applied by `lut.frag`, not Rust), no
   /// compare/peek crossfade is running — those fades are drawn by `lut.frag`
-  /// (`blend`/`maskBlend`), which the Rust texture path doesn't carry.
-  bool _computeUseTexture() => useTextureDelivery(
-    textureId: _textureId,
-    hasImportedLut: ref.read(importedLutProvider) != null,
-    gestureActive: _gestureActive,
-    roiActive: _roiImage != null,
-  );
+  /// (`blend`/`maskBlend`), which the Rust texture path doesn't carry — no
+  /// high-zoom tiles are overlaying the proxy, and recipe geometry is
+  /// identity. The geometry gate is required because HardwareBuffer-backed
+  /// `SurfaceProducer`s ignore `setBuffersGeometry`, so a cropped/rotated
+  /// frame written into the proxy buffer would be stretched to the wrong
+  /// aspect by Flutter (see `useTextureDelivery`).
+  bool _computeUseTexture() {
+    final recipe = ref.read(recipeControllerProvider).recipe;
+    return useTextureDelivery(
+      textureId: _textureId,
+      hasImportedLut: ref.read(importedLutProvider) != null,
+      gestureActive: _gestureActive,
+      roiActive: _tilesActive,
+      geometryActive: roiBlockedByGeometry(recipe),
+    );
+  }
 
   /// Compare (issue #28) + mask-peek (issue #27) crossfades are active (or
   /// animating towards/away from rest) — delivery must stay on the shader path
@@ -252,17 +306,24 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _renderRecipe(ref.read(recipeControllerProvider).recipe),
   );
 
-  /// Debounced (#55): re-plans the high-zoom ROI overlay after the viewport
-  /// settles (pan/zoom end) or a recipe change the band must bake.
+  /// Debounced (#16): re-plans the high-zoom tiles after the viewport settles
+  /// (pan/zoom end) or a spatial/mask recipe change the tiles must re-bake.
   void _scheduleRoi() {
     if (_roiBytes == null || _source == null) return;
     _roiDebounce?.cancel();
-    _roiDebounce = Timer(const Duration(milliseconds: 180), _runRoi);
+    _roiDebounce = Timer(const Duration(milliseconds: 60), _runRoi);
   }
 
-  /// Plans, decodes (native region decode for big frames), bakes and mounts
-  /// the overlay band — or clears it when the plan goes inactive. Every await
-  /// is token-guarded so a newer gesture wins over stale work.
+  /// Fetches (native region decode), bakes and caches the level-0 tiles whose
+  /// world rect intersects the visible region — or tears the overlay down when
+  /// the plan goes inactive. Every await is token-guarded so a newer gesture
+  /// wins over stale work; the LRU disposes evicted images.
+  ///
+  /// Tiles are level-0 only: the proxy already covers every zoom below the
+  /// ROI gate (`scale * fitted.width >= proxyW`), so a coarser level would
+  /// duplicate what the proxy already shows. Geometry is gated to identity by
+  /// the same check the band path used, so each tile bakes with the proxy's
+  /// spec plus a full halo on all four sides.
   Future<void> _runRoi() async {
     if (!mounted) return;
     final bytes = _roiBytes;
@@ -284,76 +345,122 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       geometryActive: roiBlockedByGeometry(recipe),
       roiSupported: _fullW > 0 && _fullH > 0,
     );
-    final key = plan == null
-        ? null
-        : Object.hash(plan.bandTop, Object.hash(plan.bandBottom, _baseKey(recipe)));
-    final hasOverlay = _roiImage != null;
-    if (key == null && !hasOverlay) return;
-    if (key != null && key == _roiKey && hasOverlay) return;
-
-    final token = ++_roiToken;
     if (plan == null) {
-      _roiKey = null;
+      if (!_tilesActive && _tiles.length == 0) return;
+      ++_roiToken; // invalidate in-flight fetches/bakes
       setState(() {
-        _roiImage?.dispose();
-        _roiImage = null;
-        _roiPlan = null;
+        _tiles.clear();
+        _tileBaseKey = null;
+        _tilesActive = false;
       });
       _scheduleBake(recipe); // idle → zero-copy may resume
       return;
     }
 
-    // Geometry is gated to identity above, so the band bakes with the same
-    // spec as the proxy; halo rows give the spatial chain true context.
+    final grid = _tileGrid;
+    if (grid == null) return;
+    final world = plan.dstRect; // visible world rect, in image pixels
+    final visible = grid.visibleTiles(world);
+    final baseKey = _baseKey(recipe);
+    final spatialChanged = _tileBaseKey != baseKey;
+    final needed = [
+      for (final t in visible)
+        if (spatialChanged || !_tiles.containsKey(t.coord)) t.coord,
+    ];
+    if (needed.isEmpty) {
+      if (!_tilesActive) {
+        setState(() => _tilesActive = true);
+        _scheduleBake(recipe);
+      }
+      return;
+    }
+
+    final token = ++_roiToken;
+    setState(() => _tilesActive = true);
+    // Geometry is gated to identity above, so tiles bake with the same spec
+    // as the proxy; the halo gives the spatial chain true context on all
+    // four sides. One halo fetch covers the whole visible set.
     final spec = _baseSpec(recipe);
     final halo = await TesseraEngine.roiHalo(
       spec: spec,
       fullWidth: _fullW,
       fullHeight: _fullH,
     );
-    final decodeTop = math.max(0, plan.bandTop - halo);
-    final decodeBottom = math.min(_fullH, plan.bandBottom + halo);
-    final band = await _roiDecoder.decodeBand(
+    if (!mounted || token != _roiToken) return;
+    final baked = <TileCoord, ui.Image>{};
+    for (final coord in needed) {
+      if (!mounted || token != _roiToken) break;
+      final tile = await _fetchTile(grid, coord, halo, spec, recipe);
+      if (!mounted || token != _roiToken) {
+        tile?.dispose();
+        break;
+      }
+      if (tile != null) baked[coord] = tile;
+    }
+    if (!mounted || token != _roiToken) {
+      for (final img in baked.values) {
+        img.dispose();
+      }
+      return;
+    }
+    setState(() {
+      if (spatialChanged) _tiles.clear();
+      for (final e in baked.entries) {
+        _tiles.put(e.key, e.value);
+      }
+      _tileBaseKey = baseKey;
+    });
+    _scheduleBake(recipe); // texture delivery must yield to the overlay pass
+  }
+
+  /// Decodes the halo-expanded rect around tile [coord] from the original
+  /// frame, bakes it through the spatial+mask chain, and returns the cropped
+  /// tile image — or null when the decode/bake fails.
+  Future<ui.Image?> _fetchTile(
+    TileGrid grid,
+    TileCoord coord,
+    int halo,
+    PreviewBaseSpec spec,
+    EditRecipe recipe,
+  ) async {
+    final bytes = _roiBytes;
+    if (bytes == null) return null;
+    final rect = grid.tileRect(coord.col, coord.row);
+    final x0 = rect.left.toInt();
+    final y0 = rect.top.toInt();
+    final tw = rect.width.toInt();
+    final th = rect.height.toInt();
+    final decode = tileDecodeRect(rect, imageW: _fullW, imageH: _fullH, halo: halo);
+    final dx = decode.left.toInt();
+    final dy = decode.top.toInt();
+    final dw = decode.width.toInt();
+    final dh = decode.height.toInt();
+    final src = await _roiDecoder.decodeRect(
       bytes: bytes,
       imageW: _fullW,
       imageH: _fullH,
-      bandTop: decodeTop,
-      bandBottom: decodeBottom,
+      x: dx,
+      y: dy,
+      width: dw,
+      height: dh,
     );
-    if (!mounted || token != _roiToken) return;
-    if (band == null) {
-      setState(() {
-        _roiImage?.dispose();
-        _roiImage = null;
-        _roiPlan = null;
-        _roiKey = null;
-      });
-      _scheduleBake(recipe);
-      return;
-    }
-    final baked = await TesseraEngine.bakeRoiBand(
-      band.rgba,
-      decodeTop: decodeTop,
-      outTop: plan.bandTop,
-      outRows: plan.bandBottom - plan.bandTop,
+    if (src == null) return null;
+    final baked = await TesseraEngine.bakeRoiRect(
+      src.rgba,
+      decodeX: dx,
+      decodeY: dy,
+      decodeW: dw,
+      decodeH: dh,
+      outX: x0,
+      outY: y0,
+      outW: tw,
+      outH: th,
       fullWidth: _fullW,
       fullHeight: _fullH,
       spec: spec,
       layers: recipe.layers,
     );
-    if (!mounted || token != _roiToken) return;
-    final image = await _imageFrom(baked.rgba, baked.width, baked.height);
-    if (!mounted || token != _roiToken) {
-      image.dispose();
-      return;
-    }
-    setState(() {
-      _roiImage?.dispose();
-      _roiImage = image;
-      _roiPlan = plan;
-      _roiKey = key;
-    });
-    _scheduleBake(recipe); // texture delivery must yield to the overlay pass
+    return _imageFrom(baked.rgba, baked.width, baked.height);
   }
 
   /// Decodes [bytes] to RGBA in a **single** pass, capping the long side at
@@ -695,9 +802,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _lut?.dispose();
     _dropTexture(); // release the platform texture (#54)
     _roiDebounce?.cancel();
-    _roiToken++; // invalidate any in-flight overlay decode/bake
-    _roiImage?.dispose();
-    _roiImage = null;
+    _roiToken++; // invalidate any in-flight tile decode/bake
+    _tiles.clear(); // disposes every cached tile image (onEvict)
     final handle = _previewHandle;
     if (handle != null) {
       unawaited(TesseraEngine.previewClose(handle));
@@ -797,7 +903,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     return LayoutBuilder(
       builder: (context, constraints) {
         final bounds = constraints.biggest;
-        final fitted = _widthFit(content, bounds);
+        final fitted = fitContained(content, bounds);
         // Remembered for the ROI overlay planner (#55) — it runs after the
         // viewport settles, outside this build.
         _lastFitted = fitted;
@@ -807,7 +913,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _publishTransform(CanvasTransform(fitted: fitted, offset: _offset, scale: _scale));
         if (_needsReset) {
           _needsReset = false;
-          _minScale = math.min(1.0, bounds.height / fitted.height);
+          // Contain-fit is the baseline: the photo always fits inside the
+          // canvas, so zoom only ever goes in.
+          _minScale = 1.0;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) setState(() => _resetView(fitted, bounds));
           });
@@ -846,24 +954,18 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                         child: AnimatedBuilder(
                           animation: Listenable.merge([_compare, _maskPeek]),
                           builder: (context, _) {
-                            // High-zoom ROI overlay (#55): the baked band
-                            // strip, drawn over the proxy through the shader.
-                            final overlayImage = _roiImage;
-                            final overlayRect =
-                                overlayImage != null &&
-                                    _roiPlan != null &&
-                                    _fullH > 0
-                                ? roiStripRect(
-                                    _roiPlan!,
-                                    fullHeight: _fullH,
-                                    fitted: fitted,
-                                  )
-                                : null;
+                            // High-zoom tiles (#16): the cached, baked level-0
+                            // tiles, drawn over the proxy through the shader.
+                            // World rect → fitted rect, same mapping as the
+                            // proxy (image px → contain-fit content px).
+                            final tiles = _tilesActive && _fullH > 0
+                                ? _visibleTileImages(fitted)
+                                : const <_CanvasTile>[];
                             return PreviewSurface(
                               // Issue #54: actually display the texture Rust is
                               // writing into; the shader paint is the fallback
                               // (imported LUTs, iOS/tests, compare/peek fades,
-                              // ROI overlay).
+                              // tile overlay, geometry edits).
                               textureId: zeroCopy ? _textureId : null,
                               fallback: (_) => CustomPaint(
                                 size: fitted,
@@ -877,8 +979,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                                   dst: Offset.zero & fitted,
                                   blend: _compare.value,
                                   maskBlend: _maskPeek.value,
-                                  overlay: overlayImage,
-                                  overlayRect: overlayRect,
+                                  tiles: tiles,
                                 ),
                               ),
                             );
@@ -1035,12 +1136,6 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     return Offset(cx, cy);
   }
 
-  /// The width-fit display size of [content] within [bounds].
-  static Size _widthFit(Size content, Size bounds) {
-    if (content.width <= 0 || bounds.width <= 0) return bounds;
-    return Size(bounds.width, bounds.width * content.height / content.width);
-  }
-
   /// Hands the current view to [canvasTransformProvider], deferred to a
   /// microtask so a widget build never mutates another provider
   /// synchronously; the write is skipped when the value is unchanged.
@@ -1055,9 +1150,46 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   void _resetView(Size fitted, Size bounds) {
     _scale = 1;
     _offset = Offset(
-      0,
-      fitted.height < bounds.height ? (bounds.height - fitted.height) / 2 : 0,
+      (bounds.width - fitted.width) / 2,
+      (bounds.height - fitted.height) / 2,
     );
+  }
+
+  /// The cached tiles that intersect the visible world rect, each mapped to
+  /// its fitted-space draw rect (image px → contain-fit content px). Tiles
+  /// not yet decoded are simply absent — the proxy underneath shows through
+  /// until they land.
+  List<_CanvasTile> _visibleTileImages(Size fitted) {
+    final grid = _tileGrid;
+    if (grid == null || fitted.width <= 0 || fitted.height <= 0) {
+      return const [];
+    }
+    final scale = _scale;
+    if (scale <= 0) return const [];
+    // Inverse of the viewport transform (translate(offset) * scale, topLeft):
+    // world = (screen - offset) / scale.
+    final visibleWorld = Rect.fromLTWH(
+      -_offset.dx / scale,
+      -_offset.dy / scale,
+      _lastBounds.width / scale,
+      _lastBounds.height / scale,
+    ).intersect(Rect.fromLTWH(0, 0, _fullW.toDouble(), _fullH.toDouble()));
+    if (visibleWorld.width <= 0 || visibleWorld.height <= 0) return const [];
+    final sx = fitted.width / _fullW;
+    final sy = fitted.height / _fullH;
+    final out = <_CanvasTile>[];
+    for (final t in grid.visibleTiles(visibleWorld)) {
+      final img = _tiles.get(t.coord);
+      if (img == null) continue;
+      final r = t.worldRect;
+      out.add(
+        _CanvasTile(
+          image: img,
+          dst: Rect.fromLTWH(r.left * sx, r.top * sy, r.width * sx, r.height * sy),
+        ),
+      );
+    }
+    return out;
   }
 
   static const List<String> _bandNames = [
@@ -1204,6 +1336,14 @@ class _Badge extends StatelessWidget {
   }
 }
 
+/// A baked high-zoom tile (#16) and its draw rect in fitted/content space.
+class _CanvasTile {
+  const _CanvasTile({required this.image, required this.dst});
+
+  final ui.Image image;
+  final Rect dst;
+}
+
 /// Draws the base texture through `lut.frag` inside the aspect-correct [dst]
 /// rect, sampling the packed 3D LUT atlas, and crossfades to the raw source
 /// while comparing ([blend] 0..1).
@@ -1216,8 +1356,7 @@ class _CanvasPainter extends CustomPainter {
     required this.dst,
     required this.blend,
     required this.maskBlend,
-    this.overlay,
-    this.overlayRect,
+    this.tiles = const [],
   });
 
   final ui.FragmentShader shader;
@@ -1228,11 +1367,10 @@ class _CanvasPainter extends CustomPainter {
   final double blend;
   final double maskBlend;
 
-  /// High-zoom ROI band (#55): baked full-width strip of the original frame,
-  /// drawn through the same uniforms over the proxy at [overlayRect] (world
-  /// coords). Null while the overlay is inactive.
-  final ui.Image? overlay;
-  final Rect? overlayRect;
+  /// High-zoom tiles (#16): baked level-0 tiles of the original frame, drawn
+  /// through the same uniforms over the proxy at their fitted-space rects.
+  /// Empty while the overlay is inactive or tiles are still loading.
+  final List<_CanvasTile> tiles;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1258,28 +1396,32 @@ class _CanvasPainter extends CustomPainter {
       );
     }
 
-    final ov = overlay;
-    final ovRect = overlayRect;
-    if (ov != null && ovRect != null) {
-      // Translate so the band strip's own rect is the shader's local origin —
-      // `FlutterFragCoord` is local-canvas space, so uSize covers the strip
-      // exactly, mirroring the proxy pass (which draws at the content origin).
+    // High-zoom tiles: one shader pass per tile. Translate so the tile's own
+    // rect is the shader's local origin — `FlutterFragCoord` is local-canvas
+    // space, so uSize covers the tile exactly, mirroring the proxy pass.
+    // The compare crossfade is drawn above, so tiles under the blend are
+    // already covered by the raw-source overlay and need no extra fade.
+    if (tiles.isNotEmpty) {
       canvas.save();
       canvas.clipRect(Offset.zero & size);
-      canvas.translate(ovRect.left, ovRect.top);
-      shader
-        ..setFloat(0, ovRect.width)
-        ..setFloat(1, ovRect.height)
-        ..setFloat(2, lutSize)
-        ..setFloat(3, maskBlend)
-        ..setFloat(4, ov.width.toDouble())
-        ..setFloat(5, ov.height.toDouble())
-        ..setImageSampler(0, ov)
-        ..setImageSampler(1, lut);
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, ovRect.width, ovRect.height),
-        Paint()..shader = shader,
-      );
+      for (final tile in tiles) {
+        canvas.save();
+        canvas.translate(tile.dst.left, tile.dst.top);
+        shader
+          ..setFloat(0, tile.dst.width)
+          ..setFloat(1, tile.dst.height)
+          ..setFloat(2, lutSize)
+          ..setFloat(3, maskBlend)
+          ..setFloat(4, tile.image.width.toDouble())
+          ..setFloat(5, tile.image.height.toDouble())
+          ..setImageSampler(0, tile.image)
+          ..setImageSampler(1, lut);
+        canvas.drawRect(
+          Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
+          Paint()..shader = shader,
+        );
+        canvas.restore();
+      }
       canvas.restore();
     }
   }
@@ -1289,7 +1431,15 @@ class _CanvasPainter extends CustomPainter {
       old.source != source ||
       old.lut != lut ||
       old.blend != blend ||
+      old.maskBlend != maskBlend ||
       old.dst != dst ||
-      old.overlay != overlay ||
-      old.overlayRect != overlayRect;
+      !_sameTiles(old.tiles, tiles);
+
+  static bool _sameTiles(List<_CanvasTile> a, List<_CanvasTile> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].image != b[i].image || a[i].dst != b[i].dst) return false;
+    }
+    return true;
+  }
 }

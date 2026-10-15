@@ -67,7 +67,7 @@ pub fn apply_local(rgba: &[u8], w: usize, h: usize, layers: &[LocalAdjustment]) 
     if layers.is_empty() || w == 0 || h == 0 {
         return out;
     }
-    apply_local_rows(&mut out, w, h, 0, h, layers);
+    apply_local_rows(&mut out, w, 0, 0, w, h, layers);
     out
 }
 
@@ -88,28 +88,51 @@ pub fn apply_local_band(
     if layers.is_empty() || w == 0 || full_h == 0 {
         return out;
     }
-    let band_rows = band.len() / (w * 4).max(1);
-    apply_local_rows(&mut out, w, band_rows, y0, full_h, layers);
+    apply_local_rows(&mut out, w, 0, y0, w, full_h, layers);
     out
 }
 
-/// The shared per-pixel body of [`apply_local`] / [`apply_local_band`].
-/// `row_origin` is the global row of the buffer's first row (0 for the full
-/// image, `y0` for a band), so normalised `v` always spans the full frame.
+/// Composites every layer over a **rect (tile)** whose top-left pixel sits at
+/// `(x0, y0)` of the `full_w x full_h` image (RGBA8, `tw*th*4`, [tw] per row).
+///
+/// Same seam-free argument as [`apply_local_band`]: `u,v` normalise against
+/// the **full** image, so neighbouring tiles agree at their shared pixels.
+pub fn apply_local_rect(
+    band: &[u8],
+    tw: usize,
+    x0: usize,
+    y0: usize,
+    full_w: usize,
+    full_h: usize,
+    layers: &[LocalAdjustment],
+) -> Vec<u8> {
+    let mut out = band.to_vec();
+    if layers.is_empty() || tw == 0 || full_w == 0 || full_h == 0 {
+        return out;
+    }
+    apply_local_rows(&mut out, tw, x0, y0, full_w, full_h, layers);
+    out
+}
+
+/// The shared per-pixel body of [`apply_local`] / [`apply_local_band`] /
+/// [`apply_local_rect`]. `(x_origin, row_origin)` is the global position of
+/// the buffer's first pixel (0,0 for the full image; tile/band offsets
+/// otherwise), so normalised `u,v` always span the full frame.
 fn apply_local_rows(
     buf: &mut [u8],
-    w: usize,
-    band_rows: usize,
+    buf_w: usize,
+    x_origin: usize,
     row_origin: usize,
+    full_w: usize,
     full_h: usize,
     layers: &[LocalAdjustment],
 ) {
     for layer in layers {
-        for y in 0..band_rows {
+        for y in 0..buf.len() / (buf_w * 4).max(1) {
             let v = ((row_origin + y) as f32 + 0.5) / full_h as f32;
-            for x in 0..w {
-                let i = (y * w + x) * 4;
-                let u = (x as f32 + 0.5) / w as f32;
+            for x in 0..buf_w {
+                let i = (y * buf_w + x) * 4;
+                let u = ((x_origin + x) as f32 + 0.5) / full_w as f32;
                 let base = [
                     buf[i] as f32 / 255.0,
                     buf[i + 1] as f32 / 255.0,

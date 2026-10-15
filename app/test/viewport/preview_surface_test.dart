@@ -142,7 +142,7 @@ void main() {
       );
     });
 
-    test('yields to the shader path while the ROI overlay is active', () {
+    test('yields to the shader path while the ROI tiles are active', () {
       // The overlay is drawn through the grading shader (lut.frag), which
       // needs the baked LUT atlas — texture mode has none (#55/#16).
       expect(
@@ -156,13 +156,43 @@ void main() {
       );
     });
 
-    test('is the zero-copy path when bound and idle', () {
+    test('yields to the shader path while geometry edits are non-identity', () {
+      // Correctness gate: a HardwareBuffer-backed SurfaceProducer ignores
+      // setBuffersGeometry, so a cropped/rotated frame written into the
+      // proxy buffer would be stretched to the wrong aspect. The shader path
+      // bakes geometry into the base image and draws it correctly.
       expect(
         useTextureDelivery(
           textureId: 3,
           hasImportedLut: false,
           gestureActive: false,
           roiActive: false,
+          geometryActive: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('geometryActive defaults to false (identity geometry)', () {
+      expect(
+        useTextureDelivery(
+          textureId: 3,
+          hasImportedLut: false,
+          gestureActive: false,
+          roiActive: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('is the zero-copy path when bound and idle with identity geometry', () {
+      expect(
+        useTextureDelivery(
+          textureId: 3,
+          hasImportedLut: false,
+          gestureActive: false,
+          roiActive: false,
+          geometryActive: false,
         ),
         isTrue,
       );

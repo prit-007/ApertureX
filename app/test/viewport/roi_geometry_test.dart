@@ -5,7 +5,6 @@ import 'package:aperturex/viewport/roi_overlay.dart';
 
 void main() {
   const fitted = Size(1000, 750);
-  const fullHeight = 3000;
 
   group('roiBlockedByGeometry', () {
     test('identity geometry allows the overlay', () {
@@ -28,39 +27,103 @@ void main() {
         expect(
           roiBlockedByGeometry(entry.value),
           isTrue,
-          reason: '${entry.key} must gate the raw-band overlay',
+          reason: '${entry.key} must gate the raw-tile overlay',
         );
       }
     });
   });
 
-  group('roiStripRect', () {
-    test('maps the band rows to the full-width world strip', () {
-      const plan = RoiOverlayPlan(
-        bandTop: 100,
-        bandBottom: 1100,
-        dstRect: Rect.fromLTWH(50, 25, 250, 250),
-        decodeW: 4000,
-        decodeH: 1000,
-      );
+  group('planRoiOverlay', () {
+    test('is inactive below the proxy-density zoom gate', () {
+      // Proxy is 1440 wide; a 1000-wide fitted at scale 1 is still under it.
       expect(
-        roiStripRect(plan, fullHeight: fullHeight, fitted: fitted),
-        // y = 100/3000*750 = 25, height = 1000/3000*750 = 250.
-        const Rect.fromLTWH(0, 25, 1000, 250),
+        planRoiOverlay(
+          imageW: 4000,
+          imageH: 3000,
+          proxyW: 1440,
+          fitted: fitted,
+          scale: 1.0,
+          offset: Offset.zero,
+          viewport: fitted,
+        ),
+        isNull,
       );
     });
 
-    test('band at the very top starts at world zero', () {
-      const plan = RoiOverlayPlan(
-        bandTop: 0,
-        bandBottom: 300,
-        dstRect: Rect.fromLTWH(0, 0, 125, 75),
-        decodeW: 4000,
-        decodeH: 300,
+    test('is active once the proxy is upscaled past its native density', () {
+      // scale * fitted.width = 2.0 * 1000 = 2000 >= proxyW 1440.
+      final plan = planRoiOverlay(
+        imageW: 4000,
+        imageH: 3000,
+        proxyW: 1440,
+        fitted: fitted,
+        scale: 2.0,
+        offset: Offset.zero,
+        viewport: fitted,
       );
+      expect(plan, isNotNull);
+      // dstRect is the visible world rect (inverse viewport transform).
+      expect(plan!.dstRect, const Rect.fromLTWH(0, 0, 500, 375));
+    });
+
+    test('is blocked while geometry edits are active', () {
       expect(
-        roiStripRect(plan, fullHeight: fullHeight, fitted: fitted),
-        const Rect.fromLTWH(0, 0, 1000, 75),
+        planRoiOverlay(
+          imageW: 4000,
+          imageH: 3000,
+          proxyW: 1440,
+          fitted: fitted,
+          scale: 2.0,
+          offset: Offset.zero,
+          viewport: fitted,
+          geometryActive: true,
+        ),
+        isNull,
+      );
+    });
+  });
+
+  group('tileDecodeRect', () {
+    test('an interior tile grows by the halo on every side', () {
+      // Tile (col 1, row 1) of a 512-tile field: [512,512,1024,1024].
+      const tile = Rect.fromLTWH(512, 512, 512, 512);
+      final decode = tileDecodeRect(
+        tile,
+        imageW: 4000,
+        imageH: 3000,
+        halo: 16,
+      );
+      expect(decode, const Rect.fromLTWH(496, 496, 544, 544));
+    });
+
+    test('a top-left tile clamps the halo at the image origin', () {
+      const tile = Rect.fromLTWH(0, 0, 512, 512);
+      final decode = tileDecodeRect(
+        tile,
+        imageW: 4000,
+        imageH: 3000,
+        halo: 16,
+      );
+      expect(decode, const Rect.fromLTWH(0, 0, 528, 528));
+    });
+
+    test('a bottom-right tile clamps the halo at the image edge', () {
+      // Last tile of a 2048x1536 image (tile field 4x3 of 512).
+      const tile = Rect.fromLTWH(1536, 1024, 512, 512);
+      final decode = tileDecodeRect(
+        tile,
+        imageW: 2048,
+        imageH: 1536,
+        halo: 16,
+      );
+      expect(decode, const Rect.fromLTWH(1520, 1008, 528, 528));
+    });
+
+    test('a zero halo returns the tile rect unchanged', () {
+      const tile = Rect.fromLTWH(512, 512, 512, 512);
+      expect(
+        tileDecodeRect(tile, imageW: 4000, imageH: 3000, halo: 0),
+        tile,
       );
     });
   });

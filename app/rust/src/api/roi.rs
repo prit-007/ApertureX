@@ -93,6 +93,94 @@ pub fn bake_roi_band(
     })
 }
 
+/// Bakes the preview base chain (spatial → mask layers) onto a decoded
+/// **rect (tile)** of the **original** frame — the tiled viewport bake (#16),
+/// the 2D sibling of [`bake_roi_band`].
+///
+/// * `rect` holds the pixels `(decode_x, decode_y, decode_w, decode_h)` of
+///   the source, with at least [`roi_halo`] context on **all four** sides
+///   around `[out_x, out_x + out_w) × [out_y, out_y + out_h)` (except at the
+///   image edges);
+/// * `spec`'s geometry fields **must be identity** (same contract as the band
+///   path — the viewport gates on crop/rotate/flip);
+/// * the grade is shader-side for preview and not applied here.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "flat scalar args keep the frb surface simple; a struct adds a bridge type for no gain"
+)]
+pub fn bake_roi_rect(
+    rect: Vec<u8>,
+    decode_x: u32,
+    decode_y: u32,
+    decode_w: u32,
+    decode_h: u32,
+    out_x: u32,
+    out_y: u32,
+    out_w: u32,
+    out_h: u32,
+    full_width: u32,
+    full_height: u32,
+    spec: PreviewBaseSpec,
+    layers: Vec<MaskLayer>,
+) -> Result<RgbaImage, String> {
+    if spec.flip_h
+        || spec.flip_v
+        || spec.turns != 0
+        || spec.crop_l != 0.0
+        || spec.crop_t != 0.0
+        || spec.crop_r != 1.0
+        || spec.crop_b != 1.0
+    {
+        return Err(
+            "ROI rects require identity geometry; the viewport must gate on crop/rotate/flip"
+                .to_string(),
+        );
+    }
+
+    let full = (full_width as usize, full_height as usize);
+    let mut out = spatial::apply_spatial_rect(
+        &rect,
+        full,
+        decode_x as usize,
+        decode_y as usize,
+        decode_w as usize,
+        decode_h as usize,
+        out_x as usize,
+        out_y as usize,
+        out_w as usize,
+        out_h as usize,
+        spatial_params(&spec),
+    )?;
+
+    if !layers.is_empty() {
+        let core: Vec<LocalAdjustment> = layers
+            .iter()
+            .map(|l| LocalAdjustment {
+                mask: MaskSpec {
+                    kind: l.kind,
+                    params: l.mask.clone(),
+                },
+                params: l.params.to_core(),
+            })
+            .collect();
+        out = mask::apply_local_rect(
+            &out,
+            out_w as usize,
+            out_x as usize,
+            out_y as usize,
+            full.0,
+            full.1,
+            &core,
+        );
+    }
+
+    Ok(RgbaImage {
+        width: out_w,
+        height: out_h,
+        rgba: out,
+    })
+}
+
 /// The engine spatial params carried by a [`PreviewBaseSpec`] (geometry is
 /// absent by construction of the ROI path).
 fn spatial_params(spec: &PreviewBaseSpec) -> SpatialParams {
@@ -287,5 +375,130 @@ mod tests {
         )
         .expect("neutral bake");
         assert_eq!(out.rgba, rows(&src, w, 6, 12));
+    }
+
+    /// Extracts the rect `(x, y, rw, rh)` of a `w`-wide image.
+    fn rect(src: &[u8], w: usize, x: usize, y: usize, rw: usize, rh: usize) -> Vec<u8> {
+        let mut out = Vec::with_capacity(rw * rh * 4);
+        for row in 0..rh {
+            let start = ((y + row) * w + x) * 4;
+            out.extend_from_slice(&src[start..start + rw * 4]);
+        }
+        out
+    }
+
+    /// 2×2 tiles with halo, stitched, must equal the preview_base oracle
+    /// byte-for-byte — the seam guarantee for the tiled viewport (#16).
+    /// Dehaze is off so the margin (32 px) stays inside the 96×80 frame and
+    /// the interior tile edges exercise true partial-halo decoding.
+    #[test]
+    fn rect_tiles_stitch_to_the_preview_base_chain() {
+        let (w, h) = (96, 80);
+        let src = noise(w, h);
+        let spec = PreviewBaseSpec {
+            dehaze: 0.0,
+            ..engaged_spec()
+        };
+        let halo = roi_halo(spec, w as u32, h as u32) as usize;
+        assert!(halo > 0, "engaged ops must demand context");
+
+        let handle = preview_open(src.clone(), w as u32, h as u32);
+        let full = preview_base(handle, spec, vec![layer()]).expect("preview base");
+        preview_close(handle);
+
+        let mut stitched = vec![0u8; w * h * 4];
+        for (tx, ty) in [(0usize, 0usize), (48, 0), (0, 40), (48, 40)] {
+            let (tw, th) = (48, 40);
+            let dx = tx.saturating_sub(halo);
+            let dy = ty.saturating_sub(halo);
+            let dw = (tx + tw + halo).min(w) - dx;
+            let dh = (ty + th + halo).min(h) - dy;
+            let baked = bake_roi_rect(
+                rect(&src, w, dx, dy, dw, dh),
+                dx as u32,
+                dy as u32,
+                dw as u32,
+                dh as u32,
+                tx as u32,
+                ty as u32,
+                tw as u32,
+                th as u32,
+                w as u32,
+                h as u32,
+                spec,
+                vec![layer()],
+            )
+            .expect("rect bake");
+            assert_eq!(baked.width, tw as u32);
+            assert_eq!(baked.height, th as u32);
+            for row in 0..th {
+                let dst = ((ty + row) * w + tx) * 4;
+                let src_i = row * tw * 4;
+                stitched[dst..dst + tw * 4].copy_from_slice(&baked.rgba[src_i..src_i + tw * 4]);
+            }
+        }
+        assert_eq!(
+            stitched, full.rgba,
+            "stitched tiles must equal the full-frame chain"
+        );
+    }
+
+    #[test]
+    fn a_short_side_halo_fails_instead_of_seaming() {
+        let (w, h) = (64, 64);
+        let src = noise(w, h);
+        // Clarity-only keeps the margin small enough to sit inside the image.
+        let spec = PreviewBaseSpec {
+            clarity: 0.4,
+            ..identity_spec()
+        };
+        let halo = roi_halo(spec, w as u32, h as u32) as usize;
+        assert!(halo > 1, "test needs an engaged margin");
+        // Interior tile at (32,32): decode starts only halo-1 px to its left,
+        // with a full top halo so the left edge is what gets rejected.
+        let (tx, ty, tw, th) = (32, 32, 16, 16);
+        let dx = tx - (halo - 1);
+        let dy = ty - halo;
+        let dw = (tx + tw + halo).min(w) - dx;
+        let dh = (ty + th + halo).min(h) - dy;
+        let err = bake_roi_rect(
+            rect(&src, w, dx, dy, dw, dh),
+            dx as u32,
+            dy as u32,
+            dw as u32,
+            dh as u32,
+            tx as u32,
+            ty as u32,
+            tw as u32,
+            th as u32,
+            w as u32,
+            h as u32,
+            spec,
+            Vec::new(),
+        );
+        assert!(err.is_err(), "short left halo must be rejected");
+    }
+
+    #[test]
+    fn rect_geometry_edits_are_rejected_rather_than_misaligned() {
+        let src = noise(16, 32);
+        let mut spec = identity_spec();
+        spec.turns = 1;
+        let err = bake_roi_rect(
+            src[..16 * 8 * 4].to_vec(),
+            0,
+            0,
+            16,
+            8,
+            0,
+            0,
+            16,
+            8,
+            16,
+            32,
+            spec,
+            Vec::new(),
+        );
+        assert!(err.is_err());
     }
 }

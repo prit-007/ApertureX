@@ -44,13 +44,27 @@ bool previewNeedsPlaceholder({
 /// Whether the preview delivers frames through the bound platform texture.
 ///
 /// Yields to the shader/atlas path when an imported LUT is active (the Rust
-/// render doesn't carry an external atlas) or while a compare/mask-peek
+/// render doesn't carry an external atlas), while a compare/mask-peek
 /// crossfade runs — those fades are drawn by `lut.frag` (`blend`/`maskBlend`),
-/// which the texture path doesn't carry.
+/// which the texture path doesn't carry — while a high-zoom overlay (band or
+/// tiles) is drawing, and whenever recipe geometry is non-identity.
+///
+/// The geometry gate is a correctness fix, not a quality one: modern Android
+/// `SurfaceProducer` surfaces are HardwareBuffer-backed and ignore the
+/// producer-side `ANativeWindow_setBuffersGeometry` call, so a cropped or
+/// rotated frame written top-left into a proxy-sized buffer keeps stale rows
+/// that Flutter then stretches to the baked-aspect widget (the "stretched
+/// image" bug). The shader path bakes geometry into `_baseImage` and draws it
+/// correctly, so texture delivery must yield for as long as geometry is live.
 bool useTextureDelivery({
   required int? textureId,
   required bool hasImportedLut,
   required bool gestureActive,
   required bool roiActive,
+  bool geometryActive = false,
 }) =>
-    textureId != null && !hasImportedLut && !gestureActive && !roiActive;
+    textureId != null &&
+    !hasImportedLut &&
+    !gestureActive &&
+    !roiActive &&
+    !geometryActive;

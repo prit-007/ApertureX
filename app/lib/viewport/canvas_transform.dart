@@ -16,7 +16,7 @@ class CanvasTransform {
     required this.scale,
   });
 
-  /// Width-fit display size of the image within the canvas bounds.
+  /// Contain-fit display size of the image within the canvas bounds.
   final Size fitted;
 
   /// Pan offset applied before scaling (letterbox centring).

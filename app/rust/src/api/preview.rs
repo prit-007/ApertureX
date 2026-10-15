@@ -24,6 +24,7 @@ use crate::api::mask::MaskLayer;
 
 /// Everything `preview_base` bakes on the CPU. Perspective/skew/straighten
 /// are absent on purpose — they are GPU-warped live (see module docs).
+#[derive(Clone, Copy)]
 pub struct PreviewBaseSpec {
     pub flip_h: bool,
     pub flip_v: bool,

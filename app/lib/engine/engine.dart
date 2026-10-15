@@ -436,6 +436,51 @@ class TesseraEngine {
     ],
   );
 
+  /// Bakes the spatial + mask chain of [previewBase] onto a decoded **rect
+  /// (tile)** of the **original** frame — the 2D sibling of [bakeRoiBand],
+  /// used by the tiled viewport (#16).
+  ///
+  /// [rect] holds the pixels `(decodeX, decodeY, decodeW, decodeH)` of the
+  /// source, with [roiHalo] context on **all four** sides around
+  /// `(outX, outY, outW, outH)` (except at the image edges). The spec's
+  /// geometry must be identity; the grade stays shader-side.
+  static Future<RgbaImage> bakeRoiRect(
+    Uint8List rect, {
+    required int decodeX,
+    required int decodeY,
+    required int decodeW,
+    required int decodeH,
+    required int outX,
+    required int outY,
+    required int outW,
+    required int outH,
+    required int fullWidth,
+    required int fullHeight,
+    required PreviewBaseSpec spec,
+    required List<AdjustmentLayer> layers,
+  }) => rust_roi.bakeRoiRect(
+    rect: rect,
+    decodeX: decodeX,
+    decodeY: decodeY,
+    decodeW: decodeW,
+    decodeH: decodeH,
+    outX: outX,
+    outY: outY,
+    outW: outW,
+    outH: outH,
+    fullWidth: fullWidth,
+    fullHeight: fullHeight,
+    spec: spec,
+    layers: [
+      for (final l in layers)
+        rust_mask.MaskLayer(
+          kind: l.maskKind.index,
+          mask: Float32List.fromList(l.maskParams),
+          params: _localParams(l),
+        ),
+    ],
+  );
+
   /// Histogram binned from the **cached** base inside Rust — zero pixels
   /// cross the bridge (spike A). Errors if [previewBase] hasn't run yet.
   static Future<rust_hist.Histogram> previewHistogram(

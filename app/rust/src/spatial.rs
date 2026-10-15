@@ -542,23 +542,144 @@ pub fn apply_spatial_roi(
     Ok(out)
 }
 
+/// Spatial chain for a **decoded rect (tile)** of the original frame — the
+/// tiled viewport bake (#16). The 2D sibling of [`apply_spatial_roi`]:
+///
+/// * `rect` holds the pixels `decode_x..decode_x+decode_w` ×
+///   `decode_y..decode_y+decode_h` of the `full` image, including at least
+///   [`spatial_local_margin`] context on **all four** sides around the
+///   requested output `[out_x, out_x+out_w) × [out_y, out_y+out_h)` (except
+///   where the rect touches the image edge, where the clamp reproduces the
+///   full-image edge behaviour);
+/// * vignette/grain use the rect's absolute origin, so tiles stitch onto the
+///   whole-frame result byte-for-byte.
+///
+/// A short halo away from an image edge is an error, never a silent seam.
+#[allow(clippy::too_many_arguments)]
+pub fn apply_spatial_rect(
+    rect: &[u8],
+    full: (usize, usize),
+    decode_x: usize,
+    decode_y: usize,
+    decode_w: usize,
+    decode_h: usize,
+    out_x: usize,
+    out_y: usize,
+    out_w: usize,
+    out_h: usize,
+    p: SpatialParams,
+) -> Result<Vec<u8>, String> {
+    let (fw, fh) = full;
+    if fw == 0 || fh == 0 {
+        return Err("full frame must be non-empty".to_string());
+    }
+    if out_w == 0 || out_h == 0 {
+        return Err("out rect must be non-empty".to_string());
+    }
+    if decode_w == 0 || decode_h == 0 {
+        return Err("decoded rect must be non-empty".to_string());
+    }
+    if rect.len() != decode_w * decode_h * 4 {
+        return Err(format!(
+            "rect has {} bytes, expected {} for {decode_w}x{decode_h}",
+            rect.len(),
+            decode_w * decode_h * 4
+        ));
+    }
+    if out_x < decode_x
+        || out_y < decode_y
+        || out_x + out_w > decode_x + decode_w
+        || out_y + out_h > decode_y + decode_h
+    {
+        return Err(format!(
+            "output rect {out_x},{out_y} {out_w}x{out_h} outside decoded \
+             rect {decode_x},{decode_y} {decode_w}x{decode_h}"
+        ));
+    }
+    if out_x + out_w > fw || out_y + out_h > fh {
+        return Err(format!(
+            "output rect {out_x},{out_y} {out_w}x{out_h} outside full frame {fw}x{fh}"
+        ));
+    }
+
+    let margin = spatial_local_margin(p, fw, fh);
+    let x0_buf = out_x - decode_x;
+    let y0_buf = out_y - decode_y;
+    if decode_x > 0 && x0_buf < margin {
+        return Err(format!(
+            "missing left halo: {x0_buf} px, margin {margin} (decode_x {decode_x})"
+        ));
+    }
+    if decode_y > 0 && y0_buf < margin {
+        return Err(format!(
+            "missing top halo: {y0_buf} px, margin {margin} (decode_y {decode_y})"
+        ));
+    }
+    let right = decode_w - (x0_buf + out_w);
+    if decode_x + decode_w < fw && right < margin {
+        return Err(format!("missing right halo: {right} px, margin {margin}"));
+    }
+    let below = decode_h - (y0_buf + out_h);
+    if decode_y + decode_h < fh && below < margin {
+        return Err(format!("missing bottom halo: {below} px, margin {margin}"));
+    }
+
+    if p.is_neutral() {
+        let mut out = Vec::with_capacity(out_w * out_h * 4);
+        for y in 0..out_h {
+            let start = ((y0_buf + y) * decode_w + x0_buf) * 4;
+            out.extend_from_slice(&rect[start..start + out_w * 4]);
+        }
+        return Ok(out);
+    }
+
+    let radius = clarity_radius(fw, fh);
+    let mut out = process_tile_padded(
+        rect,
+        decode_w,
+        decode_h,
+        (x0_buf, y0_buf, out_w, out_h),
+        margin,
+        |b, iw, ih| apply_spatial_local_ctx(b, iw, ih, p, radius),
+    );
+    vignette_tile(&mut out, fw, fh, out_w, out_x, out_y, p.vignette);
+    grain_tile(&mut out, out_w, out_x, out_y, p.grain);
+    Ok(out)
+}
+
 /// In-place radial vignette for a band of rows `y0..y0+band_rows` of a `w x h`
 /// image. Uses the **full** image centre so bands stitch seamlessly.
 pub fn vignette_band(band: &mut [u8], w: usize, h: usize, y0: usize, amount: f32) {
-    if amount == 0.0 {
+    vignette_tile(band, w, h, w, 0, y0, amount);
+}
+
+/// In-place radial vignette for a `tw x th` rect whose top-left pixel sits at
+/// `(x0, y0)` of the `fw x fh` full image. [band] is `tw` pixels per row
+/// (`band.len() == tw * th * 4`). The full image centre is used, so tiles
+/// stitch seamlessly onto the whole-frame result.
+pub fn vignette_tile(
+    band: &mut [u8],
+    fw: usize,
+    fh: usize,
+    tw: usize,
+    x0: usize,
+    y0: usize,
+    amount: f32,
+) {
+    if amount == 0.0 || tw == 0 {
         return;
     }
-    let (cx, cy) = ((w as f32 - 1.0) / 2.0, (h as f32 - 1.0) / 2.0);
+    let (cx, cy) = ((fw as f32 - 1.0) / 2.0, (fh as f32 - 1.0) / 2.0);
     let maxd = (cx * cx + cy * cy).sqrt().max(1.0);
-    let rows = band.len() / (w * 4);
-    for y in 0..rows {
+    let th = band.len() / (tw * 4);
+    for y in 0..th {
         let dy = (y0 + y) as f32 - cy;
-        for x in 0..w {
-            let dx = x as f32 - cx;
+        for x in 0..tw {
+            let dx = (x0 + x) as f32 - cx;
             let d = (dx * dx + dy * dy).sqrt() / maxd;
             let t = ((d - 0.3) / 0.7).clamp(0.0, 1.0);
             let f = (1.0 - amount * t * t).max(0.0);
-            let i = (y * w + x) * 4;
+            let i = (y * tw + x) * 4;
             for c in 0..3 {
                 band[i + c] = (band[i + c] as f32 * f).clamp(0.0, 255.0) as u8;
             }
@@ -569,15 +690,22 @@ pub fn vignette_band(band: &mut [u8], w: usize, h: usize, y0: usize, amount: f32
 /// In-place film grain for a band of rows `y0..` using the band's true row
 /// offset, so the deterministic noise pattern matches the full-frame result.
 pub fn grain_band(band: &mut [u8], w: usize, y0: usize, amount: f32) {
-    if amount == 0.0 {
+    grain_tile(band, w, 0, y0, amount);
+}
+
+/// In-place film grain for a `tw`-wide rect whose top-left sits at `(x0, y0)`
+/// of the full image, so the deterministic noise pattern matches the
+/// full-frame result wherever the rect lies.
+pub fn grain_tile(band: &mut [u8], tw: usize, x0: usize, y0: usize, amount: f32) {
+    if amount == 0.0 || tw == 0 {
         return;
     }
     let strength = amount * 40.0;
-    let rows = band.len() / (w * 4);
+    let rows = band.len() / (tw * 4);
     for y in 0..rows {
-        for x in 0..w {
-            let d = hash_noise(x as u32, (y0 + y) as u32) * strength;
-            let i = (y * w + x) * 4;
+        for x in 0..tw {
+            let d = hash_noise((x0 + x) as u32, (y0 + y) as u32) * strength;
+            let i = (y * tw + x) * 4;
             for c in 0..3 {
                 band[i + c] = (band[i + c] as f32 + d).clamp(0.0, 255.0) as u8;
             }

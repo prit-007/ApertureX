@@ -3,11 +3,37 @@ import 'dart:ui';
 
 import '../edit/recipe.dart';
 
+/// Halo-expanded decode rect for one tile: the tile's own extent grown by
+/// [halo] pixels on each side and clamped to the image bounds. The spatial
+/// chain (`apply_spatial_rect`) needs this context on all four sides so
+/// interior tile pixels see true neighbours — except at the image edges,
+/// where the rect is clamped and the bake treats the boundary as its own
+/// context.
+///
+/// Returns the tile rect at `[x, y, tileW, tileH]` when [halo] is 0.
+Rect tileDecodeRect(
+  Rect tile, {
+  required int imageW,
+  required int imageH,
+  required int halo,
+}) {
+  final x0 = tile.left.toInt();
+  final y0 = tile.top.toInt();
+  final tw = tile.width.toInt();
+  final th = tile.height.toInt();
+  if (halo <= 0) return Rect.fromLTWH(x0.toDouble(), y0.toDouble(), tw.toDouble(), th.toDouble());
+  final dx = math.max(0, x0 - halo);
+  final dy = math.max(0, y0 - halo);
+  final dw = math.min(imageW, x0 + tw + halo) - dx;
+  final dh = math.min(imageH, y0 + th + halo) - dy;
+  return Rect.fromLTWH(dx.toDouble(), dy.toDouble(), dw.toDouble(), dh.toDouble());
+}
+
 /// High-zoom ROI overlay planning (issue #55).
 ///
 /// At deep zoom the proxy (~1.3K) would be magnified past its native density
-/// and turn soft. The fix is a full-resolution **horizontal band** of the
-/// source composited over the proxy:
+/// and turn soft. The fix is a full-resolution **tile field** of the
+/// original frame composited over the proxy:
 ///
 ///  * **full-width strips** because the spatial bake machinery
 ///    (`apply_spatial_band`) consumes full-width row bands, giving every
