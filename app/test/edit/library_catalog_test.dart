@@ -237,5 +237,80 @@ void main() {
       expect(entries[vc.entryId]!.recipe, EditRecipe.neutral);
       expect(container.read(recipeStoreProvider), isEmpty);
     });
+
+    test('rating an unedited photo creates its metadata entry', () {
+      final catalog = container.read(libraryCatalogProvider.notifier);
+
+      catalog.setRating(originalEntryId('a'), 4);
+
+      final entry = container.read(libraryCatalogProvider)[
+        originalEntryId('a')
+      ];
+      expect(entry, isNotNull);
+      expect(entry!.recipe, EditRecipe.neutral);
+      expect(entry.rating, 4);
+      expect(entry.hasMetadata, isTrue);
+    });
+
+    test('rating 0 on an unknown entry is a no-op', () {
+      final catalog = container.read(libraryCatalogProvider.notifier);
+
+      catalog.setRating(originalEntryId('a'), 0);
+
+      expect(
+        container.read(libraryCatalogProvider).containsKey(originalEntryId('a')),
+        isFalse,
+      );
+    });
+
+    test('setFlag toggles the flag independently per entry (#74)', () {
+      final catalog = container.read(libraryCatalogProvider.notifier);
+      final vc = catalog.createVirtualCopy(
+        sourceAssetId: 'a',
+        recipe: EditRecipe.neutral,
+      );
+
+      catalog.setFlag(originalEntryId('a'), true);
+      catalog.setFlag(vc.entryId, true);
+
+      final entries = container.read(libraryCatalogProvider);
+      expect(entries[originalEntryId('a')]!.flag, isTrue);
+      expect(entries[vc.entryId]!.flag, isTrue);
+
+      // Clearing the flag on the original — its only metadata — drops that
+      // entry, while the copy keeps its own flag.
+      catalog.setFlag(originalEntryId('a'), false);
+
+      expect(
+        container.read(libraryCatalogProvider).containsKey(
+          originalEntryId('a'),
+        ),
+        isFalse,
+      );
+      expect(
+        container.read(libraryCatalogProvider)[vc.entryId]!.flag,
+        isTrue,
+      );
+    });
+
+    test('setFlag on an unknown original creates a neutral flagged entry', () {
+      final catalog = container.read(libraryCatalogProvider.notifier);
+
+      catalog.setFlag(originalEntryId('a'), true);
+
+      final entry = container.read(libraryCatalogProvider)[
+        originalEntryId('a')
+      ];
+      expect(entry, isNotNull);
+      expect(entry!.flag, isTrue);
+      expect(entry.recipe, EditRecipe.neutral);
+
+      // Clearing a flag on a metadata-free entry drops it again.
+      catalog.setFlag(originalEntryId('a'), false);
+      expect(
+        container.read(libraryCatalogProvider).containsKey(originalEntryId('a')),
+        isFalse,
+      );
+    });
   });
 }

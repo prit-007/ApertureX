@@ -347,10 +347,53 @@ class LibraryCatalog extends Notifier<Map<String, CatalogEntry>> {
     _markDirty();
   }
 
+  /// Sets an entry's star rating (Lightroom semantics: each entry — original
+  /// or virtual copy — rates independently). Rating a not-yet-known original
+  /// creates its neutral metadata entry; clearing the last metadata on a
+  /// neutral original drops the entry again.
   void setRating(String entryId, int rating) {
     final entry = state[entryId];
-    if (entry == null || entry.rating == rating) return;
-    state = {...state, entryId: entry.copyWith(rating: rating)};
+    if (entry == null) {
+      if (entryId.startsWith('vc:') || rating == 0) return;
+      _putMetadataEntry(
+        entryId,
+        CatalogEntry.original(entryId: entryId, recipe: EditRecipe.neutral)
+            .copyWith(rating: rating),
+      );
+      return;
+    }
+    if (entry.rating == rating) return;
+    _putMetadataEntry(entryId, entry.copyWith(rating: rating));
+  }
+
+  /// Sets (or clears) an entry's reject flag — same metadata lifecycle as
+  /// [setRating].
+  void setFlag(String entryId, bool flag) {
+    final entry = state[entryId];
+    if (entry == null) {
+      if (entryId.startsWith('vc:') || !flag) return;
+      _putMetadataEntry(
+        entryId,
+        CatalogEntry.original(entryId: entryId, recipe: EditRecipe.neutral)
+            .copyWith(flag: true),
+      );
+      return;
+    }
+    if (entry.flag == flag) return;
+    _putMetadataEntry(entryId, entry.copyWith(flag: flag));
+  }
+
+  /// Commits a metadata/rating/flag change: a neutral original that ends up
+  /// with no metadata and no recipe would be invisible anyway, so it leaves
+  /// the catalog (freeing it from every future flush).
+  void _putMetadataEntry(String entryId, CatalogEntry entry) {
+    if (entry.kind == CatalogEntryKind.original &&
+        entry.recipe == EditRecipe.neutral &&
+        !entry.hasMetadata) {
+      state = {...state}..remove(entryId);
+    } else {
+      state = {...state, entryId: entry};
+    }
     _markDirty();
   }
 

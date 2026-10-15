@@ -13,6 +13,7 @@ import '../../color/spatial_spec.dart';
 import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
+import 'editor_shortcuts.dart';
 import '../../edit/geometry_spec.dart';
 import '../../edit/library_catalog.dart';
 import '../../edit/recipe.dart';
@@ -288,28 +289,31 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       ),
     );
 
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: AnimatedOpacity(
-          opacity: active ? 0 : 1,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          child: IgnorePointer(
-            ignoring: active,
-            child: AppBar(
-              leading: const BackButton(),
-              title: const Text('Edit'),
-              // History lives with the Lightroom tabs (bottom, thumb zone)
-              // and on the gesture shell's floating HUD (issue #28).
-              actions: gestureShell ? null : [crop, more, export],
+    return EditorShortcuts(
+      entryId: widget._entryId,
+      child: Scaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: AnimatedOpacity(
+            opacity: active ? 0 : 1,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            child: IgnorePointer(
+              ignoring: active,
+              child: AppBar(
+                leading: const BackButton(),
+                title: const Text('Edit'),
+                // History lives with the Lightroom tabs (bottom, thumb zone)
+                // and on the gesture shell's floating HUD (issue #28).
+                actions: gestureShell ? null : [crop, more, export],
+              ),
             ),
           ),
         ),
-      ),
-      body: _body(
-        gestureShell: gestureShell,
-        hud: Row(children: [crop, undo, redo, more, const Spacer(), export]),
+        body: _body(
+          gestureShell: gestureShell,
+          hud: Row(children: [crop, undo, redo, more, const Spacer(), export]),
+        ),
       ),
     );
   }
