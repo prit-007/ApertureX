@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:aperturex/edit/library_catalog.dart';
 import 'package:aperturex/edit/recipe.dart';
 import 'package:aperturex/edit/recipe_store.dart';
 import 'package:aperturex/edit/settings_clipboard.dart';
@@ -71,7 +72,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final store = container.read(recipeStoreProvider);
-    expect(store['a']!.exposure, 1.5);
-    expect(store['b']!.exposure, 1.5);
+    expect(store[originalEntryId('a')]!.exposure, 1.5);
+    expect(store[originalEntryId('b')]!.exposure, 1.5);
+    expect(store.containsKey('a'), isFalse);
+    expect(store.containsKey('b'), isFalse);
   });
 }

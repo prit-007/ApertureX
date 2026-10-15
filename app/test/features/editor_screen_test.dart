@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show MethodCall, SystemChannels;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:aperturex/edit/library_catalog.dart';
 import 'package:aperturex/edit/parameter.dart';
 import 'package:aperturex/edit/recipe.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
@@ -86,7 +87,7 @@ void main() {
     addTearDown(container.dispose);
     container
         .read(recipeStoreProvider.notifier)
-        .put('a', EditRecipe.neutral.copyWith(exposure: 1.2));
+        .put(originalEntryId('a'), EditRecipe.neutral.copyWith(exposure: 1.2));
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -108,8 +109,11 @@ void main() {
         .update(Parameter.contrast, 0.5);
     await tester.pump();
 
-    expect(container.read(recipeStoreProvider)['a']!.contrast, 0.5);
-    expect(container.read(recipeStoreProvider)['a']!.exposure, 1.2);
+    expect(container.read(recipeStoreProvider)[originalEntryId('a')]!.contrast, 0.5);
+    expect(
+      container.read(recipeStoreProvider)[originalEntryId('a')]!.exposure,
+      1.2,
+    );
   });
 
   group('Active Mode (issue #26)', () {

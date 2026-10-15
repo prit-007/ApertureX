@@ -14,6 +14,7 @@ import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/geometry_spec.dart';
+import '../../edit/library_catalog.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/recipe_store.dart';
@@ -34,13 +35,23 @@ import '../../ui/edit_activity.dart';
 /// overflow) over the shared [AppShell] (canvas + active shell toolbar). One
 /// recipe is the single source of truth for the whole session (ADR 0008).
 class EditorScreen extends ConsumerStatefulWidget {
-  const EditorScreen({super.key, this.asset, this.imageBytes});
+  const EditorScreen({super.key, this.asset, this.entryId, this.imageBytes});
 
   /// Photo to edit, loaded from [gallerySourceProvider].
   final GalleryAsset? asset;
 
+  /// Catalog entry to read/write the recipe under (#73). Defaults to the
+  /// original entry of [asset] (`orig:<assetId>`); virtual copies pass their
+  /// own `vc:<…>` id while sharing [asset]'s pixels.
+  final String? entryId;
+
   /// Direct JPEG bytes (used by the sample-editor entry point).
   final Uint8List? imageBytes;
+
+  /// The entry id this session saves to (null in sample mode, which has
+  /// nothing to persist).
+  String? get _entryId =>
+      entryId ?? (asset != null ? originalEntryId(asset!.id) : null);
 
   @override
   ConsumerState<EditorScreen> createState() => _EditorScreenState();
@@ -76,10 +87,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       if (!mounted) return;
       axLog(LogDomain.editor, 'Opened ${widget.asset?.id ?? 'sample image'}');
 
-      // Restore this photo's saved (non-destructive) recipe, or start neutral.
+      // Restore this entry's saved (non-destructive) recipe, or start neutral.
       final notifier = ref.read(recipeControllerProvider.notifier);
-      if (widget.asset != null) {
-        final saved = ref.read(recipeStoreProvider)[widget.asset!.id];
+      final entryId = widget._entryId;
+      if (entryId != null) {
+        final saved = ref.read(recipeStoreProvider)[entryId];
         notifier.loadRecipe(saved ?? EditRecipe.neutral, label: 'Opened');
       } else {
         notifier.loadRecipe(EditRecipe.neutral, label: 'Sample');
@@ -212,8 +224,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     // Persist every edit back to this photo's recipe (non-destructive editing:
     // the recipe survives leaving and re-opening the photo).
     ref.listen(recipeControllerProvider, (previous, next) {
-      if (widget.asset != null) {
-        ref.read(recipeStoreProvider.notifier).put(widget.asset!.id, next.recipe);
+      final entryId = widget._entryId;
+      if (entryId != null) {
+        ref.read(recipeStoreProvider.notifier).put(entryId, next.recipe);
       }
     });
 

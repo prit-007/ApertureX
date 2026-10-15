@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
 import '../core/theme/design_tokens.dart';
+import '../edit/library_catalog.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_store.dart';
 import '../edit/settings_clipboard.dart';
@@ -21,7 +23,8 @@ import 'gallery_source.dart';
 
 /// The app home: the device gallery, grouped by date (newest first) with album
 /// switching — Google-Photos style. Tap a photo to edit it; long-press to
-/// multi-select, then batch-paste a recipe or export (#12, #13).
+/// multi-select, then batch-paste a recipe or export (#12, #13). Every photo
+/// can have zero or more virtual copies (#73, #61), rendered right below it.
 class GalleryScreen extends ConsumerStatefulWidget {
   const GalleryScreen({super.key});
 
@@ -35,6 +38,9 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(galleryControllerProvider.notifier).load();
+      // Restore the persisted library (virtual copies, edits, ratings) so the
+      // first frame already shows the real library state (#61).
+      unawaited(ref.read(libraryCatalogProvider.notifier).hydrate());
     });
   }
 
@@ -45,6 +51,17 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => EditorScreen(asset: asset)));
+  }
+
+  /// Opens [asset]'s pixels under a specific catalog entry — a virtual copy
+  /// shares the original's data but carries its own recipe (#73).
+  void _openEntry(GalleryAsset asset, String entryId) {
+    axLog(LogDomain.editor, 'Opened $entryId');
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => EditorScreen(asset: asset, entryId: entryId),
+      ),
+    );
   }
 
   void _openSample() {
@@ -58,9 +75,57 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     final state = ref.read(galleryControllerProvider);
     if (state.selected.isEmpty) return;
     final recipe = ref.read(settingsClipboardProvider) ?? EditRecipe.neutral;
-    ref.read(recipeStoreProvider.notifier).pasteTo(state.selected, recipe);
+    ref
+        .read(recipeStoreProvider.notifier)
+        .pasteTo(state.selected.map(originalEntryId), recipe);
     ref.read(galleryControllerProvider.notifier).clearSelection();
     _snack('Applied settings to ${state.selectedCount} photo(s)');
+  }
+
+  void _createVirtualCopies() {
+    final state = ref.read(galleryControllerProvider);
+    if (state.selected.isEmpty) return;
+    final store = ref.read(recipeStoreProvider);
+    final catalog = ref.read(libraryCatalogProvider.notifier);
+    for (final assetId in state.selected) {
+      // Seed each copy from the original's current recipe, Lightroom-style.
+      catalog.createVirtualCopy(
+        sourceAssetId: assetId,
+        recipe: store[originalEntryId(assetId)] ?? EditRecipe.neutral,
+      );
+    }
+    final created = state.selectedCount;
+    ref.read(galleryControllerProvider.notifier).clearSelection();
+    _snack('Created $created virtual ${created == 1 ? 'copy' : 'copies'}');
+  }
+
+  Future<void> _vcMenu(CatalogEntry entry, Offset position) async {
+    final action = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, 0, 0),
+      items: const [
+        PopupMenuItem(value: 'rename', child: Text('Rename')),
+        PopupMenuItem(value: 'delete', child: Text('Delete')),
+      ],
+    );
+    if (!mounted || action == null) return;
+    final catalog = ref.read(libraryCatalogProvider.notifier);
+    switch (action) {
+      case 'rename':
+        await _renameVc(entry);
+      case 'delete':
+        catalog.deleteVirtualCopy(entry.entryId);
+        _snack('Deleted virtual copy');
+    }
+  }
+
+  Future<void> _renameVc(CatalogEntry entry) async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => _RenameVcDialog(initial: entry.label),
+    );
+    if (name == null || name.isEmpty || !mounted) return;
+    ref.read(libraryCatalogProvider.notifier).rename(entry.entryId, name);
   }
 
   Future<void> _export() async {
@@ -69,7 +134,9 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     try {
       final count = await GalleryExporter(_source).exportBatch(
         state.selected,
-        (id) => ref.read(recipeStoreProvider)[id] ?? EditRecipe.neutral,
+        (id) =>
+            ref.read(recipeStoreProvider)[originalEntryId(id)] ??
+            EditRecipe.neutral,
       );
       ref.read(galleryControllerProvider.notifier).clearSelection();
       _snack('Exported $count photo(s) to your gallery');
@@ -121,7 +188,11 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
         ),
         body: _body(state, controller),
         bottomNavigationBar: state.selectionMode
-            ? _SelectionBar(onPaste: _paste, onExport: _export)
+            ? _SelectionBar(
+                onVirtualCopy: _createVirtualCopies,
+                onPaste: _paste,
+                onExport: _export,
+              )
             : null,
       ),
     );
@@ -204,7 +275,13 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
 
   List<Widget> _slivers(List<GalleryRow> rows, GalleryState state) {
     final controller = ref.read(galleryControllerProvider.notifier);
-    final edited = ref.watch(recipeStoreProvider);
+    final recipes = ref.watch(recipeStoreProvider);
+    // Watch the catalog so creating/deleting a copy rebuilds the grid, and
+    // resolve the per-photo copy lists (sorted oldest-first) once per build.
+    ref.watch(libraryCatalogProvider);
+    final vcsBySource = ref
+        .read(libraryCatalogProvider.notifier)
+        .virtualCopiesBySource();
     final slivers = <Widget>[];
     var i = 0;
     while (i < rows.length) {
@@ -217,6 +294,15 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
           photos.add((rows[i] as GalleryPhoto).asset);
           i++;
         }
+        // Expand each photo into its original cell followed by one cell per
+        // virtual copy — the copies live "under" their source, Lightroom-style.
+        final items = <_GridItem>[
+          for (final asset in photos) ...[
+            _OriginalItem(asset),
+            for (final copy in vcsBySource[asset.id] ?? const <CatalogEntry>[])
+              _VirtualItem(copy, asset),
+          ],
+        ];
         slivers.add(
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -226,20 +312,34 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                 mainAxisSpacing: 2,
                 crossAxisSpacing: 2,
               ),
-              itemCount: photos.length,
-              itemBuilder: (context, j) {
-                final asset = photos[j];
-                return _Cell(
+              itemCount: items.length,
+              itemBuilder: (context, j) => switch (items[j]) {
+                _OriginalItem(:final asset) => _Cell(
                   source: _source,
                   asset: asset,
                   selected: state.isSelected(asset.id),
-                  edited: edited.containsKey(asset.id),
+                  edited: recipes.containsKey(originalEntryId(asset.id)),
+                  copyCount: vcsBySource[asset.id]?.length ?? 0,
                   selectionMode: state.selectionMode,
                   onTap: () => state.selectionMode
                       ? controller.toggle(asset.id)
                       : _open(asset),
                   onLongPress: () => controller.startSelection(asset.id),
-                );
+                ),
+                _VirtualItem(:final entry, :final asset) => _VirtualCell(
+                  source: _source,
+                  asset: asset,
+                  entry: entry,
+                  selected: state.isSelected(asset.id),
+                  edited: recipes.containsKey(entry.entryId),
+                  selectionMode: state.selectionMode,
+                  onTap: () => state.selectionMode
+                      ? controller.toggle(asset.id)
+                      : _openEntry(asset, entry.entryId),
+                  onLongPressStart: (details) => state.selectionMode
+                      ? controller.startSelection(asset.id)
+                      : _vcMenu(entry, details.globalPosition),
+                ),
               },
             ),
           ),
@@ -251,6 +351,24 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     slivers.add(const SliverToBoxAdapter(child: SizedBox(height: Insets.lg)));
     return slivers;
   }
+}
+
+/// One grid slot: the photo itself, or a virtual copy of it.
+sealed class _GridItem {
+  const _GridItem();
+}
+
+final class _OriginalItem extends _GridItem {
+  const _OriginalItem(this.asset);
+
+  final GalleryAsset asset;
+}
+
+final class _VirtualItem extends _GridItem {
+  const _VirtualItem(this.entry, this.asset);
+
+  final CatalogEntry entry;
+  final GalleryAsset asset;
 }
 
 class _AlbumTitle extends StatelessWidget {
@@ -312,6 +430,7 @@ class _Cell extends StatelessWidget {
     required this.selectionMode,
     required this.onTap,
     required this.onLongPress,
+    this.copyCount = 0,
   });
 
   final GallerySource source;
@@ -321,6 +440,10 @@ class _Cell extends StatelessWidget {
   final bool selectionMode;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+
+  /// How many virtual copies this photo has (0 = none) — surfaced as a small
+  /// count chip so an expanded photo is obvious at a glance (#73).
+  final int copyCount;
 
   @override
   Widget build(BuildContext context) {
@@ -344,6 +467,133 @@ class _Cell extends StatelessWidget {
                 decoration: BoxDecoration(
                   border: Border.all(color: scheme.primary, width: 3),
                   color: scheme.primary.withValues(alpha: 0.22),
+                ),
+              ),
+            ),
+            if (edited && !selectionMode)
+              Positioned(
+                left: 4,
+                bottom: 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: 0.9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: Icon(Icons.tune, size: 12, color: scheme.onPrimary),
+                  ),
+                ),
+              ),
+            if (copyCount > 0 && !selectionMode)
+              Positioned(
+                right: 4,
+                bottom: 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.surface.withValues(alpha: 0.85),
+                    borderRadius: Radii.smAll,
+                  ),
+                  child: Padding(
+                    key: Key('copy-count-${asset.id}'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
+                    child: Text(
+                      '×$copyCount',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ),
+                ),
+              ),
+            if (selectionMode)
+              Positioned(
+                right: 4,
+                top: 4,
+                child: Icon(
+                  selected ? Icons.check_circle : Icons.circle_outlined,
+                  size: 22,
+                  color: selected ? scheme.primary : Colors.white70,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A virtual copy of a photo: same pixels (its thumbnail requests resolve to
+/// [GalleryAsset.id]), its own recipe and entry id, a `VC` badge, and a
+/// long-press menu for rename/delete (#73).
+class _VirtualCell extends StatelessWidget {
+  const _VirtualCell({
+    required this.source,
+    required this.asset,
+    required this.entry,
+    required this.selected,
+    required this.edited,
+    required this.selectionMode,
+    required this.onTap,
+    required this.onLongPressStart,
+  });
+
+  final GallerySource source;
+  final GalleryAsset asset;
+  final CatalogEntry entry;
+  final bool selected;
+  final bool edited;
+  final bool selectionMode;
+  final VoidCallback onTap;
+  final GestureLongPressStartCallback onLongPressStart;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      label: 'Virtual copy',
+      button: true,
+      selected: selected,
+      onTap: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPressStart: onLongPressStart,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            GalleryThumbnail(source: source, assetId: entry.sourceAssetId),
+            AnimatedOpacity(
+              opacity: selected ? 1 : 0,
+              duration: Motion.fast,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: scheme.primary, width: 3),
+                  color: scheme.primary.withValues(alpha: 0.22),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 4,
+              top: 4,
+              child: DecoratedBox(
+                key: Key('vc-badge-${entry.entryId}'),
+                decoration: BoxDecoration(
+                  color: scheme.secondaryContainer.withValues(alpha: 0.95),
+                  borderRadius: Radii.smAll,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 2,
+                  ),
+                  child: Text(
+                    'VC',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: scheme.onSecondaryContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -447,8 +697,13 @@ class _GalleryThumbnailState extends State<GalleryThumbnail> {
 }
 
 class _SelectionBar extends StatelessWidget {
-  const _SelectionBar({required this.onPaste, required this.onExport});
+  const _SelectionBar({
+    required this.onVirtualCopy,
+    required this.onPaste,
+    required this.onExport,
+  });
 
+  final VoidCallback onVirtualCopy;
   final VoidCallback onPaste;
   final VoidCallback onExport;
 
@@ -458,6 +713,13 @@ class _SelectionBar extends StatelessWidget {
       child: Row(
         children: [
           const Spacer(),
+          TextButton.icon(
+            key: const Key('virtual-copy-action'),
+            onPressed: onVirtualCopy,
+            icon: const Icon(Icons.copy_all_outlined, size: 18),
+            label: const Text('Virtual copy'),
+          ),
+          const SizedBox(width: Insets.sm),
           TextButton.icon(
             onPressed: onPaste,
             icon: const Icon(Icons.paste),
@@ -471,6 +733,48 @@ class _SelectionBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Rename prompt for a virtual copy. Owns its [TextEditingController] so the
+/// dialog can dispose it in its own `dispose` — popping the route keeps the
+/// field mounted until the exit transition ends.
+class _RenameVcDialog extends StatefulWidget {
+  const _RenameVcDialog({this.initial});
+
+  final String? initial;
+
+  @override
+  State<_RenameVcDialog> createState() => _RenameVcDialogState();
+}
+
+class _RenameVcDialogState extends State<_RenameVcDialog> {
+  late final TextEditingController _field = TextEditingController(
+    text: widget.initial ?? 'Virtual copy',
+  );
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Rename virtual copy'),
+      content: TextField(controller: _field, autofocus: true),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _field.text.trim()),
+          child: const Text('Rename'),
+        ),
+      ],
     );
   }
 }
