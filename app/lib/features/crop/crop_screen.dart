@@ -10,6 +10,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../edit/crop_math.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
+import '../../engine/image_format.dart';
 import '../../viewport/live_warp.dart';
 
 /// Aspect presets for the crop tool (`null` = free).
@@ -74,7 +75,9 @@ class _CropScreenState extends ConsumerState<CropScreen> {
 
   Future<void> _init() async {
     try {
-      final decoded = await TesseraEngine.decodeJpegRgba(widget.imageBytes);
+      final decoded = isRawImage(widget.imageBytes)
+          ? await TesseraEngine.decodeRawRgba(widget.imageBytes)
+          : await TesseraEngine.decodeJpegRgba(widget.imageBytes);
       _sourceSize = Size(decoded.width.toDouble(), decoded.height.toDouble());
       final image = await _imageFrom(
         decoded.rgba,

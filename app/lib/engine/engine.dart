@@ -16,6 +16,7 @@ import '../src/rust/api/icc.dart' as rust_icc;
 import '../src/rust/api/mask.dart' as rust_mask;
 import '../src/rust/api/preview.dart' as rust_preview;
 import '../src/rust/api/preview.dart' show PreviewBaseSpec;
+import '../src/rust/api/raw.dart' as rust_raw;
 import '../src/rust/api/spatial.dart' as rust_spatial;
 import '../src/rust/frb_generated.dart';
 
@@ -63,6 +64,31 @@ class TesseraEngine {
     required int height,
   }) => rust_decode.decodeJpegRoi(
     jpeg: jpeg,
+    x: x,
+    y: y,
+    width: width,
+    height: height,
+  );
+
+  // --- RAW/DNG decode (P3) --------------------------------------------------
+
+  /// Reads RAW/DNG dimensions without demosaicing (ADR 0005, rawler-first).
+  static Future<ImageDims> rawDimensions(Uint8List raw) =>
+      rust_raw.rawDimensions(raw: raw);
+
+  /// Decodes a RAW/DNG to a full sRGB RGBA8 buffer (demosaic + camera colour).
+  static Future<RgbaImage> decodeRawRgba(Uint8List raw) =>
+      rust_raw.decodeRawRgba(raw: raw);
+
+  /// Decodes only the RGBA pixels inside the region of interest (tile path).
+  static Future<RgbaImage> decodeRawRoi(
+    Uint8List raw, {
+    required int x,
+    required int y,
+    required int width,
+    required int height,
+  }) => rust_raw.decodeRawRoi(
+    raw: raw,
     x: x,
     y: y,
     width: width,

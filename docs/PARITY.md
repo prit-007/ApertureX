@@ -88,7 +88,7 @@ when the feature is actually demoable with tests.
 |---|---|---|
 | JPEG / PNG import | 🚧 | P1 |
 | HEIC import | ⬜ | P5 |
-| RAW import (DNG/CR2/NEF/ARW/RAF) | ⬜ | P3 |
+| RAW import (DNG/CR2/NEF/ARW/RAF) | 🚧 | P3 |
 | JPEG / PNG full-res export | ⬜ | P4 (basic moved forward) |
 | DNG / TIFF 16-bit export | ⬜ | P6 |
 | Background / batch export | ⬜ | P4 |

@@ -167,6 +167,14 @@ presets/`.xmp`; project sidecars; history tree.
 - Lens corrections (distortion/vignette/CA) via profile set.
 - RAW corpus test: DNG, CR2, NEF, ARW, RAF.
 
+**Progress**
+- [x] rawler-first engine module (`raw::decode` / `metadata` / `color` / `lens`).
+- [x] Bayer/CFA demosaic + camera matrix → sRGB (`decode_with_metadata`).
+- [x] ROI (decode-full-then-crop) and FFI (`api/raw.rs`) + Dart viewport/crop wiring.
+- [ ] Embedded-preview fast path.
+- [ ] RAW corpus + orientation across real CR2/NEF/ARW/RAF.
+- [ ] RAW export / DNG re-encode.
+
 **Exit criteria**
 - RAW opens at correct orientation/color across the corpus.
 - ROI decode of RAW tiles meets the P1 budgets (or documented proxy-then-refine).

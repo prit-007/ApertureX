@@ -18,6 +18,7 @@ import '../edit/parameter.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_controller.dart';
 import '../engine/engine.dart';
+import '../engine/image_format.dart';
 import '../engine/preview_texture.dart';
 import '../gesture/gesture_interpreter.dart';
 import 'compare_hold.dart';
@@ -202,6 +203,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     Uint8List bytes, {
     int? maxDim,
   }) async {
+    // RAW/DNG can't go through Flutter's codec; the Rust engine (ADR 0005)
+    // demosaics + applies the camera matrix, then we downscale to the proxy.
+    if (isRawImage(bytes)) return _decodeRaw(bytes, maxDim: maxDim);
+
     final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
     final descriptor = await ui.ImageDescriptor.encoded(buffer);
     var tw = descriptor.width;
@@ -230,6 +235,31 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       data!.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
     );
     return (image, pixels, image.width, image.height);
+  }
+
+  /// RAW/DNG branch of [_decode]: the Rust engine demosaics + applies the
+  /// camera colour matrix, then we bilinearly downscale to the proxy size.
+  Future<(ui.Image, Uint8List, int, int)> _decodeRaw(
+    Uint8List bytes, {
+    int? maxDim,
+  }) async {
+    final decoded = await TesseraEngine.decodeRawRgba(bytes);
+    var w = decoded.width;
+    var h = decoded.height;
+    var rgba = decoded.rgba;
+    if (maxDim != null && math.max(w, h) > maxDim) {
+      final d = await TesseraEngine.downscale(
+        rgba,
+        width: w,
+        height: h,
+        maxDim: maxDim,
+      );
+      rgba = d.rgba;
+      w = d.width;
+      h = d.height;
+    }
+    final image = await _imageFrom(rgba, w, h);
+    return (image, rgba, w, h);
   }
 
   Future<ui.Image> _imageFrom(Uint8List rgba, int w, int h) {

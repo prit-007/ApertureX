@@ -42,3 +42,18 @@ Spike complete. Decision: **rawler-first** (LibRaw kept optional behind `--featu
   `correct_vignette`.
 - `raw::decode` handles 3-component LinearRaw; Bayer/CFA demosaic is the next
   P3 step along with ROI tiles and the embedded-preview fast path.
+
+### Phase E follow-on (landed on this surface)
+- `raw::decode` now handles single-channel Bayer/CFA sources: the sensor CFA
+  (`CfaPattern`, from `camera.cfa`) drives `demosaic_bilinear`, followed by
+  white-balance normalisation (green-referenced). `decode_with_metadata` decodes
+  the source once for callers that need pixels + matrix. A synthetic Bayer DNG
+  round-trips end-to-end (real CFA photos are still untested — no RAW corpus).
+- ROI: `demosaic` → `crop_linear` / `decode_roi` (decode-full-then-crop, the same
+  strategy as the JPEG path, pending true tile access).
+- FFI (`api/raw.rs`, exposed as `TesseraEngine.rawDimensions` /
+  `decodeRawRgba` / `decodeRawRoi`): decode + `camera_to_srgb` + `to_rgba8` so
+  Dart receives sRGB RGBA8. `lib/engine/image_format.dart` sniffs TIFF/CR3/RAF
+  and the viewport + crop screen route raw containers through this path instead
+  of Flutter's JPEG/PNG-only codec. RAW **export** still uses the JPEG decode
+  path and remains a follow-up.

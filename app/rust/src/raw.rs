@@ -76,6 +76,66 @@ impl RawOrientation {
     }
 }
 
+/// A 2x2 RGB Bayer colour-filter pattern.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CfaPattern {
+    /// Red, Green / Green, Blue.
+    Rggb,
+    /// Blue, Green / Green, Red.
+    Bggr,
+    /// Green, Red / Blue, Green.
+    Grbg,
+    /// Green, Blue / Red, Green.
+    Gbrg,
+}
+
+impl CfaPattern {
+    /// Builds a pattern from a 2x2 block of channel indices (0=R, 1=G, 2=B).
+    pub fn from_colors(
+        top_left: u8,
+        top_right: u8,
+        bottom_left: u8,
+        bottom_right: u8,
+    ) -> Option<Self> {
+        match (top_left, top_right, bottom_left, bottom_right) {
+            (0, 1, 1, 2) => Some(CfaPattern::Rggb),
+            (2, 1, 1, 0) => Some(CfaPattern::Bggr),
+            (1, 0, 2, 1) => Some(CfaPattern::Grbg),
+            (1, 2, 0, 1) => Some(CfaPattern::Gbrg),
+            _ => None,
+        }
+    }
+
+    /// Channel index (0=R, 1=G, 2=B) at `(x, y)`.
+    pub fn color_at(self, x: usize, y: usize) -> u8 {
+        let (even_x, even_y) = (x.is_multiple_of(2), y.is_multiple_of(2));
+        match self {
+            CfaPattern::Rggb => match (even_x, even_y) {
+                (true, true) => 0,
+                (false, false) => 2,
+                _ => 1,
+            },
+            CfaPattern::Bggr => match (even_x, even_y) {
+                (true, true) => 2,
+                (false, false) => 0,
+                _ => 1,
+            },
+            CfaPattern::Grbg => match (even_x, even_y) {
+                (true, true) => 1,
+                (false, false) => 1,
+                (false, true) => 0,
+                (true, false) => 2,
+            },
+            CfaPattern::Gbrg => match (even_x, even_y) {
+                (true, true) => 1,
+                (false, false) => 1,
+                (false, true) => 2,
+                (true, false) => 0,
+            },
+        }
+    }
+}
+
 /// Metadata required to render a RAW frame into working colour.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawMetadata {
@@ -116,9 +176,7 @@ fn flat_to_mat3(flat: &[f32]) -> Option<Mat3> {
     ])
 }
 
-/// Reads RAW/DNG metadata without decoding pixel data into our working buffers.
-pub fn metadata(bytes: &[u8]) -> Result<RawMetadata, String> {
-    let raw = decode_raw(bytes)?;
+fn metadata_from_raw(raw: &rawler::rawimage::RawImage) -> RawMetadata {
     let color_matrix = raw
         .color_matrix_find_first([
             RawlerIlluminant::D65,
@@ -128,7 +186,7 @@ pub fn metadata(bytes: &[u8]) -> Result<RawMetadata, String> {
             RawlerIlluminant::Unknown,
         ])
         .and_then(|(illu, flat)| flat_to_mat3(&flat).map(|m| (Illuminant::from_rawler(illu), m)));
-    Ok(RawMetadata {
+    RawMetadata {
         width: raw.width,
         height: raw.height,
         cpp: raw.cpp,
@@ -145,21 +203,34 @@ pub fn metadata(bytes: &[u8]) -> Result<RawMetadata, String> {
         },
         wb_coeffs: raw.wb_coeffs,
         color_matrix,
-    })
+    }
+}
+
+/// Reads RAW/DNG metadata without decoding pixel data into our working buffers.
+pub fn metadata(bytes: &[u8]) -> Result<RawMetadata, String> {
+    Ok(metadata_from_raw(&decode_raw(bytes)?))
+}
+
+/// Decodes a RAW/DNG into scene-linear camera RGB and its metadata.
+///
+/// Decodes the source once; use this over [`metadata`] + [`decode`] when both
+/// are needed (the FFI entry point does).
+pub fn decode_with_metadata(bytes: &[u8]) -> Result<(RawLinearImage, RawMetadata), String> {
+    let raw = decode_raw(bytes)?;
+    let meta = metadata_from_raw(&raw);
+    let img = decode_from_raw(raw)?;
+    Ok((img, meta))
 }
 
 /// Decodes a RAW/DNG into scene-linear camera RGB normalised to `0.0..=1.0`.
 ///
-/// Only 3-component (LinearRaw/DNG) sources are supported for now; Bayer/CFA
-/// sources (`cpp == 1`) require demosaic, which is a follow-up in P3.
+/// Handles both 3-component LinearRaw sources and single-channel Bayer/CFA
+/// sources (demosaiced via [`demosaic_bilinear`]).
 pub fn decode(bytes: &[u8]) -> Result<RawLinearImage, String> {
-    let raw = decode_raw(bytes)?;
-    if raw.cpp != 3 {
-        return Err(format!(
-            "raw decode: only 3-component LinearRaw sources supported yet (got cpp={})",
-            raw.cpp
-        ));
-    }
+    decode_from_raw(decode_raw(bytes)?)
+}
+
+fn decode_from_raw(raw: rawler::rawimage::RawImage) -> Result<RawLinearImage, String> {
     let samples = raw.data.as_f32();
     let is_float = matches!(&raw.data, RawImageData::Float(_));
     let white = raw
@@ -169,25 +240,56 @@ pub fn decode(bytes: &[u8]) -> Result<RawLinearImage, String> {
         .copied()
         .max()
         .unwrap_or(u16::MAX as u32) as f32;
-    let expected = raw.width * raw.height * 3;
-    if samples.len() != expected {
-        return Err(format!(
-            "raw decode: {} samples, expected {expected}",
-            samples.len()
-        ));
+    let normalize = |v: f32| {
+        let linear = if is_float { v } else { v / white };
+        linear.clamp(0.0, 1.0)
+    };
+
+    match raw.cpp {
+        3 => {
+            let expected = raw.width * raw.height * 3;
+            if samples.len() != expected {
+                return Err(format!(
+                    "raw decode: {} samples, expected {expected}",
+                    samples.len()
+                ));
+            }
+            let data = samples.iter().map(|&v| normalize(v)).collect();
+            Ok(RawLinearImage {
+                width: raw.width,
+                height: raw.height,
+                data,
+            })
+        }
+        1 => {
+            let expected = raw.width * raw.height;
+            if samples.len() != expected {
+                return Err(format!(
+                    "raw decode: {} samples, expected {expected}",
+                    samples.len()
+                ));
+            }
+            let cfa = &raw.camera.cfa;
+            let pattern = CfaPattern::from_colors(
+                cfa.color_at(0, 0) as u8,
+                cfa.color_at(0, 1) as u8,
+                cfa.color_at(1, 0) as u8,
+                cfa.color_at(1, 1) as u8,
+            )
+            .ok_or_else(|| format!("raw decode: unsupported CFA pattern '{}'", cfa.name))?;
+            let mosaic: Vec<f32> = samples.iter().map(|&v| normalize(v)).collect();
+            let mut data = demosaic_bilinear(&mosaic, raw.width, raw.height, pattern)?;
+            apply_white_balance(&mut data, &raw.wb_coeffs);
+            Ok(RawLinearImage {
+                width: raw.width,
+                height: raw.height,
+                data,
+            })
+        }
+        other => Err(format!(
+            "raw decode: unsupported components per pixel ({other})"
+        )),
     }
-    let data = samples
-        .iter()
-        .map(|&v| {
-            let linear = if is_float { v } else { v / white };
-            linear.clamp(0.0, 1.0)
-        })
-        .collect();
-    Ok(RawLinearImage {
-        width: raw.width,
-        height: raw.height,
-        data,
-    })
 }
 
 /// The calibrated camera matrix (`XYZ → camera`) and its working-white flag.
@@ -198,6 +300,143 @@ pub fn camera_matrix(meta: &RawMetadata) -> Option<(&Mat3, bool)> {
     meta.color_matrix
         .as_ref()
         .map(|(illu, m)| (m, *illu == Illuminant::D50))
+}
+
+/// Demosaics a single-channel Bayer mosaic into interleaved RGB.
+///
+/// Bilinear interpolation: the missing value at a site is the average of its
+/// nearest same-colour neighbours (cross neighbours first, diagonals only for
+/// the opposite colour at an R/B site). Borders skip out-of-range taps.
+pub fn demosaic_bilinear(
+    mosaic: &[f32],
+    width: usize,
+    height: usize,
+    pattern: CfaPattern,
+) -> Result<Vec<f32>, String> {
+    if width == 0 || height == 0 {
+        return Err("raw demosaic: empty image".into());
+    }
+    if mosaic.len() != width * height {
+        return Err(format!(
+            "raw demosaic: {} samples for {width}x{height}",
+            mosaic.len()
+        ));
+    }
+    let mut out = vec![0.0_f32; width * height * 3];
+    for y in 0..height {
+        for x in 0..width {
+            let base = (y * width + x) * 3;
+            for ch in 0..3u8 {
+                out[base + ch as usize] = channel_value(mosaic, width, height, pattern, ch, x, y);
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn channel_value(
+    mosaic: &[f32],
+    width: usize,
+    height: usize,
+    pattern: CfaPattern,
+    ch: u8,
+    x: usize,
+    y: usize,
+) -> f32 {
+    if pattern.color_at(x, y) == ch {
+        return mosaic[y * width + x];
+    }
+    let taps: [&[(i32, i32)]; 2] = [
+        &[(1, 0), (-1, 0), (0, 1), (0, -1)],
+        &[(1, 1), (1, -1), (-1, 1), (-1, -1)],
+    ];
+    for set in taps {
+        let mut sum = 0.0_f32;
+        let mut n = 0u32;
+        for &(dx, dy) in set {
+            let nx = x as i32 + dx;
+            let ny = y as i32 + dy;
+            if nx < 0 || ny < 0 || nx as usize >= width || ny as usize >= height {
+                continue;
+            }
+            let (nx, ny) = (nx as usize, ny as usize);
+            if pattern.color_at(nx, ny) == ch {
+                sum += mosaic[ny * width + nx];
+                n += 1;
+            }
+        }
+        if n > 0 {
+            return sum / n as f32;
+        }
+    }
+    mosaic[y * width + x]
+}
+
+/// Applies as-shot white-balance multipliers (RGBE order), normalised to green.
+pub fn apply_white_balance(rgb: &mut [f32], wb: &[f32; 4]) {
+    let g = wb[1];
+    if g.abs() < 1e-6 {
+        return;
+    }
+    let (mr, mb) = (wb[0] / g, wb[2] / g);
+    if !mr.is_finite() || !mb.is_finite() {
+        return;
+    }
+    for i in (0..rgb.len()).step_by(3) {
+        rgb[i] *= mr;
+        rgb[i + 2] *= mb;
+    }
+}
+
+/// Crops a linear image to `(x, y, width, height)`; the rect must be in bounds.
+pub fn crop_linear(
+    img: &RawLinearImage,
+    x: usize,
+    y: usize,
+    width: usize,
+    height: usize,
+) -> Result<RawLinearImage, String> {
+    if x.saturating_add(width) > img.width || y.saturating_add(height) > img.height {
+        return Err(format!(
+            "raw crop ({x},{y},{width},{height}) outside {}x{}",
+            img.width, img.height
+        ));
+    }
+    let row = width * 3;
+    let mut data = vec![0.0_f32; width * height * 3];
+    for r in 0..height {
+        let src = ((y + r) * img.width + x) * 3;
+        let dst = r * row;
+        data[dst..dst + row].copy_from_slice(&img.data[src..src + row]);
+    }
+    Ok(RawLinearImage {
+        width,
+        height,
+        data,
+    })
+}
+
+/// Decodes a RAW/DNG and returns only the requested region (ROI/tile path).
+pub fn decode_roi(
+    bytes: &[u8],
+    x: usize,
+    y: usize,
+    width: usize,
+    height: usize,
+) -> Result<RawLinearImage, String> {
+    crop_linear(&decode(bytes)?, x, y, width, height)
+}
+
+/// Encodes a linear sRGB image into an opaque RGBA8 buffer (sRGB transfer).
+pub fn to_rgba8(img: &RawLinearImage) -> Vec<u8> {
+    let mut out = vec![0u8; img.width * img.height * 4];
+    for i in 0..(img.width * img.height) {
+        out[i * 4] = (color::srgb_oetf(img.data[i * 3]) * 255.0).round() as u8;
+        out[i * 4 + 1] = (color::srgb_oetf(img.data[i * 3 + 1]) * 255.0).round() as u8;
+        out[i * 4 + 2] = (color::srgb_oetf(img.data[i * 3 + 2]) * 255.0).round() as u8;
+        out[i * 4 + 3] = 255;
+    }
+    out
 }
 
 /// Linear colour transforms: DNG camera matrices → working/display RGB.
@@ -284,6 +523,16 @@ pub mod color {
         let cam_to_xyz = invert(dng)?;
         let adapt = if dng_is_d50 { D50_TO_D65 } else { IDENTITY };
         Some(multiply(&XYZ_TO_SRGB_D65, &multiply(&adapt, &cam_to_xyz)))
+    }
+
+    /// Linear → gamma-encoded sRGB (the standard sRGB OETF), clamped to 0..=1.
+    pub fn srgb_oetf(x: f32) -> f32 {
+        let x = x.clamp(0.0, 1.0);
+        if x <= 0.003_130_8 {
+            12.92 * x
+        } else {
+            1.055 * x.powf(1.0 / 2.4) - 0.055
+        }
     }
 
     /// Applies a colour matrix to every pixel of a linear image.
@@ -587,6 +836,200 @@ mod tests {
         let (illu, m) = meta.color_matrix.expect("embedded matrix");
         assert_eq!(illu, Illuminant::D65);
         assert_mat_approx(&m, &color::SRGB_TO_XYZ_D65, 1e-3);
+    }
+
+    #[test]
+    fn cfa_pattern_from_colors_maps_all_variants() {
+        assert_eq!(CfaPattern::from_colors(0, 1, 1, 2), Some(CfaPattern::Rggb));
+        assert_eq!(CfaPattern::from_colors(2, 1, 1, 0), Some(CfaPattern::Bggr));
+        assert_eq!(CfaPattern::from_colors(1, 0, 2, 1), Some(CfaPattern::Grbg));
+        assert_eq!(CfaPattern::from_colors(1, 2, 0, 1), Some(CfaPattern::Gbrg));
+        assert_eq!(CfaPattern::from_colors(0, 0, 1, 2), None);
+    }
+
+    #[test]
+    fn cfa_pattern_color_at_matches_strings() {
+        // RGGB: R G / G B
+        assert_eq!(CfaPattern::Rggb.color_at(0, 0), 0);
+        assert_eq!(CfaPattern::Rggb.color_at(1, 0), 1);
+        assert_eq!(CfaPattern::Rggb.color_at(0, 1), 1);
+        assert_eq!(CfaPattern::Rggb.color_at(1, 1), 2);
+        // GB/RG
+        assert_eq!(CfaPattern::Gbrg.color_at(0, 0), 1);
+        assert_eq!(CfaPattern::Gbrg.color_at(1, 0), 2);
+        assert_eq!(CfaPattern::Gbrg.color_at(0, 1), 0);
+        assert_eq!(CfaPattern::Gbrg.color_at(1, 1), 1);
+    }
+
+    fn mosaic_constant(pattern: CfaPattern, w: usize, h: usize, rgb: [f32; 3]) -> Vec<f32> {
+        (0..w * h)
+            .map(|i| {
+                let (x, y) = (i % w, i / w);
+                rgb[pattern.color_at(x, y) as usize]
+            })
+            .collect()
+    }
+
+    #[test]
+    fn demosaic_recovers_constant_colour_for_every_pattern() {
+        let rgb = [0.2_f32, 0.4, 0.6];
+        for pattern in [
+            CfaPattern::Rggb,
+            CfaPattern::Bggr,
+            CfaPattern::Grbg,
+            CfaPattern::Gbrg,
+        ] {
+            let mosaic = mosaic_constant(pattern, 4, 4, rgb);
+            let out = demosaic_bilinear(&mosaic, 4, 4, pattern).unwrap();
+            for px in out.as_chunks::<3>().0 {
+                assert!((px[0] - rgb[0]).abs() < 1e-6, "{pattern:?} {px:?}");
+                assert!((px[1] - rgb[1]).abs() < 1e-6, "{pattern:?} {px:?}");
+                assert!((px[2] - rgb[2]).abs() < 1e-6, "{pattern:?} {px:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn demosaic_propagates_red_only_signal() {
+        let pattern = CfaPattern::Rggb;
+        let mosaic = mosaic_constant(pattern, 4, 4, [0.7, 0.0, 0.0]);
+        let out = demosaic_bilinear(&mosaic, 4, 4, pattern).unwrap();
+        for px in out.as_chunks::<3>().0 {
+            assert!((px[0] - 0.7).abs() < 1e-6, "{px:?}");
+            assert!(px[1].abs() < 1e-6 && px[2].abs() < 1e-6, "{px:?}");
+        }
+    }
+
+    #[test]
+    fn white_balance_normalises_to_green() {
+        let mut rgb = vec![1.0_f32; 9];
+        apply_white_balance(&mut rgb, &[2.0, 1.0, 0.5, 0.0]);
+        assert_eq!(rgb, vec![2.0, 1.0, 0.5, 2.0, 1.0, 0.5, 2.0, 1.0, 0.5]);
+    }
+
+    #[test]
+    fn white_balance_is_noop_for_zero_green() {
+        let mut rgb = vec![1.0_f32; 3];
+        apply_white_balance(&mut rgb, &[2.0, 0.0, 0.5, 0.0]);
+        assert_eq!(rgb, vec![1.0, 1.0, 1.0]);
+    }
+
+    #[test]
+    fn crop_linear_extracts_subregion() {
+        let img = RawLinearImage {
+            width: 3,
+            height: 2,
+            data: (0..18).map(|v| v as f32).collect(),
+        };
+        let c = crop_linear(&img, 1, 0, 2, 2).unwrap();
+        assert_eq!((c.width, c.height), (2, 2));
+        assert_eq!(
+            c.data,
+            vec![3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0]
+        );
+        assert!(crop_linear(&img, 2, 1, 3, 2).is_err());
+    }
+
+    #[test]
+    fn srgb_oetf_encodes_known_points() {
+        assert!((color::srgb_oetf(0.0) - 0.0).abs() < 1e-7);
+        assert!((color::srgb_oetf(1.0) - 1.0).abs() < 1e-6);
+        assert!((color::srgb_oetf(0.5) - 0.735_356_9).abs() < 1e-4);
+        assert!((color::srgb_oetf(-0.5) - 0.0).abs() < 1e-7);
+    }
+
+    #[test]
+    fn to_rgba8_produces_opaque_srgb() {
+        let img = RawLinearImage {
+            width: 1,
+            height: 1,
+            data: vec![0.5, 0.0, 1.0],
+        };
+        assert_eq!(to_rgba8(&img), vec![188, 0, 255, 255]);
+    }
+
+    #[test]
+    fn bayer_dng_demosaics_to_rgb() {
+        use rawler::cfa::PlaneColor;
+        use rawler::decoders::Camera;
+        use rawler::dng::{CropMode, DngPhotometricConversion};
+        use rawler::pixarray::PixU16;
+        use rawler::rawimage::{
+            BlackLevel, CFAConfig, RawImage, RawPhotometricInterpretation, WhiteLevel,
+        };
+
+        let (w, h) = (8usize, 8usize);
+        // Constant scene colour sampled through the CFA: R=0.25, G=0.5, B=0.75.
+        let levels = [0.25_f32, 0.5, 0.75];
+        let data: Vec<u16> = (0..w * h)
+            .map(|i| {
+                let (x, y) = (i % w, i / w);
+                let c = CfaPattern::Rggb.color_at(x, y) as usize;
+                (levels[c] * u16::MAX as f32) as u16
+            })
+            .collect();
+
+        let pix = PixU16::new_with(data, w, h);
+        let mut cam = Camera::new();
+        cam.cfa = rawler::CFA::new("RGGB");
+        let photometric =
+            RawPhotometricInterpretation::Cfa(CFAConfig::new(&cam.cfa, &PlaneColor::new("RGB")));
+        let raw = RawImage::new(
+            cam,
+            pix,
+            1,
+            [1.0, 1.0, 1.0, 1.0],
+            photometric,
+            Some(BlackLevel::new(&[0_u32], 1, 1, 1)),
+            Some(WhiteLevel::new_bits(16, 1)),
+            false,
+        );
+
+        let mut cursor = Cursor::new(Vec::new());
+        {
+            let mut wr = DngWriter::new(&mut cursor, [1, 4, 0, 0]).unwrap();
+            let mut sub = wr.subframe(0);
+            sub.raw_image(
+                &raw,
+                CropMode::None,
+                DngCompression::Uncompressed,
+                DngPhotometricConversion::Original,
+                1,
+            )
+            .unwrap();
+            sub.finalize().unwrap();
+            wr.close().unwrap();
+        }
+        let dng = cursor.into_inner();
+
+        let img = decode(&dng).unwrap();
+        assert_eq!((img.width, img.height), (w, h));
+        // Interior pixel recovers the scene colour through bilinear demosaic.
+        let idx = (4 * w + 4) * 3;
+        assert!(
+            (img.data[idx] - levels[0]).abs() < 0.02,
+            "r={}",
+            img.data[idx]
+        );
+        assert!(
+            (img.data[idx + 1] - levels[1]).abs() < 0.02,
+            "g={}",
+            img.data[idx + 1]
+        );
+        assert!(
+            (img.data[idx + 2] - levels[2]).abs() < 0.02,
+            "b={}",
+            img.data[idx + 2]
+        );
+    }
+
+    #[test]
+    fn decode_roi_matches_crop_of_full_decode() {
+        let dng = make_linear_dng(8, 8);
+        let full = decode(&dng).unwrap();
+        let roi = decode_roi(&dng, 2, 3, 3, 2).unwrap();
+        let expected = crop_linear(&full, 2, 3, 3, 2).unwrap();
+        assert_eq!(roi, expected);
     }
 
     #[test]
