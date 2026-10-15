@@ -27,11 +27,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use crate::color::{self, CurveSet, GradeParams};
 use crate::geometry::{self, GeometrySpec};
 use crate::mask::{self, LocalAdjustment};
+use crate::optics::{self, OpticsParams};
 use crate::spatial::{self, SpatialParams};
 
 /// Everything the export chain needs, in engine types.
 pub struct ExportRecipe {
     pub geometry: GeometrySpec,
+    pub optics: OpticsParams,
     pub spatial: SpatialParams,
     pub layers: Vec<LocalAdjustment>,
     pub grade: GradeParams,
@@ -68,6 +70,9 @@ impl ExportOutcome {
 /// geometry → spatial → masks → grade over the whole buffer, no banding.
 pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) -> ExportFrame {
     let (mut buf, gw, gh) = geometry::apply_spec(src, w, h, &recipe.geometry);
+    if !recipe.optics.is_neutral() {
+        buf = optics::apply_optics(&buf, gw, gh, recipe.optics);
+    }
     if !recipe.spatial.is_neutral() {
         buf = spatial::apply_spatial(&buf, gw, gh, recipe.spatial);
     }
@@ -104,7 +109,10 @@ pub fn run_export_tiled(
         ));
     }
 
-    let (frame, gw, gh) = geometry::apply_spec(src, w, h, &recipe.geometry);
+    let (mut frame, gw, gh) = geometry::apply_spec(src, w, h, &recipe.geometry);
+    if !recipe.optics.is_neutral() {
+        frame = optics::apply_optics(&frame, gw, gh, recipe.optics);
+    }
     let band_rows = band_rows.min(gh.max(1));
     let mut out = vec![0u8; gw * gh * 4];
 
@@ -185,6 +193,7 @@ mod tests {
                 crop_b: 1.0,
                 ..Default::default()
             },
+            optics: OpticsParams::default(),
             spatial: SpatialParams {
                 shadows: 0.3,
                 highlights: -0.2,
@@ -233,6 +242,7 @@ mod tests {
     fn neutral() -> ExportRecipe {
         ExportRecipe {
             geometry: GeometrySpec::default(),
+            optics: OpticsParams::default(),
             spatial: SpatialParams::default(),
             layers: Vec::new(),
             grade: GradeParams::default(),

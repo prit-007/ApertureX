@@ -132,6 +132,13 @@ class ExportSpec {
   final double grain;
   final double grainSize;
   final double grainRoughness;
+  final bool removeChromaticAberration;
+  final double defringePurpleAmount;
+  final double defringePurpleHueMin;
+  final double defringePurpleHueMax;
+  final double defringeGreenAmount;
+  final double defringeGreenHueMin;
+  final double defringeGreenHueMax;
   final int quality;
 
   /// Longest-side cap for the export (0 = full resolution).
@@ -175,6 +182,13 @@ class ExportSpec {
     required this.grain,
     required this.grainSize,
     required this.grainRoughness,
+    required this.removeChromaticAberration,
+    required this.defringePurpleAmount,
+    required this.defringePurpleHueMin,
+    required this.defringePurpleHueMax,
+    required this.defringeGreenAmount,
+    required this.defringeGreenHueMin,
+    required this.defringeGreenHueMax,
     required this.quality,
     required this.maxDim,
     required this.bandRows,
@@ -214,6 +228,13 @@ class ExportSpec {
       grain.hashCode ^
       grainSize.hashCode ^
       grainRoughness.hashCode ^
+      removeChromaticAberration.hashCode ^
+      defringePurpleAmount.hashCode ^
+      defringePurpleHueMin.hashCode ^
+      defringePurpleHueMax.hashCode ^
+      defringeGreenAmount.hashCode ^
+      defringeGreenHueMin.hashCode ^
+      defringeGreenHueMax.hashCode ^
       quality.hashCode ^
       maxDim.hashCode ^
       bandRows.hashCode ^
@@ -255,6 +276,13 @@ class ExportSpec {
           grain == other.grain &&
           grainSize == other.grainSize &&
           grainRoughness == other.grainRoughness &&
+          removeChromaticAberration == other.removeChromaticAberration &&
+          defringePurpleAmount == other.defringePurpleAmount &&
+          defringePurpleHueMin == other.defringePurpleHueMin &&
+          defringePurpleHueMax == other.defringePurpleHueMax &&
+          defringeGreenAmount == other.defringeGreenAmount &&
+          defringeGreenHueMin == other.defringeGreenHueMin &&
+          defringeGreenHueMax == other.defringeGreenHueMax &&
           quality == other.quality &&
           maxDim == other.maxDim &&
           bandRows == other.bandRows &&

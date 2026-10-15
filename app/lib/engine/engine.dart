@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../color/grade_spec.dart';
+import '../color/optics_spec.dart';
 import '../color/spatial_spec.dart';
 import '../edit/adjustment_layer.dart';
 import '../edit/geometry_spec.dart';
@@ -592,6 +593,7 @@ class TesseraEngine {
     required int height,
     required GradeSpec spec,
     SpatialSpec spatial = const SpatialSpec(),
+    OpticsSpec optics = const OpticsSpec(),
     GeometrySpec geometry = const GeometrySpec(),
     List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
     List<int> exif = const <int>[],
@@ -635,6 +637,13 @@ class TesseraEngine {
         grain: spatial.grain,
         grainSize: spatial.grainSize,
         grainRoughness: spatial.grainRoughness,
+        removeChromaticAberration: optics.removeChromaticAberration,
+        defringePurpleAmount: optics.defringePurpleAmount,
+        defringePurpleHueMin: optics.defringePurpleHueMin,
+        defringePurpleHueMax: optics.defringePurpleHueMax,
+        defringeGreenAmount: optics.defringeGreenAmount,
+        defringeGreenHueMin: optics.defringeGreenHueMin,
+        defringeGreenHueMax: optics.defringeGreenHueMax,
         quality: quality,
         maxDim: maxDim ?? 0,
         bandRows: 256,
@@ -665,6 +674,7 @@ class TesseraEngine {
     required int height,
     required GradeSpec spec,
     SpatialSpec spatial = const SpatialSpec(),
+    OpticsSpec optics = const OpticsSpec(),
     GeometrySpec geometry = const GeometrySpec(),
     List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
     List<int> exif = const <int>[],
@@ -677,6 +687,7 @@ class TesseraEngine {
       height: height,
       spec: spec,
       spatial: spatial,
+      optics: optics,
       geometry: geometry,
       layers: layers,
       exif: exif,

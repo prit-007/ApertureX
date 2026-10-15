@@ -13,6 +13,7 @@ import 'api/histogram.dart';
 import 'api/icc.dart';
 import 'api/logging.dart';
 import 'api/mask.dart';
+import 'api/optics.dart';
 import 'api/preview.dart';
 import 'api/raw.dart';
 import 'api/roi.dart';
@@ -79,7 +80,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1760942178;
+  int get rustContentHash => -183438275;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -279,6 +280,40 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiLoggingInitPanicHook({required String dir});
 
   Future<ImageDims> crateApiDecodeJpegDimensions({required List<int> jpeg});
+
+  Future<Uint8List> crateApiOpticsOpticsApply({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required bool removeChromaticAberration,
+    required double defringePurpleAmount,
+    required double defringePurpleHueMin,
+    required double defringePurpleHueMax,
+    required double defringeGreenAmount,
+    required double defringeGreenHueMin,
+    required double defringeGreenHueMax,
+    required bool profileCorrections,
+    required double profileDistortion,
+    required double profileVignetting,
+  });
+
+  Future<Uint8List> crateApiOpticsOpticsDefringe({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double purpleAmount,
+    required double purpleMin,
+    required double purpleMax,
+    required double greenAmount,
+    required double greenMin,
+    required double greenMax,
+  });
+
+  Future<Uint8List> crateApiOpticsOpticsLateralCa({
+    required List<int> rgba,
+    required int width,
+    required int height,
+  });
 
   Future<Uint8List> crateApiIccP3ToSrgb({
     required List<int> rgba,
@@ -1639,6 +1674,196 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "jpeg_dimensions", argNames: ["jpeg"]);
 
   @override
+  Future<Uint8List> crateApiOpticsOpticsApply({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required bool removeChromaticAberration,
+    required double defringePurpleAmount,
+    required double defringePurpleHueMin,
+    required double defringePurpleHueMax,
+    required double defringeGreenAmount,
+    required double defringeGreenHueMin,
+    required double defringeGreenHueMax,
+    required bool profileCorrections,
+    required double profileDistortion,
+    required double profileVignetting,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_bool(removeChromaticAberration, serializer);
+          sse_encode_f_32(defringePurpleAmount, serializer);
+          sse_encode_f_32(defringePurpleHueMin, serializer);
+          sse_encode_f_32(defringePurpleHueMax, serializer);
+          sse_encode_f_32(defringeGreenAmount, serializer);
+          sse_encode_f_32(defringeGreenHueMin, serializer);
+          sse_encode_f_32(defringeGreenHueMax, serializer);
+          sse_encode_bool(profileCorrections, serializer);
+          sse_encode_f_32(profileDistortion, serializer);
+          sse_encode_f_32(profileVignetting, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 31,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiOpticsOpticsApplyConstMeta,
+        argValues: [
+          rgba,
+          width,
+          height,
+          removeChromaticAberration,
+          defringePurpleAmount,
+          defringePurpleHueMin,
+          defringePurpleHueMax,
+          defringeGreenAmount,
+          defringeGreenHueMin,
+          defringeGreenHueMax,
+          profileCorrections,
+          profileDistortion,
+          profileVignetting,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiOpticsOpticsApplyConstMeta => const TaskConstMeta(
+    debugName: "optics_apply",
+    argNames: [
+      "rgba",
+      "width",
+      "height",
+      "removeChromaticAberration",
+      "defringePurpleAmount",
+      "defringePurpleHueMin",
+      "defringePurpleHueMax",
+      "defringeGreenAmount",
+      "defringeGreenHueMin",
+      "defringeGreenHueMax",
+      "profileCorrections",
+      "profileDistortion",
+      "profileVignetting",
+    ],
+  );
+
+  @override
+  Future<Uint8List> crateApiOpticsOpticsDefringe({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double purpleAmount,
+    required double purpleMin,
+    required double purpleMax,
+    required double greenAmount,
+    required double greenMin,
+    required double greenMax,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_f_32(purpleAmount, serializer);
+          sse_encode_f_32(purpleMin, serializer);
+          sse_encode_f_32(purpleMax, serializer);
+          sse_encode_f_32(greenAmount, serializer);
+          sse_encode_f_32(greenMin, serializer);
+          sse_encode_f_32(greenMax, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 32,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiOpticsOpticsDefringeConstMeta,
+        argValues: [
+          rgba,
+          width,
+          height,
+          purpleAmount,
+          purpleMin,
+          purpleMax,
+          greenAmount,
+          greenMin,
+          greenMax,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiOpticsOpticsDefringeConstMeta =>
+      const TaskConstMeta(
+        debugName: "optics_defringe",
+        argNames: [
+          "rgba",
+          "width",
+          "height",
+          "purpleAmount",
+          "purpleMin",
+          "purpleMax",
+          "greenAmount",
+          "greenMin",
+          "greenMax",
+        ],
+      );
+
+  @override
+  Future<Uint8List> crateApiOpticsOpticsLateralCa({
+    required List<int> rgba,
+    required int width,
+    required int height,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 33,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiOpticsOpticsLateralCaConstMeta,
+        argValues: [rgba, width, height],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiOpticsOpticsLateralCaConstMeta =>
+      const TaskConstMeta(
+        debugName: "optics_lateral_ca",
+        argNames: ["rgba", "width", "height"],
+      );
+
+  @override
   Future<Uint8List> crateApiIccP3ToSrgb({
     required List<int> rgba,
     required int width,
@@ -1654,7 +1879,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 31,
+            funcId: 34,
             port: port_,
           );
         },
@@ -1690,7 +1915,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 32,
+            funcId: 35,
             port: port_,
           );
         },
@@ -1720,7 +1945,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 33,
+            funcId: 36,
             port: port_,
           );
         },
@@ -1758,7 +1983,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 34,
+            funcId: 37,
             port: port_,
           );
         },
@@ -1795,7 +2020,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 35,
+            funcId: 38,
             port: port_,
           );
         },
@@ -1839,7 +2064,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 36,
+            funcId: 39,
             port: port_,
           );
         },
@@ -1878,7 +2103,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 37,
+            funcId: 40,
             port: port_,
           );
         },
@@ -1906,7 +2131,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 38,
+            funcId: 41,
             port: port_,
           );
         },
@@ -1940,7 +2165,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 39,
+            funcId: 42,
             port: port_,
           );
         },
@@ -2014,7 +2239,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 40,
+            funcId: 43,
             port: port_,
           );
         },
@@ -2099,7 +2324,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 41,
+            funcId: 44,
             port: port_,
           );
         },
@@ -2140,7 +2365,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 42,
+            funcId: 45,
             port: port_,
           );
         },
@@ -2181,7 +2406,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 43,
+            funcId: 46,
             port: port_,
           );
         },
@@ -2222,7 +2447,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 47,
             port: port_,
           );
         },
@@ -2261,7 +2486,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 48,
             port: port_,
           );
         },
@@ -2300,7 +2525,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 49,
             port: port_,
           );
         },
@@ -2335,7 +2560,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 50,
             port: port_,
           );
         },
@@ -2449,8 +2674,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ExportSpec dco_decode_export_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 35)
-      throw Exception('unexpected arr length: expect 35 but see ${arr.length}');
+    if (arr.length != 42)
+      throw Exception('unexpected arr length: expect 42 but see ${arr.length}');
     return ExportSpec(
       flipH: dco_decode_bool(arr[0]),
       flipV: dco_decode_bool(arr[1]),
@@ -2483,10 +2708,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       grain: dco_decode_f_32(arr[28]),
       grainSize: dco_decode_f_32(arr[29]),
       grainRoughness: dco_decode_f_32(arr[30]),
-      quality: dco_decode_u_8(arr[31]),
-      maxDim: dco_decode_u_32(arr[32]),
-      bandRows: dco_decode_u_32(arr[33]),
-      cancelToken: dco_decode_u_64(arr[34]),
+      removeChromaticAberration: dco_decode_bool(arr[31]),
+      defringePurpleAmount: dco_decode_f_32(arr[32]),
+      defringePurpleHueMin: dco_decode_f_32(arr[33]),
+      defringePurpleHueMax: dco_decode_f_32(arr[34]),
+      defringeGreenAmount: dco_decode_f_32(arr[35]),
+      defringeGreenHueMin: dco_decode_f_32(arr[36]),
+      defringeGreenHueMax: dco_decode_f_32(arr[37]),
+      quality: dco_decode_u_8(arr[38]),
+      maxDim: dco_decode_u_32(arr[39]),
+      bandRows: dco_decode_u_32(arr[40]),
+      cancelToken: dco_decode_u_64(arr[41]),
     );
   }
 
@@ -2608,8 +2840,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PreviewBaseSpec dco_decode_preview_base_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 26)
-      throw Exception('unexpected arr length: expect 26 but see ${arr.length}');
+    if (arr.length != 33)
+      throw Exception('unexpected arr length: expect 33 but see ${arr.length}');
     return PreviewBaseSpec(
       flipH: dco_decode_bool(arr[0]),
       flipV: dco_decode_bool(arr[1]),
@@ -2637,6 +2869,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       grain: dco_decode_f_32(arr[23]),
       grainSize: dco_decode_f_32(arr[24]),
       grainRoughness: dco_decode_f_32(arr[25]),
+      removeChromaticAberration: dco_decode_bool(arr[26]),
+      defringePurpleAmount: dco_decode_f_32(arr[27]),
+      defringePurpleHueMin: dco_decode_f_32(arr[28]),
+      defringePurpleHueMax: dco_decode_f_32(arr[29]),
+      defringeGreenAmount: dco_decode_f_32(arr[30]),
+      defringeGreenHueMin: dco_decode_f_32(arr[31]),
+      defringeGreenHueMax: dco_decode_f_32(arr[32]),
     );
   }
 
@@ -2830,6 +3069,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_grain = sse_decode_f_32(deserializer);
     var var_grainSize = sse_decode_f_32(deserializer);
     var var_grainRoughness = sse_decode_f_32(deserializer);
+    var var_removeChromaticAberration = sse_decode_bool(deserializer);
+    var var_defringePurpleAmount = sse_decode_f_32(deserializer);
+    var var_defringePurpleHueMin = sse_decode_f_32(deserializer);
+    var var_defringePurpleHueMax = sse_decode_f_32(deserializer);
+    var var_defringeGreenAmount = sse_decode_f_32(deserializer);
+    var var_defringeGreenHueMin = sse_decode_f_32(deserializer);
+    var var_defringeGreenHueMax = sse_decode_f_32(deserializer);
     var var_quality = sse_decode_u_8(deserializer);
     var var_maxDim = sse_decode_u_32(deserializer);
     var var_bandRows = sse_decode_u_32(deserializer);
@@ -2866,6 +3112,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       grain: var_grain,
       grainSize: var_grainSize,
       grainRoughness: var_grainRoughness,
+      removeChromaticAberration: var_removeChromaticAberration,
+      defringePurpleAmount: var_defringePurpleAmount,
+      defringePurpleHueMin: var_defringePurpleHueMin,
+      defringePurpleHueMax: var_defringePurpleHueMax,
+      defringeGreenAmount: var_defringeGreenAmount,
+      defringeGreenHueMin: var_defringeGreenHueMin,
+      defringeGreenHueMax: var_defringeGreenHueMax,
       quality: var_quality,
       maxDim: var_maxDim,
       bandRows: var_bandRows,
@@ -3012,6 +3265,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_grain = sse_decode_f_32(deserializer);
     var var_grainSize = sse_decode_f_32(deserializer);
     var var_grainRoughness = sse_decode_f_32(deserializer);
+    var var_removeChromaticAberration = sse_decode_bool(deserializer);
+    var var_defringePurpleAmount = sse_decode_f_32(deserializer);
+    var var_defringePurpleHueMin = sse_decode_f_32(deserializer);
+    var var_defringePurpleHueMax = sse_decode_f_32(deserializer);
+    var var_defringeGreenAmount = sse_decode_f_32(deserializer);
+    var var_defringeGreenHueMin = sse_decode_f_32(deserializer);
+    var var_defringeGreenHueMax = sse_decode_f_32(deserializer);
     return PreviewBaseSpec(
       flipH: var_flipH,
       flipV: var_flipV,
@@ -3039,6 +3299,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       grain: var_grain,
       grainSize: var_grainSize,
       grainRoughness: var_grainRoughness,
+      removeChromaticAberration: var_removeChromaticAberration,
+      defringePurpleAmount: var_defringePurpleAmount,
+      defringePurpleHueMin: var_defringePurpleHueMin,
+      defringePurpleHueMax: var_defringePurpleHueMax,
+      defringeGreenAmount: var_defringeGreenAmount,
+      defringeGreenHueMin: var_defringeGreenHueMin,
+      defringeGreenHueMax: var_defringeGreenHueMax,
     );
   }
 
@@ -3202,6 +3469,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.grain, serializer);
     sse_encode_f_32(self.grainSize, serializer);
     sse_encode_f_32(self.grainRoughness, serializer);
+    sse_encode_bool(self.removeChromaticAberration, serializer);
+    sse_encode_f_32(self.defringePurpleAmount, serializer);
+    sse_encode_f_32(self.defringePurpleHueMin, serializer);
+    sse_encode_f_32(self.defringePurpleHueMax, serializer);
+    sse_encode_f_32(self.defringeGreenAmount, serializer);
+    sse_encode_f_32(self.defringeGreenHueMin, serializer);
+    sse_encode_f_32(self.defringeGreenHueMax, serializer);
     sse_encode_u_8(self.quality, serializer);
     sse_encode_u_32(self.maxDim, serializer);
     sse_encode_u_32(self.bandRows, serializer);
@@ -3362,6 +3636,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.grain, serializer);
     sse_encode_f_32(self.grainSize, serializer);
     sse_encode_f_32(self.grainRoughness, serializer);
+    sse_encode_bool(self.removeChromaticAberration, serializer);
+    sse_encode_f_32(self.defringePurpleAmount, serializer);
+    sse_encode_f_32(self.defringePurpleHueMin, serializer);
+    sse_encode_f_32(self.defringePurpleHueMax, serializer);
+    sse_encode_f_32(self.defringeGreenAmount, serializer);
+    sse_encode_f_32(self.defringeGreenHueMin, serializer);
+    sse_encode_f_32(self.defringeGreenHueMax, serializer);
   }
 
   @protected

@@ -8,6 +8,7 @@ pub mod histogram;
 pub mod icc;
 pub mod logging;
 pub mod mask;
+pub mod optics;
 pub mod preview;
 pub mod raw;
 pub mod roi;

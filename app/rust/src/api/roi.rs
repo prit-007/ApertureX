@@ -256,6 +256,13 @@ mod tests {
             grain: 0.0,
             grain_size: 0.25,
             grain_roughness: 0.5,
+            remove_chromatic_aberration: false,
+            defringe_purple_amount: 0.0,
+            defringe_purple_hue_min: 0.70,
+            defringe_purple_hue_max: 0.95,
+            defringe_green_amount: 0.0,
+            defringe_green_hue_min: 0.17,
+            defringe_green_hue_max: 0.50,
         }
     }
 

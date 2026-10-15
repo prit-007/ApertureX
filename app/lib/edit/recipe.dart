@@ -86,6 +86,17 @@ class EditRecipe {
     this.skewX = 0,
     this.skewY = 0,
     this.layers = const <AdjustmentLayer>[],
+    // Optics.
+    this.removeChromaticAberration = false,
+    this.defringePurpleAmount = 0,
+    this.defringePurpleHueMin = 0.70,
+    this.defringePurpleHueMax = 0.95,
+    this.defringeGreenAmount = 0,
+    this.defringeGreenHueMin = 0.17,
+    this.defringeGreenHueMax = 0.50,
+    this.profileCorrections = false,
+    this.profileDistortion = 1.0,
+    this.profileVignetting = 1.0,
   });
 
   /// Bumped only on a breaking schema change (ARCHITECTURE §16).
@@ -95,8 +106,9 @@ class EditRecipe {
   /// forward with those fields neutral. v13: adds 3-way color wheel luminance,
   /// blending, and balance. v14: adds advanced sharpen radius, detail, masking.
   /// v15: adds advanced vignette and grain controls.
+  /// v16: adds optics, chromatic aberration, defringe, and lens profile controls.
   /// `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 15;
+  static const int currentSchemaVersion = 16;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -127,6 +139,18 @@ class EditRecipe {
   final double sharpenMasking; // spatial pass, 0..1, neutral 0.
   final double denoiseLuma; // spatial pass, neutral 0.
   final double denoiseChroma; // spatial pass, neutral 0.
+
+  // Optics.
+  final bool removeChromaticAberration;
+  final double defringePurpleAmount;
+  final double defringePurpleHueMin;
+  final double defringePurpleHueMax;
+  final double defringeGreenAmount;
+  final double defringeGreenHueMin;
+  final double defringeGreenHueMax;
+  final bool profileCorrections;
+  final double profileDistortion;
+  final double profileVignetting;
 
   // Color.
   final double temperature; // unitless, neutral 0.
@@ -231,6 +255,16 @@ class EditRecipe {
     double? skewX,
     double? skewY,
     List<AdjustmentLayer>? layers,
+    bool? removeChromaticAberration,
+    double? defringePurpleAmount,
+    double? defringePurpleHueMin,
+    double? defringePurpleHueMax,
+    double? defringeGreenAmount,
+    double? defringeGreenHueMin,
+    double? defringeGreenHueMax,
+    bool? profileCorrections,
+    double? profileDistortion,
+    double? profileVignetting,
   }) {
     return EditRecipe(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -257,6 +291,17 @@ class EditRecipe {
       sharpenMasking: sharpenMasking ?? this.sharpenMasking,
       denoiseLuma: denoiseLuma ?? this.denoiseLuma,
       denoiseChroma: denoiseChroma ?? this.denoiseChroma,
+      removeChromaticAberration:
+          removeChromaticAberration ?? this.removeChromaticAberration,
+      defringePurpleAmount: defringePurpleAmount ?? this.defringePurpleAmount,
+      defringePurpleHueMin: defringePurpleHueMin ?? this.defringePurpleHueMin,
+      defringePurpleHueMax: defringePurpleHueMax ?? this.defringePurpleHueMax,
+      defringeGreenAmount: defringeGreenAmount ?? this.defringeGreenAmount,
+      defringeGreenHueMin: defringeGreenHueMin ?? this.defringeGreenHueMin,
+      defringeGreenHueMax: defringeGreenHueMax ?? this.defringeGreenHueMax,
+      profileCorrections: profileCorrections ?? this.profileCorrections,
+      profileDistortion: profileDistortion ?? this.profileDistortion,
+      profileVignetting: profileVignetting ?? this.profileVignetting,
       temperature: temperature ?? this.temperature,
       tint: tint ?? this.tint,
       vibrance: vibrance ?? this.vibrance,
@@ -316,6 +361,16 @@ class EditRecipe {
     'sharpenMasking': sharpenMasking,
     'denoiseLuma': denoiseLuma,
     'denoiseChroma': denoiseChroma,
+    'removeChromaticAberration': removeChromaticAberration,
+    'defringePurpleAmount': defringePurpleAmount,
+    'defringePurpleHueMin': defringePurpleHueMin,
+    'defringePurpleHueMax': defringePurpleHueMax,
+    'defringeGreenAmount': defringeGreenAmount,
+    'defringeGreenHueMin': defringeGreenHueMin,
+    'defringeGreenHueMax': defringeGreenHueMax,
+    'profileCorrections': profileCorrections,
+    'profileDistortion': profileDistortion,
+    'profileVignetting': profileVignetting,
     'temperature': temperature,
     'tint': tint,
     'vibrance': vibrance,
@@ -378,6 +433,23 @@ class EditRecipe {
       sharpenMasking: asDouble('sharpenMasking'),
       denoiseLuma: asDouble('denoiseLuma'),
       denoiseChroma: asDouble('denoiseChroma'),
+      removeChromaticAberration:
+          json['removeChromaticAberration'] as bool? ?? false,
+      defringePurpleAmount: asDouble('defringePurpleAmount'),
+      defringePurpleHueMin:
+          (json['defringePurpleHueMin'] as num?)?.toDouble() ?? 0.70,
+      defringePurpleHueMax:
+          (json['defringePurpleHueMax'] as num?)?.toDouble() ?? 0.95,
+      defringeGreenAmount: asDouble('defringeGreenAmount'),
+      defringeGreenHueMin:
+          (json['defringeGreenHueMin'] as num?)?.toDouble() ?? 0.17,
+      defringeGreenHueMax:
+          (json['defringeGreenHueMax'] as num?)?.toDouble() ?? 0.50,
+      profileCorrections: json['profileCorrections'] as bool? ?? false,
+      profileDistortion:
+          (json['profileDistortion'] as num?)?.toDouble() ?? 1.0,
+      profileVignetting:
+          (json['profileVignetting'] as num?)?.toDouble() ?? 1.0,
       temperature: asDouble('temperature'),
       tint: asDouble('tint'),
       vibrance: asDouble('vibrance'),
@@ -448,6 +520,16 @@ class EditRecipe {
       other.sharpenMasking == sharpenMasking &&
       other.denoiseLuma == denoiseLuma &&
       other.denoiseChroma == denoiseChroma &&
+      other.removeChromaticAberration == removeChromaticAberration &&
+      other.defringePurpleAmount == defringePurpleAmount &&
+      other.defringePurpleHueMin == defringePurpleHueMin &&
+      other.defringePurpleHueMax == defringePurpleHueMax &&
+      other.defringeGreenAmount == defringeGreenAmount &&
+      other.defringeGreenHueMin == defringeGreenHueMin &&
+      other.defringeGreenHueMax == defringeGreenHueMax &&
+      other.profileCorrections == profileCorrections &&
+      other.profileDistortion == profileDistortion &&
+      other.profileVignetting == profileVignetting &&
       other.temperature == temperature &&
       other.tint == tint &&
       other.vibrance == vibrance &&
@@ -511,6 +593,18 @@ class EditRecipe {
     tint,
     vibrance,
     saturation,
+    Object.hash(
+      removeChromaticAberration,
+      defringePurpleAmount,
+      defringePurpleHueMin,
+      defringePurpleHueMax,
+      defringeGreenAmount,
+      defringeGreenHueMin,
+      defringeGreenHueMax,
+      profileCorrections,
+      profileDistortion,
+      profileVignetting,
+    ),
     Object.hash(
       gradeShadowHue,
       gradeShadowSat,

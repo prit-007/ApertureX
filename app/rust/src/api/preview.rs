@@ -54,6 +54,13 @@ pub struct PreviewBaseSpec {
     pub grain: f32,
     pub grain_size: f32,
     pub grain_roughness: f32,
+    pub remove_chromatic_aberration: bool,
+    pub defringe_purple_amount: f32,
+    pub defringe_purple_hue_min: f32,
+    pub defringe_purple_hue_max: f32,
+    pub defringe_green_amount: f32,
+    pub defringe_green_hue_min: f32,
+    pub defringe_green_hue_max: f32,
 }
 
 /// Uploads a decoded RGBA proxy into the resident store; returns a handle.
@@ -176,6 +183,13 @@ mod tests {
             grain: 0.0,
             grain_size: 0.25,
             grain_roughness: 0.5,
+            remove_chromatic_aberration: false,
+            defringe_purple_amount: 0.0,
+            defringe_purple_hue_min: 0.70,
+            defringe_purple_hue_max: 0.95,
+            defringe_green_amount: 0.0,
+            defringe_green_hue_min: 0.17,
+            defringe_green_hue_max: 0.50,
         }
     }
 
@@ -263,6 +277,13 @@ mod tests {
             grain: gr,
             grain_size: 0.25,
             grain_roughness: 0.5,
+            remove_chromatic_aberration: false,
+            defringe_purple_amount: 0.0,
+            defringe_purple_hue_min: 0.70,
+            defringe_purple_hue_max: 0.95,
+            defringe_green_amount: 0.0,
+            defringe_green_hue_min: 0.17,
+            defringe_green_hue_max: 0.50,
         };
         let h = preview_open(src, 8, 6);
         let fused = preview_base(h, spec, Vec::new()).unwrap();

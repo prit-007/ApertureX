@@ -215,5 +215,34 @@ void main() {
       final restored = EditRecipe.fromJson(json);
       expect(restored, recipe);
     });
+
+    test('optics parameters round-trip and participate in equality', () {
+      final recipe = const EditRecipe().copyWith(
+        removeChromaticAberration: true,
+        defringePurpleAmount: 0.6,
+        defringePurpleHueMin: 0.68,
+        defringePurpleHueMax: 0.92,
+        defringeGreenAmount: 0.4,
+        defringeGreenHueMin: 0.20,
+        defringeGreenHueMax: 0.48,
+        profileCorrections: true,
+        profileDistortion: 1.2,
+        profileVignetting: 0.8,
+      );
+      expect(recipe.removeChromaticAberration, true);
+      expect(recipe.defringePurpleAmount, 0.6);
+      expect(recipe.defringePurpleHueMin, 0.68);
+      expect(recipe.defringePurpleHueMax, 0.92);
+      expect(recipe.defringeGreenAmount, 0.4);
+      expect(recipe.defringeGreenHueMin, 0.20);
+      expect(recipe.defringeGreenHueMax, 0.48);
+      expect(recipe.profileCorrections, true);
+      expect(recipe.profileDistortion, 1.2);
+      expect(recipe.profileVignetting, 0.8);
+
+      final json = recipe.toJson();
+      final restored = EditRecipe.fromJson(json);
+      expect(restored, recipe);
+    });
   });
 }

@@ -53,6 +53,11 @@ enum Parameter {
   gradeHighlightLum,
   gradeBlending,
   gradeBalance,
+  // Optics
+  defringePurpleAmount,
+  defringeGreenAmount,
+  profileDistortion,
+  profileVignetting,
 }
 
 /// Static metadata for a [Parameter].
@@ -378,6 +383,36 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     min: -1,
     max: 1,
   ),
+  Parameter.defringePurpleAmount: ParameterSpec(
+    id: Parameter.defringePurpleAmount,
+    section: RecipeSection.optics,
+    label: 'Purple Amount',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.defringeGreenAmount: ParameterSpec(
+    id: Parameter.defringeGreenAmount,
+    section: RecipeSection.optics,
+    label: 'Green Amount',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.profileDistortion: ParameterSpec(
+    id: Parameter.profileDistortion,
+    section: RecipeSection.optics,
+    label: 'Distortion',
+    min: 0,
+    max: 2,
+    neutral: 1.0,
+  ),
+  Parameter.profileVignetting: ParameterSpec(
+    id: Parameter.profileVignetting,
+    section: RecipeSection.optics,
+    label: 'Vignetting',
+    min: 0,
+    max: 2,
+    neutral: 1.0,
+  ),
 };
 
 /// The [ParameterSpec] for [p]. Always present — the catalog covers the enum.
@@ -429,6 +464,10 @@ double valueOf(EditRecipe recipe, Parameter p) => switch (p) {
   Parameter.gradeHighlightLum => recipe.gradeHighlightLum,
   Parameter.gradeBlending => recipe.gradeBlending,
   Parameter.gradeBalance => recipe.gradeBalance,
+  Parameter.defringePurpleAmount => recipe.defringePurpleAmount,
+  Parameter.defringeGreenAmount => recipe.defringeGreenAmount,
+  Parameter.profileDistortion => recipe.profileDistortion,
+  Parameter.profileVignetting => recipe.profileVignetting,
 };
 
 /// A copy of [recipe] with [p] set to [value] (clamped). Pure.
@@ -473,6 +512,11 @@ EditRecipe withValue(EditRecipe recipe, Parameter p, double value) {
     Parameter.gradeHighlightLum => recipe.copyWith(gradeHighlightLum: v),
     Parameter.gradeBlending => recipe.copyWith(gradeBlending: v),
     Parameter.gradeBalance => recipe.copyWith(gradeBalance: v),
+    Parameter.defringePurpleAmount =>
+      recipe.copyWith(defringePurpleAmount: v),
+    Parameter.defringeGreenAmount => recipe.copyWith(defringeGreenAmount: v),
+    Parameter.profileDistortion => recipe.copyWith(profileDistortion: v),
+    Parameter.profileVignetting => recipe.copyWith(profileVignetting: v),
   };
 }
 /// A preview copy of [recipe] with every parameter in [muted] neutralised —

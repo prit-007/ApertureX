@@ -18,6 +18,7 @@ use crate::export;
 use crate::export_pipeline::{self, ExportOutcome, ExportRecipe};
 use crate::geometry::{self, GeometrySpec};
 use crate::mask::{self, LocalAdjustment};
+use crate::optics::OpticsParams;
 use crate::spatial::SpatialParams;
 
 /// Encodes an RGBA8 buffer as a JPEG (alpha dropped). [exif] (a full APP1
@@ -72,6 +73,14 @@ pub struct ExportSpec {
     pub grain: f32,
     pub grain_size: f32,
     pub grain_roughness: f32,
+    // optics
+    pub remove_chromatic_aberration: bool,
+    pub defringe_purple_amount: f32,
+    pub defringe_purple_hue_min: f32,
+    pub defringe_purple_hue_max: f32,
+    pub defringe_green_amount: f32,
+    pub defringe_green_hue_min: f32,
+    pub defringe_green_hue_max: f32,
     // encode
     pub quality: u8,
     /// Longest-side cap for the export (0 = full resolution).
@@ -190,6 +199,18 @@ pub fn export_full(
             perspective_y: spec.perspective_y,
             skew_x: spec.skew_x,
             skew_y: spec.skew_y,
+        },
+        optics: OpticsParams {
+            remove_chromatic_aberration: spec.remove_chromatic_aberration,
+            defringe_purple_amount: spec.defringe_purple_amount,
+            defringe_purple_hue_min: spec.defringe_purple_hue_min,
+            defringe_purple_hue_max: spec.defringe_purple_hue_max,
+            defringe_green_amount: spec.defringe_green_amount,
+            defringe_green_hue_min: spec.defringe_green_hue_min,
+            defringe_green_hue_max: spec.defringe_green_hue_max,
+            profile_corrections: false,
+            profile_distortion: 1.0,
+            profile_vignetting: 1.0,
         },
         spatial: SpatialParams {
             shadows: spec.shadows,
@@ -314,6 +335,13 @@ mod tests {
             grain: 0.0,
             grain_size: 0.25,
             grain_roughness: 0.5,
+            remove_chromatic_aberration: false,
+            defringe_purple_amount: 0.0,
+            defringe_purple_hue_min: 0.70,
+            defringe_purple_hue_max: 0.95,
+            defringe_green_amount: 0.0,
+            defringe_green_hue_min: 0.17,
+            defringe_green_hue_max: 0.50,
             quality: 90,
             max_dim: 0,
             band_rows: 16,

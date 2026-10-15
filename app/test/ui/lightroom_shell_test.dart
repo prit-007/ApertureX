@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:aperturex/ui/common/color_grading_editor.dart';
 import 'package:aperturex/ui/common/hsl_mixer.dart';
+import 'package:aperturex/ui/common/optics_controls.dart';
 import 'package:aperturex/ui/common/tone_curve_editor.dart';
 import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
 
@@ -13,8 +14,7 @@ import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
 /// Regressed with the empty-tool fix: only sections that carry real controls
 /// are chips. `tone` is intentionally absent — its Curve/Mix views live inside
 /// Color (issue #44) and it carries no sliders of its own, so its panel used
-/// to render empty; `optics` stays out until lens-correction parameters exist
-/// (issue #66) — an empty panel reads as a broken tool.
+/// to render empty; `optics` has controls now (issue #66).
 void main() {
   late ProviderContainer container;
   setUp(() => container = ProviderContainer());
@@ -42,6 +42,7 @@ void main() {
       'Color',
       'Effects',
       'Detail',
+      'Optics',
       'Geometry',
       'Masking',
     ]) {
@@ -49,15 +50,22 @@ void main() {
     }
   });
 
-  testWidgets('empty sections (Tone/Optics) are not offered as chips', (
+  testWidgets('empty section (Tone) is not offered as a chip, while Optics is offered', (
     tester,
   ) async {
     await pump(tester);
 
-    // Tone has no sliders of its own (its views live in Color); Optics has no
-    // parameters yet. An empty panel reads as a broken tool.
+    // Tone has no sliders of its own (its views live in Color).
+    // Optics has controls now and is present.
     expect(find.text('Tone'), findsNothing);
-    expect(find.text('Optics'), findsNothing);
+    expect(find.text('Optics'), findsOneWidget);
+  });
+
+  testWidgets('Optics section displays OpticsControls', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('Optics'));
+    await tester.pumpAndSettle();
+    expect(find.byType(OpticsControls), findsOneWidget);
   });
 
   testWidgets(

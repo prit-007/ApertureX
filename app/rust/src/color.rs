@@ -253,7 +253,7 @@ pub const HSL_BANDS: [f32; 8] = [
 /// Neutral (all-zero) HSL mix.
 pub const ZERO_HSL: [f32; 24] = [0.0; 24];
 
-fn rgb_to_hsl(c: [f32; 3]) -> [f32; 3] {
+pub(crate) fn rgb_to_hsl(c: [f32; 3]) -> [f32; 3] {
     let (r, g, b) = (c[0], c[1], c[2]);
     let max = r.max(g).max(b);
     let min = r.min(g).min(b);
@@ -290,7 +290,7 @@ fn hue_to_rgb(p: f32, q: f32, t: f32) -> f32 {
     }
 }
 
-fn hsl_to_rgb(hsl: [f32; 3]) -> [f32; 3] {
+pub(crate) fn hsl_to_rgb(hsl: [f32; 3]) -> [f32; 3] {
     let (h, s, l) = (hsl[0], hsl[1], hsl[2]);
     if s < 1e-6 {
         return [l, l, l];

@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1760942178;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -183438275;
 
 // Section: executor
 
@@ -1228,6 +1228,153 @@ fn wire__crate__api__decode__jpeg_dimensions_impl(
         },
     )
 }
+fn wire__crate__api__optics__optics_apply_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "optics_apply",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_rgba = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_width = <u32>::sse_decode(&mut deserializer);
+            let api_height = <u32>::sse_decode(&mut deserializer);
+            let api_remove_chromatic_aberration = <bool>::sse_decode(&mut deserializer);
+            let api_defringe_purple_amount = <f32>::sse_decode(&mut deserializer);
+            let api_defringe_purple_hue_min = <f32>::sse_decode(&mut deserializer);
+            let api_defringe_purple_hue_max = <f32>::sse_decode(&mut deserializer);
+            let api_defringe_green_amount = <f32>::sse_decode(&mut deserializer);
+            let api_defringe_green_hue_min = <f32>::sse_decode(&mut deserializer);
+            let api_defringe_green_hue_max = <f32>::sse_decode(&mut deserializer);
+            let api_profile_corrections = <bool>::sse_decode(&mut deserializer);
+            let api_profile_distortion = <f32>::sse_decode(&mut deserializer);
+            let api_profile_vignetting = <f32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::optics::optics_apply(
+                        api_rgba,
+                        api_width,
+                        api_height,
+                        api_remove_chromatic_aberration,
+                        api_defringe_purple_amount,
+                        api_defringe_purple_hue_min,
+                        api_defringe_purple_hue_max,
+                        api_defringe_green_amount,
+                        api_defringe_green_hue_min,
+                        api_defringe_green_hue_max,
+                        api_profile_corrections,
+                        api_profile_distortion,
+                        api_profile_vignetting,
+                    ))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__optics__optics_defringe_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "optics_defringe",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_rgba = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_width = <u32>::sse_decode(&mut deserializer);
+            let api_height = <u32>::sse_decode(&mut deserializer);
+            let api_purple_amount = <f32>::sse_decode(&mut deserializer);
+            let api_purple_min = <f32>::sse_decode(&mut deserializer);
+            let api_purple_max = <f32>::sse_decode(&mut deserializer);
+            let api_green_amount = <f32>::sse_decode(&mut deserializer);
+            let api_green_min = <f32>::sse_decode(&mut deserializer);
+            let api_green_max = <f32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::optics::optics_defringe(
+                        api_rgba,
+                        api_width,
+                        api_height,
+                        api_purple_amount,
+                        api_purple_min,
+                        api_purple_max,
+                        api_green_amount,
+                        api_green_min,
+                        api_green_max,
+                    ))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__optics__optics_lateral_ca_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "optics_lateral_ca",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_rgba = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_width = <u32>::sse_decode(&mut deserializer);
+            let api_height = <u32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::optics::optics_lateral_ca(
+                        api_rgba, api_width, api_height,
+                    ))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__icc__p3_to_srgb_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2039,6 +2186,13 @@ impl SseDecode for crate::api::export::ExportSpec {
         let mut var_grain = <f32>::sse_decode(deserializer);
         let mut var_grainSize = <f32>::sse_decode(deserializer);
         let mut var_grainRoughness = <f32>::sse_decode(deserializer);
+        let mut var_removeChromaticAberration = <bool>::sse_decode(deserializer);
+        let mut var_defringePurpleAmount = <f32>::sse_decode(deserializer);
+        let mut var_defringePurpleHueMin = <f32>::sse_decode(deserializer);
+        let mut var_defringePurpleHueMax = <f32>::sse_decode(deserializer);
+        let mut var_defringeGreenAmount = <f32>::sse_decode(deserializer);
+        let mut var_defringeGreenHueMin = <f32>::sse_decode(deserializer);
+        let mut var_defringeGreenHueMax = <f32>::sse_decode(deserializer);
         let mut var_quality = <u8>::sse_decode(deserializer);
         let mut var_maxDim = <u32>::sse_decode(deserializer);
         let mut var_bandRows = <u32>::sse_decode(deserializer);
@@ -2075,6 +2229,13 @@ impl SseDecode for crate::api::export::ExportSpec {
             grain: var_grain,
             grain_size: var_grainSize,
             grain_roughness: var_grainRoughness,
+            remove_chromatic_aberration: var_removeChromaticAberration,
+            defringe_purple_amount: var_defringePurpleAmount,
+            defringe_purple_hue_min: var_defringePurpleHueMin,
+            defringe_purple_hue_max: var_defringePurpleHueMax,
+            defringe_green_amount: var_defringeGreenAmount,
+            defringe_green_hue_min: var_defringeGreenHueMin,
+            defringe_green_hue_max: var_defringeGreenHueMax,
             quality: var_quality,
             max_dim: var_maxDim,
             band_rows: var_bandRows,
@@ -2246,6 +2407,13 @@ impl SseDecode for crate::api::preview::PreviewBaseSpec {
         let mut var_grain = <f32>::sse_decode(deserializer);
         let mut var_grainSize = <f32>::sse_decode(deserializer);
         let mut var_grainRoughness = <f32>::sse_decode(deserializer);
+        let mut var_removeChromaticAberration = <bool>::sse_decode(deserializer);
+        let mut var_defringePurpleAmount = <f32>::sse_decode(deserializer);
+        let mut var_defringePurpleHueMin = <f32>::sse_decode(deserializer);
+        let mut var_defringePurpleHueMax = <f32>::sse_decode(deserializer);
+        let mut var_defringeGreenAmount = <f32>::sse_decode(deserializer);
+        let mut var_defringeGreenHueMin = <f32>::sse_decode(deserializer);
+        let mut var_defringeGreenHueMax = <f32>::sse_decode(deserializer);
         return crate::api::preview::PreviewBaseSpec {
             flip_h: var_flipH,
             flip_v: var_flipV,
@@ -2273,6 +2441,13 @@ impl SseDecode for crate::api::preview::PreviewBaseSpec {
             grain: var_grain,
             grain_size: var_grainSize,
             grain_roughness: var_grainRoughness,
+            remove_chromatic_aberration: var_removeChromaticAberration,
+            defringe_purple_amount: var_defringePurpleAmount,
+            defringe_purple_hue_min: var_defringePurpleHueMin,
+            defringe_purple_hue_max: var_defringePurpleHueMax,
+            defringe_green_amount: var_defringeGreenAmount,
+            defringe_green_hue_min: var_defringeGreenHueMin,
+            defringe_green_hue_max: var_defringeGreenHueMax,
         };
     }
 }
@@ -2377,33 +2552,36 @@ fn pde_ffi_dispatcher_primary_impl(
         28 => wire__crate__api__engine__init_app_impl(port, ptr, rust_vec_len, data_len),
         29 => wire__crate__api__logging__init_panic_hook_impl(port, ptr, rust_vec_len, data_len),
         30 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__icc__p3_to_srgb_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__preview__preview_base_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
+        31 => wire__crate__api__optics__optics_apply_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__optics__optics_defringe_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__optics__optics_lateral_ca_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__icc__p3_to_srgb_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__preview__preview_base_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        44 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__spatial__spatial_sharpen_edge_mask_impl(
+        47 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__spatial__spatial_sharpen_edge_mask_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        46 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2537,6 +2715,15 @@ impl flutter_rust_bridge::IntoDart for crate::api::export::ExportSpec {
             self.grain.into_into_dart().into_dart(),
             self.grain_size.into_into_dart().into_dart(),
             self.grain_roughness.into_into_dart().into_dart(),
+            self.remove_chromatic_aberration
+                .into_into_dart()
+                .into_dart(),
+            self.defringe_purple_amount.into_into_dart().into_dart(),
+            self.defringe_purple_hue_min.into_into_dart().into_dart(),
+            self.defringe_purple_hue_max.into_into_dart().into_dart(),
+            self.defringe_green_amount.into_into_dart().into_dart(),
+            self.defringe_green_hue_min.into_into_dart().into_dart(),
+            self.defringe_green_hue_max.into_into_dart().into_dart(),
             self.quality.into_into_dart().into_dart(),
             self.max_dim.into_into_dart().into_dart(),
             self.band_rows.into_into_dart().into_dart(),
@@ -2686,6 +2873,15 @@ impl flutter_rust_bridge::IntoDart for crate::api::preview::PreviewBaseSpec {
             self.grain.into_into_dart().into_dart(),
             self.grain_size.into_into_dart().into_dart(),
             self.grain_roughness.into_into_dart().into_dart(),
+            self.remove_chromatic_aberration
+                .into_into_dart()
+                .into_dart(),
+            self.defringe_purple_amount.into_into_dart().into_dart(),
+            self.defringe_purple_hue_min.into_into_dart().into_dart(),
+            self.defringe_purple_hue_max.into_into_dart().into_dart(),
+            self.defringe_green_amount.into_into_dart().into_dart(),
+            self.defringe_green_hue_min.into_into_dart().into_dart(),
+            self.defringe_green_hue_max.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -2831,6 +3027,13 @@ impl SseEncode for crate::api::export::ExportSpec {
         <f32>::sse_encode(self.grain, serializer);
         <f32>::sse_encode(self.grain_size, serializer);
         <f32>::sse_encode(self.grain_roughness, serializer);
+        <bool>::sse_encode(self.remove_chromatic_aberration, serializer);
+        <f32>::sse_encode(self.defringe_purple_amount, serializer);
+        <f32>::sse_encode(self.defringe_purple_hue_min, serializer);
+        <f32>::sse_encode(self.defringe_purple_hue_max, serializer);
+        <f32>::sse_encode(self.defringe_green_amount, serializer);
+        <f32>::sse_encode(self.defringe_green_hue_min, serializer);
+        <f32>::sse_encode(self.defringe_green_hue_max, serializer);
         <u8>::sse_encode(self.quality, serializer);
         <u32>::sse_encode(self.max_dim, serializer);
         <u32>::sse_encode(self.band_rows, serializer);
@@ -2967,6 +3170,13 @@ impl SseEncode for crate::api::preview::PreviewBaseSpec {
         <f32>::sse_encode(self.grain, serializer);
         <f32>::sse_encode(self.grain_size, serializer);
         <f32>::sse_encode(self.grain_roughness, serializer);
+        <bool>::sse_encode(self.remove_chromatic_aberration, serializer);
+        <f32>::sse_encode(self.defringe_purple_amount, serializer);
+        <f32>::sse_encode(self.defringe_purple_hue_min, serializer);
+        <f32>::sse_encode(self.defringe_purple_hue_max, serializer);
+        <f32>::sse_encode(self.defringe_green_amount, serializer);
+        <f32>::sse_encode(self.defringe_green_hue_min, serializer);
+        <f32>::sse_encode(self.defringe_green_hue_max, serializer);
     }
 }
 

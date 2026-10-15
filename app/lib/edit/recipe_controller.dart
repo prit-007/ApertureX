@@ -152,6 +152,20 @@ class RecipeController extends Notifier<RecipeState> {
     recipe: state.recipe.copyWith(straighten: degrees.clamp(-45.0, 45.0)),
   );
 
+  void setRemoveChromaticAberration(bool value) {
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(removeChromaticAberration: value),
+    );
+    commit(label: 'Remove CA');
+  }
+
+  void setProfileCorrections(bool value) {
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(profileCorrections: value),
+    );
+    commit(label: 'Profile Corrections');
+  }
+
   /// Applies a crop (and optional rotation/flip) as one committed step.
   void applyCrop({
     required List<double> crop,

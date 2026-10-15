@@ -9,6 +9,7 @@ import '../common/color_grading_editor.dart';
 import '../common/geometry_controls.dart';
 import '../common/hsl_mixer.dart';
 import '../common/mask_controls.dart';
+import '../common/optics_controls.dart';
 import '../common/parameter_panel.dart';
 import '../common/tone_curve_editor.dart';
 
@@ -46,6 +47,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     RecipeSection.color,
     RecipeSection.effects,
     RecipeSection.detail,
+    RecipeSection.optics,
     RecipeSection.geometry,
     RecipeSection.masking,
   ];
@@ -193,6 +195,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         return const SingleChildScrollView(child: GeometryControls());
       case RecipeSection.masking:
         return const MaskControls();
+      case RecipeSection.optics:
+        return const OpticsControls();
       default:
         return ParameterPanel(section: _section);
     }

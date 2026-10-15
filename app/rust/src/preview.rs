@@ -47,6 +47,7 @@ use crate::color;
 use crate::geometry;
 use crate::histogram;
 use crate::mask::{self, LocalAdjustment, MaskSpec};
+use crate::optics::{self, OpticsParams};
 use crate::spatial::{self, SpatialParams};
 
 /// Preview images resident in Rust, keyed by the handle handed to Dart.
@@ -347,6 +348,24 @@ fn bake_base(
         grain_size: spec.grain_size,
         grain_roughness: spec.grain_roughness,
     };
+    let optics_params = OpticsParams {
+        remove_chromatic_aberration: spec.remove_chromatic_aberration,
+        defringe_purple_amount: spec.defringe_purple_amount,
+        defringe_purple_hue_min: spec.defringe_purple_hue_min,
+        defringe_purple_hue_max: spec.defringe_purple_hue_max,
+        defringe_green_amount: spec.defringe_green_amount,
+        defringe_green_hue_min: spec.defringe_green_hue_min,
+        defringe_green_hue_max: spec.defringe_green_hue_max,
+        ..Default::default()
+    };
+    if !optics_params.is_neutral() {
+        buf = Cow::Owned(optics::apply_optics(
+            &buf,
+            w as usize,
+            h as usize,
+            optics_params,
+        ));
+    }
     // apply_spatial clones on the neutral path — skip it entirely.
     if !spatial_params.is_neutral() {
         buf = Cow::Owned(spatial::apply_spatial(

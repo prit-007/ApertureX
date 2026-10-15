@@ -121,6 +121,13 @@ class PreviewBaseSpec {
   final double grain;
   final double grainSize;
   final double grainRoughness;
+  final bool removeChromaticAberration;
+  final double defringePurpleAmount;
+  final double defringePurpleHueMin;
+  final double defringePurpleHueMax;
+  final double defringeGreenAmount;
+  final double defringeGreenHueMin;
+  final double defringeGreenHueMax;
 
   const PreviewBaseSpec({
     required this.flipH,
@@ -149,6 +156,13 @@ class PreviewBaseSpec {
     required this.grain,
     required this.grainSize,
     required this.grainRoughness,
+    required this.removeChromaticAberration,
+    required this.defringePurpleAmount,
+    required this.defringePurpleHueMin,
+    required this.defringePurpleHueMax,
+    required this.defringeGreenAmount,
+    required this.defringeGreenHueMin,
+    required this.defringeGreenHueMax,
   });
 
   @override
@@ -178,7 +192,14 @@ class PreviewBaseSpec {
       vignetteHighlights.hashCode ^
       grain.hashCode ^
       grainSize.hashCode ^
-      grainRoughness.hashCode;
+      grainRoughness.hashCode ^
+      removeChromaticAberration.hashCode ^
+      defringePurpleAmount.hashCode ^
+      defringePurpleHueMin.hashCode ^
+      defringePurpleHueMax.hashCode ^
+      defringeGreenAmount.hashCode ^
+      defringeGreenHueMin.hashCode ^
+      defringeGreenHueMax.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -210,7 +231,14 @@ class PreviewBaseSpec {
           vignetteHighlights == other.vignetteHighlights &&
           grain == other.grain &&
           grainSize == other.grainSize &&
-          grainRoughness == other.grainRoughness;
+          grainRoughness == other.grainRoughness &&
+          removeChromaticAberration == other.removeChromaticAberration &&
+          defringePurpleAmount == other.defringePurpleAmount &&
+          defringePurpleHueMin == other.defringePurpleHueMin &&
+          defringePurpleHueMax == other.defringePurpleHueMax &&
+          defringeGreenAmount == other.defringeGreenAmount &&
+          defringeGreenHueMin == other.defringeGreenHueMin &&
+          defringeGreenHueMax == other.defringeGreenHueMax;
 }
 
 /// Dimensions of the frame a [`preview_render`] just wrote into the bound

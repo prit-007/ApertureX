@@ -678,6 +678,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       grain: spatial.grain,
       grainSize: spatial.grainSize,
       grainRoughness: spatial.grainRoughness,
+      removeChromaticAberration: recipe.removeChromaticAberration,
+      defringePurpleAmount: recipe.defringePurpleAmount,
+      defringePurpleHueMin: recipe.defringePurpleHueMin,
+      defringePurpleHueMax: recipe.defringePurpleHueMax,
+      defringeGreenAmount: recipe.defringeGreenAmount,
+      defringeGreenHueMin: recipe.defringeGreenHueMin,
+      defringeGreenHueMax: recipe.defringeGreenHueMax,
     );
   }
   void _setBusy(bool value) {
