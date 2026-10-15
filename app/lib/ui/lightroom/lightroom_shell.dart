@@ -5,13 +5,14 @@ import '../../color/tat.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../viewport/compare_hold.dart';
+import '../common/color_grading_editor.dart';
 import '../common/geometry_controls.dart';
 import '../common/hsl_mixer.dart';
 import '../common/mask_controls.dart';
 import '../common/parameter_panel.dart';
 import '../common/tone_curve_editor.dart';
 
-enum _Tab { panel, curve, mix }
+enum _Tab { panel, curve, mix, grade }
 
 String _sectionLabel(RecipeSection section) => switch (section) {
   RecipeSection.light => 'Light',
@@ -181,6 +182,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
               child: switch (_tab) {
                 _Tab.curve => const ToneCurveEditor(),
                 _Tab.mix => const SingleChildScrollView(child: HslMixer()),
+                _Tab.grade =>
+                  const SingleChildScrollView(child: ColorGradingEditor()),
                 _Tab.panel => ParameterPanel(section: _section),
               },
             ),
@@ -218,6 +221,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         tab('Sliders', _Tab.panel),
         tab('Curve', _Tab.curve),
         tab('Mix', _Tab.mix),
+        tab('Grade', _Tab.grade),
       ],
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:aperturex/ui/common/color_grading_editor.dart';
 import 'package:aperturex/ui/common/hsl_mixer.dart';
 import 'package:aperturex/ui/common/tone_curve_editor.dart';
 import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
@@ -59,27 +60,34 @@ void main() {
     expect(find.text('Optics'), findsNothing);
   });
 
-  testWidgets('Curve and Mix live inside the Color panel, not the top row', (
-    tester,
-  ) async {
-    await pump(tester);
+  testWidgets(
+    'Curve, Mix, and Grade live inside the Color panel, not the top row',
+    (tester) async {
+      await pump(tester);
 
-    // No Curve/Mix chips until a colour section is open.
-    expect(find.text('Curve'), findsNothing);
-    expect(find.text('Mix'), findsNothing);
+      // No Curve/Mix/Grade chips until a colour section is open.
+      expect(find.text('Curve'), findsNothing);
+      expect(find.text('Mix'), findsNothing);
+      expect(find.text('Grade'), findsNothing);
 
-    await tester.tap(find.text('Color'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Color'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Curve'), findsOneWidget);
-    expect(find.text('Mix'), findsOneWidget);
+      expect(find.text('Curve'), findsOneWidget);
+      expect(find.text('Mix'), findsOneWidget);
+      expect(find.text('Grade'), findsOneWidget);
 
-    await tester.tap(find.text('Curve'));
-    await tester.pumpAndSettle();
-    expect(find.byType(ToneCurveEditor), findsOneWidget);
+      await tester.tap(find.text('Curve'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ToneCurveEditor), findsOneWidget);
 
-    await tester.tap(find.text('Mix'));
-    await tester.pumpAndSettle();
-    expect(find.byType(HslMixer), findsOneWidget);
-  });
+      await tester.tap(find.text('Mix'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HslMixer), findsOneWidget);
+
+      await tester.tap(find.text('Grade'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ColorGradingEditor), findsOneWidget);
+    },
+  );
 }
