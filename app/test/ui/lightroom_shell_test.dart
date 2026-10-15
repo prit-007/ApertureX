@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:aperturex/ui/common/color_grading_editor.dart';
 import 'package:aperturex/ui/common/hsl_mixer.dart';
 import 'package:aperturex/ui/common/optics_controls.dart';
+import 'package:aperturex/ui/common/retouch_controls.dart';
 import 'package:aperturex/ui/common/tone_curve_editor.dart';
 import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
 
@@ -40,6 +41,7 @@ void main() {
     for (final label in const [
       'Light',
       'Color',
+      'Retouch',
       'Effects',
       'Detail',
       'Optics',
@@ -66,6 +68,13 @@ void main() {
     await tester.tap(find.text('Optics'));
     await tester.pumpAndSettle();
     expect(find.byType(OpticsControls), findsOneWidget);
+  });
+
+  testWidgets('Retouch section displays RetouchControls', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('Retouch'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RetouchControls), findsOneWidget);
   });
 
   testWidgets(

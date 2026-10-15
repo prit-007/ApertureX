@@ -2,7 +2,7 @@ import 'recipe.dart';
 
 /// The recipe's parameter groups (ARCHITECTURE §16, P2). Lightroom categories
 /// map 1:1 onto sections; Snapseed tools map onto parameters *within* them.
-enum RecipeSection { light, color, tone, effects, detail, optics, geometry, masking }
+enum RecipeSection { light, color, tone, retouch, effects, detail, optics, geometry, masking }
 
 /// How a parameter is manipulated. The seed ships sliders only; the catalog is
 /// the seam a future `curve` or `hueGrid` parameter slots into.

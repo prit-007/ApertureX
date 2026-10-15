@@ -11,5 +11,6 @@ pub mod mask;
 pub mod optics;
 pub mod preview;
 pub mod raw;
+pub mod retouch;
 pub mod roi;
 pub mod spatial;

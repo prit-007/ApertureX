@@ -16,6 +16,7 @@ import 'api/mask.dart';
 import 'api/optics.dart';
 import 'api/preview.dart';
 import 'api/raw.dart';
+import 'api/retouch.dart';
 import 'api/roi.dart';
 import 'api/spatial.dart';
 import 'dart:async';
@@ -34,6 +35,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String dco_decode_String(dynamic raw);
+
+  @protected
+  ApiRetouchPatch dco_decode_api_retouch_patch(dynamic raw);
 
   @protected
   bool dco_decode_bool(dynamic raw);
@@ -76,6 +80,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImageDims dco_decode_image_dims(dynamic raw);
+
+  @protected
+  List<ApiRetouchPatch> dco_decode_list_api_retouch_patch(dynamic raw);
 
   @protected
   List<MaskLayer> dco_decode_list_mask_layer(dynamic raw);
@@ -126,6 +133,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  ApiRetouchPatch sse_decode_api_retouch_patch(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
@@ -168,6 +178,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImageDims sse_decode_image_dims(SseDeserializer deserializer);
+
+  @protected
+  List<ApiRetouchPatch> sse_decode_list_api_retouch_patch(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<MaskLayer> sse_decode_list_mask_layer(SseDeserializer deserializer);
@@ -216,6 +231,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_api_retouch_patch(
+    ApiRetouchPatch self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
@@ -273,6 +294,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_image_dims(ImageDims self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_api_retouch_patch(
+    List<ApiRetouchPatch> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_mask_layer(

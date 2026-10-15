@@ -4,6 +4,7 @@ import 'adjustment_layer.dart';
 import 'parameter.dart';
 import 'recipe.dart';
 import 'recipe_state.dart';
+import 'retouch_patch.dart';
 import 'tone_curve.dart';
 import 'tool_definition.dart';
 
@@ -214,6 +215,46 @@ class RecipeController extends Notifier<RecipeState> {
 
   void clearLayers() =>
       state = state.copyWith(recipe: state.recipe.copyWith(layers: const []));
+
+  /// Appends a retouch patch (heal/clone blemish removal).
+  void addRetouchPatch(RetouchPatch patch) {
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(
+        retouchPatches: [...state.recipe.retouchPatches, patch],
+      ),
+    );
+    commit(label: patch.mode == RetouchMode.heal ? 'Heal' : 'Clone');
+  }
+
+  /// Replaces the retouch patch at [index].
+  void updateRetouchPatchAt(int index, RetouchPatch patch) {
+    final patches = [...state.recipe.retouchPatches];
+    if (index < 0 || index >= patches.length) return;
+    patches[index] = patch;
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(retouchPatches: patches),
+    );
+  }
+
+  /// Removes the retouch patch at [index].
+  void removeRetouchPatchAt(int index) {
+    final patches = [...state.recipe.retouchPatches];
+    if (index < 0 || index >= patches.length) return;
+    patches.removeAt(index);
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(retouchPatches: patches),
+    );
+    commit(label: 'Remove Patch');
+  }
+
+  /// Clears every retouch patch.
+  void clearRetouchPatches() {
+    if (state.recipe.retouchPatches.isEmpty) return;
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(retouchPatches: const []),
+    );
+    commit(label: 'Clear Retouch');
+  }
 
   /// Replaces the session with [recipe] from a sidecar/preset, resetting the
   /// history to a single node.

@@ -16,6 +16,7 @@ import 'api/mask.dart';
 import 'api/optics.dart';
 import 'api/preview.dart';
 import 'api/raw.dart';
+import 'api/retouch.dart';
 import 'api/roi.dart';
 import 'api/spatial.dart';
 import 'dart:async';
@@ -80,7 +81,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -1801299952;
+  int get rustContentHash => -1628532225;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -364,6 +365,13 @@ abstract class RustLibApi extends BaseApi {
   Future<Float32List> crateApiRawRawCameraMatrix({required List<int> raw});
 
   Future<ImageDims> crateApiRawRawDimensions({required List<int> raw});
+
+  Future<Uint8List> crateApiRetouchRetouchApply({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required List<ApiRetouchPatch> patches,
+  });
 
   Future<int> crateApiRoiRoiHalo({
     required PreviewBaseSpec spec,
@@ -2199,6 +2207,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "raw_dimensions", argNames: ["raw"]);
 
   @override
+  Future<Uint8List> crateApiRetouchRetouchApply({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required List<ApiRetouchPatch> patches,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_list_api_retouch_patch(patches, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 43,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiRetouchRetouchApplyConstMeta,
+        argValues: [rgba, width, height, patches],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiRetouchRetouchApplyConstMeta =>
+      const TaskConstMeta(
+        debugName: "retouch_apply",
+        argNames: ["rgba", "width", "height", "patches"],
+      );
+
+  @override
   Future<int> crateApiRoiRoiHalo({
     required PreviewBaseSpec spec,
     required int fullWidth,
@@ -2214,7 +2261,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 43,
+            funcId: 44,
             port: port_,
           );
         },
@@ -2288,7 +2335,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 45,
             port: port_,
           );
         },
@@ -2373,7 +2420,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 46,
             port: port_,
           );
         },
@@ -2414,7 +2461,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 47,
             port: port_,
           );
         },
@@ -2455,7 +2502,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 48,
             port: port_,
           );
         },
@@ -2496,7 +2543,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 48,
+            funcId: 49,
             port: port_,
           );
         },
@@ -2535,7 +2582,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 49,
+            funcId: 50,
             port: port_,
           );
         },
@@ -2574,7 +2621,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 50,
+            funcId: 51,
             port: port_,
           );
         },
@@ -2609,7 +2656,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 51,
+            funcId: 52,
             port: port_,
           );
         },
@@ -2634,6 +2681,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   String dco_decode_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as String;
+  }
+
+  @protected
+  ApiRetouchPatch dco_decode_api_retouch_patch(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return ApiRetouchPatch(
+      targetX: dco_decode_f_32(arr[0]),
+      targetY: dco_decode_f_32(arr[1]),
+      sourceX: dco_decode_f_32(arr[2]),
+      sourceY: dco_decode_f_32(arr[3]),
+      radius: dco_decode_f_32(arr[4]),
+      feather: dco_decode_f_32(arr[5]),
+      opacity: dco_decode_f_32(arr[6]),
+      isClone: dco_decode_bool(arr[7]),
+    );
   }
 
   @protected
@@ -2823,6 +2888,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<ApiRetouchPatch> dco_decode_list_api_retouch_patch(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_api_retouch_patch).toList();
+  }
+
+  @protected
   List<MaskLayer> dco_decode_list_mask_layer(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_mask_layer).toList();
@@ -2982,6 +3053,29 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_list_prim_u_8_strict(deserializer);
     return utf8.decoder.convert(inner);
+  }
+
+  @protected
+  ApiRetouchPatch sse_decode_api_retouch_patch(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_targetX = sse_decode_f_32(deserializer);
+    var var_targetY = sse_decode_f_32(deserializer);
+    var var_sourceX = sse_decode_f_32(deserializer);
+    var var_sourceY = sse_decode_f_32(deserializer);
+    var var_radius = sse_decode_f_32(deserializer);
+    var var_feather = sse_decode_f_32(deserializer);
+    var var_opacity = sse_decode_f_32(deserializer);
+    var var_isClone = sse_decode_bool(deserializer);
+    return ApiRetouchPatch(
+      targetX: var_targetX,
+      targetY: var_targetY,
+      sourceX: var_sourceX,
+      sourceY: var_sourceY,
+      radius: var_radius,
+      feather: var_feather,
+      opacity: var_opacity,
+      isClone: var_isClone,
+    );
   }
 
   @protected
@@ -3215,6 +3309,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<ApiRetouchPatch> sse_decode_list_api_retouch_patch(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ApiRetouchPatch>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_api_retouch_patch(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<MaskLayer> sse_decode_list_mask_layer(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -3405,6 +3513,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_api_retouch_patch(
+    ApiRetouchPatch self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_32(self.targetX, serializer);
+    sse_encode_f_32(self.targetY, serializer);
+    sse_encode_f_32(self.sourceX, serializer);
+    sse_encode_f_32(self.sourceY, serializer);
+    sse_encode_f_32(self.radius, serializer);
+    sse_encode_f_32(self.feather, serializer);
+    sse_encode_f_32(self.opacity, serializer);
+    sse_encode_bool(self.isClone, serializer);
+  }
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint8(self ? 1 : 0);
@@ -3568,6 +3692,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_32(self.width, serializer);
     sse_encode_u_32(self.height, serializer);
+  }
+
+  @protected
+  void sse_encode_list_api_retouch_patch(
+    List<ApiRetouchPatch> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_api_retouch_patch(item, serializer);
+    }
   }
 
   @protected

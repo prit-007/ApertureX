@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1801299952;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1628532225;
 
 // Section: executor
 
@@ -1718,6 +1718,48 @@ fn wire__crate__api__raw__raw_dimensions_impl(
         },
     )
 }
+fn wire__crate__api__retouch__retouch_apply_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "retouch_apply",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_rgba = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_width = <u32>::sse_decode(&mut deserializer);
+            let api_height = <u32>::sse_decode(&mut deserializer);
+            let api_patches =
+                <Vec<crate::api::retouch::ApiRetouchPatch>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::retouch::retouch_apply(
+                        api_rgba,
+                        api_width,
+                        api_height,
+                        api_patches,
+                    ))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__roi__roi_halo_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2118,6 +2160,30 @@ impl SseDecode for String {
     }
 }
 
+impl SseDecode for crate::api::retouch::ApiRetouchPatch {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_targetX = <f32>::sse_decode(deserializer);
+        let mut var_targetY = <f32>::sse_decode(deserializer);
+        let mut var_sourceX = <f32>::sse_decode(deserializer);
+        let mut var_sourceY = <f32>::sse_decode(deserializer);
+        let mut var_radius = <f32>::sse_decode(deserializer);
+        let mut var_feather = <f32>::sse_decode(deserializer);
+        let mut var_opacity = <f32>::sse_decode(deserializer);
+        let mut var_isClone = <bool>::sse_decode(deserializer);
+        return crate::api::retouch::ApiRetouchPatch {
+            target_x: var_targetX,
+            target_y: var_targetY,
+            source_x: var_sourceX,
+            source_y: var_sourceY,
+            radius: var_radius,
+            feather: var_feather,
+            opacity: var_opacity,
+            is_clone: var_isClone,
+        };
+    }
+}
+
 impl SseDecode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2340,6 +2406,20 @@ impl SseDecode for crate::api::decode::ImageDims {
             width: var_width,
             height: var_height,
         };
+    }
+}
+
+impl SseDecode for Vec<crate::api::retouch::ApiRetouchPatch> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::retouch::ApiRetouchPatch>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
     }
 }
 
@@ -2607,25 +2687,26 @@ fn pde_ffi_dispatcher_primary_impl(
         40 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
         41 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
         42 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
+        43 => wire__crate__api__retouch__retouch_apply_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        48 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__spatial__spatial_sharpen_edge_mask_impl(
+        49 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__spatial__spatial_sharpen_edge_mask_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        50 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2644,6 +2725,33 @@ fn pde_ffi_dispatcher_sync_impl(
 
 // Section: rust2dart
 
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::retouch::ApiRetouchPatch {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.target_x.into_into_dart().into_dart(),
+            self.target_y.into_into_dart().into_dart(),
+            self.source_x.into_into_dart().into_dart(),
+            self.source_y.into_into_dart().into_dart(),
+            self.radius.into_into_dart().into_dart(),
+            self.feather.into_into_dart().into_dart(),
+            self.opacity.into_into_dart().into_dart(),
+            self.is_clone.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::retouch::ApiRetouchPatch
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::retouch::ApiRetouchPatch>
+    for crate::api::retouch::ApiRetouchPatch
+{
+    fn into_into_dart(self) -> crate::api::retouch::ApiRetouchPatch {
+        self
+    }
+}
 // Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::color::ColorParams {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
@@ -2989,6 +3097,20 @@ impl SseEncode for String {
     }
 }
 
+impl SseEncode for crate::api::retouch::ApiRetouchPatch {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <f32>::sse_encode(self.target_x, serializer);
+        <f32>::sse_encode(self.target_y, serializer);
+        <f32>::sse_encode(self.source_x, serializer);
+        <f32>::sse_encode(self.source_y, serializer);
+        <f32>::sse_encode(self.radius, serializer);
+        <f32>::sse_encode(self.feather, serializer);
+        <f32>::sse_encode(self.opacity, serializer);
+        <bool>::sse_encode(self.is_clone, serializer);
+    }
+}
+
 impl SseEncode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3123,6 +3245,16 @@ impl SseEncode for crate::api::decode::ImageDims {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <u32>::sse_encode(self.width, serializer);
         <u32>::sse_encode(self.height, serializer);
+    }
+}
+
+impl SseEncode for Vec<crate::api::retouch::ApiRetouchPatch> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::retouch::ApiRetouchPatch>::sse_encode(item, serializer);
+        }
     }
 }
 

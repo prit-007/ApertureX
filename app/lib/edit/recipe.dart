@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show listEquals;
 
 import 'adjustment_layer.dart';
+import 'retouch_patch.dart';
 import 'tone_curve.dart';
 
 /// Neutral HSL mix: 8 bands × (hue, saturation, luminance), all zero.
@@ -97,6 +98,7 @@ class EditRecipe {
     this.profileCorrections = false,
     this.profileDistortion = 1.0,
     this.profileVignetting = 1.0,
+    this.retouchPatches = const <RetouchPatch>[],
   });
 
   /// Bumped only on a breaking schema change (ARCHITECTURE §16).
@@ -107,8 +109,9 @@ class EditRecipe {
   /// blending, and balance. v14: adds advanced sharpen radius, detail, masking.
   /// v15: adds advanced vignette and grain controls.
   /// v16: adds optics, chromatic aberration, defringe, and lens profile controls.
+  /// v17: adds retouch patches (healing brush & clone stamp).
   /// `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 16;
+  static const int currentSchemaVersion = 17;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -192,6 +195,9 @@ class EditRecipe {
   /// Local adjustment layers (masking, P2.5), applied in order.
   final List<AdjustmentLayer> layers;
 
+  /// Retouch patches (healing brush & clone stamp), applied in order.
+  final List<RetouchPatch> retouchPatches;
+
   // Perspective & skew geometry (GPU Matrix4 preview, Rust resample on export).
   final double perspectiveX; // horizontal perspective, neutral 0, range ~[-1,1]
   final double perspectiveY; // vertical perspective, neutral 0, range ~[-1,1]
@@ -255,6 +261,7 @@ class EditRecipe {
     double? skewX,
     double? skewY,
     List<AdjustmentLayer>? layers,
+    List<RetouchPatch>? retouchPatches,
     bool? removeChromaticAberration,
     double? defringePurpleAmount,
     double? defringePurpleHueMin,
@@ -332,6 +339,7 @@ class EditRecipe {
       skewX: skewX ?? this.skewX,
       skewY: skewY ?? this.skewY,
       layers: layers ?? this.layers,
+      retouchPatches: retouchPatches ?? this.retouchPatches,
     );
   }
 
@@ -401,6 +409,7 @@ class EditRecipe {
     'skewX': skewX,
     'skewY': skewY,
     'layers': [for (final layer in layers) layer.toJson()],
+    'retouchPatches': [for (final patch in retouchPatches) patch.toJson()],
   };
 
   /// Deserialises from [json], tolerating missing keys (default to neutral) and
@@ -490,6 +499,13 @@ class EditRecipe {
               )
               .toList() ??
           const <AdjustmentLayer>[],
+      retouchPatches:
+          (json['retouchPatches'] as List?)
+              ?.map(
+                (e) => RetouchPatch.fromJson((e as Map).cast<String, Object?>()),
+              )
+              .toList() ??
+          const <RetouchPatch>[],
     );
   }
 
@@ -559,7 +575,8 @@ class EditRecipe {
       other.perspectiveY == perspectiveY &&
       other.skewX == skewX &&
       other.skewY == skewY &&
-      listEquals(other.layers, layers);
+      listEquals(other.layers, layers) &&
+      listEquals(other.retouchPatches, retouchPatches);
 
   @override
   int get hashCode => Object.hash(
@@ -625,6 +642,7 @@ class EditRecipe {
       Object.hashAll(crop),
       Object.hash(perspectiveX, perspectiveY, skewX, skewY),
       Object.hashAll(layers),
+      Object.hashAll(retouchPatches),
     ),
   );
 

@@ -11,6 +11,7 @@ import '../common/hsl_mixer.dart';
 import '../common/mask_controls.dart';
 import '../common/optics_controls.dart';
 import '../common/parameter_panel.dart';
+import '../common/retouch_controls.dart';
 import '../common/tone_curve_editor.dart';
 
 enum _Tab { panel, curve, mix, grade }
@@ -19,6 +20,7 @@ String _sectionLabel(RecipeSection section) => switch (section) {
   RecipeSection.light => 'Light',
   RecipeSection.color => 'Color',
   RecipeSection.tone => 'Tone',
+  RecipeSection.retouch => 'Retouch',
   RecipeSection.effects => 'Effects',
   RecipeSection.detail => 'Detail',
   RecipeSection.optics => 'Optics',
@@ -45,6 +47,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   static const List<RecipeSection> _sections = [
     RecipeSection.light,
     RecipeSection.color,
+    RecipeSection.retouch,
     RecipeSection.effects,
     RecipeSection.detail,
     RecipeSection.optics,
@@ -193,6 +196,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         );
       case RecipeSection.geometry:
         return const SingleChildScrollView(child: GeometryControls());
+      case RecipeSection.retouch:
+        return const RetouchControls();
       case RecipeSection.masking:
         return const MaskControls();
       case RecipeSection.optics:
