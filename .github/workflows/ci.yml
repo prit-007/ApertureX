@@ -160,11 +160,14 @@ jobs:
               "lib/$abi/libapp.so" "lib/$abi/librust_lib_tessera.so" -d "$TMP"
             for so in "$TMP/lib/$abi/libapp.so" "$TMP/lib/$abi/librust_lib_tessera.so"; do
               test -s "$so" || { echo "Empty or missing $so"; exit 1; }
-              machine=$(readelf -h "$so" | awk '/Machine:/ {print $2, $3}')
+              # Full machine string after "Machine:" — `awk '{print $2,$3}'`
+              # emitted a trailing space ("ARM ") and truncated x86-64 to
+              # "Advanced Micro", so every correct binary was rejected.
+              machine=$(readelf -h "$so" | sed -n 's/^ *Machine:[[:space:]]*//p')
               case "$abi:$machine" in
                 armeabi-v7a:ARM) ;;
                 arm64-v8a:AArch64) ;;
-                x86_64:X86-64) ;;
+                x86_64:"Advanced Micro Devices X86-64") ;;
                 *) echo "$so: machine '$machine' does not match ABI $abi"; exit 1 ;;
               esac
               echo "$abi: $(basename "$so") OK ($machine)"
