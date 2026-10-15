@@ -4,7 +4,13 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import 'color.dart';
+import 'mask.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+
+// These functions are ignored because they are not marked as `pub`: `cancel_flag`, `lock_cancels`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CancelStore`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `fmt`
 
 /// Encodes an RGBA8 buffer as a JPEG (alpha dropped). [exif] (a full APP1
 /// segment from the source, or empty) is injected to preserve metadata.
@@ -21,3 +27,200 @@ Future<Uint8List> encodeJpegRgba({
   quality: quality,
   exif: exif,
 );
+
+/// Creates a cancel token. Pass it to [`export_full`], call
+/// [`export_cancel_set`] from the UI to abort, then [`export_cancel_drop`].
+Future<BigInt> exportCancelNew() =>
+    RustLib.instance.api.crateApiExportExportCancelNew();
+
+/// Signals the export bound to [token] to abort at its next band boundary.
+/// Safe on unknown tokens (a race with [`export_cancel_drop`] is benign).
+Future<void> exportCancelSet({required BigInt token}) =>
+    RustLib.instance.api.crateApiExportExportCancelSet(token: token);
+
+/// Drops [token]. Double-drop and unknown tokens are ignored.
+Future<void> exportCancelDrop({required BigInt token}) =>
+    RustLib.instance.api.crateApiExportExportCancelDrop(token: token);
+
+/// Runs the whole export recipe in Rust in one call and returns the JPEG.
+///
+/// The geometry stage runs full-frame; spatial + masks + grade run one band at a
+/// time (bounded memory, seamless — see `export_pipeline`). [spec.cancel_token]
+/// is polled between bands, so a cancelled export returns
+/// `ExportResult { cancelled: true, .. }` without finishing.
+Future<ExportResult> exportFull({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required ExportSpec spec,
+  required List<MaskLayer> layers,
+  required ColorParams params,
+  required CurveParams curves,
+  required List<double> hsl,
+  required List<int> exif,
+}) => RustLib.instance.api.crateApiExportExportFull(
+  rgba: rgba,
+  width: width,
+  height: height,
+  spec: spec,
+  layers: layers,
+  params: params,
+  curves: curves,
+  hsl: hsl,
+  exif: exif,
+);
+
+/// The result of [`export_full`]: JPEG bytes, or a flag when the export was
+/// cancelled before it finished encoding.
+class ExportResult {
+  /// True when a cancel token fired — [jpeg] is then empty.
+  final bool cancelled;
+  final Uint8List jpeg;
+
+  const ExportResult({required this.cancelled, required this.jpeg});
+
+  @override
+  int get hashCode => cancelled.hashCode ^ jpeg.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ExportResult &&
+          runtimeType == other.runtimeType &&
+          cancelled == other.cancelled &&
+          jpeg == other.jpeg;
+}
+
+/// Everything [`export_full`] bakes, in one bridge struct — geometry, spatial,
+/// and the encode knobs. Grade/curves/HSL/layers arrive as their own args so
+/// they reuse the existing bridge types.
+class ExportSpec {
+  final bool flipH;
+  final bool flipV;
+
+  /// Quarter-turns clockwise.
+  final int turns;
+
+  /// Straighten angle in degrees (0 = off).
+  final double angle;
+
+  /// Normalized `[0,1]` crop in the transformed frame.
+  final double cropL;
+  final double cropT;
+  final double cropR;
+  final double cropB;
+  final double perspectiveX;
+  final double perspectiveY;
+  final double skewX;
+  final double skewY;
+  final double shadows;
+  final double highlights;
+  final double clarity;
+  final double texture;
+  final double sharpen;
+  final double denoiseLuma;
+  final double denoiseChroma;
+  final double dehaze;
+  final double vignette;
+  final double grain;
+  final int quality;
+
+  /// Longest-side cap for the export (0 = full resolution).
+  final int maxDim;
+
+  /// Band height for the banded stages (0 = a 256-row default).
+  final int bandRows;
+
+  /// Opaque cancel token from [`export_cancel_new`] (0 = no cancellation).
+  final BigInt cancelToken;
+
+  const ExportSpec({
+    required this.flipH,
+    required this.flipV,
+    required this.turns,
+    required this.angle,
+    required this.cropL,
+    required this.cropT,
+    required this.cropR,
+    required this.cropB,
+    required this.perspectiveX,
+    required this.perspectiveY,
+    required this.skewX,
+    required this.skewY,
+    required this.shadows,
+    required this.highlights,
+    required this.clarity,
+    required this.texture,
+    required this.sharpen,
+    required this.denoiseLuma,
+    required this.denoiseChroma,
+    required this.dehaze,
+    required this.vignette,
+    required this.grain,
+    required this.quality,
+    required this.maxDim,
+    required this.bandRows,
+    required this.cancelToken,
+  });
+
+  @override
+  int get hashCode =>
+      flipH.hashCode ^
+      flipV.hashCode ^
+      turns.hashCode ^
+      angle.hashCode ^
+      cropL.hashCode ^
+      cropT.hashCode ^
+      cropR.hashCode ^
+      cropB.hashCode ^
+      perspectiveX.hashCode ^
+      perspectiveY.hashCode ^
+      skewX.hashCode ^
+      skewY.hashCode ^
+      shadows.hashCode ^
+      highlights.hashCode ^
+      clarity.hashCode ^
+      texture.hashCode ^
+      sharpen.hashCode ^
+      denoiseLuma.hashCode ^
+      denoiseChroma.hashCode ^
+      dehaze.hashCode ^
+      vignette.hashCode ^
+      grain.hashCode ^
+      quality.hashCode ^
+      maxDim.hashCode ^
+      bandRows.hashCode ^
+      cancelToken.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ExportSpec &&
+          runtimeType == other.runtimeType &&
+          flipH == other.flipH &&
+          flipV == other.flipV &&
+          turns == other.turns &&
+          angle == other.angle &&
+          cropL == other.cropL &&
+          cropT == other.cropT &&
+          cropR == other.cropR &&
+          cropB == other.cropB &&
+          perspectiveX == other.perspectiveX &&
+          perspectiveY == other.perspectiveY &&
+          skewX == other.skewX &&
+          skewY == other.skewY &&
+          shadows == other.shadows &&
+          highlights == other.highlights &&
+          clarity == other.clarity &&
+          texture == other.texture &&
+          sharpen == other.sharpen &&
+          denoiseLuma == other.denoiseLuma &&
+          denoiseChroma == other.denoiseChroma &&
+          dehaze == other.dehaze &&
+          vignette == other.vignette &&
+          grain == other.grain &&
+          quality == other.quality &&
+          maxDim == other.maxDim &&
+          bandRows == other.bandRows &&
+          cancelToken == other.cancelToken;
+}

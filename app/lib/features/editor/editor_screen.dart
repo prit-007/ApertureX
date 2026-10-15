@@ -51,6 +51,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   bool _loading = true;
   String? _error;
   bool _exporting = false;
+  /// Live cancel token for an in-flight export (P4); null when idle.
+  int? _exportCancelToken;
 
   @override
   void initState() {
@@ -102,6 +104,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     if (previewBytes == null) return;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _exporting = true);
+    var token = 0;
     try {
       // Export at full resolution: fetch the original only now (never during
       // preview), so the editor's memory stays at preview size until export.
@@ -121,7 +124,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       final exif = isRaw
           ? Uint8List(0)
           : await TesseraEngine.extractExif(bytes);
-      final jpeg = await TesseraEngine.exportJpeg(
+
+      // One-call export inside Rust (geometry → banded spatial → masks → grade
+      // → encode), cancellable via a token so a big render can be aborted.
+      token = await TesseraEngine.exportCancelNew();
+      if (!mounted) return;
+      setState(() => _exportCancelToken = token);
+
+      final jpeg = await TesseraEngine.exportJpegFull(
         rgba: decoded.rgba,
         width: decoded.width,
         height: decoded.height,
@@ -132,7 +142,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         exif: exif,
         quality: settings.quality,
         maxDim: settings.maxDim == 0 ? null : settings.maxDim,
+        cancelToken: token,
       );
+      if (jpeg == null) {
+        axLog(LogDomain.export, 'Export cancelled');
+        if (mounted) {
+          messenger.showSnackBar(const SnackBar(content: Text('Export cancelled')));
+        }
+        return;
+      }
       if (!await Gal.hasAccess()) await Gal.requestAccess();
       await Gal.putImageBytes(
         jpeg,
@@ -156,8 +174,23 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       axLog(LogDomain.export, 'Export failed: $e', LogLevel.error);
       messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
     } finally {
-      if (mounted) setState(() => _exporting = false);
+      if (token != 0) {
+        await TesseraEngine.exportCancelDrop(token);
+      }
+      if (mounted) {
+        setState(() {
+          _exporting = false;
+          _exportCancelToken = null;
+        });
+      }
     }
+  }
+
+  void _cancelExport() {
+    final token = _exportCancelToken;
+    if (token == null) return;
+    axLog(LogDomain.export, 'Cancel requested');
+    TesseraEngine.exportCancelSet(token);
   }
 
   Future<void> _share(Uint8List jpeg) async {
@@ -230,15 +263,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final export = Padding(
       padding: const EdgeInsets.only(right: Insets.sm),
       child: FilledButton.tonalIcon(
-        onPressed: _exporting || _bytes == null ? null : _export,
+        onPressed: _bytes == null
+            ? null
+            : _exporting
+                ? _cancelExport
+                : _export,
         icon: _exporting
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
+            ? const Icon(Icons.cancel_outlined, size: 18)
             : const Icon(Icons.ios_share, size: 18),
-        label: const Text('Export'),
+        label: Text(_exporting ? 'Cancel' : 'Export'),
       ),
     );
 

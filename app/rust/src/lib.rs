@@ -3,6 +3,7 @@ pub mod color;
 pub mod decode;
 pub mod exif;
 pub mod export;
+pub mod export_pipeline;
 mod frb_generated;
 pub mod geometry;
 pub mod histogram;

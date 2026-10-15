@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:aperturex/color/grade_spec.dart';
+import 'package:aperturex/color/spatial_spec.dart';
 import 'package:aperturex/engine/engine.dart';
 
 /// On-device proof that the Dart <-> Rust bridge works end to end.
@@ -80,5 +81,41 @@ void main() {
     expect(nImg.height, 48);
     expect(neutral, isNotEmpty);
     expect(meanLuma(bImg.rgba), greaterThan(meanLuma(nImg.rgba)));
+  });
+
+  test('exportJpegFull bakes the whole recipe in one call', () async {
+    final jpeg = await TesseraEngine.syntheticJpeg(width: 64, height: 48);
+    final decoded = await TesseraEngine.decodeJpegRgba(jpeg);
+
+    final out = await TesseraEngine.exportJpegFull(
+      rgba: decoded.rgba,
+      width: decoded.width,
+      height: decoded.height,
+      spec: const GradeSpec(exposure: 1.0),
+      spatial: const SpatialSpec(clarity: 0.4, grain: 0.1),
+      maxDim: 32,
+    );
+    expect(out, isNotNull);
+    final img = await TesseraEngine.decodeJpegRgba(out!);
+    // maxDim caps the longest side to 32.
+    expect(img.width == 32 || img.height == 32, isTrue);
+  });
+
+  test('exportJpegFull returns null when its cancel token fires', () async {
+    final jpeg = await TesseraEngine.syntheticJpeg(width: 64, height: 48);
+    final decoded = await TesseraEngine.decodeJpegRgba(jpeg);
+
+    final token = await TesseraEngine.exportCancelNew();
+    await TesseraEngine.exportCancelSet(token);
+    final out = await TesseraEngine.exportJpegFull(
+      rgba: decoded.rgba,
+      width: decoded.width,
+      height: decoded.height,
+      spec: const GradeSpec(exposure: 1.0),
+      cancelToken: token,
+    );
+    await TesseraEngine.exportCancelDrop(token);
+
+    expect(out, isNull, reason: 'a set token must abort the export');
   });
 }

@@ -1,6 +1,8 @@
 //! Geometry: non-destructive crop, rotate (90° steps), flip, and straighten.
 //! Applied to the pixel buffer as the first stage of the render/export pipeline.
 
+use std::borrow::Cow;
+
 /// Flips horizontally (mirror left↔right).
 pub fn flip_h(rgba: &[u8], w: usize, h: usize) -> Vec<u8> {
     let mut out = vec![0u8; w * h * 4];
@@ -221,6 +223,138 @@ pub fn perspective_warp(
     out
 }
 
+/// The full geometry chain (export + FFI): flip → rotate → straighten →
+/// normalized crop → perspective/skew. All fields are neutral by default.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GeometrySpec {
+    pub flip_h: bool,
+    pub flip_v: bool,
+    /// Quarter-turns clockwise (any multiple of 4 is identity).
+    pub turns: u32,
+    /// Straighten angle in degrees (0 = off).
+    pub angle: f32,
+    /// Normalized `[0,1]` crop in the transformed frame.
+    pub crop_l: f32,
+    pub crop_t: f32,
+    pub crop_r: f32,
+    pub crop_b: f32,
+    pub perspective_x: f32,
+    pub perspective_y: f32,
+    pub skew_x: f32,
+    pub skew_y: f32,
+}
+
+impl Default for GeometrySpec {
+    fn default() -> Self {
+        Self {
+            flip_h: false,
+            flip_v: false,
+            turns: 0,
+            angle: 0.0,
+            crop_l: 0.0,
+            crop_t: 0.0,
+            crop_r: 1.0,
+            crop_b: 1.0,
+            perspective_x: 0.0,
+            perspective_y: 0.0,
+            skew_x: 0.0,
+            skew_y: 0.0,
+        }
+    }
+}
+
+impl GeometrySpec {
+    /// True when the chain leaves the buffer byte-identical.
+    pub fn is_identity(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+/// Normalized `[0,1]` crop, returning `None` when the rect is the identity or
+/// degenerate so callers keep their buffer instead of paying a full-frame copy.
+pub fn crop_normalized(
+    buf: &[u8],
+    w: usize,
+    h: usize,
+    crop_l: f32,
+    crop_t: f32,
+    crop_r: f32,
+    crop_b: f32,
+) -> Option<(Vec<u8>, usize, usize)> {
+    let (cl, ct, cr, cb) = (
+        crop_l.clamp(0.0, 1.0),
+        crop_t.clamp(0.0, 1.0),
+        crop_r.clamp(0.0, 1.0),
+        crop_b.clamp(0.0, 1.0),
+    );
+    if cl == 0.0 && ct == 0.0 && cr == 1.0 && cb == 1.0 {
+        return None;
+    }
+    if cr <= cl || cb <= ct {
+        return None;
+    }
+    let x = (cl * w as f32).round() as usize;
+    let y = (ct * h as f32).round() as usize;
+    let cw = (((cr - cl) * w as f32).round() as usize).clamp(1, w - x);
+    let ch = (((cb - ct) * h as f32).round() as usize).clamp(1, h - y);
+    Some((crop(buf, w, h, x, y, cw, ch), cw, ch))
+}
+
+/// Applies the whole geometry chain: flip → rotate (90° × turns) → straighten
+/// (crop to the inscribed rect) → normalized crop → perspective/skew.
+/// Returns `(buffer, width, height)`.
+///
+/// Uses `Cow` so an identity spec never copies the source — the FFI wrapper
+/// passes a borrowed slice and only engaged ops allocate.
+pub fn apply_spec(rgba: &[u8], w: usize, h: usize, spec: &GeometrySpec) -> (Vec<u8>, usize, usize) {
+    let mut buf = Cow::Borrowed(rgba);
+    let (mut w, mut h) = (w, h);
+
+    if spec.flip_h {
+        buf = Cow::Owned(flip_h(&buf, w, h));
+    }
+    if spec.flip_v {
+        buf = Cow::Owned(flip_v(&buf, w, h));
+    }
+    if !spec.turns.is_multiple_of(4) {
+        let (b, nw, nh) = rotate_quarter(&buf, w, h, spec.turns);
+        buf = Cow::Owned(b);
+        w = nw;
+        h = nh;
+    }
+    if spec.angle != 0.0 {
+        let rotated = straighten(&buf, w, h, spec.angle);
+        let [x, y, cw, ch] = inscribed_rect(w, h, spec.angle);
+        buf = Cow::Owned(crop(&rotated, w, h, x, y, cw, ch));
+        w = cw;
+        h = ch;
+    }
+    if let Some((cropped, cw, ch)) = crop_normalized(
+        &buf,
+        w,
+        h,
+        spec.crop_l,
+        spec.crop_t,
+        spec.crop_r,
+        spec.crop_b,
+    ) {
+        buf = Cow::Owned(cropped);
+        w = cw;
+        h = ch;
+    }
+    buf = Cow::Owned(perspective_warp(
+        &buf,
+        w,
+        h,
+        spec.perspective_x,
+        spec.perspective_y,
+        spec.skew_x,
+        spec.skew_y,
+    ));
+
+    (buf.into_owned(), w, h)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -321,5 +455,43 @@ mod tests {
         assert_eq!(inscribed_rect(100, 50, 0.0), [0, 0, 100, 50]);
         let [_, _, cw, ch] = inscribed_rect(100, 50, 10.0);
         assert!(cw < 100 && ch < 50);
+    }
+
+    #[test]
+    fn default_geometry_spec_is_identity() {
+        assert!(GeometrySpec::default().is_identity());
+        let src = grid(6, 4);
+        let (out, w, h) = apply_spec(&src, 6, 4, &GeometrySpec::default());
+        assert_eq!((w, h), (6, 4));
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn apply_spec_chain_matches_manual_order() {
+        // flip_h → rotate 90 cw → crop, applied in that order.
+        let src = grid(4, 2);
+        let spec = GeometrySpec {
+            flip_h: true,
+            turns: 1,
+            crop_l: 0.0,
+            crop_t: 0.0,
+            crop_r: 1.0,
+            crop_b: 0.5,
+            ..Default::default()
+        };
+        let (out, w, h) = apply_spec(&src, 4, 2, &spec);
+
+        let flipped = flip_h(&src, 4, 2);
+        let (rotated, rw, rh) = rotate_quarter(&flipped, 4, 2, 1);
+        let (cropped, cw, ch) = crop_normalized(&rotated, rw, rh, 0.0, 0.0, 1.0, 0.5).unwrap();
+        assert_eq!((w, h), (cw, ch));
+        assert_eq!(out, cropped);
+    }
+
+    #[test]
+    fn crop_normalized_none_on_identity_and_degenerate() {
+        let src = grid(4, 4);
+        assert!(crop_normalized(&src, 4, 4, 0.0, 0.0, 1.0, 1.0).is_none());
+        assert!(crop_normalized(&src, 4, 4, 0.5, 0.5, 0.5, 1.0).is_none());
     }
 }

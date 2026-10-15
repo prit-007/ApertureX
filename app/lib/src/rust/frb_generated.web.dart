@@ -44,6 +44,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CurveParams dco_decode_box_autoadd_curve_params(dynamic raw);
 
   @protected
+  ExportSpec dco_decode_box_autoadd_export_spec(dynamic raw);
+
+  @protected
   PreviewBaseSpec dco_decode_box_autoadd_preview_base_spec(dynamic raw);
 
   @protected
@@ -51,6 +54,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CurveParams dco_decode_curve_params(dynamic raw);
+
+  @protected
+  ExportResult dco_decode_export_result(dynamic raw);
+
+  @protected
+  ExportSpec dco_decode_export_spec(dynamic raw);
 
   @protected
   double dco_decode_f_32(dynamic raw);
@@ -125,6 +134,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CurveParams sse_decode_box_autoadd_curve_params(SseDeserializer deserializer);
 
   @protected
+  ExportSpec sse_decode_box_autoadd_export_spec(SseDeserializer deserializer);
+
+  @protected
   PreviewBaseSpec sse_decode_box_autoadd_preview_base_spec(
     SseDeserializer deserializer,
   );
@@ -134,6 +146,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CurveParams sse_decode_curve_params(SseDeserializer deserializer);
+
+  @protected
+  ExportResult sse_decode_export_result(SseDeserializer deserializer);
+
+  @protected
+  ExportSpec sse_decode_export_spec(SseDeserializer deserializer);
 
   @protected
   double sse_decode_f_32(SseDeserializer deserializer);
@@ -214,6 +232,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_export_spec(
+    ExportSpec self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_preview_base_spec(
     PreviewBaseSpec self,
     SseSerializer serializer,
@@ -224,6 +248,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_curve_params(CurveParams self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_export_result(ExportResult self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_export_spec(ExportSpec self, SseSerializer serializer);
 
   @protected
   void sse_encode_f_32(double self, SseSerializer serializer);

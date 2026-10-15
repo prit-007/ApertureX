@@ -15,18 +15,22 @@ fn box_blur_1d(src: &[f32], w: usize, h: usize, radius: usize) -> Vec<f32> {
         return src.to_vec();
     }
     let mut tmp = vec![0f32; w * h];
-    let mut prefix = vec![0f32; w.max(h) + 1];
+    // The prefix accumulator is `f64`: it is the only place summation order (and
+    // therefore the region origin) could perturb the result, and a wider
+    // accumulator keeps banded tiles bit-comparable to the full-frame pass. The
+    // pixel buffers stay `f32` — the accumulator is one row/column, not a frame.
+    let mut prefix = vec![0f64; w.max(h) + 1];
     // Horizontal pass.
     for y in 0..h {
         let row = y * w;
         prefix[0] = 0.0;
         for x in 0..w {
-            prefix[x + 1] = prefix[x] + src[row + x];
+            prefix[x + 1] = prefix[x] + src[row + x] as f64;
         }
         for x in 0..w {
             let lo = x.saturating_sub(radius);
             let hi = (x + radius).min(w - 1);
-            tmp[row + x] = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1) as f32;
+            tmp[row + x] = ((prefix[hi + 1] - prefix[lo]) / (hi - lo + 1) as f64) as f32;
         }
     }
     // Vertical pass.
@@ -34,12 +38,12 @@ fn box_blur_1d(src: &[f32], w: usize, h: usize, radius: usize) -> Vec<f32> {
     for x in 0..w {
         prefix[0] = 0.0;
         for y in 0..h {
-            prefix[y + 1] = prefix[y] + tmp[y * w + x];
+            prefix[y + 1] = prefix[y] + tmp[y * w + x] as f64;
         }
         for y in 0..h {
             let lo = y.saturating_sub(radius);
             let hi = (y + radius).min(h - 1);
-            out[y * w + x] = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1) as f32;
+            out[y * w + x] = ((prefix[hi + 1] - prefix[lo]) / (hi - lo + 1) as f64) as f32;
         }
     }
     out
@@ -84,13 +88,24 @@ pub fn apply_texture(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
     unsharp(rgba, &blur_rgb(rgba, w, h, 2, 1), amount)
 }
 
+/// The clarity/shadows blur radius derived from the image size. Callers that
+/// process a *band* of a larger image must derive the radius from the **full**
+/// image (not the band) or the result would drift across tiles.
+pub fn clarity_radius(w: usize, h: usize) -> usize {
+    (w.min(h) / 16).clamp(4, 64)
+}
+
 /// Clarity: mid-frequency local contrast — large blur radius (a Gaussian
 /// approximation of the spec's edge-preserving base/detail split).
 pub fn apply_clarity(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
+    apply_clarity_r(rgba, w, h, amount, clarity_radius(w, h))
+}
+
+/// [`apply_clarity`] with an explicit radius (for banded processing).
+pub fn apply_clarity_r(rgba: &[u8], w: usize, h: usize, amount: f32, radius: usize) -> Vec<u8> {
     if amount == 0.0 {
         return rgba.to_vec();
     }
-    let radius = (w.min(h) / 16).clamp(4, 64);
     unsharp(rgba, &blur_rgb(rgba, w, h, radius, 2), amount)
 }
 
@@ -112,10 +127,21 @@ pub fn apply_shadow_highlight(
     shadows: f32,
     highlights: f32,
 ) -> Vec<u8> {
+    apply_shadow_highlight_r(rgba, w, h, shadows, highlights, clarity_radius(w, h))
+}
+
+/// [`apply_shadow_highlight`] with an explicit radius (for banded processing).
+pub fn apply_shadow_highlight_r(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    shadows: f32,
+    highlights: f32,
+    radius: usize,
+) -> Vec<u8> {
     if shadows == 0.0 && highlights == 0.0 {
         return rgba.to_vec();
     }
-    let radius = (w.min(h) / 16).clamp(4, 64);
     let base = blur_rgb(rgba, w, h, radius, 2);
     let mut out = rgba.to_vec();
     for i in 0..w * h {
@@ -312,11 +338,41 @@ pub fn dehaze(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
 }
 
 /// Applies the full spatial pass in a fixed order: denoise → shadows/highlights
-/// → clarity → texture → sharpen. A neutral set returns the input unchanged.
+/// → clarity → texture → sharpen → dehaze → vignette → grain. A neutral set
+/// returns the input unchanged.
 pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u8> {
     if p.is_neutral() {
         return rgba.to_vec();
     }
+    let mut out = apply_spatial_local(rgba, w, h, p);
+    if p.vignette != 0.0 {
+        out = vignette(&out, w, h, p.vignette);
+    }
+    if p.grain != 0.0 {
+        out = grain(&out, w, h, p.grain);
+    }
+    out
+}
+
+/// The neighbour-aware portion of the spatial pass — the ops that read pixels
+/// around the target. Split out so it can run padded over an export band. The
+/// position-dependent ops (vignette, grain) are deliberately excluded: their
+/// output depends on absolute coordinates, so they must see the full frame.
+///
+/// The radius is derived from the passed `(w, h)`; callers processing a band
+/// must call [`apply_spatial_local_ctx`] with the **full** image radius.
+pub fn apply_spatial_local(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u8> {
+    apply_spatial_local_ctx(rgba, w, h, p, clarity_radius(w, h))
+}
+
+/// [`apply_spatial_local`] with an explicit clarity/shadows radius.
+pub fn apply_spatial_local_ctx(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    p: SpatialParams,
+    radius: usize,
+) -> Vec<u8> {
     // Run only the ops that are actually engaged — each is a full-image pass, so
     // touching a single slider must not pay for the other four.
     let mut out = rgba.to_vec();
@@ -324,10 +380,10 @@ pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u
         out = denoise(&out, w, h, p.denoise_luma, p.denoise_chroma);
     }
     if p.shadows != 0.0 || p.highlights != 0.0 {
-        out = apply_shadow_highlight(&out, w, h, p.shadows, p.highlights);
+        out = apply_shadow_highlight_r(&out, w, h, p.shadows, p.highlights, radius);
     }
     if p.clarity != 0.0 {
-        out = apply_clarity(&out, w, h, p.clarity);
+        out = apply_clarity_r(&out, w, h, p.clarity, radius);
     }
     if p.texture != 0.0 {
         out = apply_texture(&out, w, h, p.texture);
@@ -338,13 +394,112 @@ pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u
     if p.dehaze != 0.0 {
         out = dehaze(&out, w, h, p.dehaze);
     }
-    if p.vignette != 0.0 {
-        out = vignette(&out, w, h, p.vignette);
-    }
-    if p.grain != 0.0 {
-        out = grain(&out, w, h, p.grain);
-    }
     out
+}
+
+/// Vertical halo (in rows) needed for [`apply_spatial_local_ctx`] to be exact.
+///
+/// The ops run as a **chain**, so the support compounds: a pixel's output
+/// depends on input rows within the *sum* of every engaged op's support (each
+/// separable box pass of radius `r` contributes `iterations * r`).
+pub fn spatial_local_margin(p: SpatialParams, w: usize, h: usize) -> usize {
+    let mut margin = 0;
+    if p.denoise_luma != 0.0 || p.denoise_chroma != 0.0 {
+        // Denoise blurs luma (1×2) and chroma (2×4) in parallel → max, not sum.
+        let mut d = 0;
+        if p.denoise_chroma != 0.0 {
+            d = d.max(2 * 4);
+        }
+        if p.denoise_luma != 0.0 {
+            d = d.max(2);
+        }
+        margin += d;
+    }
+    if p.shadows != 0.0 || p.highlights != 0.0 {
+        margin += 2 * clarity_radius(w, h);
+    }
+    if p.clarity != 0.0 {
+        margin += 2 * clarity_radius(w, h);
+    }
+    if p.texture != 0.0 {
+        margin += 2;
+    }
+    if p.sharpen != 0.0 {
+        margin += 2;
+    }
+    if p.dehaze != 0.0 {
+        margin += 3 * 24;
+    }
+    margin
+}
+
+/// Processes rows `y0..y0+bh` of the full image `full` (`w x h`) and returns
+/// just those `bh * w` RGBA rows of the full spatial pass.
+///
+/// The neighbour-aware ops run over a vertically padded band (exactly matching
+/// the full-image result, since the support stays within the padding), then the
+/// absolute-coordinate ops (vignette, grain) run with the full image size and
+/// the band's true row offset. Stitching every band reproduces
+/// [`apply_spatial`] byte-for-byte while only ever holding one band + halo.
+pub fn apply_spatial_band(
+    full: &[u8],
+    w: usize,
+    h: usize,
+    y0: usize,
+    bh: usize,
+    p: SpatialParams,
+) -> Vec<u8> {
+    let radius = clarity_radius(w, h);
+    let margin = spatial_local_margin(p, w, h);
+    let mut band = process_tile_padded(full, w, h, (0, y0, w, bh), margin, |b, iw, ih| {
+        apply_spatial_local_ctx(b, iw, ih, p, radius)
+    });
+    vignette_band(&mut band, w, h, y0, p.vignette);
+    grain_band(&mut band, w, y0, p.grain);
+    band
+}
+
+/// In-place radial vignette for a band of rows `y0..y0+band_rows` of a `w x h`
+/// image. Uses the **full** image centre so bands stitch seamlessly.
+pub fn vignette_band(band: &mut [u8], w: usize, h: usize, y0: usize, amount: f32) {
+    if amount == 0.0 {
+        return;
+    }
+    let (cx, cy) = ((w as f32 - 1.0) / 2.0, (h as f32 - 1.0) / 2.0);
+    let maxd = (cx * cx + cy * cy).sqrt().max(1.0);
+    let rows = band.len() / (w * 4);
+    for y in 0..rows {
+        let dy = (y0 + y) as f32 - cy;
+        for x in 0..w {
+            let dx = x as f32 - cx;
+            let d = (dx * dx + dy * dy).sqrt() / maxd;
+            let t = ((d - 0.3) / 0.7).clamp(0.0, 1.0);
+            let f = (1.0 - amount * t * t).max(0.0);
+            let i = (y * w + x) * 4;
+            for c in 0..3 {
+                band[i + c] = (band[i + c] as f32 * f).clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
+}
+
+/// In-place film grain for a band of rows `y0..` using the band's true row
+/// offset, so the deterministic noise pattern matches the full-frame result.
+pub fn grain_band(band: &mut [u8], w: usize, y0: usize, amount: f32) {
+    if amount == 0.0 {
+        return;
+    }
+    let strength = amount * 40.0;
+    let rows = band.len() / (w * 4);
+    for y in 0..rows {
+        for x in 0..w {
+            let d = hash_noise(x as u32, (y0 + y) as u32) * strength;
+            let i = (y * w + x) * 4;
+            for c in 0..3 {
+                band[i + c] = (band[i + c] as f32 + d).clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
 }
 
 /// Runs a neighbour-aware `op` over the `tile` rect `(x, y, tw, th)` of a full
@@ -553,6 +708,107 @@ mod tests {
             blur_rgb(b, iw, ih, 4, 1)
         });
         assert_eq!(out.len(), 8 * 8 * 4);
+    }
+
+    /// Stitches `apply_spatial_band` over `band_rows`-tall bands.
+    fn stitch_bands(src: &[u8], w: usize, h: usize, band_rows: usize, p: SpatialParams) -> Vec<u8> {
+        let mut out = Vec::with_capacity(src.len());
+        let mut y = 0;
+        while y < h {
+            let bh = band_rows.min(h - y);
+            out.extend_from_slice(&apply_spatial_band(src, w, h, y, bh, p));
+            y += bh;
+        }
+        out
+    }
+
+    #[test]
+    fn banded_spatial_matches_full_frame() {
+        let (w, h) = (96, 80);
+        let src = noise(w, h);
+        // Engage every op, including the position-dependent vignette/grain,
+        // plus the large-radius dehaze and the size-dependent clarity.
+        let p = SpatialParams {
+            shadows: 0.4,
+            highlights: -0.3,
+            clarity: 0.5,
+            texture: 0.4,
+            sharpen: 0.3,
+            denoise_luma: 0.2,
+            denoise_chroma: 0.5,
+            dehaze: 0.3,
+            vignette: 0.6,
+            grain: 0.2,
+        };
+        let full = apply_spatial(&src, w, h, p);
+        for band_rows in [1, 7, 16, 31, 80] {
+            let stitched = stitch_bands(&src, w, h, band_rows, p);
+            if let Some(i) = stitched.iter().zip(&full).position(|(a, b)| a != b) {
+                let px = i / 4;
+                panic!(
+                    "band_rows={band_rows} diverged at byte {i} (px {},{} c{}): {} vs {}",
+                    px % w,
+                    px / w,
+                    i % 4,
+                    stitched[i],
+                    full[i]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn banded_spatial_matches_for_each_op_alone() {
+        let (w, h) = (64, 64);
+        let src = noise(w, h);
+        let cases = [
+            SpatialParams {
+                dehaze: 0.8,
+                ..Default::default()
+            },
+            SpatialParams {
+                clarity: 0.7,
+                ..Default::default()
+            },
+            SpatialParams {
+                shadows: 0.9,
+                ..Default::default()
+            },
+            SpatialParams {
+                vignette: 0.9,
+                ..Default::default()
+            },
+            SpatialParams {
+                grain: 0.9,
+                ..Default::default()
+            },
+            SpatialParams {
+                denoise_chroma: 0.9,
+                ..Default::default()
+            },
+        ];
+        for p in cases {
+            let full = apply_spatial(&src, w, h, p);
+            let stitched = stitch_bands(&src, w, h, 13, p);
+            assert_eq!(stitched, full, "diverged for {p:?}");
+        }
+    }
+
+    #[test]
+    fn spatial_local_margin_sums_the_chained_supports() {
+        // Chain support compounds: dehaze (3×24=72) + clarity (2×clarity_radius).
+        let p = SpatialParams {
+            dehaze: 1.0,
+            clarity: 1.0,
+            ..Default::default()
+        };
+        assert_eq!(spatial_local_margin(p, 64, 64), 72 + 2 * 4);
+        let big = SpatialParams {
+            clarity: 1.0,
+            ..Default::default()
+        };
+        // min(4096,4096)/16 = 256, clamped to 64 → 2*64 = 128.
+        assert_eq!(spatial_local_margin(big, 4096, 4096), 128);
     }
 
     #[test]

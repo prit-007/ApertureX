@@ -445,9 +445,78 @@ class TesseraEngine {
   static Future<Uint8List> extractExif(Uint8List jpeg) =>
       rust_exif.extractExif(jpeg: jpeg);
 
-  /// Grades [rgba] with [spec] and encodes a JPEG — preview==export by
-  /// construction, since grading uses the exact path the LUT bakes. The spatial
-  /// pass runs first (matching the preview order).
+  /// Runs the whole export recipe — geometry → banded spatial → masks → grade →
+  /// optional downscale → JPEG — inside Rust in a **single** call (P4), so a
+  /// full-resolution export crosses the bridge once and never holds several
+  /// full-size buffers at once.
+  ///
+  /// Pass a [cancelToken] from [exportCancelNew] to abort mid-run: returns
+  /// `null` when the token fired before the JPEG was produced. The default
+  /// token (0) never cancels.
+  static Future<Uint8List?> exportJpegFull({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    required GradeSpec spec,
+    SpatialSpec spatial = const SpatialSpec(),
+    GeometrySpec geometry = const GeometrySpec(),
+    List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
+    List<int> exif = const <int>[],
+    int quality = 90,
+    int? maxDim,
+    int cancelToken = 0,
+  }) async {
+    final result = await rust_export.exportFull(
+      rgba: rgba,
+      width: width,
+      height: height,
+      spec: rust_export.ExportSpec(
+        flipH: geometry.flipH,
+        flipV: geometry.flipV,
+        turns: geometry.rotation,
+        angle: geometry.straighten,
+        cropL: geometry.crop[0],
+        cropT: geometry.crop[1],
+        cropR: geometry.crop[2],
+        cropB: geometry.crop[3],
+        perspectiveX: geometry.perspectiveX,
+        perspectiveY: geometry.perspectiveY,
+        skewX: geometry.skewX,
+        skewY: geometry.skewY,
+        shadows: spatial.shadows,
+        highlights: spatial.highlights,
+        clarity: spatial.clarity,
+        texture: spatial.texture,
+        sharpen: spatial.sharpen,
+        denoiseLuma: spatial.denoiseLuma,
+        denoiseChroma: spatial.denoiseChroma,
+        dehaze: spatial.dehaze,
+        vignette: spatial.vignette,
+        grain: spatial.grain,
+        quality: quality,
+        maxDim: maxDim ?? 0,
+        bandRows: 256,
+        cancelToken: BigInt.from(cancelToken),
+      ),
+      layers: [
+        for (final l in layers)
+          rust_mask.MaskLayer(
+            kind: l.maskKind.index,
+            mask: Float32List.fromList(l.maskParams),
+            params: _localParams(l),
+          ),
+      ],
+      params: _colorParams(spec),
+      curves: _curveParams(spec),
+      hsl: spec.hsl,
+      exif: exif,
+    );
+    return result.cancelled ? null : result.jpeg;
+  }
+
+  /// Non-cancellable [exportJpegFull] for callers (and the reference tests)
+  /// that just want the bytes. Routes through the same single-call pipeline, so
+  /// preview == export by construction.
   static Future<Uint8List> exportJpeg({
     required Uint8List rgba,
     required int width,
@@ -460,42 +529,32 @@ class TesseraEngine {
     int quality = 90,
     int? maxDim,
   }) async {
-    final geo = await applyGeometry(
-      rgba,
+    final jpeg = await exportJpegFull(
+      rgba: rgba,
       width: width,
       height: height,
-      spec: geometry,
-    );
-    final spatialized = await applySpatial(
-      geo.rgba,
-      width: geo.width,
-      height: geo.height,
-      spec: spatial,
-    );
-    final masked = await applyMasks(
-      spatialized,
-      width: geo.width,
-      height: geo.height,
+      spec: spec,
+      spatial: spatial,
+      geometry: geometry,
       layers: layers,
-    );
-    final graded = await gradeRgba(masked, spec);
-
-    var outRgba = graded;
-    var outW = geo.width;
-    var outH = geo.height;
-    if (maxDim != null && maxDim > 0) {
-      final d = await downscale(graded, width: outW, height: outH, maxDim: maxDim);
-      outRgba = d.rgba;
-      outW = d.width;
-      outH = d.height;
-    }
-
-    return encodeJpegRgba(
-      rgba: outRgba,
-      width: outW,
-      height: outH,
-      quality: quality,
       exif: exif,
+      quality: quality,
+      maxDim: maxDim,
     );
+    // Token 0 never cancels, so this is always non-null.
+    return jpeg!;
   }
+
+  /// Creates an opaque cancel token for [exportJpegFull]. Call
+  /// [exportCancelSet] to abort a running export, then [exportCancelDrop].
+  static Future<int> exportCancelNew() async =>
+      (await rust_export.exportCancelNew()).toInt();
+
+  /// Signals the export running with [token] to stop at its next band boundary.
+  static Future<void> exportCancelSet(int token) =>
+      rust_export.exportCancelSet(token: BigInt.from(token));
+
+  /// Releases [token]. Safe to call more than once.
+  static Future<void> exportCancelDrop(int token) =>
+      rust_export.exportCancelDrop(token: BigInt.from(token));
 }

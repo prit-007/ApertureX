@@ -430,27 +430,8 @@ pub fn crop_opt(
     crop_r: f32,
     crop_b: f32,
 ) -> Option<(Vec<u8>, u32, u32)> {
-    let (cl, ct, cr, cb) = (
-        crop_l.clamp(0.0, 1.0),
-        crop_t.clamp(0.0, 1.0),
-        crop_r.clamp(0.0, 1.0),
-        crop_b.clamp(0.0, 1.0),
-    );
-    if cl == 0.0 && ct == 0.0 && cr == 1.0 && cb == 1.0 {
-        return None;
-    }
-    if cr <= cl || cb <= ct {
-        return None;
-    }
-    let x = (cl * w as f32).round() as usize;
-    let y = (ct * h as f32).round() as usize;
-    let cw = (((cr - cl) * w as f32).round() as usize).clamp(1, w as usize - x);
-    let ch = (((cb - ct) * h as f32).round() as usize).clamp(1, h as usize - y);
-    Some((
-        geometry::crop(buf, w as usize, h as usize, x, y, cw, ch),
-        cw as u32,
-        ch as u32,
-    ))
+    geometry::crop_normalized(buf, w as usize, h as usize, crop_l, crop_t, crop_r, crop_b)
+        .map(|(b, cw, ch)| (b, cw as u32, ch as u32))
 }
 
 // --- platform window (spike B) --------------------------------------------

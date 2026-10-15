@@ -101,47 +101,25 @@ pub fn geometry_apply(
     skew_x: f32,
     skew_y: f32,
 ) -> GeometryResult {
-    let mut w = width as usize;
-    let mut h = height as usize;
-    let mut buf = rgba;
-
-    if flip_h {
-        buf = geometry::flip_h(&buf, w, h);
-    }
-    if flip_v {
-        buf = geometry::flip_v(&buf, w, h);
-    }
-    if !turns.is_multiple_of(4) {
-        let (b, nw, nh) = geometry::rotate_quarter(&buf, w, h, turns);
-        buf = b;
-        w = nw;
-        h = nh;
-    }
-    if angle != 0.0 {
-        let rotated = geometry::straighten(&buf, w, h, angle);
-        let [x, y, cw, ch] = geometry::inscribed_rect(w, h, angle);
-        buf = geometry::crop(&rotated, w, h, x, y, cw, ch);
-        w = cw;
-        h = ch;
-    }
-
-    // Crop: normalized [0,1] rect in the (now transformed) frame.
-    if let Some((cropped, cw, ch)) =
-        crate::preview::crop_opt(&buf, w as u32, h as u32, crop_l, crop_t, crop_r, crop_b)
-    {
-        buf = cropped;
-        w = cw as usize;
-        h = ch as usize;
-    }
-
-    // Perspective/skew: bilinear remap on same dimensions.
-    let warped =
-        crate::geometry::perspective_warp(&buf, w, h, perspective_x, perspective_y, skew_x, skew_y);
-
+    let spec = geometry::GeometrySpec {
+        flip_h,
+        flip_v,
+        turns,
+        angle,
+        crop_l,
+        crop_t,
+        crop_r,
+        crop_b,
+        perspective_x,
+        perspective_y,
+        skew_x,
+        skew_y,
+    };
+    let (buf, w, h) = geometry::apply_spec(&rgba, width as usize, height as usize, &spec);
     GeometryResult {
         width: w as u32,
         height: h as u32,
-        rgba: warped,
+        rgba: buf,
     }
 }
 

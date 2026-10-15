@@ -9,7 +9,8 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `decode_raw_to_srgb`
 
-/// Reads RAW/DNG dimensions without demosaicing.
+/// Reads RAW/DNG dimensions without demosaicing, in **display** orientation
+/// (axes swapped for the 90°/270°/transpose EXIF cases, matching `decode_*`).
 Future<ImageDims> rawDimensions({required List<int> raw}) =>
     RustLib.instance.api.crateApiRawRawDimensions(raw: raw);
 

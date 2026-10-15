@@ -67,28 +67,67 @@ pub fn apply_local(rgba: &[u8], w: usize, h: usize, layers: &[LocalAdjustment]) 
     if layers.is_empty() || w == 0 || h == 0 {
         return out;
     }
+    apply_local_rows(&mut out, w, h, 0, h, layers);
+    out
+}
+
+/// Composites every layer over a **band** of rows `y0..y0+bh` (RGBA8,
+/// `w*bh*4`), where `full_h` is the full image height.
+///
+/// Masks are analytic and per-pixel (no neighbourhood), so a band needs no
+/// halo: the only tile-awareness is that `u,v` are normalised against the
+/// **full** image, which is what makes bands stitch seamlessly.
+pub fn apply_local_band(
+    band: &[u8],
+    w: usize,
+    full_h: usize,
+    y0: usize,
+    layers: &[LocalAdjustment],
+) -> Vec<u8> {
+    let mut out = band.to_vec();
+    if layers.is_empty() || w == 0 || full_h == 0 {
+        return out;
+    }
+    let band_rows = band.len() / (w * 4).max(1);
+    apply_local_rows(&mut out, w, band_rows, y0, full_h, layers);
+    out
+}
+
+/// The shared per-pixel body of [`apply_local`] / [`apply_local_band`].
+/// `row_origin` is the global row of the buffer's first row (0 for the full
+/// image, `y0` for a band), so normalised `v` always spans the full frame.
+fn apply_local_rows(
+    buf: &mut [u8],
+    w: usize,
+    band_rows: usize,
+    row_origin: usize,
+    full_h: usize,
+    layers: &[LocalAdjustment],
+) {
     for layer in layers {
-        for i in 0..w * h {
-            let u = ((i % w) as f32 + 0.5) / w as f32;
-            let v = ((i / w) as f32 + 0.5) / h as f32;
-            let base = [
-                out[i * 4] as f32 / 255.0,
-                out[i * 4 + 1] as f32 / 255.0,
-                out[i * 4 + 2] as f32 / 255.0,
-            ];
-            let luma = 0.2126 * base[0] + 0.7152 * base[1] + 0.0722 * base[2];
-            let cov = coverage(layer.mask.kind, &layer.mask.params, u, v, luma);
-            if cov <= 0.0 {
-                continue;
-            }
-            let adjusted = grade_pointwise(base, layer.params);
-            for c in 0..3 {
-                let mixed = base[c] + (adjusted[c] - base[c]) * cov;
-                out[i * 4 + c] = (mixed * 255.0 + 0.5).clamp(0.0, 255.0) as u8;
+        for y in 0..band_rows {
+            let v = ((row_origin + y) as f32 + 0.5) / full_h as f32;
+            for x in 0..w {
+                let i = (y * w + x) * 4;
+                let u = (x as f32 + 0.5) / w as f32;
+                let base = [
+                    buf[i] as f32 / 255.0,
+                    buf[i + 1] as f32 / 255.0,
+                    buf[i + 2] as f32 / 255.0,
+                ];
+                let luma = 0.2126 * base[0] + 0.7152 * base[1] + 0.0722 * base[2];
+                let cov = coverage(layer.mask.kind, &layer.mask.params, u, v, luma);
+                if cov <= 0.0 {
+                    continue;
+                }
+                let adjusted = grade_pointwise(base, layer.params);
+                for c in 0..3 {
+                    let mixed = base[c] + (adjusted[c] - base[c]) * cov;
+                    buf[i + c] = (mixed * 255.0 + 0.5).clamp(0.0, 255.0) as u8;
+                }
             }
         }
     }
-    out
 }
 
 #[cfg(test)]
@@ -173,5 +212,83 @@ mod tests {
         let bright = out[(4 * 16 + 13) * 4];
         assert!(dark > 48, "darks brightened: {dark}");
         assert!(bright.abs_diff(220) < 8, "brights ~untouched: {bright}");
+    }
+
+    /// A deterministic per-pixel ramp so mask coverage varies across the frame.
+    fn ramp(w: usize, h: usize) -> Vec<u8> {
+        let mut v = Vec::with_capacity(w * h * 4);
+        for y in 0..h {
+            for x in 0..w {
+                let r = ((x * 13 + y * 5) % 256) as u8;
+                let g = ((x * 7 + y * 29) % 256) as u8;
+                let b = ((x * 3 + y * 11) % 256) as u8;
+                v.extend_from_slice(&[r, g, b, 255]);
+            }
+        }
+        v
+    }
+
+    /// A representative stack: one of each mask kind, with distinct sub-grades.
+    fn stack() -> Vec<LocalAdjustment> {
+        vec![
+            LocalAdjustment {
+                mask: MaskSpec {
+                    kind: MASK_RADIAL,
+                    params: vec![0.5, 0.5, 0.4, 0.35, 0.3],
+                },
+                params: brighten(),
+            },
+            LocalAdjustment {
+                mask: MaskSpec {
+                    kind: MASK_LINEAR,
+                    params: vec![0.1, 0.1, 0.9, 0.8],
+                },
+                params: GradeParams {
+                    saturation: 0.5,
+                    ..Default::default()
+                },
+            },
+            LocalAdjustment {
+                mask: MaskSpec {
+                    kind: MASK_LUMINANCE,
+                    params: vec![0.3, 0.8],
+                },
+                params: GradeParams {
+                    contrast: 0.4,
+                    ..Default::default()
+                },
+            },
+        ]
+    }
+
+    #[test]
+    fn banded_masks_stitch_to_the_full_frame() {
+        let (w, h) = (48, 40);
+        let src = ramp(w, h);
+        let layers = stack();
+        let full = apply_local(&src, w, h, &layers);
+        for band_rows in [1usize, 7, 13, 20, 40] {
+            let mut stitched = Vec::with_capacity(w * h * 4);
+            let mut y0 = 0;
+            while y0 < h {
+                let bh = band_rows.min(h - y0);
+                let band: Vec<u8> = (y0..y0 + bh)
+                    .flat_map(|y| src[y * w * 4..(y + 1) * w * 4].iter().copied())
+                    .collect();
+                stitched.extend_from_slice(&apply_local_band(&band, w, h, y0, &layers));
+                y0 += bh;
+            }
+            assert_eq!(stitched, full, "band_rows={band_rows} diverged");
+        }
+    }
+
+    #[test]
+    fn band_without_layers_is_a_copy() {
+        let band = ramp(8, 3);
+        assert_eq!(
+            apply_local_band(&band, 8, 32, 4, &[]),
+            band,
+            "empty layers must not touch pixels"
+        );
     }
 }
