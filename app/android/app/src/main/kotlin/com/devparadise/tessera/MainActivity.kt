@@ -17,6 +17,7 @@ import io.flutter.view.TextureRegistry
  */
 class MainActivity : FlutterActivity() {
     private val textures = mutableMapOf<Long, TextureRegistry.SurfaceTextureEntry>()
+    private val surfaces = mutableMapOf<Long, Surface>()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -52,8 +53,11 @@ class MainActivity : FlutterActivity() {
             return
         }
         val handle = handleArg?.toLong() ?: -1L
+        // `SurfaceTextureEntry` exposes only `surfaceTexture()` (no `surface()`
+        // in the embedding); wrap it in a Surface the way the producer would.
+        val surface = surfaces.getOrPut(entry.id()) { Surface(entry.surfaceTexture()) }
         val ptr = try {
-            bindPreviewSurface(entry.surface(), handle)
+            bindPreviewSurface(surface, handle)
         } catch (t: Throwable) {
             0L
         }
@@ -61,11 +65,17 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun disposeTexture(textureIdArg: Number?, result: MethodChannel.Result) {
-        textures.remove(textureIdArg?.toLong())?.release()
+        val id = textureIdArg?.toLong()
+        if (id != null) {
+            textures.remove(id)?.release()
+            surfaces.remove(id)?.release()
+        }
         result.success(null)
     }
 
     override fun onDestroy() {
+        for (surface in surfaces.values) surface.release()
+        surfaces.clear()
         for (entry in textures.values) entry.release()
         textures.clear()
         super.onDestroy()

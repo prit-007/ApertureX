@@ -17,10 +17,13 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 |-----------|---------|---------|-----|------------|
 | [`dynamic_color`](https://pub.dev/packages/dynamic_color) | ^2.1.0 | Apache-2.0 | Material You wallpaper theming (Android S+; seed fallback elsewhere) | ✅ |
 | [`extended_image`](https://pub.dev/packages/extended_image) | ^10.1.0 | MIT | Gallery grid, pinch/pan gesture layer, `ExtendedRawImage.sourceRect` tile blits | ✅ |
-| [`file_picker`](https://pub.dev/packages/file_picker) | ^11.0.3 | MIT | Native file picker for importing HALD CLUT PNGs | ✅ |
+| [`file_picker`](https://pub.dev/packages/file_picker) | ^13.1.0 | MIT | Native SAF file picker for importing HALD CLUT PNGs (federated: `android_file_picker` etc.; no Android permissions required — SAF user grant) | ✅ |
 | [`flutter_rust_bridge`](https://pub.dev/packages/flutter_rust_bridge) | v2.x | MIT / Apache-2.0 | Dart ↔ Rust FFI codegen | ✅ |
 | [`image`](https://pub.dev/packages/image) | ^4.12.0 | MIT | Pure-Dart PNG decode for HALD CLUT LUT import (ADR 0009) | ✅ |
+| [`jpeg-encoder`](https://crates.io/crates/jpeg-encoder) | ^0.7.1 | (MIT OR Apache-2.0) AND IJG | Rust JPEG encode for full-res export | ✅ |
 | [`rawler`](https://crates.io/crates/rawler) | ^0.8.0 | LGPL-2.1 | Pure-Rust RAW/DNG decode (ADR 0005, `rawler`-first) | ✅ |
+| [`share_plus`](https://pub.dev/packages/share_plus) | ^13.3.1 | BSD-3-Clause | System share sheet for exported JPEGs and activity logs | ✅ |
+| [`zune-jpeg`](https://crates.io/crates/zune-jpeg) | ^0.5.15 | MIT OR Apache-2.0 OR Zlib | Rust JPEG decode for the ROI/proxy path | ✅ |
 
 Apache-2.0 and GPL-3.0 are mutually compatible (both are modern, patent-granting
 licenses); the Apache NOTICE must be carried through, which we do here.
@@ -28,9 +31,23 @@ licenses); the Apache NOTICE must be carried through, which we do here.
 `rawler` is **LGPL-2.1**. LGPL-2.1 §3 permits converting the covered code to
 GPL-2.0-or-later, which is compatible with this project's GPL-3.0-or-later
 outbound license, so the combined work may be distributed under GPL-3 while
-preserving rawler's notice. (An optional LibRaw fallback, `raw-libraw`, is
-**not** part of the default build: the Rust `libraw` crate is MIT while the
-underlying C++ LibRaw is LGPL-2.1/CDDL — see the ADR 0005 spike notes.)
+preserving rawler's notice.
+
+`jpeg-encoder` is `(MIT OR Apache-2.0) AND IJG`: it embeds the IJG
+(Independent JPEG Group) JPEG reference implementation, whose permissive license
+permits use in free and proprietary software provided the IJG notice is carried.
+The IJG notice must be included in the app's license bundle.
+
+### Optional native fallback (LibRaw / lensfun) — not in the default build
+
+`raw-libraw` (feature) links the Rust `libraw` crate (MIT) against the underlying
+C++ **LibRaw** library (**LGPL-2.1/CDDL**). LibRaw is **not** part of the default
+build (the default is pure-Rust `rawler`, see ADR 0005). If the optional feature
+is ever shipped, LibRaw — and any lensfun-class profile library (**LGPL**) —
+**must be dynamically linked** (`.so`/`.dylib`) so the GPL-3 app can link it
+compatibly, with notices carried through. This packaging work is tracked in issue
+#67; the `THIRD_PARTY.md` rows for those native libs are added only when the
+feature is enabled.
 
 ## Forked component
 
@@ -91,4 +108,7 @@ MIT). Explicitly avoided: RMBG (non-commercial).
 - Apache-2.0: https://www.apache.org/licenses/LICENSE-2.0
 - MIT: https://opensource.org/license/mit
 - BSD-3-Clause: https://opensource.org/license/bsd-3-clause
+- Zlib: https://opensource.org/license/zlib
+- IJG (libjpeg): https://www.ijg.org/files/README (IJG license)
+- LGPL-2.1: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
 - GPL-3.0: see [`LICENSE`](LICENSE)

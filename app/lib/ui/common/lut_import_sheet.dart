@@ -50,12 +50,15 @@ class _LutImportSheetState extends ConsumerState<LutImportSheet> {
   }
 
   Future<void> _pickHald() async {
-    final picked = await FilePicker.pickFiles(
-      type: FileType.image,
-      withData: true,
+    // file_picker 12+ removed `withData`/`FilePickerResult`: pick a single PNG
+    // via the document picker and read its bytes on demand.
+    final picked = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: const ['png'],
     );
-    final bytes = picked?.files.single.bytes;
-    if (bytes == null || !mounted) return;
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     if (!HaldClut.isHaldPng(bytes)) {
       messenger.showSnackBar(
