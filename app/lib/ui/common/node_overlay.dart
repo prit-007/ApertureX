@@ -56,6 +56,8 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
   int? _dragIndex;
   _NodeDrag _mode = _NodeDrag.idle;
   List<double>? _liveBrushPoints;
+  bool _isErasing = false;
+  Offset? _pointerPos;
 
   void _reset() {
     _down = null;
@@ -63,6 +65,7 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
     _dragIndex = null;
     _mode = _NodeDrag.idle;
     _liveBrushPoints = null;
+    _isErasing = false;
   }
 
   /// Exposed for tests (issue #50).
@@ -82,6 +85,7 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       recipeControllerProvider.select((s) => s.recipe.layers),
     );
     final selected = ref.watch(nodeEditorProvider.select((s) => s.selected));
+    final eraserMode = ref.watch(nodeEditorProvider.select((s) => s.eraserMode));
     final dpr = MediaQuery.devicePixelRatioOf(context);
     _centerHit = NodeOverlay.scaleTolerance(18, dpr);
     _ringHit = NodeOverlay.scaleTolerance(18, dpr);
@@ -94,8 +98,15 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
     final scheme = Theme.of(context).colorScheme;
     return Listener(
       behavior: HitTestBehavior.opaque,
-      onPointerDown: (e) => _onDown(e, transform, layers),
-      onPointerMove: (e) => _onMove(e, transform, layers),
+      onPointerHover: (e) => setState(() => _pointerPos = e.localPosition),
+      onPointerDown: (e) {
+        _pointerPos = e.localPosition;
+        _onDown(e, transform, layers);
+      },
+      onPointerMove: (e) {
+        _pointerPos = e.localPosition;
+        _onMove(e, transform, layers);
+      },
       onPointerUp: (_) => _onUp(),
       onPointerCancel: (_) => _reset(),
       child: IgnorePointer(
@@ -107,6 +118,8 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
             transform: transform,
             primary: scheme.primary,
             liveBrushPoints: _liveBrushPoints,
+            pointerPos: _pointerPos,
+            isEraser: eraserMode,
           ),
         ),
       ),
@@ -136,6 +149,20 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         layers[selectedIdx].maskKind == MaskKind.brush) {
       final n = t.toNormalized(e.localPosition);
       if (n != null) {
+        final isEraser = ref.read(nodeEditorProvider.select((s) => s.eraserMode)) ||
+            e.kind == PointerDeviceKind.invertedStylus;
+        if (isEraser) {
+          _isErasing = true;
+          _dragIndex = selectedIdx;
+          final layer = layers[selectedIdx];
+          final eraseR = layer.brushRadius;
+          ref.read(recipeControllerProvider.notifier).updateLayerAt(
+            selectedIdx,
+            layer.withErasedNear(n.dx, n.dy, eraseR),
+          );
+          setState(() {});
+          return;
+        }
         final pr = (e.kind == PointerDeviceKind.stylus)
             ? e.pressure.clamp(0.05, 1.0)
             : 1.0;
@@ -159,6 +186,25 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
 
   void _onMove(PointerMoveEvent e, CanvasTransform t, List<AdjustmentLayer> layers) {
     if (_down == null) return;
+
+    if (_isErasing) {
+      final selectedIdx = _dragIndex ?? ref.read(nodeEditorProvider.select((s) => s.selected));
+      if (selectedIdx != null &&
+          selectedIdx >= 0 &&
+          selectedIdx < layers.length &&
+          layers[selectedIdx].maskKind == MaskKind.brush) {
+        final n = t.toNormalized(e.localPosition);
+        if (n != null) {
+          final layer = layers[selectedIdx];
+          final eraseR = layer.brushRadius;
+          ref.read(recipeControllerProvider.notifier).updateLayerAt(
+            selectedIdx,
+            layer.withErasedNear(n.dx, n.dy, eraseR),
+          );
+        }
+      }
+      return;
+    }
 
     if (_liveBrushPoints != null) {
       final n = t.toNormalized(e.localPosition);
@@ -340,6 +386,8 @@ class _NodesPainter extends CustomPainter {
     required this.transform,
     required this.primary,
     this.liveBrushPoints,
+    this.pointerPos,
+    this.isEraser = false,
   });
 
   final List<AdjustmentLayer> layers;
@@ -347,12 +395,41 @@ class _NodesPainter extends CustomPainter {
   final CanvasTransform? transform;
   final Color primary;
   final List<double>? liveBrushPoints;
+  final Offset? pointerPos;
+  final bool isEraser;
 
   @override
   void paint(Canvas canvas, Size size) {
     final t = transform;
     if (t == null) return;
     const rubyColor = Color(0xFFE53935);
+
+    // Draw brush / eraser cursor ring at pointerPos
+    if (selectedIndex != null &&
+        selectedIndex! >= 0 &&
+        selectedIndex! < layers.length &&
+        layers[selectedIndex!].maskKind == MaskKind.brush &&
+        pointerPos != null) {
+      final layer = layers[selectedIndex!];
+      final radius = layer.brushRadius * t.fitted.width * t.scale;
+      final feather = layer.brushFeather;
+      final ringPaint = Paint()
+        ..color = (isEraser ? Colors.white : primary).withValues(alpha: 0.8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+
+      // Inner solid circle
+      canvas.drawCircle(pointerPos!, radius, ringPaint);
+
+      // Outer circle for feather boundary
+      if (feather > 0) {
+        final outerPaint = Paint()
+          ..color = (isEraser ? Colors.white : primary).withValues(alpha: 0.35)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0;
+        canvas.drawCircle(pointerPos!, radius * (1.0 + feather), outerPaint);
+      }
+    }
 
     for (var i = 0; i < layers.length; i++) {
       final l = layers[i];
@@ -533,5 +610,7 @@ class _NodesPainter extends CustomPainter {
       old.selectedIndex != selectedIndex ||
       old.transform != transform ||
       old.primary != primary ||
-      old.liveBrushPoints != liveBrushPoints;
+      old.liveBrushPoints != liveBrushPoints ||
+      old.pointerPos != pointerPos ||
+      old.isEraser != isEraser;
 }

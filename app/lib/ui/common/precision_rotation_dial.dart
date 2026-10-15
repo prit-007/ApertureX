@@ -24,13 +24,15 @@ class PrecisionRotationDial extends ConsumerStatefulWidget {
 
 class _PrecisionRotationDialState extends ConsumerState<PrecisionRotationDial> {
   double _lastTickDegree = 0.0;
+  bool _fineMode = false;
 
   void _onHorizontalDragUpdate(DragUpdateDetails details) {
     final notifier = ref.read(recipeControllerProvider.notifier);
     final current = ref.read(recipeControllerProvider).recipe.straighten;
 
-    // 1 pixel drag = 0.15 degrees
-    final delta = -details.primaryDelta! * 0.15;
+    // Standard mode: 1 pixel drag = 0.15 degrees. Fine mode: 0.03 degrees.
+    final speed = _fineMode ? 0.03 : 0.15;
+    final delta = -details.primaryDelta! * speed;
     var next = (current + delta).clamp(-45.0, 45.0);
 
     // Magnetic snap within 0.25° of zero
@@ -75,7 +77,7 @@ class _PrecisionRotationDialState extends ConsumerState<PrecisionRotationDial> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Top row: fine nudge minus, angle badge / reset button, fine nudge plus
+        // Top row: fine nudge minus, angle badge / reset button, fine nudge plus, precision toggle
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -134,6 +136,20 @@ class _PrecisionRotationDialState extends ConsumerState<PrecisionRotationDial> {
               visualDensity: VisualDensity.compact,
               onPressed: () => _nudge(0.1),
             ),
+            const SizedBox(width: Insets.xs),
+            IconButton(
+              key: const Key('rotation-dial-precision-toggle'),
+              tooltip: _fineMode ? 'Ultra-fine (0.03°/px)' : 'Standard (0.15°/px)',
+              icon: Icon(
+                _fineMode ? Icons.tune : Icons.tune_outlined,
+                size: 16,
+                color: _fineMode ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => setState(() => _fineMode = !_fineMode),
+            ),
           ],
         ),
         const SizedBox(height: 2),
@@ -141,6 +157,7 @@ class _PrecisionRotationDialState extends ConsumerState<PrecisionRotationDial> {
         GestureDetector(
           key: const Key('rotation-dial-ruler'),
           behavior: HitTestBehavior.opaque,
+          onDoubleTap: _reset,
           onHorizontalDragUpdate: _onHorizontalDragUpdate,
           onHorizontalDragEnd: _onHorizontalDragEnd,
           child: SizedBox(

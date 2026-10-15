@@ -92,4 +92,41 @@ void main() {
       closeTo(-0.1, 0.01),
     );
   });
+
+  testWidgets('double-tap on ruler resets angle to 0.0°', (tester) async {
+    container.read(recipeControllerProvider.notifier).setStraighten(8.2);
+    await pumpDial(tester);
+    expect(find.text('8.2°'), findsOneWidget);
+
+    // Double tap on ruler
+    await tester.tap(find.byKey(const Key('rotation-dial-ruler')));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.byKey(const Key('rotation-dial-ruler')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(recipeControllerProvider).recipe.straighten, 0.0);
+    expect(find.text('0.0°'), findsOneWidget);
+  });
+
+  testWidgets('precision mode toggle switches to ultra-fine control (0.03°/px)', (tester) async {
+    await pumpDial(tester);
+
+    // Precision mode toggle is present
+    expect(find.byKey(const Key('rotation-dial-precision-toggle')), findsOneWidget);
+
+    // Tap precision toggle to activate fine mode
+    await tester.tap(find.byKey(const Key('rotation-dial-precision-toggle')));
+    await tester.pumpAndSettle();
+
+    // Drag 50 pixels
+    await tester.drag(
+      find.byKey(const Key('rotation-dial-ruler')),
+      const Offset(-50, 0),
+    );
+    await tester.pumpAndSettle();
+
+    final straightenFine = container.read(recipeControllerProvider).recipe.straighten;
+    // With 0.03°/px minus touch slop, net drag produces ~0.9° (compared to ~4.5° in standard mode)
+    expect(straightenFine.abs(), closeTo(0.9, 0.2));
+  });
 }

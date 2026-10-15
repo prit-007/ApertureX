@@ -147,7 +147,7 @@ class MaskControls extends ConsumerWidget {
               style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
-        for (var i = 0; i < layers.length; i++)
+        for (var i = 0; i < layers.length; i++) ...[
           ListTile(
             dense: true,
             selected: i == ref.watch(nodeEditorProvider.select((s) => s.selected)),
@@ -170,6 +170,82 @@ class MaskControls extends ConsumerWidget {
               onPressed: () => notifier.removeLayerAt(i),
             ),
           ),
+          if (i == ref.watch(nodeEditorProvider.select((s) => s.selected)))
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Card(
+                elevation: 0,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          FilterChip(
+                            key: const Key('mask-inline-invert'),
+                            label: const Text('Invert', style: TextStyle(fontSize: 11)),
+                            selected: layers[i].inverted,
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            onSelected: (val) {
+                              notifier.updateLayerAt(i, layers[i].copyWith(inverted: val));
+                            },
+                          ),
+                          const Spacer(),
+                          Text(
+                            'EV ${layers[i].exposure >= 0 ? '+' : ''}${layers[i].exposure.toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 65,
+                            child: Text('Exposure', style: TextStyle(fontSize: 12)),
+                          ),
+                          Expanded(
+                            child: Slider(
+                              key: const Key('mask-inline-exposure-slider'),
+                              value: layers[i].exposure.clamp(-2.0, 2.0),
+                              min: -2.0,
+                              max: 2.0,
+                              onChanged: (val) {
+                                notifier.updateLayerAt(i, layers[i].copyWith(exposure: val));
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (layers[i].maskKind == MaskKind.brush)
+                        Row(
+                          children: [
+                            const SizedBox(
+                              width: 65,
+                              child: Text('Size', style: TextStyle(fontSize: 12)),
+                            ),
+                            Expanded(
+                              child: Slider(
+                                key: const Key('mask-inline-brush-size-slider'),
+                                value: layers[i].brushRadius.clamp(0.01, 0.5),
+                                min: 0.01,
+                                max: 0.5,
+                                onChanged: (val) {
+                                  notifier.updateLayerAt(i, layers[i].withBrushRadius(val));
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
       ],
     );
   }

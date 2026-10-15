@@ -62,6 +62,19 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
 
   RecipeSection _section = RecipeSection.light;
   _Tab _tab = _Tab.panel;
+  late final ScrollController _tabScrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabScrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _tabScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,10 +87,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     );
     final controller = ref.read(recipeControllerProvider.notifier);
 
-    Widget chip(String label, bool selected, VoidCallback onTap) => Padding(
+    Widget chip(RecipeSection section, bool selected, VoidCallback onTap) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: ChoiceChip(
-        label: Text(label),
+        label: Text(_sectionLabel(section)),
         selected: selected,
         onSelected: (_) => onTap(),
         showCheckmark: false,
@@ -99,17 +112,33 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         SizedBox(
           height: 44,
           child: ListView(
+            controller: _tabScrollController,
+            physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             children: [
               for (final section in _sections)
                 chip(
-                  _sectionLabel(section),
+                  section,
                   _tab == _Tab.panel && section == _section,
-                  () => setState(() {
-                    _section = section;
-                    _tab = _Tab.panel;
-                  }),
+                  () {
+                    setState(() {
+                      _section = section;
+                      _tab = _Tab.panel;
+                    });
+                    final idx = _sections.indexOf(section);
+                    if (_tabScrollController.hasClients) {
+                      final target = (idx * 90.0 - 60.0).clamp(
+                        0.0,
+                        _tabScrollController.position.maxScrollExtent,
+                      );
+                      _tabScrollController.animateTo(
+                        target,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                      );
+                    }
+                  },
                 ),
             ],
           ),

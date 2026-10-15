@@ -7,7 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// are rendered as nodes, and consumers must guard against the index going
 /// stale when layers change).
 class NodeEditorState {
-  const NodeEditorState({this.enabled = false, this.selected});
+  const NodeEditorState({
+    this.enabled = false,
+    this.selected,
+    this.eraserMode = false,
+  });
 
   /// Whether the photo is in "tap to place / drag to adjust" node mode.
   final bool enabled;
@@ -15,14 +19,28 @@ class NodeEditorState {
   /// Recipe layer index of the selected node, if any.
   final int? selected;
 
+  /// Whether the brush is currently in eraser mode.
+  final bool eraserMode;
+
+  NodeEditorState copyWith({
+    bool? enabled,
+    int? selected,
+    bool? eraserMode,
+  }) => NodeEditorState(
+    enabled: enabled ?? this.enabled,
+    selected: selected ?? this.selected,
+    eraserMode: eraserMode ?? this.eraserMode,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is NodeEditorState &&
       other.enabled == enabled &&
-      other.selected == selected;
+      other.selected == selected &&
+      other.eraserMode == eraserMode;
 
   @override
-  int get hashCode => Object.hash(enabled, selected);
+  int get hashCode => Object.hash(enabled, selected, eraserMode);
 }
 
 class NodeEditor extends Notifier<NodeEditorState> {
@@ -31,11 +49,11 @@ class NodeEditor extends Notifier<NodeEditorState> {
 
   void enable() {
     if (state.enabled) return;
-    state = NodeEditorState(enabled: true, selected: state.selected);
+    state = state.copyWith(enabled: true);
   }
 
   void disable() {
-    if (!state.enabled && state.selected == null) return;
+    if (!state.enabled && state.selected == null && !state.eraserMode) return;
     state = const NodeEditorState();
   }
 
@@ -43,8 +61,19 @@ class NodeEditor extends Notifier<NodeEditorState> {
 
   void select(int? index) {
     if (state.selected == index) return;
-    state = NodeEditorState(enabled: state.enabled, selected: index);
+    state = NodeEditorState(
+      enabled: state.enabled,
+      selected: index,
+      eraserMode: state.eraserMode,
+    );
   }
+
+  void setEraserMode(bool value) {
+    if (state.eraserMode == value) return;
+    state = state.copyWith(eraserMode: value);
+  }
+
+  void toggleEraserMode() => setEraserMode(!state.eraserMode);
 }
 
 /// Active selective-editing mode + selection (issue #25).

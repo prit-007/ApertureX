@@ -52,6 +52,14 @@ void main() {
       notifier().select(null);
       expect(state(), const NodeEditorState(enabled: true));
     });
+
+    test('eraserMode can be set and toggled', () {
+      expect(state().eraserMode, isFalse);
+      notifier().setEraserMode(true);
+      expect(state().eraserMode, isTrue);
+      notifier().toggleEraserMode();
+      expect(state().eraserMode, isFalse);
+    });
   });
 
   group('RecipeController.updateLayerAt', () {

@@ -121,4 +121,39 @@ void main() {
     expect(layers, hasLength(1));
     expect(layers.first.maskKind, MaskKind.sky);
   });
+
+  testWidgets('selected layer in MaskControls displays inline editor for quick adjustments', (
+    tester,
+  ) async {
+    final controller = container.read(recipeControllerProvider.notifier);
+    controller.addLayer(
+      const AdjustmentLayer(
+        maskKind: MaskKind.brush,
+        maskParams: [0.06, 0.25, 0],
+        exposure: 0.5,
+      ),
+    );
+    container.read(nodeEditorProvider.notifier).enable();
+    container.read(nodeEditorProvider.notifier).select(0);
+
+    await pumpMaskingApp(tester);
+
+    expect(find.byKey(const Key('mask-inline-exposure-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-inline-brush-size-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-inline-invert')), findsOneWidget);
+
+    // Scroll into view if needed
+    await tester.ensureVisible(find.byKey(const Key('mask-inline-exposure-slider')));
+    await tester.pumpAndSettle();
+
+    // Adjust exposure slider
+    await tester.drag(
+      find.byKey(const Key('mask-inline-exposure-slider')),
+      const Offset(120, 0),
+    );
+    await tester.pump();
+
+    final layer = container.read(recipeControllerProvider).recipe.layers.first;
+    expect(layer.exposure, greaterThan(0.5));
+  });
 }

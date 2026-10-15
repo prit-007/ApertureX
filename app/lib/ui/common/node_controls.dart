@@ -144,17 +144,69 @@ class NodeControls extends ConsumerWidget {
               ),
             ],
           ),
-          _LayerSlider(
-            label: 'Exposure',
-            valueLabel:
-                '${layer.exposure >= 0 ? '+' : ''}'
-                '${layer.exposure.toStringAsFixed(2)}',
-            value: layer.exposure.clamp(-2.0, 2.0),
-            min: -2,
-            max: 2,
-            sliderKey: const Key('node-exposure-slider'),
-            onChanged: (v) => notifier.updateLayerAt(i, layer.copyWith(exposure: v)),
-          ),
+          if (layer.maskKind == MaskKind.brush) ...[
+            Row(
+              children: [
+                ChoiceChip(
+                  key: const Key('node-brush-paint'),
+                  label: const Text('Paint', style: TextStyle(fontSize: 11)),
+                  selected: !editor.eraserMode,
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  onSelected: (val) {
+                    if (val) {
+                      ref.read(nodeEditorProvider.notifier).setEraserMode(false);
+                    }
+                  },
+                ),
+                const SizedBox(width: Insets.xs),
+                ChoiceChip(
+                  key: const Key('node-brush-erase'),
+                  label: const Text('Erase', style: TextStyle(fontSize: 11)),
+                  selected: editor.eraserMode,
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  onSelected: (val) {
+                    if (val) {
+                      ref.read(nodeEditorProvider.notifier).setEraserMode(true);
+                    }
+                  },
+                ),
+                const Spacer(),
+                if (layer.brushPointCount > 0)
+                  TextButton.icon(
+                    key: const Key('node-brush-clear'),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                    ),
+                    icon: const Icon(Icons.clear, size: 14),
+                    label: const Text('Clear', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      notifier.updateLayerAt(i, layer.withClearedStrokes());
+                    },
+                  ),
+              ],
+            ),
+            _LayerSlider(
+              label: 'Size',
+              valueLabel: '${(layer.brushRadius * 100).round()}%',
+              value: layer.brushRadius.clamp(0.01, 0.5),
+              min: 0.01,
+              max: 0.5,
+              sliderKey: const Key('node-brush-size-slider'),
+              onChanged: (v) => notifier.updateLayerAt(i, layer.withBrushRadius(v)),
+            ),
+            _LayerSlider(
+              label: 'Feather',
+              valueLabel: '${(layer.brushFeather * 100).round()}%',
+              value: layer.brushFeather.clamp(0.0, 1.0),
+              min: 0.0,
+              max: 1.0,
+              sliderKey: const Key('node-brush-feather-slider'),
+              onChanged: (v) => notifier.updateLayerAt(i, layer.withBrushFeather(v)),
+            ),
+          ],
           if (layer.maskKind == MaskKind.radial && layer.maskParams.length >= 5)
             _LayerSlider(
               label: 'Radius',
@@ -178,18 +230,83 @@ class NodeControls extends ConsumerWidget {
                 );
               },
             ),
-          if (layer.maskKind == MaskKind.linear)
-            _LayerSlider(
-              label: 'Contrast',
-              valueLabel:
-                  '${layer.contrast >= 0 ? '+' : ''}'
-                  '${layer.contrast.toStringAsFixed(2)}',
-              value: layer.contrast.clamp(-1.0, 1.0),
-              min: -1,
-              max: 1,
-              sliderKey: const Key('node-contrast-slider'),
-              onChanged: (v) => notifier.updateLayerAt(i, layer.copyWith(contrast: v)),
-            ),
+          _LayerSlider(
+            label: 'Exposure',
+            valueLabel:
+                '${layer.exposure >= 0 ? '+' : ''}'
+                '${layer.exposure.toStringAsFixed(2)}',
+            value: layer.exposure.clamp(-2.0, 2.0),
+            min: -2,
+            max: 2,
+            sliderKey: const Key('node-exposure-slider'),
+            onChanged: (v) => notifier.updateLayerAt(i, layer.copyWith(exposure: v)),
+          ),
+          _LayerSlider(
+            label: 'Contrast',
+            valueLabel:
+                '${layer.contrast >= 0 ? '+' : ''}'
+                '${layer.contrast.toStringAsFixed(2)}',
+            value: layer.contrast.clamp(-1.0, 1.0),
+            min: -1,
+            max: 1,
+            sliderKey: const Key('node-contrast-slider'),
+            onChanged: (v) => notifier.updateLayerAt(i, layer.copyWith(contrast: v)),
+          ),
+          _LayerSlider(
+            label: 'Highlights',
+            valueLabel:
+                '${layer.highlights >= 0 ? '+' : ''}'
+                '${layer.highlights.toStringAsFixed(2)}',
+            value: layer.highlights.clamp(-1.0, 1.0),
+            min: -1,
+            max: 1,
+            sliderKey: const Key('node-highlights-slider'),
+            onChanged: (v) => notifier.updateLayerAt(i, layer.copyWith(highlights: v)),
+          ),
+          _LayerSlider(
+            label: 'Shadows',
+            valueLabel:
+                '${layer.shadows >= 0 ? '+' : ''}'
+                '${layer.shadows.toStringAsFixed(2)}',
+            value: layer.shadows.clamp(-1.0, 1.0),
+            min: -1,
+            max: 1,
+            sliderKey: const Key('node-shadows-slider'),
+            onChanged: (v) => notifier.updateLayerAt(i, layer.copyWith(shadows: v)),
+          ),
+          _LayerSlider(
+            label: 'Saturation',
+            valueLabel:
+                '${layer.saturation >= 0 ? '+' : ''}'
+                '${layer.saturation.toStringAsFixed(2)}',
+            value: layer.saturation.clamp(-1.0, 1.0),
+            min: -1,
+            max: 1,
+            sliderKey: const Key('node-saturation-slider'),
+            onChanged: (v) => notifier.updateLayerAt(i, layer.copyWith(saturation: v)),
+          ),
+          _LayerSlider(
+            label: 'Temp',
+            valueLabel:
+                '${layer.temperature >= 0 ? '+' : ''}'
+                '${layer.temperature.toStringAsFixed(2)}',
+            value: layer.temperature.clamp(-1.0, 1.0),
+            min: -1,
+            max: 1,
+            sliderKey: const Key('node-temperature-slider'),
+            onChanged: (v) => notifier.updateLayerAt(i, layer.copyWith(temperature: v)),
+          ),
+          _LayerSlider(
+            label: 'Tint',
+            valueLabel:
+                '${layer.tint >= 0 ? '+' : ''}'
+                '${layer.tint.toStringAsFixed(2)}',
+            value: layer.tint.clamp(-1.0, 1.0),
+            min: -1,
+            max: 1,
+            sliderKey: const Key('node-tint-slider'),
+            onChanged: (v) => notifier.updateLayerAt(i, layer.copyWith(tint: v)),
+          ),
         ],
       ),
     );

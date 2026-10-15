@@ -15,6 +15,7 @@ class ParameterPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.only(bottom: 8),
       children: [
         SectionHeader(section.name),
