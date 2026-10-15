@@ -16,14 +16,18 @@ void main() {
       }
     });
 
-    test('neutral is zero everywhere (identity recipe)', () {
+    test('neutral is zero everywhere except blending', () {
       for (final p in Parameter.values) {
-        expect(specOf(p).neutral, 0);
+        if (p == Parameter.gradeBlending) {
+          expect(specOf(p).neutral, 0.5);
+        } else {
+          expect(specOf(p).neutral, 0);
+        }
       }
     });
 
     test('the catalog covers exactly the renderable fields today', () {
-      expect(Parameter.values.length, 24);
+      expect(Parameter.values.length, 29);
     });
   });
 
@@ -40,6 +44,11 @@ void main() {
         tint: 8,
         vibrance: 9,
         saturation: 10,
+        gradeShadowLum: -0.2,
+        gradeMidLum: 0.3,
+        gradeHighlightLum: 0.4,
+        gradeBlending: 0.8,
+        gradeBalance: -0.5,
       );
       expect(valueOf(r, Parameter.exposure), 1);
       expect(valueOf(r, Parameter.contrast), 2);
@@ -51,6 +60,11 @@ void main() {
       expect(valueOf(r, Parameter.tint), 8);
       expect(valueOf(r, Parameter.vibrance), 9);
       expect(valueOf(r, Parameter.saturation), 10);
+      expect(valueOf(r, Parameter.gradeShadowLum), -0.2);
+      expect(valueOf(r, Parameter.gradeMidLum), 0.3);
+      expect(valueOf(r, Parameter.gradeHighlightLum), 0.4);
+      expect(valueOf(r, Parameter.gradeBlending), 0.8);
+      expect(valueOf(r, Parameter.gradeBalance), -0.5);
     });
   });
 

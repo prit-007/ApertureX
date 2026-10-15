@@ -62,6 +62,30 @@ void main() {
       expect(restored, original);
     });
 
+    test('3-way color grading parameters round-trip through JSON', () {
+      const original = EditRecipe(
+        gradeShadowHue: 0.6,
+        gradeShadowSat: 0.4,
+        gradeShadowLum: -0.2,
+        gradeMidHue: 0.1,
+        gradeMidSat: 0.3,
+        gradeMidLum: 0.1,
+        gradeHighlightHue: 0.15,
+        gradeHighlightSat: 0.5,
+        gradeHighlightLum: 0.25,
+        gradeBlending: 0.7,
+        gradeBalance: -0.3,
+      );
+
+      final restored = EditRecipe.fromJson(original.toJson());
+      expect(restored.gradeShadowLum, -0.2);
+      expect(restored.gradeMidLum, 0.1);
+      expect(restored.gradeHighlightLum, 0.25);
+      expect(restored.gradeBlending, 0.7);
+      expect(restored.gradeBalance, -0.3);
+      expect(restored, original);
+    });
+
     test('fromJson defaults missing keys to neutral', () {
       final restored = EditRecipe.fromJson(<String, Object?>{
         'exposure': 2.0,

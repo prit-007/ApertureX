@@ -200,6 +200,56 @@ void main() {
     });
   });
 
+  group('color grading', () {
+    test('updates shadows, midtones, and highlights wheels', () {
+      notifier.setGradeWheel(
+        GradeWheelZone.shadows,
+        hue: 120,
+        sat: 0.8,
+        lum: -0.2,
+      );
+      expect(state().recipe.gradeShadowHue, 120);
+      expect(state().recipe.gradeShadowSat, 0.8);
+      expect(state().recipe.gradeShadowLum, -0.2);
+
+      notifier.setGradeWheel(
+        GradeWheelZone.midtones,
+        hue: 200,
+        sat: 0.5,
+        lum: 0.1,
+      );
+      expect(state().recipe.gradeMidHue, 200);
+      expect(state().recipe.gradeMidSat, 0.5);
+      expect(state().recipe.gradeMidLum, 0.1);
+
+      notifier.setGradeWheel(
+        GradeWheelZone.highlights,
+        hue: 45,
+        sat: 0.6,
+        lum: 0.3,
+      );
+      expect(state().recipe.gradeHighlightHue, 45);
+      expect(state().recipe.gradeHighlightSat, 0.6);
+      expect(state().recipe.gradeHighlightLum, 0.3);
+    });
+
+    test('clamps grading values', () {
+      notifier.setGradeWheel(
+        GradeWheelZone.shadows,
+        hue: 400,
+        sat: 1.5,
+        lum: -2.0,
+      );
+      expect(state().recipe.gradeShadowHue, 360);
+      expect(state().recipe.gradeShadowSat, 1.0);
+      expect(state().recipe.gradeShadowLum, -1.0);
+
+      notifier.setGradeGlobal(blending: 2.0, balance: -5.0);
+      expect(state().recipe.gradeBlending, 1.0);
+      expect(state().recipe.gradeBalance, -1.0);
+    });
+  });
+
   group('selectParameter', () {
     test('selects and clears the active parameter', () {
       notifier.selectParameter(Parameter.whites);
