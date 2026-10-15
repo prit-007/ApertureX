@@ -33,6 +33,14 @@ class GalleryScreen extends ConsumerStatefulWidget {
 }
 
 class _GalleryScreenState extends ConsumerState<GalleryScreen> {
+  /// Non-null while a batch export runs — owns the cooperative cancel and
+  /// drives the bottom-bar progress UI (#75).
+  BatchCancel? _exportCancel;
+  int _exportDone = 0;
+  int _exportTotal = 0;
+  final Set<String> _exportingIds = <String>{};
+  final Set<String> _exportedIds = <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -128,20 +136,67 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     ref.read(libraryCatalogProvider.notifier).rename(entry.entryId, name);
   }
 
+  /// Copies the single selected photo's recipe into the settings clipboard
+  /// (#75). Enabled for exactly one selection so the copy target is never
+  /// ambiguous.
+  void _copyEdits() {
+    final state = ref.read(galleryControllerProvider);
+    if (state.selectedCount != 1) return;
+    final id = state.selected.first;
+    final recipe =
+        ref.read(recipeStoreProvider)[originalEntryId(id)] ??
+        EditRecipe.neutral;
+    ref.read(settingsClipboardProvider.notifier).copy(recipe);
+    _snack('Copied edit settings from 1 photo');
+  }
+
   Future<void> _export() async {
     final state = ref.read(galleryControllerProvider);
-    if (state.selected.isEmpty) return;
+    if (state.selected.isEmpty || _exportCancel != null) return;
+    final cancel = BatchCancel();
+    setState(() {
+      _exportCancel = cancel;
+      _exportDone = 0;
+      _exportTotal = state.selectedCount;
+      _exportingIds
+        ..clear()
+        ..addAll(state.selected);
+      _exportedIds.clear();
+    });
     try {
-      final count = await GalleryExporter(_source).exportBatch(
+      final result = await ref.read(galleryExporterProvider).exportBatch(
         state.selected,
         (id) =>
             ref.read(recipeStoreProvider)[originalEntryId(id)] ??
             EditRecipe.neutral,
+        cancel: cancel,
+        onProgress: (progress) {
+          if (!mounted) return;
+          setState(() {
+            _exportDone = progress.done;
+            if (progress.started) {
+              _exportingIds.add(progress.id);
+            } else {
+              _exportingIds.remove(progress.id);
+              _exportedIds.add(progress.id);
+            }
+          });
+        },
       );
       ref.read(galleryControllerProvider.notifier).clearSelection();
-      _snack('Exported $count photo(s) to your gallery');
-    } catch (e) {
-      _snack('Export failed: $e');
+      if (!mounted) return;
+      _snack(
+        result.cancelled
+            ? 'Export cancelled — ${result.exported} of $_exportTotal exported'
+            : 'Exported ${result.exported} photo(s) to your gallery',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _exportCancel = null;
+          _exportingIds.clear();
+        });
+      }
     }
   }
 
@@ -187,8 +242,16 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
           ],
         ),
         body: _body(state, controller),
-        bottomNavigationBar: state.selectionMode
+        bottomNavigationBar: _exportCancel != null
+            ? _ExportProgressBar(
+                done: _exportDone,
+                total: _exportTotal,
+                onCancel: () => _exportCancel?.request(),
+              )
+            : state.selectionMode
             ? _SelectionBar(
+                canCopy: state.selectedCount == 1,
+                onCopy: _copyEdits,
                 onVirtualCopy: _createVirtualCopies,
                 onPaste: _paste,
                 onExport: _export,
@@ -321,6 +384,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                   edited: recipes.containsKey(originalEntryId(asset.id)),
                   copyCount: vcsBySource[asset.id]?.length ?? 0,
                   selectionMode: state.selectionMode,
+                  exporting: _exportingIds.contains(asset.id),
+                  exported: _exportedIds.contains(asset.id),
                   onTap: () => state.selectionMode
                       ? controller.toggle(asset.id)
                       : _open(asset),
@@ -431,6 +496,8 @@ class _Cell extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     this.copyCount = 0,
+    this.exporting = false,
+    this.exported = false,
   });
 
   final GallerySource source;
@@ -444,6 +511,12 @@ class _Cell extends StatelessWidget {
   /// How many virtual copies this photo has (0 = none) — surfaced as a small
   /// count chip so an expanded photo is obvious at a glance (#73).
   final int copyCount;
+
+  /// A batch export currently covers this photo (live ring, #75).
+  final bool exporting;
+
+  /// This photo's export finished in the last batch (#75).
+  final bool exported;
 
   @override
   Widget build(BuildContext context) {
@@ -507,7 +580,32 @@ class _Cell extends StatelessWidget {
                   ),
                 ),
               ),
-            if (selectionMode)
+            if (exporting)
+              Positioned(
+                right: 4,
+                top: 4,
+                child: SizedBox(
+                  key: Key('export-ring-${asset.id}'),
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: scheme.primary,
+                  ),
+                ),
+              )
+            else if (exported)
+              Positioned(
+                right: 4,
+                top: 4,
+                child: Icon(
+                  key: Key('export-done-${asset.id}'),
+                  Icons.check_circle,
+                  size: 22,
+                  color: scheme.primary,
+                ),
+              )
+            else if (selectionMode)
               Positioned(
                 right: 4,
                 top: 4,
@@ -698,38 +796,99 @@ class _GalleryThumbnailState extends State<GalleryThumbnail> {
 
 class _SelectionBar extends StatelessWidget {
   const _SelectionBar({
+    required this.canCopy,
+    required this.onCopy,
     required this.onVirtualCopy,
     required this.onPaste,
     required this.onExport,
   });
 
+  /// True only when exactly one photo is selected — the copy target must be
+  /// unambiguous (#75).
+  final bool canCopy;
+  final VoidCallback onCopy;
   final VoidCallback onVirtualCopy;
   final VoidCallback onPaste;
   final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
+    // Horizontal scroll so four actions never overflow a 360dp phone; the
+    // viewport is right-aligned so the actions stay in the thumb zone.
+    return BottomAppBar(
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextButton.icon(
+                key: const Key('copy-edits-action'),
+                onPressed: canCopy ? onCopy : null,
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('Copy edits'),
+              ),
+              const SizedBox(width: Insets.sm),
+              TextButton.icon(
+                key: const Key('virtual-copy-action'),
+                onPressed: onVirtualCopy,
+                icon: const Icon(Icons.copy_all_outlined, size: 18),
+                label: const Text('Virtual copy'),
+              ),
+              const SizedBox(width: Insets.sm),
+              TextButton.icon(
+                onPressed: onPaste,
+                icon: const Icon(Icons.paste),
+                label: const Text('Paste'),
+              ),
+              const SizedBox(width: Insets.sm),
+              FilledButton.tonalIcon(
+                onPressed: onExport,
+                icon: const Icon(Icons.ios_share, size: 18),
+                label: const Text('Export'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom bar while a batch export runs: live "12/40" count, determinate
+/// progress and a global cancel (#75).
+class _ExportProgressBar extends StatelessWidget {
+  const _ExportProgressBar({
+    required this.done,
+    required this.total,
+    required this.onCancel,
+  });
+
+  final int done;
+  final int total;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
     return BottomAppBar(
       child: Row(
         children: [
-          const Spacer(),
-          TextButton.icon(
-            key: const Key('virtual-copy-action'),
-            onPressed: onVirtualCopy,
-            icon: const Icon(Icons.copy_all_outlined, size: 18),
-            label: const Text('Virtual copy'),
+          Padding(
+            padding: const EdgeInsets.only(right: Insets.sm),
+            child: Text('$done/$total'),
+          ),
+          Expanded(
+            child: LinearProgressIndicator(
+              value: total == 0 ? null : done / total,
+            ),
           ),
           const SizedBox(width: Insets.sm),
           TextButton.icon(
-            onPressed: onPaste,
-            icon: const Icon(Icons.paste),
-            label: const Text('Paste'),
-          ),
-          const SizedBox(width: Insets.sm),
-          FilledButton.tonalIcon(
-            onPressed: onExport,
-            icon: const Icon(Icons.ios_share, size: 18),
-            label: const Text('Export'),
+            key: const Key('export-cancel'),
+            onPressed: onCancel,
+            icon: const Icon(Icons.close, size: 18),
+            label: const Text('Cancel'),
           ),
         ],
       ),
