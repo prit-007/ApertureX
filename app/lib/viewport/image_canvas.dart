@@ -671,7 +671,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       denoiseChroma: spatial.denoiseChroma,
       dehaze: spatial.dehaze,
       vignette: spatial.vignette,
+      vignetteMidpoint: spatial.vignetteMidpoint,
+      vignetteFeather: spatial.vignetteFeather,
+      vignetteRoundness: spatial.vignetteRoundness,
+      vignetteHighlights: spatial.vignetteHighlights,
       grain: spatial.grain,
+      grainSize: spatial.grainSize,
+      grainRoughness: spatial.grainRoughness,
     );
   }
   void _setBusy(bool value) {

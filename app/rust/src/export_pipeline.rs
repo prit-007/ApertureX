@@ -198,7 +198,13 @@ mod tests {
                 denoise_chroma: 0.3,
                 dehaze: 0.1,
                 vignette: 0.2,
+                vignette_midpoint: 0.5,
+                vignette_feather: 0.5,
+                vignette_roundness: 0.0,
+                vignette_highlights: 0.0,
                 grain: 0.1,
+                grain_size: 0.25,
+                grain_roughness: 0.5,
             },
             layers: vec![LocalAdjustment {
                 mask: MaskSpec {

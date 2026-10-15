@@ -16,13 +16,16 @@ void main() {
       }
     });
 
-    test('neutral is zero everywhere except blending, sharpenRadius, and sharpenDetail', () {
+    test('neutral values match parameter specifications', () {
       for (final p in Parameter.values) {
-        if (p == Parameter.gradeBlending) {
+        if (p == Parameter.gradeBlending ||
+            p == Parameter.vignetteMidpoint ||
+            p == Parameter.vignetteFeather ||
+            p == Parameter.grainRoughness) {
           expect(specOf(p).neutral, 0.5);
         } else if (p == Parameter.sharpenRadius) {
           expect(specOf(p).neutral, 1.0);
-        } else if (p == Parameter.sharpenDetail) {
+        } else if (p == Parameter.sharpenDetail || p == Parameter.grainSize) {
           expect(specOf(p).neutral, 0.25);
         } else {
           expect(specOf(p).neutral, 0);
@@ -31,7 +34,7 @@ void main() {
     });
 
     test('the catalog covers exactly the renderable fields today', () {
-      expect(Parameter.values.length, 32);
+      expect(Parameter.values.length, 38);
     });
   });
 
@@ -57,6 +60,12 @@ void main() {
         gradeHighlightLum: 0.4,
         gradeBlending: 0.8,
         gradeBalance: -0.5,
+        vignetteMidpoint: 0.3,
+        vignetteFeather: 0.7,
+        vignetteRoundness: -0.4,
+        vignetteHighlights: 0.6,
+        grainSize: 0.4,
+        grainRoughness: 0.8,
       );
       expect(valueOf(r, Parameter.exposure), 1);
       expect(valueOf(r, Parameter.contrast), 2);
@@ -77,6 +86,12 @@ void main() {
       expect(valueOf(r, Parameter.gradeHighlightLum), 0.4);
       expect(valueOf(r, Parameter.gradeBlending), 0.8);
       expect(valueOf(r, Parameter.gradeBalance), -0.5);
+      expect(valueOf(r, Parameter.vignetteMidpoint), 0.3);
+      expect(valueOf(r, Parameter.vignetteFeather), 0.7);
+      expect(valueOf(r, Parameter.vignetteRoundness), -0.4);
+      expect(valueOf(r, Parameter.vignetteHighlights), 0.6);
+      expect(valueOf(r, Parameter.grainSize), 0.4);
+      expect(valueOf(r, Parameter.grainRoughness), 0.8);
     });
   });
 

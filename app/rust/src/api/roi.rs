@@ -197,7 +197,13 @@ fn spatial_params(spec: &PreviewBaseSpec) -> SpatialParams {
         denoise_chroma: spec.denoise_chroma,
         dehaze: spec.dehaze,
         vignette: spec.vignette,
+        vignette_midpoint: spec.vignette_midpoint,
+        vignette_feather: spec.vignette_feather,
+        vignette_roundness: spec.vignette_roundness,
+        vignette_highlights: spec.vignette_highlights,
         grain: spec.grain,
+        grain_size: spec.grain_size,
+        grain_roughness: spec.grain_roughness,
     }
 }
 
@@ -243,7 +249,13 @@ mod tests {
             denoise_chroma: 0.0,
             dehaze: 0.0,
             vignette: 0.0,
+            vignette_midpoint: 0.5,
+            vignette_feather: 0.5,
+            vignette_roundness: 0.0,
+            vignette_highlights: 0.0,
             grain: 0.0,
+            grain_size: 0.25,
+            grain_roughness: 0.5,
         }
     }
 

@@ -95,7 +95,13 @@ Future<Uint8List> spatialApply({
   required double denoiseChroma,
   required double dehaze,
   required double vignette,
+  required double vignetteMidpoint,
+  required double vignetteFeather,
+  required double vignetteRoundness,
+  required double vignetteHighlights,
   required double grain,
+  required double grainSize,
+  required double grainRoughness,
 }) => RustLib.instance.api.crateApiSpatialSpatialApply(
   rgba: rgba,
   width: width,
@@ -112,7 +118,13 @@ Future<Uint8List> spatialApply({
   denoiseChroma: denoiseChroma,
   dehaze: dehaze,
   vignette: vignette,
+  vignetteMidpoint: vignetteMidpoint,
+  vignetteFeather: vignetteFeather,
+  vignetteRoundness: vignetteRoundness,
+  vignetteHighlights: vignetteHighlights,
   grain: grain,
+  grainSize: grainSize,
+  grainRoughness: grainRoughness,
 );
 
 /// Generates a black-and-white preview of the edge mask (for Alt/Option hold on Masking slider).

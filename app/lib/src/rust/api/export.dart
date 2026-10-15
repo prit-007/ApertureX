@@ -125,7 +125,13 @@ class ExportSpec {
   final double denoiseChroma;
   final double dehaze;
   final double vignette;
+  final double vignetteMidpoint;
+  final double vignetteFeather;
+  final double vignetteRoundness;
+  final double vignetteHighlights;
   final double grain;
+  final double grainSize;
+  final double grainRoughness;
   final int quality;
 
   /// Longest-side cap for the export (0 = full resolution).
@@ -162,7 +168,13 @@ class ExportSpec {
     required this.denoiseChroma,
     required this.dehaze,
     required this.vignette,
+    required this.vignetteMidpoint,
+    required this.vignetteFeather,
+    required this.vignetteRoundness,
+    required this.vignetteHighlights,
     required this.grain,
+    required this.grainSize,
+    required this.grainRoughness,
     required this.quality,
     required this.maxDim,
     required this.bandRows,
@@ -195,7 +207,13 @@ class ExportSpec {
       denoiseChroma.hashCode ^
       dehaze.hashCode ^
       vignette.hashCode ^
+      vignetteMidpoint.hashCode ^
+      vignetteFeather.hashCode ^
+      vignetteRoundness.hashCode ^
+      vignetteHighlights.hashCode ^
       grain.hashCode ^
+      grainSize.hashCode ^
+      grainRoughness.hashCode ^
       quality.hashCode ^
       maxDim.hashCode ^
       bandRows.hashCode ^
@@ -230,7 +248,13 @@ class ExportSpec {
           denoiseChroma == other.denoiseChroma &&
           dehaze == other.dehaze &&
           vignette == other.vignette &&
+          vignetteMidpoint == other.vignetteMidpoint &&
+          vignetteFeather == other.vignetteFeather &&
+          vignetteRoundness == other.vignetteRoundness &&
+          vignetteHighlights == other.vignetteHighlights &&
           grain == other.grain &&
+          grainSize == other.grainSize &&
+          grainRoughness == other.grainRoughness &&
           quality == other.quality &&
           maxDim == other.maxDim &&
           bandRows == other.bandRows &&

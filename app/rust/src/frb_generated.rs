@@ -1604,7 +1604,13 @@ fn wire__crate__api__spatial__spatial_apply_impl(
             let api_denoise_chroma = <f32>::sse_decode(&mut deserializer);
             let api_dehaze = <f32>::sse_decode(&mut deserializer);
             let api_vignette = <f32>::sse_decode(&mut deserializer);
+            let api_vignette_midpoint = <f32>::sse_decode(&mut deserializer);
+            let api_vignette_feather = <f32>::sse_decode(&mut deserializer);
+            let api_vignette_roundness = <f32>::sse_decode(&mut deserializer);
+            let api_vignette_highlights = <f32>::sse_decode(&mut deserializer);
             let api_grain = <f32>::sse_decode(&mut deserializer);
+            let api_grain_size = <f32>::sse_decode(&mut deserializer);
+            let api_grain_roughness = <f32>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ()>((move || {
@@ -1624,7 +1630,13 @@ fn wire__crate__api__spatial__spatial_apply_impl(
                         api_denoise_chroma,
                         api_dehaze,
                         api_vignette,
+                        api_vignette_midpoint,
+                        api_vignette_feather,
+                        api_vignette_roundness,
+                        api_vignette_highlights,
                         api_grain,
+                        api_grain_size,
+                        api_grain_roughness,
                     ))?;
                     std::result::Result::Ok(output_ok)
                 })())
@@ -2020,7 +2032,13 @@ impl SseDecode for crate::api::export::ExportSpec {
         let mut var_denoiseChroma = <f32>::sse_decode(deserializer);
         let mut var_dehaze = <f32>::sse_decode(deserializer);
         let mut var_vignette = <f32>::sse_decode(deserializer);
+        let mut var_vignetteMidpoint = <f32>::sse_decode(deserializer);
+        let mut var_vignetteFeather = <f32>::sse_decode(deserializer);
+        let mut var_vignetteRoundness = <f32>::sse_decode(deserializer);
+        let mut var_vignetteHighlights = <f32>::sse_decode(deserializer);
         let mut var_grain = <f32>::sse_decode(deserializer);
+        let mut var_grainSize = <f32>::sse_decode(deserializer);
+        let mut var_grainRoughness = <f32>::sse_decode(deserializer);
         let mut var_quality = <u8>::sse_decode(deserializer);
         let mut var_maxDim = <u32>::sse_decode(deserializer);
         let mut var_bandRows = <u32>::sse_decode(deserializer);
@@ -2050,7 +2068,13 @@ impl SseDecode for crate::api::export::ExportSpec {
             denoise_chroma: var_denoiseChroma,
             dehaze: var_dehaze,
             vignette: var_vignette,
+            vignette_midpoint: var_vignetteMidpoint,
+            vignette_feather: var_vignetteFeather,
+            vignette_roundness: var_vignetteRoundness,
+            vignette_highlights: var_vignetteHighlights,
             grain: var_grain,
+            grain_size: var_grainSize,
+            grain_roughness: var_grainRoughness,
             quality: var_quality,
             max_dim: var_maxDim,
             band_rows: var_bandRows,
@@ -2215,7 +2239,13 @@ impl SseDecode for crate::api::preview::PreviewBaseSpec {
         let mut var_denoiseChroma = <f32>::sse_decode(deserializer);
         let mut var_dehaze = <f32>::sse_decode(deserializer);
         let mut var_vignette = <f32>::sse_decode(deserializer);
+        let mut var_vignetteMidpoint = <f32>::sse_decode(deserializer);
+        let mut var_vignetteFeather = <f32>::sse_decode(deserializer);
+        let mut var_vignetteRoundness = <f32>::sse_decode(deserializer);
+        let mut var_vignetteHighlights = <f32>::sse_decode(deserializer);
         let mut var_grain = <f32>::sse_decode(deserializer);
+        let mut var_grainSize = <f32>::sse_decode(deserializer);
+        let mut var_grainRoughness = <f32>::sse_decode(deserializer);
         return crate::api::preview::PreviewBaseSpec {
             flip_h: var_flipH,
             flip_v: var_flipV,
@@ -2236,7 +2266,13 @@ impl SseDecode for crate::api::preview::PreviewBaseSpec {
             denoise_chroma: var_denoiseChroma,
             dehaze: var_dehaze,
             vignette: var_vignette,
+            vignette_midpoint: var_vignetteMidpoint,
+            vignette_feather: var_vignetteFeather,
+            vignette_roundness: var_vignetteRoundness,
+            vignette_highlights: var_vignetteHighlights,
             grain: var_grain,
+            grain_size: var_grainSize,
+            grain_roughness: var_grainRoughness,
         };
     }
 }
@@ -2494,7 +2530,13 @@ impl flutter_rust_bridge::IntoDart for crate::api::export::ExportSpec {
             self.denoise_chroma.into_into_dart().into_dart(),
             self.dehaze.into_into_dart().into_dart(),
             self.vignette.into_into_dart().into_dart(),
+            self.vignette_midpoint.into_into_dart().into_dart(),
+            self.vignette_feather.into_into_dart().into_dart(),
+            self.vignette_roundness.into_into_dart().into_dart(),
+            self.vignette_highlights.into_into_dart().into_dart(),
             self.grain.into_into_dart().into_dart(),
+            self.grain_size.into_into_dart().into_dart(),
+            self.grain_roughness.into_into_dart().into_dart(),
             self.quality.into_into_dart().into_dart(),
             self.max_dim.into_into_dart().into_dart(),
             self.band_rows.into_into_dart().into_dart(),
@@ -2637,7 +2679,13 @@ impl flutter_rust_bridge::IntoDart for crate::api::preview::PreviewBaseSpec {
             self.denoise_chroma.into_into_dart().into_dart(),
             self.dehaze.into_into_dart().into_dart(),
             self.vignette.into_into_dart().into_dart(),
+            self.vignette_midpoint.into_into_dart().into_dart(),
+            self.vignette_feather.into_into_dart().into_dart(),
+            self.vignette_roundness.into_into_dart().into_dart(),
+            self.vignette_highlights.into_into_dart().into_dart(),
             self.grain.into_into_dart().into_dart(),
+            self.grain_size.into_into_dart().into_dart(),
+            self.grain_roughness.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -2776,7 +2824,13 @@ impl SseEncode for crate::api::export::ExportSpec {
         <f32>::sse_encode(self.denoise_chroma, serializer);
         <f32>::sse_encode(self.dehaze, serializer);
         <f32>::sse_encode(self.vignette, serializer);
+        <f32>::sse_encode(self.vignette_midpoint, serializer);
+        <f32>::sse_encode(self.vignette_feather, serializer);
+        <f32>::sse_encode(self.vignette_roundness, serializer);
+        <f32>::sse_encode(self.vignette_highlights, serializer);
         <f32>::sse_encode(self.grain, serializer);
+        <f32>::sse_encode(self.grain_size, serializer);
+        <f32>::sse_encode(self.grain_roughness, serializer);
         <u8>::sse_encode(self.quality, serializer);
         <u32>::sse_encode(self.max_dim, serializer);
         <u32>::sse_encode(self.band_rows, serializer);
@@ -2906,7 +2960,13 @@ impl SseEncode for crate::api::preview::PreviewBaseSpec {
         <f32>::sse_encode(self.denoise_chroma, serializer);
         <f32>::sse_encode(self.dehaze, serializer);
         <f32>::sse_encode(self.vignette, serializer);
+        <f32>::sse_encode(self.vignette_midpoint, serializer);
+        <f32>::sse_encode(self.vignette_feather, serializer);
+        <f32>::sse_encode(self.vignette_roundness, serializer);
+        <f32>::sse_encode(self.vignette_highlights, serializer);
         <f32>::sse_encode(self.grain, serializer);
+        <f32>::sse_encode(self.grain_size, serializer);
+        <f32>::sse_encode(self.grain_roughness, serializer);
     }
 }
 

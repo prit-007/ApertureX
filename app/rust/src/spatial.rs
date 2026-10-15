@@ -333,8 +333,20 @@ pub struct SpatialParams {
     pub dehaze: f32,
     /// Vignette: >0 darkens the edges, <0 lightens them.
     pub vignette: f32,
+    /// Vignette midpoint (0..1, default: 0.5).
+    pub vignette_midpoint: f32,
+    /// Vignette feather (0..1, default: 0.5).
+    pub vignette_feather: f32,
+    /// Vignette roundness (-1..1, default: 0.0).
+    pub vignette_roundness: f32,
+    /// Vignette highlight preservation (0..1, default: 0.0).
+    pub vignette_highlights: f32,
     /// Film grain amount (`0..1`).
     pub grain: f32,
+    /// Film grain particle size (0..1, default: 0.25).
+    pub grain_size: f32,
+    /// Film grain roughness (0..1, default: 0.5).
+    pub grain_roughness: f32,
 }
 
 impl SpatialParams {
@@ -353,49 +365,48 @@ impl SpatialParams {
     }
 }
 
+/// Radial vignette with advanced midpoint, feather, roundness, and highlight protection.
+#[allow(clippy::too_many_arguments)]
+pub fn vignette_advanced(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    amount: f32,
+    midpoint: f32,
+    feather: f32,
+    roundness: f32,
+    highlights: f32,
+) -> Vec<u8> {
+    let mut out = rgba.to_vec();
+    vignette_tile_advanced(
+        &mut out, w, h, w, 0, 0, amount, midpoint, feather, roundness, highlights,
+    );
+    out
+}
+
 /// Radial vignette: darkens (`amount > 0`) or lightens (`amount < 0`) toward the
 /// corners with a smooth falloff.
 pub fn vignette(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
-    if amount == 0.0 {
-        return rgba.to_vec();
-    }
-    let (cx, cy) = ((w as f32 - 1.0) / 2.0, (h as f32 - 1.0) / 2.0);
-    let maxd = (cx * cx + cy * cy).sqrt().max(1.0);
+    vignette_advanced(rgba, w, h, amount, 0.5, 0.5, 0.0, 0.0)
+}
+
+/// Deterministic film grain with particle size and roughness controls.
+pub fn grain_advanced(
+    rgba: &[u8],
+    w: usize,
+    _h: usize,
+    amount: f32,
+    size: f32,
+    roughness: f32,
+) -> Vec<u8> {
     let mut out = rgba.to_vec();
-    for y in 0..h {
-        for x in 0..w {
-            let dx = x as f32 - cx;
-            let dy = y as f32 - cy;
-            let d = (dx * dx + dy * dy).sqrt() / maxd; // 0 centre .. 1 corner
-            let t = ((d - 0.3) / 0.7).clamp(0.0, 1.0);
-            let f = (1.0 - amount * t * t).max(0.0);
-            let i = (y * w + x) * 4;
-            for c in 0..3 {
-                out[i + c] = (rgba[i + c] as f32 * f).clamp(0.0, 255.0) as u8;
-            }
-        }
-    }
+    grain_tile_advanced(&mut out, w, 0, 0, amount, size, roughness);
     out
 }
 
 /// Deterministic film grain (same seed per pixel → stable, no flicker).
 pub fn grain(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
-    if amount == 0.0 {
-        return rgba.to_vec();
-    }
-    let strength = amount * 40.0;
-    let mut out = rgba.to_vec();
-    for y in 0..h {
-        for x in 0..w {
-            let n = hash_noise(x as u32, y as u32);
-            let d = n * strength;
-            let i = (y * w + x) * 4;
-            for c in 0..3 {
-                out[i + c] = (rgba[i + c] as f32 + d).clamp(0.0, 255.0) as u8;
-            }
-        }
-    }
-    out
+    grain_advanced(rgba, w, h, amount, 0.25, 0.5)
 }
 
 fn hash_noise(x: u32, y: u32) -> f32 {
@@ -436,10 +447,39 @@ pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u
     }
     let mut out = apply_spatial_local(rgba, w, h, p);
     if p.vignette != 0.0 {
-        out = vignette(&out, w, h, p.vignette);
+        let mid = if p.vignette_midpoint == 0.0 && p.vignette_feather == 0.0 {
+            0.5
+        } else {
+            p.vignette_midpoint
+        };
+        let fth = if p.vignette_midpoint == 0.0 && p.vignette_feather == 0.0 {
+            0.5
+        } else {
+            p.vignette_feather
+        };
+        out = vignette_advanced(
+            &out,
+            w,
+            h,
+            p.vignette,
+            mid,
+            fth,
+            p.vignette_roundness,
+            p.vignette_highlights,
+        );
     }
     if p.grain != 0.0 {
-        out = grain(&out, w, h, p.grain);
+        let sz = if p.grain_size == 0.0 && p.grain_roughness == 0.0 {
+            0.25
+        } else {
+            p.grain_size
+        };
+        let ro = if p.grain_size == 0.0 && p.grain_roughness == 0.0 {
+            0.5
+        } else {
+            p.grain_roughness
+        };
+        out = grain_advanced(&out, w, h, p.grain, sz, ro);
     }
     out
 }
@@ -750,8 +790,44 @@ pub fn apply_spatial_rect(
         margin,
         |b, iw, ih| apply_spatial_local_ctx(b, iw, ih, p, radius),
     );
-    vignette_tile(&mut out, fw, fh, out_w, out_x, out_y, p.vignette);
-    grain_tile(&mut out, out_w, out_x, out_y, p.grain);
+    if p.vignette != 0.0 {
+        let mid = if p.vignette_midpoint == 0.0 && p.vignette_feather == 0.0 {
+            0.5
+        } else {
+            p.vignette_midpoint
+        };
+        let fth = if p.vignette_midpoint == 0.0 && p.vignette_feather == 0.0 {
+            0.5
+        } else {
+            p.vignette_feather
+        };
+        vignette_tile_advanced(
+            &mut out,
+            fw,
+            fh,
+            out_w,
+            out_x,
+            out_y,
+            p.vignette,
+            mid,
+            fth,
+            p.vignette_roundness,
+            p.vignette_highlights,
+        );
+    }
+    if p.grain != 0.0 {
+        let sz = if p.grain_size == 0.0 && p.grain_roughness == 0.0 {
+            0.25
+        } else {
+            p.grain_size
+        };
+        let ro = if p.grain_size == 0.0 && p.grain_roughness == 0.0 {
+            0.5
+        } else {
+            p.grain_roughness
+        };
+        grain_tile_advanced(&mut out, out_w, out_x, out_y, p.grain, sz, ro);
+    }
     Ok(out)
 }
 
@@ -761,10 +837,73 @@ pub fn vignette_band(band: &mut [u8], w: usize, h: usize, y0: usize, amount: f32
     vignette_tile(band, w, h, w, 0, y0, amount);
 }
 
+/// In-place radial vignette with advanced midpoint, feather, roundness, and highlights.
+#[allow(clippy::too_many_arguments)]
+pub fn vignette_tile_advanced(
+    band: &mut [u8],
+    fw: usize,
+    fh: usize,
+    tw: usize,
+    x0: usize,
+    y0: usize,
+    amount: f32,
+    midpoint: f32,
+    feather: f32,
+    roundness: f32,
+    highlights: f32,
+) {
+    if amount == 0.0 || tw == 0 {
+        return;
+    }
+    let (cx, cy) = ((fw as f32 - 1.0) / 2.0, (fh as f32 - 1.0) / 2.0);
+    let maxd = (cx * cx + cy * cy).sqrt().max(1.0);
+    let th = band.len() / (tw * 4);
+
+    let inner_start = (midpoint * 0.8).clamp(0.0, 0.9);
+    let span = (feather * 0.8 + 0.1).max(0.05);
+
+    for y in 0..th {
+        let py = (y0 + y) as f32;
+        let dy = py - cy;
+        let ny = dy / cy.max(1.0);
+        for x in 0..tw {
+            let px = (x0 + x) as f32;
+            let dx = px - cx;
+            let nx = dx / cx.max(1.0);
+
+            let d_circ = (dx * dx + dy * dy).sqrt() / maxd;
+            let d_rect = (nx * nx + ny * ny).sqrt() / std::f32::consts::SQRT_2;
+            let d = if roundness < 0.0 {
+                d_circ * (1.0 + roundness) - d_rect * roundness
+            } else {
+                d_circ * (1.0 - 0.25 * roundness)
+            };
+
+            let t = ((d - inner_start) / span).clamp(0.0, 1.0);
+            let falloff = t * t * (3.0 - 2.0 * t);
+
+            let i = (y * tw + x) * 4;
+            let r = band[i] as f32;
+            let g = band[i + 1] as f32;
+            let b = band[i + 2] as f32;
+            let luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
+
+            let protect = if amount > 0.0 && highlights > 0.0 {
+                (luma * luma) * highlights
+            } else {
+                0.0
+            };
+
+            let f = (1.0 - amount * falloff * (1.0 - protect)).max(0.0);
+            band[i] = (r * f).clamp(0.0, 255.0) as u8;
+            band[i + 1] = (g * f).clamp(0.0, 255.0) as u8;
+            band[i + 2] = (b * f).clamp(0.0, 255.0) as u8;
+        }
+    }
+}
+
 /// In-place radial vignette for a `tw x th` rect whose top-left pixel sits at
-/// `(x0, y0)` of the `fw x fh` full image. [band] is `tw` pixels per row
-/// (`band.len() == tw * th * 4`). The full image centre is used, so tiles
-/// stitch seamlessly onto the whole-frame result.
+/// `(x0, y0)` of the `fw x fh` full image.
 pub fn vignette_tile(
     band: &mut [u8],
     fw: usize,
@@ -774,25 +913,7 @@ pub fn vignette_tile(
     y0: usize,
     amount: f32,
 ) {
-    if amount == 0.0 || tw == 0 {
-        return;
-    }
-    let (cx, cy) = ((fw as f32 - 1.0) / 2.0, (fh as f32 - 1.0) / 2.0);
-    let maxd = (cx * cx + cy * cy).sqrt().max(1.0);
-    let th = band.len() / (tw * 4);
-    for y in 0..th {
-        let dy = (y0 + y) as f32 - cy;
-        for x in 0..tw {
-            let dx = (x0 + x) as f32 - cx;
-            let d = (dx * dx + dy * dy).sqrt() / maxd;
-            let t = ((d - 0.3) / 0.7).clamp(0.0, 1.0);
-            let f = (1.0 - amount * t * t).max(0.0);
-            let i = (y * tw + x) * 4;
-            for c in 0..3 {
-                band[i + c] = (band[i + c] as f32 * f).clamp(0.0, 255.0) as u8;
-            }
-        }
-    }
+    vignette_tile_advanced(band, fw, fh, tw, x0, y0, amount, 0.5, 0.5, 0.0, 0.0);
 }
 
 /// In-place film grain for a band of rows `y0..` using the band's true row
@@ -801,24 +922,69 @@ pub fn grain_band(band: &mut [u8], w: usize, y0: usize, amount: f32) {
     grain_tile(band, w, 0, y0, amount);
 }
 
-/// In-place film grain for a `tw`-wide rect whose top-left sits at `(x0, y0)`
-/// of the full image, so the deterministic noise pattern matches the
-/// full-frame result wherever the rect lies.
-pub fn grain_tile(band: &mut [u8], tw: usize, x0: usize, y0: usize, amount: f32) {
+/// In-place film grain with particle size and roughness controls.
+pub fn grain_tile_advanced(
+    band: &mut [u8],
+    tw: usize,
+    x0: usize,
+    y0: usize,
+    amount: f32,
+    size: f32,
+    roughness: f32,
+) {
     if amount == 0.0 || tw == 0 {
         return;
     }
     let strength = amount * 40.0;
     let rows = band.len() / (tw * 4);
+    let scale = 1.0 + size.clamp(0.0, 1.0) * 3.0;
+
     for y in 0..rows {
+        let py = (y0 + y) as f32;
+        let gy = py / scale;
+        let gy0 = gy.floor() as u32;
+        let gy1 = gy0.wrapping_add(1);
+        let fy = gy - gy.floor();
+
         for x in 0..tw {
-            let d = hash_noise((x0 + x) as u32, (y0 + y) as u32) * strength;
+            let px = (x0 + x) as f32;
+            let gx = px / scale;
+            let gx0 = gx.floor() as u32;
+            let gx1 = gx0.wrapping_add(1);
+            let fx = gx - gx.floor();
+
+            let n00 = hash_noise(gx0, gy0);
+            let n10 = hash_noise(gx1, gy0);
+            let n01 = hash_noise(gx0, gy1);
+            let n11 = hash_noise(gx1, gy1);
+
+            let nx0 = n00 * (1.0 - fx) + n10 * fx;
+            let nx1 = n01 * (1.0 - fx) + n11 * fx;
+            let coarse = nx0 * (1.0 - fy) + nx1 * fy;
+
+            let fine = hash_noise((x0 + x) as u32, (y0 + y) as u32);
+            let n = coarse * (1.0 - roughness * 0.4) + fine * (roughness * 0.5);
+
             let i = (y * tw + x) * 4;
-            for c in 0..3 {
-                band[i + c] = (band[i + c] as f32 + d).clamp(0.0, 255.0) as u8;
-            }
+            let r = band[i] as f32;
+            let g = band[i + 1] as f32;
+            let b = band[i + 2] as f32;
+            let luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
+            let tonal_weight = (1.0 - (2.0 * luma - 1.0) * (2.0 * luma - 1.0)).clamp(0.2, 1.0);
+
+            let d = n * strength * tonal_weight;
+            band[i] = (r + d).clamp(0.0, 255.0) as u8;
+            band[i + 1] = (g + d).clamp(0.0, 255.0) as u8;
+            band[i + 2] = (b + d).clamp(0.0, 255.0) as u8;
         }
     }
+}
+
+/// In-place film grain for a `tw`-wide rect whose top-left sits at `(x0, y0)`
+/// of the full image, so the deterministic noise pattern matches the
+/// full-frame result wherever the rect lies.
+pub fn grain_tile(band: &mut [u8], tw: usize, x0: usize, y0: usize, amount: f32) {
+    grain_tile_advanced(band, tw, x0, y0, amount, 0.25, 0.5);
 }
 
 /// Runs a neighbour-aware `op` over the `tile` rect `(x, y, tw, th)` of a full
@@ -916,6 +1082,50 @@ mod tests {
     }
 
     #[test]
+    fn vignette_advanced_highlights_preserves_bright_corners() {
+        let (w, h) = (16, 16);
+        let mut src = vec![255u8; w * h * 4];
+        let corner_grey_idx = ((h - 1) * w + (w - 1)) * 4;
+        src[corner_grey_idx] = 128;
+        src[corner_grey_idx + 1] = 128;
+        src[corner_grey_idx + 2] = 128;
+
+        let out_protected = vignette_advanced(&src, w, h, 0.8, 0.5, 0.5, 0.0, 1.0);
+        let out_unprotected = vignette_advanced(&src, w, h, 0.8, 0.5, 0.5, 0.0, 0.0);
+
+        assert!(
+            out_protected[0] > out_unprotected[0],
+            "protected {} vs unprotected {}",
+            out_protected[0],
+            out_unprotected[0]
+        );
+    }
+
+    #[test]
+    fn grain_advanced_size_creates_spatial_correlation() {
+        let (w, h) = (32, 32);
+        let src = vec![128u8; w * h * 4];
+
+        let grain_fine = grain_advanced(&src, w, h, 0.5, 0.0, 0.0);
+        let grain_coarse = grain_advanced(&src, w, h, 0.5, 1.0, 0.0);
+
+        let mut diff_fine = 0.0f32;
+        let mut diff_coarse = 0.0f32;
+        for y in 0..h {
+            for x in 0..w - 1 {
+                let idx1 = (y * w + x) * 4;
+                let idx2 = (y * w + x + 1) * 4;
+                diff_fine += (grain_fine[idx1] as f32 - grain_fine[idx2] as f32).abs();
+                diff_coarse += (grain_coarse[idx1] as f32 - grain_coarse[idx2] as f32).abs();
+            }
+        }
+        assert!(
+            diff_coarse < diff_fine,
+            "coarse grain must have smaller pixel-to-pixel differences: {diff_coarse} vs {diff_fine}"
+        );
+    }
+
+    #[test]
     fn neutral_spatial_params_are_a_noop() {
         let src = noise(16, 16);
         let out = apply_spatial(
@@ -935,7 +1145,13 @@ mod tests {
                 denoise_chroma: 0.0,
                 dehaze: 0.0,
                 vignette: 0.0,
+                vignette_midpoint: 0.5,
+                vignette_feather: 0.5,
+                vignette_roundness: 0.0,
+                vignette_highlights: 0.0,
                 grain: 0.0,
+                grain_size: 0.25,
+                grain_roughness: 0.5,
             },
         );
         assert_eq!(out, src);
@@ -1101,7 +1317,13 @@ mod tests {
             denoise_chroma: 0.5,
             dehaze: 0.3,
             vignette: 0.6,
+            vignette_midpoint: 0.5,
+            vignette_feather: 0.5,
+            vignette_roundness: 0.0,
+            vignette_highlights: 0.0,
             grain: 0.2,
+            grain_size: 0.25,
+            grain_roughness: 0.5,
         };
         let full = apply_spatial(&src, w, h, p);
         for band_rows in [1, 7, 16, 31, 80] {
@@ -1237,7 +1459,13 @@ mod tests {
             denoise_chroma: 0.3,
             dehaze: 0.1,
             vignette: 0.2,
+            vignette_midpoint: 0.5,
+            vignette_feather: 0.5,
+            vignette_roundness: 0.0,
+            vignette_highlights: 0.0,
             grain: 0.1,
+            grain_size: 0.25,
+            grain_roughness: 0.5,
         }
     }
 

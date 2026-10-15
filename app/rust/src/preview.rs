@@ -339,7 +339,13 @@ fn bake_base(
         denoise_chroma: spec.denoise_chroma,
         dehaze: spec.dehaze,
         vignette: spec.vignette,
+        vignette_midpoint: spec.vignette_midpoint,
+        vignette_feather: spec.vignette_feather,
+        vignette_roundness: spec.vignette_roundness,
+        vignette_highlights: spec.vignette_highlights,
         grain: spec.grain,
+        grain_size: spec.grain_size,
+        grain_roughness: spec.grain_roughness,
     };
     // apply_spatial clones on the neutral path — skip it entirely.
     if !spatial_params.is_neutral() {

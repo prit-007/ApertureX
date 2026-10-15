@@ -114,7 +114,13 @@ class PreviewBaseSpec {
   final double denoiseChroma;
   final double dehaze;
   final double vignette;
+  final double vignetteMidpoint;
+  final double vignetteFeather;
+  final double vignetteRoundness;
+  final double vignetteHighlights;
   final double grain;
+  final double grainSize;
+  final double grainRoughness;
 
   const PreviewBaseSpec({
     required this.flipH,
@@ -136,7 +142,13 @@ class PreviewBaseSpec {
     required this.denoiseChroma,
     required this.dehaze,
     required this.vignette,
+    required this.vignetteMidpoint,
+    required this.vignetteFeather,
+    required this.vignetteRoundness,
+    required this.vignetteHighlights,
     required this.grain,
+    required this.grainSize,
+    required this.grainRoughness,
   });
 
   @override
@@ -160,7 +172,13 @@ class PreviewBaseSpec {
       denoiseChroma.hashCode ^
       dehaze.hashCode ^
       vignette.hashCode ^
-      grain.hashCode;
+      vignetteMidpoint.hashCode ^
+      vignetteFeather.hashCode ^
+      vignetteRoundness.hashCode ^
+      vignetteHighlights.hashCode ^
+      grain.hashCode ^
+      grainSize.hashCode ^
+      grainRoughness.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -186,7 +204,13 @@ class PreviewBaseSpec {
           denoiseChroma == other.denoiseChroma &&
           dehaze == other.dehaze &&
           vignette == other.vignette &&
-          grain == other.grain;
+          vignetteMidpoint == other.vignetteMidpoint &&
+          vignetteFeather == other.vignetteFeather &&
+          vignetteRoundness == other.vignetteRoundness &&
+          vignetteHighlights == other.vignetteHighlights &&
+          grain == other.grain &&
+          grainSize == other.grainSize &&
+          grainRoughness == other.grainRoughness;
 }
 
 /// Dimensions of the frame a [`preview_render`] just wrote into the bound

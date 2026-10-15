@@ -11,7 +11,13 @@ class SpatialSpec {
     this.texture = 0,
     this.dehaze = 0,
     this.vignette = 0,
+    this.vignetteMidpoint = 0.5,
+    this.vignetteFeather = 0.5,
+    this.vignetteRoundness = 0,
+    this.vignetteHighlights = 0,
     this.grain = 0,
+    this.grainSize = 0.25,
+    this.grainRoughness = 0.5,
     this.sharpen = 0,
     this.sharpenRadius = 1.0,
     this.sharpenDetail = 0.25,
@@ -26,7 +32,13 @@ class SpatialSpec {
   final double texture;
   final double dehaze;
   final double vignette;
+  final double vignetteMidpoint;
+  final double vignetteFeather;
+  final double vignetteRoundness;
+  final double vignetteHighlights;
   final double grain;
+  final double grainSize;
+  final double grainRoughness;
   final double sharpen;
   final double sharpenRadius;
   final double sharpenDetail;
@@ -53,7 +65,13 @@ class SpatialSpec {
     texture: recipe.texture,
     dehaze: recipe.dehaze,
     vignette: recipe.vignette,
+    vignetteMidpoint: recipe.vignetteMidpoint,
+    vignetteFeather: recipe.vignetteFeather,
+    vignetteRoundness: recipe.vignetteRoundness,
+    vignetteHighlights: recipe.vignetteHighlights,
     grain: recipe.grain,
+    grainSize: recipe.grainSize,
+    grainRoughness: recipe.grainRoughness,
     sharpen: recipe.sharpen,
     sharpenRadius: recipe.sharpenRadius,
     sharpenDetail: recipe.sharpenDetail,

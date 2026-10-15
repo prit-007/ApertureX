@@ -344,7 +344,13 @@ abstract class RustLibApi extends BaseApi {
     required double denoiseChroma,
     required double dehaze,
     required double vignette,
+    required double vignetteMidpoint,
+    required double vignetteFeather,
+    required double vignetteRoundness,
+    required double vignetteHighlights,
     required double grain,
+    required double grainSize,
+    required double grainRoughness,
   });
 
   Future<Uint8List> crateApiSpatialSpatialClarity({
@@ -1971,7 +1977,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required double denoiseChroma,
     required double dehaze,
     required double vignette,
+    required double vignetteMidpoint,
+    required double vignetteFeather,
+    required double vignetteRoundness,
+    required double vignetteHighlights,
     required double grain,
+    required double grainSize,
+    required double grainRoughness,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -1992,7 +2004,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_f_32(denoiseChroma, serializer);
           sse_encode_f_32(dehaze, serializer);
           sse_encode_f_32(vignette, serializer);
+          sse_encode_f_32(vignetteMidpoint, serializer);
+          sse_encode_f_32(vignetteFeather, serializer);
+          sse_encode_f_32(vignetteRoundness, serializer);
+          sse_encode_f_32(vignetteHighlights, serializer);
           sse_encode_f_32(grain, serializer);
+          sse_encode_f_32(grainSize, serializer);
+          sse_encode_f_32(grainRoughness, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -2021,7 +2039,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           denoiseChroma,
           dehaze,
           vignette,
+          vignetteMidpoint,
+          vignetteFeather,
+          vignetteRoundness,
+          vignetteHighlights,
           grain,
+          grainSize,
+          grainRoughness,
         ],
         apiImpl: this,
       ),
@@ -2047,7 +2071,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "denoiseChroma",
           "dehaze",
           "vignette",
+          "vignetteMidpoint",
+          "vignetteFeather",
+          "vignetteRoundness",
+          "vignetteHighlights",
           "grain",
+          "grainSize",
+          "grainRoughness",
         ],
       );
 
@@ -2419,8 +2449,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ExportSpec dco_decode_export_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 29)
-      throw Exception('unexpected arr length: expect 29 but see ${arr.length}');
+    if (arr.length != 35)
+      throw Exception('unexpected arr length: expect 35 but see ${arr.length}');
     return ExportSpec(
       flipH: dco_decode_bool(arr[0]),
       flipV: dco_decode_bool(arr[1]),
@@ -2446,11 +2476,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       denoiseChroma: dco_decode_f_32(arr[21]),
       dehaze: dco_decode_f_32(arr[22]),
       vignette: dco_decode_f_32(arr[23]),
-      grain: dco_decode_f_32(arr[24]),
-      quality: dco_decode_u_8(arr[25]),
-      maxDim: dco_decode_u_32(arr[26]),
-      bandRows: dco_decode_u_32(arr[27]),
-      cancelToken: dco_decode_u_64(arr[28]),
+      vignetteMidpoint: dco_decode_f_32(arr[24]),
+      vignetteFeather: dco_decode_f_32(arr[25]),
+      vignetteRoundness: dco_decode_f_32(arr[26]),
+      vignetteHighlights: dco_decode_f_32(arr[27]),
+      grain: dco_decode_f_32(arr[28]),
+      grainSize: dco_decode_f_32(arr[29]),
+      grainRoughness: dco_decode_f_32(arr[30]),
+      quality: dco_decode_u_8(arr[31]),
+      maxDim: dco_decode_u_32(arr[32]),
+      bandRows: dco_decode_u_32(arr[33]),
+      cancelToken: dco_decode_u_64(arr[34]),
     );
   }
 
@@ -2572,8 +2608,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PreviewBaseSpec dco_decode_preview_base_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 20)
-      throw Exception('unexpected arr length: expect 20 but see ${arr.length}');
+    if (arr.length != 26)
+      throw Exception('unexpected arr length: expect 26 but see ${arr.length}');
     return PreviewBaseSpec(
       flipH: dco_decode_bool(arr[0]),
       flipV: dco_decode_bool(arr[1]),
@@ -2594,7 +2630,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       denoiseChroma: dco_decode_f_32(arr[16]),
       dehaze: dco_decode_f_32(arr[17]),
       vignette: dco_decode_f_32(arr[18]),
-      grain: dco_decode_f_32(arr[19]),
+      vignetteMidpoint: dco_decode_f_32(arr[19]),
+      vignetteFeather: dco_decode_f_32(arr[20]),
+      vignetteRoundness: dco_decode_f_32(arr[21]),
+      vignetteHighlights: dco_decode_f_32(arr[22]),
+      grain: dco_decode_f_32(arr[23]),
+      grainSize: dco_decode_f_32(arr[24]),
+      grainRoughness: dco_decode_f_32(arr[25]),
     );
   }
 
@@ -2781,7 +2823,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_denoiseChroma = sse_decode_f_32(deserializer);
     var var_dehaze = sse_decode_f_32(deserializer);
     var var_vignette = sse_decode_f_32(deserializer);
+    var var_vignetteMidpoint = sse_decode_f_32(deserializer);
+    var var_vignetteFeather = sse_decode_f_32(deserializer);
+    var var_vignetteRoundness = sse_decode_f_32(deserializer);
+    var var_vignetteHighlights = sse_decode_f_32(deserializer);
     var var_grain = sse_decode_f_32(deserializer);
+    var var_grainSize = sse_decode_f_32(deserializer);
+    var var_grainRoughness = sse_decode_f_32(deserializer);
     var var_quality = sse_decode_u_8(deserializer);
     var var_maxDim = sse_decode_u_32(deserializer);
     var var_bandRows = sse_decode_u_32(deserializer);
@@ -2811,7 +2859,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       denoiseChroma: var_denoiseChroma,
       dehaze: var_dehaze,
       vignette: var_vignette,
+      vignetteMidpoint: var_vignetteMidpoint,
+      vignetteFeather: var_vignetteFeather,
+      vignetteRoundness: var_vignetteRoundness,
+      vignetteHighlights: var_vignetteHighlights,
       grain: var_grain,
+      grainSize: var_grainSize,
+      grainRoughness: var_grainRoughness,
       quality: var_quality,
       maxDim: var_maxDim,
       bandRows: var_bandRows,
@@ -2951,7 +3005,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_denoiseChroma = sse_decode_f_32(deserializer);
     var var_dehaze = sse_decode_f_32(deserializer);
     var var_vignette = sse_decode_f_32(deserializer);
+    var var_vignetteMidpoint = sse_decode_f_32(deserializer);
+    var var_vignetteFeather = sse_decode_f_32(deserializer);
+    var var_vignetteRoundness = sse_decode_f_32(deserializer);
+    var var_vignetteHighlights = sse_decode_f_32(deserializer);
     var var_grain = sse_decode_f_32(deserializer);
+    var var_grainSize = sse_decode_f_32(deserializer);
+    var var_grainRoughness = sse_decode_f_32(deserializer);
     return PreviewBaseSpec(
       flipH: var_flipH,
       flipV: var_flipV,
@@ -2972,7 +3032,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       denoiseChroma: var_denoiseChroma,
       dehaze: var_dehaze,
       vignette: var_vignette,
+      vignetteMidpoint: var_vignetteMidpoint,
+      vignetteFeather: var_vignetteFeather,
+      vignetteRoundness: var_vignetteRoundness,
+      vignetteHighlights: var_vignetteHighlights,
       grain: var_grain,
+      grainSize: var_grainSize,
+      grainRoughness: var_grainRoughness,
     );
   }
 
@@ -3129,7 +3195,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.denoiseChroma, serializer);
     sse_encode_f_32(self.dehaze, serializer);
     sse_encode_f_32(self.vignette, serializer);
+    sse_encode_f_32(self.vignetteMidpoint, serializer);
+    sse_encode_f_32(self.vignetteFeather, serializer);
+    sse_encode_f_32(self.vignetteRoundness, serializer);
+    sse_encode_f_32(self.vignetteHighlights, serializer);
     sse_encode_f_32(self.grain, serializer);
+    sse_encode_f_32(self.grainSize, serializer);
+    sse_encode_f_32(self.grainRoughness, serializer);
     sse_encode_u_8(self.quality, serializer);
     sse_encode_u_32(self.maxDim, serializer);
     sse_encode_u_32(self.bandRows, serializer);
@@ -3283,7 +3355,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.denoiseChroma, serializer);
     sse_encode_f_32(self.dehaze, serializer);
     sse_encode_f_32(self.vignette, serializer);
+    sse_encode_f_32(self.vignetteMidpoint, serializer);
+    sse_encode_f_32(self.vignetteFeather, serializer);
+    sse_encode_f_32(self.vignetteRoundness, serializer);
+    sse_encode_f_32(self.vignetteHighlights, serializer);
     sse_encode_f_32(self.grain, serializer);
+    sse_encode_f_32(self.grainSize, serializer);
+    sse_encode_f_32(self.grainRoughness, serializer);
   }
 
   @protected

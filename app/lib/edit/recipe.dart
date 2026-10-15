@@ -40,7 +40,13 @@ class EditRecipe {
     this.texture = 0,
     this.dehaze = 0,
     this.vignette = 0,
+    this.vignetteMidpoint = 0.5,
+    this.vignetteFeather = 0.5,
+    this.vignetteRoundness = 0,
+    this.vignetteHighlights = 0,
     this.grain = 0,
+    this.grainSize = 0.25,
+    this.grainRoughness = 0.5,
     this.sharpen = 0,
     this.sharpenRadius = 1.0,
     this.sharpenDetail = 0.25,
@@ -88,8 +94,9 @@ class EditRecipe {
   /// unchanged). v3: adds color-grading (split-tone) fields; older recipes read
   /// forward with those fields neutral. v13: adds 3-way color wheel luminance,
   /// blending, and balance. v14: adds advanced sharpen radius, detail, masking.
+  /// v15: adds advanced vignette and grain controls.
   /// `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 14;
+  static const int currentSchemaVersion = 15;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -107,7 +114,13 @@ class EditRecipe {
   final double texture; // spatial pass, neutral 0.
   final double dehaze; // spatial pass, neutral 0.
   final double vignette; // spatial pass: >0 darkens edges, neutral 0.
+  final double vignetteMidpoint; // spatial pass: 0..1, neutral 0.5.
+  final double vignetteFeather; // spatial pass: 0..1, neutral 0.5.
+  final double vignetteRoundness; // spatial pass: -1..1, neutral 0.
+  final double vignetteHighlights; // spatial pass: 0..1, neutral 0.
   final double grain; // spatial pass, 0..1 neutral 0.
+  final double grainSize; // spatial pass: 0.1..1, neutral 0.25.
+  final double grainRoughness; // spatial pass: 0..1, neutral 0.5.
   final double sharpen; // spatial pass, neutral 0.
   final double sharpenRadius; // spatial pass, 0.5..3.0, neutral 1.0.
   final double sharpenDetail; // spatial pass, 0..1, neutral 0.25.
@@ -175,7 +188,13 @@ class EditRecipe {
     double? texture,
     double? dehaze,
     double? vignette,
+    double? vignetteMidpoint,
+    double? vignetteFeather,
+    double? vignetteRoundness,
+    double? vignetteHighlights,
     double? grain,
+    double? grainSize,
+    double? grainRoughness,
     double? sharpen,
     double? sharpenRadius,
     double? sharpenDetail,
@@ -225,7 +244,13 @@ class EditRecipe {
       texture: texture ?? this.texture,
       dehaze: dehaze ?? this.dehaze,
       vignette: vignette ?? this.vignette,
+      vignetteMidpoint: vignetteMidpoint ?? this.vignetteMidpoint,
+      vignetteFeather: vignetteFeather ?? this.vignetteFeather,
+      vignetteRoundness: vignetteRoundness ?? this.vignetteRoundness,
+      vignetteHighlights: vignetteHighlights ?? this.vignetteHighlights,
       grain: grain ?? this.grain,
+      grainSize: grainSize ?? this.grainSize,
+      grainRoughness: grainRoughness ?? this.grainRoughness,
       sharpen: sharpen ?? this.sharpen,
       sharpenRadius: sharpenRadius ?? this.sharpenRadius,
       sharpenDetail: sharpenDetail ?? this.sharpenDetail,
@@ -278,7 +303,13 @@ class EditRecipe {
     'texture': texture,
     'dehaze': dehaze,
     'vignette': vignette,
+    'vignetteMidpoint': vignetteMidpoint,
+    'vignetteFeather': vignetteFeather,
+    'vignetteRoundness': vignetteRoundness,
+    'vignetteHighlights': vignetteHighlights,
     'grain': grain,
+    'grainSize': grainSize,
+    'grainRoughness': grainRoughness,
     'sharpen': sharpen,
     'sharpenRadius': sharpenRadius,
     'sharpenDetail': sharpenDetail,
@@ -334,7 +365,13 @@ class EditRecipe {
       texture: asDouble('texture'),
       dehaze: asDouble('dehaze'),
       vignette: asDouble('vignette'),
+      vignetteMidpoint: (json['vignetteMidpoint'] as num?)?.toDouble() ?? 0.5,
+      vignetteFeather: (json['vignetteFeather'] as num?)?.toDouble() ?? 0.5,
+      vignetteRoundness: asDouble('vignetteRoundness'),
+      vignetteHighlights: asDouble('vignetteHighlights'),
       grain: asDouble('grain'),
+      grainSize: (json['grainSize'] as num?)?.toDouble() ?? 0.25,
+      grainRoughness: (json['grainRoughness'] as num?)?.toDouble() ?? 0.5,
       sharpen: asDouble('sharpen'),
       sharpenRadius: (json['sharpenRadius'] as num?)?.toDouble() ?? 1.0,
       sharpenDetail: (json['sharpenDetail'] as num?)?.toDouble() ?? 0.25,
@@ -398,7 +435,13 @@ class EditRecipe {
       other.texture == texture &&
       other.dehaze == dehaze &&
       other.vignette == vignette &&
+      other.vignetteMidpoint == vignetteMidpoint &&
+      other.vignetteFeather == vignetteFeather &&
+      other.vignetteRoundness == vignetteRoundness &&
+      other.vignetteHighlights == vignetteHighlights &&
       other.grain == grain &&
+      other.grainSize == grainSize &&
+      other.grainRoughness == grainRoughness &&
       other.sharpen == sharpen &&
       other.sharpenRadius == sharpenRadius &&
       other.sharpenDetail == sharpenDetail &&
@@ -450,7 +493,13 @@ class EditRecipe {
       texture,
       dehaze,
       vignette,
+      vignetteMidpoint,
+      vignetteFeather,
+      vignetteRoundness,
+      vignetteHighlights,
       grain,
+      grainSize,
+      grainRoughness,
       sharpen,
       sharpenRadius,
       sharpenDetail,

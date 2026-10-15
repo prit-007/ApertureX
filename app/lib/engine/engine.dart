@@ -212,7 +212,13 @@ class TesseraEngine {
     denoiseChroma: spec.denoiseChroma,
     dehaze: spec.dehaze,
     vignette: spec.vignette,
+    vignetteMidpoint: spec.vignetteMidpoint,
+    vignetteFeather: spec.vignetteFeather,
+    vignetteRoundness: spec.vignetteRoundness,
+    vignetteHighlights: spec.vignetteHighlights,
     grain: spec.grain,
+    grainSize: spec.grainSize,
+    grainRoughness: spec.grainRoughness,
   );
 
   /// Generates a black-and-white preview of the edge mask (for Alt/Option hold on Masking slider).
@@ -622,7 +628,13 @@ class TesseraEngine {
         denoiseChroma: spatial.denoiseChroma,
         dehaze: spatial.dehaze,
         vignette: spatial.vignette,
+        vignetteMidpoint: spatial.vignetteMidpoint,
+        vignetteFeather: spatial.vignetteFeather,
+        vignetteRoundness: spatial.vignetteRoundness,
+        vignetteHighlights: spatial.vignetteHighlights,
         grain: spatial.grain,
+        grainSize: spatial.grainSize,
+        grainRoughness: spatial.grainRoughness,
         quality: quality,
         maxDim: maxDim ?? 0,
         bandRows: 256,

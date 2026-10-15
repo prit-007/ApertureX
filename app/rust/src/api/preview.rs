@@ -47,7 +47,13 @@ pub struct PreviewBaseSpec {
     pub denoise_chroma: f32,
     pub dehaze: f32,
     pub vignette: f32,
+    pub vignette_midpoint: f32,
+    pub vignette_feather: f32,
+    pub vignette_roundness: f32,
+    pub vignette_highlights: f32,
     pub grain: f32,
+    pub grain_size: f32,
+    pub grain_roughness: f32,
 }
 
 /// Uploads a decoded RGBA proxy into the resident store; returns a handle.
@@ -163,7 +169,13 @@ mod tests {
             denoise_chroma: 0.0,
             dehaze: 0.0,
             vignette: 0.0,
+            vignette_midpoint: 0.5,
+            vignette_feather: 0.5,
+            vignette_roundness: 0.0,
+            vignette_highlights: 0.0,
             grain: 0.0,
+            grain_size: 0.25,
+            grain_roughness: 0.5,
         }
     }
 
@@ -221,7 +233,7 @@ mod tests {
         );
         let seq = spatial_apply(
             geo.rgba, geo.width, geo.height, sh, hi, cl, tx, shn, 1.0, 0.25, 0.0, dl, dc, dh, vg,
-            gr,
+            0.5, 0.5, 0.0, 0.0, gr, 0.25, 0.5,
         );
 
         let spec = PreviewBaseSpec {
@@ -244,7 +256,13 @@ mod tests {
             denoise_chroma: dc,
             dehaze: dh,
             vignette: vg,
+            vignette_midpoint: 0.5,
+            vignette_feather: 0.5,
+            vignette_roundness: 0.0,
+            vignette_highlights: 0.0,
             grain: gr,
+            grain_size: 0.25,
+            grain_roughness: 0.5,
         };
         let h = preview_open(src, 8, 6);
         let fused = preview_base(h, spec, Vec::new()).unwrap();

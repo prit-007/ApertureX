@@ -192,5 +192,28 @@ void main() {
       final restored = EditRecipe.fromJson(json);
       expect(restored, recipe);
     });
+
+    test('vignette and grain advanced parameters round-trip and participate in equality', () {
+      final recipe = const EditRecipe().copyWith(
+        vignette: 0.4,
+        vignetteMidpoint: 0.3,
+        vignetteFeather: 0.7,
+        vignetteRoundness: -0.5,
+        vignetteHighlights: 0.6,
+        grain: 0.3,
+        grainSize: 0.4,
+        grainRoughness: 0.8,
+      );
+      expect(recipe.vignetteMidpoint, 0.3);
+      expect(recipe.vignetteFeather, 0.7);
+      expect(recipe.vignetteRoundness, -0.5);
+      expect(recipe.vignetteHighlights, 0.6);
+      expect(recipe.grainSize, 0.4);
+      expect(recipe.grainRoughness, 0.8);
+
+      final json = recipe.toJson();
+      final restored = EditRecipe.fromJson(json);
+      expect(restored, recipe);
+    });
   });
 }
