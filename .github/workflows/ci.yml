@@ -111,7 +111,10 @@ jobs:
             binutils clang cmake make ninja-build pkg-config
           # Pinned Android toolchain (ADR 0004). The NDK matches the Flutter
           # 3.44.x default so `ndkVersion = flutter.ndkVersion` resolves offline.
-          yes | sdkmanager "ndk;28.2.13676358" "build-tools;36.0.0"
+          # `yes` dies of SIGPIPE (141) once sdkmanager closes stdin — expected
+          # under pipefail; tolerate exactly that, keep real failures fatal.
+          yes | sdkmanager "ndk;28.2.13676358" "build-tools;36.0.0" \
+            || [ "$?" -eq 141 ]
           # Pinned Flutter — same version as analyze-and-test.
           git clone --depth 1 --branch 3.44.8 \
             https://github.com/flutter/flutter.git "$FLUTTER_HOME"
