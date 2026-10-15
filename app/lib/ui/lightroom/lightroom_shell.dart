@@ -35,13 +35,16 @@ class LightroomShell extends ConsumerStatefulWidget {
 }
 
 class _LightroomShellState extends ConsumerState<LightroomShell> {
+  /// Sections rendered as chips. `tone` is intentionally absent: its
+  /// Curve/Mix views live inside Color (issue #44) and it carries no sliders
+  /// of its own, so its panel used to render empty; `optics` stays out until
+  /// lens-correction parameters exist (issue #66) — an empty panel reads as a
+  /// broken tool.
   static const List<RecipeSection> _sections = [
     RecipeSection.light,
     RecipeSection.color,
-    RecipeSection.tone,
     RecipeSection.effects,
     RecipeSection.detail,
-    RecipeSection.optics,
     RecipeSection.geometry,
     RecipeSection.masking,
   ];
@@ -78,27 +81,33 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
 
     return Column(
       children: [
+        // Full-width chip strip: on a phone the trailing icon cluster used to
+        // squeeze the scrollable chips to ~2 visible sections, so the rest of
+        // the tools (Effects/Detail/Geometry/Masking) were undiscoverable.
+        // The chips get their own row; actions sit below them.
         SizedBox(
-          height: 52,
+          height: 44,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            children: [
+              for (final section in _sections)
+                chip(
+                  _sectionLabel(section),
+                  _tab == _Tab.panel && section == _section,
+                  () => setState(() {
+                    _section = section;
+                    _tab = _Tab.panel;
+                  }),
+                ),
+            ],
+          ),
+        ),
+        Divider(height: 1, color: scheme.outlineVariant),
+        SizedBox(
+          height: 48,
           child: Row(
             children: [
-              Expanded(
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  children: [
-                    for (final section in _sections)
-                      chip(
-                        _sectionLabel(section),
-                        _tab == _Tab.panel && section == _section,
-                        () => setState(() {
-                          _section = section;
-                          _tab = _Tab.panel;
-                        }),
-                      ),
-                  ],
-                ),
-              ),
               if (ref.watch(tatModeProvider))
                 TextButton(
                   onPressed: () =>
@@ -159,13 +168,12 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     );
   }
 
-  /// The body for the selected top-level section. Color and Tone expose the
-  /// tone-curve and HSL-mixer as secondary tabs (issue #44) — they are views of
-  /// colour data, not peer sections of the top chip row.
+  /// The body for the selected top-level section. Color exposes the
+  /// tone-curve and HSL-mixer as secondary tabs (issue #44) — they are views
+  /// of colour data, not peer sections of the top chip row.
   Widget _sectionBody() {
     switch (_section) {
       case RecipeSection.color:
-      case RecipeSection.tone:
         return Column(
           children: [
             _subTabs(),
