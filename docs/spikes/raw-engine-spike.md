@@ -12,3 +12,13 @@ Prototype both candidate decoders against the fixed `ImageSource` boundary (ARCH
 
 ## Status
 Prototyping started. Next: define a minimal `ImageSource` wrapper for both and benchmark against small fixtures.
+
+
+## Findings
+- **rawler**: in-memory DNG roundtrip works (`RawSource::new_from_slice`); dimensions/full/ROI shim compiles and a small DNG decodes. Pure-Rust, single toolchain (good for F-Droid from-source).
+- **libraw**: crate links against system LibRaw 0.21.2; API surface in `libraw` 0.1.1 is `Image::open(path)` only (no obvious in-memory open). Linkage/structs compile; for the spike we can exercise via temporary files or note API constraint.
+- Both fit behind a thin trait without leaking into UI/edit code (matches ADR 0005 deferral).
+
+## Next
+- Add a temp-file based decode test for libraw if desired, or skip in-memory. Curate tiny synthetic DNG fixture(s). Record timing/peak-RSS for small images and document tradeoffs.
+
