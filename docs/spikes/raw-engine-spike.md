@@ -30,4 +30,15 @@ Prototype both candidate decoders against the fixed `ImageSource` boundary (ARCH
 Given the project goals (FOSS, offline, mobile, F-Droid-friendly, and the architecture already supports JPEG ROI by decode+crop), **rawler is the better default starting point**. It matches the "single toolchain" principle, is easy to test in-memory, and avoids C build complexity. LibRaw remains a strong fallback if coverage gaps arise; ADR 0005 should be accepted with rawler as the first implementation, keeping the `ImageSource` trait neutral so LibRaw can be re-evaluated later.
 
 ## Status
-Spike complete. Decision: **rawler-first** (LibRaw kept optional behind `--features raw-libraw`). `raw::decode`/`raw::metadata` now sit on rawler; Phase D (DNG colour matrices + lens) builds on that surface.
+Spike complete. Decision: **rawler-first** (LibRaw kept optional behind `--features raw-libraw`).
+
+### Phase D follow-on (landed on this surface)
+- `raw::metadata` reads dimensions, cpp, orientation, WB and the DNG camera
+  matrix (a DNG with an embedded `ColorMatrix` round-trips through decode).
+- `raw::color`: 3×3 inverse/multiply, `camera_to_srgb` (XYZ→camera DNG matrix,
+  D50→D65 Bradford adaptation) and `apply`.
+- `raw::lens`: Brown–Conrady radial distortion (`distortion_factor`,
+  `distorted_radius`, Newton `undistort_radius`) and radial vignette gain +
+  `correct_vignette`.
+- `raw::decode` handles 3-component LinearRaw; Bayer/CFA demosaic is the next
+  P3 step along with ROI tiles and the embedded-preview fast path.
