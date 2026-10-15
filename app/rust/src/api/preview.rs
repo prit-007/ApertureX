@@ -40,6 +40,9 @@ pub struct PreviewBaseSpec {
     pub clarity: f32,
     pub texture: f32,
     pub sharpen: f32,
+    pub sharpen_radius: f32,
+    pub sharpen_detail: f32,
+    pub sharpen_masking: f32,
     pub denoise_luma: f32,
     pub denoise_chroma: f32,
     pub dehaze: f32,
@@ -153,6 +156,9 @@ mod tests {
             clarity: 0.0,
             texture: 0.0,
             sharpen: 0.0,
+            sharpen_radius: 1.0,
+            sharpen_detail: 0.25,
+            sharpen_masking: 0.0,
             denoise_luma: 0.0,
             denoise_chroma: 0.0,
             dehaze: 0.0,
@@ -214,7 +220,8 @@ mod tests {
             0.0,
         );
         let seq = spatial_apply(
-            geo.rgba, geo.width, geo.height, sh, hi, cl, tx, shn, dl, dc, dh, vg, gr,
+            geo.rgba, geo.width, geo.height, sh, hi, cl, tx, shn, 1.0, 0.25, 0.0, dl, dc, dh, vg,
+            gr,
         );
 
         let spec = PreviewBaseSpec {
@@ -230,6 +237,9 @@ mod tests {
             clarity: cl,
             texture: tx,
             sharpen: shn,
+            sharpen_radius: 1.0,
+            sharpen_detail: 0.25,
+            sharpen_masking: 0.0,
             denoise_luma: dl,
             denoise_chroma: dc,
             dehaze: dh,

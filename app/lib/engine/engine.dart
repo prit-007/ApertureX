@@ -205,11 +205,27 @@ class TesseraEngine {
     clarity: spec.clarity,
     texture: spec.texture,
     sharpen: spec.sharpen,
+    sharpenRadius: spec.sharpenRadius,
+    sharpenDetail: spec.sharpenDetail,
+    sharpenMasking: spec.sharpenMasking,
     denoiseLuma: spec.denoiseLuma,
     denoiseChroma: spec.denoiseChroma,
     dehaze: spec.dehaze,
     vignette: spec.vignette,
     grain: spec.grain,
+  );
+
+  /// Generates a black-and-white preview of the edge mask (for Alt/Option hold on Masking slider).
+  static Future<Uint8List> spatialSharpenEdgeMask(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    required double masking,
+  }) => rust_spatial.spatialSharpenEdgeMask(
+    rgba: rgba,
+    width: width,
+    height: height,
+    masking: masking,
   );
 
   /// Texture (fine-detail) boost on an RGBA buffer.
@@ -599,6 +615,9 @@ class TesseraEngine {
         clarity: spatial.clarity,
         texture: spatial.texture,
         sharpen: spatial.sharpen,
+        sharpenRadius: spatial.sharpenRadius,
+        sharpenDetail: spatial.sharpenDetail,
+        sharpenMasking: spatial.sharpenMasking,
         denoiseLuma: spatial.denoiseLuma,
         denoiseChroma: spatial.denoiseChroma,
         dehaze: spatial.dehaze,

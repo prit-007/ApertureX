@@ -13,6 +13,9 @@ class SpatialSpec {
     this.vignette = 0,
     this.grain = 0,
     this.sharpen = 0,
+    this.sharpenRadius = 1.0,
+    this.sharpenDetail = 0.25,
+    this.sharpenMasking = 0,
     this.denoiseLuma = 0,
     this.denoiseChroma = 0,
   });
@@ -25,6 +28,9 @@ class SpatialSpec {
   final double vignette;
   final double grain;
   final double sharpen;
+  final double sharpenRadius;
+  final double sharpenDetail;
+  final double sharpenMasking;
   final double denoiseLuma;
   final double denoiseChroma;
 
@@ -49,6 +55,9 @@ class SpatialSpec {
     vignette: recipe.vignette,
     grain: recipe.grain,
     sharpen: recipe.sharpen,
+    sharpenRadius: recipe.sharpenRadius,
+    sharpenDetail: recipe.sharpenDetail,
+    sharpenMasking: recipe.sharpenMasking,
     denoiseLuma: recipe.denoiseLuma,
     denoiseChroma: recipe.denoiseChroma,
   );

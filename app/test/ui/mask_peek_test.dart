@@ -18,6 +18,9 @@ Widget _harness(ProviderContainer container, Parameter parameter) =>
 void main() {
   test('only detail parameters auto-peek the mask view', () {
     expect(maskPeekParameters, contains(Parameter.sharpen));
+    expect(maskPeekParameters, contains(Parameter.sharpenRadius));
+    expect(maskPeekParameters, contains(Parameter.sharpenDetail));
+    expect(maskPeekParameters, contains(Parameter.sharpenMasking));
     expect(maskPeekParameters, contains(Parameter.denoiseLuma));
     expect(maskPeekParameters, contains(Parameter.denoiseChroma));
     expect(maskPeekParameters, contains(Parameter.clarity));

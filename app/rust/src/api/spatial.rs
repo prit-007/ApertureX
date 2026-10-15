@@ -61,6 +61,9 @@ pub fn spatial_apply(
     clarity: f32,
     texture: f32,
     sharpen: f32,
+    sharpen_radius: f32,
+    sharpen_detail: f32,
+    sharpen_masking: f32,
     denoise_luma: f32,
     denoise_chroma: f32,
     dehaze: f32,
@@ -77,6 +80,9 @@ pub fn spatial_apply(
             clarity,
             texture,
             sharpen,
+            sharpen_radius,
+            sharpen_detail,
+            sharpen_masking,
             denoise_luma,
             denoise_chroma,
             dehaze,
@@ -84,4 +90,18 @@ pub fn spatial_apply(
             grain,
         },
     )
+}
+
+/// Generates a black-and-white preview of the edge mask (for Alt/Option hold on Masking slider).
+pub fn spatial_sharpen_edge_mask(rgba: Vec<u8>, width: u32, height: u32, masking: f32) -> Vec<u8> {
+    let mask = spatial::sharpen_edge_mask(&rgba, width as usize, height as usize, masking);
+    let mut out = vec![255u8; mask.len() * 4];
+    for (i, &m) in mask.iter().enumerate() {
+        let val = (m * 255.0).clamp(0.0, 255.0) as u8;
+        out[i * 4] = val;
+        out[i * 4 + 1] = val;
+        out[i * 4 + 2] = val;
+        out[i * 4 + 3] = 255;
+    }
+    out
 }

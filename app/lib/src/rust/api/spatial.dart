@@ -88,6 +88,9 @@ Future<Uint8List> spatialApply({
   required double clarity,
   required double texture,
   required double sharpen,
+  required double sharpenRadius,
+  required double sharpenDetail,
+  required double sharpenMasking,
   required double denoiseLuma,
   required double denoiseChroma,
   required double dehaze,
@@ -102,9 +105,25 @@ Future<Uint8List> spatialApply({
   clarity: clarity,
   texture: texture,
   sharpen: sharpen,
+  sharpenRadius: sharpenRadius,
+  sharpenDetail: sharpenDetail,
+  sharpenMasking: sharpenMasking,
   denoiseLuma: denoiseLuma,
   denoiseChroma: denoiseChroma,
   dehaze: dehaze,
   vignette: vignette,
   grain: grain,
+);
+
+/// Generates a black-and-white preview of the edge mask (for Alt/Option hold on Masking slider).
+Future<Uint8List> spatialSharpenEdgeMask({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required double masking,
+}) => RustLib.instance.api.crateApiSpatialSpatialSharpenEdgeMask(
+  rgba: rgba,
+  width: width,
+  height: height,
+  masking: masking,
 );

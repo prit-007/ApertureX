@@ -8,6 +8,9 @@ import '../edit/parameter.dart';
 /// denoised, then crossfades back on release.
 const Set<Parameter> maskPeekParameters = {
   Parameter.sharpen,
+  Parameter.sharpenRadius,
+  Parameter.sharpenDetail,
+  Parameter.sharpenMasking,
   Parameter.denoiseLuma,
   Parameter.denoiseChroma,
   Parameter.clarity,

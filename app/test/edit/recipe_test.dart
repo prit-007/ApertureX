@@ -176,5 +176,21 @@ void main() {
       final b = const EditRecipe().copyWith(exposure: 0.6);
       expect(a, isNot(b));
     });
+
+    test('sharpen advanced parameters round-trip and participate in equality', () {
+      final recipe = const EditRecipe().copyWith(
+        sharpen: 0.7,
+        sharpenRadius: 2.0,
+        sharpenDetail: 0.5,
+        sharpenMasking: 0.8,
+      );
+      expect(recipe.sharpenRadius, 2.0);
+      expect(recipe.sharpenDetail, 0.5);
+      expect(recipe.sharpenMasking, 0.8);
+
+      final json = recipe.toJson();
+      final restored = EditRecipe.fromJson(json);
+      expect(restored, recipe);
+    });
   });
 }

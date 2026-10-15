@@ -118,6 +118,9 @@ class ExportSpec {
   final double clarity;
   final double texture;
   final double sharpen;
+  final double sharpenRadius;
+  final double sharpenDetail;
+  final double sharpenMasking;
   final double denoiseLuma;
   final double denoiseChroma;
   final double dehaze;
@@ -152,6 +155,9 @@ class ExportSpec {
     required this.clarity,
     required this.texture,
     required this.sharpen,
+    required this.sharpenRadius,
+    required this.sharpenDetail,
+    required this.sharpenMasking,
     required this.denoiseLuma,
     required this.denoiseChroma,
     required this.dehaze,
@@ -182,6 +188,9 @@ class ExportSpec {
       clarity.hashCode ^
       texture.hashCode ^
       sharpen.hashCode ^
+      sharpenRadius.hashCode ^
+      sharpenDetail.hashCode ^
+      sharpenMasking.hashCode ^
       denoiseLuma.hashCode ^
       denoiseChroma.hashCode ^
       dehaze.hashCode ^
@@ -214,6 +223,9 @@ class ExportSpec {
           clarity == other.clarity &&
           texture == other.texture &&
           sharpen == other.sharpen &&
+          sharpenRadius == other.sharpenRadius &&
+          sharpenDetail == other.sharpenDetail &&
+          sharpenMasking == other.sharpenMasking &&
           denoiseLuma == other.denoiseLuma &&
           denoiseChroma == other.denoiseChroma &&
           dehaze == other.dehaze &&

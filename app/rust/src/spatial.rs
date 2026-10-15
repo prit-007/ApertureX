@@ -109,12 +109,96 @@ pub fn apply_clarity_r(rgba: &[u8], w: usize, h: usize, amount: f32, radius: usi
     unsharp(rgba, &blur_rgb(rgba, w, h, radius, 2), amount)
 }
 
-/// Sharpening: unsharp mask with a caller-chosen radius/amount.
-pub fn apply_sharpen(rgba: &[u8], w: usize, h: usize, amount: f32, radius: usize) -> Vec<u8> {
-    if amount == 0.0 {
+/// Computes an edge mask (0..1 per pixel) from luminance gradients.
+/// High values represent sharp edges; flat regions are suppressed to 0.
+pub fn sharpen_edge_mask(rgba: &[u8], w: usize, h: usize, masking: f32) -> Vec<f32> {
+    let n = w * h;
+    if n == 0 {
+        return Vec::new();
+    }
+    if masking <= 0.0 {
+        return vec![1.0; n];
+    }
+
+    let mut luma = Vec::with_capacity(n);
+    for i in 0..n {
+        let r = rgba[i * 4] as f32;
+        let g = rgba[i * 4 + 1] as f32;
+        let b = rgba[i * 4 + 2] as f32;
+        luma.push(0.2126 * r + 0.7152 * g + 0.0722 * b);
+    }
+
+    let mut mask = vec![0.0f32; n];
+    let threshold = masking * 30.0;
+    let window = 10.0;
+
+    for y in 0..h {
+        let y_prev = y.saturating_sub(1);
+        let y_next = (y + 1).min(h - 1);
+        for x in 0..w {
+            let x_prev = x.saturating_sub(1);
+            let x_next = (x + 1).min(w - 1);
+
+            let dx = luma[y * w + x_next] - luma[y * w + x_prev];
+            let dy = luma[y_next * w + x] - luma[y_prev * w + x];
+            let grad = (dx * dx + dy * dy).sqrt();
+
+            if grad <= threshold {
+                mask[y * w + x] = 0.0;
+            } else if grad >= threshold + window {
+                mask[y * w + x] = 1.0;
+            } else {
+                mask[y * w + x] = (grad - threshold) / window;
+            }
+        }
+    }
+
+    mask
+}
+
+/// Unsharp sharpening with advanced radius, detail, and edge masking.
+pub fn apply_sharpen_advanced(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    amount: f32,
+    radius: f32,
+    detail: f32,
+    masking: f32,
+) -> Vec<u8> {
+    if amount == 0.0 || w == 0 || h == 0 {
         return rgba.to_vec();
     }
-    unsharp(rgba, &blur_rgb(rgba, w, h, radius.max(1), 1), amount)
+
+    let r = (radius.round() as usize).clamp(1, 10);
+    let base = blur_rgb(rgba, w, h, r, 1);
+    let mask = if masking > 0.0 {
+        sharpen_edge_mask(rgba, w, h, masking)
+    } else {
+        Vec::new()
+    };
+
+    let mut out = rgba.to_vec();
+    let detail_factor = 0.5 + detail;
+
+    for i in 0..w * h {
+        let m = if masking > 0.0 { mask[i] } else { 1.0 };
+        if m == 0.0 {
+            continue;
+        }
+        let effective_amount = amount * m * detail_factor;
+        for c in 0..3 {
+            let o = rgba[i * 4 + c] as f32;
+            let b = base[i * 4 + c] as f32;
+            out[i * 4 + c] = (o + (o - b) * effective_amount).clamp(0.0, 255.0) as u8;
+        }
+    }
+    out
+}
+
+/// Sharpening: unsharp mask with a caller-chosen radius/amount.
+pub fn apply_sharpen(rgba: &[u8], w: usize, h: usize, amount: f32, radius: usize) -> Vec<u8> {
+    apply_sharpen_advanced(rgba, w, h, amount, radius as f32, 0.5, 0.0)
 }
 
 /// Edge-aware shadows/highlights: split into a large-radius base and a detail
@@ -233,8 +317,14 @@ pub struct SpatialParams {
     pub clarity: f32,
     /// Fine-detail boost.
     pub texture: f32,
-    /// Unsharp amount (radius fixed at 2).
+    /// Unsharp amount (`0..1`).
     pub sharpen: f32,
+    /// Sharpen radius in pixels (0.5..3.0, default: 1.0).
+    pub sharpen_radius: f32,
+    /// Sharpen detail / halo suppression (0..1, default: 0.25).
+    pub sharpen_detail: f32,
+    /// Edge masking threshold (0..1, default: 0.0).
+    pub sharpen_masking: f32,
     /// Luma noise reduction.
     pub denoise_luma: f32,
     /// Chroma noise reduction.
@@ -389,7 +479,20 @@ pub fn apply_spatial_local_ctx(
         out = apply_texture(&out, w, h, p.texture);
     }
     if p.sharpen != 0.0 {
-        out = apply_sharpen(&out, w, h, p.sharpen, 2);
+        let r = if p.sharpen_radius <= 0.0 {
+            1.0
+        } else {
+            p.sharpen_radius
+        };
+        out = apply_sharpen_advanced(
+            &out,
+            w,
+            h,
+            p.sharpen,
+            r,
+            p.sharpen_detail,
+            p.sharpen_masking,
+        );
     }
     if p.dehaze != 0.0 {
         out = dehaze(&out, w, h, p.dehaze);
@@ -425,7 +528,12 @@ pub fn spatial_local_margin(p: SpatialParams, w: usize, h: usize) -> usize {
         margin += 2;
     }
     if p.sharpen != 0.0 {
-        margin += 2;
+        let r = if p.sharpen_radius <= 0.0 {
+            1.0
+        } else {
+            p.sharpen_radius
+        };
+        margin += (r.ceil() as usize).max(2) + 1;
     }
     if p.dehaze != 0.0 {
         margin += 3 * 24;
@@ -820,6 +928,9 @@ mod tests {
                 clarity: 0.0,
                 texture: 0.0,
                 sharpen: 0.0,
+                sharpen_radius: 1.0,
+                sharpen_detail: 0.25,
+                sharpen_masking: 0.0,
                 denoise_luma: 0.0,
                 denoise_chroma: 0.0,
                 dehaze: 0.0,
@@ -854,6 +965,44 @@ mod tests {
         assert_eq!(apply_clarity(&src, 16, 16, 0.0), src);
         assert_eq!(apply_sharpen(&src, 16, 16, 0.0, 2), src);
         assert_eq!(apply_shadow_highlight(&src, 16, 16, 0.0, 0.0), src);
+    }
+
+    #[test]
+    fn sharpen_advanced_masking_protects_flat_regions_and_sharpens_edges() {
+        let (w, h) = (32, 32);
+        let mut src = vec![255u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                let val = if x < w / 2 {
+                    if (x + y) % 2 == 0 {
+                        82
+                    } else {
+                        80
+                    }
+                } else {
+                    180
+                };
+                src[idx] = val;
+                src[idx + 1] = val;
+                src[idx + 2] = val;
+            }
+        }
+
+        let unmasked = apply_sharpen_advanced(&src, w, h, 1.0, 1.0, 0.5, 0.0);
+        let masked = apply_sharpen_advanced(&src, w, h, 1.0, 1.0, 0.5, 0.8);
+
+        let flat_idx = (4 * w + 4) * 4;
+        let diff_unmasked = (unmasked[flat_idx] as i32 - src[flat_idx] as i32).abs();
+        let diff_masked = (masked[flat_idx] as i32 - src[flat_idx] as i32).abs();
+        assert!(
+            diff_masked < diff_unmasked,
+            "masking must protect flat region: masked diff {diff_masked} vs unmasked {diff_unmasked}"
+        );
+
+        let edge_idx = (4 * w + 15) * 4;
+        let edge_diff = (masked[edge_idx] as i32 - src[edge_idx] as i32).abs();
+        assert!(edge_diff > 0, "masking must still sharpen edges");
     }
 
     #[test]
@@ -945,6 +1094,9 @@ mod tests {
             clarity: 0.5,
             texture: 0.4,
             sharpen: 0.3,
+            sharpen_radius: 1.0,
+            sharpen_detail: 0.25,
+            sharpen_masking: 0.0,
             denoise_luma: 0.2,
             denoise_chroma: 0.5,
             dehaze: 0.3,
@@ -1078,6 +1230,9 @@ mod tests {
             clarity: 0.4,
             texture: 0.2,
             sharpen: 0.3,
+            sharpen_radius: 1.0,
+            sharpen_detail: 0.25,
+            sharpen_masking: 0.0,
             denoise_luma: 0.2,
             denoise_chroma: 0.3,
             dehaze: 0.1,

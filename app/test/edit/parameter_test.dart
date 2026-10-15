@@ -16,10 +16,14 @@ void main() {
       }
     });
 
-    test('neutral is zero everywhere except blending', () {
+    test('neutral is zero everywhere except blending, sharpenRadius, and sharpenDetail', () {
       for (final p in Parameter.values) {
         if (p == Parameter.gradeBlending) {
           expect(specOf(p).neutral, 0.5);
+        } else if (p == Parameter.sharpenRadius) {
+          expect(specOf(p).neutral, 1.0);
+        } else if (p == Parameter.sharpenDetail) {
+          expect(specOf(p).neutral, 0.25);
         } else {
           expect(specOf(p).neutral, 0);
         }
@@ -27,7 +31,7 @@ void main() {
     });
 
     test('the catalog covers exactly the renderable fields today', () {
-      expect(Parameter.values.length, 29);
+      expect(Parameter.values.length, 32);
     });
   });
 
@@ -40,6 +44,10 @@ void main() {
         shadows: 4,
         whites: 5,
         blacks: 6,
+        sharpen: 0.7,
+        sharpenRadius: 2.5,
+        sharpenDetail: 0.8,
+        sharpenMasking: 0.6,
         temperature: 7,
         tint: 8,
         vibrance: 9,
@@ -56,6 +64,10 @@ void main() {
       expect(valueOf(r, Parameter.shadows), 4);
       expect(valueOf(r, Parameter.whites), 5);
       expect(valueOf(r, Parameter.blacks), 6);
+      expect(valueOf(r, Parameter.sharpen), 0.7);
+      expect(valueOf(r, Parameter.sharpenRadius), 2.5);
+      expect(valueOf(r, Parameter.sharpenDetail), 0.8);
+      expect(valueOf(r, Parameter.sharpenMasking), 0.6);
       expect(valueOf(r, Parameter.temperature), 7);
       expect(valueOf(r, Parameter.tint), 8);
       expect(valueOf(r, Parameter.vibrance), 9);

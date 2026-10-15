@@ -79,7 +79,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1515572827;
+  int get rustContentHash => 1760942178;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -337,6 +337,9 @@ abstract class RustLibApi extends BaseApi {
     required double clarity,
     required double texture,
     required double sharpen,
+    required double sharpenRadius,
+    required double sharpenDetail,
+    required double sharpenMasking,
     required double denoiseLuma,
     required double denoiseChroma,
     required double dehaze,
@@ -373,6 +376,13 @@ abstract class RustLibApi extends BaseApi {
     required int height,
     required double amount,
     required int radius,
+  });
+
+  Future<Uint8List> crateApiSpatialSpatialSharpenEdgeMask({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double masking,
   });
 
   Future<Uint8List> crateApiSpatialSpatialTexture({
@@ -1954,6 +1964,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required double clarity,
     required double texture,
     required double sharpen,
+    required double sharpenRadius,
+    required double sharpenDetail,
+    required double sharpenMasking,
     required double denoiseLuma,
     required double denoiseChroma,
     required double dehaze,
@@ -1972,6 +1985,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_f_32(clarity, serializer);
           sse_encode_f_32(texture, serializer);
           sse_encode_f_32(sharpen, serializer);
+          sse_encode_f_32(sharpenRadius, serializer);
+          sse_encode_f_32(sharpenDetail, serializer);
+          sse_encode_f_32(sharpenMasking, serializer);
           sse_encode_f_32(denoiseLuma, serializer);
           sse_encode_f_32(denoiseChroma, serializer);
           sse_encode_f_32(dehaze, serializer);
@@ -1998,6 +2014,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           clarity,
           texture,
           sharpen,
+          sharpenRadius,
+          sharpenDetail,
+          sharpenMasking,
           denoiseLuma,
           denoiseChroma,
           dehaze,
@@ -2021,6 +2040,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "clarity",
           "texture",
           "sharpen",
+          "sharpenRadius",
+          "sharpenDetail",
+          "sharpenMasking",
           "denoiseLuma",
           "denoiseChroma",
           "dehaze",
@@ -2192,6 +2214,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<Uint8List> crateApiSpatialSpatialSharpenEdgeMask({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double masking,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_f_32(masking, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 45,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSpatialSpatialSharpenEdgeMaskConstMeta,
+        argValues: [rgba, width, height, masking],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSpatialSpatialSharpenEdgeMaskConstMeta =>
+      const TaskConstMeta(
+        debugName: "spatial_sharpen_edge_mask",
+        argNames: ["rgba", "width", "height", "masking"],
+      );
+
+  @override
   Future<Uint8List> crateApiSpatialSpatialTexture({
     required List<int> rgba,
     required int width,
@@ -2209,7 +2270,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 46,
             port: port_,
           );
         },
@@ -2244,7 +2305,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 47,
             port: port_,
           );
         },
@@ -2358,8 +2419,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ExportSpec dco_decode_export_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 26)
-      throw Exception('unexpected arr length: expect 26 but see ${arr.length}');
+    if (arr.length != 29)
+      throw Exception('unexpected arr length: expect 29 but see ${arr.length}');
     return ExportSpec(
       flipH: dco_decode_bool(arr[0]),
       flipV: dco_decode_bool(arr[1]),
@@ -2378,15 +2439,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       clarity: dco_decode_f_32(arr[14]),
       texture: dco_decode_f_32(arr[15]),
       sharpen: dco_decode_f_32(arr[16]),
-      denoiseLuma: dco_decode_f_32(arr[17]),
-      denoiseChroma: dco_decode_f_32(arr[18]),
-      dehaze: dco_decode_f_32(arr[19]),
-      vignette: dco_decode_f_32(arr[20]),
-      grain: dco_decode_f_32(arr[21]),
-      quality: dco_decode_u_8(arr[22]),
-      maxDim: dco_decode_u_32(arr[23]),
-      bandRows: dco_decode_u_32(arr[24]),
-      cancelToken: dco_decode_u_64(arr[25]),
+      sharpenRadius: dco_decode_f_32(arr[17]),
+      sharpenDetail: dco_decode_f_32(arr[18]),
+      sharpenMasking: dco_decode_f_32(arr[19]),
+      denoiseLuma: dco_decode_f_32(arr[20]),
+      denoiseChroma: dco_decode_f_32(arr[21]),
+      dehaze: dco_decode_f_32(arr[22]),
+      vignette: dco_decode_f_32(arr[23]),
+      grain: dco_decode_f_32(arr[24]),
+      quality: dco_decode_u_8(arr[25]),
+      maxDim: dco_decode_u_32(arr[26]),
+      bandRows: dco_decode_u_32(arr[27]),
+      cancelToken: dco_decode_u_64(arr[28]),
     );
   }
 
@@ -2508,8 +2572,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PreviewBaseSpec dco_decode_preview_base_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 17)
-      throw Exception('unexpected arr length: expect 17 but see ${arr.length}');
+    if (arr.length != 20)
+      throw Exception('unexpected arr length: expect 20 but see ${arr.length}');
     return PreviewBaseSpec(
       flipH: dco_decode_bool(arr[0]),
       flipV: dco_decode_bool(arr[1]),
@@ -2523,11 +2587,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       clarity: dco_decode_f_32(arr[9]),
       texture: dco_decode_f_32(arr[10]),
       sharpen: dco_decode_f_32(arr[11]),
-      denoiseLuma: dco_decode_f_32(arr[12]),
-      denoiseChroma: dco_decode_f_32(arr[13]),
-      dehaze: dco_decode_f_32(arr[14]),
-      vignette: dco_decode_f_32(arr[15]),
-      grain: dco_decode_f_32(arr[16]),
+      sharpenRadius: dco_decode_f_32(arr[12]),
+      sharpenDetail: dco_decode_f_32(arr[13]),
+      sharpenMasking: dco_decode_f_32(arr[14]),
+      denoiseLuma: dco_decode_f_32(arr[15]),
+      denoiseChroma: dco_decode_f_32(arr[16]),
+      dehaze: dco_decode_f_32(arr[17]),
+      vignette: dco_decode_f_32(arr[18]),
+      grain: dco_decode_f_32(arr[19]),
     );
   }
 
@@ -2707,6 +2774,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_clarity = sse_decode_f_32(deserializer);
     var var_texture = sse_decode_f_32(deserializer);
     var var_sharpen = sse_decode_f_32(deserializer);
+    var var_sharpenRadius = sse_decode_f_32(deserializer);
+    var var_sharpenDetail = sse_decode_f_32(deserializer);
+    var var_sharpenMasking = sse_decode_f_32(deserializer);
     var var_denoiseLuma = sse_decode_f_32(deserializer);
     var var_denoiseChroma = sse_decode_f_32(deserializer);
     var var_dehaze = sse_decode_f_32(deserializer);
@@ -2734,6 +2804,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       clarity: var_clarity,
       texture: var_texture,
       sharpen: var_sharpen,
+      sharpenRadius: var_sharpenRadius,
+      sharpenDetail: var_sharpenDetail,
+      sharpenMasking: var_sharpenMasking,
       denoiseLuma: var_denoiseLuma,
       denoiseChroma: var_denoiseChroma,
       dehaze: var_dehaze,
@@ -2871,6 +2944,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_clarity = sse_decode_f_32(deserializer);
     var var_texture = sse_decode_f_32(deserializer);
     var var_sharpen = sse_decode_f_32(deserializer);
+    var var_sharpenRadius = sse_decode_f_32(deserializer);
+    var var_sharpenDetail = sse_decode_f_32(deserializer);
+    var var_sharpenMasking = sse_decode_f_32(deserializer);
     var var_denoiseLuma = sse_decode_f_32(deserializer);
     var var_denoiseChroma = sse_decode_f_32(deserializer);
     var var_dehaze = sse_decode_f_32(deserializer);
@@ -2889,6 +2965,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       clarity: var_clarity,
       texture: var_texture,
       sharpen: var_sharpen,
+      sharpenRadius: var_sharpenRadius,
+      sharpenDetail: var_sharpenDetail,
+      sharpenMasking: var_sharpenMasking,
       denoiseLuma: var_denoiseLuma,
       denoiseChroma: var_denoiseChroma,
       dehaze: var_dehaze,
@@ -3043,6 +3122,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.clarity, serializer);
     sse_encode_f_32(self.texture, serializer);
     sse_encode_f_32(self.sharpen, serializer);
+    sse_encode_f_32(self.sharpenRadius, serializer);
+    sse_encode_f_32(self.sharpenDetail, serializer);
+    sse_encode_f_32(self.sharpenMasking, serializer);
     sse_encode_f_32(self.denoiseLuma, serializer);
     sse_encode_f_32(self.denoiseChroma, serializer);
     sse_encode_f_32(self.dehaze, serializer);
@@ -3194,6 +3276,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.clarity, serializer);
     sse_encode_f_32(self.texture, serializer);
     sse_encode_f_32(self.sharpen, serializer);
+    sse_encode_f_32(self.sharpenRadius, serializer);
+    sse_encode_f_32(self.sharpenDetail, serializer);
+    sse_encode_f_32(self.sharpenMasking, serializer);
     sse_encode_f_32(self.denoiseLuma, serializer);
     sse_encode_f_32(self.denoiseChroma, serializer);
     sse_encode_f_32(self.dehaze, serializer);
