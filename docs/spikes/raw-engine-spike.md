@@ -51,9 +51,17 @@ Spike complete. Decision: **rawler-first** (LibRaw kept optional behind `--featu
   round-trips end-to-end (real CFA photos are still untested — no RAW corpus).
 - ROI: `demosaic` → `crop_linear` / `decode_roi` (decode-full-then-crop, the same
   strategy as the JPEG path, pending true tile access).
+- Orientation: `decode` applies the EXIF orientation (`RawOrientation::to_flips`
+  → flip H/V then transpose) so pixels come out upright; `raw_dimensions`
+  reports display dimensions (swapping axes for 90°/270°/transpose).
 - FFI (`api/raw.rs`, exposed as `TesseraEngine.rawDimensions` /
   `decodeRawRgba` / `decodeRawRoi`): decode + `camera_to_srgb` + `to_rgba8` so
   Dart receives sRGB RGBA8. `lib/engine/image_format.dart` sniffs TIFF/CR3/RAF
-  and the viewport + crop screen route raw containers through this path instead
-  of Flutter's JPEG/PNG-only codec. RAW **export** still uses the JPEG decode
-  path and remains a follow-up.
+  and the viewport, crop screen, editor export and gallery export route raw
+  containers through this path instead of Flutter's JPEG/PNG-only codec.
+  (RAW EXIF passthrough on export is a follow-up.)
+- **Deferred:** the embedded-preview fast path is intentionally skipped:
+  using the camera's embedded JPEG preview as the graded base would break the
+  "preview == export" invariant, since export runs our demosaic + colour
+  pipeline. If added, it must be a transient placeholder swapped for the full
+  decode, not the graded base.

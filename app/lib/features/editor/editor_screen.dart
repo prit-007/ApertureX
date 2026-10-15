@@ -21,6 +21,7 @@ import '../../features/crop/crop_screen.dart';
 import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
 import '../../engine/engine.dart';
+import '../../engine/image_format.dart';
 import '../../settings/export_settings.dart';
 import '../../settings/shell_preference.dart';
 import '../../ui/app_shell.dart';
@@ -111,8 +112,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
       final recipe = ref.read(recipeControllerProvider).recipe;
       final settings = ref.read(exportSettingsProvider);
-      final decoded = await TesseraEngine.decodeJpegRgba(bytes);
-      final exif = await TesseraEngine.extractExif(bytes);
+      // RAW/DNG export goes through the Rust RAW path; Exif extraction is
+      // JPEG-specific and yields nothing for raw containers (follow-up).
+      final isRaw = isRawImage(bytes);
+      final decoded = isRaw
+          ? await TesseraEngine.decodeRawRgba(bytes)
+          : await TesseraEngine.decodeJpegRgba(bytes);
+      final exif = isRaw
+          ? Uint8List(0)
+          : await TesseraEngine.extractExif(bytes);
       final jpeg = await TesseraEngine.exportJpeg(
         rgba: decoded.rgba,
         width: decoded.width,

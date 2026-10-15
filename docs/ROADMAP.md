@@ -170,10 +170,13 @@ presets/`.xmp`; project sidecars; history tree.
 **Progress**
 - [x] rawler-first engine module (`raw::decode` / `metadata` / `color` / `lens`).
 - [x] Bayer/CFA demosaic + camera matrix → sRGB (`decode_with_metadata`).
+- [x] EXIF orientation applied on decode (upright pixels + display dimensions).
 - [x] ROI (decode-full-then-crop) and FFI (`api/raw.rs`) + Dart viewport/crop wiring.
-- [ ] Embedded-preview fast path.
-- [ ] RAW corpus + orientation across real CR2/NEF/ARW/RAF.
-- [ ] RAW export / DNG re-encode.
+- [x] RAW → JPEG export (editor + gallery), reusing the graded export path.
+- [ ] RAW corpus across real CR2/NEF/ARW/RAF (colour + orientation).
+- [ ] RAW EXIF passthrough on export.
+- [ ] Embedded-preview fast path (needs parity-safe progressive swap).
+- [ ] DNG 16-bit export / re-encode.
 
 **Exit criteria**
 - RAW opens at correct orientation/color across the corpus.

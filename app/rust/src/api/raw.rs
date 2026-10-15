@@ -7,12 +7,18 @@
 use crate::api::decode::{ImageDims, RgbaImage};
 use crate::raw;
 
-/// Reads RAW/DNG dimensions without demosaicing.
+/// Reads RAW/DNG dimensions without demosaicing, in **display** orientation
+/// (axes swapped for the 90°/270°/transpose EXIF cases, matching `decode_*`).
 pub fn raw_dimensions(raw: Vec<u8>) -> Result<ImageDims, String> {
     let meta = raw::metadata(&raw)?;
+    let (w, h) = if meta.orientation.swaps_axes() {
+        (meta.height, meta.width)
+    } else {
+        (meta.width, meta.height)
+    };
     Ok(ImageDims {
-        width: meta.width as u32,
-        height: meta.height as u32,
+        width: w as u32,
+        height: h as u32,
     })
 }
 

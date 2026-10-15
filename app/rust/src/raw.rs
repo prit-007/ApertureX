@@ -74,6 +74,22 @@ impl RawOrientation {
                 | RawOrientation::Rotate270
         )
     }
+
+    /// `(transpose, flip_horizontal, flip_vertical)` in EXIF order. Flips must be
+    /// applied before the transpose (matches `rawler::Orientation::to_flips`).
+    /// `Unknown` is treated as [`RawOrientation::Normal`].
+    pub fn to_flips(self) -> (bool, bool, bool) {
+        match self {
+            RawOrientation::Normal | RawOrientation::Unknown => (false, false, false),
+            RawOrientation::VerticalFlip => (false, false, true),
+            RawOrientation::HorizontalFlip => (false, true, false),
+            RawOrientation::Rotate180 => (false, true, true),
+            RawOrientation::Transpose => (true, false, false),
+            RawOrientation::Rotate90 => (true, false, true),
+            RawOrientation::Transverse => (true, true, true),
+            RawOrientation::Rotate270 => (true, true, false),
+        }
+    }
 }
 
 /// A 2x2 RGB Bayer colour-filter pattern.
@@ -245,7 +261,8 @@ fn decode_from_raw(raw: rawler::rawimage::RawImage) -> Result<RawLinearImage, St
         linear.clamp(0.0, 1.0)
     };
 
-    match raw.cpp {
+    let flips = raw.orientation.to_flips();
+    let img = match raw.cpp {
         3 => {
             let expected = raw.width * raw.height * 3;
             if samples.len() != expected {
@@ -289,6 +306,77 @@ fn decode_from_raw(raw: rawler::rawimage::RawImage) -> Result<RawLinearImage, St
         other => Err(format!(
             "raw decode: unsupported components per pixel ({other})"
         )),
+    }?;
+    Ok(orient_image(img, flips.0, flips.1, flips.2))
+}
+
+/// Applies an EXIF [RawOrientation] to decoded RGB, returning an upright image.
+pub fn apply_orientation(img: &RawLinearImage, orientation: RawOrientation) -> RawLinearImage {
+    let (transpose, flip_h, flip_v) = orientation.to_flips();
+    orient_image(
+        RawLinearImage {
+            width: img.width,
+            height: img.height,
+            data: img.data.clone(),
+        },
+        transpose,
+        flip_h,
+        flip_v,
+    )
+}
+
+/// Transforms interleaved RGB by mirroring and/or transposing.
+///
+/// Order matters: horizontal/vertical flips run first, then the transpose swaps
+/// the axes (output dimensions become `height × width`). This is the EXIF
+/// convention and matches `rawler::Orientation::to_flips`.
+fn orient_image(
+    img: RawLinearImage,
+    transpose: bool,
+    flip_h: bool,
+    flip_v: bool,
+) -> RawLinearImage {
+    let (w, h) = (img.width, img.height);
+    let mut data = img.data;
+    if flip_h {
+        for y in 0..h {
+            let row = &mut data[y * w * 3..(y + 1) * w * 3];
+            for x in 0..w / 2 {
+                let (a, b) = (x * 3, (w - 1 - x) * 3);
+                for c in 0..3 {
+                    row.swap(a + c, b + c);
+                }
+            }
+        }
+    }
+    if flip_v {
+        let stride = w * 3;
+        for y in 0..h / 2 {
+            let (top, bot) = (y * stride, (h - 1 - y) * stride);
+            for i in 0..stride {
+                data.swap(top + i, bot + i);
+            }
+        }
+    }
+    if !transpose {
+        return RawLinearImage {
+            width: w,
+            height: h,
+            data,
+        };
+    }
+    let mut out = vec![0.0_f32; data.len()];
+    for y in 0..h {
+        for x in 0..w {
+            let src = (y * w + x) * 3;
+            let dst = (x * h + y) * 3;
+            out[dst..dst + 3].copy_from_slice(&data[src..src + 3]);
+        }
+    }
+    RawLinearImage {
+        width: h,
+        height: w,
+        data: out,
     }
 }
 
@@ -667,6 +755,92 @@ mod tests {
             w.close().unwrap();
         }
         cursor.into_inner()
+    }
+
+    /// 3x2 RGB image where pixel (x, y) encodes its coordinates in R,G.
+    fn coord_img() -> RawLinearImage {
+        let mut data = Vec::new();
+        for y in 0..2usize {
+            for x in 0..3usize {
+                data.extend_from_slice(&[x as f32, y as f32, 100.0]);
+            }
+        }
+        RawLinearImage {
+            width: 3,
+            height: 2,
+            data,
+        }
+    }
+
+    fn pixel(img: &RawLinearImage, x: usize, y: usize) -> (f32, f32, f32) {
+        let i = (y * img.width + x) * 3;
+        (img.data[i], img.data[i + 1], img.data[i + 2])
+    }
+
+    #[test]
+    fn orientation_normal_is_identity() {
+        let out = apply_orientation(&coord_img(), RawOrientation::Normal);
+        assert_eq!((out.width, out.height), (3, 2));
+        assert_eq!(pixel(&out, 2, 1), (2.0, 1.0, 100.0));
+    }
+
+    #[test]
+    fn orientation_horizontal_flip_mirrors_columns() {
+        let out = apply_orientation(&coord_img(), RawOrientation::HorizontalFlip);
+        assert_eq!((out.width, out.height), (3, 2));
+        assert_eq!(pixel(&out, 0, 0), (2.0, 0.0, 100.0));
+        assert_eq!(pixel(&out, 2, 0), (0.0, 0.0, 100.0));
+    }
+
+    #[test]
+    fn orientation_vertical_flip_mirrors_rows() {
+        let out = apply_orientation(&coord_img(), RawOrientation::VerticalFlip);
+        assert_eq!((out.width, out.height), (3, 2));
+        assert_eq!(pixel(&out, 0, 0), (0.0, 1.0, 100.0));
+        assert_eq!(pixel(&out, 0, 1), (0.0, 0.0, 100.0));
+    }
+
+    #[test]
+    fn orientation_rotate180_flips_both() {
+        let out = apply_orientation(&coord_img(), RawOrientation::Rotate180);
+        assert_eq!((out.width, out.height), (3, 2));
+        assert_eq!(pixel(&out, 0, 0), (2.0, 1.0, 100.0));
+        assert_eq!(pixel(&out, 2, 1), (0.0, 0.0, 100.0));
+    }
+
+    #[test]
+    fn orientation_rotate90_transposes_and_swaps_axes() {
+        // EXIF 6 = transpose + vertical flip: pixel (x,y) -> (y, w-1-x).
+        let out = apply_orientation(&coord_img(), RawOrientation::Rotate90);
+        assert_eq!((out.width, out.height), (2, 3));
+        assert_eq!(pixel(&out, 0, 2), (2.0, 1.0, 100.0));
+        assert_eq!(pixel(&out, 1, 0), (0.0, 0.0, 100.0));
+    }
+
+    #[test]
+    fn orientation_transpose_swaps_axes() {
+        let out = apply_orientation(&coord_img(), RawOrientation::Transpose);
+        assert_eq!((out.width, out.height), (2, 3));
+        // (x, y) -> (y, x)
+        assert_eq!(pixel(&out, 1, 2), (2.0, 1.0, 100.0));
+        assert_eq!(pixel(&out, 0, 0), (0.0, 0.0, 100.0));
+    }
+
+    #[test]
+    fn to_flips_matches_swaps_axes() {
+        for o in [
+            RawOrientation::Normal,
+            RawOrientation::HorizontalFlip,
+            RawOrientation::Rotate180,
+            RawOrientation::VerticalFlip,
+            RawOrientation::Transpose,
+            RawOrientation::Rotate90,
+            RawOrientation::Transverse,
+            RawOrientation::Rotate270,
+            RawOrientation::Unknown,
+        ] {
+            assert_eq!(o.to_flips().0, o.swaps_axes(), "{o:?}");
+        }
     }
 
     #[test]
