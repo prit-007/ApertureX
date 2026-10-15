@@ -28,6 +28,7 @@ import 'mask_peek.dart';
 import 'preview_surface.dart';
 import 'roi_decoder.dart';
 import 'roi_overlay.dart';
+import 'shader_warmup.dart';
 import 'tile_grid.dart';
 import 'tile_lru.dart';
 
@@ -190,7 +191,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   Future<void> _load() async {
     try {
-      final program = await ui.FragmentProgram.fromAsset('shaders/lut.frag');
+      // Shared, warm-on-startup program (#72): awaiting the provider skips
+      // the first-open compile the splash already paid for.
+      final program = await ref.read(lutProgramProvider.future);
       final jpeg =
           widget.imageBytes ??
           await TesseraEngine.syntheticJpeg(width: 1024, height: 1024);
