@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1153242824;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -369629893;
 
 // Section: executor
 
@@ -772,6 +772,40 @@ fn wire__crate__api__export__export_full_impl(
                         api_rgba, api_width, api_height, api_spec, api_layers, api_params,
                         api_curves, api_hsl, api_exif,
                     )?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__export__export_progress_get_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "export_progress_get",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_token = <u64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Ok::<_, ()>(crate::api::export::export_progress_get(api_token))?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -2779,60 +2813,61 @@ fn pde_ffi_dispatcher_primary_impl(
         17 => wire__crate__api__export__export_cancel_set_impl(port, ptr, rust_vec_len, data_len),
         18 => wire__crate__api__color__export_cube_lut_impl(port, ptr, rust_vec_len, data_len),
         19 => wire__crate__api__export__export_full_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__exif__extract_exif_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__geometry__geometry_apply_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__geometry__geometry_crop_impl(port, ptr, rust_vec_len, data_len),
-        23 => {
+        20 => wire__crate__api__export__export_progress_get_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__exif__extract_exif_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__geometry__geometry_apply_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__geometry__geometry_crop_impl(port, ptr, rust_vec_len, data_len),
+        24 => {
             wire__crate__api__geometry__geometry_downscale_impl(port, ptr, rust_vec_len, data_len)
         }
-        24 => wire__crate__api__geometry__geometry_flip_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__geometry__geometry_perspective_rgba_impl(
+        25 => wire__crate__api__geometry__geometry_flip_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__geometry__geometry_perspective_rgba_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        26 => wire__crate__api__geometry__geometry_rotate_impl(port, ptr, rust_vec_len, data_len),
-        27 => {
+        27 => wire__crate__api__geometry__geometry_rotate_impl(port, ptr, rust_vec_len, data_len),
+        28 => {
             wire__crate__api__geometry__geometry_straighten_impl(port, ptr, rust_vec_len, data_len)
         }
-        28 => wire__crate__api__color__grade_rgba_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__histogram__histogram_graded_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__engine__init_app_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__logging__init_panic_hook_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__optics__optics_apply_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__optics__optics_defringe_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__optics__optics_lateral_ca_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__optics__optics_lens_profile_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__icc__p3_to_srgb_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__preview__preview_base_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__retouch__retouch_apply_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
+        29 => wire__crate__api__color__grade_rgba_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__histogram__histogram_graded_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__engine__init_app_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__logging__init_panic_hook_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__optics__optics_apply_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__optics__optics_defringe_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__optics__optics_lateral_ca_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__optics__optics_lens_profile_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__icc__p3_to_srgb_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__preview__preview_base_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__retouch__retouch_apply_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        51 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__spatial__spatial_sharpen_edge_mask_impl(
+        52 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__spatial__spatial_sharpen_edge_mask_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        53 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

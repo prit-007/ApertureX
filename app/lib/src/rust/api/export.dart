@@ -42,6 +42,11 @@ Future<void> exportCancelSet({required BigInt token}) =>
 Future<void> exportCancelDrop({required BigInt token}) =>
     RustLib.instance.api.crateApiExportExportCancelDrop(token: token);
 
+/// Reads the progress cell bound to [token] in permille (0–1000). Token 0 and
+/// unknown/dropped tokens report 0 — the UI treats that as "no data yet".
+Future<int> exportProgressGet({required BigInt token}) =>
+    RustLib.instance.api.crateApiExportExportProgressGet(token: token);
+
 /// Runs the whole export recipe in Rust in one call and returns the JPEG.
 ///
 /// The geometry stage runs full-frame; spatial + masks + grade run one band at a

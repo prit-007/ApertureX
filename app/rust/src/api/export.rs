@@ -9,7 +9,7 @@
 //! [`export_cancel_set`]) lets the UI abort a running export between bands.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
 use crate::api::color::{to_hsl24, ColorParams, CurveParams};
@@ -105,12 +105,14 @@ pub struct ExportResult {
 // Same handle-store pattern as the preview module: Dart keeps an opaque `u64`
 // and the `Arc<AtomicBool>` lives in Rust, so the export worker thread and the
 // UI thread (which calls `export_cancel_set`) share it without a lock across
-// pixel math — the flag is only ever polled between bands.
+// pixel math — the flag is only ever polled between bands. Each token also
+// carries a progress cell (permille 0–1000) the worker updates between bands
+// and the UI polls via `export_progress_get` for a determinate bar.
 
 struct CancelStore {
     /// Starts at 1: token 0 is reserved as the "no cancellation" sentinel.
     next: u64,
-    tokens: HashMap<u64, Arc<AtomicBool>>,
+    tokens: HashMap<u64, (Arc<AtomicBool>, Arc<AtomicU32>)>,
 }
 
 static CANCELS: LazyLock<Mutex<CancelStore>> = LazyLock::new(|| {
@@ -130,14 +132,20 @@ pub fn export_cancel_new() -> u64 {
     let mut store = lock_cancels();
     let id = store.next;
     store.next += 1;
-    store.tokens.insert(id, Arc::new(AtomicBool::new(false)));
+    store.tokens.insert(
+        id,
+        (
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicU32::new(0)),
+        ),
+    );
     id
 }
 
 /// Signals the export bound to [token] to abort at its next band boundary.
 /// Safe on unknown tokens (a race with [`export_cancel_drop`] is benign).
 pub fn export_cancel_set(token: u64) {
-    let flag = { lock_cancels().tokens.get(&token).cloned() };
+    let flag = { lock_cancels().tokens.get(&token).map(|(f, _)| f.clone()) };
     if let Some(f) = flag {
         f.store(true, Ordering::Relaxed);
     }
@@ -148,8 +156,19 @@ pub fn export_cancel_drop(token: u64) {
     lock_cancels().tokens.remove(&token);
 }
 
-/// Resolves [token] to a shared flag (or `None` for token 0 / unknown).
-fn cancel_flag(token: u64) -> Option<Arc<AtomicBool>> {
+/// Reads the progress cell bound to [token] in permille (0–1000). Token 0 and
+/// unknown/dropped tokens report 0 — the UI treats that as "no data yet".
+pub fn export_progress_get(token: u64) -> u32 {
+    let cell = { lock_cancels().tokens.get(&token).map(|(_, p)| p.clone()) };
+    match cell {
+        Some(p) => p.load(Ordering::Relaxed),
+        None => 0,
+    }
+}
+
+/// Resolves [token] to its shared cancel flag and progress cell (or `None`
+/// for token 0 / unknown).
+fn cancel_flag(token: u64) -> Option<(Arc<AtomicBool>, Arc<AtomicU32>)> {
     if token == 0 {
         return None;
     }
@@ -250,15 +269,24 @@ pub fn export_full(
         hsl: to_hsl24(&hsl),
     };
 
-    let cancel = cancel_flag(spec.cancel_token);
+    let token_parts = cancel_flag(spec.cancel_token);
+    let cancel = token_parts.as_ref().map(|(f, _)| f.clone());
+    let progress = token_parts.as_ref().map(|(_, p)| p.clone());
     let band_rows = if spec.band_rows == 0 {
         256
     } else {
         spec.band_rows as usize
     };
 
-    let outcome =
-        export_pipeline::run_export_tiled(&recipe, &rgba, w, h, band_rows, cancel.as_deref())?;
+    let outcome = export_pipeline::run_export_tiled(
+        &recipe,
+        &rgba,
+        w,
+        h,
+        band_rows,
+        cancel.as_deref(),
+        progress.as_deref(),
+    )?;
 
     let frame = match outcome {
         ExportOutcome::Cancelled => {
@@ -284,6 +312,10 @@ pub fn export_full(
     };
 
     let jpeg = export::encode_jpeg(&rgba, out_w, out_h, spec.quality, &exif)?;
+    // Encode is the last stage; report a finished export as 1000 permille.
+    if let Some(p) = progress {
+        p.store(1000, Ordering::Relaxed);
+    }
     Ok(ExportResult {
         cancelled: false,
         jpeg,
@@ -433,6 +465,46 @@ mod tests {
         assert!(
             cancel_flag(token).is_none(),
             "dropped token resolves to None"
+        );
+    }
+
+    #[test]
+    fn progress_starts_at_zero_and_reaches_full_after_export() {
+        let token = export_cancel_new();
+        assert_eq!(export_progress_get(token), 0);
+        let mut s = spec();
+        s.cancel_token = token;
+        // Tall enough for several bands (band_rows 16 over 128 rows).
+        let out = export_full(
+            solid(32, 128, 200, 100, 50),
+            32,
+            128,
+            s,
+            Vec::new(),
+            ColorParams::default(),
+            neutral_curves(),
+            vec![0.0; 24],
+            Vec::new(),
+        )
+        .unwrap();
+        assert!(!out.cancelled);
+        assert_eq!(
+            export_progress_get(token),
+            1000,
+            "a finished export reports 1000 permille"
+        );
+        export_cancel_drop(token);
+    }
+
+    #[test]
+    fn progress_is_zero_for_unknown_or_dropped_tokens() {
+        assert_eq!(export_progress_get(0), 0);
+        let token = export_cancel_new();
+        export_cancel_drop(token);
+        assert_eq!(
+            export_progress_get(token),
+            0,
+            "a dropped token resolves to no progress"
         );
     }
 

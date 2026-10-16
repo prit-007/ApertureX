@@ -12,6 +12,7 @@ import '../edit/recipe.dart';
 import '../edit/xmp_sidecar.dart';
 import '../engine/engine.dart';
 import '../engine/image_format.dart';
+import '../features/editor/export_progress.dart';
 import 'gallery_controller.dart' show gallerySourceProvider;
 import 'gallery_source.dart';
 
@@ -36,6 +37,42 @@ class BatchExportProgress {
   final bool started;
 
   String get label => '$done/$total';
+}
+
+/// Aggregates per-item start/finish/fraction events into a single monotonic
+/// 0..1 bar value for a batch: `(done + Σ in-flight fractions) / total`. The
+/// fractions let the bar creep forward *within* a long item instead of
+/// freezing until it finishes.
+class BatchProgressAggregator {
+  BatchProgressAggregator({required this.total});
+
+  final int total;
+
+  /// Fraction (0..1) reported for each in-flight id.
+  final Map<String, double> _inFlight = {};
+
+  /// Items that have finished (successfully or not).
+  int done = 0;
+
+  /// Marks [id] as started with zero progress.
+  void start(String id) => _inFlight[id] = 0;
+
+  /// Records a within-item fraction for [id] (0..1).
+  void fraction(String id, double value) => _inFlight[id] = value.clamp(0, 1);
+
+  /// Marks [id] finished; its fraction no longer contributes.
+  void finish(String id) {
+    _inFlight.remove(id);
+    done++;
+  }
+
+  /// Overall bar value: `(done + Σ in-flight) / total`, clamped to 0..1.
+  /// An empty batch reports 1 (nothing to do = complete).
+  double get overall {
+    if (total <= 0) return 1;
+    final sum = _inFlight.values.fold<double>(0, (a, b) => a + b);
+    return ((done + sum) / total).clamp(0.0, 1.0);
+  }
 }
 
 /// Outcome of one [GalleryExporter.exportBatch] run.
@@ -143,11 +180,14 @@ class GalleryExporter {
   final XmpSidecarSink? sidecar;
 
   /// Grades and saves one asset with [recipe]; returns true when the bytes
-  /// reached the gallery (false = failed or cancelled).
+  /// reached the gallery (false = failed or cancelled). [onFraction], when
+  /// set, receives the render fraction (0..1) polled from the engine's
+  /// progress cell while the full-res export runs.
   Future<bool> exportAsset(
     String assetId,
     EditRecipe recipe, {
     BatchCancel? cancel,
+    void Function(double fraction)? onFraction,
   }) async {
     final src = await source.loadImage(assetId);
     if (src.isEmpty) return false;
@@ -183,6 +223,14 @@ class GalleryExporter {
     // whichever item is in flight right now.
     final token = cancel == null ? 0 : await TesseraEngine.exportCancelNew();
     if (cancel != null) await cancel.attach(token);
+    ExportProgressPoller? poller;
+    if (onFraction != null && token != 0) {
+      poller = ExportProgressPoller(
+        token: token,
+        read: TesseraEngine.exportProgressFraction,
+        onValue: onFraction,
+      )..start();
+    }
     try {
       final specs = specsFor(recipe);
       final out = await TesseraEngine.exportJpegFull(
@@ -202,6 +250,7 @@ class GalleryExporter {
       await emitXmpSidecar(sidecar, 'aperturex_$assetId', recipe);
       return true;
     } finally {
+      poller?.stop();
       if (cancel != null) await cancel.detach(token);
     }
   }
@@ -209,16 +258,19 @@ class GalleryExporter {
   /// Exports many assets with bounded parallelism, live progress and
   /// cooperative cancel. Each id maps to its recipe via [recipeFor]; one
   /// failing id is collected in [BatchExportResult.failed] and never aborts
-  /// the batch.
+  /// the batch. [onItemProgress], when set, receives live within-item
+  /// render fractions (0..1) for ids running through the real pipeline
+  /// (the test [item] seam cannot report them).
   Future<BatchExportResult> exportBatch(
     Iterable<String> assetIds,
     EditRecipe Function(String id) recipeFor, {
     void Function(BatchExportProgress progress)? onProgress,
+    void Function(String id, double fraction)? onItemProgress,
     BatchCancel? cancel,
   }) async {
     final ids = assetIds.toList(growable: false);
     final total = ids.length;
-    final BatchExportItem run = item ?? _runCancellable(cancel);
+    final BatchExportItem run = item ?? _runCancellable(cancel, onItemProgress);
     var next = 0;
     var done = 0;
     var exported = 0;
@@ -265,8 +317,17 @@ class GalleryExporter {
     );
   }
 
-  BatchExportItem _runCancellable(BatchCancel? cancel) =>
-      (assetId, recipe) => exportAsset(assetId, recipe, cancel: cancel);
+  BatchExportItem _runCancellable(
+    BatchCancel? cancel,
+    void Function(String id, double fraction)? onItemProgress,
+  ) => (assetId, recipe) => exportAsset(
+    assetId,
+    recipe,
+    cancel: cancel,
+    onFraction: onItemProgress == null
+        ? null
+        : (fraction) => onItemProgress(assetId, fraction),
+  );
 }
 
 /// Provider seam so tests (and future surfaces) can swap the exporter.

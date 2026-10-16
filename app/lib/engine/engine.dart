@@ -723,4 +723,15 @@ class TesseraEngine {
   /// Releases [token]. Safe to call more than once.
   static Future<void> exportCancelDrop(int token) =>
       rust_export.exportCancelDrop(token: BigInt.from(token));
+
+  /// Reads the engine's progress cell for [token] as permille (0..1000).
+  /// Token 0 and dropped tokens report 0. Callers wanting a 0..1 fraction
+  /// should use [exportProgressFraction].
+  static Future<int> exportProgressGet(int token) =>
+      rust_export.exportProgressGet(token: BigInt.from(token));
+
+  /// Reads the engine's progress cell for [token] as a 0..1 fraction,
+  /// suitable for `LinearProgressIndicator.value` and `ExportProgressPoller`.
+  static Future<double> exportProgressFraction(int token) async =>
+      (await exportProgressGet(token)) / 1000.0;
 }

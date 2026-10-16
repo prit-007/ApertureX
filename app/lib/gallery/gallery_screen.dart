@@ -36,6 +36,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   /// Non-null while a batch export runs — owns the cooperative cancel and
   /// drives the bottom-bar progress UI (#75).
   BatchCancel? _exportCancel;
+  /// Live aggregator: `(done + Σ in-flight fractions) / total`, so the bar
+  /// creeps forward *within* a long item instead of freezing until it
+  /// finishes.
+  BatchProgressAggregator? _exportAgg;
   int _exportDone = 0;
   int _exportTotal = 0;
   final Set<String> _exportingIds = <String>{};
@@ -154,8 +158,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     final state = ref.read(galleryControllerProvider);
     if (state.selected.isEmpty || _exportCancel != null) return;
     final cancel = BatchCancel();
+    final agg = BatchProgressAggregator(total: state.selectedCount);
     setState(() {
       _exportCancel = cancel;
+      _exportAgg = agg;
       _exportDone = 0;
       _exportTotal = state.selectedCount;
       _exportingIds
@@ -175,12 +181,18 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
           setState(() {
             _exportDone = progress.done;
             if (progress.started) {
+              agg.start(progress.id);
               _exportingIds.add(progress.id);
             } else {
+              agg.finish(progress.id);
               _exportingIds.remove(progress.id);
               _exportedIds.add(progress.id);
             }
           });
+        },
+        onItemProgress: (id, fraction) {
+          if (!mounted) return;
+          setState(() => agg.fraction(id, fraction));
         },
       );
       ref.read(galleryControllerProvider.notifier).clearSelection();
@@ -194,6 +206,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
       if (mounted) {
         setState(() {
           _exportCancel = null;
+          _exportAgg = null;
           _exportingIds.clear();
         });
       }
@@ -246,6 +259,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
             ? _ExportProgressBar(
                 done: _exportDone,
                 total: _exportTotal,
+                overall: _exportAgg?.overall,
                 onCancel: () => _exportCancel?.request(),
               )
             : state.selectionMode
@@ -857,17 +871,23 @@ class _SelectionBar extends StatelessWidget {
 }
 
 /// Bottom bar while a batch export runs: live "12/40" count, determinate
-/// progress and a global cancel (#75).
+/// progress (smoothed by [overall] so long items creep forward) and a global
+/// cancel (#75).
 class _ExportProgressBar extends StatelessWidget {
   const _ExportProgressBar({
     required this.done,
     required this.total,
     required this.onCancel,
+    this.overall,
   });
 
   final int done;
   final int total;
   final VoidCallback onCancel;
+
+  /// Aggregated `(done + Σ fractions) / total` from
+  /// [BatchProgressAggregator]; null falls back to the coarse `done / total`.
+  final double? overall;
 
   @override
   Widget build(BuildContext context) {
@@ -880,7 +900,7 @@ class _ExportProgressBar extends StatelessWidget {
           ),
           Expanded(
             child: LinearProgressIndicator(
-              value: total == 0 ? null : done / total,
+              value: overall ?? (total == 0 ? null : done / total),
             ),
           ),
           const SizedBox(width: Insets.sm),

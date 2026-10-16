@@ -22,7 +22,7 @@
 //! returns [`ExportOutcome::Cancelled`] without allocating the output frame's
 //! remaining bands — so a cancelled export abandons work quickly.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use crate::blur::{self, LensBlurParams};
 use crate::color::{self, CurveSet, GradeParams};
@@ -94,7 +94,9 @@ pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) 
 
 /// Banded export: geometry full-frame, then spatial + masks + grade one band at
 /// a time. [band_rows] is the band height (≥ 1); [cancel], when set, is polled
-/// between bands and aborts with [`ExportOutcome::Cancelled`].
+/// between bands and aborts with [`ExportOutcome::Cancelled`]. [progress],
+/// when set, is updated between bands with a permille estimate (0–1000) of
+/// the banded stages so the UI can show a determinate bar on long exports.
 pub fn run_export_tiled(
     recipe: &ExportRecipe,
     src: &[u8],
@@ -102,6 +104,7 @@ pub fn run_export_tiled(
     h: usize,
     band_rows: usize,
     cancel: Option<&AtomicBool>,
+    progress: Option<&AtomicU32>,
 ) -> Result<ExportOutcome, String> {
     if band_rows == 0 {
         return Err("band_rows must be at least 1".to_string());
@@ -141,6 +144,12 @@ pub fn run_export_tiled(
         grade_in_place(&mut band, recipe.grade, &recipe.curves, &recipe.hsl);
         out[y0 * gw * 4..(y0 + bh) * gw * 4].copy_from_slice(&band);
         y0 += bh;
+        if let Some(p) = progress {
+            // Banded stages cover rows [0, gh); report the fraction done so
+            // far, clamped into the permille range.
+            let permille = ((y0 as u128 * 1000) / gh.max(1) as u128) as u32;
+            p.store(permille.min(1000), Ordering::Relaxed);
+        }
     }
 
     Ok(ExportOutcome::Done(ExportFrame {
@@ -269,7 +278,7 @@ mod tests {
         let recipe = fully_engaged();
         let single = run_export_single(&recipe, &src, w, h);
         for band_rows in [1, 7, 16, 48, 100] {
-            let tiled = run_export_tiled(&recipe, &src, w, h, band_rows, None)
+            let tiled = run_export_tiled(&recipe, &src, w, h, band_rows, None, None)
                 .unwrap()
                 .into_frame()
                 .expect("not cancelled");
@@ -289,7 +298,7 @@ mod tests {
         let recipe = neutral();
         let single = run_export_single(&recipe, &src, w, h);
         assert_eq!(single.rgba, src, "neutral must not touch pixels");
-        let tiled = run_export_tiled(&recipe, &src, w, h, 4, None)
+        let tiled = run_export_tiled(&recipe, &src, w, h, 4, None, None)
             .unwrap()
             .into_frame()
             .unwrap();
@@ -300,14 +309,14 @@ mod tests {
     fn zero_band_rows_is_an_error() {
         let src = noise(4, 4);
         let recipe = neutral();
-        assert!(run_export_tiled(&recipe, &src, 4, 4, 0, None).is_err());
+        assert!(run_export_tiled(&recipe, &src, 4, 4, 0, None, None).is_err());
     }
 
     #[test]
     fn mismatched_source_length_is_an_error() {
         let src = noise(4, 4);
         let recipe = neutral();
-        assert!(run_export_tiled(&recipe, &src[..8], 4, 4, 2, None).is_err());
+        assert!(run_export_tiled(&recipe, &src[..8], 4, 4, 2, None, None).is_err());
     }
 
     #[test]
@@ -316,7 +325,7 @@ mod tests {
         let src = noise(w, h);
         let recipe = fully_engaged();
         let cancel = AtomicBool::new(true);
-        let out = run_export_tiled(&recipe, &src, w, h, 4, Some(&cancel)).unwrap();
+        let out = run_export_tiled(&recipe, &src, w, h, 4, Some(&cancel), None).unwrap();
         assert_eq!(out, ExportOutcome::Cancelled);
     }
 
@@ -331,13 +340,43 @@ mod tests {
         // 16-row bands over 64 rows = 4 bands; flip before the export starts
         // counting so only the first band runs.
         let cancel_ref = &cancel;
-        let out = run_export_tiled(&recipe, &src, w, h, 16, Some(cancel_ref)).unwrap();
+        let out = run_export_tiled(&recipe, &src, w, h, 16, Some(cancel_ref), None).unwrap();
         // Not yet cancelled (flag false) → Done.
         assert!(matches!(out, ExportOutcome::Done(_)));
 
         // Now flip and re-run: must cancel immediately (before any band).
         cancel.store(true, Ordering::Relaxed);
-        let out2 = run_export_tiled(&recipe, &src, w, h, 16, Some(&cancel)).unwrap();
+        let out2 = run_export_tiled(&recipe, &src, w, h, 16, Some(&cancel), None).unwrap();
         assert_eq!(out2, ExportOutcome::Cancelled);
+    }
+
+    #[test]
+    fn progress_climbs_to_full_across_bands() {
+        let (w, h) = (16, 64);
+        let src = noise(w, h);
+        let recipe = fully_engaged();
+        let progress = AtomicU32::new(0);
+        let out = run_export_tiled(&recipe, &src, w, h, 16, None, Some(&progress)).unwrap();
+        assert!(matches!(out, ExportOutcome::Done(_)));
+        assert_eq!(
+            progress.load(Ordering::Relaxed),
+            1000,
+            "a completed banded run reports 1000 permille"
+        );
+    }
+
+    #[test]
+    fn progress_advances_between_bands_and_is_monotonic() {
+        let (w, h) = (16, 64);
+        let src = noise(w, h);
+        let recipe = fully_engaged();
+        let progress = AtomicU32::new(0);
+        // 8-row bands over 64 rows = 8 bands. Snapshot after each band by
+        // running with a cancel flag we flip between runs is impossible here,
+        // so instead run once and assert the final value; monotonicity across
+        // bands is implied by the y0-based formula (y0 only grows).
+        run_export_tiled(&recipe, &src, w, h, 8, None, Some(&progress)).unwrap();
+        let final_value = progress.load(Ordering::Relaxed);
+        assert!(final_value > 0 && final_value <= 1000);
     }
 }

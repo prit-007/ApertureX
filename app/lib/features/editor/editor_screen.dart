@@ -14,6 +14,7 @@ import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import 'editor_shortcuts.dart';
+import 'export_progress.dart';
 import '../../edit/geometry_spec.dart';
 import '../../edit/library_catalog.dart';
 import '../../edit/recipe.dart';
@@ -67,6 +68,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   bool _exporting = false;
   /// Live cancel token for an in-flight export (P4); null when idle.
   int? _exportCancelToken;
+  /// Current export phase for the progress bar; null when idle.
+  ExportPhase? _exportPhase;
+  /// Engine render fraction (0..1) polled from the Rust progress cell.
+  double _exportRenderFraction = 0;
+  /// True while the share sheet is being prepared (temp files writing).
+  bool _sharing = false;
 
   @override
   void initState() {
@@ -118,8 +125,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final previewBytes = _bytes;
     if (previewBytes == null) return;
     final messenger = ScaffoldMessenger.of(context);
-    setState(() => _exporting = true);
+    setState(() {
+      _exporting = true;
+      _exportPhase = ExportPhase.loading;
+      _exportRenderFraction = 0;
+    });
     var token = 0;
+    ExportProgressPoller? poller;
     try {
       // Export at full resolution: fetch the original only now (never during
       // preview), so the editor's memory stays at preview size until export.
@@ -133,6 +145,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       // RAW/DNG export goes through the Rust RAW path; Exif extraction is
       // JPEG-specific and yields nothing for raw containers (follow-up).
       final isRaw = isRawImage(bytes);
+      if (!mounted) return;
+      setState(() => _exportPhase = ExportPhase.decoding);
       final decoded = isRaw
           ? await TesseraEngine.decodeRawRgba(bytes)
           : await TesseraEngine.decodeJpegRgba(bytes);
@@ -144,7 +158,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       // → encode), cancellable via a token so a big render can be aborted.
       token = await TesseraEngine.exportCancelNew();
       if (!mounted) return;
-      setState(() => _exportCancelToken = token);
+      setState(() {
+        _exportCancelToken = token;
+        _exportPhase = ExportPhase.rendering;
+      });
+      // Poll the Rust progress cell (permille, updated between bands) so the
+      // bar tracks the real render, not a guess.
+      poller = ExportProgressPoller(
+        token: token,
+        read: TesseraEngine.exportProgressFraction,
+        onValue: (fraction) {
+          if (!mounted) return;
+          setState(() => _exportRenderFraction = fraction);
+        },
+      )..start();
 
       final jpeg = await TesseraEngine.exportJpegFull(
         rgba: decoded.rgba,
@@ -166,6 +193,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         }
         return;
       }
+      if (!mounted) return;
+      setState(() => _exportPhase = ExportPhase.saving);
       if (!await Gal.hasAccess()) await Gal.requestAccess();
       final outName = 'aperturex_${DateTime.now().millisecondsSinceEpoch}';
       await Gal.putImageBytes(jpeg, name: outName);
@@ -194,6 +223,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       axLog(LogDomain.export, 'Export failed: $e', level: LogLevel.error);
       messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
     } finally {
+      poller?.stop();
       if (token != 0) {
         await TesseraEngine.exportCancelDrop(token);
       }
@@ -201,6 +231,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         setState(() {
           _exporting = false;
           _exportCancelToken = null;
+          _exportPhase = null;
+          _exportRenderFraction = 0;
         });
       }
     }
@@ -215,6 +247,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   Future<void> _share(Uint8List jpeg, EditRecipe recipe) async {
     final messenger = ScaffoldMessenger.of(context);
+    setState(() => _sharing = true);
     try {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/aperturex-share.jpg');
@@ -225,6 +258,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         '${dir.path}/${XmpSidecar.fileNameFor('aperturex-share.jpg')}',
       );
       await xmp.writeAsString(writeXmp(recipe), flush: true);
+      if (!mounted) return;
+      setState(() => _sharing = false);
       await SharePlus.instance.share(
         ShareParams(
           files: [
@@ -234,6 +269,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         ),
       );
     } catch (e) {
+      if (mounted) setState(() => _sharing = false);
       messenger.showSnackBar(SnackBar(content: Text('Share failed: $e')));
     }
   }
@@ -328,9 +364,69 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             ),
           ),
         ),
-        body: _body(
-          gestureShell: gestureShell,
-          hud: Row(children: [crop, undo, redo, more, const Spacer(), export]),
+        body: Column(
+          children: [
+            // Slim determinate bar under the app bar while an export runs:
+            // phase label + percent, fed by the Rust progress cell (no more
+            // "frozen Cancel button" during a long render).
+            if (_exporting)
+              ExportProgressBar(
+                key: const Key('export-progress'),
+                label: _exportPhase == null
+                    ? 'Exporting'
+                    : phaseLabel(_exportPhase!),
+                value: _exportPhase == null
+                    ? null
+                    : exportOverall(_exportPhase!, _exportRenderFraction),
+                onCancel: _cancelExport,
+              ),
+            Expanded(
+              child: Stack(
+                children: [
+                  _body(
+                    gestureShell: gestureShell,
+                    hud: Row(
+                      children: [crop, undo, redo, more, const Spacer(), export],
+                    ),
+                  ),
+                  // Modal barrier while the share sheet's temp files are
+                  // being written. It dismisses itself right before the system
+                  // share UI opens, so the user only ever sees it for the
+                  // file-write window.
+                  if (_sharing)
+                    Positioned.fill(
+                      child: ColoredBox(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .scrim
+                            .withValues(alpha: 0.32),
+                        child: const Center(
+                          child: Card(
+                            child: Padding(
+                              padding: EdgeInsets.all(20),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                    ),
+                                  ),
+                                  SizedBox(height: 14),
+                                  Text('Preparing share…'),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
