@@ -9,6 +9,7 @@ import '../color/spatial_spec.dart';
 import '../edit/adjustment_layer.dart';
 import '../edit/geometry_spec.dart';
 import '../edit/recipe.dart';
+import '../edit/xmp_sidecar.dart';
 import '../engine/engine.dart';
 import '../engine/image_format.dart';
 import 'gallery_controller.dart' show gallerySourceProvider;
@@ -119,7 +120,12 @@ ExportSpecs specsFor(EditRecipe recipe) => ExportSpecs(
 /// each asset's recipe. Grading reuses the exact preview path, and the source
 /// EXIF is preserved (#12/#13).
 class GalleryExporter {
-  const GalleryExporter(this.source, {this.maxConcurrent = 2, this.item});
+  const GalleryExporter(
+    this.source, {
+    this.maxConcurrent = 2,
+    this.item,
+    this.sidecar,
+  });
 
   final GallerySource source;
 
@@ -130,6 +136,11 @@ class GalleryExporter {
 
   /// Test seam — when set, replaces the decode/full-res/save pipeline.
   final BatchExportItem? item;
+
+  /// When set, every successful export also emits an `.xmp` sidecar next to it
+  /// (#77); `null` skips the write (tests, or a caller that wants raw
+  /// images only).
+  final XmpSidecarSink? sidecar;
 
   /// Grades and saves one asset with [recipe]; returns true when the bytes
   /// reached the gallery (false = failed or cancelled).
@@ -188,6 +199,7 @@ class GalleryExporter {
       );
       if (out == null) return false; // cancelled at a band boundary
       await Gal.putImageBytes(out, name: 'aperturex_$assetId');
+      await emitXmpSidecar(sidecar, 'aperturex_$assetId', recipe);
       return true;
     } finally {
       if (cancel != null) await cancel.detach(token);
@@ -259,5 +271,8 @@ class GalleryExporter {
 
 /// Provider seam so tests (and future surfaces) can swap the exporter.
 final galleryExporterProvider = Provider<GalleryExporter>(
-  (ref) => GalleryExporter(ref.watch(gallerySourceProvider)),
+  (ref) => GalleryExporter(
+    ref.watch(gallerySourceProvider),
+    sidecar: ref.watch(exportSidecarSinkProvider),
+  ),
 );

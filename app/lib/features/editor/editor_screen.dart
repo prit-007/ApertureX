@@ -19,6 +19,8 @@ import '../../edit/library_catalog.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/recipe_store.dart';
+import '../../edit/xmp_sidecar.dart';
+import '../../edit/xmp_writer.dart';
 import '../../features/crop/crop_screen.dart';
 import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
@@ -165,9 +167,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         return;
       }
       if (!await Gal.hasAccess()) await Gal.requestAccess();
-      await Gal.putImageBytes(
-        jpeg,
-        name: 'aperturex_${DateTime.now().millisecondsSinceEpoch}',
+      final outName = 'aperturex_${DateTime.now().millisecondsSinceEpoch}';
+      await Gal.putImageBytes(jpeg, name: outName);
+      // Sidecar next to the export (#77): the same recipe as a Lightroom-
+      // readable .xmp, best effort (a failure logs, never fails the export).
+      await emitXmpSidecar(
+        ref.read(exportSidecarSinkProvider),
+        outName,
+        recipe,
       );
       axLog(
         LogDomain.export,
@@ -179,7 +186,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           content: const Text('Saved to your photos'),
           action: SnackBarAction(
             label: 'Share',
-            onPressed: () => _share(jpeg),
+            onPressed: () => _share(jpeg, recipe),
           ),
         ),
       );
@@ -206,14 +213,25 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     TesseraEngine.exportCancelSet(token);
   }
 
-  Future<void> _share(Uint8List jpeg) async {
+  Future<void> _share(Uint8List jpeg, EditRecipe recipe) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/aperturex-share.jpg');
       await file.writeAsBytes(jpeg, flush: true);
+      // The .xmp rides along so the user can drop it next to the photo in
+      // Lightroom/darktable (#77 — edits must be able to leave the app).
+      final xmp = File(
+        '${dir.path}/${XmpSidecar.fileNameFor('aperturex-share.jpg')}',
+      );
+      await xmp.writeAsString(writeXmp(recipe), flush: true);
       await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path, mimeType: 'image/jpeg')]),
+        ShareParams(
+          files: [
+            XFile(file.path, mimeType: 'image/jpeg'),
+            XFile(xmp.path, mimeType: 'application/xml'),
+          ],
+        ),
       );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Share failed: $e')));

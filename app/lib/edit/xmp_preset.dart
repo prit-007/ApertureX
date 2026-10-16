@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'recipe.dart';
+import 'xmp_crs.dart';
 
 /// Where a preset's "Look" (creative profile/LUT) comes from.
 enum PresetLookKind {
@@ -73,71 +74,81 @@ Map<String, String> _extractSettings(String xml) {
 
 /// Parses a Lightroom `.xmp` preset (best-effort) and reports, per setting,
 /// whether it was applied, approximated, or unsupported.
+///
+/// Scalar fields walk the shared [crsBindings] table (the same table
+/// `writeXmp` serialises from, so import → export round-trips), then the
+/// composite Crop/Rotation attributes are folded back in.
 PresetImport parseXmpPreset(String xml) {
   final settings = _extractSettings(xml);
   final notes = <PresetNote>[];
   var recipe = EditRecipe.neutral;
   final handled = <String>{};
 
-  /// Reads [key] (Lightroom scale → ours via [scale]) and records a note.
-  void apply(
-    String key,
-    String label,
-    double scale,
-    EditRecipe Function(EditRecipe, double) set, {
-    bool approximated = false,
-    double? min,
-    double? max,
-  }) {
-    final raw = settings[key];
+  for (final binding in crsBindings) {
+    final raw = settings[binding.key];
     if (raw == null) {
-      notes.add(PresetNote(label, PresetStatus.unsupported, 'not in preset'));
-      return;
+      notes.add(
+        PresetNote(binding.label, PresetStatus.unsupported, 'not in preset'),
+      );
+      continue;
     }
-    handled.add(key);
-    var v = (double.tryParse(raw) ?? 0) * scale;
-    if (min != null || max != null) {
-      v = v.clamp(min ?? -1e9, max ?? 1e9);
-    }
-    recipe = set(recipe, v);
+    handled.add(binding.key);
+    recipe = binding.set(recipe, binding.fromCrs(double.tryParse(raw) ?? 0));
     notes.add(
       PresetNote(
-        label,
-        approximated ? PresetStatus.approximated : PresetStatus.applied,
+        binding.label,
+        binding.approximated
+            ? PresetStatus.approximated
+            : PresetStatus.applied,
         raw,
       ),
     );
   }
 
-  apply('Exposure2012', 'Exposure', 1, (r, v) => r.copyWith(exposure: v));
-  apply('Contrast2012', 'Contrast', 0.01, (r, v) => r.copyWith(contrast: v));
-  apply('Highlights2012', 'Highlights', 0.01, (r, v) => r.copyWith(highlights: v));
-  apply('Shadows2012', 'Shadows', 0.01, (r, v) => r.copyWith(shadows: v));
-  apply('Whites2012', 'Whites', 0.01, (r, v) => r.copyWith(whites: v));
-  apply('Blacks2012', 'Blacks', 0.01, (r, v) => r.copyWith(blacks: v));
-  apply('Vibrance', 'Vibrance', 0.01, (r, v) => r.copyWith(vibrance: v));
-  apply('Saturation', 'Saturation', 0.01, (r, v) => r.copyWith(saturation: v));
-  apply('Clarity2012', 'Clarity', 0.01, (r, v) => r.copyWith(clarity: v));
-  apply('Texture', 'Texture', 0.01, (r, v) => r.copyWith(texture: v));
-  apply(
-    'Tint',
-    'Tint',
-    0.0067,
-    (r, v) => r.copyWith(tint: v),
-    min: -1,
-    max: 1,
-  );
-  // Temperature is an absolute Kelvin value in Lightroom; we approximate it as
-  // a relative -1..1 shift.
-  apply(
-    'Temperature',
-    'Temperature',
-    0.0002,
-    (r, v) => r.copyWith(temperature: v),
-    approximated: true,
-    min: -1,
-    max: 1,
-  );
+  // Crop: four normalized corners written together (see writeXmp). HasCrop is
+  // absorbed silently — it only tells ACR the corners are active.
+  if (settings.containsKey('HasCrop')) handled.add('HasCrop');
+  final cropValues = <double>[];
+  for (final key in crsCropKeys) {
+    final raw = settings[key];
+    if (raw == null) continue;
+    handled.add(key);
+    cropValues.add((double.tryParse(raw) ?? 0).clamp(0.0, 1.0).toDouble());
+  }
+  if (cropValues.length == crsCropKeys.length) {
+    recipe = recipe.copyWith(crop: cropValues);
+    notes.add(
+      PresetNote(
+        'Crop',
+        PresetStatus.applied,
+        cropValues.map((v) => v.toStringAsFixed(2)).join(', '),
+      ),
+    );
+  } else if (cropValues.isNotEmpty) {
+    notes.add(const PresetNote('Crop', PresetStatus.unsupported, 'incomplete'));
+  } else {
+    notes.add(
+      const PresetNote('Crop', PresetStatus.unsupported, 'not in preset'),
+    );
+  }
+
+  // Rotation: one Lightroom-style angle carrying quarter turns + straighten.
+  final rotationRaw = settings['Rotation'];
+  if (rotationRaw == null) {
+    notes.add(
+      const PresetNote('Rotation', PresetStatus.unsupported, 'not in preset'),
+    );
+  } else {
+    handled.add('Rotation');
+    final (quarter, straighten) = rotationFromDegrees(
+      double.tryParse(rotationRaw) ?? 0,
+    );
+    recipe = recipe.copyWith(
+      rotation: quarter,
+      straighten: straighten.clamp(-45.0, 45.0).toDouble(),
+    );
+    notes.add(PresetNote('Rotation', PresetStatus.applied, rotationRaw));
+  }
 
   final look = _extractLook(settings, handled, notes);
 
