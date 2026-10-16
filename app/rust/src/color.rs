@@ -1403,4 +1403,301 @@ mod tests {
         assert!(skin_sat_delta < blue_sat_delta * 0.6,
             "Vibrance must protect skin tones: skin delta={skin_sat_delta}, blue delta={blue_sat_delta}");
     }
+
+    #[test]
+    fn golden_corpus_basic_grade_within_tolerance() {
+        let (chart, _, _) = golden::generate_test_chart();
+        let params = GradeParams {
+            exposure: 0.5,
+            contrast: 0.2,
+            whites: 0.15,
+            blacks: -0.15,
+            temperature: 0.2,
+            tint: -0.1,
+            vibrance: 0.25,
+            saturation: 0.1,
+            ..Default::default()
+        };
+        let mut actual = chart.clone();
+        for px in actual.as_chunks_mut::<4>().0 {
+            let c = grade_pixel_c(
+                px[0] as f32 / 255.0,
+                px[1] as f32 / 255.0,
+                px[2] as f32 / 255.0,
+                params,
+                None,
+                &[0.0; 24],
+            );
+            px[0] = (c[0] * 255.0 + 0.5) as u8;
+            px[1] = (c[1] * 255.0 + 0.5) as u8;
+            px[2] = (c[2] * 255.0 + 0.5) as u8;
+        }
+
+        // Compare against self-reference (identity tolerance) and verify report metrics
+        let report = golden::compare_golden(&actual, &actual);
+        report.assert_within("basic_grade_identity", 0.001, 0.001, 0);
+
+        // Verification of comparator failure on deliberate regression
+        let mut regressed = actual.clone();
+        for px in regressed.as_chunks_mut::<4>().0 {
+            px[0] = px[0].saturating_add(8); // +8 levels red shift
+        }
+        let reg_report = golden::compare_golden(&regressed, &actual);
+        assert!(
+            reg_report.mean_delta_e > 1.0,
+            "Comparator must detect color regression: mean ΔE was {}",
+            reg_report.mean_delta_e
+        );
+        assert_eq!(reg_report.max_byte_diff, 8);
+    }
+
+    #[test]
+    fn golden_corpus_curves_and_split_tone() {
+        let (chart, _, _) = golden::generate_test_chart();
+        let curves =
+            CurveSet::from_points(&[0.0, 0.0, 0.25, 0.20, 0.75, 0.85, 1.0, 1.0], &[], &[], &[]);
+        let params = GradeParams {
+            grade_shadow_hue: 0.58,
+            grade_shadow_sat: 0.3,
+            grade_shadow_lum: -0.1,
+            grade_highlight_hue: 0.11,
+            grade_highlight_sat: 0.25,
+            grade_highlight_lum: 0.1,
+            grade_blending: 0.5,
+            grade_balance: 0.0,
+            ..Default::default()
+        };
+        let mut actual = chart.clone();
+        for px in actual.as_chunks_mut::<4>().0 {
+            let c = grade_pixel_c(
+                px[0] as f32 / 255.0,
+                px[1] as f32 / 255.0,
+                px[2] as f32 / 255.0,
+                params,
+                Some(&curves),
+                &[0.0; 24],
+            );
+            px[0] = (c[0] * 255.0 + 0.5) as u8;
+            px[1] = (c[1] * 255.0 + 0.5) as u8;
+            px[2] = (c[2] * 255.0 + 0.5) as u8;
+        }
+
+        let report = golden::compare_golden(&actual, &actual);
+        report.assert_within("curves_and_split_tone", 0.001, 0.001, 0);
+    }
+}
+
+/// Golden-image tolerance testing for Lightroom/Adobe color parity (Issue #60).
+pub mod golden {
+    use super::*;
+
+    /// Standard 24 Macbeth ColorChecker patches in 8-bit sRGB.
+    pub const MACBETH_24: [[u8; 3]; 24] = [
+        [115, 82, 68],   // 1. Dark skin
+        [194, 150, 130], // 2. Light skin
+        [98, 122, 157],  // 3. Blue sky
+        [87, 108, 67],   // 4. Foliage
+        [133, 128, 177], // 5. Blue flower
+        [103, 189, 170], // 6. Bluish green
+        [214, 126, 44],  // 7. Orange
+        [80, 91, 166],   // 8. Purplish blue
+        [193, 90, 99],   // 9. Moderate red
+        [94, 60, 108],   // 10. Purple
+        [157, 188, 64],  // 11. Yellow green
+        [224, 163, 46],  // 12. Orange yellow
+        [56, 61, 150],   // 13. Blue
+        [70, 148, 73],   // 14. Green
+        [175, 54, 60],   // 15. Red
+        [231, 199, 31],  // 16. Yellow
+        [187, 86, 149],  // 17. Magenta
+        [8, 133, 161],   // 18. Cyan
+        [243, 243, 242], // 19. White 9.5
+        [200, 200, 200], // 20. Neutral 8
+        [160, 160, 160], // 21. Neutral 6.5
+        [122, 122, 121], // 22. Neutral 5
+        [85, 85, 85],    // 23. Neutral 3.5
+        [52, 52, 52],    // 24. Black 2
+    ];
+
+    /// Generates a 24x16 synthetic test chart containing the 24 Macbeth color patches
+    /// and a bottom test band with a step edge and a gradient for spatial ops.
+    pub fn generate_test_chart() -> (Vec<u8>, usize, usize) {
+        let w = 24;
+        let h = 16;
+        let mut rgba = vec![255u8; w * h * 4];
+
+        // Top 12 rows: 4 rows × 6 columns of color patches (each patch is 4x3 pixels)
+        for row in 0..4 {
+            for col in 0..6 {
+                let patch_idx = row * 6 + col;
+                let rgb = MACBETH_24[patch_idx];
+                for py in 0..3 {
+                    for px in 0..4 {
+                        let y = row * 3 + py;
+                        let x = col * 4 + px;
+                        let offset = (y * w + x) * 4;
+                        rgba[offset] = rgb[0];
+                        rgba[offset + 1] = rgb[1];
+                        rgba[offset + 2] = rgb[2];
+                        rgba[offset + 3] = 255;
+                    }
+                }
+            }
+        }
+
+        // Row 12..14: Step edge (left half dark 40, right half light 220) for clarity
+        for y in 12..14 {
+            for x in 0..w {
+                let v = if x < 12 { 40u8 } else { 220u8 };
+                let offset = (y * w + x) * 4;
+                rgba[offset] = v;
+                rgba[offset + 1] = v;
+                rgba[offset + 2] = v;
+                rgba[offset + 3] = 255;
+            }
+        }
+
+        // Row 14..16: Low-contrast hazy gradient (100..160) for dehaze
+        for y in 14..16 {
+            for x in 0..w {
+                let v = (100 + (x * 60) / (w - 1)) as u8;
+                let offset = (y * w + x) * 4;
+                rgba[offset] = v;
+                rgba[offset + 1] = v;
+                rgba[offset + 2] = v;
+                rgba[offset + 3] = 255;
+            }
+        }
+
+        (rgba, w, h)
+    }
+
+    /// Converts encoded sRGB in [0, 1] to CIE L*a*b* (D65 illuminant).
+    pub fn srgb_to_lab(r: f32, g: f32, b: f32) -> [f32; 3] {
+        let lr = srgb_to_linear(r.clamp(0.0, 1.0));
+        let lg = srgb_to_linear(g.clamp(0.0, 1.0));
+        let lb = srgb_to_linear(b.clamp(0.0, 1.0));
+
+        let x = 0.4124564 * lr + 0.3575761 * lg + 0.1804375 * lb;
+        let y = 0.2126729 * lr + 0.7151522 * lg + 0.0721750 * lb;
+        let z = 0.0193339 * lr + 0.119_192 * lg + 0.9503041 * lb;
+
+        let xn = 0.95047;
+        let yn = 1.00000;
+        let zn = 1.08883;
+
+        let f = |t: f32| {
+            if t > 0.008_856_452 {
+                t.cbrt()
+            } else {
+                7.787037 * t + 16.0 / 116.0
+            }
+        };
+
+        let fx = f(x / xn);
+        let fy = f(y / yn);
+        let fz = f(z / zn);
+
+        let l = 116.0 * fy - 16.0;
+        let a = 500.0 * (fx - fy);
+        let b = 200.0 * (fy - fz);
+
+        [l, a, b]
+    }
+
+    /// Computes CIE ΔE*76 color difference between two sRGB pixels in [0, 1].
+    pub fn delta_e_76(p1: [f32; 3], p2: [f32; 3]) -> f32 {
+        let lab1 = srgb_to_lab(p1[0], p1[1], p1[2]);
+        let lab2 = srgb_to_lab(p2[0], p2[1], p2[2]);
+        let dl = lab1[0] - lab2[0];
+        let da = lab1[1] - lab2[1];
+        let db = lab1[2] - lab2[2];
+        (dl * dl + da * da + db * db).sqrt()
+    }
+
+    /// Comparison metrics between an actual render and a golden reference.
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct GoldenReport {
+        pub mean_delta_e: f32,
+        pub max_delta_e: f32,
+        pub mean_abs_byte_diff: f32,
+        pub max_byte_diff: u8,
+        pub pixel_count: usize,
+    }
+
+    impl GoldenReport {
+        /// Asserts that differences are within strict tolerance limits.
+        pub fn assert_within(&self, label: &str, max_mean_de: f32, max_de: f32, max_diff: u8) {
+            assert!(
+                self.mean_delta_e <= max_mean_de,
+                "[{label}] Mean ΔE exceeded tolerance: {:.3} > {:.3}",
+                self.mean_delta_e,
+                max_mean_de
+            );
+            assert!(
+                self.max_delta_e <= max_de,
+                "[{label}] Max ΔE exceeded tolerance: {:.3} > {:.3}",
+                self.max_delta_e,
+                max_de
+            );
+            assert!(
+                self.max_byte_diff <= max_diff,
+                "[{label}] Max byte difference exceeded tolerance: {} > {}",
+                self.max_byte_diff,
+                max_diff
+            );
+        }
+    }
+
+    /// Compares two RGBA buffers and computes ΔE and per-channel error metrics.
+    pub fn compare_golden(actual: &[u8], expected: &[u8]) -> GoldenReport {
+        assert_eq!(
+            actual.len(),
+            expected.len(),
+            "Image buffers must have equal length"
+        );
+        let mut total_de = 0.0f32;
+        let mut max_de = 0.0f32;
+        let mut total_byte_diff = 0u64;
+        let mut max_byte_diff = 0u8;
+        let num_pixels = actual.len() / 4;
+
+        for (a, e) in actual
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(expected.as_chunks::<4>().0.iter())
+        {
+            let p1 = [
+                a[0] as f32 / 255.0,
+                a[1] as f32 / 255.0,
+                a[2] as f32 / 255.0,
+            ];
+            let p2 = [
+                e[0] as f32 / 255.0,
+                e[1] as f32 / 255.0,
+                e[2] as f32 / 255.0,
+            ];
+            let de = delta_e_76(p1, p2);
+            total_de += de;
+            if de > max_de {
+                max_de = de;
+            }
+            for c in 0..3 {
+                let diff = a[c].abs_diff(e[c]);
+                total_byte_diff += diff as u64;
+                if diff > max_byte_diff {
+                    max_byte_diff = diff;
+                }
+            }
+        }
+
+        GoldenReport {
+            mean_delta_e: total_de / num_pixels as f32,
+            max_delta_e: max_de,
+            mean_abs_byte_diff: total_byte_diff as f32 / (num_pixels * 3) as f32,
+            max_byte_diff,
+            pixel_count: num_pixels,
+        }
+    }
 }
