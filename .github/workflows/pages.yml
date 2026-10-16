@@ -1,0 +1,60 @@
+# Publishes the marketing landing page (site/) to the `gh-pages` branch,
+# from which GitHub Pages serves https://prit-007.github.io/ApertureX/.
+#
+# The source of truth stays on `main` under site/ (reviewable with PRs);
+# this workflow only mirrors it. Path-filtered so it never runs for app
+# changes — CI & Release owns everything outside site/.
+name: Deploy Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+
+permissions:
+  contents: write # push the published tree to gh-pages
+
+# Never let two publishes race on the same branch; a newer push supersedes.
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish site to gh-pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build published tree
+        run: |
+          set -euo pipefail
+          test -f site/index.html
+          touch site/.nojekyll
+          PUBLISH=$(mktemp -d)
+          cp -R site/. "$PUBLISH"/
+          echo "PUBLISH=$PUBLISH" >> "$GITHUB_ENV"
+          find "$PUBLISH" -type f | sed "s|$PUBLISH/||"
+
+      - name: Push to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cd "$PUBLISH"
+          git init -q -b gh-pages
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Site unchanged — nothing to publish"
+            exit 0
+          fi
+          git commit -q -m "deploy: site from ${GITHUB_SHA}"
+          git push --force origin gh-pages
+          echo "Published to gh-pages ($(git rev-parse --short HEAD))"

@@ -3,6 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Status](https://img.shields.io/badge/status-v0.1.0-blue.svg)](docs/ROADMAP.md)
 [![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-lightgrey.svg)](#)
+[![Website](https://img.shields.io/badge/website-prit--007.github.io%2FApertureX-6BEAF7)](https://prit-007.github.io/ApertureX/)
 [![100% Offline](https://img.shields.io/badge/100%25-Offline-green.svg)](#privacy)
 
 **A mobile-native, non-destructive, free-and-open-source photo editor — the Snapseed/Lightroom replacement the FOSS world never built.**
