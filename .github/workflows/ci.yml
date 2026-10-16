@@ -191,13 +191,65 @@ jobs:
           path: app/build/app/outputs/flutter-apk/*-release.apk
           if-no-files-found: error
 
+  build-ios:
+    name: Build iOS (unsigned, best-effort)
+    needs: analyze-and-test
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.99.0"
+          targets: aarch64-apple-ios
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/rust
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build unsigned iOS app
+        working-directory: app
+        run: flutter build ios --release --no-codesign
+
+      - name: Package Runner.app as zip
+        working-directory: app/build/ios/iphoneos
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's/^version: *\([0-9][0-9.]*\).*/\1/p' ../../../pubspec.yaml)
+          zip -r -y "aperturex-ios-v${VERSION}.zip" Runner.app
+          mkdir -p ../../../build/ios-release
+          mv "aperturex-ios-v${VERSION}.zip" ../../../build/ios-release/
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aperturex-ios
+          path: app/build/ios-release/*.zip
+          if-no-files-found: error
+
   release:
     name: GitHub Release
-    needs: [analyze-and-test, build-android]
-    # Android is required for a release. Only runs on tags.
-    if: startsWith(github.ref, 'refs/tags/') &&
-        !cancelled() &&
-        needs.build-android.result == 'success'
+    needs: [analyze-and-test, build-android, build-ios]
+    # Android is required for a release; iOS is best-effort. Only runs on tags.
+    if: |
+      always() &&
+      startsWith(github.ref, 'refs/tags/') &&
+      !cancelled() &&
+      needs.build-android.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -208,6 +260,13 @@ jobs:
         with:
           name: aperturex-apks
           path: release/apks
+
+      - name: Download iOS artifact (if build succeeded)
+        if: needs.build-ios.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: aperturex-ios
+          path: release/ios
 
       - name: Prepare release body from CHANGELOG
         shell: bash
@@ -226,6 +285,18 @@ jobs:
             exit 1
           fi
 
+      - name: Stage release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release/assets
+          cp release/apks/**/*.apk release/assets/
+          if [ -d release/ios ]; then
+            cp release/ios/*.zip release/assets/ 2>/dev/null || true
+          fi
+          echo "Staged assets:"
+          ls -la release/assets/
+
       - name: Create Release and upload assets
         uses: softprops/action-gh-release@v2
         with:
@@ -233,5 +304,5 @@ jobs:
           allowUpdates: true
           update_release_body: true
           files: |
-            release/apks/**/*.apk
+            release/assets/*
           name: Release ${{ github.ref_name }}
