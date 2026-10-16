@@ -33,7 +33,7 @@ Verified against the tree with the P4 export wiring present (`export_pipeline.rs
 | RAW/DNG via **rawler** (decode, Bayer demosaic, DNG matrices, EXIF orientation, ROI, RAW→JPEG export) + FFI + Dart wiring | `app/rust/src/raw.rs`, `app/rust/src/api/raw.rs` |
 | P3 ICC detect (sRGB / Display-P3) + P3→sRGB on gallery batch export | `app/rust/src/icc.rs` |
 | Perf harness (60 fps scrub gate + 512 MB RSS budget) | `app/integration_test/perf_harness_test.dart`, `app/test/perf/scrub_perf_test.dart` |
-| Full-res banded export, single-call FRB + cancel (#68 wiring) | `app/rust/src/export_pipeline.rs` (`run_export_tiled`/`run_export_single` parity oracle, `ExportOutcome::Cancelled`), `app/rust/src/api/export.rs` (`exportFull`, cancel-token registry), `TesseraEngine.exportJpegFull` + editor Cancel button; band-parity tests for spatial + masks |
+| Full-res banded export, single-call FRB + cancel (#68 wiring) | `app/rust/src/export_pipeline.rs` (`run_export_tiled`/`run_export_single` parity oracle, `ExportOutcome::Cancelled`), `app/rust/src/api/export.rs` (`exportFull`, cancel-token registry), `AxEngine.exportJpegFull` + editor Cancel button; band-parity tests for spatial + masks |
 | Zero-copy preview delivery, Android (#54) | `PreviewSurface` mounts the bound `Texture` with shader fallback; `previewNeedsPlaceholder`/`useTextureDelivery` gate delivery; 10 widget/unit tests |
 | High-zoom ROI overlay + native region decode, Android (#55, #16 part) | `planRoiOverlay` planner (geometry gate, viewport→band mapping, 32 MiB band budget) + `roiStripRect`/`roiBlockedByGeometry`; `RoiDecoder` (native `aperturex/roi_decode` channel when full RGBA > 64 MiB, Rust `decodeJpegRoi` fallback); `spatial::apply_spatial_roi` + `api/roi::{roi_halo,bake_roi_band}` (halo context, geometry-identity guard, parity vs `preview_base`); `MainActivity.kt` `BitmapRegionDecoder`; canvas wiring (debounced `_runRoi`, token-guarded, shader-path strip). 400 Dart / 152 Rust tests |
 | iOS `CGImageSource` ROI channel + tile pyramid wiring (#16 part) | `AppDelegate.swift` registers `aperturex/roi_decode` (lazy `CGImageSource` crop + flipped `CGBitmapContext` → top-origin RGBA, serial decode queue, `bad_args`/`decode_failed` contract matching Android); `RoiDecoder.decodeRect` (arbitrary rects, shared tier/fallback with `decodeBand`); `TileSource`/`JpegTileSource`/`footprintForTile`/`downsampleBox`/`coarseAncestors` + `TileViewport` source mode (zoom-matched level, byte-budget clamp, coarse-ancestor instant paint); `synthetic_jpeg` position-encoded pattern; `examples/gen_corpus.rs`; on-device harness `integration_test/tile_corpus_test.dart` (byte-exact seams vs oracle strips, RSS/latency report, `CORPUS_STRICT` gates). 20 new Dart + 3 new Rust tests |
@@ -140,7 +140,7 @@ Each workstream lists its goal, the exact files, and its issue(s).
 - ✅ Expose the pipeline over FRB: `exportFull` in `app/rust/src/api/export.rs` +
   opaque cancel-token registry (`exportCancelNew/Set/Drop`); bindings regenerated
   (no new module needed — the surface lives in the existing `api/export.rs`).
-- ✅ Route Dart through it: `TesseraEngine.exportJpegFull` runs geometry → banded
+- ✅ Route Dart through it: `AxEngine.exportJpegFull` runs geometry → banded
   spatial → masks → grade → downscale → JPEG in **one** bridge crossing;
   `exportJpeg` delegates to it, retiring the legacy multi-round-trip chain.
 - ✅ Cancel surfaced in the UI: editor Cancel button drives the token (export

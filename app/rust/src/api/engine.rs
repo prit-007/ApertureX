@@ -1,4 +1,4 @@
-//! Tessera engine API surface exposed across the `flutter_rust_bridge` boundary.
+//! ApertureX engine API surface exposed across the `flutter_rust_bridge` boundary.
 //!
 //! This is deliberately small: it proves the P0 exit criteria — a typed call
 //! (`String`) and a byte-buffer round-trip (`Vec<u8>`). The real decode/tile/

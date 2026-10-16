@@ -113,7 +113,7 @@ Engine (Rust via flutter_rust_bridge)
 ### Key Directories
 - `app/lib/` – Flutter source (shaders in `app/shaders/`)
 - `app/rust/src/` – Rust engine (API in `app/rust/src/api/`)
-- `app/rust_builder/` – Flutter `rust_lib_tessera` package (Cargokit wrapper)
+- `app/rust_builder/` – Flutter `rust_lib_aperturex` package (Cargokit wrapper)
 - `app/android/` / `app/ios/` – platform-specific native code
 
 ### Bridge Architecture
@@ -145,8 +145,11 @@ Engine (Rust via flutter_rust_bridge)
 - `flutter analyze`, `flutter test`, `cargo test/fmt/clippy` must all pass
 
 ## Migration Notes
-- Application was renamed from `tessera` to `aperturex` in the Dart package
-- Android `applicationId` (`com.devparadise.tessera`) and Rust crate (`rust_lib_tessera`) still carry historical name (pending rename)
+- Application renamed from `tessera` to `aperturex` across the board: Dart
+  package, applicationId/bundle id (`com.devparadise.aperturex`), Rust crate
+  (`rust_lib_aperturex`), engine class (`AxEngine`), docs and F-Droid metadata
+  (#33). "tessera" survives only in git history and `docs/adr/*` (kept as
+  point-in-time records).
 
 ## Documentation
 - `docs/ARCHITECTURE.md` – Detailed layer model, data flow

@@ -93,7 +93,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               ? await ref
                     .read(gallerySourceProvider)
                     .loadPreview(widget.asset!.id)
-              : await TesseraEngine.syntheticJpeg(width: 1024, height: 1024));
+              : await AxEngine.syntheticJpeg(width: 1024, height: 1024));
       if (bytes.isEmpty) throw StateError('The image could not be read.');
       if (!mounted) return;
       axLog(LogDomain.editor, 'Opened ${widget.asset?.id ?? 'sample image'}');
@@ -149,15 +149,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       if (!mounted) return;
       setState(() => _exportPhase = ExportPhase.decoding);
       final decoded = isRaw
-          ? await TesseraEngine.decodeRawRgba(bytes)
-          : await TesseraEngine.decodeJpegRgba(bytes);
+          ? await AxEngine.decodeRawRgba(bytes)
+          : await AxEngine.decodeJpegRgba(bytes);
       final exif = isRaw
           ? Uint8List(0)
-          : await TesseraEngine.extractExif(bytes);
+          : await AxEngine.extractExif(bytes);
 
       // One-call export inside Rust (geometry → banded spatial → masks → grade
       // → encode), cancellable via a token so a big render can be aborted.
-      token = await TesseraEngine.exportCancelNew();
+      token = await AxEngine.exportCancelNew();
       if (!mounted) return;
       setState(() {
         _exportCancelToken = token;
@@ -167,14 +167,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       // bar tracks the real render, not a guess.
       poller = ExportProgressPoller(
         token: token,
-        read: TesseraEngine.exportProgressFraction,
+        read: AxEngine.exportProgressFraction,
         onValue: (fraction) {
           if (!mounted) return;
           setState(() => _exportRenderFraction = fraction);
         },
       )..start();
 
-      final jpeg = await TesseraEngine.exportJpegFull(
+      final jpeg = await AxEngine.exportJpegFull(
         rgba: decoded.rgba,
         width: decoded.width,
         height: decoded.height,
@@ -226,7 +226,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     } finally {
       poller?.stop();
       if (token != 0) {
-        await TesseraEngine.exportCancelDrop(token);
+        await AxEngine.exportCancelDrop(token);
       }
       if (mounted) {
         setState(() {
@@ -243,7 +243,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final token = _exportCancelToken;
     if (token == null) return;
     axLog(LogDomain.export, 'Cancel requested');
-    TesseraEngine.exportCancelSet(token);
+    AxEngine.exportCancelSet(token);
   }
 
   Future<void> _share(Uint8List jpeg, EditRecipe recipe) async {

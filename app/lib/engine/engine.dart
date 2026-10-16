@@ -33,8 +33,8 @@ export '../src/rust/frb_generated.dart' show RustLib;
 ///
 /// Keeping the generated `src/rust/` package behind this wrapper means the rest
 /// of the app depends on our own names, not on codegen symbols.
-class TesseraEngine {
-  const TesseraEngine._();
+class AxEngine {
+  const AxEngine._();
 
   /// Initialises the Rust library. Must be awaited before any engine call.
   static Future<void> init() => RustLib.init();

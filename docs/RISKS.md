@@ -1,4 +1,4 @@
-# Tessera — Risks
+# ApertureX — Risks
 
 The four "walls" (why FOSS mobile editors don't exist), plus delivery risks, with
 the mitigation each one demands. Severity is an estimate of how likely the risk

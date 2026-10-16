@@ -62,7 +62,7 @@ class RoiDecoder {
     required int width,
     required int height,
   }) async {
-    final img = await TesseraEngine.decodeJpegRoi(
+    final img = await AxEngine.decodeJpegRoi(
       bytes,
       x: x,
       y: y,

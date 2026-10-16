@@ -39,7 +39,7 @@ void main() {
       WidgetsFlutterBinding.ensureInitialized();
       lifecycleObserver.attach();
       try {
-        await TesseraEngine.init();
+        await AxEngine.init();
         await _initActivityLog(reporter);
       } catch (error, stack) {
         // Degrade, don't die: every later engine call re-hits the boundary.
@@ -65,7 +65,7 @@ Future<void> _initActivityLog(ErrorReporter reporter) async {
     final dir = await getApplicationSupportDirectory();
     reporter.marker = CrashMarker(File('${dir.path}/crash_marker.json'));
     // Rust keeps its own panic evidence beside the log (ADR 0012 §7).
-    await TesseraEngine.initPanicHook(dir: dir.path);
+    await AxEngine.initPanicHook(dir: dir.path);
     // activity.log + native.log + rust_panic.log → one feed the UI shows.
     await hydrateActivityLog(dir);
     final store = LogFileStore(File('${dir.path}/activity.log'));

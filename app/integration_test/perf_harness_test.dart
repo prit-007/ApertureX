@@ -28,7 +28,7 @@ import 'package:aperturex/viewport/viewport_transform.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(TesseraEngine.init);
+  setUpAll(AxEngine.init);
 
   testWidgets('live grade scrub holds the frame budget (issue #17)',
       (tester) async {
@@ -45,7 +45,7 @@ void main() {
         exposure: (i % 40) - 20,
         contrast: ((i % 20) - 10) / 10,
       );
-      final data = await TesseraEngine.bakeLut3d(
+      final data = await AxEngine.bakeLut3d(
         GradeSpec.fromRecipe(recipe),
         size: lutSize,
       );
@@ -86,8 +86,8 @@ void main() {
     int rss() => ProcessInfo.currentRss;
     final before = rss();
 
-    final jpeg = await TesseraEngine.syntheticJpeg(width: side, height: side);
-    final decoded = await TesseraEngine.decodeJpegRgba(jpeg);
+    final jpeg = await AxEngine.syntheticJpeg(width: side, height: side);
+    final decoded = await AxEngine.decodeJpegRgba(jpeg);
     final afterOpen = rss();
 
     var transform = ViewportTransform(scale: 1, offset: Offset.zero);
@@ -96,7 +96,7 @@ void main() {
     }
     final afterPan = rss();
 
-    final exported = await TesseraEngine.exportJpeg(
+    final exported = await AxEngine.exportJpeg(
       rgba: decoded.rgba,
       width: decoded.width,
       height: decoded.height,

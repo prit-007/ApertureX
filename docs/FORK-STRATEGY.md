@@ -1,7 +1,7 @@
 # Fork Strategy — `pro_image_editor`
 
 We fork [`hm21/pro_image_editor`](https://github.com/hm21/pro_image_editor)
-(BSD-3-Clause) as the base for Tessera's Material 3 grading UI scaffolding. This
+(BSD-3-Clause) as the base for ApertureX's Material 3 grading UI scaffolding. This
 document defines provenance, what we keep, what we strip, and how we stay
 maintainable.
 
@@ -72,7 +72,7 @@ MaterialApp(
 );
 ```
 
-**Decided (P0 / ADR 0006):** Tessera **migrates to `material_ui` /
+**Decided (P0 / ADR 0006):** ApertureX **migrates to `material_ui` /
 `cupertino_ui` wholesale.** The app's own `MaterialApp` uses those packages from
 the start, so the fork's widgets need no localizations workaround. This keeps the
 host and the fork on one foundation.
@@ -80,7 +80,7 @@ host and the fork on one foundation.
 ## 6. License & notice obligations
 
 - Retain BSD-3 copyright/conditions/disclaimer in all forked source files.
-- Do not use upstream author/contributor names to endorse Tessera.
+- Do not use upstream author/contributor names to endorse ApertureX.
 - Reproduce the notice in the in-app license bundle and in
   [`THIRD_PARTY.md`](../THIRD_PARTY.md).
 
@@ -91,7 +91,7 @@ host and the fork on one foundation.
   isolated as discrete commits; rebase upstream tags onto it rather than merging.
 - **Triage:** keep a `FORK-DIVERGENCE.md` changelog listing every intentional
   divergence, so a rebase conflict is easy to attribute.
-- **Upstream-back:** small, generic fixes (not Tessera-specific) are offered back
+- **Upstream-back:** small, generic fixes (not ApertureX-specific) are offered back
   as PRs to reduce future divergence.
 
 ## 8. Exit option

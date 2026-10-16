@@ -359,7 +359,7 @@ its default ceiling and thrash.
 - **Library DB:** SQLite (Drift, consistent with the org's Flutter stack) indexes
   projects, sidecars, presets, and histories. No source pixels are copied without
   explicit user intent.
-- **Presets:** serialized recipes (`.tessera-preset.json`), shareable.
+- **Presets:** serialized recipes (`.aperturex-preset.json`), shareable.
 - **Undo history:** in-memory command log that can be serialized for crash
   recovery.
 

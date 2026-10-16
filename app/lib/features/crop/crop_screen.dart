@@ -76,8 +76,8 @@ class _CropScreenState extends ConsumerState<CropScreen> {
   Future<void> _init() async {
     try {
       final decoded = isRawImage(widget.imageBytes)
-          ? await TesseraEngine.decodeRawRgba(widget.imageBytes)
-          : await TesseraEngine.decodeJpegRgba(widget.imageBytes);
+          ? await AxEngine.decodeRawRgba(widget.imageBytes)
+          : await AxEngine.decodeJpegRgba(widget.imageBytes);
       _sourceSize = Size(decoded.width.toDouble(), decoded.height.toDouble());
       final image = await _imageFrom(
         decoded.rgba,

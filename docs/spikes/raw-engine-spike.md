@@ -54,7 +54,7 @@ Spike complete. Decision: **rawler-first** (LibRaw kept optional behind `--featu
 - Orientation: `decode` applies the EXIF orientation (`RawOrientation::to_flips`
   → flip H/V then transpose) so pixels come out upright; `raw_dimensions`
   reports display dimensions (swapping axes for 90°/270°/transpose).
-- FFI (`api/raw.rs`, exposed as `TesseraEngine.rawDimensions` /
+- FFI (`api/raw.rs`, exposed as `AxEngine.rawDimensions` /
   `decodeRawRgba` / `decodeRawRoi`): decode + `camera_to_srgb` + `to_rgba8` so
   Dart receives sRGB RGBA8. `lib/engine/image_format.dart` sniffs TIFF/CR3/RAF
   and the viewport, crop screen, editor export and gallery export route raw

@@ -9,7 +9,7 @@ import 'package:aperturex/edit/recipe.dart';
 /// CI regression gate for the live-grading scrub hot path (issue #17).
 ///
 /// A scrub step in [ImageCanvas._rebuildLut] costs:
-///   GradeSpec.fromRecipe(recipe)  →  TesseraEngine.bakeLut3d (Rust, device)
+///   GradeSpec.fromRecipe(recipe)  →  AxEngine.bakeLut3d (Rust, device)
 ///   →  lutAtlasToImage (Dart + engine texture upload).
 ///
 /// The Rust bake only runs on a device (see integration_test/perf_harness_test.dart);

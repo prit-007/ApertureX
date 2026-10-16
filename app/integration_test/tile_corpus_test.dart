@@ -30,7 +30,7 @@ import 'package:aperturex/viewport/tile_source.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(TesseraEngine.init);
+  setUpAll(AxEngine.init);
 
   testWidgets('100 MP pyramid: seams byte-exact, memory in budget',
       (tester) async {
@@ -49,12 +49,12 @@ void main() {
     final corpusPath = Platform.environment['CORPUS_JPEG'];
     if (corpusPath != null) {
       jpeg = File(corpusPath).readAsBytesSync();
-      final dims = await TesseraEngine.jpegDimensions(jpeg);
+      final dims = await AxEngine.jpegDimensions(jpeg);
       imageW = dims.width;
       imageH = dims.height;
     } else {
       final genSw = Stopwatch()..start();
-      jpeg = await TesseraEngine.syntheticJpeg(width: width, height: height);
+      jpeg = await AxEngine.syntheticJpeg(width: width, height: height);
       genSw.stop();
       imageW = width;
       imageH = height;

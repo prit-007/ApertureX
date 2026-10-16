@@ -17,17 +17,16 @@
 > with cancel), and the **high-zoom ROI overlay** (native region decode on
 > Android) swaps in a full-res band when zoom crosses the proxy ceiling.
 > Several other parts are **built but not yet wired end-to-end** —
-> the multi-level tile pyramid for >100 MP,
-> sidecar persistence, and RAW lens corrections — each tracked by a
+> the multi-level tile pyramid for >100 MP and RAW lens corrections —
+> each tracked by a
 > GitHub issue. See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)
 > for the current status and gaps, [`docs/ROADMAP.md`](docs/ROADMAP.md) for phase
 > gates, and the [`docs/PARITY.md`](docs/PARITY.md) ledger.
 
-> **Naming:** the product is **ApertureX**. The Dart package is now
-> `aperturex`; the Android `applicationId` (`com.devparadise.tessera`) and the
-> Rust crate (`rust_lib_tessera`) still carry the historical name and are the
-> remaining rename step (changing the applicationId would break existing
-> installs/keys).
+> **Naming:** the product is **ApertureX** and every identifier is canonical:
+> Dart package `aperturex`, applicationId/bundle id `com.devparadise.aperturex`,
+> Rust crate `rust_lib_aperturex`. The historical name survives only in git
+> history and ADRs.
 
 ---
 

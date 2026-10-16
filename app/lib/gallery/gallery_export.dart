@@ -110,20 +110,20 @@ class BatchCancel {
     _requested = true;
     final token = _token;
     if (token != null) {
-      TesseraEngine.exportCancelSet(token);
+      AxEngine.exportCancelSet(token);
     }
   }
 
   /// Connects the currently running full-res export's cancel token.
   Future<void> attach(int token) async {
     _token = token;
-    if (_requested) await TesseraEngine.exportCancelSet(token);
+    if (_requested) await AxEngine.exportCancelSet(token);
   }
 
   /// Releases [token] once its export finishes.
   Future<void> detach(int token) async {
     if (_token == token) _token = null;
-    await TesseraEngine.exportCancelDrop(token);
+    await AxEngine.exportCancelDrop(token);
   }
 }
 
@@ -199,17 +199,17 @@ class GalleryExporter {
     final int height;
     var exif = Uint8List(0);
     if (isRawImage(src)) {
-      final decoded = await TesseraEngine.decodeRawRgba(src);
+      final decoded = await AxEngine.decodeRawRgba(src);
       rgba = decoded.rgba;
       width = decoded.width;
       height = decoded.height;
     } else {
-      final decoded = await TesseraEngine.decodeJpegRgba(src);
-      exif = await TesseraEngine.extractExif(src);
+      final decoded = await AxEngine.decodeJpegRgba(src);
+      exif = await AxEngine.extractExif(src);
       // Normalize wide-gamut input (Display P3 -> sRGB) so colours are faithful.
-      final space = await TesseraEngine.detectColorspace(src);
+      final space = await AxEngine.detectColorspace(src);
       rgba = space == 2
-          ? await TesseraEngine.p3ToSrgb(
+          ? await AxEngine.p3ToSrgb(
               decoded.rgba,
               width: decoded.width,
               height: decoded.height,
@@ -221,19 +221,19 @@ class GalleryExporter {
 
     // One cancel token per item; BatchCancel routes a mid-batch request into
     // whichever item is in flight right now.
-    final token = cancel == null ? 0 : await TesseraEngine.exportCancelNew();
+    final token = cancel == null ? 0 : await AxEngine.exportCancelNew();
     if (cancel != null) await cancel.attach(token);
     ExportProgressPoller? poller;
     if (onFraction != null && token != 0) {
       poller = ExportProgressPoller(
         token: token,
-        read: TesseraEngine.exportProgressFraction,
+        read: AxEngine.exportProgressFraction,
         onValue: onFraction,
       )..start();
     }
     try {
       final specs = specsFor(recipe);
-      final out = await TesseraEngine.exportJpegFull(
+      final out = await AxEngine.exportJpegFull(
         rgba: rgba,
         width: width,
         height: height,

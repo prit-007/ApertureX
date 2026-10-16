@@ -197,7 +197,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       final program = await ref.read(lutProgramProvider.future);
       final jpeg =
           widget.imageBytes ??
-          await TesseraEngine.syntheticJpeg(width: 1024, height: 1024);
+          await AxEngine.syntheticJpeg(width: 1024, height: 1024);
       // Original frame dims for the ROI overlay (#55): header-only, RAW
       // excluded (no region decode path for demosaiced data).
       _roiBytes = jpeg;
@@ -207,7 +207,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _tileGrid = null;
       } else {
         try {
-          final dims = await TesseraEngine.jpegDimensions(jpeg);
+          final dims = await AxEngine.jpegDimensions(jpeg);
           _fullW = dims.width;
           _fullH = dims.height;
           _tileGrid = TileGrid(
@@ -231,14 +231,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _source = proxy.$1;
       // Upload once into the Rust-resident store (#37 spike A); the pixels
       // never need to come back — every bake addresses the handle.
-      final handle = await TesseraEngine.previewOpen(
+      final handle = await AxEngine.previewOpen(
         rgba: proxy.$2,
         width: proxy.$3,
         height: proxy.$4,
       );
       if (!mounted) {
         proxy.$1.dispose();
-        unawaited(TesseraEngine.previewClose(handle));
+        unawaited(AxEngine.previewClose(handle));
         return;
       }
       _previewHandle = handle;
@@ -377,7 +377,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     // as the proxy; the halo gives the spatial chain true context on all
     // four sides. One halo fetch covers the whole visible set.
     final spec = _baseSpec(recipe);
-    final halo = await TesseraEngine.roiHalo(
+    final halo = await AxEngine.roiHalo(
       spec: spec,
       fullWidth: _fullW,
       fullHeight: _fullH,
@@ -441,7 +441,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       height: dh,
     );
     if (src == null) return null;
-    final baked = await TesseraEngine.bakeRoiRect(
+    final baked = await AxEngine.bakeRoiRect(
       src.rgba,
       decodeX: dx,
       decodeY: dy,
@@ -504,12 +504,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     Uint8List bytes, {
     int? maxDim,
   }) async {
-    final decoded = await TesseraEngine.decodeRawRgba(bytes);
+    final decoded = await AxEngine.decodeRawRgba(bytes);
     var w = decoded.width;
     var h = decoded.height;
     var rgba = decoded.rgba;
     if (maxDim != null && math.max(w, h) > maxDim) {
-      final d = await TesseraEngine.downscale(
+      final d = await AxEngine.downscale(
         rgba,
         width: w,
         height: h,
@@ -688,7 +688,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final handle = _previewHandle;
     if (handle == null) return;
 
-    final frame = await TesseraEngine.previewBase(
+    final frame = await AxEngine.previewBase(
       handle,
       spec: _baseSpec(recipe),
       layers: recipe.layers,
@@ -719,7 +719,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       lutImage = await lutAtlasToImage(imported);
       lutSize = imported.size;
     } else {
-      final data = await TesseraEngine.bakeLut3d(
+      final data = await AxEngine.bakeLut3d(
         spec,
         size: _previewLutSize,
       );
@@ -747,7 +747,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (handle == null) return;
     // Binned from the Rust-resident cached base (#37 spike A) — zero pixels
     // cross the bridge, so scrubbing the grade no longer re-uploads the frame.
-    final histogram = await TesseraEngine.previewHistogram(
+    final histogram = await AxEngine.previewHistogram(
       handle,
       sampleDim: 256,
       spec: GradeSpec.fromRecipe(recipe),
@@ -766,7 +766,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final handle = _previewHandle;
     if (handle == null) return;
     try {
-      final size = await TesseraEngine.previewRender(
+      final size = await AxEngine.previewRender(
         handle,
         spec: _baseSpec(recipe),
         layers: recipe.layers,
@@ -815,7 +815,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _tiles.clear(); // disposes every cached tile image (onEvict)
     final handle = _previewHandle;
     if (handle != null) {
-      unawaited(TesseraEngine.previewClose(handle));
+      unawaited(AxEngine.previewClose(handle));
     }
     super.dispose();
   }

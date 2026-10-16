@@ -1,5 +1,5 @@
 #version 460 core
-// Tessera grading shader (seed).
+// ApertureX grading shader (seed).
 //
 // Grading chain: exposure (EV) -> contrast (around mid-grey) -> saturation.
 // Samples the bound image texture and is driven live by the gesture FSM.

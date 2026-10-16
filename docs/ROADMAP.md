@@ -256,7 +256,7 @@ cancellable full-res export lives in `app/rust/src/export_pipeline.rs`
 (`run_export_tiled` vs `run_export_single` byte-exact parity oracle;
 `ExportOutcome::Cancelled`) and is now **exposed over FRB** as `exportFull` with
 an opaque cancel-token registry (`exportCancelNew/Set/Drop`). Dart's
-`TesseraEngine.exportJpegFull` runs the whole recipe inside Rust — geometry →
+`AxEngine.exportJpegFull` runs the whole recipe inside Rust — geometry →
 banded spatial → masks → grade → optional downscale → JPEG — in **one** bridge
 crossing instead of five; `exportJpeg` now delegates to it, so the legacy
 multi-round-trip chain is retired. The editor drives a Cancel button off the

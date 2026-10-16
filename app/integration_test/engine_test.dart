@@ -11,15 +11,15 @@ import 'package:aperturex/engine/engine.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(TesseraEngine.init);
+  setUpAll(AxEngine.init);
 
   test('engine_version returns a non-empty version string', () async {
-    final version = await TesseraEngine.version();
+    final version = await AxEngine.version();
     expect(version, isNotEmpty);
   });
 
   test('brighten round-trips an RGBA byte buffer and preserves alpha', () async {
-    final out = await TesseraEngine.brighten(
+    final out = await AxEngine.brighten(
       Uint8List.fromList([10, 20, 30, 40]),
       5,
     );
@@ -27,16 +27,16 @@ void main() {
   });
 
   test('synthetic JPEG decodes to dimensions and supports ROI crop', () async {
-    final jpeg = await TesseraEngine.syntheticJpeg(width: 64, height: 48);
+    final jpeg = await AxEngine.syntheticJpeg(width: 64, height: 48);
 
-    final dims = await TesseraEngine.jpegDimensions(jpeg);
+    final dims = await AxEngine.jpegDimensions(jpeg);
     expect(dims.width, 64);
     expect(dims.height, 48);
 
-    final full = await TesseraEngine.decodeJpegRgba(jpeg);
+    final full = await AxEngine.decodeJpegRgba(jpeg);
     expect(full.rgba.length, 64 * 48 * 4);
 
-    final roi = await TesseraEngine.decodeJpegRoi(
+    final roi = await AxEngine.decodeJpegRoi(
       jpeg,
       x: 8,
       y: 8,
@@ -57,25 +57,25 @@ void main() {
       return sum / (buf.length ~/ 4);
     }
 
-    final jpeg = await TesseraEngine.syntheticJpeg(width: 64, height: 48);
-    final decoded = await TesseraEngine.decodeJpegRgba(jpeg);
+    final jpeg = await AxEngine.syntheticJpeg(width: 64, height: 48);
+    final decoded = await AxEngine.decodeJpegRgba(jpeg);
     final rgba = decoded.rgba;
 
-    final neutral = await TesseraEngine.exportJpeg(
+    final neutral = await AxEngine.exportJpeg(
       rgba: rgba,
       width: decoded.width,
       height: decoded.height,
       spec: const GradeSpec(),
     );
-    final brighter = await TesseraEngine.exportJpeg(
+    final brighter = await AxEngine.exportJpeg(
       rgba: rgba,
       width: decoded.width,
       height: decoded.height,
       spec: const GradeSpec(exposure: 1.0), // +1 EV must brighten the export
     );
 
-    final nImg = await TesseraEngine.decodeJpegRgba(neutral);
-    final bImg = await TesseraEngine.decodeJpegRgba(brighter);
+    final nImg = await AxEngine.decodeJpegRgba(neutral);
+    final bImg = await AxEngine.decodeJpegRgba(brighter);
 
     expect(nImg.width, 64);
     expect(nImg.height, 48);
@@ -84,10 +84,10 @@ void main() {
   });
 
   test('exportJpegFull bakes the whole recipe in one call', () async {
-    final jpeg = await TesseraEngine.syntheticJpeg(width: 64, height: 48);
-    final decoded = await TesseraEngine.decodeJpegRgba(jpeg);
+    final jpeg = await AxEngine.syntheticJpeg(width: 64, height: 48);
+    final decoded = await AxEngine.decodeJpegRgba(jpeg);
 
-    final out = await TesseraEngine.exportJpegFull(
+    final out = await AxEngine.exportJpegFull(
       rgba: decoded.rgba,
       width: decoded.width,
       height: decoded.height,
@@ -96,25 +96,25 @@ void main() {
       maxDim: 32,
     );
     expect(out, isNotNull);
-    final img = await TesseraEngine.decodeJpegRgba(out!);
+    final img = await AxEngine.decodeJpegRgba(out!);
     // maxDim caps the longest side to 32.
     expect(img.width == 32 || img.height == 32, isTrue);
   });
 
   test('exportJpegFull returns null when its cancel token fires', () async {
-    final jpeg = await TesseraEngine.syntheticJpeg(width: 64, height: 48);
-    final decoded = await TesseraEngine.decodeJpegRgba(jpeg);
+    final jpeg = await AxEngine.syntheticJpeg(width: 64, height: 48);
+    final decoded = await AxEngine.decodeJpegRgba(jpeg);
 
-    final token = await TesseraEngine.exportCancelNew();
-    await TesseraEngine.exportCancelSet(token);
-    final out = await TesseraEngine.exportJpegFull(
+    final token = await AxEngine.exportCancelNew();
+    await AxEngine.exportCancelSet(token);
+    final out = await AxEngine.exportJpegFull(
       rgba: decoded.rgba,
       width: decoded.width,
       height: decoded.height,
       spec: const GradeSpec(exposure: 1.0),
       cancelToken: token,
     );
-    await TesseraEngine.exportCancelDrop(token);
+    await AxEngine.exportCancelDrop(token);
 
     expect(out, isNull, reason: 'a set token must abort the export');
   });
