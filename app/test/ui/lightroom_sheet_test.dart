@@ -60,8 +60,14 @@ void main() {
     expect(find.byType(LightroomShell), findsOneWidget);
 
     await tester.tap(find.text('Hide tools'));
-    await tester.pump(const Duration(milliseconds: 350));
+    // Pump intermediate frames where height sweeps through 0..88px
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
     expect(bodyHeight(tester), 0);
     expect(find.byType(LightroomShell), findsNothing);
     // The photo is still edge-to-edge behind the collapsed sheet.

@@ -103,114 +103,135 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
       ),
     );
 
-    return Column(
-      children: [
-        // Full-width chip strip: on a phone the trailing icon cluster used to
-        // squeeze the scrollable chips to ~2 visible sections, so the rest of
-        // the tools (Effects/Detail/Geometry/Masking) were undiscoverable.
-        // The chips get their own row; actions sit below them.
-        SizedBox(
-          height: 44,
-          child: ListView(
-            controller: _tabScrollController,
-            physics: const BouncingScrollPhysics(),
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            children: [
-              for (final section in _sections)
-                chip(
-                  section,
-                  _tab == _Tab.panel && section == _section,
-                  () {
-                    setState(() {
-                      _section = section;
-                      _tab = _Tab.panel;
-                    });
-                    final idx = _sections.indexOf(section);
-                    if (_tabScrollController.hasClients) {
-                      final target = (idx * 90.0 - 60.0).clamp(
-                        0.0,
-                        _tabScrollController.position.maxScrollExtent,
-                      );
-                      _tabScrollController.animateTo(
-                        target,
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeOut,
-                      );
-                    }
-                  },
-                ),
-            ],
-          ),
-        ),
-        Divider(height: 1, color: scheme.outlineVariant),
-        SizedBox(
-          height: 48,
-          child: Row(
-            children: [
-              if (ref.watch(tatModeProvider))
-                TextButton(
-                  onPressed: () =>
-                      ref.read(tatComponentProvider.notifier).cycle(),
-                  child: Text(
-                    tatComponentLabels[ref.watch(tatComponentProvider)],
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: scheme.primary,
-                      fontWeight: FontWeight.w700,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final content = Column(
+          children: [
+            // Full-width chip strip: on a phone the trailing icon cluster used to
+            // squeeze the scrollable chips to ~2 visible sections, so the rest of
+            // the tools (Effects/Detail/Geometry/Masking) were undiscoverable.
+            // The chips get their own row; actions sit below them.
+            SizedBox(
+              height: 44,
+              child: ListView(
+                controller: _tabScrollController,
+                physics: const BouncingScrollPhysics(),
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                children: [
+                  for (final section in _sections)
+                    chip(
+                      section,
+                      _tab == _Tab.panel && section == _section,
+                      () {
+                        setState(() {
+                          _section = section;
+                          _tab = _Tab.panel;
+                        });
+                        final idx = _sections.indexOf(section);
+                        if (_tabScrollController.hasClients) {
+                          final target = (idx * 90.0 - 60.0).clamp(
+                            0.0,
+                            _tabScrollController.position.maxScrollExtent,
+                          );
+                          _tabScrollController.animateTo(
+                            target,
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      },
+                    ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: scheme.outlineVariant),
+            SizedBox(
+              height: 44,
+              child: Row(
+                children: [
+                  if (ref.watch(tatModeProvider)) ...[
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                      onPressed: () =>
+                          ref.read(tatComponentProvider.notifier).cycle(),
+                      child: Text(
+                        tatComponentLabels[ref.watch(tatComponentProvider)],
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                  IconButton(
+                    tooltip: 'Target Adjustment: drag the image to target the HSL '
+                        'colour under your finger',
+                    visualDensity: VisualDensity.compact,
+                    isSelected: ref.watch(tatModeProvider),
+                    onPressed: () => ref.read(tatModeProvider.notifier).toggle(),
+                    icon: const Icon(Icons.colorize),
+                    selectedIcon: Icon(Icons.colorize, color: scheme.primary),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Undo',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: canUndo ? controller.undo : null,
+                    icon: const Icon(Icons.undo),
+                  ),
+                  IconButton(
+                    tooltip: 'Redo',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: canRedo ? controller.redo : null,
+                    icon: const Icon(Icons.redo),
+                  ),
+                  Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerDown: (_) =>
+                        ref.read(compareHoldProvider.notifier).hold(),
+                    onPointerUp: (_) =>
+                        ref.read(compareHoldProvider.notifier).release(),
+                    onPointerCancel: (_) =>
+                        ref.read(compareHoldProvider.notifier).release(),
+                    child: IconButton(
+                      tooltip: 'Hold to compare',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () {},
+                      icon: const Icon(Icons.compare),
                     ),
                   ),
-                ),
-              IconButton(
-                tooltip: 'Target Adjustment: drag the image to target the HSL '
-                    'colour under your finger',
-                isSelected: ref.watch(tatModeProvider),
-                onPressed: () => ref.read(tatModeProvider.notifier).toggle(),
-                icon: const Icon(Icons.colorize),
-                selectedIcon: Icon(Icons.colorize, color: scheme.primary),
+                ],
               ),
-              // History + compare live at the bottom, in the thumb zone
-              // (issue #28) — the app bar keeps only crop/more/export.
-              IconButton(
-                tooltip: 'Undo',
-                onPressed: canUndo ? controller.undo : null,
-                icon: const Icon(Icons.undo),
-              ),
-              IconButton(
-                tooltip: 'Redo',
-                onPressed: canRedo ? controller.redo : null,
-                icon: const Icon(Icons.redo),
-              ),
-              Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: (_) =>
-                    ref.read(compareHoldProvider.notifier).hold(),
-                onPointerUp: (_) =>
-                    ref.read(compareHoldProvider.notifier).release(),
-                onPointerCancel: (_) =>
-                    ref.read(compareHoldProvider.notifier).release(),
-                child: IconButton(
-                  tooltip: 'Hold to compare',
-                  // The Listener above drives the compare; the button only
-                  // provides the affordance and the ripple.
-                  onPressed: () {},
-                  icon: const Icon(Icons.compare),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Divider(height: 1, color: scheme.outlineVariant),
-        Expanded(
-          child: SafeArea(bottom: true, child: _sectionBody()),
-        ),
-      ],
+            ),
+            Divider(height: 1, color: scheme.outlineVariant),
+            Expanded(
+              child: SafeArea(bottom: true, child: _sectionBody()),
+            ),
+          ],
+        );
+
+        if (constraints.maxHeight < 90) {
+          return OverflowBox(
+            minHeight: 0,
+            maxHeight: double.infinity,
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              height: 200,
+              child: content,
+            ),
+          );
+        }
+        return content;
+      },
     );
   }
 
-  /// The body for the selected top-level section. Color exposes the
-  /// tone-curve and HSL-mixer as secondary tabs (issue #44) — they are views
-  /// of colour data, not peer sections of the top chip row.
+  /// The body for the selected top-level section.
   Widget _sectionBody() {
     switch (_section) {
       case RecipeSection.color:
@@ -260,6 +281,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
       onPressed: () => setState(() => _tab = value),
       style: TextButton.styleFrom(
         visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         foregroundColor: _tab == value
             ? Theme.of(context).colorScheme.primary
             : null,
@@ -274,6 +296,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     );
 
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         tab('Sliders', _Tab.panel),
         tab('Curve', _Tab.curve),

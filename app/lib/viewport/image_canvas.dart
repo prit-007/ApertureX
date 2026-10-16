@@ -23,6 +23,7 @@ import '../engine/preview_texture.dart';
 import '../gesture/gesture_interpreter.dart';
 import 'compare_hold.dart';
 import 'canvas_transform.dart';
+import 'exif_orientation.dart';
 import 'live_warp.dart';
 import 'mask_peek.dart';
 import 'preview_surface.dart';
@@ -480,22 +481,17 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
     final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
     final descriptor = await ui.ImageDescriptor.encoded(buffer);
-    int? tw;
-    int? th;
-    if (maxDim != null) {
-      final longest = math.max(descriptor.width, descriptor.height);
-      if (longest > maxDim) {
-        if (descriptor.width >= descriptor.height) {
-          tw = maxDim;
-        } else {
-          th = maxDim;
-        }
-      }
-    }
+    final orientation = readExifOrientation(bytes);
+    final target = computeDecodeTarget(
+      rawWidth: descriptor.width,
+      rawHeight: descriptor.height,
+      orientation: orientation,
+      maxDim: maxDim,
+    );
     final codec = await ui.instantiateImageCodecFromBuffer(
       buffer,
-      targetWidth: tw,
-      targetHeight: th,
+      targetWidth: target.targetWidth,
+      targetHeight: target.targetHeight,
     );
     final frame = await codec.getNextFrame();
     codec.dispose();

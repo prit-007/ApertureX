@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' show ImageFilter;
 
@@ -168,6 +169,14 @@ class _AppShellState extends ConsumerState<AppShell> {
                   _fsm.setTool(t);
                   setState(() => _active = t);
                 },
+                onSelectCategoryAndTool: (cat, t) {
+                  final tools = gestureCategories[cat]!;
+                  _fsm.setTools(tools, select: t);
+                  setState(() {
+                    _category = cat;
+                    _active = t;
+                  });
+                },
               ),
               if (widget.topHud != null)
                 Positioned(
@@ -204,7 +213,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 Positioned(
                   left: 0,
                   right: 0,
-                  top: 0,
+                  top: 56,
                   child: _Fade(
                     active: active,
                     child: const SafeArea(
@@ -219,20 +228,24 @@ class _AppShellState extends ConsumerState<AppShell> {
               if (!nodeMode)
                 Positioned(
                   left: Insets.sm,
-                  bottom: Insets.sm,
+                  bottom: 64,
                   child: _Fade(
                     active: active,
                     child: SafeArea(
                       top: false,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const _SelectiveToggle(),
-                          const SizedBox(height: Insets.xs),
-                          overlays[0],
-                        ],
-                      ),
+                      child: overlays[0],
+                    ),
+                  ),
+                ),
+              if (!nodeMode)
+                Positioned(
+                  left: Insets.sm,
+                  bottom: Insets.sm,
+                  child: _Fade(
+                    active: active,
+                    child: const SafeArea(
+                      top: false,
+                      child: _SelectiveToggle(),
                     ),
                   ),
                 ),
@@ -403,22 +416,39 @@ class _PanelHandle extends StatelessWidget {
         onTap: onToggle,
         onDoubleTap: onDoubleTap,
         child: SizedBox(
-          height: 28,
-          child: Row(
+          height: 30,
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                collapsed ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                size: 20,
-                color: scheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: Insets.xs),
-              Text(
-                collapsed ? 'Show tools' : 'Hide tools',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: scheme.onSurfaceVariant,
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
                 ),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    collapsed ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    size: 14,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    collapsed ? 'Show tools' : 'Hide tools',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.4,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -555,17 +585,22 @@ class _LightroomSheetState extends State<_LightroomSheet> {
                     ),
                     child: Material(
                       color: scheme.surface,
-                      child: SizedBox(
-                        height: contentHeight,
-                        child: Column(
-                          children: [
-                            if (widget.hasHistogram)
-                              _HistogramDrawer(
-                                open: widget.histogramOpen,
-                                setOpen: widget.setHistogramOpen,
-                              ),
-                            const Expanded(child: LightroomShell()),
-                          ],
+                      child: OverflowBox(
+                        minHeight: 0,
+                        maxHeight: double.infinity,
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          height: math.max(contentHeight, 200.0),
+                          child: Column(
+                            children: [
+                              if (widget.hasHistogram)
+                                _HistogramDrawer(
+                                  open: widget.histogramOpen,
+                                  setOpen: widget.setHistogramOpen,
+                                ),
+                              const Expanded(child: LightroomShell()),
+                            ],
+                          ),
                         ),
                       ),
                     ),

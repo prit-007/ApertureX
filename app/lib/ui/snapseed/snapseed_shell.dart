@@ -13,6 +13,7 @@ import '../../edit/recipe_mapping.dart';
 import '../../gesture/gesture_interpreter.dart';
 import '../common/precision_rotation_dial.dart';
 import 'edit_hud.dart';
+import 'snapseed_tools_sheet.dart';
 
 /// Index of the radial-menu item nearest [pointer], for a menu centred at
 /// [center] with [count] items at [radius]. Item 0 sits at the top (−90°),
@@ -45,6 +46,7 @@ class SnapseedShell extends ConsumerStatefulWidget {
     required this.tools,
     required this.onCycleCategory,
     required this.onPickTool,
+    this.onSelectCategoryAndTool,
   });
 
   final GradeTool tool;
@@ -52,6 +54,7 @@ class SnapseedShell extends ConsumerStatefulWidget {
   final List<GradeTool> tools;
   final VoidCallback onCycleCategory;
   final ValueChanged<GradeTool> onPickTool;
+  final void Function(ToolCategory category, GradeTool tool)? onSelectCategoryAndTool;
 
   @override
   ConsumerState<SnapseedShell> createState() => _SnapseedShellState();
@@ -86,6 +89,29 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
     GradeTool.sharpen => Icons.details,
   };
 
+  void _openToolsSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.70,
+        child: SnapseedToolsSheet(
+          onSelectCategoryAndTool: (cat, tool) {
+            if (widget.onSelectCategoryAndTool != null) {
+              widget.onSelectCategoryAndTool!(cat, tool);
+            } else {
+              widget.onPickTool(tool);
+            }
+          },
+          onOpenStraighten: () {
+            setState(() => _straightenOpen = true);
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final recipe = ref.watch(recipeControllerProvider).recipe;
@@ -99,10 +125,10 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
     return Stack(
       children: [
-        // Recent-changes HUD (top-right). Clear the status bar and any
-        // leading-edge cutout (issue #47).
+        // Recent-changes HUD: float below top bar (top: 56) so it never
+        // collides with the export button or status bar.
         const Positioned(
-          top: 0,
+          top: 56,
           right: 0,
           child: SafeArea(left: false, bottom: false, child: EditHud()),
         ),
@@ -114,14 +140,14 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           child: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.only(bottom: Insets.lg),
+              padding: const EdgeInsets.only(bottom: Insets.sm),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.85),
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.90),
                   borderRadius: Radii.pillAll,
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(Insets.lg, Insets.xs, Insets.sm, Insets.xs),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -129,86 +155,101 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                         onTap: widget.onCycleCategory,
                         borderRadius: Radii.smAll,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: Insets.sm,
-                            vertical: Insets.xs,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 _categoryLabel(widget.category),
-                                style: themeStyle(
-                                  context,
-                                  FontWeight.w600,
-                                ).copyWith(color: scheme.onSurfaceVariant),
+                                style: themeStyle(context, FontWeight.w600)
+                                    .copyWith(color: scheme.onSurfaceVariant, fontSize: 11),
                               ),
-                              const Icon(Icons.unfold_more, size: 16),
+                              const Icon(Icons.unfold_more, size: 12),
                             ],
                           ),
                         ),
                       ),
                       Container(
                         width: 1,
-                        height: 20,
+                        height: 16,
                         color: scheme.outlineVariant,
                       ),
-                      const SizedBox(width: Insets.md),
-                      Text(
-                        spec.label,
-                        style: themeStyle(context, FontWeight.w600),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          spec.label,
+                          overflow: TextOverflow.ellipsis,
+                          style: themeStyle(context, FontWeight.w600).copyWith(fontSize: 11),
+                        ),
                       ),
-                      const SizedBox(width: Insets.md),
+                      const SizedBox(width: 4),
                       Text(
                         '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
                         style: themeStyle(context, FontWeight.w700).copyWith(
                           color: scheme.primary,
+                          fontSize: 11,
                         ),
                       ),
-
-                      const SizedBox(width: Insets.sm),
-                      if (ref.watch(tatModeProvider))
-                        InkWell(
-                          onTap: () =>
-                              ref.read(tatComponentProvider.notifier).cycle(),
-                          borderRadius: Radii.smAll,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: Insets.sm,
-                              vertical: Insets.xs,
-                            ),
-                            child: Text(
-                              'HSL · ${tatComponentLabels[ref.watch(tatComponentProvider)]}',
-                              style: themeStyle(context, FontWeight.w700)
-                                  .copyWith(color: scheme.primary),
-                            ),
-                          ),
-                        ),
                       IconButton(
                         tooltip: 'HSL target: tap a colour in the photo, then '
                             'drag to adjust it',
                         visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(26, 26),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          padding: EdgeInsets.zero,
+                        ),
                         isSelected: ref.watch(tatModeProvider),
                         onPressed: () =>
                             ref.read(tatModeProvider.notifier).toggle(),
-                        icon: const Icon(Icons.colorize, size: 20),
-                        selectedIcon: Icon(Icons.colorize, size: 20, color: scheme.primary),
+                        icon: const Icon(Icons.colorize, size: 16),
+                        selectedIcon: Icon(Icons.colorize, size: 16, color: scheme.primary),
                       ),
                       IconButton(
                         key: const Key('snapseed-straighten-toggle'),
                         tooltip: 'Straighten & Rotate',
                         visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(26, 26),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          padding: EdgeInsets.zero,
+                        ),
                         isSelected: _straightenOpen,
                         onPressed: () =>
                             setState(() => _straightenOpen = !_straightenOpen),
-                        icon: const Icon(Icons.crop_rotate, size: 20),
-                        selectedIcon: Icon(Icons.crop_rotate, size: 20, color: scheme.primary),
+                        icon: const Icon(Icons.crop_rotate, size: 16),
+                        selectedIcon: Icon(Icons.crop_rotate, size: 16, color: scheme.primary),
+                      ),
+                      IconButton(
+                        key: const Key('snapseed-tools-sheet-toggle'),
+                        tooltip: 'All Tools',
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(26, 26),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          padding: EdgeInsets.zero,
+                        ),
+                        onPressed: () => _openToolsSheet(context),
+                        icon: const Icon(Icons.grid_view, size: 16),
                       ),
                       IconButton(
                         tooltip: 'Tools',
                         visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(26, 26),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          padding: EdgeInsets.zero,
+                        ),
                         onPressed: () => setState(() => _radialOpen = true),
-                        icon: const Icon(Icons.radio_button_checked, size: 20),
+                        icon: const Icon(Icons.radio_button_checked, size: 16),
                       ),
                     ],
                   ),

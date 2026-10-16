@@ -134,4 +134,25 @@ void main() {
       expect(find.byType(ColorGradingEditor), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'LightroomShell renders safely without RenderFlex overflow under small height constraints (h=63.9)',
+    (tester) async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 426.7,
+                height: 63.9,
+                child: LightroomShell(),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
