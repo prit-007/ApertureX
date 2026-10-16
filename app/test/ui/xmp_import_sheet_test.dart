@@ -91,4 +91,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Preset compatibility'), findsNothing);
   });
+
+  testWidgets('applying a pasted .lrtemplate loads the recipe and shows compatibility report', (
+    tester,
+  ) async {
+    const lrtemplate = '''
+s = {
+	value = {
+		settings = {
+			Exposure2012 = 0.8,
+			Contrast2012 = -20,
+		},
+	},
+}
+''';
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: XmpImportSheet())),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), lrtemplate);
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+
+    final recipe = container.read(recipeControllerProvider).recipe;
+    expect(recipe.exposure, 0.8);
+    expect(recipe.contrast, closeTo(-0.20, 1e-6));
+    expect(find.text('Preset compatibility'), findsOneWidget);
+  });
 }

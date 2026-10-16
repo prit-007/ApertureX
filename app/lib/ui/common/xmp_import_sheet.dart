@@ -4,13 +4,14 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../edit/lrtemplate_preset.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/xmp_preset.dart';
 import 'app_sheet.dart';
 import 'paste_button.dart';
 
-/// Import a Lightroom `.xmp` preset (best-effort) and show the per-setting
-/// compatibility report (ADR 0009).
+/// Import a Lightroom `.xmp` or `.lrtemplate` preset (best-effort) and show the
+/// per-setting compatibility report (ADR 0009).
 class XmpImportSheet extends ConsumerStatefulWidget {
   const XmpImportSheet({super.key});
 
@@ -28,13 +29,18 @@ class _XmpImportSheetState extends ConsumerState<XmpImportSheet> {
   }
 
   void _apply() {
-    final import = parseXmpPreset(_controller.text);
+    final text = _controller.text.trim();
+    final isLrtemplate = text.startsWith('s =') ||
+        text.startsWith('return {') ||
+        (!text.startsWith('<') && text.contains('settings'));
+    final import =
+        isLrtemplate ? parseLrtemplatePreset(text) : parseXmpPreset(text);
     ref
         .read(recipeControllerProvider.notifier)
         .loadRecipe(import.recipe, label: 'Preset');
     axLog(
       LogDomain.preset,
-      'Imported .xmp preset (${import.notes.length} settings)',
+      'Imported ${isLrtemplate ? ".lrtemplate" : ".xmp"} preset (${import.notes.length} settings)',
     );
     // Thumb-zone report sheet (ADR-consistent AppSheet), not a centred
     // dialog: the user's thumb is already at the bottom of the screen.
@@ -84,7 +90,7 @@ class _XmpImportSheetState extends ConsumerState<XmpImportSheet> {
   @override
   Widget build(BuildContext context) {
     return AppSheet(
-      title: 'Import a Lightroom .xmp preset',
+      title: 'Import a preset (.xmp or .lrtemplate)',
       subtitle: 'Paste the preset contents; you’ll see what mapped cleanly.',
       children: [
         TextField(
@@ -93,7 +99,7 @@ class _XmpImportSheetState extends ConsumerState<XmpImportSheet> {
           minLines: 4,
           style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
           decoration: InputDecoration(
-            hintText: 'Paste .xmp contents…',
+            hintText: 'Paste .xmp or .lrtemplate contents…',
             suffixIcon: PasteButton(controller: _controller),
           ),
         ),
