@@ -68,11 +68,14 @@ pub fn decode_raw_roi(
 
 /// Decodes once, applies the DNG camera matrix (if any), and returns linear sRGB.
 fn decode_raw_to_srgb(bytes: &[u8]) -> Result<raw::RawLinearImage, String> {
-    let (img, meta) = raw::decode_with_metadata(bytes)?;
+    let (mut img, meta) = raw::decode_with_metadata(bytes)?;
     if let Some((dng, is_d50)) = raw::camera_matrix(&meta) {
         if let Some(srgb) = raw::color::camera_to_srgb(dng, is_d50) {
-            return Ok(raw::color::apply(&img, &srgb));
+            img = raw::color::apply(&img, &srgb);
         }
+    }
+    if let Some(ref huesat) = meta.hue_sat_map {
+        huesat.apply_to_rgb(&mut img.data);
     }
     Ok(img)
 }

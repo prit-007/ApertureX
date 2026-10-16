@@ -164,6 +164,8 @@ pub struct RawMetadata {
     pub wb_coeffs: [f32; 4],
     /// Preferred DNG camera matrix (XYZ → camera) and its illuminant, if present.
     pub color_matrix: Option<(Illuminant, Mat3)>,
+    /// Optional DCP/DNG HueSatMap for Adobe Standard color rendition.
+    pub hue_sat_map: Option<color::HueSatMap>,
 }
 
 /// Scene-linear camera RGB, normalised so full scale maps to `1.0`.
@@ -219,6 +221,7 @@ fn metadata_from_raw(raw: &rawler::rawimage::RawImage) -> RawMetadata {
         },
         wb_coeffs: raw.wb_coeffs,
         color_matrix,
+        hue_sat_map: None,
     }
 }
 
@@ -794,6 +797,173 @@ pub mod color {
             width: img.width,
             height: img.height,
             data,
+        }
+    }
+
+    /// Converts RGB in [0, 1] to HSV (H in [0, 360), S in [0, 1], V in [0, 1]).
+    pub fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+        let max = r.max(g).max(b);
+        let min = r.min(g).min(b);
+        let delta = max - min;
+        let v = max;
+        let s = if max > 1e-6 { delta / max } else { 0.0 };
+        let mut h = if delta < 1e-6 {
+            0.0
+        } else if (max - r).abs() < 1e-6 {
+            60.0 * (((g - b) / delta).rem_euclid(6.0))
+        } else if (max - g).abs() < 1e-6 {
+            60.0 * (((b - r) / delta) + 2.0)
+        } else {
+            60.0 * (((r - g) / delta) + 4.0)
+        };
+        if h < 0.0 {
+            h += 360.0;
+        }
+        (h, s, v)
+    }
+
+    /// Converts HSV (H in [0, 360), S in [0, 1], V in [0, 1]) to RGB in [0, 1].
+    pub fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
+        let h_norm = h.rem_euclid(360.0);
+        let c = v * s;
+        let x = c * (1.0 - ((h_norm / 60.0).rem_euclid(2.0) - 1.0).abs());
+        let m = v - c;
+        let (r1, g1, b1) = if h_norm < 60.0 {
+            (c, x, 0.0)
+        } else if h_norm < 120.0 {
+            (x, c, 0.0)
+        } else if h_norm < 180.0 {
+            (0.0, c, x)
+        } else if h_norm < 240.0 {
+            (0.0, x, c)
+        } else if h_norm < 300.0 {
+            (x, 0.0, c)
+        } else {
+            (c, 0.0, x)
+        };
+        (r1 + m, g1 + m, b1 + m)
+    }
+
+    /// A 3D HSV delta map from a DCP/DNG camera profile (ProfileHueSatMap).
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct HueSatMap {
+        pub hue_divs: usize,
+        pub sat_divs: usize,
+        pub val_divs: usize,
+        /// Elements: [hue_shift (deg), sat_scale, val_scale] for each grid cell.
+        pub deltas: Vec<f32>,
+    }
+
+    impl HueSatMap {
+        pub fn new(
+            hue_divs: usize,
+            sat_divs: usize,
+            val_divs: usize,
+            deltas: Vec<f32>,
+        ) -> Option<Self> {
+            let expected = hue_divs * sat_divs * val_divs * 3;
+            if hue_divs == 0 || sat_divs == 0 || val_divs == 0 || deltas.len() != expected {
+                return None;
+            }
+            Some(Self {
+                hue_divs,
+                sat_divs,
+                val_divs,
+                deltas,
+            })
+        }
+
+        /// Interpolates between two HueSatMaps with weight `w` in [0, 1].
+        pub fn interpolate(&self, other: &Self, w: f32) -> Option<Self> {
+            if self.hue_divs != other.hue_divs
+                || self.sat_divs != other.sat_divs
+                || self.val_divs != other.val_divs
+            {
+                return None;
+            }
+            let w = w.clamp(0.0, 1.0);
+            let deltas: Vec<f32> = self
+                .deltas
+                .iter()
+                .zip(other.deltas.iter())
+                .map(|(&d1, &d2)| (1.0 - w) * d1 + w * d2)
+                .collect();
+            Some(Self {
+                hue_divs: self.hue_divs,
+                sat_divs: self.sat_divs,
+                val_divs: self.val_divs,
+                deltas,
+            })
+        }
+
+        /// Samples the delta [hue_shift, sat_scale, val_scale] at (h, s, v).
+        pub fn sample(&self, h: f32, s: f32, v: f32) -> [f32; 3] {
+            let h_deg = h.rem_euclid(360.0);
+            let uh = (h_deg / 360.0) * self.hue_divs as f32;
+            let h0 = (uh.floor() as usize) % self.hue_divs;
+            let h1 = (h0 + 1) % self.hue_divs;
+            let fh = uh - uh.floor();
+
+            let us = s.clamp(0.0, 1.0) * (self.sat_divs - 1) as f32;
+            let s0 = (us.floor() as usize).min(self.sat_divs - 1);
+            let s1 = (s0 + 1).min(self.sat_divs - 1);
+            let fs = (us - s0 as f32).clamp(0.0, 1.0);
+
+            let (v0, v1, fv) = if self.val_divs > 1 {
+                let uv = v.clamp(0.0, 1.0) * (self.val_divs - 1) as f32;
+                let v0 = (uv.floor() as usize).min(self.val_divs - 1);
+                let v1 = (v0 + 1).min(self.val_divs - 1);
+                let fv = (uv - v0 as f32).clamp(0.0, 1.0);
+                (v0, v1, fv)
+            } else {
+                (0, 0, 0.0)
+            };
+
+            let get_delta = |h_idx: usize, s_idx: usize, v_idx: usize| -> [f32; 3] {
+                let idx = ((h_idx * self.sat_divs + s_idx) * self.val_divs + v_idx) * 3;
+                [self.deltas[idx], self.deltas[idx + 1], self.deltas[idx + 2]]
+            };
+
+            let c000 = get_delta(h0, s0, v0);
+            let c100 = get_delta(h1, s0, v0);
+            let c010 = get_delta(h0, s1, v0);
+            let c110 = get_delta(h1, s1, v0);
+            let c001 = get_delta(h0, s0, v1);
+            let c101 = get_delta(h1, s0, v1);
+            let c011 = get_delta(h0, s1, v1);
+            let c111 = get_delta(h1, s1, v1);
+
+            let mut out = [0.0f32; 3];
+            for i in 0..3 {
+                let c00 = c000[i] * (1.0 - fh) + c100[i] * fh;
+                let c10 = c010[i] * (1.0 - fh) + c110[i] * fh;
+                let c01 = c001[i] * (1.0 - fh) + c101[i] * fh;
+                let c11 = c011[i] * (1.0 - fh) + c111[i] * fh;
+
+                let c0 = c00 * (1.0 - fs) + c10 * fs;
+                let c1 = c01 * (1.0 - fs) + c11 * fs;
+
+                out[i] = c0 * (1.0 - fv) + c1 * fv;
+            }
+            out
+        }
+
+        /// Applies the HueSatMap to a linear RGB slice in place.
+        pub fn apply_to_rgb(&self, rgb: &mut [f32]) {
+            for i in (0..rgb.len()).step_by(3) {
+                let r = rgb[i];
+                let g = rgb[i + 1];
+                let b = rgb[i + 2];
+                let (h, s, v) = rgb_to_hsv(r, g, b);
+                let [dh, ds, dv] = self.sample(h, s, v);
+                let new_h = (h + dh).rem_euclid(360.0);
+                let new_s = (s * ds).clamp(0.0, 1.0);
+                let new_v = (v * dv).max(0.0);
+                let (nr, ng, nb) = hsv_to_rgb(new_h, new_s, new_v);
+                rgb[i] = nr;
+                rgb[i + 1] = ng;
+                rgb[i + 2] = nb;
+            }
         }
     }
 }
@@ -1441,5 +1611,83 @@ mod tests {
                 "fully clipped highlight must be neutral, got R={r}, G={g}, B={b}"
             );
         }
+    }
+
+    #[test]
+    fn huesatmap_rgb_to_hsv_roundtrip() {
+        let colors = [
+            [1.0f32, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 1.0],
+            [1.0, 0.0, 1.0],
+            [0.5, 0.5, 0.5],
+            [0.2, 0.7, 0.4],
+        ];
+        for &[r, g, b] in &colors {
+            let (h, s, v) = color::rgb_to_hsv(r, g, b);
+            let (r2, g2, b2) = color::hsv_to_rgb(h, s, v);
+            assert!(
+                (r - r2).abs() < 1e-4 && (g - g2).abs() < 1e-4 && (b - b2).abs() < 1e-4,
+                "roundtrip failed for [{r}, {g}, {b}] -> [{r2}, {g2}, {b2}]"
+            );
+        }
+    }
+
+    #[test]
+    fn huesatmap_identity_deltas_is_noop() {
+        let deltas = [0.0f32, 1.0, 1.0].repeat(4 * 2);
+        let map = color::HueSatMap::new(4, 2, 1, deltas).unwrap();
+        let mut rgb = vec![0.8, 0.2, 0.3, 0.1, 0.9, 0.4];
+        let original = rgb.clone();
+        map.apply_to_rgb(&mut rgb);
+        for i in 0..rgb.len() {
+            assert!(
+                (rgb[i] - original[i]).abs() < 1e-4,
+                "identity map modified pixel {i}: {} vs {}",
+                rgb[i],
+                original[i]
+            );
+        }
+    }
+
+    #[test]
+    fn huesatmap_shifts_hue_and_scales_saturation() {
+        let mut deltas = [0.0f32, 1.0, 1.0].repeat(4 * 2);
+        // At Red (H ~ 0), add +30 degrees hue shift
+        for s in 0..2 {
+            let idx = s * 3;
+            deltas[idx] = 30.0;
+            deltas[idx + 1] = 1.2;
+        }
+
+        let map = color::HueSatMap::new(4, 2, 1, deltas).unwrap();
+        let mut red_rgb = vec![1.0, 0.0, 0.0];
+        map.apply_to_rgb(&mut red_rgb);
+
+        // After +30 deg shift, Pure Red (0 deg) shifts towards Orange (30 deg: R=1.0, G=0.5, B=0.0)
+        assert!(
+            red_rgb[0] > 0.9 && red_rgb[1] > 0.4 && red_rgb[2] < 0.1,
+            "expected red shifted to orange: got {:?}",
+            red_rgb
+        );
+    }
+
+    #[test]
+    fn huesatmap_temperature_interpolation() {
+        let deltas1 = [10.0f32, 1.0, 1.0].repeat(2 * 2);
+        let map1 = color::HueSatMap::new(2, 2, 1, deltas1).unwrap();
+
+        let deltas2 = [30.0f32, 1.0, 1.0].repeat(2 * 2);
+        let map2 = color::HueSatMap::new(2, 2, 1, deltas2).unwrap();
+
+        let interp = map1.interpolate(&map2, 0.5).unwrap();
+        let sample = interp.sample(0.0, 1.0, 1.0);
+        assert!(
+            (sample[0] - 20.0).abs() < 1e-4,
+            "interpolated hue shift expected 20.0, got {}",
+            sample[0]
+        );
     }
 }
