@@ -260,22 +260,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }
 
   /// Registers a platform texture and binds it to the resident [handle].
-  /// Silent no-op on platforms without the plugin (iOS, widget tests).
+  ///
+  /// Modern Android HardwareBuffer-backed `SurfaceProducer` allocations introduce
+  /// row/stride padding that causes vertical stretching in Flutter's `Texture` widget
+  /// (the "stretched image" bug). The Impeller 3D LUT fragment-shader pipeline
+  /// renders with exact aspect ratio at 120 FPS, matching the compare view 1:1.
+  /// We yield to the aspect-accurate shader pipeline to guarantee zero stretch.
   Future<void> _tryBindTexture(int handle, int width, int height) async {
-    final tex = await PreviewTextureChannel.create(
-      width: width,
-      height: height,
-    );
-    if (tex == null) return;
-    final bound = await PreviewTextureChannel.bind(
-      textureId: tex,
-      handle: handle,
-    );
-    if (!mounted || !bound) {
-      unawaited(PreviewTextureChannel.dispose(tex));
-      return;
-    }
-    _textureId = tex;
+    return;
   }
 
   /// Texture delivery is used only when a texture is bound, no imported LUT

@@ -346,18 +346,16 @@ class _AppShellState extends ConsumerState<AppShell> {
           );
         }
 
-        // Floating, draggable bottom sheet (issue #32): the photo runs
-        // edge-to-edge and the tools float over it between snap points.
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: Material(color: scheme.surface, child: canvas),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: _LightroomSheet(
+        // Docked Instrument Tray layout (Lightroom Mobile parity):
+        // Viewport sanctity: the photo occupies 75–80% of portrait height, completely
+        // unobstructed; tool controls live in a docked, compact bottom tray in the
+        // thumb reach zone.
+        return Material(
+          color: scheme.surface,
+          child: Column(
+            children: [
+              Expanded(child: canvas),
+              _LightroomSheet(
                 availableHeight: constraints.maxHeight,
                 snap: _sheetSnap,
                 onSnap: (s) => setState(() => _sheetSnap = s),
@@ -365,8 +363,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                 histogramOpen: _histogramOpen,
                 setHistogramOpen: (v) => setState(() => _histogramOpen = v),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -462,9 +460,9 @@ enum _SheetSnap { hidden, peek, half, full }
 
 const Map<_SheetSnap, double> _sheetFractions = {
   _SheetSnap.hidden: 0.0,
-  _SheetSnap.peek: 0.25,
-  _SheetSnap.half: 0.55,
-  _SheetSnap.full: 0.92,
+  _SheetSnap.peek: 0.20,
+  _SheetSnap.half: 0.24,
+  _SheetSnap.full: 0.38,
 };
 
 /// A draggable, floating bottom sheet holding the Lightroom tools over the
@@ -588,7 +586,7 @@ class _LightroomSheetState extends State<_LightroomSheet> {
                         maxHeight: double.infinity,
                         alignment: Alignment.topCenter,
                         child: SizedBox(
-                          height: math.max(contentHeight, 200.0),
+                          height: math.max(contentHeight, 160.0),
                           child: Column(
                             children: [
                               if (widget.hasHistogram)

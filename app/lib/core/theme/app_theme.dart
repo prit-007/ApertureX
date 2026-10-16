@@ -153,28 +153,28 @@ class AppTheme {
   static ColorScheme _neutralize(ColorScheme s, Brightness brightness) {
     final dark = brightness == Brightness.dark;
     return s.copyWith(
-      surface: dark ? const Color(0xFF0E0E0E) : const Color(0xFFF7F7F7),
+      surface: dark ? const Color(0xFF0B0B0C) : const Color(0xFFF7F7F7),
       onSurface: dark ? const Color(0xFFECECEC) : const Color(0xFF1B1B1B),
       onSurfaceVariant: dark
           ? const Color(0xFFB0B0B0)
           : const Color(0xFF4A4A4A),
       surfaceContainerLowest: dark
-          ? const Color(0xFF080808)
+          ? const Color(0xFF050506)
           : const Color(0xFFFFFFFF),
       surfaceContainerLow: dark
-          ? const Color(0xFF141414)
+          ? const Color(0xFF121214)
           : const Color(0xFFF1F1F1),
       surfaceContainer: dark
-          ? const Color(0xFF1A1A1A)
+          ? const Color(0xFF18181A)
           : const Color(0xFFEBEBEB),
       surfaceContainerHigh: dark
-          ? const Color(0xFF202020)
+          ? const Color(0xFF202022)
           : const Color(0xFFE4E4E4),
       surfaceContainerHighest: dark
-          ? const Color(0xFF262626)
+          ? const Color(0xFF262628)
           : const Color(0xFFDDDDDD),
-      outline: dark ? const Color(0xFF3A3A3A) : const Color(0xFFBFBFBF),
-      outlineVariant: dark ? const Color(0xFF2A2A2A) : const Color(0xFFD5D5D5),
+      outline: dark ? const Color(0xFF38383B) : const Color(0xFFBFBFBF),
+      outlineVariant: dark ? const Color(0xFF262628) : const Color(0xFFD5D5D5),
     );
   }
 }

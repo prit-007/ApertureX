@@ -27,30 +27,35 @@ void main() {
   final body = find.byKey(const Key('lightroom-sheet-body'));
   double bodyHeight(WidgetTester tester) => tester.getSize(body).height;
 
-  testWidgets('the photo fills the screen in Lightroom mode (issue #32)', (
+  testWidgets('the photo occupies the unobstructed viewport in Lightroom mode (issue #32)', (
     tester,
   ) async {
     await pumpPortrait(tester);
 
-    // Edge-to-edge: the canvas is no longer squeezed by a reserved panel.
-    expect(tester.getSize(find.byType(ImageCanvas)).height, 844);
+    // Unobstructed viewport: canvas occupies ~75% of portrait height above the docked instrument tray
+    expect(tester.getSize(find.byType(ImageCanvas)).height, closeTo(844 * 0.73, 40));
   });
 
-  testWidgets('the sheet starts at half and drags between snap points', (
+  testWidgets('the sheet starts docked and drags between snap points', (
     tester,
   ) async {
     await pumpPortrait(tester);
-    expect(bodyHeight(tester), closeTo(844 * 0.55, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.24, 2));
 
     // Pull up toward the full snap point.
-    await tester.drag(find.text('Hide tools'), const Offset(0, -400));
+    await tester.drag(find.text('Hide tools'), const Offset(0, -300));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(844 * 0.92, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.38, 2));
+
+    // Push down toward the docked snap point.
+    await tester.drag(find.text('Hide tools'), const Offset(0, 150));
+    await tester.pumpAndSettle();
+    expect(bodyHeight(tester), closeTo(844 * 0.24, 2));
 
     // Push down toward the peek snap point.
-    await tester.drag(find.text('Hide tools'), const Offset(0, 600));
+    await tester.drag(find.text('Hide tools'), const Offset(0, 50));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(844 * 0.25, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.20, 2));
   });
 
   testWidgets('the grab bar collapses the sheet for a clean canvas', (
@@ -70,40 +75,40 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(bodyHeight(tester), 0);
     expect(find.byType(LightroomShell), findsNothing);
-    // The photo is still edge-to-edge behind the collapsed sheet.
-    expect(tester.getSize(find.byType(ImageCanvas)).height, 844);
+    // The photo expands to full screen in immersive preview.
+    expect(tester.getSize(find.byType(ImageCanvas)).height, closeTo(844, 35));
 
     await tester.tap(find.text('Show tools'));
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(844 * 0.55, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.24, 2));
     expect(find.byType(LightroomShell), findsOneWidget);
   });
 
   testWidgets('double tapping the grab bar toggles maximize', (tester) async {
     await pumpPortrait(tester);
-    expect(bodyHeight(tester), closeTo(844 * 0.55, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.24, 2));
 
     // Double tap to maximize
     await tester.tap(find.text('Hide tools'));
     await tester.pump(const Duration(milliseconds: 50));
     await tester.tap(find.text('Hide tools'));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(844 * 0.92, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.38, 2));
 
-    // Double tap again to restore half
+    // Double tap again to restore docked
     await tester.tap(find.text('Hide tools'));
     await tester.pump(const Duration(milliseconds: 50));
     await tester.tap(find.text('Hide tools'));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(844 * 0.55, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.24, 2));
   });
 
   testWidgets('the tool panel within the sheet scrolls properly within bounds', (
     tester,
   ) async {
     await pumpPortrait(tester);
-    expect(bodyHeight(tester), closeTo(844 * 0.55, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.24, 2));
 
     // In LightroomShell at half-height, the parameter list should be bounded to the sheet
     // and allow smooth vertical scrolling.

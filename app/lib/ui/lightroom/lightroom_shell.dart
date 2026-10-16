@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -133,6 +134,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                       section,
                       _tab == _Tab.panel && section == _section,
                       () {
+                        HapticFeedback.selectionClick();
                         setState(() {
                           _section = section;
                           _tab = _Tab.panel;
