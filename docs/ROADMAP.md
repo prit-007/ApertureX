@@ -245,7 +245,8 @@ stylus-only filtering + `invertedStylus` eraser pending
 ## P4 — Export & presets 🚧 *(basic JPEG export pulled forward into P1)*
 
 **Scope**
-- Full-res tiled export (JPEG/PNG; DNG deferred to P6), cancellable, with
+- Full-res tiled export (JPEG; PNG has no encoder, DNG deferred to P6 — spike
+  #78), cancellable, with
   progress; metadata pass-through.
 - Batch export; preset apply at export.
 - Background export surviving app backgrounding on both platforms.

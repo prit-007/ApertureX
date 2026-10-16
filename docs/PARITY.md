@@ -89,11 +89,14 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 
 | Feature | Status | Phase |
 |---|---|---|
-| JPEG / PNG import | ✅ | P1 |
+| JPEG import | ✅ | P1 |
+| PNG photo import | ⬜ (PNG is decoded only for HALD CLUT LUT import) | P6 |
 | HEIC import | ⬜ | P5 |
 | RAW import (DNG/CR2/NEF/ARW/RAF) | 🚧 (rawler: decode/demosaic/matrices/orientation/ROI done; corpus + #64/#65/#66) | P3 |
-| JPEG / PNG full-res export | ✅ (basic, P1); tuned/tiled path #68 | P4 |
-| DNG / TIFF 16-bit export | ⬜ | P6 |
+| JPEG full-res export | ✅ (basic, P1); banded full-res path #68 | P4 |
+| PNG full-res export | ⬜ (no PNG encoder exists — claim corrected in #78) | P6 |
+| DNG export (original CFA + XMP, lossless) | ⬜ (rawler writer path verified in the #78 spike) | P6 |
+| TIFF / re-rendered 16-bit DNG export | ⬜ | P6 |
 | Background / batch export | ⬜ | P4 |
 
 ---
