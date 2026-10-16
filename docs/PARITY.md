@@ -46,7 +46,7 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 |---|---|---|---|
 | Linear gradient mask | Linear Gradient | ✅ | P2.5 |
 | Radial gradient mask | Radial Gradient | ✅ | P2.5 |
-| Brush mask | Brush | 🚧 (paint_brush standalone; wiring #63) | P2.5 |
+| Brush mask | Brush | ✅ (stylus pressure, palm rejection, inverted-stylus eraser) | P2.5 |
 | Range mask (luminance/color) | Range Mask | ✅ (luminance); color ⬜ | P2.5/P6 |
 | Adjustment layers over masks | Masks + local adj | ✅ (analytic masks) | P2.5 |
 | Snapseed stack == adjustment layers | Stack | 🚧 | P2.5 |

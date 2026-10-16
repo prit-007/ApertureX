@@ -106,7 +106,7 @@ Android does. Gesture interactions that fight pan/zoom feel broken.
 | Battery/thermal on long edits | med/med | Progressive refinement, throttle background decode, avoid per-frame LUT rebuilds. |
 | No initial Rust unit-test harness | med/low | CI adds `cargo test`/`clippy` in P0. — **retired** |
 | F-Droid reproducibility | med/med | Follow the org's existing `nook` F-Droid recipe; pin toolchains (ADR 0004). |
-| **Built-but-unwired features** (lens corrections #66, brush masks #63, sidecar #61) | high/med | Each has a tracked issue; verify "wired + demoable + tested" before closing — presence of a Rust function is not shipped. |
+| **Built-but-unwired features** (lens corrections #66) | high/med | Each has a tracked issue; verify "wired + demoable + tested" before closing — presence of a Rust function is not shipped. |
 | **LGPL surface if LibRaw/lensfun enabled** | med/high | Dynamically link (`.so`/`.dylib`) + notices; keep rawler the default (issue #67). |
 
 ---

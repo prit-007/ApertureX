@@ -5,7 +5,7 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status:** P-1 ✅ · P0 ✅ (foundations + JPEG proxy folded into P1) · P1 🚧 (viewport + tile compositor + zero-copy preview *partly* wired + **high-zoom ROI overlay wired on Android+iOS** + **tile pyramid wired + >100 MP corpus/seam harness written (device run pending)** + EditRecipe v1 + basic JPEG export done; iOS texture registration + on-device corpus run + SIMD spatial remain (#16/#54/#56)) · **P2 🚧** (recipe superset + Riverpod controller + shared ParameterControl + dual-shell skeleton + full point-wise colour pipeline (LUT, WB/exposure/contrast/vibrance/saturation/split-tone/curves) + **spatial passes** + **geometry** + **presets/LUT/.xmp import** + preview==export + live histogram done; whites/blacks + Adobe vibrance (#59), sidecar persistence (#61), `.lrtemplate` (#62), guided-filter/quality refinements remain) · P2.5 🚧 (linear/radial/luminance masks + layer model landed; **brush wiring** pending #63) · P3 🚧 (rawler RAW decode/demosaic/matrices/orientation/ROI/export landed; corpus, EXIF passthrough, lens-correction wiring (#66), DCP profiles (#64), highlight reconstruction (#65) remain).
+**Current status:** P-1 ✅ · P0 ✅ (foundations + JPEG proxy folded into P1) · P1 🚧 (viewport + tile compositor + zero-copy preview *partly* wired + **high-zoom ROI overlay wired on Android+iOS** + **tile pyramid wired + >100 MP corpus/seam harness written (device run pending)** + EditRecipe v1 + basic JPEG export done; iOS texture registration + on-device corpus run + SIMD spatial remain (#16/#54/#56)) · **P2 🚧** (recipe superset + Riverpod controller + shared ParameterControl + dual-shell skeleton + full point-wise colour pipeline (LUT, WB/exposure/contrast/vibrance/saturation/split-tone/curves) + **spatial passes** + **geometry** + **presets/LUT/.xmp import** + preview==export + live histogram done; whites/blacks + Adobe vibrance (#59), sidecar persistence (#61), `.lrtemplate` (#62), guided-filter/quality refinements remain) · P2.5 🚧 (linear/radial/luminance masks + **brush mask with stylus pressure, palm rejection, and `invertedStylus` eraser wired preview+export** + layer model landed (#63 closed); color range mask remains) · P3 🚧 (rawler RAW decode/demosaic/matrices/orientation/ROI/export landed; corpus, EXIF passthrough, lens-correction wiring (#66), DCP profiles (#64), highlight reconstruction (#65) remain).
 
 > **Forward plan.** The consolidated, file-by-file plan — including the exact
 > gaps found by the latest audit and the GitHub issue carrying each — is
@@ -175,15 +175,15 @@ halo-free guided-filter shadows/highlights + clarity (#57), dark-channel dehaze
 - Mask edits feed the same recipe and the same shader chain (masked regions
   route through per-mask uniform sets / blend).
 
-**Status — in progress.** The layer model and analytic masks landed:
-`MaskKind {linear, radial, luminance}` in `edit/adjustment_layer.dart`, layer
-add/update/remove in `RecipeController`, `apply_masks` in Rust (`mask.rs`:
-`coverage`/`apply_local`/`apply_local_band`), node editing UI/overlay, and
-preview+export both carry `recipe.layers` — all tested. **Remaining:** the
-**brush** mask. `features/masking/paint_brush.dart` (pressure-aware, unit-tested)
-exists but is a standalone class, not wired to `AdjustmentLayer`/preview/export;
-stylus-only filtering + `invertedStylus` eraser pending
-([#63](https://github.com/prit-007/ApertureX/issues/63)).
+**Status — in progress.** The layer model, analytic masks, and the brush mask
+landed: `MaskKind {linear, radial, luminance, brush}` in
+`edit/adjustment_layer.dart`, layer add/update/remove in `RecipeController`,
+`apply_masks` in Rust (`mask.rs`: `coverage`/`apply_local`/`apply_local_band`,
+brush composited per stroke point with pressure), node editing UI/overlay,
+stylus-only palm rejection + `invertedStylus` eraser
+(`ui/common/node_overlay.dart`), and preview+export both carry
+`recipe.layers` — all tested (#63 closed). **Remaining:** the color range
+mask.
 
 **Exit criteria**
 - A linear + radial + brush mask stack edits only its masked region, non-

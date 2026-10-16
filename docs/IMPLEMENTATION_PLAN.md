@@ -42,14 +42,10 @@ Verified against the tree with the P4 export wiring present (`export_pipeline.rs
 
 | Subsystem | What's missing | Issue |
 |---|---|---|
-| Zero-copy preview (spike B) | Mounted + scheduled on Android (`PreviewSurface` in `image_canvas.dart`, with shader-path switching for compare/peek fades and imported LUTs); **iOS has no texture registration** (shader path only); cross-vendor on-device validation pending | **#54** |
-| Full-res export memory cap | Pipeline is wired end-to-end with cancel, but `jpeg_encoder` has **no streaming API** → the full graded frame is still held for the final encode (~2-frame peak); no progress events, no >50 MP RSS regression gate | **#68** |
 | RAW lens corrections | `raw::lens` (vignette + Brown–Conrady distortion) implemented + tested but **not called** by `decode_from_raw`; RAW export drops EXIF | **#66** |
 | Basic panel | `whites`/`blacks` are schema-only (never rendered); vibrance is generic, not Adobe skin-tone-weighted | **#59** |
-| Masking | Linear/radial/luminance layers wired; **brush** (`paint_brush.dart`) is a standalone, tested class not wired to the recipe/preview/export | **#63** |
-| Persistence | `sidecar.dart` exists + is tested but **never saved/loaded** in the app (P2 exit criterion unmet) | **#61** |
 | Wide gamut | Only sRGB + P3→sRGB; no f16/linear-P3 working space, no true ICC matrix parse | #15 (existing) |
-| High-zoom ROI overlay + native ROI decode | Planner/decoder/Rust bake/both platform channels/pyramid wiring tested; **the >100 MP corpus + seam harness has not had its first on-device run** (`tile_corpus_test.dart`, report-only until `CORPUS_STRICT=1` passes on the pinned device); iOS channel needs an Xcode build to verify | **#16**, **#55** |
+| High-zoom ROI overlay + native ROI decode | Planner/decoder/Rust bake/both platform channels/pyramid wiring tested; **the >100 MP corpus + seam harness has not had its first on-device run** (`tile_corpus_test.dart`, report-only until `CORPUS_STRICT=1` passes on the pinned device); iOS channel needs an Xcode build to verify | **#16** |
 
 ### ⬜ Not started (the remaining roadmap)
 
@@ -193,9 +189,9 @@ Each workstream lists its goal, the exact files, and its issue(s).
 - Render `whites`/`blacks` in the tone stage; Adobe-style skin-tone-weighted vibrance.
 - Files: `app/rust/src/color.rs`, `app/lib/edit/recipe.dart`, `app/lib/color/grade_spec.dart`.
 
-### W7 — Brush masking (#63)
-- Add a brush mask kind to `MaskSpec`/`LocalAdjustment`; Rust coverage application in preview + export; stylus-only input, `invertedStylus` eraser, pressure-graded opacity/flow.
-- Files: `app/rust/src/mask.rs`, `app/lib/features/masking/paint_brush.dart`, `app/lib/edit/adjustment_layer.dart`.
+### W7 — Brush masking (#63) — **done, issue closed**
+- Brush mask kind added to `MaskSpec`/`LocalAdjustment`; Rust coverage application in preview + export; stylus-only input, `invertedStylus` eraser, pressure-graded opacity/flow.
+- Files: `app/rust/src/mask.rs`, `app/lib/edit/adjustment_layer.dart`, `app/lib/ui/common/node_overlay.dart`.
 
 ### W8 — Golden-image tolerance corpus (#60)
 - Checked-in fixtures + reference renders + ΔE/tolerance comparator in CI; documented regeneration workflow.
