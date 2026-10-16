@@ -21,6 +21,7 @@ import '../viewport/image_canvas.dart';
 import '../viewport/mask_peek.dart';
 import 'edit_activity.dart';
 import 'lightroom/lightroom_shell.dart';
+import 'common/brush_toolbar.dart';
 import 'common/node_controls.dart';
 import 'common/node_overlay.dart';
 import 'snapseed/ghost_hint.dart';
@@ -165,6 +166,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 category: _category,
                 tools: gestureCategories[_category]!,
                 onCycleCategory: _cycleCategory,
+                histogramOpen: _showHistogram && hasHistogram,
                 onPickTool: (t) {
                   _fsm.setTool(t);
                   setState(() => _active = t);
@@ -178,6 +180,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                   });
                 },
               ),
+              if (nodeMode)
+                Positioned(
+                  top: Insets.md,
+                  left: Insets.sm,
+                  right: Insets.sm,
+                  child: const SafeArea(bottom: false, child: BrushToolbar()),
+                ),
               if (widget.topHud != null)
                 Positioned(
                   top: 0,
@@ -289,6 +298,13 @@ class _AppShellState extends ConsumerState<AppShell> {
             // Selective editing (issue #25) over the photo, with the
             // adjust bar floating at its bottom edge.
             if (nodeMode) const Positioned.fill(child: NodeOverlay()),
+            if (nodeMode)
+              Positioned(
+                top: Insets.md,
+                left: Insets.sm,
+                right: Insets.sm,
+                child: const SafeArea(bottom: false, child: BrushToolbar()),
+              ),
             if (nodeMode)
               Positioned(
                 left: Insets.sm,

@@ -186,7 +186,10 @@ class MaskControls extends ConsumerWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           FilterChip(
                             key: const Key('mask-inline-invert'),
@@ -199,8 +202,31 @@ class MaskControls extends ConsumerWidget {
                               notifier.updateLayerAt(i, layers[i].copyWith(inverted: val));
                             },
                           ),
-                          if (layers[i].maskKind == MaskKind.brush && layers[i].brushPointCount > 0) ...[
-                            const SizedBox(width: 6),
+                          if (layers[i].maskKind == MaskKind.brush) ...[
+                            ChoiceChip(
+                              key: const Key('mask-inline-brush-paint'),
+                              label: const Text('Paint', style: TextStyle(fontSize: 11)),
+                              selected: !ref.watch(nodeEditorProvider.select((s) => s.eraserMode)),
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              showCheckmark: false,
+                              onSelected: (val) {
+                                if (val) ref.read(nodeEditorProvider.notifier).setEraserMode(false);
+                              },
+                            ),
+                            ChoiceChip(
+                              key: const Key('mask-inline-brush-erase'),
+                              label: const Text('Erase', style: TextStyle(fontSize: 11)),
+                              selected: ref.watch(nodeEditorProvider.select((s) => s.eraserMode)),
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              showCheckmark: false,
+                              onSelected: (val) {
+                                if (val) ref.read(nodeEditorProvider.notifier).setEraserMode(true);
+                              },
+                            ),
+                          ],
+                          if (layers[i].maskKind == MaskKind.brush && layers[i].brushPointCount > 0)
                             TextButton.icon(
                               key: const Key('mask-inline-brush-clear'),
                               style: TextButton.styleFrom(
@@ -214,11 +240,12 @@ class MaskControls extends ConsumerWidget {
                                 notifier.updateLayerAt(i, layers[i].withClearedStrokes());
                               },
                             ),
-                          ],
-                          const Spacer(),
-                          Text(
-                            'EV ${layers[i].exposure >= 0 ? '+' : ''}${layers[i].exposure.toStringAsFixed(2)}',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              'EV ${layers[i].exposure >= 0 ? '+' : ''}${layers[i].exposure.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ],
                       ),

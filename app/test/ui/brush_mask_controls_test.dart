@@ -227,12 +227,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Check sliders exist in MaskControls
+      // Check sliders and chips exist in MaskControls
+      expect(find.byKey(const Key('mask-inline-brush-paint')), findsOneWidget);
+      expect(find.byKey(const Key('mask-inline-brush-erase')), findsOneWidget);
       expect(find.byKey(const Key('mask-inline-brush-size-slider')), findsOneWidget);
       expect(find.byKey(const Key('mask-inline-brush-feather-slider')), findsOneWidget);
       expect(find.byKey(const Key('mask-inline-brush-clear')), findsOneWidget);
       expect(find.byKey(const Key('mask-inline-contrast-slider')), findsOneWidget);
       expect(find.byKey(const Key('mask-inline-saturation-slider')), findsOneWidget);
+
+      // Tap Erase
+      await tester.tap(find.byKey(const Key('mask-inline-brush-erase')));
+      await tester.pump();
+      expect(container.read(nodeEditorProvider).eraserMode, isTrue);
 
       // Drag feather
       await tester.drag(

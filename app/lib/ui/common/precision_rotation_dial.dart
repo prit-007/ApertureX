@@ -23,7 +23,7 @@ class PrecisionRotationDial extends ConsumerStatefulWidget {
 }
 
 enum DialGear {
-  standard(0.15, 'Standard (0.15°/px)'),
+  standard(0.06, 'Standard (0.06°/px)'),
   fine(0.03, 'Fine (0.03°/px)'),
   micro(0.01, 'Micro (0.01°/px)');
 
@@ -213,13 +213,13 @@ class _PrecisionRotationDialState extends ConsumerState<PrecisionRotationDial> {
           onHorizontalDragUpdate: _onHorizontalDragUpdate,
           onHorizontalDragEnd: _onHorizontalDragEnd,
           child: SizedBox(
-            height: 32,
+            height: 36,
             width: double.infinity,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 CustomPaint(
-                  size: const Size(double.infinity, 32),
+                  size: const Size(double.infinity, 36),
                   painter: _RulerPainter(
                     angle: angle,
                     primary: scheme.primary,
@@ -230,7 +230,7 @@ class _PrecisionRotationDialState extends ConsumerState<PrecisionRotationDial> {
                 // Center pointer indicator
                 Container(
                   width: 2.0,
-                  height: 20,
+                  height: 22,
                   decoration: BoxDecoration(
                     color: scheme.primary,
                     borderRadius: BorderRadius.circular(1.0),

@@ -111,16 +111,33 @@ class AdjustmentLayer {
     final remaining = <double>[];
     final pts = maskParams.sublist(3, 3 + count * 3);
     final rSq = eraseRadius * eraseRadius;
+    var lastErased = false;
     for (var i = 0; i < pts.length; i += 3) {
       final px = pts[i];
       final py = pts[i + 1];
       final pr = pts[i + 2];
+      if (px < 0) {
+        if (remaining.isNotEmpty && remaining[remaining.length - 3] >= 0) {
+          remaining.addAll([-1.0, -1.0, -1.0]);
+        }
+        lastErased = false;
+        continue;
+      }
       final dx = px - nx;
       final dy = py - ny;
       final distSq = dx * dx + dy * dy;
       if (distSq > rSq) {
+        if (lastErased && remaining.isNotEmpty && remaining[remaining.length - 3] >= 0) {
+          remaining.addAll([-1.0, -1.0, -1.0]);
+        }
         remaining.addAll([px, py, pr]);
+        lastErased = false;
+      } else {
+        lastErased = true;
       }
+    }
+    while (remaining.length >= 3 && remaining[remaining.length - 3] < 0) {
+      remaining.removeRange(remaining.length - 3, remaining.length);
     }
     final newCount = remaining.length ~/ 3;
     return copyWith(maskParams: [r, f, newCount.toDouble(), ...remaining]);

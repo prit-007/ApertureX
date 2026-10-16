@@ -47,6 +47,7 @@ class SnapseedShell extends ConsumerStatefulWidget {
     required this.onCycleCategory,
     required this.onPickTool,
     this.onSelectCategoryAndTool,
+    this.histogramOpen = false,
   });
 
   final GradeTool tool;
@@ -55,6 +56,7 @@ class SnapseedShell extends ConsumerStatefulWidget {
   final VoidCallback onCycleCategory;
   final ValueChanged<GradeTool> onPickTool;
   final void Function(ToolCategory category, GradeTool tool)? onSelectCategoryAndTool;
+  final bool histogramOpen;
 
   @override
   ConsumerState<SnapseedShell> createState() => _SnapseedShellState();
@@ -125,12 +127,12 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
     return Stack(
       children: [
-        // Recent-changes HUD: float below top bar (top: 56) so it never
-        // collides with the export button or status bar.
-        const Positioned(
-          top: 56,
+        // Recent-changes HUD: float below top bar (top: 56), or below histogram (top: 140)
+        // so it never collides with the histogram or status bar.
+        Positioned(
+          top: widget.histogramOpen ? 140 : 56,
           right: 0,
-          child: SafeArea(left: false, bottom: false, child: EditHud()),
+          child: const SafeArea(left: false, bottom: false, child: EditHud()),
         ),
 
         // Active-tool HUD (bottom).

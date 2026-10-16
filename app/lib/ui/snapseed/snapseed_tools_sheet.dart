@@ -6,6 +6,12 @@ import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
 import '../../edit/recipe_controller.dart';
 import '../../gesture/gesture_interpreter.dart';
+import '../common/blur_controls.dart';
+import '../common/film_controls.dart';
+import '../common/lab_controls.dart';
+import '../common/optics_controls.dart';
+import '../common/retouch_controls.dart';
+import '../common/tone_curve_editor.dart';
 
 enum SnapseedToolType {
   tuneImage,
@@ -156,11 +162,78 @@ class SnapseedToolsSheet extends ConsumerWidget {
         onOpenStraighten?.call();
       case SnapseedToolType.cropRotate:
         onOpenCrop?.call();
+      case SnapseedToolType.curves:
+        _showToolPanel(context, 'Curves', const ToneCurveEditor());
+      case SnapseedToolType.lensBlur:
+        _showToolPanel(context, 'Lens Blur', const BlurControls());
+      case SnapseedToolType.film:
+        _showToolPanel(context, 'Film & Grain', const FilmControls());
+      case SnapseedToolType.optics:
+        _showToolPanel(context, 'Optics', const OpticsControls());
+      case SnapseedToolType.shaderLab:
+        _showToolPanel(context, 'Shader Lab', const LabControls());
+      case SnapseedToolType.healing:
+        _showToolPanel(context, 'Healing', const RetouchControls());
       default:
         if (tool.category != null && tool.tool != null) {
           onSelectCategoryAndTool(tool.category!, tool.tool!);
         }
     }
+  }
+
+  void _showToolPanel(BuildContext context, String title, Widget body) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Material(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.lg)),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.65,
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                const SizedBox(height: Insets.xs),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: Insets.xs),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        title.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.check, size: 20),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(child: body),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override

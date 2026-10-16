@@ -90,6 +90,27 @@ void main() {
       expect(erased.maskParams[3], 0.8);
       expect(erased.maskParams[4], 0.8);
     });
+
+    test('withErasedNear inserts stroke break sentinel when erasing inside a stroke', () {
+      const brush = AdjustmentLayer(
+        maskKind: MaskKind.brush,
+        maskParams: [
+          0.10, 0.25, 3,
+          0.1, 0.1, 1.0, // Point A
+          0.5, 0.5, 1.0, // Point B to be erased
+          0.9, 0.9, 1.0, // Point C
+        ],
+      );
+      final erased = brush.withErasedNear(0.5, 0.5, 0.1);
+      // Points A and C remain, separated by [-1.0, -1.0, -1.0] sentinel
+      expect(erased.maskParams[3], 0.1);
+      expect(erased.maskParams[4], 0.1);
+      expect(erased.maskParams[6], -1.0);
+      expect(erased.maskParams[7], -1.0);
+      expect(erased.maskParams[8], -1.0);
+      expect(erased.maskParams[9], 0.9);
+      expect(erased.maskParams[10], 0.9);
+    });
   });
 
   group('linear, subject, and sky helpers', () {

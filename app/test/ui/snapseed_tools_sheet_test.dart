@@ -7,6 +7,9 @@ import 'package:aperturex/edit/node_editor.dart';
 import 'package:aperturex/settings/onboarding.dart';
 import 'package:aperturex/settings/shell_preference.dart';
 import 'package:aperturex/ui/app_shell.dart';
+import 'package:aperturex/ui/common/blur_controls.dart';
+import 'package:aperturex/ui/common/film_controls.dart';
+import 'package:aperturex/ui/common/tone_curve_editor.dart';
 import 'package:aperturex/ui/snapseed/snapseed_shell.dart';
 import 'package:aperturex/ui/snapseed/snapseed_tools_sheet.dart';
 
@@ -93,5 +96,47 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Temperature'), findsOneWidget);
+  });
+
+  testWidgets('selecting Curves in Tools Sheet opens ToneCurveEditor panel', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+
+    await tester.tap(find.byKey(const Key('snapseed-tools-sheet-toggle')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Curves'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ToneCurveEditor), findsOneWidget);
+  });
+
+  testWidgets('selecting Lens Blur in Tools Sheet opens BlurControls panel', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+
+    await tester.tap(find.byKey(const Key('snapseed-tools-sheet-toggle')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Lens Blur'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BlurControls), findsOneWidget);
+  });
+
+  testWidgets('selecting Film & Grain in Tools Sheet opens FilmControls panel', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+
+    await tester.tap(find.byKey(const Key('snapseed-tools-sheet-toggle')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Film & Grain'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FilmControls), findsOneWidget);
   });
 }
