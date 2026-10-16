@@ -1,7 +1,11 @@
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../edit/active_image.dart';
 import '../../edit/recipe_controller.dart';
+import '../../engine/engine.dart';
+import '../../engine/image_format.dart';
 import 'precision_rotation_dial.dart';
 
 /// Geometry controls: rotate (90°), flip, and straighten. Writes to the shared
@@ -24,6 +28,58 @@ class GeometryControls extends ConsumerWidget {
             spacing: 12,
             runSpacing: 8,
             children: [
+              FilledButton.tonalIcon(
+                key: const Key('geometry-auto-straighten'),
+                onPressed: () async {
+                  final bytes = ref.read(activeImageBytesProvider);
+                  if (bytes == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('No photo loaded for auto-straighten')),
+                    );
+                    return;
+                  }
+                  try {
+                    final decoded = isRawImage(bytes)
+                        ? await AxEngine.decodeRawRgba(bytes)
+                        : await AxEngine.decodeJpegRgba(bytes);
+                    final angle = await AxEngine.detectStraightenAngle(
+                      decoded.rgba,
+                      width: decoded.width,
+                      height: decoded.height,
+                    );
+                    if (angle.abs() >= 0.1) {
+                      HapticFeedback.selectionClick();
+                      notifier.setStraighten(angle.clamp(-45.0, 45.0));
+                      notifier.commit(label: 'Auto Straighten');
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Straightened by ${angle > 0 ? '+' : ''}${angle.toStringAsFixed(1)}°',
+                            ),
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                      }
+                    } else if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Horizon is already straight'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Auto-straighten failed: $e')),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.auto_fix_high),
+                label: const Text('Auto'),
+              ),
               OutlinedButton.icon(
                 onPressed: () {
                   notifier.rotate(-1);

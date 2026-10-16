@@ -767,6 +767,7 @@ class _NodesPainter extends CustomPainter {
           }
 
         case MaskKind.luminance:
+        case MaskKind.bitmap:
           break;
       }
     }

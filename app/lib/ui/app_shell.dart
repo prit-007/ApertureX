@@ -11,6 +11,7 @@ import '../color/interactive_histogram.dart';
 import '../core/haptics.dart';
 import '../core/theme/design_tokens.dart';
 import '../edit/parameter.dart';
+import '../edit/active_image.dart';
 import '../edit/node_editor.dart';
 import '../edit/recipe_controller.dart';
 import '../edit/recipe_mapping.dart';
@@ -96,6 +97,23 @@ class _AppShellState extends ConsumerState<AppShell> {
           .read(recipeControllerProvider.notifier)
           .reset(snapseedToolParameters[tool]!.first),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(activeImageBytesProvider.notifier).setBytes(widget.imageBytes);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(AppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.imageBytes != oldWidget.imageBytes) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(activeImageBytesProvider.notifier).setBytes(widget.imageBytes);
+        }
+      });
+    }
   }
 
   void _cycleCategory() {

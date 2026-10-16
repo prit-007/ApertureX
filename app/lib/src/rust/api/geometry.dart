@@ -132,6 +132,17 @@ Future<GeometryResult> geometryPerspectiveRgba({
   skewY: skewY,
 );
 
+/// Detects horizon tilt and returns corrective straighten angle in degrees.
+Future<double> geometryDetectStraightenAngle({
+  required List<int> rgba,
+  required int width,
+  required int height,
+}) => RustLib.instance.api.crateApiGeometryGeometryDetectStraightenAngle(
+  rgba: rgba,
+  width: width,
+  height: height,
+);
+
 /// Rotated/cropped result: pixels plus the new dimensions.
 class GeometryResult {
   final int width;

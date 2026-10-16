@@ -355,6 +355,108 @@ pub fn apply_spec(rgba: &[u8], w: usize, h: usize, spec: &GeometrySpec) -> (Vec<
     (buf.into_owned(), w, h)
 }
 
+/// Automatically detects the corrective horizon/straighten angle in degrees.
+/// Uses gradient orientation voting on edge pixels within +/- 20 degrees.
+/// Returns the correction angle in degrees to straighten the photo (e.g., -4.0 to correct +4.0 tilt).
+pub fn detect_straighten_angle(rgba: &[u8], w: usize, h: usize) -> f32 {
+    if w < 16 || h < 16 || rgba.len() < w * h * 4 {
+        return 0.0;
+    }
+
+    // Downscale proxy if large (target long edge around 256 for fast sub-millisecond scan)
+    let scale = (w.max(h) as f32 / 256.0).max(1.0);
+    let sw = (w as f32 / scale).round() as usize;
+    let sh = (h as f32 / scale).round() as usize;
+    if sw < 8 || sh < 8 {
+        return 0.0;
+    }
+
+    // Extract grayscale luma
+    let mut luma = Vec::with_capacity(sw * sh);
+    for y in 0..sh {
+        let src_y = ((y as f32 + 0.5) * scale) as usize;
+        let sy = src_y.min(h - 1);
+        for x in 0..sw {
+            let src_x = ((x as f32 + 0.5) * scale) as usize;
+            let sx = src_x.min(w - 1);
+            let idx = (sy * w + sx) * 4;
+            let y_val = 0.2126 * rgba[idx] as f32
+                + 0.7152 * rgba[idx + 1] as f32
+                + 0.0722 * rgba[idx + 2] as f32;
+            luma.push(y_val);
+        }
+    }
+
+    // Histogram bins covering [-20.0, +20.0] degrees in 0.25-degree increments (161 bins)
+    const MAX_ANGLE: f32 = 20.0;
+    const BIN_STEP: f32 = 0.25;
+    let num_bins = (MAX_ANGLE * 2.0 / BIN_STEP).round() as usize + 1;
+    let mut accumulator = vec![0.0f32; num_bins];
+
+    // Compute Sobel gradients in interior, avoiding image borders
+    let margin_x = (sw / 8).max(1);
+    let margin_y = (sh / 8).max(1);
+
+    for y in margin_y..(sh - margin_y) {
+        for x in margin_x..(sw - margin_x) {
+            let p00 = luma[(y - 1) * sw + (x - 1)];
+            let p01 = luma[(y - 1) * sw + x];
+            let p02 = luma[(y - 1) * sw + (x + 1)];
+
+            let p10 = luma[y * sw + (x - 1)];
+            let p12 = luma[y * sw + (x + 1)];
+
+            let p20 = luma[(y + 1) * sw + (x - 1)];
+            let p21 = luma[(y + 1) * sw + x];
+            let p22 = luma[(y + 1) * sw + (x + 1)];
+
+            let gx = (p02 + 2.0 * p12 + p22) - (p00 + 2.0 * p10 + p20);
+            let gy = (p20 + 2.0 * p21 + p22) - (p00 + 2.0 * p01 + p02);
+
+            let mag_sq = gx * gx + gy * gy;
+            if mag_sq < 20.0 * 20.0 {
+                continue;
+            }
+
+            // Normal angle to the gradient is the edge line direction
+            let edge_angle_rad = (-gx).atan2(gy);
+            let mut angle_deg = edge_angle_rad.to_degrees();
+
+            // Fold into [-90, 90] range (lines have 180-degree symmetry)
+            while angle_deg > 90.0 {
+                angle_deg -= 180.0;
+            }
+            while angle_deg < -90.0 {
+                angle_deg += 180.0;
+            }
+
+            if angle_deg.abs() <= MAX_ANGLE {
+                let bin = ((angle_deg + MAX_ANGLE) / BIN_STEP).round() as usize;
+                if bin < num_bins {
+                    accumulator[bin] += mag_sq.sqrt();
+                }
+            }
+        }
+    }
+
+    // Find the peak in the accumulator
+    let mut best_bin = 0;
+    let mut max_votes = 0.0f32;
+    for (i, &votes) in accumulator.iter().enumerate() {
+        if votes > max_votes {
+            max_votes = votes;
+            best_bin = i;
+        }
+    }
+
+    if max_votes < 100.0 {
+        return 0.0;
+    }
+
+    let detected_tilt = best_bin as f32 * BIN_STEP - MAX_ANGLE;
+    -detected_tilt
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -493,5 +595,61 @@ mod tests {
         let src = grid(4, 4);
         assert!(crop_normalized(&src, 4, 4, 0.0, 0.0, 1.0, 1.0).is_none());
         assert!(crop_normalized(&src, 4, 4, 0.5, 0.5, 0.5, 1.0).is_none());
+    }
+
+    #[test]
+    fn detect_straighten_angle_on_blank_returns_zero() {
+        let blank = vec![128u8; 64 * 64 * 4];
+        let angle = detect_straighten_angle(&blank, 64, 64);
+        assert_eq!(angle, 0.0);
+    }
+
+    #[test]
+    fn detect_straighten_angle_on_horizontal_horizon() {
+        let w = 120;
+        let h = 80;
+        let mut img = vec![255u8; w * h * 4];
+        for y in (h / 2)..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                img[idx] = 20;
+                img[idx + 1] = 20;
+                img[idx + 2] = 20;
+            }
+        }
+        let angle = detect_straighten_angle(&img, w, h);
+        assert!(angle.abs() <= 0.5, "Expected close to 0.0, got {}", angle);
+    }
+
+    #[test]
+    fn detect_straighten_angle_on_tilted_horizon() {
+        let w = 160;
+        let h = 120;
+        let target_tilt_deg: f32 = 4.0;
+        let slope = (target_tilt_deg.to_radians()).tan();
+        let mid_y = (h / 2) as f32;
+        let mid_x = (w / 2) as f32;
+
+        let mut img = vec![0u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let horizon_y = mid_y + (x as f32 - mid_x) * slope;
+                let dist = (y as f32 - horizon_y).clamp(-4.0, 4.0);
+                let val = (120.0 - dist * 20.0).round() as u8;
+                let idx = (y * w + x) * 4;
+                img[idx] = val;
+                img[idx + 1] = val;
+                img[idx + 2] = val;
+                img[idx + 3] = 255;
+            }
+        }
+        let correction = detect_straighten_angle(&img, w, h);
+        // Tilt is +4 deg, so correction should be approx -4 deg
+        assert!(
+            (correction - (-target_tilt_deg)).abs() <= 1.0,
+            "Expected correction ~ -{}, got {}",
+            target_tilt_deg,
+            correction
+        );
     }
 }

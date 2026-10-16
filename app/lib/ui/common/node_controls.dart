@@ -320,6 +320,7 @@ class NodeControls extends ConsumerWidget {
     MaskKind.subject => Icons.person,
     MaskKind.sky => Icons.cloud_outlined,
     MaskKind.luminance => Icons.dark_mode,
+    MaskKind.bitmap => Icons.auto_awesome,
   };
 }
 

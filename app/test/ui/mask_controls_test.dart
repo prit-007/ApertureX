@@ -198,4 +198,18 @@ void main() {
 
     expect(container.read(recipeControllerProvider).recipe.layers, isEmpty);
   });
+
+  testWidgets('Depth + button is present in the mask creation tray', (tester) async {
+    await pumpMaskControls(tester);
+
+    final depthBtn = find.byKey(const Key('mask-add-depth'));
+    expect(depthBtn, findsOneWidget);
+
+    await tester.tap(depthBtn);
+    await tester.pumpAndSettle();
+
+    // No photo loaded shows snackbar
+    expect(find.text('No photo loaded for depth extraction'), findsOneWidget);
+  });
 }
+

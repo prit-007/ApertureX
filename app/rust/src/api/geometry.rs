@@ -160,6 +160,11 @@ pub fn geometry_perspective_rgba(
     }
 }
 
+/// Detects horizon tilt and returns corrective straighten angle in degrees.
+pub fn geometry_detect_straighten_angle(rgba: Vec<u8>, width: u32, height: u32) -> f32 {
+    crate::geometry::detect_straighten_angle(&rgba, width as usize, height as usize)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

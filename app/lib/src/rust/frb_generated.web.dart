@@ -58,6 +58,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CurveParams dco_decode_box_autoadd_curve_params(dynamic raw);
 
   @protected
+  EmbeddedDepthResult dco_decode_box_autoadd_embedded_depth_result(dynamic raw);
+
+  @protected
   ExportSpec dco_decode_box_autoadd_export_spec(dynamic raw);
 
   @protected
@@ -68,6 +71,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CurveParams dco_decode_curve_params(dynamic raw);
+
+  @protected
+  EmbeddedDepthResult dco_decode_embedded_depth_result(dynamic raw);
 
   @protected
   ExportResult dco_decode_export_result(dynamic raw);
@@ -121,6 +127,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  EmbeddedDepthResult? dco_decode_opt_box_autoadd_embedded_depth_result(
+    dynamic raw,
+  );
+
+  @protected
   Float32List? dco_decode_opt_list_prim_f_32_strict(dynamic raw);
 
   @protected
@@ -170,6 +181,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CurveParams sse_decode_box_autoadd_curve_params(SseDeserializer deserializer);
 
   @protected
+  EmbeddedDepthResult sse_decode_box_autoadd_embedded_depth_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ExportSpec sse_decode_box_autoadd_export_spec(SseDeserializer deserializer);
 
   @protected
@@ -182,6 +198,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CurveParams sse_decode_curve_params(SseDeserializer deserializer);
+
+  @protected
+  EmbeddedDepthResult sse_decode_embedded_depth_result(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ExportResult sse_decode_export_result(SseDeserializer deserializer);
@@ -235,6 +256,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  EmbeddedDepthResult? sse_decode_opt_box_autoadd_embedded_depth_result(
+    SseDeserializer deserializer,
+  );
 
   @protected
   Float32List? sse_decode_opt_list_prim_f_32_strict(
@@ -299,6 +325,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_embedded_depth_result(
+    EmbeddedDepthResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_export_spec(
     ExportSpec self,
     SseSerializer serializer,
@@ -315,6 +347,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_curve_params(CurveParams self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_embedded_depth_result(
+    EmbeddedDepthResult self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_export_result(ExportResult self, SseSerializer serializer);
@@ -387,6 +425,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_embedded_depth_result(
+    EmbeddedDepthResult? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_list_prim_f_32_strict(

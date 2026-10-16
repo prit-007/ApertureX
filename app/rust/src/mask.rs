@@ -12,15 +12,54 @@ pub const MASK_LUMINANCE: u32 = 2;
 pub const MASK_BRUSH: u32 = 3;
 pub const MASK_SUBJECT: u32 = 4;
 pub const MASK_SKY: u32 = 5;
+pub const MASK_BITMAP: u32 = 6;
 
-/// A parametric mask.
+/// A parametric or bitmap mask.
+#[derive(Clone, Debug, Default)]
 pub struct MaskSpec {
     pub kind: u32,
     /// linear `[x0,y0,x1,y1]`, radial `[cx,cy,rx,ry]`, luminance `[lo,hi]`,
     /// brush `[radius, feather, count, x0, y0, p0, ...]`,
     /// subject `[cx, cy, rx, ry, feather]`,
-    /// sky `[horizon_y, feather, blue_weight]`.
+    /// sky `[horizon_y, feather, blue_weight]`,
+    /// bitmap `[width, height, alpha_0, alpha_1, ...]`.
     pub params: Vec<f32>,
+}
+
+impl MaskSpec {
+    pub fn linear(x0: f32, y0: f32, x1: f32, y1: f32) -> Self {
+        MaskSpec {
+            kind: MASK_LINEAR,
+            params: vec![x0, y0, x1, y1],
+        }
+    }
+
+    pub fn radial(cx: f32, cy: f32, rx: f32, ry: f32, feather: f32) -> Self {
+        MaskSpec {
+            kind: MASK_RADIAL,
+            params: vec![cx, cy, rx, ry, feather],
+        }
+    }
+
+    pub fn luminance(lo: f32, hi: f32) -> Self {
+        MaskSpec {
+            kind: MASK_LUMINANCE,
+            params: vec![lo, hi],
+        }
+    }
+
+    pub fn bitmap(w: usize, h: usize, alpha_bytes: &[u8]) -> Self {
+        let mut params = Vec::with_capacity(2 + w * h);
+        params.push(w as f32);
+        params.push(h as f32);
+        for &a in alpha_bytes {
+            params.push(a as f32 / 255.0);
+        }
+        MaskSpec {
+            kind: MASK_BITMAP,
+            params,
+        }
+    }
 }
 
 /// A stack entry: where ([`MaskSpec`]) and what ([`GradeParams`]) to adjust.
@@ -180,8 +219,37 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
             let color_score = if is_blue_sky || is_cloud { 1.0 } else { 0.35 };
             v_cov * (1.0 - blue_weight + blue_weight * color_score)
         }
+        MASK_BITMAP => {
+            // [width, height, alpha_0, alpha_1, ...]
+            if p.len() < 2 {
+                return 0.0;
+            }
+            let bw = p[0].round() as usize;
+            let bh = p[1].round() as usize;
+            if bw == 0 || bh == 0 || p.len() < 2 + bw * bh {
+                return 0.0;
+            }
+            let data = &p[2..2 + bw * bh];
+            let uf = (u.clamp(0.0, 1.0) * (bw.saturating_sub(1) as f32)).max(0.0);
+            let vf = (v.clamp(0.0, 1.0) * (bh.saturating_sub(1) as f32)).max(0.0);
+            let x0 = uf.floor() as usize;
+            let y0 = vf.floor() as usize;
+            let x1 = (x0 + 1).min(bw - 1);
+            let y1 = (y0 + 1).min(bh - 1);
+            let fx = uf - x0 as f32;
+            let fy = vf - y0 as f32;
+
+            let c00 = data[y0 * bw + x0];
+            let c10 = data[y0 * bw + x1];
+            let c01 = data[y1 * bw + x0];
+            let c11 = data[y1 * bw + x1];
+
+            let c0 = c00 + (c10 - c00) * fx;
+            let c1 = c01 + (c11 - c01) * fx;
+            (c0 + (c1 - c0) * fy).clamp(0.0, 1.0)
+        }
         // MASK_LINEAR: gradient from (x0,y0) to (x1,y1).
-        _ => {
+        MASK_LINEAR => {
             if p.len() < 4 {
                 return 0.0;
             }
@@ -195,6 +263,7 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
             };
             smoothstep(0.0, 1.0, t)
         }
+        _ => 0.0,
     }
 }
 
@@ -556,5 +625,77 @@ mod tests {
         let ground_pixel = out[(28 * 32 + 16) * 4 + 1]; // Green channel in ground
         assert!(sky_pixel > 200, "sky pixel brightened: {sky_pixel}");
         assert_eq!(ground_pixel, 140, "ground pixel untouched: {ground_pixel}");
+    }
+
+    #[test]
+    fn bitmap_mask_samples_with_bilinear_interpolation() {
+        // 2x2 bitmap mask:
+        // [0.0, 1.0]
+        // [0.0, 1.0]
+        let bitmap_alphas = vec![0u8, 255u8, 0u8, 255u8];
+        let layer = LocalAdjustment {
+            mask: MaskSpec::bitmap(2, 2, &bitmap_alphas),
+            params: brighten(),
+        };
+        let src = grey(32, 32, 100);
+        let out = apply_local(&src, 32, 32, &[layer]);
+
+        // Left column (u ~= 0.5/32 = 0.0156) is barely touched (<= 102)
+        let left_px = out[(16 * 32) * 4];
+        // Right column (u ~= 31.5/32 = 0.984) is almost fully brightened (> 180)
+        let right_px = out[(16 * 32 + 31) * 4];
+        // Mid column (u ~= 16.5/32 = 0.515) is half brightened
+        let mid_px = out[(16 * 32 + 16) * 4];
+
+        assert!(left_px <= 102);
+        assert!(right_px > 130);
+        assert!(mid_px > left_px && mid_px < right_px);
+    }
+
+    #[test]
+    fn bitmap_mask_banded_stitching_matches_full_frame() {
+        // 4x4 bitmap with arbitrary gradients
+        let bitmap_alphas: Vec<u8> = (0..16).map(|i| (i * 16) as u8).collect();
+        let src = grey(24, 24, 80);
+        let full = apply_local(
+            &src,
+            24,
+            24,
+            &[LocalAdjustment {
+                mask: MaskSpec::bitmap(4, 4, &bitmap_alphas),
+                params: brighten(),
+            }],
+        );
+
+        // Process in two 12-row bands
+        let band0 = apply_local_band(
+            &src[..24 * 12 * 4],
+            24,
+            24,
+            0,
+            &[LocalAdjustment {
+                mask: MaskSpec::bitmap(4, 4, &bitmap_alphas),
+                params: brighten(),
+            }],
+        );
+        let band1 = apply_local_band(
+            &src[24 * 12 * 4..],
+            24,
+            24,
+            12,
+            &[LocalAdjustment {
+                mask: MaskSpec::bitmap(4, 4, &bitmap_alphas),
+                params: brighten(),
+            }],
+        );
+
+        let mut stitched = Vec::with_capacity(24 * 24 * 4);
+        stitched.extend_from_slice(&band0);
+        stitched.extend_from_slice(&band1);
+
+        assert_eq!(
+            stitched, full,
+            "Banded bitmap mask stitching must exactly equal full frame render"
+        );
     }
 }

@@ -1,8 +1,11 @@
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../edit/active_image.dart';
 import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
+import '../../engine/engine.dart';
 import '../../viewport/mask_peek.dart';
 import '../../edit/recipe_controller.dart';
 
@@ -129,6 +132,45 @@ class MaskControls extends ConsumerWidget {
                 ),
                 icon: const Icon(Icons.dark_mode),
                 label: const Text('Darks +'),
+              ),
+              OutlinedButton.icon(
+                key: const Key('mask-add-depth'),
+                onPressed: () async {
+                  final bytes = ref.read(activeImageBytesProvider);
+                  if (bytes == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('No photo loaded for depth extraction')),
+                    );
+                    return;
+                  }
+                  final depthResult = await AxEngine.extractEmbeddedDepth(bytes);
+                  if (depthResult != null) {
+                    final alphas = depthResult.depth.map((b) => b / 255.0).toList();
+                    final idx = layers.length;
+                    notifier.addLayer(
+                      AdjustmentLayer.bitmap(
+                        width: depthResult.width,
+                        height: depthResult.height,
+                        alphas: alphas,
+                        exposure: 0.3,
+                      ),
+                    );
+                    ref.read(nodeEditorProvider.notifier).enable();
+                    ref.read(nodeEditorProvider.notifier).select(idx);
+                    HapticFeedback.selectionClick();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Loaded embedded portrait depth mask')),
+                      );
+                    }
+                  } else if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('No embedded depth map in photo metadata')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.blur_on),
+                label: const Text('Depth +'),
               ),
               OutlinedButton.icon(
                 onPressed: () => _toggleStylusOnly(ref, !stylusOnly),
@@ -420,6 +462,7 @@ class MaskControls extends ConsumerWidget {
     MaskKind.subject => Icons.person,
     MaskKind.sky => Icons.cloud_outlined,
     MaskKind.luminance => Icons.dark_mode,
+    MaskKind.bitmap => Icons.auto_awesome,
   };
 
   void _toggleStylusOnly(WidgetRef ref, bool value) {

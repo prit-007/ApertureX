@@ -27,6 +27,7 @@ export '../src/rust/api/color.dart' show LutData;
 export '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 export '../src/rust/api/histogram.dart' show Histogram;
 export '../src/rust/api/preview.dart' show PreviewBaseSpec;
+export '../src/rust/api/exif.dart' show EmbeddedDepthResult;
 export '../src/rust/frb_generated.dart' show RustLib;
 
 /// Thin, app-facing facade over the generated `flutter_rust_bridge` bindings.
@@ -343,6 +344,21 @@ class AxEngine {
     skewX: spec.skewX,
     skewY: spec.skewY,
   );
+
+  /// Automatically detects the horizon/straighten correction angle in degrees.
+  static Future<double> detectStraightenAngle(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+  }) => rust_geometry.geometryDetectStraightenAngle(
+    rgba: rgba,
+    width: width,
+    height: height,
+  );
+
+  /// Attempts to extract an embedded portrait depth map from JPEG container metadata.
+  static Future<rust_exif.EmbeddedDepthResult?> extractEmbeddedDepth(Uint8List jpeg) =>
+      rust_exif.extractEmbeddedDepth(jpeg: jpeg);
 
   // --- masking / local adjustments (P2.5) -----------------------------------
 

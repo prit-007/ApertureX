@@ -2,7 +2,7 @@ import 'dart:ui' show Offset;
 import 'package:flutter/foundation.dart' show listEquals;
 
 /// Mask kinds (must match the Rust `MASK_*` constants).
-enum MaskKind { linear, radial, luminance, brush, subject, sky }
+enum MaskKind { linear, radial, luminance, brush, subject, sky, bitmap }
 
 /// A local adjustment layer (P2.5): an analytic mask + a point-wise sub-grade.
 /// Non-destructive and small (parametric) — the Lightroom "local adjustment" /
@@ -20,6 +20,33 @@ class AdjustmentLayer {
     this.highlights = 0,
     this.shadows = 0,
   });
+
+  /// Creates a local adjustment layer backed by an 8-bit alpha probability tensor / bitmap.
+  factory AdjustmentLayer.bitmap({
+    required int width,
+    required int height,
+    required List<double> alphas,
+    bool inverted = false,
+    double exposure = 0,
+    double contrast = 0,
+    double saturation = 0,
+    double temperature = 0,
+    double tint = 0,
+    double highlights = 0,
+    double shadows = 0,
+  }) =>
+      AdjustmentLayer(
+        maskKind: MaskKind.bitmap,
+        maskParams: <double>[width.toDouble(), height.toDouble(), ...alphas],
+        inverted: inverted,
+        exposure: exposure,
+        contrast: contrast,
+        saturation: saturation,
+        temperature: temperature,
+        tint: tint,
+        highlights: highlights,
+        shadows: shadows,
+      );
 
   final MaskKind maskKind;
 
@@ -205,6 +232,12 @@ class AdjustmentLayer {
           if (maskParams.length > 2) maskParams[2] else 0.5,
         ],
       );
+
+  /// For bitmap masks: pixel width of the alpha map.
+  int get bitmapWidth => maskKind == MaskKind.bitmap && maskParams.isNotEmpty ? maskParams[0].toInt() : 0;
+
+  /// For bitmap masks: pixel height of the alpha map.
+  int get bitmapHeight => maskKind == MaskKind.bitmap && maskParams.length > 1 ? maskParams[1].toInt() : 0;
 
   Map<String, Object?> toJson() => <String, Object?>{
     'maskKind': maskKind.index,

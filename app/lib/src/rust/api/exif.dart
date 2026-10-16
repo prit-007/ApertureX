@@ -10,3 +10,35 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 /// empty buffer if there is none. Inject it into an export to preserve metadata.
 Future<Uint8List> extractExif({required List<int> jpeg}) =>
     RustLib.instance.api.crateApiExifExtractExif(jpeg: jpeg);
+
+/// Attempts to extract embedded portrait depth map from JPEG container metadata.
+/// Returns None if no embedded depth map exists.
+Future<EmbeddedDepthResult?> extractEmbeddedDepth({required List<int> jpeg}) =>
+    RustLib.instance.api.crateApiExifExtractEmbeddedDepth(jpeg: jpeg);
+
+/// Embedded depth map extracted from JPEG container metadata.
+class EmbeddedDepthResult {
+  final int width;
+  final int height;
+
+  /// 8-bit grayscale depth values (0..255).
+  final Uint8List depth;
+
+  const EmbeddedDepthResult({
+    required this.width,
+    required this.height,
+    required this.depth,
+  });
+
+  @override
+  int get hashCode => width.hashCode ^ height.hashCode ^ depth.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is EmbeddedDepthResult &&
+          runtimeType == other.runtimeType &&
+          width == other.width &&
+          height == other.height &&
+          depth == other.depth;
+}

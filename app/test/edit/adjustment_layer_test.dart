@@ -161,6 +161,26 @@ void main() {
       expect(updated.skyHorizon, 0.35);
       expect(updated.skyFeather, 0.2);
     });
+
+    test('bitmap mask constructor and getters', () {
+      final bitmap = AdjustmentLayer.bitmap(
+        width: 4,
+        height: 4,
+        alphas: List.filled(16, 0.8),
+        exposure: 0.7,
+      );
+      expect(bitmap.maskKind, MaskKind.bitmap);
+      expect(bitmap.bitmapWidth, 4);
+      expect(bitmap.bitmapHeight, 4);
+      expect(bitmap.maskParams.length, 18);
+      expect(bitmap.exposure, 0.7);
+
+      final json = bitmap.toJson();
+      expect(json['maskKind'], MaskKind.bitmap.index);
+      final restored = AdjustmentLayer.fromJson(json);
+      expect(restored, bitmap);
+    });
   });
 }
+
 
