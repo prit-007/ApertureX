@@ -1,3 +1,4 @@
+import 'dart:ui' show Offset;
 import 'package:flutter/foundation.dart' show listEquals;
 
 /// Mask kinds (must match the Rust `MASK_*` constants).
@@ -124,6 +125,69 @@ class AdjustmentLayer {
     final newCount = remaining.length ~/ 3;
     return copyWith(maskParams: [r, f, newCount.toDouble(), ...remaining]);
   }
+
+  /// For linear gradient masks: start coordinate.
+  Offset get linearStart =>
+      maskParams.length >= 2 ? Offset(maskParams[0], maskParams[1]) : const Offset(0.5, 0.2);
+
+  /// For linear gradient masks: end coordinate.
+  Offset get linearEnd =>
+      maskParams.length >= 4 ? Offset(maskParams[2], maskParams[3]) : const Offset(0.5, 0.8);
+
+  /// Returns a copy with updated linear gradient start and end points.
+  AdjustmentLayer withLinearPoints(Offset start, Offset end) => copyWith(
+        maskParams: [
+          start.dx.clamp(0.0, 1.0),
+          start.dy.clamp(0.0, 1.0),
+          end.dx.clamp(0.0, 1.0),
+          end.dy.clamp(0.0, 1.0),
+        ],
+      );
+
+  /// For subject masks: normalized center point.
+  Offset get subjectCenter =>
+      maskParams.length >= 2 ? Offset(maskParams[0], maskParams[1]) : const Offset(0.5, 0.5);
+
+  /// For subject masks: horizontal radius.
+  double get subjectRadiusX => maskParams.length >= 3 ? maskParams[2] : 0.28;
+
+  /// For subject masks: vertical radius.
+  double get subjectRadiusY => maskParams.length >= 4 ? maskParams[3] : 0.38;
+
+  /// For subject masks: edge feather.
+  double get subjectFeather => maskParams.length >= 5 ? maskParams[4] : 0.25;
+
+  /// Returns a copy with updated subject mask bounds.
+  AdjustmentLayer withSubjectBounds(
+    Offset center,
+    double rx,
+    double ry, [
+    double? feather,
+  ]) =>
+      copyWith(
+        maskParams: [
+          center.dx.clamp(0.0, 1.0),
+          center.dy.clamp(0.0, 1.0),
+          rx.clamp(0.02, 1.0),
+          ry.clamp(0.02, 1.0),
+          (feather ?? subjectFeather).clamp(0.01, 1.0),
+        ],
+      );
+
+  /// For sky masks: horizon y position.
+  double get skyHorizon => maskParams.isNotEmpty ? maskParams[0] : 0.5;
+
+  /// For sky masks: edge transition feather.
+  double get skyFeather => maskParams.length > 1 ? maskParams[1] : 0.15;
+
+  /// Returns a copy with updated sky horizon position.
+  AdjustmentLayer withSkyHorizon(double horizon) => copyWith(
+        maskParams: [
+          horizon.clamp(0.0, 1.0),
+          skyFeather,
+          if (maskParams.length > 2) maskParams[2] else 0.5,
+        ],
+      );
 
   Map<String, Object?> toJson() => <String, Object?>{
     'maskKind': maskKind.index,

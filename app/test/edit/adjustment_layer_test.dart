@@ -91,4 +91,55 @@ void main() {
       expect(erased.maskParams[4], 0.8);
     });
   });
+
+  group('linear, subject, and sky helpers', () {
+    test('linear gradient getters and withLinearPoints', () {
+      const linear = AdjustmentLayer(
+        maskKind: MaskKind.linear,
+        maskParams: [0.2, 0.3, 0.8, 0.9],
+      );
+      expect(linear.linearStart, const Offset(0.2, 0.3));
+      expect(linear.linearEnd, const Offset(0.8, 0.9));
+
+      final updated = linear.withLinearPoints(const Offset(0.1, 0.2), const Offset(0.7, 0.8));
+      expect(updated.linearStart, const Offset(0.1, 0.2));
+      expect(updated.linearEnd, const Offset(0.7, 0.8));
+    });
+
+    test('subject mask getters and withSubjectBounds', () {
+      const subject = AdjustmentLayer(
+        maskKind: MaskKind.subject,
+        maskParams: [0.5, 0.6, 0.25, 0.35, 0.3],
+      );
+      expect(subject.subjectCenter, const Offset(0.5, 0.6));
+      expect(subject.subjectRadiusX, 0.25);
+      expect(subject.subjectRadiusY, 0.35);
+      expect(subject.subjectFeather, 0.3);
+
+      final updated = subject.withSubjectBounds(
+        const Offset(0.4, 0.5),
+        0.3,
+        0.4,
+        0.2,
+      );
+      expect(updated.subjectCenter, const Offset(0.4, 0.5));
+      expect(updated.subjectRadiusX, 0.3);
+      expect(updated.subjectRadiusY, 0.4);
+      expect(updated.subjectFeather, 0.2);
+    });
+
+    test('sky mask getters and withSkyHorizon', () {
+      const sky = AdjustmentLayer(
+        maskKind: MaskKind.sky,
+        maskParams: [0.45, 0.2, 0.6],
+      );
+      expect(sky.skyHorizon, 0.45);
+      expect(sky.skyFeather, 0.2);
+
+      final updated = sky.withSkyHorizon(0.35);
+      expect(updated.skyHorizon, 0.35);
+      expect(updated.skyFeather, 0.2);
+    });
+  });
 }
+

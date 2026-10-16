@@ -40,17 +40,17 @@ void main() {
     tester,
   ) async {
     await pumpPortrait(tester);
-    expect(bodyHeight(tester), closeTo(844 * 0.5, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.55, 1));
 
     // Pull up toward the full snap point.
     await tester.drag(find.text('Hide tools'), const Offset(0, -400));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(844 * 0.9, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.92, 1));
 
     // Push down toward the peek snap point.
     await tester.drag(find.text('Hide tools'), const Offset(0, 600));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(844 * 0.22, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.25, 1));
   });
 
   testWidgets('the grab bar collapses the sheet for a clean canvas', (
@@ -60,6 +60,7 @@ void main() {
     expect(find.byType(LightroomShell), findsOneWidget);
 
     await tester.tap(find.text('Hide tools'));
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
     expect(bodyHeight(tester), 0);
     expect(find.byType(LightroomShell), findsNothing);
@@ -67,16 +68,36 @@ void main() {
     expect(tester.getSize(find.byType(ImageCanvas)).height, 844);
 
     await tester.tap(find.text('Show tools'));
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(844 * 0.5, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.55, 1));
     expect(find.byType(LightroomShell), findsOneWidget);
+  });
+
+  testWidgets('double tapping the grab bar toggles maximize', (tester) async {
+    await pumpPortrait(tester);
+    expect(bodyHeight(tester), closeTo(844 * 0.55, 1));
+
+    // Double tap to maximize
+    await tester.tap(find.text('Hide tools'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Hide tools'));
+    await tester.pumpAndSettle();
+    expect(bodyHeight(tester), closeTo(844 * 0.92, 1));
+
+    // Double tap again to restore half
+    await tester.tap(find.text('Hide tools'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Hide tools'));
+    await tester.pumpAndSettle();
+    expect(bodyHeight(tester), closeTo(844 * 0.55, 1));
   });
 
   testWidgets('the tool panel within the sheet scrolls properly within bounds', (
     tester,
   ) async {
     await pumpPortrait(tester);
-    expect(bodyHeight(tester), closeTo(844 * 0.5, 1));
+    expect(bodyHeight(tester), closeTo(844 * 0.55, 1));
 
     // In LightroomShell at half-height, the parameter list should be bounded to the sheet
     // and allow smooth vertical scrolling.

@@ -129,4 +129,45 @@ void main() {
     // With 0.03°/px minus touch slop, net drag produces ~0.9° (compared to ~4.5° in standard mode)
     expect(straightenFine.abs(), closeTo(0.9, 0.2));
   });
+
+  testWidgets('quick rotate 90° CCW and CW buttons change orientation', (tester) async {
+    await pumpDial(tester);
+
+    expect(find.byKey(const Key('rotation-dial-rotate-left')), findsOneWidget);
+    expect(find.byKey(const Key('rotation-dial-rotate-right')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('rotation-dial-rotate-right')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(recipeControllerProvider).recipe.rotation, 1);
+
+    await tester.tap(find.byKey(const Key('rotation-dial-rotate-left')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(recipeControllerProvider).recipe.rotation, 0);
+  });
+
+  testWidgets('gear toggle cycles to micro gear (0.01°/px)', (tester) async {
+    await pumpDial(tester);
+
+    // Tap once -> fine
+    await tester.tap(find.byKey(const Key('rotation-dial-precision-toggle')));
+    await tester.pumpAndSettle();
+
+    // Tap second time -> micro
+    await tester.tap(find.byKey(const Key('rotation-dial-precision-toggle')));
+    await tester.pumpAndSettle();
+
+    // Drag 50 pixels in micro mode
+    await tester.drag(
+      find.byKey(const Key('rotation-dial-ruler')),
+      const Offset(-50, 0),
+    );
+    await tester.pumpAndSettle();
+
+    final straightenMicro = container.read(recipeControllerProvider).recipe.straighten;
+    // In micro mode with 0.01°/px minus touch slop, net drag produces ~0.3°
+    expect(straightenMicro.abs(), closeTo(0.3, 0.15));
+  });
 }
+

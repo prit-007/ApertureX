@@ -19,6 +19,7 @@ class MaskControls extends ConsumerWidget {
     final nodeMode = ref.watch(nodeEditorProvider.select((s) => s.enabled));
 
     return ListView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       children: [
         Padding(
           padding: const EdgeInsets.all(12),

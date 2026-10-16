@@ -16,6 +16,7 @@ class OpticsControls extends ConsumerWidget {
     final notifier = ref.read(recipeControllerProvider.notifier);
 
     return ListView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.only(bottom: 16),
       children: [
         const SectionHeader('Chromatic Aberration'),

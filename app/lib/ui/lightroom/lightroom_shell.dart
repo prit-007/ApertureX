@@ -220,16 +220,24 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             Expanded(
               child: switch (_tab) {
                 _Tab.curve => const ToneCurveEditor(),
-                _Tab.mix => const SingleChildScrollView(child: HslMixer()),
-                _Tab.grade =>
-                  const SingleChildScrollView(child: ColorGradingEditor()),
+                _Tab.mix => const SingleChildScrollView(
+                    physics: BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                    child: HslMixer(),
+                  ),
+                _Tab.grade => const SingleChildScrollView(
+                    physics: BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                    child: ColorGradingEditor(),
+                  ),
                 _Tab.panel => ParameterPanel(section: _section),
               },
             ),
           ],
         );
       case RecipeSection.geometry:
-        return const SingleChildScrollView(child: GeometryControls());
+        return const SingleChildScrollView(
+          physics: BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          child: GeometryControls(),
+        );
       case RecipeSection.retouch:
         return const RetouchControls();
       case RecipeSection.blur:

@@ -12,7 +12,7 @@ import '../../viewport/canvas_transform.dart';
 import '../../viewport/mask_peek.dart';
 
 /// How an active pointer is interacting with a node.
-enum _NodeDrag { idle, move, resize, place }
+enum _NodeDrag { idle, move, resize, place, startHandle, endHandle }
 
 /// The interactive layer for node-based selective editing (issue #25).
 ///
@@ -219,7 +219,12 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
     }
 
     if (_dragIndex == null) return;
-    if (_mode != _NodeDrag.move && _mode != _NodeDrag.resize) return;
+    if (_mode != _NodeDrag.move &&
+        _mode != _NodeDrag.resize &&
+        _mode != _NodeDrag.startHandle &&
+        _mode != _NodeDrag.endHandle) {
+      return;
+    }
     if ((e.localPosition - _down!).distance > _slop) _moved = true;
     if (!_moved) return;
 
@@ -233,18 +238,88 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       final n = t.toNormalized(e.localPosition);
       if (n == null) return;
       final p = layer.maskParams;
-      final dx = p[2] - p[0];
-      final dy = p[3] - p[1];
+      List<double> newParams;
+      if (_mode == _NodeDrag.startHandle) {
+        newParams = [
+          n.dx.clamp(0.0, 1.0),
+          n.dy.clamp(0.0, 1.0),
+          p[2],
+          p[3],
+        ];
+      } else if (_mode == _NodeDrag.endHandle) {
+        newParams = [
+          p[0],
+          p[1],
+          n.dx.clamp(0.0, 1.0),
+          n.dy.clamp(0.0, 1.0),
+        ];
+      } else {
+        final halfDx = (p[2] - p[0]) / 2;
+        final halfDy = (p[3] - p[1]) / 2;
+        newParams = [
+          (n.dx - halfDx).clamp(0.0, 1.0),
+          (n.dy - halfDy).clamp(0.0, 1.0),
+          (n.dx + halfDx).clamp(0.0, 1.0),
+          (n.dy + halfDy).clamp(0.0, 1.0),
+        ];
+      }
+      ref.read(recipeControllerProvider.notifier).updateLayerAt(
+        index,
+        layer.copyWith(maskParams: newParams),
+      );
+      return;
+    }
+
+    if (layer.maskKind == MaskKind.sky && layer.maskParams.isNotEmpty) {
+      final n = t.toNormalized(e.localPosition);
+      if (n == null) return;
+      final p = layer.maskParams;
       ref.read(recipeControllerProvider.notifier).updateLayerAt(
         index,
         layer.copyWith(
           maskParams: [
-            n.dx.clamp(0.0, 1.0),
-            n.dy.clamp(0.0, 1.0),
-            (n.dx + dx).clamp(0.0, 1.0),
-            (n.dy + dy).clamp(0.0, 1.0),
+            n.dy.clamp(0.05, 0.95),
+            p.length > 1 ? p[1] : 0.15,
+            p.length > 2 ? p[2] : 0.5,
           ],
         ),
+      );
+      return;
+    }
+
+    if (layer.maskKind == MaskKind.subject && layer.maskParams.length >= 4) {
+      final p = layer.maskParams;
+      final feather = p.length >= 5 ? p[4] : 0.25;
+      final List<double> params;
+      switch (_mode) {
+        case _NodeDrag.move:
+          final n = t.toNormalized(e.localPosition);
+          if (n == null) return;
+          params = [
+            n.dx.clamp(0.0, 1.0),
+            n.dy.clamp(0.0, 1.0),
+            p[2],
+            p[3],
+            feather,
+          ];
+        case _NodeDrag.resize:
+          final c = t.toScreen(Offset(p[0], p[1]));
+          final rxScreen = p[2] * t.fitted.width * t.scale;
+          final ryScreen = p[3] * t.fitted.height * t.scale;
+          if (rxScreen <= 0 || ryScreen <= 0) return;
+          final dx = (e.localPosition.dx - c.dx) / rxScreen;
+          final dy = (e.localPosition.dy - c.dy) / ryScreen;
+          final d = math.sqrt(dx * dx + dy * dy);
+          if (d <= 0) return;
+          final rx = (p[2] * d).clamp(0.03, 1.0);
+          final ratio = p[2] > 0 ? rx / p[2] : 1.0;
+          params = [p[0], p[1], rx, p[3] * ratio, feather];
+        default:
+          return;
+      }
+      ref.read(recipeControllerProvider.notifier).updateLayerAt(
+        index,
+        layer.copyWith(maskParams: params),
       );
       return;
     }
@@ -257,6 +332,7 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
     final List<double> params;
     switch (_mode) {
       case _NodeDrag.move:
+
         final n = t.toNormalized(e.localPosition);
         if (n == null) return;
         params = [
@@ -368,12 +444,34 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         final rAvg = (rxScreen + ryScreen) / 2;
         if ((d - 1).abs() * rAvg <= _ringHit) return (i, _NodeDrag.resize);
         if (d <= 1) return (i, _NodeDrag.move);
+      } else if (l.maskKind == MaskKind.subject && l.maskParams.length >= 4) {
+        final pm = l.maskParams;
+        final c = t.toScreen(Offset(pm[0], pm[1]));
+        final rxScreen = pm[2] * t.fitted.width * t.scale;
+        final ryScreen = pm[3] * t.fitted.height * t.scale;
+        if (rxScreen <= 0 || ryScreen <= 0) continue;
+        if ((p - c).distance <= _centerHit) return (i, _NodeDrag.move);
+        final dx = (p.dx - c.dx) / rxScreen;
+        final dy = (p.dy - c.dy) / ryScreen;
+        final d = math.sqrt(dx * dx + dy * dy);
+        final rAvg = (rxScreen + ryScreen) / 2;
+        if ((d - 1).abs() * rAvg <= _ringHit) return (i, _NodeDrag.resize);
+        if (d <= 1) return (i, _NodeDrag.move);
       } else if (l.maskKind == MaskKind.linear && l.maskParams.length >= 4) {
         final pm = l.maskParams;
-        final c = t.toScreen(Offset((pm[0] + pm[2]) / 2, (pm[1] + pm[3]) / 2));
-        if ((p - c).distance <= _centerHit * 1.5) return (i, _NodeDrag.move);
+        final p0 = t.toScreen(Offset(pm[0], pm[1]));
+        final p1 = t.toScreen(Offset(pm[2], pm[3]));
+        final mid = Offset((p0.dx + p1.dx) / 2, (p0.dy + p1.dy) / 2);
+        if ((p - p0).distance <= _centerHit * 1.5) return (i, _NodeDrag.startHandle);
+        if ((p - p1).distance <= _centerHit * 1.5) return (i, _NodeDrag.endHandle);
+        if ((p - mid).distance <= _centerHit * 2.0) return (i, _NodeDrag.move);
+      } else if (l.maskKind == MaskKind.sky && l.maskParams.isNotEmpty) {
+        final pm = l.maskParams;
+        final horizonY = t.toScreen(Offset(0.5, pm[0])).dy;
+        if ((p.dy - horizonY).abs() <= _centerHit * 1.8) return (i, _NodeDrag.move);
       }
     }
+
     return null;
   }
 }
@@ -534,8 +632,34 @@ class _NodesPainter extends CustomPainter {
           );
 
           // Start & End handle pins
-          canvas.drawCircle(s, selected ? 6 : 4, Paint()..color = primary);
-          canvas.drawCircle(e, selected ? 6 : 4, Paint()..color = Colors.white);
+          canvas.drawCircle(s, selected ? 7 : 5, Paint()..color = primary);
+          canvas.drawCircle(
+            s,
+            selected ? 7 : 5,
+            Paint()
+              ..color = Colors.white
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.5,
+          );
+          canvas.drawCircle(e, selected ? 7 : 5, Paint()..color = primary);
+          canvas.drawCircle(
+            e,
+            selected ? 7 : 5,
+            Paint()
+              ..color = Colors.white
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.5,
+          );
+          // Midpoint grip
+          canvas.drawCircle(mid, 4.5, Paint()..color = Colors.white);
+          canvas.drawCircle(
+            mid,
+            4.5,
+            Paint()
+              ..color = primary
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.5,
+          );
 
         case MaskKind.brush:
           final p = l.maskParams;
@@ -567,10 +691,39 @@ class _NodesPainter extends CustomPainter {
             final c = t.toScreen(Offset(p[0], p[1]));
             final rx = p[2] * t.fitted.width * t.scale;
             final ry = p[3] * t.fitted.height * t.scale;
+            final rect = Rect.fromCenter(center: c, width: rx * 2, height: ry * 2);
             canvas.drawOval(
-              Rect.fromCenter(center: c, width: rx * 2, height: ry * 2),
+              rect,
               Paint()..color = rubyColor.withValues(alpha: selected ? 0.25 : 0.15),
             );
+            canvas.drawOval(
+              rect,
+              Paint()
+                ..color = (selected ? primary : Colors.white).withValues(alpha: 0.8)
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 1.5,
+            );
+            if (selected) {
+              canvas.drawCircle(c, 7, Paint()..color = primary);
+              canvas.drawCircle(
+                c,
+                7,
+                Paint()
+                  ..color = Colors.white
+                  ..style = PaintingStyle.stroke
+                  ..strokeWidth = 1.5,
+              );
+              final handle = Offset(c.dx + rx, c.dy);
+              canvas.drawCircle(handle, 6, Paint()..color = primary);
+              canvas.drawCircle(
+                handle,
+                6,
+                Paint()
+                  ..color = Colors.white
+                  ..style = PaintingStyle.stroke
+                  ..strokeWidth = 1.5,
+              );
+            }
           }
 
         case MaskKind.sky:
@@ -580,6 +733,24 @@ class _NodesPainter extends CustomPainter {
               Rect.fromLTRB(0, 0, size.width, horizon),
               Paint()..color = rubyColor.withValues(alpha: selected ? 0.25 : 0.15),
             );
+            canvas.drawLine(
+              Offset(0, horizon),
+              Offset(size.width, horizon),
+              Paint()
+                ..color = (selected ? primary : Colors.white).withValues(alpha: 0.85)
+                ..strokeWidth = 2.0,
+            );
+            if (selected) {
+              final centerGrip = Offset(size.width / 2, horizon);
+              canvas.drawRRect(
+                RRect.fromRectAndRadius(
+                  Rect.fromCenter(center: centerGrip, width: 36, height: 12),
+                  const Radius.circular(6),
+                ),
+                Paint()..color = primary,
+              );
+              canvas.drawCircle(centerGrip, 3, Paint()..color = Colors.white);
+            }
           }
 
         case MaskKind.luminance:

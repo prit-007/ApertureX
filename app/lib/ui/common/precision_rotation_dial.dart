@@ -22,16 +22,25 @@ class PrecisionRotationDial extends ConsumerStatefulWidget {
       _PrecisionRotationDialState();
 }
 
+enum DialGear {
+  standard(0.15, 'Standard (0.15°/px)'),
+  fine(0.03, 'Fine (0.03°/px)'),
+  micro(0.01, 'Micro (0.01°/px)');
+
+  const DialGear(this.speed, this.tooltip);
+  final double speed;
+  final String tooltip;
+}
+
 class _PrecisionRotationDialState extends ConsumerState<PrecisionRotationDial> {
   double _lastTickDegree = 0.0;
-  bool _fineMode = false;
+  DialGear _gear = DialGear.standard;
 
   void _onHorizontalDragUpdate(DragUpdateDetails details) {
     final notifier = ref.read(recipeControllerProvider.notifier);
     final current = ref.read(recipeControllerProvider).recipe.straighten;
 
-    // Standard mode: 1 pixel drag = 0.15 degrees. Fine mode: 0.03 degrees.
-    final speed = _fineMode ? 0.03 : 0.15;
+    final speed = _gear.speed;
     final delta = -details.primaryDelta! * speed;
     var next = (current + delta).clamp(-45.0, 45.0);
 
@@ -67,9 +76,21 @@ class _PrecisionRotationDialState extends ConsumerState<PrecisionRotationDial> {
     notifier.commit(label: 'Reset Straighten');
   }
 
+  void _cycleGear() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _gear = switch (_gear) {
+        DialGear.standard => DialGear.fine,
+        DialGear.fine => DialGear.micro,
+        DialGear.micro => DialGear.standard,
+      };
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final notifier = ref.read(recipeControllerProvider.notifier);
     final angle = ref.watch(
       recipeControllerProvider.select((s) => s.recipe.straighten),
     );
@@ -77,16 +98,29 @@ class _PrecisionRotationDialState extends ConsumerState<PrecisionRotationDial> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Top row: fine nudge minus, angle badge / reset button, fine nudge plus, precision toggle
+        // Top row: rotate 90 CCW, fine nudge minus, angle badge / reset button, fine nudge plus, rotate 90 CW, precision toggle
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            IconButton(
+              key: const Key('rotation-dial-rotate-left'),
+              tooltip: 'Rotate 90° CCW',
+              icon: const Icon(Icons.rotate_90_degrees_ccw, size: 16),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              visualDensity: VisualDensity.compact,
+              onPressed: () {
+                notifier.rotate(-1);
+                notifier.commit(label: 'Rotate CCW');
+              },
+            ),
+            const SizedBox(width: 2),
             IconButton(
               key: const Key('rotation-dial-nudge-minus'),
               tooltip: '-0.1°',
               icon: const Icon(Icons.remove, size: 16),
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               visualDensity: VisualDensity.compact,
               onPressed: () => _nudge(-0.1),
             ),
@@ -132,26 +166,44 @@ class _PrecisionRotationDialState extends ConsumerState<PrecisionRotationDial> {
               tooltip: '+0.1°',
               icon: const Icon(Icons.add, size: 16),
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               visualDensity: VisualDensity.compact,
               onPressed: () => _nudge(0.1),
             ),
-            const SizedBox(width: Insets.xs),
+            const SizedBox(width: 2),
+            IconButton(
+              key: const Key('rotation-dial-rotate-right'),
+              tooltip: 'Rotate 90° CW',
+              icon: const Icon(Icons.rotate_90_degrees_cw, size: 16),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              visualDensity: VisualDensity.compact,
+              onPressed: () {
+                notifier.rotate(1);
+                notifier.commit(label: 'Rotate CW');
+              },
+            ),
+            const SizedBox(width: 4),
             IconButton(
               key: const Key('rotation-dial-precision-toggle'),
-              tooltip: _fineMode ? 'Ultra-fine (0.03°/px)' : 'Standard (0.15°/px)',
+              tooltip: _gear.tooltip,
               icon: Icon(
-                _fineMode ? Icons.tune : Icons.tune_outlined,
+                _gear == DialGear.standard
+                    ? Icons.tune_outlined
+                    : (_gear == DialGear.fine ? Icons.tune : Icons.speed),
                 size: 16,
-                color: _fineMode ? scheme.primary : scheme.onSurfaceVariant,
+                color: _gear != DialGear.standard
+                    ? scheme.primary
+                    : scheme.onSurfaceVariant,
               ),
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               visualDensity: VisualDensity.compact,
-              onPressed: () => setState(() => _fineMode = !_fineMode),
+              onPressed: _cycleGear,
             ),
           ],
         ),
+
         const SizedBox(height: 2),
         // Ruler track
         GestureDetector(

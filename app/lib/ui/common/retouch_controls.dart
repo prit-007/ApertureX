@@ -88,6 +88,7 @@ class RetouchControls extends ConsumerWidget {
     final currentOpacity = selectedPatch?.opacity ?? brush.opacity;
 
     return ListView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.symmetric(horizontal: Insets.lg, vertical: Insets.sm),
       children: [
         const SectionHeader('Repair Mode'),

@@ -20,6 +20,7 @@ class BlurControls extends ConsumerWidget {
     final currentShape = BokehShape.values[currentShapeIndex];
 
     return ListView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.only(bottom: 16),
       children: [
         const SectionHeader('Lens Blur'),

@@ -384,10 +384,15 @@ class _Fade extends StatelessWidget {
 /// The grab-handle between the image and the Lightroom panel. Tapping it
 /// collapses the tools so the photo can fill the screen.
 class _PanelHandle extends StatelessWidget {
-  const _PanelHandle({required this.collapsed, required this.onToggle});
+  const _PanelHandle({
+    required this.collapsed,
+    required this.onToggle,
+    this.onDoubleTap,
+  });
 
   final bool collapsed;
   final VoidCallback onToggle;
+  final VoidCallback? onDoubleTap;
 
   @override
   Widget build(BuildContext context) {
@@ -396,6 +401,7 @@ class _PanelHandle extends StatelessWidget {
       color: scheme.surface,
       child: InkWell(
         onTap: onToggle,
+        onDoubleTap: onDoubleTap,
         child: SizedBox(
           height: 28,
           child: Row(
@@ -428,9 +434,9 @@ enum _SheetSnap { hidden, peek, half, full }
 
 const Map<_SheetSnap, double> _sheetFractions = {
   _SheetSnap.hidden: 0.0,
-  _SheetSnap.peek: 0.22,
-  _SheetSnap.half: 0.5,
-  _SheetSnap.full: 0.9,
+  _SheetSnap.peek: 0.25,
+  _SheetSnap.half: 0.55,
+  _SheetSnap.full: 0.92,
 };
 
 /// A draggable, floating bottom sheet holding the Lightroom tools over the
@@ -506,6 +512,14 @@ class _LightroomSheetState extends State<_LightroomSheet> {
     widget.snap == _SheetSnap.hidden ? _SheetSnap.half : _SheetSnap.hidden,
   );
 
+  void _onDoubleTap() {
+    if (widget.snap == _SheetSnap.full) {
+      widget.onSnap(_SheetSnap.half);
+    } else {
+      widget.onSnap(_SheetSnap.full);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -523,6 +537,7 @@ class _LightroomSheetState extends State<_LightroomSheet> {
             child: _PanelHandle(
               collapsed: widget.snap == _SheetSnap.hidden,
               onToggle: _toggle,
+              onDoubleTap: _onDoubleTap,
             ),
           ),
           AnimatedContainer(

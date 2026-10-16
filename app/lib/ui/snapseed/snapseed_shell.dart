@@ -11,6 +11,7 @@ import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/recipe_mapping.dart';
 import '../../gesture/gesture_interpreter.dart';
+import '../common/precision_rotation_dial.dart';
 import 'edit_hud.dart';
 
 /// Index of the radial-menu item nearest [pointer], for a menu centred at
@@ -65,6 +66,7 @@ String _categoryLabel(ToolCategory c) => switch (c) {
 
 class _SnapseedShellState extends ConsumerState<SnapseedShell> {
   bool _radialOpen = false;
+  bool _straightenOpen = false;
 
   static IconData _icon(GradeTool tool) => switch (tool) {
     GradeTool.exposure => Icons.exposure,
@@ -161,9 +163,9 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                         '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
                         style: themeStyle(context, FontWeight.w700).copyWith(
                           color: scheme.primary,
-                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
+
                       const SizedBox(width: Insets.sm),
                       if (ref.watch(tatModeProvider))
                         InkWell(
@@ -193,6 +195,16 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                         selectedIcon: Icon(Icons.colorize, size: 20, color: scheme.primary),
                       ),
                       IconButton(
+                        key: const Key('snapseed-straighten-toggle'),
+                        tooltip: 'Straighten & Rotate',
+                        visualDensity: VisualDensity.compact,
+                        isSelected: _straightenOpen,
+                        onPressed: () =>
+                            setState(() => _straightenOpen = !_straightenOpen),
+                        icon: const Icon(Icons.crop_rotate, size: 20),
+                        selectedIcon: Icon(Icons.crop_rotate, size: 20, color: scheme.primary),
+                      ),
+                      IconButton(
                         tooltip: 'Tools',
                         visualDensity: VisualDensity.compact,
                         onPressed: () => setState(() => _radialOpen = true),
@@ -205,6 +217,59 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
             ),
           ),
         ),
+
+        // Floating straighten & rotation dial HUD
+        if (_straightenOpen && !nodeMode)
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 74),
+                child: DecoratedBox(
+                  key: const Key('snapseed-straighten-panel'),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest.withValues(alpha: 0.95),
+                    borderRadius: Radii.mdAll,
+                    border: Border.all(color: scheme.outlineVariant),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 8, 8),
+                    child: SizedBox(
+                      width: 330,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Straighten & Rotate',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  color: scheme.onSurface,
+                                ),
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                iconSize: 18,
+                                icon: const Icon(Icons.close),
+                                onPressed: () =>
+                                    setState(() => _straightenOpen = false),
+                              ),
+                            ],
+                          ),
+                          const PrecisionRotationDial(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
 
         // Radial tool menu.
         if (_radialOpen)

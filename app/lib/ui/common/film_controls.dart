@@ -13,6 +13,7 @@ class FilmControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.only(bottom: 16),
       children: const [
         SectionHeader('Halation'),

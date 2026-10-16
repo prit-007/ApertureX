@@ -87,6 +87,7 @@ class LabControls extends ConsumerWidget {
     final activePreset = ShaderLabPreset.fromId(recipe.shaderLabPreset);
 
     return ListView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.only(bottom: 16),
       children: [
         const SectionHeader('Community Shaders & Glitches'),

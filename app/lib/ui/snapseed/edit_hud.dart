@@ -36,7 +36,7 @@ class EditHud extends ConsumerWidget {
     final recipe = ref.watch(recipeControllerProvider).recipe;
     final changed = [
       for (final p in Parameter.values)
-        if (valueOf(recipe, p).abs() > neutralEpsilon) p,
+        if ((valueOf(recipe, p) - specOf(p).neutral).abs() > neutralEpsilon) p,
     ];
     if (changed.isEmpty) return const SizedBox.shrink();
 
