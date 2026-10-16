@@ -646,7 +646,7 @@ mod anative_window {
 /// Returns the window pointer (0 on failure) so the Kotlin side can log it.
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "system" fn Java_com_devparadise_tessera_MainActivity_bindPreviewSurface(
+pub extern "system" fn Java_com_devparadise_aperturex_MainActivity_bindPreviewSurface(
     env: *mut std::ffi::c_void,
     _this: *mut std::ffi::c_void,
     surface: *mut std::ffi::c_void,

@@ -1,4 +1,4 @@
-package com.devparadise.tessera
+package com.devparadise.aperturex
 
 import android.content.Context
 import android.util.Log

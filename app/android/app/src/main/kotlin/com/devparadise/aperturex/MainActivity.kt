@@ -1,4 +1,4 @@
-package com.devparadise.tessera
+package com.devparadise.aperturex
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -212,7 +212,7 @@ class MainActivity : FlutterActivity() {
         private const val NATIVE_CHANNEL = "aperturex/native_log"
 
         init {
-            System.loadLibrary("rust_lib_tessera")
+            System.loadLibrary("rust_lib_aperturex")
         }
     }
 }

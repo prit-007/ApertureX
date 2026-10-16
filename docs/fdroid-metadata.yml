@@ -1,4 +1,4 @@
-# ApertureX — F-Droid metadata (fdroiddata entry draft for com.devparadise.tessera).
+# ApertureX — F-Droid metadata (fdroiddata entry draft for com.devparadise.aperturex).
 #
 # Mirrors the org's `nook` recipe (docs/adr/0004) and shares the same build
 # scripts as GitHub CI (tool/ci/*), so F-Droid and CI builds are the same build.
