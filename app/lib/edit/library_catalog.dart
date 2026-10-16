@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'recipe.dart';
 import 'recipe_store.dart';
+import 'drift_catalog_store.dart';
 
 /// Catalog entry id for the **original** photo [assetId]. Virtual copies use
 /// their own generated id; keying the live [RecipeStore] by entry id is what
@@ -180,14 +180,9 @@ class JsonLibraryCatalogStore implements LibraryCatalogStore {
   }
 }
 
-/// Production store: `ApplicationDocumentsDirectory/library.json` (#73).
+/// Production store: SQLite catalog store backed by Drift (#84).
 final libraryCatalogStoreProvider = Provider<LibraryCatalogStore>(
-  (ref) => JsonLibraryCatalogStore(
-    file: () async {
-      final dir = await getApplicationDocumentsDirectory();
-      return File('${dir.path}/library.json');
-    },
-  ),
+  (ref) => ref.watch(driftLibraryCatalogStoreProvider),
 );
 
 /// Debounce between a catalog mutation and its disk write: edits arrive in

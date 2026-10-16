@@ -48,6 +48,8 @@ dependencies:
   share_plus: ^13.3.1
   image: ^4.12.0
   file_picker: ^13.1.0
+  drift: ^2.35.2
+  sqlite3_flutter_libs: ^0.6.0+eol
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +71,8 @@ dev_dependencies:
   # Build-time tool (not shipped): regenerates every platform launcher icon
   # from the 1024px masters in icons/ — see "App icon" in README.md.
   flutter_launcher_icons: ^0.14.4
+  drift_dev: ^2.35.1
+  build_runner: ^2.15.1
 
 # Launcher-icon generation. Run: dart run flutter_launcher_icons
 # Masters live in icons/ (committed); generated output replaces the Android

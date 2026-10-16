@@ -16,6 +16,7 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 | Component | Version | License | Use | Compatible |
 |-----------|---------|---------|-----|------------|
 | [`dynamic_color`](https://pub.dev/packages/dynamic_color) | ^2.1.0 | Apache-2.0 | Material You wallpaper theming (Android S+; seed fallback elsewhere) | ✅ |
+| [`drift`](https://pub.dev/packages/drift) | ^2.35.2 | MIT | Local SQLite database abstraction & reactive query layer for catalog and edits gallery | ✅ |
 | [`extended_image`](https://pub.dev/packages/extended_image) | ^10.1.0 | MIT | Gallery grid, pinch/pan gesture layer, `ExtendedRawImage.sourceRect` tile blits | ✅ |
 | [`file_picker`](https://pub.dev/packages/file_picker) | ^13.1.0 | MIT | Native SAF file picker for importing HALD CLUT PNGs (federated: `android_file_picker` etc.; no Android permissions required — SAF user grant) | ✅ |
 | [`flutter_rust_bridge`](https://pub.dev/packages/flutter_rust_bridge) | v2.x | MIT / Apache-2.0 | Dart ↔ Rust FFI codegen | ✅ |
@@ -23,6 +24,7 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 | [`jpeg-encoder`](https://crates.io/crates/jpeg-encoder) | ^0.7.1 | (MIT OR Apache-2.0) AND IJG | Rust JPEG encode for full-res export | ✅ |
 | [`rawler`](https://crates.io/crates/rawler) | ^0.8.0 | LGPL-2.1 | Pure-Rust RAW/DNG decode (ADR 0005, `rawler`-first) | ✅ |
 | [`share_plus`](https://pub.dev/packages/share_plus) | ^13.3.1 | BSD-3-Clause | System share sheet for exported JPEGs and activity logs | ✅ |
+| [`sqlite3_flutter_libs`](https://pub.dev/packages/sqlite3_flutter_libs) | ^0.6.0 | MIT | Bundles latest native SQLite binary across Android / iOS platforms | ✅ |
 | [`zune-jpeg`](https://crates.io/crates/zune-jpeg) | ^0.5.15 | MIT OR Apache-2.0 OR Zlib | Rust JPEG decode for the ROI/proxy path | ✅ |
 
 Apache-2.0 and GPL-3.0 are mutually compatible (both are modern, patent-granting
