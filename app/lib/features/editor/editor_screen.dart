@@ -152,9 +152,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       final decoded = isRaw
           ? await AxEngine.decodeRawRgba(bytes)
           : await AxEngine.decodeJpegRgba(bytes);
-      final exif = isRaw
-          ? Uint8List(0)
-          : await AxEngine.extractExif(bytes);
+      final exif = await AxEngine.extractExif(bytes);
 
       // One-call export inside Rust (geometry → banded spatial → masks → grade
       // → encode), cancellable via a token so a big render can be aborted.

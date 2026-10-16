@@ -166,6 +166,14 @@ pub struct RawMetadata {
     pub color_matrix: Option<(Illuminant, Mat3)>,
     /// Optional DCP/DNG HueSatMap for Adobe Standard color rendition.
     pub hue_sat_map: Option<color::HueSatMap>,
+    /// Lens vignette polynomial coefficients [k1, k2, k3].
+    pub lens_vignette: Option<[f32; 3]>,
+    /// Lens radial distortion coefficients [k1, k2, k3].
+    pub lens_distortion: Option<[f32; 3]>,
+    /// Camera make string.
+    pub make: Option<String>,
+    /// Camera model string.
+    pub model: Option<String>,
 }
 
 /// Scene-linear camera RGB, normalised so full scale maps to `1.0`.
@@ -194,6 +202,53 @@ fn flat_to_mat3(flat: &[f32]) -> Option<Mat3> {
     ])
 }
 
+fn parse_opcode_list(
+    data: &[u8],
+    lens_vignette: &mut Option<[f32; 3]>,
+    lens_distortion: &mut Option<[f32; 3]>,
+) {
+    if data.len() < 4 {
+        return;
+    }
+    let count = u32::from_be_bytes(data[0..4].try_into().unwrap_or_default()) as usize;
+    let mut offset = 4;
+    for _ in 0..count {
+        if offset + 16 > data.len() {
+            break;
+        }
+        let id = u32::from_be_bytes(data[offset..offset + 4].try_into().unwrap_or_default());
+        let size = u32::from_be_bytes(
+            data[offset + 12..offset + 16]
+                .try_into()
+                .unwrap_or_default(),
+        ) as usize;
+        offset += 16;
+        if offset + size > data.len() {
+            break;
+        }
+        let payload = &data[offset..offset + size];
+        offset += size;
+
+        match id {
+            1 if payload.len() >= 4 + 4 * 8 => {
+                // WarpRectilinear
+                let k1 = f64::from_be_bytes(payload[12..20].try_into().unwrap_or_default()) as f32;
+                let k2 = f64::from_be_bytes(payload[20..28].try_into().unwrap_or_default()) as f32;
+                let k3 = f64::from_be_bytes(payload[28..36].try_into().unwrap_or_default()) as f32;
+                *lens_distortion = Some([k1, k2, k3]);
+            }
+            3 if payload.len() >= 5 * 8 => {
+                // FixVignetteRadial
+                let k1 = f64::from_be_bytes(payload[8..16].try_into().unwrap_or_default()) as f32;
+                let k2 = f64::from_be_bytes(payload[16..24].try_into().unwrap_or_default()) as f32;
+                let k3 = f64::from_be_bytes(payload[24..32].try_into().unwrap_or_default()) as f32;
+                *lens_vignette = Some([k1, k2, k3]);
+            }
+            _ => {}
+        }
+    }
+}
+
 fn metadata_from_raw(raw: &rawler::rawimage::RawImage) -> RawMetadata {
     let color_matrix = raw
         .color_matrix_find_first([
@@ -204,6 +259,35 @@ fn metadata_from_raw(raw: &rawler::rawimage::RawImage) -> RawMetadata {
             RawlerIlluminant::Unknown,
         ])
         .and_then(|(illu, flat)| flat_to_mat3(&flat).map(|m| (Illuminant::from_rawler(illu), m)));
+
+    let mut lens_vignette = None;
+    let mut lens_distortion = None;
+
+    for tag in [0xC74Eu16, 0xC740u16, 0xC74Fu16] {
+        if let Some(
+            rawler::formats::tiff::value::Value::Byte(bytes)
+            | rawler::formats::tiff::value::Value::Undefined(bytes),
+        ) = raw.dng_tags.get(&tag)
+        {
+            parse_opcode_list(bytes, &mut lens_vignette, &mut lens_distortion);
+        }
+    }
+
+    let make = if !raw.clean_make.is_empty() {
+        Some(raw.clean_make.clone())
+    } else if !raw.make.is_empty() {
+        Some(raw.make.clone())
+    } else {
+        None
+    };
+    let model = if !raw.clean_model.is_empty() {
+        Some(raw.clean_model.clone())
+    } else if !raw.model.is_empty() {
+        Some(raw.model.clone())
+    } else {
+        None
+    };
+
     RawMetadata {
         width: raw.width,
         height: raw.height,
@@ -222,6 +306,10 @@ fn metadata_from_raw(raw: &rawler::rawimage::RawImage) -> RawMetadata {
         wb_coeffs: raw.wb_coeffs,
         color_matrix,
         hue_sat_map: None,
+        lens_vignette,
+        lens_distortion,
+        make,
+        model,
     }
 }
 
@@ -250,6 +338,7 @@ pub fn decode(bytes: &[u8]) -> Result<RawLinearImage, String> {
 }
 
 fn decode_from_raw(raw: rawler::rawimage::RawImage) -> Result<RawLinearImage, String> {
+    let meta = metadata_from_raw(&raw);
     let samples = raw.data.as_f32();
     let is_float = matches!(&raw.data, RawImageData::Float(_));
     let white = raw
@@ -276,11 +365,18 @@ fn decode_from_raw(raw: rawler::rawimage::RawImage) -> Result<RawLinearImage, St
             }
             let mut data: Vec<f32> = samples.iter().map(|&v| normalize(v)).collect();
             reconstruct_highlights(&mut data, raw.width, raw.height, 0.99, None);
-            Ok(RawLinearImage {
+            let mut linear = RawLinearImage {
                 width: raw.width,
                 height: raw.height,
                 data,
-            })
+            };
+            if let Some(k) = meta.lens_vignette {
+                lens::correct_vignette(&mut linear, &k);
+            }
+            if let Some(k) = meta.lens_distortion {
+                lens::correct_distortion(&mut linear, &k);
+            }
+            Ok(linear)
         }
         1 => {
             let expected = raw.width * raw.height;
@@ -302,11 +398,18 @@ fn decode_from_raw(raw: rawler::rawimage::RawImage) -> Result<RawLinearImage, St
             let mut data = demosaic_bilinear(&mosaic, raw.width, raw.height, pattern)?;
             reconstruct_highlights(&mut data, raw.width, raw.height, 0.99, Some(&raw.wb_coeffs));
             apply_white_balance(&mut data, &raw.wb_coeffs);
-            Ok(RawLinearImage {
+            let mut linear = RawLinearImage {
                 width: raw.width,
                 height: raw.height,
                 data,
-            })
+            };
+            if let Some(k) = meta.lens_vignette {
+                lens::correct_vignette(&mut linear, &k);
+            }
+            if let Some(k) = meta.lens_distortion {
+                lens::correct_distortion(&mut linear, &k);
+            }
+            Ok(linear)
         }
         other => Err(format!(
             "raw decode: unsupported components per pixel ({other})"
@@ -1046,6 +1149,131 @@ pub mod lens {
             img.data[i + 2] *= gain;
         }
     }
+
+    /// Undistorts an image using the Brown–Conrady radial model with coefficients k = [k1, k2, k3].
+    pub fn correct_distortion(img: &mut RawLinearImage, k: &[f32; 3]) {
+        if k.iter().all(|c| *c == 0.0) {
+            return;
+        }
+        let w = img.width;
+        let h = img.height;
+        let fw = w as f32;
+        let fh = h as f32;
+        let cx = (fw - 1.0) * 0.5;
+        let cy = (fh - 1.0) * 0.5;
+        let half_diag = (cx * cx + cy * cy).sqrt().max(f32::EPSILON);
+
+        let mut out = vec![0.0f32; w * h * 3];
+
+        for y in 0..h {
+            for x in 0..w {
+                let dx = (x as f32 - cx) / half_diag;
+                let dy = (y as f32 - cy) / half_diag;
+                let r = (dx * dx + dy * dy).sqrt();
+                if r < 1e-7 {
+                    let idx = (y * w + x) * 3;
+                    out[idx..idx + 3].copy_from_slice(&img.data[idx..idx + 3]);
+                    continue;
+                }
+                let r_distorted = distorted_radius(r, k);
+                let scale = r_distorted / r;
+                let src_x = cx + dx * scale * half_diag;
+                let src_y = cy + dy * scale * half_diag;
+
+                let dst_idx = (y * w + x) * 3;
+                if src_x >= 0.0 && src_x <= fw - 1.0 && src_y >= 0.0 && src_y <= fh - 1.0 {
+                    let x0 = src_x.floor() as usize;
+                    let y0 = src_y.floor() as usize;
+                    let x1 = (x0 + 1).min(w - 1);
+                    let y1 = (y0 + 1).min(h - 1);
+                    let fx = src_x - x0 as f32;
+                    let fy = src_y - y0 as f32;
+
+                    let i00 = (y0 * w + x0) * 3;
+                    let i10 = (y0 * w + x1) * 3;
+                    let i01 = (y1 * w + x0) * 3;
+                    let i11 = (y1 * w + x1) * 3;
+
+                    for c in 0..3 {
+                        let top = img.data[i00 + c] * (1.0 - fx) + img.data[i10 + c] * fx;
+                        let btm = img.data[i01 + c] * (1.0 - fx) + img.data[i11 + c] * fx;
+                        out[dst_idx + c] = top * (1.0 - fy) + btm * fy;
+                    }
+                }
+            }
+        }
+        img.data = out;
+    }
+}
+
+/// Builds a standard JPEG APP1 Exif segment from a RAW/DNG file to preserve metadata on export.
+pub fn build_exif_app1(bytes: &[u8]) -> Option<Vec<u8>> {
+    let meta = metadata(bytes).ok()?;
+    let make = meta.make.as_deref().unwrap_or("Generic");
+    let model = meta.model.as_deref().unwrap_or("RAW Camera");
+    let software = "ApertureX";
+
+    let mut make_bytes = make.as_bytes().to_vec();
+    make_bytes.push(0);
+    let mut model_bytes = model.as_bytes().to_vec();
+    model_bytes.push(0);
+    let mut sw_bytes = software.as_bytes().to_vec();
+    sw_bytes.push(0);
+
+    let base_data_offset = 8 + 2 + 4 * 12 + 4; // 62
+    let make_offset = base_data_offset as u32;
+    let model_offset = make_offset + make_bytes.len() as u32;
+    let sw_offset = model_offset + model_bytes.len() as u32;
+
+    let mut tiff = Vec::new();
+    tiff.extend_from_slice(b"II\x2a\x00"); // Little endian header
+    tiff.extend_from_slice(&8u32.to_le_bytes()); // Offset to IFD0
+    tiff.extend_from_slice(&4u16.to_le_bytes()); // 4 entries
+
+    // 0x010F Make
+    tiff.extend_from_slice(&0x010Fu16.to_le_bytes());
+    tiff.extend_from_slice(&2u16.to_le_bytes()); // ASCII
+    tiff.extend_from_slice(&(make_bytes.len() as u32).to_le_bytes());
+    tiff.extend_from_slice(&make_offset.to_le_bytes());
+
+    // 0x0110 Model
+    tiff.extend_from_slice(&0x0110u16.to_le_bytes());
+    tiff.extend_from_slice(&2u16.to_le_bytes()); // ASCII
+    tiff.extend_from_slice(&(model_bytes.len() as u32).to_le_bytes());
+    tiff.extend_from_slice(&model_offset.to_le_bytes());
+
+    // 0x0112 Orientation (SHORT = 3, count = 1, val = 1)
+    tiff.extend_from_slice(&0x0112u16.to_le_bytes());
+    tiff.extend_from_slice(&3u16.to_le_bytes());
+    tiff.extend_from_slice(&1u32.to_le_bytes());
+    tiff.extend_from_slice(&1u16.to_le_bytes());
+    tiff.extend_from_slice(&0u16.to_le_bytes());
+
+    // 0x0131 Software
+    tiff.extend_from_slice(&0x0131u16.to_le_bytes());
+    tiff.extend_from_slice(&2u16.to_le_bytes()); // ASCII
+    tiff.extend_from_slice(&(sw_bytes.len() as u32).to_le_bytes());
+    tiff.extend_from_slice(&sw_offset.to_le_bytes());
+
+    tiff.extend_from_slice(&0u32.to_le_bytes()); // Next IFD = 0
+    tiff.extend_from_slice(&make_bytes);
+    tiff.extend_from_slice(&model_bytes);
+    tiff.extend_from_slice(&sw_bytes);
+
+    let payload_len = 6 + tiff.len();
+    let total_len = payload_len + 2;
+    if total_len > 65535 {
+        return None;
+    }
+    let mut app1 = Vec::with_capacity(2 + total_len);
+    app1.push(0xFF);
+    app1.push(0xE1);
+    app1.push((total_len >> 8) as u8);
+    app1.push((total_len & 0xFF) as u8);
+    app1.extend_from_slice(b"Exif\0\0");
+    app1.extend_from_slice(&tiff);
+
+    Some(app1)
 }
 
 #[cfg(feature = "raw-libraw")]
@@ -1059,7 +1287,7 @@ mod libraw_tests {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::io::Cursor;
 
     use rawler::dng::writer::DngWriter;
@@ -1688,6 +1916,72 @@ mod tests {
             (sample[0] - 20.0).abs() < 1e-4,
             "interpolated hue shift expected 20.0, got {}",
             sample[0]
+        );
+    }
+
+    #[test]
+    fn lens_distortion_is_noop_for_zero_coefficients() {
+        let mut img = coord_img();
+        let original = img.clone();
+        lens::correct_distortion(&mut img, &[0.0, 0.0, 0.0]);
+        assert_eq!(img, original);
+    }
+
+    #[test]
+    fn lens_distortion_leaves_center_unchanged() {
+        let (w, h) = (9, 9);
+        let mut data = Vec::with_capacity(w * h * 3);
+        for y in 0..h {
+            for x in 0..w {
+                data.extend_from_slice(&[x as f32, y as f32, 0.5]);
+            }
+        }
+        let mut img = RawLinearImage {
+            width: w,
+            height: h,
+            data,
+        };
+        let center_idx = (4 * w + 4) * 3;
+        let original_center = [
+            img.data[center_idx],
+            img.data[center_idx + 1],
+            img.data[center_idx + 2],
+        ];
+
+        lens::correct_distortion(&mut img, &[0.1, 0.05, 0.0]);
+        assert_eq!(
+            [
+                img.data[center_idx],
+                img.data[center_idx + 1],
+                img.data[center_idx + 2]
+            ],
+            original_center,
+            "center pixel must remain unchanged under radial distortion"
+        );
+        // An off-center interior pixel (e.g. x=2, y=3) must shift
+        let interior_idx = (3 * w + 2) * 3;
+        assert!(
+            (img.data[interior_idx] - 2.0).abs() > 1e-4
+                || (img.data[interior_idx + 1] - 3.0).abs() > 1e-4,
+            "off-center interior pixel should be shifted by distortion"
+        );
+    }
+
+    #[test]
+    fn build_exif_app1_creates_valid_app1_with_metadata() {
+        let dng = make_linear_dng(4, 4);
+        let app1 = build_exif_app1(&dng).expect("build_exif_app1 should succeed for valid DNG");
+        assert_eq!(app1[0], 0xFF);
+        assert_eq!(app1[1], 0xE1);
+        assert_eq!(&app1[4..10], b"Exif\0\0");
+        // Verify ApertureX is present in the software tag
+        let payload = &app1[10..];
+        let found_software = payload
+            .windows(b"ApertureX".len())
+            .any(|w| w == b"ApertureX");
+        assert!(
+            found_software,
+            "exported EXIF must include ApertureX software tag"
         );
     }
 }
