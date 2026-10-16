@@ -32,6 +32,7 @@ import '../../settings/shell_preference.dart';
 import '../../ui/app_shell.dart';
 import '../../ui/common/app_primitives.dart';
 import '../../ui/common/app_sheet.dart';
+import '../../ui/common/editor_guide_sheet.dart';
 import '../../ui/common/settings_sheet.dart';
 import '../../ui/edit_activity.dart';
 
@@ -323,6 +324,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       onPressed: canRedo ? notifier.redo : null,
       icon: const Icon(Icons.redo),
     );
+    final guide = IconButton(
+      tooltip: 'Editor Guide',
+      onPressed: () => EditorGuideSheet.show(context),
+      icon: const Icon(Icons.help_outline),
+    );
     final more = IconButton(
       tooltip: 'More',
       onPressed: () => _openSettings(context),
@@ -357,9 +363,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               child: AppBar(
                 leading: const BackButton(),
                 title: const Text('Edit'),
-                // History lives with the Lightroom tabs (bottom, thumb zone)
-                // and on the gesture shell's floating HUD (issue #28).
-                actions: gestureShell ? null : [crop, more, export],
+                actions: gestureShell ? null : [crop, guide, more, export],
               ),
             ),
           ),
@@ -386,7 +390,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   _body(
                     gestureShell: gestureShell,
                     hud: Row(
-                      children: [crop, undo, redo, more, const Spacer(), export],
+                      children: [crop, undo, redo, guide, more, const Spacer(), export],
                     ),
                   ),
                   // Modal barrier while the share sheet's temp files are
@@ -432,7 +436,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     );
   }
 
-  Widget _body({required bool gestureShell, required Widget hud}) {
+  Widget _body({required bool gestureShell, Widget? hud}) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }

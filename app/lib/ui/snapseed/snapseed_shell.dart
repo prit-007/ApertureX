@@ -48,6 +48,8 @@ class SnapseedShell extends ConsumerStatefulWidget {
     required this.onPickTool,
     this.onSelectCategoryAndTool,
     this.histogramOpen = false,
+    this.hasHistogram = false,
+    this.onToggleHistogram,
   });
 
   final GradeTool tool;
@@ -57,6 +59,8 @@ class SnapseedShell extends ConsumerStatefulWidget {
   final ValueChanged<GradeTool> onPickTool;
   final void Function(ToolCategory category, GradeTool tool)? onSelectCategoryAndTool;
   final bool histogramOpen;
+  final bool hasHistogram;
+  final VoidCallback? onToggleHistogram;
 
   @override
   ConsumerState<SnapseedShell> createState() => _SnapseedShellState();
@@ -135,131 +139,149 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           child: const SafeArea(left: false, bottom: false, child: EditHud()),
         ),
 
-        // Active-tool HUD (bottom).
+        // Unified Material 3 bottom dock (zero-overlap, integrated actions).
         if (!nodeMode)
           Align(
-          alignment: Alignment.bottomCenter,
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: Insets.sm),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.90),
-                  borderRadius: Radii.pillAll,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      InkWell(
-                        onTap: widget.onCycleCategory,
-                        borderRadius: Radii.smAll,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _categoryLabel(widget.category),
-                                style: themeStyle(context, FontWeight.w600)
-                                    .copyWith(color: scheme.onSurfaceVariant, fontSize: 11),
-                              ),
-                              const Icon(Icons.unfold_more, size: 12),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 16,
-                        color: scheme.outlineVariant,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          spec.label,
-                          overflow: TextOverflow.ellipsis,
-                          style: themeStyle(context, FontWeight.w600).copyWith(fontSize: 11),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
-                        style: themeStyle(context, FontWeight.w700).copyWith(
-                          color: scheme.primary,
-                          fontSize: 11,
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'HSL target: tap a colour in the photo, then '
-                            'drag to adjust it',
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(26, 26),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          padding: EdgeInsets.zero,
-                        ),
-                        isSelected: ref.watch(tatModeProvider),
-                        onPressed: () =>
-                            ref.read(tatModeProvider.notifier).toggle(),
-                        icon: const Icon(Icons.colorize, size: 16),
-                        selectedIcon: Icon(Icons.colorize, size: 16, color: scheme.primary),
-                      ),
-                      IconButton(
-                        key: const Key('snapseed-straighten-toggle'),
-                        tooltip: 'Straighten & Rotate',
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(26, 26),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          padding: EdgeInsets.zero,
-                        ),
-                        isSelected: _straightenOpen,
-                        onPressed: () =>
-                            setState(() => _straightenOpen = !_straightenOpen),
-                        icon: const Icon(Icons.crop_rotate, size: 16),
-                        selectedIcon: Icon(Icons.crop_rotate, size: 16, color: scheme.primary),
-                      ),
-                      IconButton(
-                        key: const Key('snapseed-tools-sheet-toggle'),
-                        tooltip: 'All Tools',
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(26, 26),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          padding: EdgeInsets.zero,
-                        ),
-                        onPressed: () => _openToolsSheet(context),
-                        icon: const Icon(Icons.grid_view, size: 16),
-                      ),
-                      IconButton(
-                        tooltip: 'Tools',
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(26, 26),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          padding: EdgeInsets.zero,
-                        ),
-                        onPressed: () => setState(() => _radialOpen = true),
-                        icon: const Icon(Icons.radio_button_checked, size: 16),
+            alignment: Alignment.bottomCenter,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(Insets.sm, 0, Insets.sm, Insets.sm),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest.withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.16),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
                       ),
                     ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          key: const Key('snapseed-tools-sheet-toggle'),
+                          tooltip: 'All Tools',
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                          onPressed: () => _openToolsSheet(context),
+                          icon: const Icon(Icons.grid_view, size: 17),
+                        ),
+                        IconButton(
+                          key: const Key('snapseed-straighten-toggle'),
+                          tooltip: 'Straighten & Rotate',
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                          isSelected: _straightenOpen,
+                          onPressed: () =>
+                              setState(() => _straightenOpen = !_straightenOpen),
+                          icon: const Icon(Icons.crop_rotate, size: 17),
+                          selectedIcon: Icon(Icons.crop_rotate, size: 17, color: scheme.primary),
+                        ),
+                        IconButton(
+                          tooltip: 'Tools',
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                          onPressed: () => setState(() => _radialOpen = true),
+                          icon: const Icon(Icons.radio_button_checked, size: 17),
+                        ),
+                        Container(
+                          width: 1,
+                          height: 18,
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          color: scheme.outlineVariant,
+                        ),
+                        InkWell(
+                          onTap: widget.onCycleCategory,
+                          borderRadius: Radii.smAll,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _categoryLabel(widget.category),
+                                  style: themeStyle(context, FontWeight.w600)
+                                      .copyWith(color: scheme.onSurfaceVariant, fontSize: 11),
+                                ),
+                                const Icon(Icons.unfold_more, size: 12),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            spec.label,
+                            overflow: TextOverflow.ellipsis,
+                            style: themeStyle(context, FontWeight.w600).copyWith(fontSize: 11),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
+                          style: themeStyle(context, FontWeight.w700).copyWith(
+                            color: scheme.primary,
+                            fontSize: 11,
+                          ),
+                        ),
+                        Container(
+                          width: 1,
+                          height: 18,
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          color: scheme.outlineVariant,
+                        ),
+                        IconButton(
+                          tooltip: 'HSL target: tap a colour in the photo, then '
+                              'drag to adjust it',
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                          isSelected: ref.watch(tatModeProvider),
+                          onPressed: () =>
+                              ref.read(tatModeProvider.notifier).toggle(),
+                          icon: const Icon(Icons.colorize, size: 17),
+                          selectedIcon: Icon(Icons.colorize, size: 17, color: scheme.primary),
+                        ),
+                        IconButton(
+                          key: const Key('selective-toggle'),
+                          tooltip: 'Selective',
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                          onPressed: () => ref.read(nodeEditorProvider.notifier).enable(),
+                          icon: const Icon(Icons.add_location_alt, size: 17),
+                        ),
+                        if (widget.hasHistogram)
+                          IconButton(
+                            key: const Key('histogram-toggle'),
+                            tooltip: widget.histogramOpen ? 'Hide histogram' : 'Show histogram',
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                            isSelected: widget.histogramOpen,
+                            onPressed: widget.onToggleHistogram,
+                            icon: const Icon(Icons.bar_chart, size: 17),
+                            selectedIcon: Icon(Icons.bar_chart, size: 17, color: scheme.primary),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
 
         // Floating straighten & rotation dial HUD
         if (_straightenOpen && !nodeMode)

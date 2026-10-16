@@ -95,9 +95,18 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         onSelected: (_) => onTap(),
         showCheckmark: false,
         visualDensity: VisualDensity.compact,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        side: BorderSide(
+          color: selected
+              ? scheme.primary
+              : scheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+        selectedColor: scheme.primaryContainer,
+        backgroundColor: scheme.surfaceContainerHigh,
         labelStyle: TextStyle(
           fontSize: 12,
           letterSpacing: 0.4,
+          color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         ),
       ),

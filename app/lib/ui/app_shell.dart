@@ -17,6 +17,7 @@ import '../edit/recipe_mapping.dart';
 import '../gesture/gesture_interpreter.dart';
 import '../settings/shell_preference.dart';
 import '../settings/onboarding.dart';
+import '../viewport/compare_hold.dart';
 import '../viewport/image_canvas.dart';
 import '../viewport/mask_peek.dart';
 import 'edit_activity.dart';
@@ -166,7 +167,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                 category: _category,
                 tools: gestureCategories[_category]!,
                 onCycleCategory: _cycleCategory,
+                hasHistogram: hasHistogram,
                 histogramOpen: _showHistogram && hasHistogram,
+                onToggleHistogram: () =>
+                    setState(() => _showHistogram = !_showHistogram),
                 onPickTool: (t) {
                   _fsm.setTool(t);
                   setState(() => _active = t);
@@ -232,39 +236,17 @@ class _AppShellState extends ConsumerState<AppShell> {
                   ),
                 ),
               if (!hintSeen) const Positioned.fill(child: GhostHint()),
-              // The bottom-corner affordances make room for the node adjust
-              // bar while node mode is active.
+              // Compare affordance floating above the bottom dock (steps aside in node mode).
               if (!nodeMode)
                 Positioned(
-                  left: Insets.sm,
-                  bottom: 64,
+                  left: Insets.md,
+                  bottom: 68,
                   child: _Fade(
                     active: active,
                     child: SafeArea(
                       top: false,
                       child: overlays[0],
                     ),
-                  ),
-                ),
-              if (!nodeMode)
-                Positioned(
-                  left: Insets.sm,
-                  bottom: Insets.sm,
-                  child: _Fade(
-                    active: active,
-                    child: const SafeArea(
-                      top: false,
-                      child: _SelectiveToggle(),
-                    ),
-                  ),
-                ),
-              if (!nodeMode)
-                Positioned(
-                  right: Insets.sm,
-                  bottom: Insets.sm,
-                  child: _Fade(
-                    active: active,
-                    child: SafeArea(top: false, child: overlays[1]),
                   ),
                 ),
               if (nodeMode)
@@ -803,75 +785,51 @@ class _HistogramToggle extends StatelessWidget {
   }
 }
 
-/// A compact, non-interactive affordance on the image: long-press shows the
+/// A compact, interactive affordance on the image: hold to view the
 /// unedited "before".
-class _CompareHint extends StatelessWidget {
+class _CompareHint extends ConsumerWidget {
   const _CompareHint();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return IgnorePointer(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-          borderRadius: Radii.smAll,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Insets.sm,
-            vertical: Insets.xs,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.compare, size: 14, color: scheme.onSurfaceVariant),
-              const SizedBox(width: Insets.xs),
-              Text(
-                'Hold to compare',
-                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Entry point for node-based selective editing (issue #25) in the gesture
-/// shell: drops radial control points on the photo. Steps aside for the
-/// node adjust bar while node mode is active.
-class _SelectiveToggle extends ConsumerWidget {
-  const _SelectiveToggle();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-      borderRadius: Radii.smAll,
-      child: InkWell(
-        key: const Key('selective-toggle'),
-        borderRadius: Radii.smAll,
-        onTap: () => ref.read(nodeEditorProvider.notifier).enable(),
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) => ref.read(compareHoldProvider.notifier).hold(),
+      onPointerUp: (_) => ref.read(compareHoldProvider.notifier).release(),
+      onPointerCancel: (_) => ref.read(compareHoldProvider.notifier).release(),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: Insets.sm,
-            vertical: Insets.xs,
+            vertical: 5,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.add_location_alt,
-                size: 14,
-                color: scheme.onSurfaceVariant,
-              ),
+              Icon(Icons.compare, size: 14, color: scheme.primary),
               const SizedBox(width: Insets.xs),
               Text(
-                'Selective',
-                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                'Hold to compare',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -880,3 +838,4 @@ class _SelectiveToggle extends ConsumerWidget {
     );
   }
 }
+

@@ -7,6 +7,7 @@ import '../../edit/node_editor.dart';
 import '../../edit/recipe_controller.dart';
 import '../../gesture/gesture_interpreter.dart';
 import '../common/blur_controls.dart';
+import '../common/editor_guide_sheet.dart';
 import '../common/film_controls.dart';
 import '../common/lab_controls.dart';
 import '../common/optics_controls.dart';
@@ -274,10 +275,21 @@ class SnapseedToolsSheet extends ConsumerWidget {
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.of(context).pop(),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'Guide & Gestures',
+                        icon: const Icon(Icons.help_outline, size: 20),
+                        onPressed: () => EditorGuideSheet.show(context),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
                   ),
                 ],
               ),

@@ -139,4 +139,20 @@ void main() {
 
     expect(find.byType(FilmControls), findsOneWidget);
   });
+
+  testWidgets('tapping Guide & Gestures button in header opens EditorGuideSheet', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+
+    await tester.tap(find.byKey(const Key('snapseed-tools-sheet-toggle')));
+    await tester.pumpAndSettle();
+
+    final guideBtn = find.byTooltip('Guide & Gestures');
+    expect(guideBtn, findsOneWidget);
+    await tester.tap(guideBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ApertureX Pro Guide'), findsOneWidget);
+  });
 }
