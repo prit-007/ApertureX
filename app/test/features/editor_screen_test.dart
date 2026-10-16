@@ -183,9 +183,10 @@ void main() {
       final modeCalls = calls
           .where((c) => c.method == 'SystemChrome.setEnabledSystemUIMode')
           .toList();
-      expect(modeCalls, hasLength(2));
-      expect(modeCalls.first.arguments.toString(), contains('immersiveSticky'));
-      expect(modeCalls.last.arguments.toString(), contains('edgeToEdge'));
+      expect(modeCalls, hasLength(3));
+      expect(modeCalls[0].arguments.toString(), contains('edgeToEdge'));
+      expect(modeCalls[1].arguments.toString(), contains('immersiveSticky'));
+      expect(modeCalls[2].arguments.toString(), contains('edgeToEdge'));
     });
 
     testWidgets('the gesture shell moves the actions onto a floating HUD', (

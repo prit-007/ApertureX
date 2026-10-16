@@ -164,8 +164,10 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
                           key: const Key('snapseed-tools-sheet-toggle'),
@@ -278,6 +280,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                       ],
                     ),
                   ),
+                ),
                 ),
               ),
             ),
@@ -400,7 +403,6 @@ class _RadialMenu extends StatelessWidget {
         // Recenter the ring inside the safe area so side cutouts (issue #47)
         // don't clip the outermost items; the dismiss backdrop stays full-bleed.
         SafeArea(
-          top: false,
           child: Center(
             child: SizedBox(
               width: half * 2,

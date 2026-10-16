@@ -43,9 +43,11 @@ class EditHud extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     return Align(
       alignment: Alignment.topRight,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Wrap(
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Wrap(
           spacing: 6,
           runSpacing: 4,
           alignment: WrapAlignment.end,
@@ -74,6 +76,7 @@ class EditHud extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

@@ -29,8 +29,9 @@ class _GhostHintState extends ConsumerState<GhostHint>
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return IgnorePointer(
-      child: Center(
-        child: AnimatedBuilder(
+      child: SafeArea(
+        child: Center(
+          child: AnimatedBuilder(
           animation: _controller,
           builder: (context, _) {
             final t = Curves.easeInOut.transform(_controller.value);
@@ -102,8 +103,9 @@ class _GhostHintState extends ConsumerState<GhostHint>
           },
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _Thumb extends StatelessWidget {
