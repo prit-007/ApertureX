@@ -14,4 +14,5 @@ pub mod optics;
 pub mod preview;
 pub mod raw;
 pub mod retouch;
+pub mod simd;
 pub mod spatial;

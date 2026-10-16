@@ -69,14 +69,8 @@ pub fn blur_rgb(src: &[u8], w: usize, h: usize, radius: usize, iterations: usize
 /// `out = src + (src - blur(src)) * amount` — the shared unsharp form. `amount`
 /// > 0 adds local contrast; the luma is unaffected where the image is flat.
 fn unsharp(src: &[u8], base: &[u8], amount: f32) -> Vec<u8> {
-    let mut out = src.to_vec();
-    for i in 0..src.len() / 4 {
-        for c in 0..3 {
-            let o = src[i * 4 + c] as f32;
-            let b = base[i * 4 + c] as f32;
-            out[i * 4 + c] = (o + (o - b) * amount).clamp(0.0, 255.0) as u8;
-        }
-    }
+    let mut out = vec![0u8; src.len()];
+    crate::simd::vector_unsharp(src, base, amount, &mut out);
     out
 }
 
@@ -110,31 +104,20 @@ pub fn guided_filter_channel(
 
     let mut ip = vec![0.0f32; n];
     let mut ii = vec![0.0f32; n];
-    for i in 0..n {
-        ip[i] = guide[i] * src[i];
-        ii[i] = guide[i] * guide[i];
-    }
+    crate::simd::vector_mul(guide, src, &mut ip);
+    crate::simd::vector_sqr(guide, &mut ii);
     let mean_ip = box_blur_1d(&ip, w, h, radius);
     let mean_ii = box_blur_1d(&ii, w, h, radius);
 
     let mut a = vec![0.0f32; n];
     let mut b = vec![0.0f32; n];
-    for i in 0..n {
-        let var_i = (mean_ii[i] - mean_i[i] * mean_i[i]).max(0.0);
-        let cov_ip = mean_ip[i] - mean_i[i] * mean_p[i];
-        let a_val = cov_ip / (var_i + eps);
-        let b_val = mean_p[i] - a_val * mean_i[i];
-        a[i] = a_val;
-        b[i] = b_val;
-    }
+    crate::simd::vector_guided_coeffs(&mean_i, &mean_p, &mean_ii, &mean_ip, eps, &mut a, &mut b);
 
     let mean_a = box_blur_1d(&a, w, h, radius);
     let mean_b = box_blur_1d(&b, w, h, radius);
 
     let mut q = vec![0.0f32; n];
-    for i in 0..n {
-        q[i] = mean_a[i] * guide[i] + mean_b[i];
-    }
+    crate::simd::vector_linear_combination(&mean_a, guide, &mean_b, &mut q);
     q
 }
 
@@ -162,39 +145,35 @@ pub fn guided_filter_luma_rgb(rgba: &[u8], w: usize, h: usize, radius: usize, ep
     }
 
     let mean_i = box_blur_1d(&luma, w, h, radius);
-    let ii: Vec<f32> = luma.iter().map(|&l| l * l).collect();
+    let mut ii = vec![0.0f32; n];
+    crate::simd::vector_sqr(&luma, &mut ii);
     let mean_ii = box_blur_1d(&ii, w, h, radius);
 
-    let mut var_i = Vec::with_capacity(n);
-    for i in 0..n {
-        var_i.push((mean_ii[i] - mean_i[i] * mean_i[i]).max(0.0));
-    }
+    let mut var_i = vec![0.0f32; n];
+    crate::simd::vector_variance(&mean_ii, &mean_i, &mut var_i);
 
     let mut out = rgba.to_vec();
+    let mut ip = vec![0.0f32; n];
+    let mut a = vec![0.0f32; n];
+    let mut b = vec![0.0f32; n];
+    let mut q = vec![0.0f32; n];
+
     for (c, ch) in [r_ch, g_ch, b_ch].into_iter().enumerate() {
         let mean_p = box_blur_1d(&ch, w, h, radius);
-        let mut ip = Vec::with_capacity(n);
-        for i in 0..n {
-            ip.push(luma[i] * ch[i]);
-        }
+        crate::simd::vector_mul(&luma, &ch, &mut ip);
         let mean_ip = box_blur_1d(&ip, w, h, radius);
 
-        let mut a = Vec::with_capacity(n);
-        let mut b = Vec::with_capacity(n);
-        for i in 0..n {
-            let cov_ip = mean_ip[i] - mean_i[i] * mean_p[i];
-            let a_val = cov_ip / (var_i[i] + eps);
-            let b_val = mean_p[i] - a_val * mean_i[i];
-            a.push(a_val);
-            b.push(b_val);
-        }
+        crate::simd::vector_guided_coeffs_with_var(
+            &mean_i, &mean_p, &var_i, &mean_ip, eps, &mut a, &mut b,
+        );
 
         let mean_a = box_blur_1d(&a, w, h, radius);
         let mean_b = box_blur_1d(&b, w, h, radius);
 
+        crate::simd::vector_linear_combination(&mean_a, &luma, &mean_b, &mut q);
+
         for i in 0..n {
-            let q = mean_a[i] * luma[i] + mean_b[i];
-            out[i * 4 + c] = q.clamp(0.0, 255.0) as u8;
+            out[i * 4 + c] = q[i].clamp(0.0, 255.0) as u8;
         }
     }
     out
