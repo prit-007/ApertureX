@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:aperturex/edit/adjustment_layer.dart';
 import 'package:aperturex/edit/node_editor.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
+import 'package:aperturex/ui/common/mask_controls.dart';
 import 'package:aperturex/ui/common/node_controls.dart';
 import 'package:aperturex/ui/common/node_overlay.dart';
 import 'package:aperturex/viewport/canvas_transform.dart';
@@ -195,4 +196,57 @@ void main() {
       expect(layer.maskParams[4], 0.9);
     },
   );
+
+  testWidgets(
+    'MaskControls inline card provides brush feather, clear, and tonal sliders',
+    (tester) async {
+      final controller = container.read(recipeControllerProvider.notifier);
+      controller.addLayer(
+        const AdjustmentLayer(
+          maskKind: MaskKind.brush,
+          maskParams: [0.08, 0.35, 2, 0.2, 0.2, 1.0, 0.25, 0.25, 1.0],
+          exposure: 0.5,
+        ),
+      );
+      container.read(nodeEditorProvider.notifier).enable();
+      container.read(nodeEditorProvider.notifier).select(0);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 400,
+                height: 800,
+                child: MaskControls(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Check sliders exist in MaskControls
+      expect(find.byKey(const Key('mask-inline-brush-size-slider')), findsOneWidget);
+      expect(find.byKey(const Key('mask-inline-brush-feather-slider')), findsOneWidget);
+      expect(find.byKey(const Key('mask-inline-brush-clear')), findsOneWidget);
+      expect(find.byKey(const Key('mask-inline-contrast-slider')), findsOneWidget);
+      expect(find.byKey(const Key('mask-inline-saturation-slider')), findsOneWidget);
+
+      // Drag feather
+      await tester.drag(
+        find.byKey(const Key('mask-inline-brush-feather-slider')),
+        const Offset(60, 0),
+      );
+      await tester.pump();
+      expect(container.read(recipeControllerProvider).recipe.layers.first.brushFeather, greaterThan(0.35));
+
+      // Tap clear
+      await tester.tap(find.byKey(const Key('mask-inline-brush-clear')));
+      await tester.pump();
+      expect(container.read(recipeControllerProvider).recipe.layers.first.brushPointCount, 0);
+    },
+  );
 }
+

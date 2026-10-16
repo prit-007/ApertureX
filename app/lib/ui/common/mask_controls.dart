@@ -191,6 +191,7 @@ class MaskControls extends ConsumerWidget {
                           FilterChip(
                             key: const Key('mask-inline-invert'),
                             label: const Text('Invert', style: TextStyle(fontSize: 11)),
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             selected: layers[i].inverted,
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
@@ -198,6 +199,22 @@ class MaskControls extends ConsumerWidget {
                               notifier.updateLayerAt(i, layers[i].copyWith(inverted: val));
                             },
                           ),
+                          if (layers[i].maskKind == MaskKind.brush && layers[i].brushPointCount > 0) ...[
+                            const SizedBox(width: 6),
+                            TextButton.icon(
+                              key: const Key('mask-inline-brush-clear'),
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              icon: const Icon(Icons.clear, size: 14),
+                              label: const Text('Clear', style: TextStyle(fontSize: 11)),
+                              onPressed: () {
+                                notifier.updateLayerAt(i, layers[i].withClearedStrokes());
+                              },
+                            ),
+                          ],
                           const Spacer(),
                           Text(
                             'EV ${layers[i].exposure >= 0 ? '+' : ''}${layers[i].exposure.toStringAsFixed(2)}',
@@ -205,45 +222,74 @@ class MaskControls extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      Row(
-                        children: [
-                          const SizedBox(
-                            width: 65,
-                            child: Text('Exposure', style: TextStyle(fontSize: 12)),
-                          ),
-                          Expanded(
-                            child: Slider(
-                              key: const Key('mask-inline-exposure-slider'),
-                              value: layers[i].exposure.clamp(-2.0, 2.0),
-                              min: -2.0,
-                              max: 2.0,
-                              onChanged: (val) {
-                                notifier.updateLayerAt(i, layers[i].copyWith(exposure: val));
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (layers[i].maskKind == MaskKind.brush)
-                        Row(
-                          children: [
-                            const SizedBox(
-                              width: 65,
-                              child: Text('Size', style: TextStyle(fontSize: 12)),
-                            ),
-                            Expanded(
-                              child: Slider(
-                                key: const Key('mask-inline-brush-size-slider'),
-                                value: layers[i].brushRadius.clamp(0.01, 0.5),
-                                min: 0.01,
-                                max: 0.5,
-                                onChanged: (val) {
-                                  notifier.updateLayerAt(i, layers[i].withBrushRadius(val));
-                                },
-                              ),
-                            ),
-                          ],
+                      if (layers[i].maskKind == MaskKind.brush) ...[
+                        _MaskSlider(
+                          label: 'Brush Size',
+                          sliderKey: const Key('mask-inline-brush-size-slider'),
+                          value: layers[i].brushRadius,
+                          min: 0.01,
+                          max: 0.5,
+                          onChanged: (val) => notifier.updateLayerAt(i, layers[i].withBrushRadius(val)),
                         ),
+                        _MaskSlider(
+                          label: 'Feather',
+                          sliderKey: const Key('mask-inline-brush-feather-slider'),
+                          value: layers[i].brushFeather,
+                          min: 0.0,
+                          max: 1.0,
+                          onChanged: (val) => notifier.updateLayerAt(i, layers[i].withBrushFeather(val)),
+                        ),
+                      ],
+                      if (layers[i].maskKind == MaskKind.sky) ...[
+                        _MaskSlider(
+                          label: 'Horizon',
+                          sliderKey: const Key('mask-inline-sky-horizon-slider'),
+                          value: layers[i].skyHorizon,
+                          min: 0.05,
+                          max: 0.95,
+                          onChanged: (val) => notifier.updateLayerAt(i, layers[i].withSkyHorizon(val)),
+                        ),
+                      ],
+                      _MaskSlider(
+                        label: 'Exposure',
+                        sliderKey: const Key('mask-inline-exposure-slider'),
+                        value: layers[i].exposure,
+                        min: -2.0,
+                        max: 2.0,
+                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(exposure: val)),
+                      ),
+                      _MaskSlider(
+                        label: 'Contrast',
+                        sliderKey: const Key('mask-inline-contrast-slider'),
+                        value: layers[i].contrast,
+                        min: -1.0,
+                        max: 1.0,
+                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(contrast: val)),
+                      ),
+                      _MaskSlider(
+                        label: 'Highlights',
+                        sliderKey: const Key('mask-inline-highlights-slider'),
+                        value: layers[i].highlights,
+                        min: -1.0,
+                        max: 1.0,
+                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(highlights: val)),
+                      ),
+                      _MaskSlider(
+                        label: 'Shadows',
+                        sliderKey: const Key('mask-inline-shadows-slider'),
+                        value: layers[i].shadows,
+                        min: -1.0,
+                        max: 1.0,
+                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(shadows: val)),
+                      ),
+                      _MaskSlider(
+                        label: 'Saturation',
+                        sliderKey: const Key('mask-inline-saturation-slider'),
+                        value: layers[i].saturation,
+                        min: -1.0,
+                        max: 1.0,
+                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(saturation: val)),
+                      ),
                     ],
                   ),
                 ),
@@ -265,5 +311,44 @@ class MaskControls extends ConsumerWidget {
 
   void _toggleStylusOnly(WidgetRef ref, bool value) {
     ref.read(stylusOnlyModeProvider.notifier).set(value);
+  }
+}
+
+class _MaskSlider extends StatelessWidget {
+  const _MaskSlider({
+    required this.label,
+    required this.sliderKey,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+  });
+
+  final String label;
+  final Key sliderKey;
+  final double value;
+  final double min;
+  final double max;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 75,
+          child: Text(label, style: const TextStyle(fontSize: 12)),
+        ),
+        Expanded(
+          child: Slider(
+            key: sliderKey,
+            value: value.clamp(min, max),
+            min: min,
+            max: max,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
   }
 }
