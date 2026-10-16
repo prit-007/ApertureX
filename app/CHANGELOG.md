@@ -4,12 +4,16 @@ All notable changes to ApertureX are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [0.1.0] - 2026-10-14
+## [0.1.0] - 2026-10-16
 
 First public pre-release: a dual-UI (Lightroom panels + Snapseed gestures),
 non-destructive, fully offline photo editor.
 
 ### Added
+- **Launcher icon**: a camera-aperture shutter mark on a dark field, generated
+  from committed 1024×1024 masters (`app/icons/`) via `flutter_launcher_icons`
+  for every Android density (incl. adaptive + Android 13+ themed monochrome
+  layers) and the full iOS app-icon set.
 - **Dual shells over one recipe**: Lightroom-style panels and a Snapseed-style
   gesture "Ghost UI"; switching shells never changes the image.
 - **Rust engine** (via `flutter_rust_bridge`): color pipeline (exposure,

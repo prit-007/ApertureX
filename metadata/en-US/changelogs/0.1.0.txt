@@ -1,4 +1,5 @@
 First public pre-release.
+* Aperture-shutter launcher icon (adaptive + Android 13 themed icons).
 * Dual UIs over one recipe (Lightroom panels + Snapseed gestures).
 * Rust color/geometry/spatial/mask engine, 60fps preview, full-res export.
 * Crop + aspect ratios; dehaze, vignette, grain.

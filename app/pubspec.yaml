@@ -66,6 +66,29 @@ dev_dependencies:
   integration_test:
     sdk: flutter
 
+  # Build-time tool (not shipped): regenerates every platform launcher icon
+  # from the 1024px masters in icons/ — see "App icon" in README.md.
+  flutter_launcher_icons: ^0.14.4
+
+# Launcher-icon generation. Run: dart run flutter_launcher_icons
+# Masters live in icons/ (committed); generated output replaces the Android
+# mipmap/drawable resources and the iOS AppIcon.appiconset.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "icons/app_icon.png"
+  # Adaptive icons are only emitted when BOTH foreground and background are
+  # set. Inset is 0 because the master already carries its own margin.
+  adaptive_icon_foreground: "icons/app_icon.png"
+  adaptive_icon_foreground_inset: 0
+  # Matches the master's dark field so the launcher mask blends seamlessly.
+  adaptive_icon_background: "#151924"
+  # Android 13+ themed-icon (Material You) layer: white shutter silhouette.
+  adaptive_icon_monochrome: "icons/app_icon_monochrome.png"
+  # App Store rejects alpha in the primary icon; the masters are RGB already,
+  # this keeps the pipeline honest if RGBA masters ever land.
+  remove_alpha_ios: true
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

@@ -127,6 +127,9 @@ Engine (Rust via flutter_rust_bridge)
 ### Code Generation
 - Engine API changes require bridge regeneration
 - After editing `rust/src/api/*`, run `flutter_rust_bridge_codegen generate`
+- Launcher icons are generated from the 1024px masters in `app/icons/`; after
+  editing a master, run `dart run flutter_launcher_icons` (from `app/`) and
+  commit the regenerated Android/iOS resources
 
 ### Third-Party Management
 - All external dependencies tracked in `THIRD_PARTY.md`

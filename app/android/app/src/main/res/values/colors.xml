@@ -3,5 +3,5 @@
     <!-- Photo editors launch on dark chrome so there is never a white flash. -->
     <color name="launch_background">#FF0E0E0E</color>
     <!-- Launcher icon background (brand). -->
-    <color name="ic_launcher_background">#6750A4</color>
+    <color name="ic_launcher_background">#151924</color>
 </resources>
