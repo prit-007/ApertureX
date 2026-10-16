@@ -54,6 +54,8 @@ Future<String> exportCubeLut({
 class ColorParams {
   final double exposure;
   final double contrast;
+  final double whites;
+  final double blacks;
   final double saturation;
   final double temperature;
   final double tint;
@@ -73,6 +75,8 @@ class ColorParams {
   const ColorParams({
     required this.exposure,
     required this.contrast,
+    required this.whites,
+    required this.blacks,
     required this.saturation,
     required this.temperature,
     required this.tint,
@@ -97,6 +101,8 @@ class ColorParams {
   int get hashCode =>
       exposure.hashCode ^
       contrast.hashCode ^
+      whites.hashCode ^
+      blacks.hashCode ^
       saturation.hashCode ^
       temperature.hashCode ^
       tint.hashCode ^
@@ -120,6 +126,8 @@ class ColorParams {
           runtimeType == other.runtimeType &&
           exposure == other.exposure &&
           contrast == other.contrast &&
+          whites == other.whites &&
+          blacks == other.blacks &&
           saturation == other.saturation &&
           temperature == other.temperature &&
           tint == other.tint &&

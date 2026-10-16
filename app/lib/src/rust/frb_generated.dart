@@ -2975,26 +2975,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ColorParams dco_decode_color_params(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 17)
-      throw Exception('unexpected arr length: expect 17 but see ${arr.length}');
+    if (arr.length != 19)
+      throw Exception('unexpected arr length: expect 19 but see ${arr.length}');
     return ColorParams(
       exposure: dco_decode_f_32(arr[0]),
       contrast: dco_decode_f_32(arr[1]),
-      saturation: dco_decode_f_32(arr[2]),
-      temperature: dco_decode_f_32(arr[3]),
-      tint: dco_decode_f_32(arr[4]),
-      vibrance: dco_decode_f_32(arr[5]),
-      gradeShadowHue: dco_decode_f_32(arr[6]),
-      gradeShadowSat: dco_decode_f_32(arr[7]),
-      gradeShadowLum: dco_decode_f_32(arr[8]),
-      gradeMidHue: dco_decode_f_32(arr[9]),
-      gradeMidSat: dco_decode_f_32(arr[10]),
-      gradeMidLum: dco_decode_f_32(arr[11]),
-      gradeHighlightHue: dco_decode_f_32(arr[12]),
-      gradeHighlightSat: dco_decode_f_32(arr[13]),
-      gradeHighlightLum: dco_decode_f_32(arr[14]),
-      gradeBlending: dco_decode_f_32(arr[15]),
-      gradeBalance: dco_decode_f_32(arr[16]),
+      whites: dco_decode_f_32(arr[2]),
+      blacks: dco_decode_f_32(arr[3]),
+      saturation: dco_decode_f_32(arr[4]),
+      temperature: dco_decode_f_32(arr[5]),
+      tint: dco_decode_f_32(arr[6]),
+      vibrance: dco_decode_f_32(arr[7]),
+      gradeShadowHue: dco_decode_f_32(arr[8]),
+      gradeShadowSat: dco_decode_f_32(arr[9]),
+      gradeShadowLum: dco_decode_f_32(arr[10]),
+      gradeMidHue: dco_decode_f_32(arr[11]),
+      gradeMidSat: dco_decode_f_32(arr[12]),
+      gradeMidLum: dco_decode_f_32(arr[13]),
+      gradeHighlightHue: dco_decode_f_32(arr[14]),
+      gradeHighlightSat: dco_decode_f_32(arr[15]),
+      gradeHighlightLum: dco_decode_f_32(arr[16]),
+      gradeBlending: dco_decode_f_32(arr[17]),
+      gradeBalance: dco_decode_f_32(arr[18]),
     );
   }
 
@@ -3431,6 +3433,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_exposure = sse_decode_f_32(deserializer);
     var var_contrast = sse_decode_f_32(deserializer);
+    var var_whites = sse_decode_f_32(deserializer);
+    var var_blacks = sse_decode_f_32(deserializer);
     var var_saturation = sse_decode_f_32(deserializer);
     var var_temperature = sse_decode_f_32(deserializer);
     var var_tint = sse_decode_f_32(deserializer);
@@ -3449,6 +3453,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return ColorParams(
       exposure: var_exposure,
       contrast: var_contrast,
+      whites: var_whites,
+      blacks: var_blacks,
       saturation: var_saturation,
       temperature: var_temperature,
       tint: var_tint,
@@ -3971,6 +3977,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_f_32(self.exposure, serializer);
     sse_encode_f_32(self.contrast, serializer);
+    sse_encode_f_32(self.whites, serializer);
+    sse_encode_f_32(self.blacks, serializer);
     sse_encode_f_32(self.saturation, serializer);
     sse_encode_f_32(self.temperature, serializer);
     sse_encode_f_32(self.tint, serializer);

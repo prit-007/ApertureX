@@ -22,13 +22,17 @@ pub struct GradeParams {
     pub exposure: f32,
     /// Contrast, unitless around 0.
     pub contrast: f32,
+    /// Whites trim (linear white point trim, anchored at midtone ~0.18).
+    pub whites: f32,
+    /// Blacks trim (linear black point trim, anchored at midtone ~0.18).
+    pub blacks: f32,
     /// Saturation, unitless around 0.
     pub saturation: f32,
     /// White-balance temperature, unitless around 0 (warm > 0).
     pub temperature: f32,
     /// White-balance tint, unitless around 0 (magenta > 0).
     pub tint: f32,
-    /// Vibrance (protects already-saturated pixels), unitless around 0.
+    /// Vibrance (protects already-saturated pixels and skin tones), unitless around 0.
     pub vibrance: f32,
     /// Split-tone / 3-way Color Wheels: hue (0..1), sat (0..1), lum (-1..1) per tonal zone.
     pub grade_shadow_hue: f32,
@@ -51,6 +55,8 @@ impl Default for GradeParams {
         Self {
             exposure: 0.0,
             contrast: 0.0,
+            whites: 0.0,
+            blacks: 0.0,
             saturation: 0.0,
             temperature: 0.0,
             tint: 0.0,
@@ -141,22 +147,40 @@ fn contrast_curve(x: f32, contrast: f32) -> f32 {
     }
 }
 
-/// Vibrance: boost saturation inversely to how saturated a pixel already is
-/// (protects already-vivid colours), leaving the luma untouched.
+/// Vibrance: boost saturation inversely to how saturated a pixel already is,
+/// with Adobe-style skin tone protection (protects warm orange/skin hues from clipping).
 fn vibrance(c: [f32; 3], amount: f32) -> [f32; 3] {
     if amount == 0.0 {
         return c;
     }
     let maxc = c[0].max(c[1]).max(c[2]);
     let minc = c[0].min(c[1]).min(c[2]);
-    let sat = if maxc > 1e-6 {
-        (maxc - minc) / maxc
-    } else {
-        0.0
-    };
+    let d = maxc - minc;
+    let sat = if maxc > 1e-6 { d / maxc } else { 0.0 };
     let weight = (1.0 - sat).clamp(0.0, 1.0);
+
+    // Adobe-style skin protection: calculate hue in [0, 1)
+    let skin_protect = if d > 1e-5 {
+        let r = c[0];
+        let g = c[1];
+        let b = c[2];
+        let h = if (maxc - r).abs() < 1e-6 {
+            ((g - b) / d).rem_euclid(6.0) / 6.0
+        } else if (maxc - g).abs() < 1e-6 {
+            ((b - r) / d + 2.0) / 6.0
+        } else {
+            ((r - g) / d + 4.0) / 6.0
+        };
+        // Skin tones center around ~27° (0.075) with spread ~0.045
+        let hue_dist = (h - 0.075).abs().min(1.0 - (h - 0.075).abs());
+        let skin_weight = (-hue_dist * hue_dist / (2.0 * 0.045 * 0.045)).exp();
+        (1.0 - 0.65 * skin_weight).clamp(0.2, 1.0)
+    } else {
+        1.0
+    };
+
     let luma = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-    let f = 1.0 + amount * weight * 1.5;
+    let f = 1.0 + amount * weight * skin_protect * 1.5;
     [
         luma + (c[0] - luma) * f,
         luma + (c[1] - luma) * f,
@@ -506,10 +530,41 @@ pub fn grade_pixel_c(
 
     // 3. exposure (linear, multiplicative).
     let ev = 2f32.powf(p.exposure);
+    let mut lin = [
+        (lin[0] * ev).max(0.0),
+        (lin[1] * ev).max(0.0),
+        (lin[2] * ev).max(0.0),
+    ];
+
+    // 3b. Whites and Blacks trims (linear white/black point trims anchored at midtone ~0.18).
+    if p.whites != 0.0 {
+        for v in &mut lin {
+            if *v > 0.18 {
+                let t = ((*v - 0.18) / 0.82).min(1.0);
+                let w = t * t;
+                *v = (*v * (1.0 + p.whites * 0.35 * w)).max(0.0);
+            }
+        }
+    }
+
+    if p.blacks != 0.0 {
+        for v in &mut lin {
+            if *v < 0.18 {
+                let t = (1.0 - *v / 0.18).max(0.0);
+                let w = t * t;
+                if p.blacks >= 0.0 {
+                    *v += p.blacks * 0.04 * w;
+                } else {
+                    *v = (*v * (1.0 + p.blacks * 0.6 * w)).max(0.0);
+                }
+            }
+        }
+    }
+
     let mut c = [
-        linear_to_srgb((lin[0] * ev).max(0.0)),
-        linear_to_srgb((lin[1] * ev).max(0.0)),
-        linear_to_srgb((lin[2] * ev).max(0.0)),
+        linear_to_srgb(lin[0]),
+        linear_to_srgb(lin[1]),
+        linear_to_srgb(lin[2]),
     ];
 
     // 4. contrast S-curve (perceptual).
@@ -1226,5 +1281,126 @@ mod tests {
             .map(|s| s.parse().unwrap())
             .collect();
         assert!(mid_parts[0] > 0.55);
+    }
+
+    #[test]
+    fn whites_trims_highlights_without_shifting_midtones() {
+        let p_pos = GradeParams {
+            whites: 0.8,
+            ..Default::default()
+        };
+        let p_neg = GradeParams {
+            whites: -0.8,
+            ..Default::default()
+        };
+
+        // Midtone (~0.18 linear corresponds to ~0.46 sRGB) should remain unchanged:
+        let mid_srgb = linear_to_srgb(0.18);
+        let mid_pos = grade_pixel_srgb(mid_srgb, mid_srgb, mid_srgb, p_pos);
+        let mid_neg = grade_pixel_srgb(mid_srgb, mid_srgb, mid_srgb, p_neg);
+        assert!(
+            (mid_pos[0] - mid_srgb).abs() < 1e-3,
+            "Midtone moved on positive whites"
+        );
+        assert!(
+            (mid_neg[0] - mid_srgb).abs() < 1e-3,
+            "Midtone moved on negative whites"
+        );
+
+        // High values (>0.18 linear, e.g. 0.8 linear ~ 0.90 sRGB) should scale:
+        let high_srgb = linear_to_srgb(0.80);
+        let high_pos = grade_pixel_srgb(high_srgb, high_srgb, high_srgb, p_pos);
+        let high_neg = grade_pixel_srgb(high_srgb, high_srgb, high_srgb, p_neg);
+        assert!(
+            high_pos[0] > high_srgb,
+            "Whites positive should brighten highlights"
+        );
+        assert!(
+            high_neg[0] < high_srgb,
+            "Whites negative should darken highlights"
+        );
+
+        // Monotonicity check across highlight range:
+        for i in 0..100 {
+            let v1 = i as f32 / 100.0;
+            let v2 = (i + 1) as f32 / 100.0;
+            let out1 = grade_pixel_srgb(v1, v1, v1, p_pos);
+            let out2 = grade_pixel_srgb(v2, v2, v2, p_pos);
+            assert!(out2[0] >= out1[0], "Whites curve must be monotonic");
+        }
+    }
+
+    #[test]
+    fn blacks_trims_shadows_without_shifting_midtones() {
+        let p_lift = GradeParams {
+            blacks: 0.8,
+            ..Default::default()
+        };
+        let p_crush = GradeParams {
+            blacks: -0.8,
+            ..Default::default()
+        };
+
+        // Midtone (~0.18 linear) should remain unchanged:
+        let mid_srgb = linear_to_srgb(0.18);
+        let mid_lift = grade_pixel_srgb(mid_srgb, mid_srgb, mid_srgb, p_lift);
+        let mid_crush = grade_pixel_srgb(mid_srgb, mid_srgb, mid_srgb, p_crush);
+        assert!(
+            (mid_lift[0] - mid_srgb).abs() < 1e-3,
+            "Midtone moved on blacks lift"
+        );
+        assert!(
+            (mid_crush[0] - mid_srgb).abs() < 1e-3,
+            "Midtone moved on blacks crush"
+        );
+
+        // Low values (<0.18 linear, e.g. 0.05 linear ~ 0.25 sRGB):
+        let shadow_srgb = linear_to_srgb(0.05);
+        let shadow_lift = grade_pixel_srgb(shadow_srgb, shadow_srgb, shadow_srgb, p_lift);
+        let shadow_crush = grade_pixel_srgb(shadow_srgb, shadow_srgb, shadow_srgb, p_crush);
+        assert!(
+            shadow_lift[0] > shadow_srgb,
+            "Blacks positive should lift shadows"
+        );
+        assert!(
+            shadow_crush[0] < shadow_srgb,
+            "Blacks negative should crush shadows"
+        );
+
+        // Monotonicity check:
+        for i in 0..100 {
+            let v1 = i as f32 / 100.0;
+            let v2 = (i + 1) as f32 / 100.0;
+            let out1 = grade_pixel_srgb(v1, v1, v1, p_lift);
+            let out2 = grade_pixel_srgb(v2, v2, v2, p_lift);
+            assert!(out2[0] >= out1[0], "Blacks lift must be monotonic");
+
+            let out1_c = grade_pixel_srgb(v1, v1, v1, p_crush);
+            let out2_c = grade_pixel_srgb(v2, v2, v2, p_crush);
+            assert!(out2_c[0] >= out1_c[0], "Blacks crush must be monotonic");
+        }
+    }
+
+    #[test]
+    fn vibrance_protects_skin_tones() {
+        // Skin sample (warm peach/orange)
+        let skin = [0.85, 0.65, 0.50];
+        // Blue sample (equally saturated, max-min / max = 0.35/0.85 = 0.41)
+        let blue = [0.50, 0.65, 0.85];
+
+        let p_vib = GradeParams {
+            vibrance: 0.8,
+            ..Default::default()
+        };
+
+        let skin_boosted = grade_pixel_srgb(skin[0], skin[1], skin[2], p_vib);
+        let blue_boosted = grade_pixel_srgb(blue[0], blue[1], blue[2], p_vib);
+
+        let skin_sat_delta = (skin_boosted[0] - skin_boosted[2]) - (skin[0] - skin[2]);
+        let blue_sat_delta = (blue_boosted[2] - blue_boosted[0]) - (blue[2] - blue[0]);
+
+        // Skin tones should receive significantly less saturation boost than blue:
+        assert!(skin_sat_delta < blue_sat_delta * 0.6,
+            "Vibrance must protect skin tones: skin delta={skin_sat_delta}, blue delta={blue_sat_delta}");
     }
 }

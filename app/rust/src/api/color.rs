@@ -11,6 +11,8 @@ use crate::color::{self, CurveSet, GradeParams};
 pub struct ColorParams {
     pub exposure: f32,
     pub contrast: f32,
+    pub whites: f32,
+    pub blacks: f32,
     pub saturation: f32,
     pub temperature: f32,
     pub tint: f32,
@@ -33,6 +35,8 @@ impl ColorParams {
         GradeParams {
             exposure: self.exposure,
             contrast: self.contrast,
+            whites: self.whites,
+            blacks: self.blacks,
             saturation: self.saturation,
             temperature: self.temperature,
             tint: self.tint,

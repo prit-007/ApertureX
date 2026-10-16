@@ -111,6 +111,8 @@ class AxEngine {
       rust_color.ColorParams(
         exposure: s.exposure,
         contrast: s.contrast,
+        whites: s.whites,
+        blacks: s.blacks,
         saturation: s.saturation,
         temperature: s.temperature,
         tint: s.tint,
@@ -366,6 +368,8 @@ class AxEngine {
       rust_color.ColorParams(
         exposure: l.exposure,
         contrast: l.contrast,
+        whites: 0,
+        blacks: 0,
         saturation: l.saturation,
         temperature: l.temperature,
         tint: l.tint,

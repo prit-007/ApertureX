@@ -7,6 +7,8 @@ class GradeSpec {
   const GradeSpec({
     this.exposure = 0,
     this.contrast = 0,
+    this.whites = 0,
+    this.blacks = 0,
     this.saturation = 0,
     this.temperature = 0,
     this.tint = 0,
@@ -31,6 +33,8 @@ class GradeSpec {
 
   final double exposure;
   final double contrast;
+  final double whites;
+  final double blacks;
   final double saturation;
   final double temperature;
   final double tint;
@@ -59,6 +63,8 @@ class GradeSpec {
   factory GradeSpec.fromRecipe(EditRecipe recipe) => GradeSpec(
     exposure: recipe.exposure,
     contrast: recipe.contrast,
+    whites: recipe.whites,
+    blacks: recipe.blacks,
     saturation: recipe.saturation,
     temperature: recipe.temperature,
     tint: recipe.tint,
