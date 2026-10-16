@@ -181,6 +181,7 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       _dragIndex = hit.$1;
       _mode = hit.$2;
       ref.read(nodeEditorProvider.notifier).select(hit.$1);
+      HapticFeedback.selectionClick();
     }
   }
 
@@ -466,7 +467,13 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         final mid = Offset((p0.dx + p1.dx) / 2, (p0.dy + p1.dy) / 2);
         if ((p - p0).distance <= _centerHit * 1.5) return (i, _NodeDrag.startHandle);
         if ((p - p1).distance <= _centerHit * 1.5) return (i, _NodeDrag.endHandle);
-        if ((p - mid).distance <= _centerHit * 2.0) return (i, _NodeDrag.move);
+        if ((p - mid).distance <= _centerHit * 2.2) return (i, _NodeDrag.move);
+        final l2 = (p1 - p0).distanceSquared;
+        if (l2 > 0) {
+          final param = (((p.dx - p0.dx) * (p1.dx - p0.dx) + (p.dy - p0.dy) * (p1.dy - p0.dy)) / l2).clamp(0.0, 1.0);
+          final proj = Offset(p0.dx + param * (p1.dx - p0.dx), p0.dy + param * (p1.dy - p0.dy));
+          if ((p - proj).distance <= _centerHit * 1.5) return (i, _NodeDrag.move);
+        }
       } else if (l.maskKind == MaskKind.sky && l.maskParams.isNotEmpty) {
         final pm = l.maskParams;
         final horizonY = t.toScreen(Offset(0.5, pm[0])).dy;
@@ -652,16 +659,19 @@ class _NodesPainter extends CustomPainter {
               ..style = PaintingStyle.stroke
               ..strokeWidth = 1.5,
           );
-          // Midpoint grip
-          canvas.drawCircle(mid, 4.5, Paint()..color = Colors.white);
+          // Midpoint grip: prominent drag pin
+          canvas.drawCircle(mid, selected ? 7.0 : 5.0, Paint()..color = Colors.white);
           canvas.drawCircle(
             mid,
-            4.5,
+            selected ? 7.0 : 5.0,
             Paint()
               ..color = primary
               ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.5,
+              ..strokeWidth = 2.0,
           );
+          if (selected) {
+            canvas.drawCircle(mid, 3.0, Paint()..color = primary);
+          }
 
         case MaskKind.brush:
           final p = l.maskParams;
@@ -770,10 +780,11 @@ class _NodesPainter extends CustomPainter {
           break;
 
         case MaskKind.bitmap:
-          if (selected && l.maskParams.length >= 2) {
+          final blob = l.maskBlob;
+          if (selected && blob != null && l.maskParams.length >= 2) {
             final bw = l.maskParams[0].toInt();
             final bh = l.maskParams[1].toInt();
-            if (bw > 0 && bh > 0 && l.maskParams.length >= 2 + bw * bh) {
+            if (bw > 0 && bh > 0 && blob.length >= bw * bh) {
               final stepX = (bw / 32).ceil().clamp(1, bw);
               final stepY = (bh / 32).ceil().clamp(1, bh);
               final cellW = (t.fitted.width * t.scale) / (bw / stepX);
@@ -784,7 +795,7 @@ class _NodesPainter extends CustomPainter {
               for (var y = 0; y < bh; y += stepY, yi++) {
                 var xi = 0;
                 for (var x = 0; x < bw; x += stepX, xi++) {
-                  var alpha = l.maskParams[2 + y * bw + x];
+                  var alpha = blob[y * bw + x] / 255.0;
                   if (l.inverted) alpha = 1.0 - alpha;
                   if (alpha > 0.05) {
                     final cellRect = Rect.fromLTWH(

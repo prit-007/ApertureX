@@ -1,8 +1,82 @@
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' show Offset;
 import 'package:flutter/foundation.dart' show listEquals;
 
 /// Mask kinds (must match the Rust `MASK_*` constants).
 enum MaskKind { linear, radial, luminance, brush, subject, sky, bitmap }
+
+/// Longest allowed side for a stored bitmap mask (#86): keeping masks at or
+/// under this bound caps a base64-encoded layer at ~90 KB of recipe JSON and
+/// ~65 KB of in-memory bytes, versus ~4.7 MB for the old inline double array.
+const int kMaxBitmapMaskSide = 256;
+
+/// Box-folds a `w×h` alpha byte map so the longest side is at most
+/// [kMaxBitmapMaskSide], preserving aspect ratio. A plain box average (not
+/// nearest-neighbour) so a constant field stays exactly constant — asserted by
+/// the #86 tests — and mask edges stay smooth rather than aliased.
+(Uint8List, int, int) _capBitmapMask(Uint8List bytes, int w, int h) {
+  final longest = math.max(w, h);
+  if (longest <= kMaxBitmapMaskSide) return (bytes, w, h);
+  final scale = kMaxBitmapMaskSide / longest;
+  final tw = math.max(1, (w * scale).round());
+  final th = math.max(1, (h * scale).round());
+  final out = Uint8List(tw * th);
+  final sx = w / tw;
+  final sy = h / th;
+  for (var ty = 0; ty < th; ty++) {
+    final y0 = (ty * sy).floor();
+    final y1 = math.min(h, math.max(y0 + 1, ((ty + 1) * sy).ceil()));
+    for (var tx = 0; tx < tw; tx++) {
+      final x0 = (tx * sx).floor();
+      final x1 = math.min(w, math.max(x0 + 1, ((tx + 1) * sx).ceil()));
+      var sum = 0;
+      var count = 0;
+      for (var y = y0; y < y1; y++) {
+        final row = y * w;
+        for (var x = x0; x < x1; x++) {
+          sum += bytes[row + x];
+          count++;
+        }
+      }
+      out[ty * tw + tx] = (sum / count).round();
+    }
+  }
+  return (out, tw, th);
+}
+
+/// Reads the bitmap payload out of a serialized layer JSON, accepting both the
+/// compact #86 format (`maskBlob` base64 + `maskParams: [w, h]`) and the legacy
+/// pre-#86 inline double array (`[w, h, a0…]`). Returns the (possibly capped)
+/// bytes and the matching dimensions. Throws [FormatException] on payloads
+/// that cannot be trusted — the catalog/sidecar loaders already skip corrupt
+/// entries one level up.
+(Uint8List, int, int) _readBitmapPayload(Map<String, Object?> json, List<double> params) {
+  final w = params.isNotEmpty ? params[0].toInt() : 0;
+  final h = params.length > 1 ? params[1].toInt() : 0;
+  if (w <= 0 || h <= 0) {
+    throw FormatException('bitmap mask has no valid dimensions (${params.take(2).join(', ')})');
+  }
+  final encoded = json['maskBlob'];
+  final Uint8List bytes;
+  if (encoded is String) {
+    bytes = base64Decode(encoded);
+    if (bytes.length != w * h) {
+      throw FormatException('bitmap mask blob is ${bytes.length} bytes, expected ${w * h}');
+    }
+  } else {
+    // Legacy wire format: every alpha was an inline double after [w, h].
+    if (params.length < 2 + w * h) {
+      throw FormatException('bitmap mask params too short: ${params.length} for $w×$h');
+    }
+    bytes = Uint8List(w * h);
+    for (var i = 0; i < bytes.length; i++) {
+      bytes[i] = (params[2 + i].clamp(0.0, 1.0) * 255).round();
+    }
+  }
+  return _capBitmapMask(bytes, w, h);
+}
 
 /// A local adjustment layer (P2.5): an analytic mask + a point-wise sub-grade.
 /// Non-destructive and small (parametric) — the Lightroom "local adjustment" /
@@ -11,6 +85,7 @@ class AdjustmentLayer {
   const AdjustmentLayer({
     this.maskKind = MaskKind.radial,
     this.maskParams = const <double>[0.5, 0.5, 0.3, 0.3, 0.3],
+    this.maskBlob,
     this.inverted = false,
     this.exposure = 0,
     this.contrast = 0,
@@ -22,6 +97,12 @@ class AdjustmentLayer {
   });
 
   /// Creates a local adjustment layer backed by an 8-bit alpha probability tensor / bitmap.
+  ///
+  /// [alphas] must be exactly `width × height` values in `0..1`. Storage is
+  /// compact (#86): values are quantized to `u8`, the longest side is capped
+  /// at [kMaxBitmapMaskSide] with box averaging, only `[width, height]` is
+  /// kept in [maskParams], and the bytes live in [maskBlob] (base64 on the
+  /// wire) — expanded to floats only at the FFI boundary.
   factory AdjustmentLayer.bitmap({
     required int width,
     required int height,
@@ -34,26 +115,45 @@ class AdjustmentLayer {
     double tint = 0,
     double highlights = 0,
     double shadows = 0,
-  }) =>
-      AdjustmentLayer(
-        maskKind: MaskKind.bitmap,
-        maskParams: <double>[width.toDouble(), height.toDouble(), ...alphas],
-        inverted: inverted,
-        exposure: exposure,
-        contrast: contrast,
-        saturation: saturation,
-        temperature: temperature,
-        tint: tint,
-        highlights: highlights,
-        shadows: shadows,
+  }) {
+    if (width <= 0 || height <= 0 || alphas.length != width * height) {
+      throw ArgumentError(
+        'bitmap mask expects $width×$height = ${width * height} alphas, got ${alphas.length}',
       );
+    }
+    final bytes = Uint8List(width * height);
+    for (var i = 0; i < bytes.length; i++) {
+      bytes[i] = (alphas[i].clamp(0.0, 1.0) * 255).round();
+    }
+    final (capped, tw, th) = _capBitmapMask(bytes, width, height);
+    return AdjustmentLayer(
+      maskKind: MaskKind.bitmap,
+      maskParams: <double>[tw.toDouble(), th.toDouble()],
+      maskBlob: capped,
+      inverted: inverted,
+      exposure: exposure,
+      contrast: contrast,
+      saturation: saturation,
+      temperature: temperature,
+      tint: tint,
+      highlights: highlights,
+      shadows: shadows,
+    );
+  }
 
   final MaskKind maskKind;
 
   /// linear `[x0,y0,x1,y1]`, radial `[cx,cy,rx,ry,feather]`, luminance `[lo,hi]`,
   /// brush `[radius, feather, count, x0, y0, p0, ...]`, subject `[cx,cy,rx,ry,feather]`,
-  /// sky `[horizon_y, feather, blue_weight]`.
+  /// sky `[horizon_y, feather, blue_weight]`, bitmap `[width, height]` (the
+  /// alpha map itself lives in [maskBlob], compact per #86).
   final List<double> maskParams;
+
+  /// For bitmap masks: quantized 8-bit alpha values, row-major, exactly
+  /// `bitmapWidth * bitmapHeight` bytes; null for analytic mask kinds. The
+  /// compact counterpart of what Rust samples in `MASK_BITMAP` — expanded to
+  /// `[w, h, a0…]` floats only by [toBridgeMaskParams].
+  final Uint8List? maskBlob;
 
   /// Whether the mask coverage should be inverted `(1.0 - coverage)`.
   final bool inverted;
@@ -69,6 +169,7 @@ class AdjustmentLayer {
   AdjustmentLayer copyWith({
     MaskKind? maskKind,
     List<double>? maskParams,
+    Uint8List? maskBlob,
     bool? inverted,
     double? exposure,
     double? contrast,
@@ -80,6 +181,7 @@ class AdjustmentLayer {
   }) => AdjustmentLayer(
     maskKind: maskKind ?? this.maskKind,
     maskParams: maskParams ?? this.maskParams,
+    maskBlob: maskBlob ?? this.maskBlob,
     inverted: inverted ?? this.inverted,
     exposure: exposure ?? this.exposure,
     contrast: contrast ?? this.contrast,
@@ -239,9 +341,28 @@ class AdjustmentLayer {
   /// For bitmap masks: pixel height of the alpha map.
   int get bitmapHeight => maskKind == MaskKind.bitmap && maskParams.length > 1 ? maskParams[1].toInt() : 0;
 
+  /// The `[width, height, alpha_0…]` float params the Rust `MASK_*` contract
+  /// expects (`app/rust/src/mask.rs`), expanding [maskBlob] for bitmap layers
+  /// and passing [maskParams] through unchanged for analytic kinds. This is
+  /// the single place bitmap alphas become floats — the six bridge call sites
+  /// in `engine.dart` all go through here (#86).
+  Float32List toBridgeMaskParams() {
+    if (maskKind != MaskKind.bitmap) return Float32List.fromList(maskParams);
+    final blob = maskBlob ?? Uint8List(0);
+    final out = Float32List(2 + blob.length);
+    out[0] = bitmapWidth.toDouble();
+    out[1] = bitmapHeight.toDouble();
+    for (var i = 0; i < blob.length; i++) {
+      out[2 + i] = blob[i] / 255.0;
+    }
+    return out;
+  }
+
   Map<String, Object?> toJson() => <String, Object?>{
     'maskKind': maskKind.index,
     'maskParams': maskParams,
+    if (maskKind == MaskKind.bitmap && maskBlob != null)
+      'maskBlob': base64Encode(maskBlob!),
     'inverted': inverted,
     'exposure': exposure,
     'contrast': contrast,
@@ -255,11 +376,21 @@ class AdjustmentLayer {
   factory AdjustmentLayer.fromJson(Map<String, Object?> json) {
     double d(String k) => (json[k] as num?)?.toDouble() ?? 0;
     final kindIndex = (json['maskKind'] as num?)?.toInt() ?? 1;
+    final kind = MaskKind.values[kindIndex.clamp(0, MaskKind.values.length - 1)];
+    var params = (json['maskParams'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
+        const <double>[];
+    Uint8List? blob;
+    if (kind == MaskKind.bitmap) {
+      // Both the compact #86 format and the legacy inline-double array land
+      // here; corrupt payloads throw and get skipped by the catalog loader.
+      final (bytes, w, h) = _readBitmapPayload(json, params);
+      blob = bytes;
+      params = <double>[w.toDouble(), h.toDouble()];
+    }
     return AdjustmentLayer(
-      maskKind: MaskKind.values[kindIndex.clamp(0, MaskKind.values.length - 1)],
-      maskParams:
-          (json['maskParams'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
-          const <double>[],
+      maskKind: kind,
+      maskParams: params,
+      maskBlob: blob,
       inverted: (json['inverted'] as bool?) ?? false,
       exposure: d('exposure'),
       contrast: d('contrast'),
@@ -276,6 +407,7 @@ class AdjustmentLayer {
       other is AdjustmentLayer &&
       other.maskKind == maskKind &&
       listEquals(other.maskParams, maskParams) &&
+      listEquals(other.maskBlob, maskBlob) &&
       other.inverted == inverted &&
       other.exposure == exposure &&
       other.contrast == contrast &&
@@ -289,6 +421,7 @@ class AdjustmentLayer {
   int get hashCode => Object.hash(
     maskKind,
     Object.hashAll(maskParams),
+    maskBlob == null ? 0 : Object.hashAll(maskBlob!),
     inverted,
     exposure,
     contrast,

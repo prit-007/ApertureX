@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aperturex/edit/adjustment_layer.dart';
 import 'package:aperturex/edit/recipe.dart';
@@ -162,6 +166,9 @@ void main() {
       expect(updated.skyFeather, 0.2);
     });
 
+  });
+
+  group('bitmap compact encoding (#86)', () {
     test('bitmap mask constructor and getters', () {
       final bitmap = AdjustmentLayer.bitmap(
         width: 4,
@@ -172,13 +179,115 @@ void main() {
       expect(bitmap.maskKind, MaskKind.bitmap);
       expect(bitmap.bitmapWidth, 4);
       expect(bitmap.bitmapHeight, 4);
-      expect(bitmap.maskParams.length, 18);
+      // #86: params carry only the dimensions; alphas live in the compact blob.
+      expect(bitmap.maskParams, [4.0, 4.0]);
+      expect(bitmap.maskBlob, isNotNull);
+      expect(bitmap.maskBlob!.length, 16);
+      expect(bitmap.maskBlob![0], 204); // 0.8 * 255 rounds to 204
       expect(bitmap.exposure, 0.7);
 
       final json = bitmap.toJson();
       expect(json['maskKind'], MaskKind.bitmap.index);
-      final restored = AdjustmentLayer.fromJson(json);
-      expect(restored, bitmap);
+      expect(json['maskBlob'], isA<String>());
+      expect(AdjustmentLayer.fromJson(json), bitmap);
+    });
+
+    test('bitmap JSON payload stays under 100 KB at the 256² cap', () {
+      final bitmap = AdjustmentLayer.bitmap(
+        width: 256,
+        height: 256,
+        alphas: List.filled(256 * 256, 0.5),
+      );
+      final encoded = jsonEncode(bitmap.toJson());
+      expect(encoded.length, lessThan(100000));
+    });
+
+    test('factory caps the longest side at 256 with area averaging', () {
+      final bitmap = AdjustmentLayer.bitmap(
+        width: 1024,
+        height: 64,
+        alphas: List.filled(1024 * 64, 1.0),
+      );
+      expect(math.max(bitmap.bitmapWidth, bitmap.bitmapHeight), 256);
+      expect(bitmap.maskBlob, isNotNull);
+      expect(bitmap.maskBlob!.length, bitmap.bitmapWidth * bitmap.bitmapHeight);
+      // A constant input survives averaging as the same constant.
+      expect(bitmap.maskBlob!.toSet(), {255});
+    });
+
+    test('legacy inline double arrays migrate to the compact blob', () {
+      final legacy = <String, Object?>{
+        'maskKind': MaskKind.bitmap.index,
+        'maskParams': <double>[2, 2, 0, 128 / 255, 1, 64 / 255],
+        'inverted': false,
+      };
+      final restored = AdjustmentLayer.fromJson(legacy);
+      expect(restored.maskParams, [2.0, 2.0]);
+      expect(restored.maskBlob, const [0, 128, 255, 64]);
+    });
+
+    test('legacy oversized arrays are capped during migration', () {
+      const w = 512;
+      const h = 512;
+      final legacy = <String, Object?>{
+        'maskKind': MaskKind.bitmap.index,
+        'maskParams': <double>[w.toDouble(), h.toDouble(), ...List.filled(w * h, 1.0)],
+      };
+      final restored = AdjustmentLayer.fromJson(legacy);
+      expect(math.max(restored.bitmapWidth, restored.bitmapHeight), 256);
+      expect(restored.maskBlob, isNotNull);
+      expect(restored.maskBlob!.every((b) => b == 255), isTrue);
+    });
+
+    test('corrupt bitmap payloads throw FormatException', () {
+      final badBlob = <String, Object?>{
+        'maskKind': MaskKind.bitmap.index,
+        'maskParams': <double>[4, 4],
+        'maskBlob': base64Encode(const [1, 2, 3]),
+      };
+      expect(() => AdjustmentLayer.fromJson(badBlob), throwsFormatException);
+
+      final shortLegacy = <String, Object?>{
+        'maskKind': MaskKind.bitmap.index,
+        'maskParams': <double>[4, 4, 1],
+      };
+      expect(() => AdjustmentLayer.fromJson(shortLegacy), throwsFormatException);
+    });
+
+    test('toBridgeMaskParams expands the blob for the Rust mask layer', () {
+      final bitmap = AdjustmentLayer.bitmap(
+        width: 2,
+        height: 1,
+        alphas: const [0, 1],
+      );
+      expect(bitmap.toBridgeMaskParams(), const <double>[2, 1, 0, 1]);
+
+      const radial = AdjustmentLayer(
+        maskKind: MaskKind.radial,
+        maskParams: [0.5, 0.5, 0.2, 0.2, 0.3],
+      );
+      expect(
+        radial.toBridgeMaskParams(),
+        Float32List.fromList(const [0.5, 0.5, 0.2, 0.2, 0.3]),
+      );
+    });
+
+    test('equality and hashCode cover the blob', () {
+      AdjustmentLayer make() => AdjustmentLayer.bitmap(
+        width: 3,
+        height: 2,
+        alphas: const [0, 0.5, 1, 1, 0.5, 0],
+      );
+      final a = make();
+      final b = make();
+      expect(a, b);
+      expect(a.hashCode, b.hashCode);
+      final c = AdjustmentLayer.bitmap(
+        width: 3,
+        height: 2,
+        alphas: const [0, 0.5, 1, 1, 0.5, 0.2],
+      );
+      expect(a == c, isFalse);
     });
   });
 }

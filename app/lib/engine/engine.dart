@@ -403,7 +403,7 @@ class AxEngine {
         for (final l in layers)
           rust_mask.MaskLayer(
             kind: l.maskKind.index,
-            mask: Float32List.fromList(l.maskParams),
+            mask: l.toBridgeMaskParams(),
             params: _localParams(l),
           ),
       ],
@@ -448,7 +448,7 @@ class AxEngine {
       for (final l in layers)
         rust_mask.MaskLayer(
           kind: l.maskKind.index,
-          mask: Float32List.fromList(l.maskParams),
+          mask: l.toBridgeMaskParams(),
           params: _localParams(l),
         ),
     ],
@@ -496,7 +496,7 @@ class AxEngine {
       for (final l in layers)
         rust_mask.MaskLayer(
           kind: l.maskKind.index,
-          mask: Float32List.fromList(l.maskParams),
+          mask: l.toBridgeMaskParams(),
           params: _localParams(l),
         ),
     ],
@@ -541,7 +541,7 @@ class AxEngine {
       for (final l in layers)
         rust_mask.MaskLayer(
           kind: l.maskKind.index,
-          mask: Float32List.fromList(l.maskParams),
+          mask: l.toBridgeMaskParams(),
           params: _localParams(l),
         ),
     ],
@@ -579,7 +579,7 @@ class AxEngine {
       for (final l in layers)
         rust_mask.MaskLayer(
           kind: l.maskKind.index,
-          mask: Float32List.fromList(l.maskParams),
+          mask: l.toBridgeMaskParams(),
           params: _localParams(l),
         ),
     ],
@@ -686,7 +686,7 @@ class AxEngine {
         for (final l in layers)
           rust_mask.MaskLayer(
             kind: l.maskKind.index,
-            mask: Float32List.fromList(l.maskParams),
+            mask: l.toBridgeMaskParams(),
             params: _localParams(l),
           ),
       ],
