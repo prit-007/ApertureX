@@ -88,6 +88,118 @@ pub fn apply_texture(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
     unsharp(rgba, &blur_rgb(rgba, w, h, 2, 1), amount)
 }
 
+/// Guided filter for a single channel `src` using `guide` as the guidance image.
+///
+/// Implements He, Sun, Tang (ECCV 2010 / TPAMI 2013) with an O(1) separable box
+/// blur backbone. Edge-preserving smoothing that eliminates halos around
+/// high-contrast boundaries.
+pub fn guided_filter_channel(
+    guide: &[f32],
+    src: &[f32],
+    w: usize,
+    h: usize,
+    radius: usize,
+    eps: f32,
+) -> Vec<f32> {
+    if radius == 0 || w == 0 || h == 0 {
+        return src.to_vec();
+    }
+    let n = w * h;
+    let mean_i = box_blur_1d(guide, w, h, radius);
+    let mean_p = box_blur_1d(src, w, h, radius);
+
+    let mut ip = vec![0.0f32; n];
+    let mut ii = vec![0.0f32; n];
+    for i in 0..n {
+        ip[i] = guide[i] * src[i];
+        ii[i] = guide[i] * guide[i];
+    }
+    let mean_ip = box_blur_1d(&ip, w, h, radius);
+    let mean_ii = box_blur_1d(&ii, w, h, radius);
+
+    let mut a = vec![0.0f32; n];
+    let mut b = vec![0.0f32; n];
+    for i in 0..n {
+        let var_i = (mean_ii[i] - mean_i[i] * mean_i[i]).max(0.0);
+        let cov_ip = mean_ip[i] - mean_i[i] * mean_p[i];
+        let a_val = cov_ip / (var_i + eps);
+        let b_val = mean_p[i] - a_val * mean_i[i];
+        a[i] = a_val;
+        b[i] = b_val;
+    }
+
+    let mean_a = box_blur_1d(&a, w, h, radius);
+    let mean_b = box_blur_1d(&b, w, h, radius);
+
+    let mut q = vec![0.0f32; n];
+    for i in 0..n {
+        q[i] = mean_a[i] * guide[i] + mean_b[i];
+    }
+    q
+}
+
+/// Joint guided filter for an RGBA image guided by its own luminance.
+///
+/// Shares the guide statistics (`mean_i`, `mean_ii`, `var_i`) across R, G, B
+/// channels, guaranteeing consistent edge alignment without colour bleeding.
+pub fn guided_filter_luma_rgb(rgba: &[u8], w: usize, h: usize, radius: usize, eps: f32) -> Vec<u8> {
+    if radius == 0 || w == 0 || h == 0 {
+        return rgba.to_vec();
+    }
+    let n = w * h;
+    let mut luma = Vec::with_capacity(n);
+    let mut r_ch = Vec::with_capacity(n);
+    let mut g_ch = Vec::with_capacity(n);
+    let mut b_ch = Vec::with_capacity(n);
+    for i in 0..n {
+        let r = rgba[i * 4] as f32;
+        let g = rgba[i * 4 + 1] as f32;
+        let b = rgba[i * 4 + 2] as f32;
+        r_ch.push(r);
+        g_ch.push(g);
+        b_ch.push(b);
+        luma.push(0.2126 * r + 0.7152 * g + 0.0722 * b);
+    }
+
+    let mean_i = box_blur_1d(&luma, w, h, radius);
+    let ii: Vec<f32> = luma.iter().map(|&l| l * l).collect();
+    let mean_ii = box_blur_1d(&ii, w, h, radius);
+
+    let mut var_i = Vec::with_capacity(n);
+    for i in 0..n {
+        var_i.push((mean_ii[i] - mean_i[i] * mean_i[i]).max(0.0));
+    }
+
+    let mut out = rgba.to_vec();
+    for (c, ch) in [r_ch, g_ch, b_ch].into_iter().enumerate() {
+        let mean_p = box_blur_1d(&ch, w, h, radius);
+        let mut ip = Vec::with_capacity(n);
+        for i in 0..n {
+            ip.push(luma[i] * ch[i]);
+        }
+        let mean_ip = box_blur_1d(&ip, w, h, radius);
+
+        let mut a = Vec::with_capacity(n);
+        let mut b = Vec::with_capacity(n);
+        for i in 0..n {
+            let cov_ip = mean_ip[i] - mean_i[i] * mean_p[i];
+            let a_val = cov_ip / (var_i[i] + eps);
+            let b_val = mean_p[i] - a_val * mean_i[i];
+            a.push(a_val);
+            b.push(b_val);
+        }
+
+        let mean_a = box_blur_1d(&a, w, h, radius);
+        let mean_b = box_blur_1d(&b, w, h, radius);
+
+        for i in 0..n {
+            let q = mean_a[i] * luma[i] + mean_b[i];
+            out[i * 4 + c] = q.clamp(0.0, 255.0) as u8;
+        }
+    }
+    out
+}
+
 /// The clarity/shadows blur radius derived from the image size. Callers that
 /// process a *band* of a larger image must derive the radius from the **full**
 /// image (not the band) or the result would drift across tiles.
@@ -103,10 +215,11 @@ pub fn apply_clarity(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
 
 /// [`apply_clarity`] with an explicit radius (for banded processing).
 pub fn apply_clarity_r(rgba: &[u8], w: usize, h: usize, amount: f32, radius: usize) -> Vec<u8> {
-    if amount == 0.0 {
+    if amount == 0.0 || w == 0 || h == 0 {
         return rgba.to_vec();
     }
-    unsharp(rgba, &blur_rgb(rgba, w, h, radius, 2), amount)
+    let base = guided_filter_luma_rgb(rgba, w, h, radius, 250.0);
+    unsharp(rgba, &base, amount)
 }
 
 /// Computes an edge mask (0..1 per pixel) from luminance gradients.
@@ -223,10 +336,10 @@ pub fn apply_shadow_highlight_r(
     highlights: f32,
     radius: usize,
 ) -> Vec<u8> {
-    if shadows == 0.0 && highlights == 0.0 {
+    if (shadows == 0.0 && highlights == 0.0) || w == 0 || h == 0 {
         return rgba.to_vec();
     }
-    let base = blur_rgb(rgba, w, h, radius, 2);
+    let base = guided_filter_luma_rgb(rgba, w, h, radius, 250.0);
     let mut out = rgba.to_vec();
     for i in 0..w * h {
         let br = base[i * 4] as f32 / 255.0;
@@ -438,22 +551,195 @@ fn hash_noise(x: u32, y: u32) -> f32 {
     ((h ^ (h >> 16)) as f32 / u32::MAX as f32) * 2.0 - 1.0
 }
 
-/// Lightweight real-time dehaze: estimate the hazy veil with a large-radius
-/// blur and pull it out as local contrast, then deepen the black point. The
-/// heavy dark-channel physics can run at export; this keeps the slider at 60fps.
+/// Separable 2D min filter with O(r) sliding window, edge-clamped.
+pub fn min_filter_2d(src: &[f32], w: usize, h: usize, radius: usize) -> Vec<f32> {
+    if radius == 0 || w == 0 || h == 0 {
+        return src.to_vec();
+    }
+    let mut tmp = vec![0.0f32; w * h];
+    for y in 0..h {
+        let row = y * w;
+        for x in 0..w {
+            let lo = x.saturating_sub(radius);
+            let hi = (x + radius).min(w - 1);
+            let mut m = src[row + lo];
+            for k in (lo + 1)..=hi {
+                let v = src[row + k];
+                if v < m {
+                    m = v;
+                }
+            }
+            tmp[row + x] = m;
+        }
+    }
+    let mut out = vec![0.0f32; w * h];
+    for x in 0..w {
+        for y in 0..h {
+            let lo = y.saturating_sub(radius);
+            let hi = (y + radius).min(h - 1);
+            let mut m = tmp[lo * w + x];
+            for k in (lo + 1)..=hi {
+                let v = tmp[k * w + x];
+                if v < m {
+                    m = v;
+                }
+            }
+            out[y * w + x] = m;
+        }
+    }
+    out
+}
+
+/// Estimates the global atmospheric light vector [A_r, A_g, A_b]
+/// using the dark channel prior (He et al. 2009).
+///
+/// Picks the top 0.1% brightest pixels in the dark channel (most haze-opaque),
+/// and selects the pixel among them with highest luminance in the input image.
+pub fn estimate_atmospheric_light(
+    rgba: &[u8],
+    dark_channel: &[f32],
+    w: usize,
+    h: usize,
+) -> [f32; 3] {
+    let n = w * h;
+    if n == 0 {
+        return [220.0, 220.0, 220.0];
+    }
+    let top_count = (n / 1000).max(1);
+
+    // 256-bin histogram over quantized dark channel [0..255]
+    let mut hist = [0usize; 256];
+    for &v in dark_channel {
+        let bin = (v.clamp(0.0, 255.0) as usize).min(255);
+        hist[bin] += 1;
+    }
+
+    // Find threshold for top 0.1% brightest dark-channel pixels
+    let mut accumulated = 0;
+    let mut thresh_bin = 0;
+    for bin in (0..256).rev() {
+        accumulated += hist[bin];
+        if accumulated >= top_count {
+            thresh_bin = bin;
+            break;
+        }
+    }
+
+    let mut best_luma = -1.0f32;
+    let mut best_rgb = [220.0f32; 3];
+    let thresh = thresh_bin as f32;
+
+    for i in 0..n {
+        if dark_channel[i] >= thresh {
+            let r = rgba[i * 4] as f32;
+            let g = rgba[i * 4 + 1] as f32;
+            let b = rgba[i * 4 + 2] as f32;
+            let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            if luma > best_luma {
+                best_luma = luma;
+                best_rgb = [r, g, b];
+            }
+        }
+    }
+
+    // Clamp to prevent division by zero or negative atmospheric light
+    [
+        best_rgb[0].clamp(10.0, 255.0),
+        best_rgb[1].clamp(10.0, 255.0),
+        best_rgb[2].clamp(10.0, 255.0),
+    ]
+}
+
+/// Computes the refined transmission map using the dark channel prior and guided filter.
+///
+/// Returns values in `[0.1, 1.0]` representing the per-pixel medium transmission, along
+/// with the estimated atmospheric light vector.
+pub fn estimate_transmission(rgba: &[u8], w: usize, h: usize, amount: f32) -> (Vec<f32>, [f32; 3]) {
+    let n = w * h;
+    if n == 0 {
+        return (Vec::new(), [220.0, 220.0, 220.0]);
+    }
+    let mut dc = Vec::with_capacity(n);
+    let mut luma_guide = Vec::with_capacity(n);
+    for i in 0..n {
+        let r = rgba[i * 4] as f32;
+        let g = rgba[i * 4 + 1] as f32;
+        let b = rgba[i * 4 + 2] as f32;
+        let min_c = r.min(g).min(b);
+        dc.push(min_c);
+        luma_guide.push((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0);
+    }
+
+    let patch_radius = 4;
+    let dc_patch = min_filter_2d(&dc, w, h, patch_radius);
+    let a_rgb = estimate_atmospheric_light(rgba, &dc_patch, w, h);
+
+    let omega = amount.clamp(0.0, 1.0) * 0.95;
+    let mut norm_min = Vec::with_capacity(n);
+    for i in 0..n {
+        let nr = rgba[i * 4] as f32 / a_rgb[0];
+        let ng = rgba[i * 4 + 1] as f32 / a_rgb[1];
+        let nb = rgba[i * 4 + 2] as f32 / a_rgb[2];
+        norm_min.push(nr.min(ng).min(nb));
+    }
+    let patch_norm_min = min_filter_2d(&norm_min, w, h, patch_radius);
+
+    let raw_t: Vec<f32> = patch_norm_min
+        .iter()
+        .map(|&m| (1.0 - omega * m).clamp(0.0, 1.0))
+        .collect();
+
+    let gf_radius = 16;
+    let gf_eps = 0.001f32;
+    let refined_t = guided_filter_channel(&luma_guide, &raw_t, w, h, gf_radius, gf_eps);
+
+    let t0 = 0.1f32;
+    let final_t: Vec<f32> = refined_t.into_iter().map(|t| t.clamp(t0, 1.0)).collect();
+    (final_t, a_rgb)
+}
+
+/// Dark-channel prior dehaze with atmospheric light estimation, guided-filter
+/// transmission refinement, and linear radiance recovery (He et al. 2009 / 2011).
+///
+/// Positive `amount` (0..1) removes haze and restores contrast/saturation.
+/// Negative `amount` (-1..0) adds realistic atmospheric haze/fog.
 pub fn dehaze(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
-    if amount == 0.0 {
+    if amount == 0.0 || w == 0 || h == 0 {
         return rgba.to_vec();
     }
-    let veil = blur_rgb(rgba, w, h, 24, 3);
+    let n = w * h;
+
+    if amount < 0.0 {
+        // Negative dehaze: inject atmospheric fog/haze
+        let mut dc = Vec::with_capacity(n);
+        for i in 0..n {
+            let r = rgba[i * 4] as f32;
+            let g = rgba[i * 4 + 1] as f32;
+            let b = rgba[i * 4 + 2] as f32;
+            dc.push(r.min(g).min(b));
+        }
+        let dc_patch = min_filter_2d(&dc, w, h, 4);
+        let a_rgb = estimate_atmospheric_light(rgba, &dc_patch, w, h);
+        let fog_factor = (-amount * 0.5).clamp(0.0, 0.9);
+        let mut out = rgba.to_vec();
+        for i in 0..n {
+            for c in 0..3 {
+                let orig = rgba[i * 4 + c] as f32;
+                let fogged = orig * (1.0 - fog_factor) + a_rgb[c] * fog_factor;
+                out[i * 4 + c] = fogged.clamp(0.0, 255.0) as u8;
+            }
+        }
+        return out;
+    }
+
+    let (t_map, a_rgb) = estimate_transmission(rgba, w, h, amount);
     let mut out = rgba.to_vec();
-    for i in 0..w * h {
+    for i in 0..n {
+        let t = t_map[i];
         for c in 0..3 {
-            let s = rgba[i * 4 + c] as f32;
-            let b = veil[i * 4 + c] as f32;
-            let local = (s - b) * amount * 0.9;
-            let deepen = (s - 128.0) * amount * 0.15;
-            out[i * 4 + c] = (s + local + deepen).clamp(0.0, 255.0) as u8;
+            let orig = rgba[i * 4 + c] as f32;
+            let j = (orig - a_rgb[c]) / t + a_rgb[c];
+            out[i * 4 + c] = j.clamp(0.0, 255.0) as u8;
         }
     }
     out
@@ -1332,6 +1618,98 @@ mod tests {
             / n
     }
 
+    fn variance_f32(buf: &[f32]) -> f64 {
+        let n = buf.len() as f64;
+        let mean = buf.iter().map(|&b| b as f64).sum::<f64>() / n;
+        buf.iter().map(|&b| (b as f64 - mean).powi(2)).sum::<f64>() / n
+    }
+
+    #[test]
+    fn guided_filter_step_edge_shows_no_ringing_or_halos() {
+        let (w, h) = (32, 32);
+        let mut src = vec![0u8; w * h * 4];
+        // High-contrast vertical step edge: left is 40, right is 210
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                let val = if x < w / 2 { 40 } else { 210 };
+                src[idx] = val;
+                src[idx + 1] = val;
+                src[idx + 2] = val;
+                src[idx + 3] = 255;
+            }
+        }
+
+        // Apply maximum clarity
+        let clarity_out = apply_clarity_r(&src, w, h, 1.0, 4);
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                let val = clarity_out[idx];
+                // Guided filter eliminates overshoot/undershoot at the step edge.
+                // An unsharp filter with Gaussian/box blur overshoots to > 240 and undershoots to < 10.
+                if x < w / 2 {
+                    assert!(
+                        val >= 36,
+                        "clarity undershoot halo on dark side at ({x},{y}): expected >= 36, got {val}"
+                    );
+                } else {
+                    assert!(
+                        val <= 214,
+                        "clarity overshoot halo on bright side at ({x},{y}): expected <= 214, got {val}"
+                    );
+                }
+            }
+        }
+
+        // Apply maximum shadow lift
+        let shadow_out = apply_shadow_highlight_r(&src, w, h, 1.0, 0.0, 4);
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                let val = shadow_out[idx];
+                if x >= w / 2 {
+                    // Bright side of the edge should not suffer dark halos
+                    assert!(
+                        val >= 208,
+                        "shadow lift caused dark halo on bright side of edge at ({x},{y}): {val}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn guided_filter_radius_scaling_and_identity() {
+        let (w, h) = (32, 32);
+        let src = noise(w, h);
+        let mut guide = vec![0.0f32; w * h];
+        let mut ch = vec![0.0f32; w * h];
+        for i in 0..w * h {
+            ch[i] = src[i * 4] as f32;
+            guide[i] = 0.2126 * src[i * 4] as f32
+                + 0.7152 * src[i * 4 + 1] as f32
+                + 0.0722 * src[i * 4 + 2] as f32;
+        }
+
+        // Radius 0 is identity
+        let r0 = guided_filter_channel(&guide, &ch, w, h, 0, 100.0);
+        assert_eq!(r0, ch);
+
+        let rgb0 = guided_filter_luma_rgb(&src, w, h, 0, 100.0);
+        assert_eq!(rgb0, src);
+
+        // Larger radius results in greater smoothing (lower variance of the base layer)
+        let r2 = guided_filter_channel(&guide, &ch, w, h, 2, 500.0);
+        let r6 = guided_filter_channel(&guide, &ch, w, h, 6, 500.0);
+        let var2 = variance_f32(&r2);
+        let var6 = variance_f32(&r6);
+        assert!(
+            var6 < var2,
+            "larger radius must smooth more: var6 {var6} vs var2 {var2}"
+        );
+    }
+
     #[test]
     fn blur_preserves_size_alpha_and_smooths() {
         let src = noise(32, 32);
@@ -1443,6 +1821,131 @@ mod tests {
         assert!(variance(&out) > variance(&src));
         // neutral amount is a no-op
         assert_eq!(dehaze(&src, 32, 32, 0.0), src);
+    }
+
+    #[test]
+    fn dehaze_synthetic_fog_recovers_transmission() {
+        let (w, h) = (48, 48);
+        let a_val = 220.0f32;
+        let true_t = 0.6f32;
+        let mut clear = vec![0u8; w * h * 4];
+        let mut hazy = vec![0u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                if y < 4 {
+                    // Sky / distant thick fog patch where radiance equals atmospheric light
+                    clear[idx] = a_val as u8;
+                    clear[idx + 1] = a_val as u8;
+                    clear[idx + 2] = a_val as u8;
+                    clear[idx + 3] = 255;
+                    hazy[idx] = a_val as u8;
+                    hazy[idx + 1] = a_val as u8;
+                    hazy[idx + 2] = a_val as u8;
+                    hazy[idx + 3] = 255;
+                } else {
+                    let r = if x < w / 2 { 20 } else { 180 };
+                    let g = if y < h / 2 { 30 } else { 150 };
+                    let b = if (x + y) % 4 == 0 { 15 } else { 40 };
+                    clear[idx] = r;
+                    clear[idx + 1] = g;
+                    clear[idx + 2] = b;
+                    clear[idx + 3] = 255;
+                    for c in 0..3 {
+                        let j = clear[idx + c] as f32;
+                        let val = j * true_t + a_val * (1.0 - true_t);
+                        hazy[idx + c] = val.round().clamp(0.0, 255.0) as u8;
+                    }
+                    hazy[idx + 3] = 255;
+                }
+            }
+        }
+
+        // Recover transmission map
+        let (recovered_t, est_a) = estimate_transmission(&hazy, w, h, 1.0);
+
+        // Verify estimated atmospheric light is close to 220
+        for (c, &val) in est_a.iter().enumerate() {
+            assert!(
+                (val - a_val).abs() < 25.0,
+                "atmospheric light ch {c} expected ~{a_val}, got {val}"
+            );
+        }
+
+        // Verify recovered transmission map matches known true_t in interior
+        let mut mean_t = 0.0f32;
+        let mut count = 0;
+        for y in 8..h - 8 {
+            for x in 8..w - 8 {
+                mean_t += recovered_t[y * w + x];
+                count += 1;
+            }
+        }
+        mean_t /= count as f32;
+        assert!(
+            (mean_t - true_t).abs() < 0.18,
+            "recovered transmission {mean_t} must match true transmission {true_t} within tolerance"
+        );
+
+        // Radiance recovery: dehazed image should be closer to clear image than hazy image was
+        let dehazed = dehaze(&hazy, w, h, 1.0);
+        let mse_hazy: f64 = clear
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(hazy.as_chunks::<4>().0.iter())
+            .map(|(c, h)| {
+                (c[0] as f64 - h[0] as f64).powi(2)
+                    + (c[1] as f64 - h[1] as f64).powi(2)
+                    + (c[2] as f64 - h[2] as f64).powi(2)
+            })
+            .sum();
+        let mse_dehazed: f64 = clear
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(dehazed.as_chunks::<4>().0.iter())
+            .map(|(c, d)| {
+                (c[0] as f64 - d[0] as f64).powi(2)
+                    + (c[1] as f64 - d[1] as f64).powi(2)
+                    + (c[2] as f64 - d[2] as f64).powi(2)
+            })
+            .sum();
+
+        assert!(
+            mse_dehazed < mse_hazy * 0.5,
+            "dehazing must significantly reduce error towards clear image: {mse_dehazed} vs {mse_hazy}"
+        );
+    }
+
+    #[test]
+    fn dehaze_monotonicity_and_bounds() {
+        let (w, h) = (32, 32);
+        let src = noise(w, h);
+
+        let d0 = dehaze(&src, w, h, 0.0);
+        assert_eq!(d0, src);
+
+        let d25 = dehaze(&src, w, h, 0.25);
+        let d50 = dehaze(&src, w, h, 0.5);
+        let d100 = dehaze(&src, w, h, 1.0);
+
+        // Monotonic contrast expansion
+        let v0 = variance(&d0);
+        let v25 = variance(&d25);
+        let v50 = variance(&d50);
+        let v100 = variance(&d100);
+
+        assert!(v25 >= v0, "v25 {v25} >= v0 {v0}");
+        assert!(v50 >= v25, "v50 {v50} >= v25 {v25}");
+        assert!(v100 >= v50, "v100 {v100} >= v50 {v50}");
+
+        // Negative dehaze adds fog (reduces variance towards atmospheric veil)
+        let dfog = dehaze(&src, w, h, -0.6);
+        assert!(
+            variance(&dfog) < v0,
+            "negative dehaze must add fog and reduce contrast"
+        );
     }
 
     #[test]
