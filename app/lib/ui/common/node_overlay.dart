@@ -767,7 +767,44 @@ class _NodesPainter extends CustomPainter {
           }
 
         case MaskKind.luminance:
+          break;
+
         case MaskKind.bitmap:
+          if (selected && l.maskParams.length >= 2) {
+            final bw = l.maskParams[0].toInt();
+            final bh = l.maskParams[1].toInt();
+            if (bw > 0 && bh > 0 && l.maskParams.length >= 2 + bw * bh) {
+              final stepX = (bw / 32).ceil().clamp(1, bw);
+              final stepY = (bh / 32).ceil().clamp(1, bh);
+              final cellW = (t.fitted.width * t.scale) / (bw / stepX);
+              final cellH = (t.fitted.height * t.scale) / (bh / stepY);
+              final tl = t.toScreen(Offset.zero);
+
+              var yi = 0;
+              for (var y = 0; y < bh; y += stepY, yi++) {
+                var xi = 0;
+                for (var x = 0; x < bw; x += stepX, xi++) {
+                  var alpha = l.maskParams[2 + y * bw + x];
+                  if (l.inverted) alpha = 1.0 - alpha;
+                  if (alpha > 0.05) {
+                    final cellRect = Rect.fromLTWH(
+                      tl.dx + xi * cellW,
+                      tl.dy + yi * cellH,
+                      cellW + 0.5,
+                      cellH + 0.5,
+                    );
+                    canvas.drawRect(
+                      cellRect,
+                      Paint()
+                        ..color = rubyColor.withValues(
+                          alpha: (alpha * 0.30).clamp(0.0, 0.45),
+                        ),
+                    );
+                  }
+                }
+              }
+            }
+          }
           break;
       }
     }

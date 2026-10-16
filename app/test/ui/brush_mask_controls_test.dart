@@ -211,6 +211,10 @@ void main() {
       container.read(nodeEditorProvider.notifier).enable();
       container.read(nodeEditorProvider.notifier).select(0);
 
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,

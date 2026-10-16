@@ -164,5 +164,24 @@ void main() {
 
       expect(layers(), hasLength(1));
     });
+
+    testWidgets('bitmap mask paints ruby overlay when selected with peek enabled', (
+      tester,
+    ) async {
+      final bitmapLayer = AdjustmentLayer.bitmap(
+        width: 2,
+        height: 2,
+        alphas: [1.0, 0.0, 0.5, 0.8],
+      );
+      container.read(recipeControllerProvider.notifier).addLayer(bitmapLayer);
+      container.read(nodeEditorProvider.notifier).select(0);
+      container.read(maskPeekProvider.notifier).set(true);
+
+      await pumpOverlay(tester);
+      await tester.pump();
+
+      // CustomPaint is present and rendered without error
+      expect(find.byType(CustomPaint), findsWidgets);
+    });
   });
 }

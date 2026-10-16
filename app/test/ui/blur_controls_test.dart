@@ -19,6 +19,10 @@ void main() {
   });
 
   Future<void> pumpBlurControls(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -61,5 +65,18 @@ void main() {
       container.read(recipeControllerProvider).recipe.blurBokehShape,
       BokehShape.hexagon.index,
     );
+  });
+
+  testWidgets('Calibrate Embedded Depth chip is present when blur is enabled', (tester) async {
+    container.read(recipeControllerProvider.notifier).setBlurEnabled(true);
+    await pumpBlurControls(tester);
+
+    final depthChip = find.byKey(const Key('blur-detect-depth'));
+    expect(depthChip, findsOneWidget);
+
+    await tester.tap(depthChip);
+    await tester.pumpAndSettle();
+
+    expect(find.text('No photo loaded to read depth metadata'), findsOneWidget);
   });
 }

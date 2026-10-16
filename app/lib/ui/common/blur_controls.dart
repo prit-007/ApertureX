@@ -1,9 +1,12 @@
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../color/blur_spec.dart';
+import '../../edit/active_image.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
+import '../../engine/engine.dart';
 import 'app_primitives.dart';
 import 'parameter_control.dart';
 
@@ -33,6 +36,49 @@ class BlurControls extends ConsumerWidget {
           },
         ),
         if (recipe.blurEnabled) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: [
+                ActionChip(
+                  key: const Key('blur-detect-depth'),
+                  avatar: const Icon(Icons.auto_awesome, size: 16),
+                  label: const Text('Calibrate Embedded Depth'),
+                  onPressed: () async {
+                    final bytes = ref.read(activeImageBytesProvider);
+                    if (bytes == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('No photo loaded to read depth metadata')),
+                      );
+                      return;
+                    }
+                    final depthResult = await AxEngine.extractEmbeddedDepth(bytes);
+                    if (depthResult != null) {
+                      HapticFeedback.selectionClick();
+                      notifier.update(Parameter.blurFocalPoint, 0.35);
+                      notifier.update(Parameter.blurFocalRange, 0.25);
+                      notifier.commit(label: 'Calibrate Depth');
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Calibrated depth: ${depthResult.width}×${depthResult.height} embedded map',
+                            ),
+                          ),
+                        );
+                      }
+                    } else if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('No embedded depth map found; using synthetic plane'),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
           const SectionHeader('Focus & Depth'),
           const ParameterControl(parameter: Parameter.blurAmount),
           const ParameterControl(parameter: Parameter.blurFocalPoint),

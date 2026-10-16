@@ -106,6 +106,25 @@ class MaskControls extends ConsumerWidget {
                 label: const Text('Subject +'),
               ),
               OutlinedButton.icon(
+                key: const Key('mask-add-background'),
+                onPressed: () {
+                  final idx = layers.length;
+                  notifier.addLayer(
+                    const AdjustmentLayer(
+                      maskKind: MaskKind.subject,
+                      maskParams: [0.5, 0.5, 0.28, 0.38, 0.25],
+                      inverted: true,
+                      exposure: -0.4,
+                    ),
+                  );
+                  ref.read(nodeEditorProvider.notifier).enable();
+                  ref.read(nodeEditorProvider.notifier).select(idx);
+                  HapticFeedback.selectionClick();
+                },
+                icon: const Icon(Icons.wallpaper),
+                label: const Text('Background +'),
+              ),
+              OutlinedButton.icon(
                 onPressed: () {
                   final idx = layers.length;
                   notifier.addLayer(

@@ -211,5 +211,21 @@ void main() {
     // No photo loaded shows snackbar
     expect(find.text('No photo loaded for depth extraction'), findsOneWidget);
   });
+
+  testWidgets('Background + button adds an inverted subject mask to the stack', (tester) async {
+    await pumpMaskControls(tester);
+
+    final bgBtn = find.byKey(const Key('mask-add-background'));
+    expect(bgBtn, findsOneWidget);
+
+    await tester.tap(bgBtn);
+    await tester.pumpAndSettle();
+
+    final layers = container.read(recipeControllerProvider).recipe.layers;
+    expect(layers.length, 1);
+    expect(layers.first.maskKind, MaskKind.subject);
+    expect(layers.first.inverted, isTrue);
+  });
 }
+
 
