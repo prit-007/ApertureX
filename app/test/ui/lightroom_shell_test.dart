@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:aperturex/edit/parameter.dart';
+import 'package:aperturex/edit/recipe.dart';
+import 'package:aperturex/edit/recipe_controller.dart';
 import 'package:aperturex/ui/common/blur_controls.dart';
 import 'package:aperturex/ui/common/color_grading_editor.dart';
 import 'package:aperturex/ui/common/film_controls.dart';
@@ -155,4 +158,83 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'applied dot indicator appears when section has adjustments and disappears when neutral',
+    (tester) async {
+      await pump(tester);
+      // Neutral initially - no dot
+      expect(find.byKey(const Key('applied-dot-light')), findsNothing);
+
+      // Apply light adjustment
+      container.read(recipeControllerProvider.notifier).loadRecipe(
+            EditRecipe.neutral.copyWith(exposure: 1.2),
+          );
+      await tester.pumpAndSettle();
+
+      // Dot appears
+      expect(find.byKey(const Key('applied-dot-light')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Cancel button reverts slider changes made in the editing session',
+    (tester) async {
+      await pump(tester);
+
+      // Initially no changes, cancel is disabled
+      final cancelBtnFinder = find.byKey(const Key('tray-cancel'));
+      expect(cancelBtnFinder, findsOneWidget);
+      expect(tester.widget<IconButton>(cancelBtnFinder).onPressed, isNull);
+
+      // User modifies exposure slider in Light section
+      container.read(recipeControllerProvider.notifier).update(
+            Parameter.exposure,
+            1.5,
+          );
+      await tester.pumpAndSettle();
+
+      // Cancel button is now enabled
+      expect(tester.widget<IconButton>(cancelBtnFinder).onPressed, isNotNull);
+
+      // Tap Cancel
+      await tester.tap(cancelBtnFinder);
+      await tester.pumpAndSettle();
+
+      // Exposure is reverted to baseline 0.0
+      expect(container.read(recipeControllerProvider).recipe.exposure, 0.0);
+    },
+  );
+
+  testWidgets(
+    'Apply button commits session changes to history',
+    (tester) async {
+      await pump(tester);
+
+      final applyBtn = find.byKey(const Key('tray-apply'));
+      expect(applyBtn, findsOneWidget);
+      expect(tester.widget<IconButton>(applyBtn).onPressed, isNull);
+
+      // User modifies contrast
+      container.read(recipeControllerProvider.notifier).update(
+            Parameter.contrast,
+            0.8,
+          );
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<IconButton>(applyBtn).onPressed, isNotNull);
+
+      // Tap Apply
+      await tester.tap(applyBtn);
+      await tester.pumpAndSettle();
+
+      // Changes committed, cancel is disabled for committed state
+      expect(container.read(recipeControllerProvider).recipe.contrast, 0.8);
+      expect(cancelBtn(tester).onPressed, isNull);
+    },
+  );
 }
+
+IconButton cancelBtn(WidgetTester tester) =>
+    tester.widget<IconButton>(find.byKey(const Key('tray-cancel')));
+

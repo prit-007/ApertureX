@@ -210,4 +210,63 @@ void main() {
       }
     });
   });
+
+  group('isSectionModified', () {
+    test('neutral recipe has no modified sections', () {
+      for (final section in RecipeSection.values) {
+        expect(
+          isSectionModified(EditRecipe.neutral, section),
+          isFalse,
+          reason: '$section should be false on neutral',
+        );
+      }
+    });
+
+    test('detects light section modifications', () {
+      final r = EditRecipe.neutral.copyWith(exposure: 0.5);
+      expect(isSectionModified(r, RecipeSection.light), isTrue);
+      expect(isSectionModified(r, RecipeSection.color), isFalse);
+    });
+
+    test('detects color section modifications', () {
+      final r = EditRecipe.neutral.copyWith(temperature: 15);
+      expect(isSectionModified(r, RecipeSection.color), isTrue);
+      expect(isSectionModified(r, RecipeSection.light), isFalse);
+    });
+
+    test('detects effects section modifications', () {
+      final r = EditRecipe.neutral.copyWith(clarity: 0.4);
+      expect(isSectionModified(r, RecipeSection.effects), isTrue);
+    });
+
+    test('detects detail section modifications', () {
+      final r = EditRecipe.neutral.copyWith(sharpen: 0.3);
+      expect(isSectionModified(r, RecipeSection.detail), isTrue);
+    });
+
+    test('detects geometry section modifications', () {
+      final r = EditRecipe.neutral.copyWith(rotation: 90);
+      expect(isSectionModified(r, RecipeSection.geometry), isTrue);
+    });
+
+    test('detects optics section modifications', () {
+      final r = EditRecipe.neutral.copyWith(removeChromaticAberration: true);
+      expect(isSectionModified(r, RecipeSection.optics), isTrue);
+    });
+
+    test('detects blur section modifications', () {
+      final r = EditRecipe.neutral.copyWith(blurAmount: 0.5);
+      expect(isSectionModified(r, RecipeSection.blur), isTrue);
+    });
+
+    test('detects film section modifications', () {
+      final r = EditRecipe.neutral.copyWith(filmHalation: 0.3);
+      expect(isSectionModified(r, RecipeSection.film), isTrue);
+    });
+
+    test('detects lab section modifications', () {
+      final r = EditRecipe.neutral.copyWith(shaderParam1: 0.5);
+      expect(isSectionModified(r, RecipeSection.lab), isTrue);
+    });
+  });
 }

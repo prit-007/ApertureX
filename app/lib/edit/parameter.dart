@@ -691,3 +691,91 @@ EditRecipe withMuted(EditRecipe recipe, Set<Parameter> muted) {
   }
   return out;
 }
+
+/// Returns true if any parameter or setting in [section] differs from neutral.
+bool isSectionModified(EditRecipe recipe, RecipeSection section) {
+  return switch (section) {
+    RecipeSection.light =>
+      recipe.exposure != 0 ||
+          recipe.contrast != 0 ||
+          recipe.highlights != 0 ||
+          recipe.shadows != 0 ||
+          recipe.whites != 0 ||
+          recipe.blacks != 0,
+    RecipeSection.color =>
+      recipe.temperature != 0 ||
+          recipe.tint != 0 ||
+          recipe.vibrance != 0 ||
+          recipe.saturation != 0 ||
+          recipe.hsl != neutralHsl ||
+          !recipe.masterCurve.isIdentity ||
+          !recipe.redCurve.isIdentity ||
+          !recipe.greenCurve.isIdentity ||
+          !recipe.blueCurve.isIdentity ||
+          recipe.gradeShadowHue != 0 ||
+          recipe.gradeShadowSat != 0 ||
+          recipe.gradeShadowLum != 0 ||
+          recipe.gradeMidHue != 0 ||
+          recipe.gradeMidSat != 0 ||
+          recipe.gradeMidLum != 0 ||
+          recipe.gradeHighlightHue != 0 ||
+          recipe.gradeHighlightSat != 0 ||
+          recipe.gradeHighlightLum != 0 ||
+          recipe.gradeBlending != 0.5 ||
+          recipe.gradeBalance != 0,
+    RecipeSection.tone =>
+      !recipe.masterCurve.isIdentity ||
+          !recipe.redCurve.isIdentity ||
+          !recipe.greenCurve.isIdentity ||
+          !recipe.blueCurve.isIdentity,
+    RecipeSection.retouch => recipe.retouchPatches.isNotEmpty,
+    RecipeSection.blur => recipe.blurEnabled || recipe.blurAmount != 0,
+    RecipeSection.effects =>
+      recipe.clarity != 0 ||
+          recipe.texture != 0 ||
+          recipe.dehaze != 0 ||
+          recipe.vignette != 0 ||
+          recipe.vignetteMidpoint != 0.5 ||
+          recipe.vignetteFeather != 0.5 ||
+          recipe.vignetteRoundness != 0 ||
+          recipe.vignetteHighlights != 0 ||
+          recipe.grain != 0 ||
+          recipe.grainSize != 0.25 ||
+          recipe.grainRoughness != 0.5,
+    RecipeSection.detail =>
+      recipe.sharpen != 0 ||
+          recipe.sharpenRadius != 1.0 ||
+          recipe.sharpenDetail != 0.25 ||
+          recipe.sharpenMasking != 0 ||
+          recipe.denoiseLuma != 0 ||
+          recipe.denoiseChroma != 0,
+    RecipeSection.optics =>
+      recipe.removeChromaticAberration ||
+          recipe.defringePurpleAmount != 0 ||
+          recipe.defringeGreenAmount != 0 ||
+          recipe.profileCorrections ||
+          recipe.profileDistortion != 1.0 ||
+          recipe.profileVignetting != 1.0,
+    RecipeSection.geometry =>
+      recipe.rotation != 0 ||
+          recipe.flipH ||
+          recipe.flipV ||
+          recipe.straighten != 0 ||
+          recipe.crop != fullCrop ||
+          recipe.perspectiveX != 0 ||
+          recipe.perspectiveY != 0 ||
+          recipe.skewX != 0 ||
+          recipe.skewY != 0,
+    RecipeSection.masking => recipe.layers.isNotEmpty,
+    RecipeSection.film =>
+      recipe.filmHalation != 0 ||
+          recipe.filmBloom != 0 ||
+          recipe.filmDust != 0 ||
+          recipe.filmScratches != 0,
+    RecipeSection.lab =>
+      recipe.shaderLabPreset != 0 ||
+          recipe.shaderParam1 != 0 ||
+          recipe.shaderParam2 != 0 ||
+          recipe.shaderParam3 != 0,
+  };
+}

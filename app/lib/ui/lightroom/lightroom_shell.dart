@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../color/tat.dart';
 import '../../edit/parameter.dart';
+import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../viewport/compare_hold.dart';
 import '../common/blur_controls.dart';
@@ -64,6 +65,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   RecipeSection _section = RecipeSection.light;
   _Tab _tab = _Tab.panel;
   late final ScrollController _tabScrollController;
+  EditRecipe? _sessionStartRecipe;
 
   @override
   void initState() {
@@ -80,6 +82,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final currentRecipe = ref.watch(recipeControllerProvider).recipe;
+    _sessionStartRecipe ??= currentRecipe;
+    final hasChanges = currentRecipe != _sessionStartRecipe;
+
     final canUndo = ref.watch(
       recipeControllerProvider.select((s) => s.index > 0),
     );
@@ -88,10 +94,27 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     );
     final controller = ref.read(recipeControllerProvider.notifier);
 
-    Widget chip(RecipeSection section, bool selected, VoidCallback onTap) => Padding(
+    Widget chip(RecipeSection section, bool selected, bool isModified, VoidCallback onTap) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: ChoiceChip(
-        label: Text(_sectionLabel(section)),
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_sectionLabel(section)),
+            if (isModified) ...[
+              const SizedBox(width: 4),
+              Container(
+                key: Key('applied-dot-${section.name}'),
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? scheme.primary : scheme.primary.withValues(alpha: 0.85),
+                ),
+              ),
+            ],
+          ],
+        ),
         selected: selected,
         onSelected: (_) => onTap(),
         showCheckmark: false,
@@ -100,7 +123,9 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         side: BorderSide(
           color: selected
               ? scheme.primary
-              : scheme.outlineVariant.withValues(alpha: 0.5),
+              : isModified
+                  ? scheme.primary.withValues(alpha: 0.45)
+                  : scheme.outlineVariant.withValues(alpha: 0.5),
         ),
         selectedColor: scheme.primaryContainer,
         backgroundColor: scheme.surfaceContainerHigh,
@@ -133,11 +158,16 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     chip(
                       section,
                       _tab == _Tab.panel && section == _section,
+                      isSectionModified(currentRecipe, section),
                       () {
                         HapticFeedback.selectionClick();
+                        if (hasChanges) {
+                          controller.commit(label: 'Applied ${_sectionLabel(_section)}');
+                        }
                         setState(() {
                           _section = section;
                           _tab = _Tab.panel;
+                          _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
                         });
                         final idx = _sections.indexOf(section);
                         if (_tabScrollController.hasClients) {
@@ -161,6 +191,28 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
               height: 44,
               child: Row(
                 children: [
+                  IconButton(
+                    key: const Key('tray-cancel'),
+                    tooltip: 'Discard changes',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: hasChanges
+                        ? () {
+                            HapticFeedback.lightImpact();
+                            controller.loadRecipe(
+                              _sessionStartRecipe!,
+                              label: 'Discarded ${_sectionLabel(_section)} changes',
+                            );
+                            setState(() {});
+                          }
+                        : null,
+                    icon: Icon(
+                      Icons.close,
+                      size: 20,
+                      color: hasChanges
+                          ? scheme.error
+                          : scheme.onSurfaceVariant.withValues(alpha: 0.38),
+                    ),
+                  ),
                   if (ref.watch(tatModeProvider)) ...[
                     TextButton(
                       style: TextButton.styleFrom(
@@ -214,6 +266,27 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                       visualDensity: VisualDensity.compact,
                       onPressed: () {},
                       icon: const Icon(Icons.compare),
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('tray-apply'),
+                    tooltip: 'Apply changes',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: hasChanges
+                        ? () {
+                            HapticFeedback.lightImpact();
+                            controller.commit(label: 'Applied ${_sectionLabel(_section)}');
+                            setState(() {
+                              _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
+                            });
+                          }
+                        : null,
+                    icon: Icon(
+                      Icons.check,
+                      size: 20,
+                      color: hasChanges
+                          ? scheme.primary
+                          : scheme.onSurfaceVariant.withValues(alpha: 0.38),
                     ),
                   ),
                 ],

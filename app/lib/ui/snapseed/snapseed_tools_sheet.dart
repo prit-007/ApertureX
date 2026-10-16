@@ -4,6 +4,8 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
+import '../../edit/parameter.dart';
+import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../gesture/gesture_interpreter.dart';
 import '../common/blur_controls.dart';
@@ -240,6 +242,7 @@ class SnapseedToolsSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final recipe = ref.watch(recipeControllerProvider).recipe;
 
     return Material(
       color: scheme.surface,
@@ -306,23 +309,32 @@ class SnapseedToolsSheet extends ConsumerWidget {
                   itemCount: snapseedToolsList.length,
                   itemBuilder: (context, index) {
                     final tool = snapseedToolsList[index];
+                    final isModified = isSnapseedToolModified(recipe, tool.id);
                     return InkWell(
                       borderRadius: Radii.mdAll,
                       onTap: () => _handleToolTap(context, ref, tool),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: scheme.surfaceContainerHighest,
-                            ),
-                            child: Icon(
-                              tool.icon,
-                              size: 24,
-                              color: scheme.onSurfaceVariant,
+                          Badge(
+                            isLabelVisible: isModified,
+                            smallSize: 7,
+                            backgroundColor: scheme.primary,
+                            alignment: const AlignmentDirectional(0.85, -0.85),
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isModified
+                                    ? scheme.primaryContainer.withValues(alpha: 0.45)
+                                    : scheme.surfaceContainerHighest,
+                              ),
+                              child: Icon(
+                                tool.icon,
+                                size: 24,
+                                color: isModified ? scheme.primary : scheme.onSurfaceVariant,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -333,8 +345,8 @@ class SnapseedToolsSheet extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: scheme.onSurface,
+                              fontWeight: isModified ? FontWeight.w700 : FontWeight.w500,
+                              color: isModified ? scheme.primary : scheme.onSurface,
                             ),
                           ),
                         ],
@@ -350,3 +362,23 @@ class SnapseedToolsSheet extends ConsumerWidget {
     );
   }
 }
+
+/// Returns true if [id] has active adjustments in [recipe].
+bool isSnapseedToolModified(EditRecipe recipe, SnapseedToolType id) => switch (id) {
+  SnapseedToolType.tuneImage => isSectionModified(recipe, RecipeSection.light),
+  SnapseedToolType.details => isSectionModified(recipe, RecipeSection.detail),
+  SnapseedToolType.curves => isSectionModified(recipe, RecipeSection.tone),
+  SnapseedToolType.whiteBalance => recipe.temperature != 0 || recipe.tint != 0,
+  SnapseedToolType.cropRotate =>
+    recipe.rotation != 0 || recipe.flipH || recipe.flipV || recipe.crop != fullCrop,
+  SnapseedToolType.straighten => recipe.straighten != 0,
+  SnapseedToolType.selective => recipe.layers.isNotEmpty,
+  SnapseedToolType.brush => recipe.layers.any((l) => l.maskKind == MaskKind.brush),
+  SnapseedToolType.healing => recipe.retouchPatches.isNotEmpty,
+  SnapseedToolType.lensBlur => isSectionModified(recipe, RecipeSection.blur),
+  SnapseedToolType.vignette => recipe.vignette != 0,
+  SnapseedToolType.film => isSectionModified(recipe, RecipeSection.film),
+  SnapseedToolType.optics => isSectionModified(recipe, RecipeSection.optics),
+  SnapseedToolType.shaderLab => isSectionModified(recipe, RecipeSection.lab),
+};
+

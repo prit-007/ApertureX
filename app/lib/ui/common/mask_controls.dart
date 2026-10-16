@@ -156,21 +156,51 @@ class MaskControls extends ConsumerWidget {
               selected: i == ref.watch(nodeEditorProvider.select((s) => s.selected)),
               leading: Icon(_maskIcon(layers[i].maskKind), size: 18),
               title: Text(
-                '${layers[i].maskKind.name.toUpperCase()} layer  '
-                'EV ${layers[i].exposure.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 13),
+                '${layers[i].maskKind.name.toUpperCase()} layer ${i + 1}  '
+                'EV ${layers[i].exposure >= 0 ? '+' : ''}${layers[i].exposure.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               ),
               subtitle: layers[i].inverted
-                  ? const Text('Inverted', style: TextStyle(fontSize: 11, color: Colors.orange))
+                  ? const Text(
+                      'Inverted (Reversed)',
+                      style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.w600),
+                    )
                   : null,
               onTap: () {
                 ref.read(nodeEditorProvider.notifier).select(i);
                 ref.read(nodeEditorProvider.notifier).enable();
               },
-              trailing: IconButton(
-                tooltip: 'Remove layer',
-                icon: const Icon(Icons.delete_outline, size: 18),
-                onPressed: () => notifier.removeLayerAt(i),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    key: Key('mask-invert-$i'),
+                    tooltip: 'Invert / Reverse mask',
+                    icon: Icon(
+                      layers[i].inverted ? Icons.swap_horiz : Icons.swap_horizontal_circle_outlined,
+                      size: 18,
+                    ),
+                    onPressed: () =>
+                        notifier.updateLayerAt(i, layers[i].copyWith(inverted: !layers[i].inverted)),
+                  ),
+                  IconButton(
+                    key: Key('mask-duplicate-$i'),
+                    tooltip: 'Duplicate mask',
+                    icon: const Icon(Icons.copy, size: 18),
+                    onPressed: () => notifier.addLayer(layers[i].copyWith()),
+                  ),
+                  IconButton(
+                    key: Key('mask-delete-$i'),
+                    tooltip: 'Remove layer',
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    onPressed: () {
+                      notifier.removeLayerAt(i);
+                      if (ref.read(nodeEditorProvider).selected == i) {
+                        ref.read(nodeEditorProvider.notifier).select(null);
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
           ),
@@ -180,10 +210,11 @@ class MaskControls extends ConsumerWidget {
               child: Card(
                 elevation: 0,
                 color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 child: Padding(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Wrap(
@@ -225,7 +256,26 @@ class MaskControls extends ConsumerWidget {
                                 if (val) ref.read(nodeEditorProvider.notifier).setEraserMode(true);
                               },
                             ),
+                          ] else ...[
+                            ActionChip(
+                              key: const Key('mask-subtract'),
+                              avatar: const Icon(Icons.remove_circle_outline, size: 14),
+                              label: const Text('Subtract', style: TextStyle(fontSize: 11)),
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              onPressed: () {
+                                notifier.updateLayerAt(i, layers[i].copyWith(inverted: true));
+                              },
+                            ),
                           ],
+                          ActionChip(
+                            key: const Key('mask-inline-duplicate'),
+                            avatar: const Icon(Icons.copy, size: 14),
+                            label: const Text('Duplicate', style: TextStyle(fontSize: 11)),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            onPressed: () => notifier.addLayer(layers[i].copyWith()),
+                          ),
                           if (layers[i].maskKind == MaskKind.brush && layers[i].brushPointCount > 0)
                             TextButton.icon(
                               key: const Key('mask-inline-brush-clear'),
@@ -277,6 +327,16 @@ class MaskControls extends ConsumerWidget {
                           onChanged: (val) => notifier.updateLayerAt(i, layers[i].withSkyHorizon(val)),
                         ),
                       ],
+                      const SizedBox(height: 6),
+                      Text(
+                        'LIGHT CONTROLS',
+                        style: TextStyle(
+                          fontSize: 10,
+                          letterSpacing: 1.0,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
                       _MaskSlider(
                         label: 'Exposure',
                         sliderKey: const Key('mask-inline-exposure-slider'),
@@ -308,6 +368,32 @@ class MaskControls extends ConsumerWidget {
                         min: -1.0,
                         max: 1.0,
                         onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(shadows: val)),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'COLOR CONTROLS',
+                        style: TextStyle(
+                          fontSize: 10,
+                          letterSpacing: 1.0,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      _MaskSlider(
+                        label: 'Temp',
+                        sliderKey: const Key('mask-inline-temp-slider'),
+                        value: layers[i].temperature,
+                        min: -1.0,
+                        max: 1.0,
+                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(temperature: val)),
+                      ),
+                      _MaskSlider(
+                        label: 'Tint',
+                        sliderKey: const Key('mask-inline-tint-slider'),
+                        value: layers[i].tint,
+                        min: -1.0,
+                        max: 1.0,
+                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(tint: val)),
                       ),
                       _MaskSlider(
                         label: 'Saturation',
@@ -360,22 +446,46 @@ class _MaskSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 75,
-          child: Text(label, style: const TextStyle(fontSize: 12)),
-        ),
-        Expanded(
-          child: Slider(
-            key: sliderKey,
-            value: value.clamp(min, max),
-            min: min,
-            max: max,
-            onChanged: onChanged,
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 38,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 75,
+            child: Text(label, style: const TextStyle(fontSize: 12)),
           ),
-        ),
-      ],
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 2,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              ),
+              child: Slider(
+                key: sliderKey,
+                value: value.clamp(min, max),
+                min: min,
+                max: max,
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 44,
+            child: Text(
+              '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 11,
+                fontFeatures: const [FontFeature.tabularFigures()],
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
