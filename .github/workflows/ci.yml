@@ -151,14 +151,14 @@ jobs:
           TMP=$(mktemp -d)
           trap 'rm -rf "$TMP"' EXIT
           # Every per-ABI APK must ship a non-empty libapp.so (Dart AOT) and
-          # librust_lib_tessera.so (Rust engine), and each .so must match its
+          # librust_lib_aperturex.so (Rust engine), and each .so must match its
           # ABI's machine type — the "wrong .so got packaged" failure mode.
           for abi in armeabi-v7a arm64-v8a x86_64; do
             apk="app/build/app/outputs/flutter-apk/app-${abi}-release.apk"
             test -f "$apk" || { echo "Missing $apk"; exit 1; }
             unzip -o -q "$apk" \
-              "lib/$abi/libapp.so" "lib/$abi/librust_lib_tessera.so" -d "$TMP"
-            for so in "$TMP/lib/$abi/libapp.so" "$TMP/lib/$abi/librust_lib_tessera.so"; do
+              "lib/$abi/libapp.so" "lib/$abi/librust_lib_aperturex.so" -d "$TMP"
+            for so in "$TMP/lib/$abi/libapp.so" "$TMP/lib/$abi/librust_lib_aperturex.so"; do
               test -s "$so" || { echo "Empty or missing $so"; exit 1; }
               # Full machine string after "Machine:" — `awk '{print $2,$3}'`
               # emitted a trailing space ("ARM ") and truncated x86-64 to

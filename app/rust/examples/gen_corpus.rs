@@ -1,5 +1,5 @@
 //! Writes a deterministic >100 MP JPEG corpus file for on-device tile/seam
-//! profiling (#16). The same pattern as `TesseraEngine.syntheticJpeg`:
+//! profiling (#16). The same pattern as `AxEngine.syntheticJpeg`:
 //!
 //! ```sh
 //! cargo run --release --example gen_corpus -- 12000 9000 /tmp/aperturex-corpus.jpg
@@ -33,7 +33,7 @@ fn main() {
     let mp = (width as f64 * height as f64) / 1_000_000.0;
     eprintln!("generating {width}x{height} ({mp:.1} MP)…");
     let started = Instant::now();
-    let jpeg = rust_lib_tessera::api::engine::synthetic_jpeg(width, height);
+    let jpeg = rust_lib_aperturex::api::engine::synthetic_jpeg(width, height);
     eprintln!(
         "encoded {} in {:.1}s, writing {out_path}…",
         human_bytes(jpeg.len()),

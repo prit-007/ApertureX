@@ -111,7 +111,7 @@ void main() {
         'share_plus',
         'cupertino_icons',
         'material_ui',
-        'rust_lib_tessera',
+        'rust_lib_aperturex',
       ];
       for (final name in benign) {
         expect(
