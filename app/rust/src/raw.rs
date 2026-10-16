@@ -271,7 +271,8 @@ fn decode_from_raw(raw: rawler::rawimage::RawImage) -> Result<RawLinearImage, St
                     samples.len()
                 ));
             }
-            let data = samples.iter().map(|&v| normalize(v)).collect();
+            let mut data: Vec<f32> = samples.iter().map(|&v| normalize(v)).collect();
+            reconstruct_highlights(&mut data, raw.width, raw.height, 0.99, None);
             Ok(RawLinearImage {
                 width: raw.width,
                 height: raw.height,
@@ -296,6 +297,7 @@ fn decode_from_raw(raw: rawler::rawimage::RawImage) -> Result<RawLinearImage, St
             .ok_or_else(|| format!("raw decode: unsupported CFA pattern '{}'", cfa.name))?;
             let mosaic: Vec<f32> = samples.iter().map(|&v| normalize(v)).collect();
             let mut data = demosaic_bilinear(&mosaic, raw.width, raw.height, pattern)?;
+            reconstruct_highlights(&mut data, raw.width, raw.height, 0.99, Some(&raw.wb_coeffs));
             apply_white_balance(&mut data, &raw.wb_coeffs);
             Ok(RawLinearImage {
                 width: raw.width,
@@ -458,6 +460,162 @@ fn channel_value(
         }
     }
     mosaic[y * width + x]
+}
+
+/// Reconstructs clipped RAW highlight channels from unclipped neighbor/channel ratios.
+///
+/// When one or two channels saturate (clip to whitelevel), this recovers the missing
+/// energy and hue by propagating gradients and color differences from unclipped channels.
+/// When all three channels saturate, it neutralizes them to eliminate the magenta cast
+/// caused by post-demosaic white-balance multipliers.
+pub fn reconstruct_highlights(
+    rgb: &mut [f32],
+    width: usize,
+    height: usize,
+    clip_threshold: f32,
+    wb: Option<&[f32; 4]>,
+) {
+    if width == 0 || height == 0 || rgb.len() != width * height * 3 {
+        return;
+    }
+
+    let mut sum_rg = 0.0f64;
+    let mut sum_bg = 0.0f64;
+    let mut count_g = 0usize;
+
+    for i in (0..rgb.len()).step_by(3) {
+        let r = rgb[i];
+        let g = rgb[i + 1];
+        let b = rgb[i + 2];
+        if r < clip_threshold && g < clip_threshold && b < clip_threshold && g > 0.05 {
+            sum_rg += (r / g) as f64;
+            sum_bg += (b / g) as f64;
+            count_g += 1;
+        }
+    }
+
+    let default_rg = if count_g > 0 {
+        (sum_rg / count_g as f64) as f32
+    } else {
+        1.0
+    };
+    let default_bg = if count_g > 0 {
+        (sum_bg / count_g as f64) as f32
+    } else {
+        1.0
+    };
+
+    let (mr, mb) = if let Some(wb_coeffs) = wb {
+        let g_wb = wb_coeffs[1];
+        if g_wb.abs() > 1e-6 {
+            (wb_coeffs[0] / g_wb, wb_coeffs[2] / g_wb)
+        } else {
+            (1.0, 1.0)
+        }
+    } else {
+        (1.0, 1.0)
+    };
+
+    for y in 0..height {
+        for x in 0..width {
+            let idx = (y * width + x) * 3;
+            let r = rgb[idx];
+            let g = rgb[idx + 1];
+            let b = rgb[idx + 2];
+
+            let r_clip = r >= clip_threshold;
+            let g_clip = g >= clip_threshold;
+            let b_clip = b >= clip_threshold;
+
+            if !r_clip && !g_clip && !b_clip {
+                continue;
+            }
+
+            if r_clip && g_clip && b_clip {
+                // All channels clipped: neutralize to the maximum sample to prevent magenta cast
+                let max_v = r.max(g).max(b);
+                rgb[idx] = if mr > 1e-3 { max_v / mr } else { max_v };
+                rgb[idx + 1] = max_v;
+                rgb[idx + 2] = if mb > 1e-3 { max_v / mb } else { max_v };
+                continue;
+            }
+
+            // Estimate local unclipped ratios from immediate 5x5 window if available
+            let mut local_sum_rg = 0.0f32;
+            let mut local_sum_bg = 0.0f32;
+            let mut local_count = 0usize;
+
+            let y_min = y.saturating_sub(2);
+            let y_max = (y + 2).min(height - 1);
+            let x_min = x.saturating_sub(2);
+            let x_max = (x + 2).min(width - 1);
+
+            for ny in y_min..=y_max {
+                for nx in x_min..=x_max {
+                    let nidx = (ny * width + nx) * 3;
+                    let nr = rgb[nidx];
+                    let ng = rgb[nidx + 1];
+                    let nb = rgb[nidx + 2];
+                    if nr < clip_threshold
+                        && ng < clip_threshold
+                        && nb < clip_threshold
+                        && ng > 0.05
+                    {
+                        local_sum_rg += nr / ng;
+                        local_sum_bg += nb / ng;
+                        local_count += 1;
+                    }
+                }
+            }
+
+            let ratio_rg = if local_count > 0 {
+                local_sum_rg / local_count as f32
+            } else {
+                default_rg
+            };
+            let ratio_bg = if local_count > 0 {
+                local_sum_bg / local_count as f32
+            } else {
+                default_bg
+            };
+
+            // Reconstruct clipped channels based on unclipped guide channel(s)
+            if !g_clip {
+                if r_clip {
+                    let recon_r = g * ratio_rg;
+                    rgb[idx] = r.max(recon_r);
+                }
+                if b_clip {
+                    let recon_b = g * ratio_bg;
+                    rgb[idx + 2] = b.max(recon_b);
+                }
+            } else if !r_clip && ratio_rg > 1e-3 {
+                let recon_g = r / ratio_rg;
+                let new_g = g.max(recon_g);
+                rgb[idx + 1] = new_g;
+                if b_clip {
+                    rgb[idx + 2] = b.max(new_g * ratio_bg);
+                }
+            } else if !b_clip && ratio_bg > 1e-3 {
+                let recon_g = b / ratio_bg;
+                let new_g = g.max(recon_g);
+                rgb[idx + 1] = new_g;
+                if r_clip {
+                    rgb[idx] = r.max(new_g * ratio_rg);
+                }
+            }
+
+            // Apply smooth highlight roll-off above clip_threshold to avoid hard clamping
+            for c in 0..3 {
+                let v = rgb[idx + c];
+                if v > clip_threshold {
+                    let over = v - clip_threshold;
+                    let compressed = clip_threshold + over / (1.0 + over * 0.5);
+                    rgb[idx + c] = compressed;
+                }
+            }
+        }
+    }
 }
 
 /// Applies as-shot white-balance multipliers (RGBE order), normalised to green.
@@ -1216,5 +1374,72 @@ mod tests {
         let before = img.data.clone();
         lens::correct_vignette(&mut img, &[0.0, 0.0, 0.0]);
         assert_eq!(img.data, before);
+    }
+
+    #[test]
+    fn highlight_reconstruction_noop_on_unclipped_image() {
+        let mut data = vec![0.2, 0.4, 0.3, 0.5, 0.6, 0.7, 0.1, 0.8, 0.2, 0.4, 0.3, 0.5];
+        let original = data.clone();
+        reconstruct_highlights(&mut data, 2, 2, 0.99, None);
+        assert_eq!(data, original);
+    }
+
+    #[test]
+    fn highlight_reconstruction_recovers_clipped_channel_ratio() {
+        let (w, h) = (4, 4);
+        let mut data = vec![0.0f32; w * h * 3];
+        // Scene with true R:G = 1.5, B:G = 0.8
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 3;
+                if y == 0 && x == 0 {
+                    // Blown highlight: G is 0.8, B is 0.64, but R clipped at 1.0 (true R was 1.2)
+                    data[idx] = 1.0;
+                    data[idx + 1] = 0.8;
+                    data[idx + 2] = 0.64;
+                } else {
+                    // Unclipped surrounding context with ratio R/G = 1.5, B/G = 0.8
+                    let g = 0.4f32;
+                    data[idx] = g * 1.5;
+                    data[idx + 1] = g;
+                    data[idx + 2] = g * 0.8;
+                }
+            }
+        }
+
+        reconstruct_highlights(&mut data, w, h, 0.99, None);
+        let recon_r = data[0];
+        let recon_g = data[1];
+        // R should be reconstructed above 1.0 according to the unclipped R/G ratio 1.5
+        assert!(
+            recon_r > 1.0,
+            "clipped R should be reconstructed above 1.0, got {recon_r}"
+        );
+        let recovered_ratio = recon_r / recon_g;
+        assert!(
+            (recovered_ratio - 1.5).abs() < 0.25,
+            "recovered ratio should be close to 1.5, got {recovered_ratio}"
+        );
+    }
+
+    #[test]
+    fn highlight_reconstruction_neutralizes_all_clipped_pixels() {
+        let (w, h) = (2, 2);
+        // Completely blown white highlight
+        let mut data = vec![1.0f32; w * h * 3];
+        let wb = [2.0f32, 1.0, 1.5, 1.0]; // Typical WB: Red × 2.0, Blue × 1.5
+        reconstruct_highlights(&mut data, w, h, 0.99, Some(&wb));
+        apply_white_balance(&mut data, &wb);
+
+        // After WB, all clipped pixels must stay neutral white (R == G == B) without magenta tint
+        for i in (0..data.len()).step_by(3) {
+            let r = data[i];
+            let g = data[i + 1];
+            let b = data[i + 2];
+            assert!(
+                (r - g).abs() < 1e-4 && (b - g).abs() < 1e-4,
+                "fully clipped highlight must be neutral, got R={r}, G={g}, B={b}"
+            );
+        }
     }
 }
