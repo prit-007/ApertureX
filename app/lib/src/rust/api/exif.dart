@@ -6,8 +6,8 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-/// Returns the source JPEG's APP1/Exif segment (a full `FF E1` segment), or an
-/// empty buffer if there is none. Inject it into an export to preserve metadata.
+/// Returns the source JPEG's or RAW/DNG's APP1/Exif segment (a full `FF E1` segment),
+/// or an empty buffer if there is none. Inject it into an export to preserve metadata.
 Future<Uint8List> extractExif({required List<int> jpeg}) =>
     RustLib.instance.api.crateApiExifExtractExif(jpeg: jpeg);
 

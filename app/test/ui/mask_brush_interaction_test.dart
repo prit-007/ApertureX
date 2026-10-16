@@ -1,11 +1,15 @@
+import 'dart:typed_data';
+
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:aperturex/edit/active_image.dart';
 import 'package:aperturex/edit/adjustment_layer.dart';
 import 'package:aperturex/edit/node_editor.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
+import 'package:aperturex/engine/engine.dart';
 import 'package:aperturex/ui/common/mask_controls.dart';
 import 'package:aperturex/ui/common/node_overlay.dart';
 import 'package:aperturex/viewport/canvas_transform.dart';
@@ -120,6 +124,60 @@ void main() {
     final layers = container.read(recipeControllerProvider).recipe.layers;
     expect(layers, hasLength(1));
     expect(layers.first.maskKind, MaskKind.sky);
+    expect(layers.first.maskParams, [0.5, 0.15, 0.6]);
+  });
+
+  testWidgets('Sky + with fake detector creates a layer with detected params', (
+    tester,
+  ) async {
+    final detectorContainer = ProviderContainer(
+      overrides: [
+        skyDetectorProvider.overrideWithValue(
+          (bytes) async => const DetectedSky(
+            horizonY: 0.35,
+            feather: 0.12,
+            blueWeight: 0.78,
+          ),
+        ),
+      ],
+    );
+    detectorContainer.read(activeImageBytesProvider.notifier).setBytes(
+          Uint8List.fromList([1, 2, 3, 4]),
+        );
+    detectorContainer.read(canvasTransformProvider.notifier).set(transform);
+    addTearDown(detectorContainer.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: detectorContainer,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: [
+                Positioned.fill(child: NodeOverlay()),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 300,
+                  child: MaskControls(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Sky +'));
+    await tester.pumpAndSettle();
+
+    final layers = detectorContainer.read(recipeControllerProvider).recipe.layers;
+    expect(layers, hasLength(1));
+    expect(layers.first.maskKind, MaskKind.sky);
+    expect(layers.first.skyHorizon, closeTo(0.35, 1e-4));
+    expect(layers.first.skyFeather, closeTo(0.12, 1e-4));
+    expect(layers.first.skyBlueWeight, closeTo(0.78, 1e-4));
   });
 
   testWidgets('selected layer in MaskControls displays inline editor for quick adjustments', (
@@ -155,6 +213,38 @@ void main() {
 
     final layer = container.read(recipeControllerProvider).recipe.layers.first;
     expect(layer.exposure, greaterThan(0.5));
+  });
+
+  testWidgets('selected sky layer displays horizon, feather, and blue weight sliders', (
+    tester,
+  ) async {
+    final controller = container.read(recipeControllerProvider.notifier);
+    controller.addLayer(
+      const AdjustmentLayer(
+        maskKind: MaskKind.sky,
+        maskParams: [0.5, 0.15, 0.6],
+      ),
+    );
+    container.read(nodeEditorProvider.notifier).enable();
+    container.read(nodeEditorProvider.notifier).select(0);
+
+    await pumpMaskingApp(tester);
+
+    expect(find.byKey(const Key('mask-inline-sky-horizon-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-inline-sky-feather-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-inline-sky-blue-weight-slider')), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('mask-inline-sky-blue-weight-slider')));
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const Key('mask-inline-sky-blue-weight-slider')),
+      const Offset(60, 0),
+    );
+    await tester.pumpAndSettle();
+
+    final layer = container.read(recipeControllerProvider).recipe.layers.first;
+    expect(layer.skyBlueWeight, greaterThan(0.6));
   });
 
   testWidgets('multiple brush strokes separate with break sentinel and do not connect', (

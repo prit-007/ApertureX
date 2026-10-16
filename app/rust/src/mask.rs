@@ -267,6 +267,142 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
     }
 }
 
+/// Detected sky parameters from a proxy image.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DetectedSky {
+    pub horizon_y: f32,
+    pub feather: f32,
+    pub blue_weight: f32,
+}
+
+/// Estimates sky horizon position, edge feather, and blue chromaticity weight
+/// using vertical luma/chroma skyline gradients and sky chromaticity priors.
+/// Returns `None` if the upper frame contains insufficient sky characteristics.
+pub fn detect_sky(rgba: &[u8], width: usize, height: usize) -> Option<DetectedSky> {
+    if width < 8 || height < 8 || rgba.len() < width * height * 4 {
+        return None;
+    }
+
+    // 1. Compute per-row sky statistics
+    let mut row_sky_count = vec![0usize; height];
+    let mut row_blue_count = vec![0usize; height];
+
+    for y in 0..height {
+        let row_start = y * width * 4;
+        let mut sky_c = 0;
+        let mut blue_c = 0;
+
+        for x in 0..width {
+            let px = row_start + x * 4;
+            let r = rgba[px] as f32 / 255.0;
+            let g = rgba[px + 1] as f32 / 255.0;
+            let b = rgba[px + 2] as f32 / 255.0;
+            let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+            // Blue sky: blue dominance over red and green, plus moderate luma
+            let is_blue_sky = (b - r) > 0.05 && b > g * 0.85 && luma > 0.20;
+            // Overcast/cloud: high luma neutral tone
+            let is_cloud = luma > 0.55 && (r - b).abs() < 0.25 && (g - b).abs() < 0.25;
+
+            if is_blue_sky || is_cloud {
+                sky_c += 1;
+                if is_blue_sky && (b - r) > 0.10 {
+                    blue_c += 1;
+                }
+            }
+        }
+
+        row_sky_count[y] = sky_c;
+        row_blue_count[y] = blue_c;
+    }
+
+    // 2. Validate top portion has sky (ADR 0010: heuristic fallback)
+    let top_check_rows = (height * 3 / 10).max(2);
+    let top_sky_sum: usize = row_sky_count[..top_check_rows].iter().sum();
+    let top_total_px = top_check_rows * width;
+    let top_sky_ratio = top_sky_sum as f32 / top_total_px as f32;
+
+    if top_sky_ratio < 0.25 {
+        return None;
+    }
+
+    // 3. Find optimal skyline boundary using between-class variance (Otsu-style 1D split)
+    let total_sky: usize = row_sky_count.iter().sum();
+    let min_split = (height / 10).max(1);
+    let max_split = (height * 9 / 10).min(height - 1);
+
+    let mut best_score = -1.0f32;
+    let mut best_horizon_row = height / 2;
+    let mut best_mu_top = 0.0f32;
+    let mut best_mu_bot = 0.0f32;
+
+    let mut top_cum_sky: usize = row_sky_count[..min_split].iter().sum();
+
+    for y in min_split..=max_split {
+        top_cum_sky += row_sky_count[y - 1];
+        let bot_cum_sky = total_sky.saturating_sub(top_cum_sky);
+
+        let top_px = y * width;
+        let bot_px = (height - y) * width;
+
+        let mu_top = top_cum_sky as f32 / top_px as f32;
+        let mu_bot = bot_cum_sky as f32 / bot_px as f32;
+
+        if mu_top > mu_bot {
+            let weight = (y as f32 / height as f32) * ((height - y) as f32 / height as f32);
+            let diff = mu_top - mu_bot;
+            let score = weight * diff * diff;
+
+            if score > best_score {
+                best_score = score;
+                best_horizon_row = y;
+                best_mu_top = mu_top;
+                best_mu_bot = mu_bot;
+            }
+        }
+    }
+
+    // Check that we found a clear skyline transition
+    if best_score <= 0.0 || (best_mu_top - best_mu_bot) < 0.15 || best_mu_top < 0.35 {
+        return None;
+    }
+
+    let horizon_y = (best_horizon_row as f32 / height as f32).clamp(0.05, 0.95);
+
+    // 4. Estimate feather based on transition softness around best_horizon_row
+    let window = (height / 8).max(2);
+    let y_start = best_horizon_row.saturating_sub(window);
+    let y_end = (best_horizon_row + window).min(height);
+    let mut trans_rows = 1usize;
+    let high_thresh = (best_mu_top * 0.75).max(0.2);
+    let low_thresh = (best_mu_bot * 1.25).min(high_thresh - 0.05);
+
+    for &count in &row_sky_count[y_start..y_end] {
+        let r_ratio = count as f32 / width as f32;
+        if r_ratio < high_thresh && r_ratio > low_thresh {
+            trans_rows += 1;
+        }
+    }
+    let feather = ((trans_rows as f32 / height as f32) * 1.5).clamp(0.08, 0.25);
+
+    // 5. Estimate blue_weight from chromaticity in the detected sky region
+    let sky_region_blue: usize = row_blue_count[..best_horizon_row].iter().sum();
+    let sky_region_total: usize = row_sky_count[..best_horizon_row].iter().sum();
+    let blue_ratio = if sky_region_total > 0 {
+        sky_region_blue as f32 / sky_region_total as f32
+    } else {
+        0.5
+    };
+    // Blue skies -> 0.6 - 0.85; Overcast/cloudy skies -> 0.20 - 0.50
+    let blue_weight = (0.30 + 0.45 * blue_ratio).clamp(0.20, 0.85);
+
+    Some(DetectedSky {
+        horizon_y,
+        feather,
+        blue_weight,
+    })
+}
+
 /// Composites every layer over [rgba] (RGBA8, `w*h*4`), in order.
 pub fn apply_local(rgba: &[u8], w: usize, h: usize, layers: &[LocalAdjustment]) -> Vec<u8> {
     let mut out = rgba.to_vec();
@@ -696,6 +832,78 @@ mod tests {
         assert_eq!(
             stitched, full,
             "Banded bitmap mask stitching must exactly equal full frame render"
+        );
+    }
+
+    #[test]
+    fn synthetic_gradient_sky_with_known_horizon() {
+        let (w, h) = (64, 64);
+        let mut img = Vec::with_capacity(w * h * 4);
+        for y in 0..h {
+            for _x in 0..w {
+                if y < 32 {
+                    // Blue sky gradient in upper half (horizon at y = 32 -> 0.50)
+                    img.extend_from_slice(&[80, 140, 230, 255]);
+                } else {
+                    // Green ground in lower half
+                    img.extend_from_slice(&[30, 120, 40, 255]);
+                }
+            }
+        }
+
+        let detected = detect_sky(&img, w, h).expect("sky should be detected");
+        assert!(
+            (detected.horizon_y - 0.50).abs() <= 0.05,
+            "horizon_y was {}, expected within 0.50 +/- 0.05",
+            detected.horizon_y
+        );
+        assert!(
+            detected.blue_weight > 0.55,
+            "blue_weight was {}, expected > 0.55 for clear blue sky",
+            detected.blue_weight
+        );
+    }
+
+    #[test]
+    fn overcast_cloud_fixture() {
+        let (w, h) = (64, 64);
+        let mut img = Vec::with_capacity(w * h * 4);
+        for y in 0..h {
+            for _x in 0..w {
+                if y < 26 {
+                    // Overcast/white-grey cloud sky (horizon at 26/64 ~= 0.406)
+                    img.extend_from_slice(&[210, 215, 220, 255]);
+                } else {
+                    // Dark ground/buildings
+                    img.extend_from_slice(&[40, 40, 45, 255]);
+                }
+            }
+        }
+
+        let detected = detect_sky(&img, w, h).expect("overcast sky should be detected");
+        assert!(
+            (detected.horizon_y - 0.41).abs() <= 0.05,
+            "horizon_y was {}, expected within 0.41 +/- 0.05",
+            detected.horizon_y
+        );
+        assert!(
+            detected.blue_weight <= 0.50,
+            "blue_weight was {}, expected <= 0.50 for overcast cloud",
+            detected.blue_weight
+        );
+    }
+
+    #[test]
+    fn no_sky_indoor_fixture() {
+        let (w, h) = (64, 64);
+        // Uniform warm indoor studio/wall image (no sky characteristics)
+        let img = [140u8, 95, 70, 255].repeat(w * h);
+
+        let detected = detect_sky(&img, w, h);
+        assert!(
+            detected.is_none(),
+            "indoor fixture should return None, got {:?}",
+            detected
         );
     }
 }

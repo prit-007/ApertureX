@@ -28,6 +28,7 @@ export '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 export '../src/rust/api/histogram.dart' show Histogram;
 export '../src/rust/api/preview.dart' show PreviewBaseSpec;
 export '../src/rust/api/exif.dart' show EmbeddedDepthResult;
+export '../src/rust/api/mask.dart' show DetectedSky;
 export '../src/rust/frb_generated.dart' show RustLib;
 
 /// Thin, app-facing facade over the generated `flutter_rust_bridge` bindings.
@@ -353,6 +354,17 @@ class AxEngine {
     required int width,
     required int height,
   }) => rust_geometry.geometryDetectStraightenAngle(
+    rgba: rgba,
+    width: width,
+    height: height,
+  );
+
+  /// Automatically detects sky horizon, transition feather, and blue chromaticity weight from [rgba] pixels.
+  static Future<rust_mask.DetectedSky?> detectSky(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+  }) => rust_mask.detectSky(
     rgba: rgba,
     width: width,
     height: height,

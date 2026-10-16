@@ -7,6 +7,8 @@ import '../frb_generated.dart';
 import 'color.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `eq`, `fmt`
+
 /// Composites [layers] over [rgba] (RGBA8, `width*height*4`), in order.
 Future<Uint8List> applyMasks({
   required List<int> rgba,
@@ -19,6 +21,43 @@ Future<Uint8List> applyMasks({
   height: height,
   layers: layers,
 );
+
+/// Automatically detects sky horizon, transition feather, and blue chromaticity weight.
+Future<DetectedSky?> detectSky({
+  required List<int> rgba,
+  required int width,
+  required int height,
+}) => RustLib.instance.api.crateApiMaskDetectSky(
+  rgba: rgba,
+  width: width,
+  height: height,
+);
+
+/// Detected sky parameters from a proxy image.
+class DetectedSky {
+  final double horizonY;
+  final double feather;
+  final double blueWeight;
+
+  const DetectedSky({
+    required this.horizonY,
+    required this.feather,
+    required this.blueWeight,
+  });
+
+  @override
+  int get hashCode =>
+      horizonY.hashCode ^ feather.hashCode ^ blueWeight.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DetectedSky &&
+          runtimeType == other.runtimeType &&
+          horizonY == other.horizonY &&
+          feather == other.feather &&
+          blueWeight == other.blueWeight;
+}
 
 /// One adjustment layer: a parametric mask + a point-wise sub-grade.
 class MaskLayer {

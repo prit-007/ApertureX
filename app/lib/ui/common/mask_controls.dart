@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -5,9 +7,27 @@ import 'package:material_ui/material_ui.dart';
 import '../../edit/active_image.dart';
 import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
-import '../../engine/engine.dart';
-import '../../viewport/mask_peek.dart';
 import '../../edit/recipe_controller.dart';
+import '../../engine/engine.dart';
+import '../../engine/image_format.dart';
+import '../../viewport/mask_peek.dart';
+
+/// Function signature for sky detection from photo bytes.
+typedef SkyDetectorFn = Future<DetectedSky?> Function(Uint8List imageBytes);
+
+/// Riverpod provider for sky detection, overridable in tests.
+final skyDetectorProvider = Provider<SkyDetectorFn>((ref) {
+  return (Uint8List bytes) async {
+    final decoded = isRawImage(bytes)
+        ? await AxEngine.decodeRawRgba(bytes)
+        : await AxEngine.decodeJpegRgba(bytes);
+    return AxEngine.detectSky(
+      decoded.rgba,
+      width: decoded.width,
+      height: decoded.height,
+    );
+  };
+});
 
 /// Local-adjustment (masking) controls: add analytic masks and manage the
 /// layer stack. Masks are parametric, so no brush data is stored (#18).
@@ -125,12 +145,32 @@ class MaskControls extends ConsumerWidget {
                 label: const Text('Background +'),
               ),
               OutlinedButton.icon(
-                onPressed: () {
+                key: const Key('mask-add-sky'),
+                onPressed: () async {
                   final idx = layers.length;
+                  var horizon = 0.5;
+                  var feather = 0.15;
+                  var blueWeight = 0.6;
+
+                  final bytes = ref.read(activeImageBytesProvider);
+                  if (bytes != null) {
+                    try {
+                      final detector = ref.read(skyDetectorProvider);
+                      final detected = await detector(bytes);
+                      if (detected != null) {
+                        horizon = detected.horizonY;
+                        feather = detected.feather;
+                        blueWeight = detected.blueWeight;
+                      }
+                    } catch (_) {
+                      // Fallback to default params
+                    }
+                  }
+
                   notifier.addLayer(
-                    const AdjustmentLayer(
+                    AdjustmentLayer(
                       maskKind: MaskKind.sky,
-                      maskParams: [0.5, 0.15, 0.6],
+                      maskParams: [horizon, feather, blueWeight],
                       highlights: -0.6,
                       saturation: 0.2,
                     ),
@@ -386,6 +426,22 @@ class MaskControls extends ConsumerWidget {
                           min: 0.05,
                           max: 0.95,
                           onChanged: (val) => notifier.updateLayerAt(i, layers[i].withSkyHorizon(val)),
+                        ),
+                        _MaskSlider(
+                          label: 'Feather',
+                          sliderKey: const Key('mask-inline-sky-feather-slider'),
+                          value: layers[i].skyFeather,
+                          min: 0.01,
+                          max: 0.5,
+                          onChanged: (val) => notifier.updateLayerAt(i, layers[i].withSkyFeather(val)),
+                        ),
+                        _MaskSlider(
+                          label: 'Blue Weight',
+                          sliderKey: const Key('mask-inline-sky-blue-weight-slider'),
+                          value: layers[i].skyBlueWeight,
+                          min: 0.0,
+                          max: 1.0,
+                          onChanged: (val) => notifier.updateLayerAt(i, layers[i].withSkyBlueWeight(val)),
                         ),
                       ],
                       const SizedBox(height: 6),

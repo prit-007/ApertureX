@@ -326,12 +326,33 @@ class AdjustmentLayer {
   /// For sky masks: edge transition feather.
   double get skyFeather => maskParams.length > 1 ? maskParams[1] : 0.15;
 
+  /// For sky masks: chromaticity blue weight (0..1, default 0.6).
+  double get skyBlueWeight => maskParams.length > 2 ? maskParams[2] : 0.6;
+
   /// Returns a copy with updated sky horizon position.
   AdjustmentLayer withSkyHorizon(double horizon) => copyWith(
         maskParams: [
           horizon.clamp(0.0, 1.0),
           skyFeather,
-          if (maskParams.length > 2) maskParams[2] else 0.5,
+          skyBlueWeight,
+        ],
+      );
+
+  /// Returns a copy with updated sky transition feather.
+  AdjustmentLayer withSkyFeather(double feather) => copyWith(
+        maskParams: [
+          skyHorizon,
+          feather.clamp(0.01, 1.0),
+          skyBlueWeight,
+        ],
+      );
+
+  /// Returns a copy with updated sky chromaticity blue weight.
+  AdjustmentLayer withSkyBlueWeight(double blueWeight) => copyWith(
+        maskParams: [
+          skyHorizon,
+          skyFeather,
+          blueWeight.clamp(0.0, 1.0),
         ],
       );
 

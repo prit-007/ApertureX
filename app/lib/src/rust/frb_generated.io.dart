@@ -56,6 +56,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CurveParams dco_decode_box_autoadd_curve_params(dynamic raw);
 
   @protected
+  DetectedSky dco_decode_box_autoadd_detected_sky(dynamic raw);
+
+  @protected
   EmbeddedDepthResult dco_decode_box_autoadd_embedded_depth_result(dynamic raw);
 
   @protected
@@ -69,6 +72,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CurveParams dco_decode_curve_params(dynamic raw);
+
+  @protected
+  DetectedSky dco_decode_detected_sky(dynamic raw);
 
   @protected
   EmbeddedDepthResult dco_decode_embedded_depth_result(dynamic raw);
@@ -125,6 +131,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  DetectedSky? dco_decode_opt_box_autoadd_detected_sky(dynamic raw);
+
+  @protected
   EmbeddedDepthResult? dco_decode_opt_box_autoadd_embedded_depth_result(
     dynamic raw,
   );
@@ -179,6 +188,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CurveParams sse_decode_box_autoadd_curve_params(SseDeserializer deserializer);
 
   @protected
+  DetectedSky sse_decode_box_autoadd_detected_sky(SseDeserializer deserializer);
+
+  @protected
   EmbeddedDepthResult sse_decode_box_autoadd_embedded_depth_result(
     SseDeserializer deserializer,
   );
@@ -196,6 +208,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CurveParams sse_decode_curve_params(SseDeserializer deserializer);
+
+  @protected
+  DetectedSky sse_decode_detected_sky(SseDeserializer deserializer);
 
   @protected
   EmbeddedDepthResult sse_decode_embedded_depth_result(
@@ -254,6 +269,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  DetectedSky? sse_decode_opt_box_autoadd_detected_sky(
+    SseDeserializer deserializer,
+  );
 
   @protected
   EmbeddedDepthResult? sse_decode_opt_box_autoadd_embedded_depth_result(
@@ -323,6 +343,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_detected_sky(
+    DetectedSky self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_embedded_depth_result(
     EmbeddedDepthResult self,
     SseSerializer serializer,
@@ -345,6 +371,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_curve_params(CurveParams self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_detected_sky(DetectedSky self, SseSerializer serializer);
 
   @protected
   void sse_encode_embedded_depth_result(
@@ -423,6 +452,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_detected_sky(
+    DetectedSky? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_embedded_depth_result(

@@ -26,3 +26,20 @@ pub fn apply_masks(rgba: Vec<u8>, width: u32, height: u32, layers: Vec<MaskLayer
         .collect();
     mask::apply_local(&rgba, width as usize, height as usize, &core)
 }
+
+/// Detected sky parameters from a proxy image.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DetectedSky {
+    pub horizon_y: f32,
+    pub feather: f32,
+    pub blue_weight: f32,
+}
+
+/// Automatically detects sky horizon, transition feather, and blue chromaticity weight.
+pub fn detect_sky(rgba: Vec<u8>, width: u32, height: u32) -> Option<DetectedSky> {
+    mask::detect_sky(&rgba, width as usize, height as usize).map(|d| DetectedSky {
+        horizon_y: d.horizon_y,
+        feather: d.feather,
+        blue_weight: d.blue_weight,
+    })
+}
