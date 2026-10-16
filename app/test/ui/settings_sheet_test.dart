@@ -46,4 +46,38 @@ void main() {
 
     expect(container.read(recipeControllerProvider).recipe.contrast, 0.4);
   });
+
+  testWidgets('the sheet and About dialog state the offline claim (#76)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: SettingsSheet())),
+      ),
+    );
+
+    // The footer lives below the fold in AppSheet's lazy ListView.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('offline-claim')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    // Visible in the sheet footer without opening anything.
+    expect(find.byKey(const Key('offline-claim')), findsOneWidget);
+    expect(find.text(kOfflineClaim), findsOneWidget);
+
+    await tester.tap(find.text('About ApertureX'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(AboutDialog),
+        matching: find.text(kOfflineClaim),
+      ),
+      findsOneWidget,
+    );
+  });
 }

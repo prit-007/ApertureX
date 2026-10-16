@@ -3,6 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Status](https://img.shields.io/badge/status-v0.1%20prep-blue.svg)](docs/ROADMAP.md)
 [![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-lightgrey.svg)](#)
+[![100% Offline](https://img.shields.io/badge/100%25-Offline-green.svg)](#privacy)
 
 **A mobile-native, non-destructive, free-and-open-source photo editor — the Snapseed/Lightroom replacement the FOSS world never built.**
 
@@ -27,6 +28,21 @@
 > Rust crate (`rust_lib_tessera`) still carry the historical name and are the
 > remaining rename step (changing the applicationId would break existing
 > installs/keys).
+
+---
+
+## Privacy
+
+**100% Offline. Zero Cloud Analytics. No AI training on your photos. You own
+your data.**
+
+ApertureX has no accounts, no servers, no telemetry and no analytics SDK —
+every edit, export and log stays on your device. The claim is *enforced*, not
+just written down: [`app/test/core/offline_guard_test.dart`](app/test/core/offline_guard_test.dart)
+fails CI if a network or analytics package (`http`, `dio`, `firebase_*`,
+`sentry_*`, `supabase`, …) is ever added to `pubspec.yaml`, unless it is
+consciously whitelisted with a written justification. The same line is shown
+in-app under **Settings → About**.
 
 ---
 

@@ -15,6 +15,13 @@ import 'lut_export_sheet.dart';
 import 'lut_import_sheet.dart';
 import 'xmp_import_sheet.dart';
 
+/// The verifiable trust line (#76): stated in the settings footer and the
+/// About dialog, and enforced against pubspec drift by
+/// `test/core/offline_guard_test.dart`.
+const String kOfflineClaim =
+    '100% Offline. Zero Cloud Analytics. No AI training on your photos. '
+    'You own your data.';
+
 /// The settings sheet: appearance, which interface shell is active, session
 /// actions (reset / copy / paste) and preset & look import (ADR 0008, 0009,
 /// 0011). Everything the old debug FAB pile used to expose lives here.
@@ -148,6 +155,21 @@ class SettingsSheet extends ConsumerWidget {
             ),
           ),
         ),
+        const SizedBox(height: Insets.xs),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Insets.lg),
+            child: Text(
+              kOfflineClaim,
+              key: const Key('offline-claim'),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -223,6 +245,8 @@ void _openAbout(BuildContext context) {
       Text(
         'A mobile-native, non-destructive, free and open-source photo editor.',
       ),
+      SizedBox(height: Insets.sm),
+      Text(kOfflineClaim),
     ],
   );
 }
