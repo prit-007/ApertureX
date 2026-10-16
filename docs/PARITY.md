@@ -18,10 +18,10 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 |---|---|---|---|---|
 | Exposure / contrast / saturation | Tune Image | Basic panel | ✅ | P0 |
 | Highlights / shadows | Tune Image | Basic panel | ✅ | P2 |
-| Whites / blacks | Tune Image | Basic panel | 🚧 (#59) | P2 |
+| Whites / blacks | Tune Image | Basic panel | ✅ (#59) | P2 |
 | White balance (temp/tint) | White Balance | Basic panel | ✅ | P2 |
-| Vibrance | Tune Image | Basic panel | ✅ (skintone-weight refinement in #59) | P2 |
-| Full basic panel (numeric, tap-to-type) | — | Basic panel | 🚧 (#59) | P2 |
+| Vibrance | Tune Image | Basic panel | ✅ (Adobe vibrance + skintone protection in #59) | P2 |
+| Full basic panel (numeric, tap-to-type) | — | Basic panel | ✅ (#59) | P2 |
 | RGB tone curve (+ per-channel) | Curves | Tone Curve | ✅ | P2 |
 | HSL / color mix | Selective | HSL/Color | ✅ | P2 |
 | Color grading (shadow/mid/high) | — | Color Grading | ✅ (split-tone) | P2 |
@@ -69,7 +69,7 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 |---|---|---|
 | `.cube` (1D/3D) / HALD / `.3dl` LUT import | ✅ | P2 |
 | Lightroom `.xmp` import (+ compatibility report) | ✅ | P2 |
-| Lightroom `.lrtemplate` import | 🚧 (#62) | P2 |
+| Lightroom `.lrtemplate` import | ✅ (#62) | P2 |
 | Golden-image tolerance tests for preset fidelity | 🚧 (#60) | P2 |
 | ApertureX Look (recipe JSON) save/apply | 🚧 | P2 |
 | Look share via QR (open standard) | 🚧 | P2 |
