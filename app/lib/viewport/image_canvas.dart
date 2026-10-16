@@ -917,18 +917,16 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         // viewport settles, outside this build.
         _lastFitted = fitted;
         _lastBounds = bounds;
-        // Publish the view transform so overlays outside this widget (the
-        // selective-editing nodes, issue #25) can map image ↔ screen.
-        _publishTransform(CanvasTransform(fitted: fitted, offset: _offset, scale: _scale));
-        if (_needsReset) {
+        if (_needsReset || (_offset == Offset.zero && bounds.width > 0 && bounds.height > 0)) {
           _needsReset = false;
           // Contain-fit is the baseline: the photo always fits inside the
           // canvas, so zoom only ever goes in.
           _minScale = 1.0;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _resetView(fitted, bounds));
-          });
+          _resetView(fitted, bounds);
         }
+        // Publish the view transform so overlays outside this widget (the
+        // selective-editing nodes, issue #25) can map image ↔ screen.
+        _publishTransform(CanvasTransform(fitted: fitted, offset: _offset, scale: _scale));
 
         return Stack(
           children: [

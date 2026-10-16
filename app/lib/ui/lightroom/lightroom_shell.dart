@@ -299,7 +299,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
           ],
         );
 
-        if (constraints.maxHeight < 90) {
+        if (constraints.maxHeight < 180) {
           return OverflowBox(
             minHeight: 0,
             maxHeight: double.infinity,

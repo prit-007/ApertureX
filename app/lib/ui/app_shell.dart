@@ -604,7 +604,10 @@ class _LightroomSheetState extends State<_LightroomSheet> {
                         maxHeight: double.infinity,
                         alignment: Alignment.topCenter,
                         child: SizedBox(
-                          height: math.max(contentHeight, 160.0),
+                          height: math.max(
+                            contentHeight,
+                            widget.histogramOpen ? 260.0 : 190.0,
+                          ),
                           child: Column(
                             children: [
                               if (widget.hasHistogram)
