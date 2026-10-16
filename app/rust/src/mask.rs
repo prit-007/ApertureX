@@ -94,48 +94,62 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
             }
             let points = &p[3..3 + count * 3];
 
-            // Fast bounding box check
+            // Fast bounding box check (filtering out stroke-break sentinels < 0.0)
             let mut min_x = f32::MAX;
             let mut max_x = f32::MIN;
             let mut min_y = f32::MAX;
             let mut max_y = f32::MIN;
             for chunk in points.as_chunks::<3>().0 {
-                min_x = min_x.min(chunk[0]);
-                max_x = max_x.max(chunk[0]);
-                min_y = min_y.min(chunk[1]);
-                max_y = max_y.max(chunk[1]);
+                if chunk[0] >= 0.0 && chunk[1] >= 0.0 {
+                    min_x = min_x.min(chunk[0]);
+                    max_x = max_x.max(chunk[0]);
+                    min_y = min_y.min(chunk[1]);
+                    max_y = max_y.max(chunk[1]);
+                }
             }
-            if u < min_x - radius || u > max_x + radius || v < min_y - radius || v > max_y + radius
+            if min_x > max_x
+                || u < min_x - radius
+                || u > max_x + radius
+                || v < min_y - radius
+                || v > max_y + radius
             {
                 return 0.0;
             }
 
             let mut max_cov = 0.0f32;
-            if count == 1 {
-                let (px, py, pr) = (points[0], points[1], points[2].clamp(0.0, 1.0));
-                let dist = ((u - px).powi(2) + (v - py).powi(2)).sqrt();
-                let eff_r = radius * pr.max(0.1);
-                if dist < eff_r {
-                    max_cov = (1.0 - smoothstep(eff_r * (1.0 - feather), eff_r, dist)) * pr;
+            for i in 0..count {
+                let (x0, y0, pr0) = (
+                    points[i * 3],
+                    points[i * 3 + 1],
+                    points[i * 3 + 2].clamp(0.0, 1.0),
+                );
+                if x0 < 0.0 || y0 < 0.0 {
+                    continue;
                 }
-            } else {
-                for i in 0..count - 1 {
-                    let (x0, y0, pr0) = (
-                        points[i * 3],
-                        points[i * 3 + 1],
-                        points[i * 3 + 2].clamp(0.0, 1.0),
-                    );
+                // Check distance to point itself (covers single taps and stroke endpoints)
+                let dist_pt = ((u - x0).powi(2) + (v - y0).powi(2)).sqrt();
+                let eff_r_pt = radius * pr0.max(0.1);
+                if dist_pt < eff_r_pt {
+                    let cov_pt =
+                        (1.0 - smoothstep(eff_r_pt * (1.0 - feather), eff_r_pt, dist_pt)) * pr0;
+                    max_cov = max_cov.max(cov_pt);
+                }
+
+                // Check distance to segment connecting to next point if not break
+                if i + 1 < count {
                     let (x1, y1, pr1) = (
                         points[(i + 1) * 3],
                         points[(i + 1) * 3 + 1],
                         points[(i + 1) * 3 + 2].clamp(0.0, 1.0),
                     );
-                    let (dist, t) = dist_to_segment(u, v, x0, y0, x1, y1);
-                    let pr = pr0 + t * (pr1 - pr0);
-                    let eff_r = radius * pr.max(0.1);
-                    if dist < eff_r {
-                        let cov = (1.0 - smoothstep(eff_r * (1.0 - feather), eff_r, dist)) * pr;
-                        max_cov = max_cov.max(cov);
+                    if x1 >= 0.0 && y1 >= 0.0 {
+                        let (dist, t) = dist_to_segment(u, v, x0, y0, x1, y1);
+                        let pr = pr0 + t * (pr1 - pr0);
+                        let eff_r = radius * pr.max(0.1);
+                        if dist < eff_r {
+                            let cov = (1.0 - smoothstep(eff_r * (1.0 - feather), eff_r, dist)) * pr;
+                            max_cov = max_cov.max(cov);
+                        }
                     }
                 }
             }
@@ -460,6 +474,44 @@ mod tests {
         let corner = out[0];
         assert!(center > 130, "center of stroke brightens: {center}");
         assert_eq!(corner, 100, "corner outside stroke is untouched");
+    }
+
+    #[test]
+    fn brush_mask_multiple_strokes_respect_break_sentinel() {
+        let src = grey(32, 32, 100);
+        // Stroke 1 in top-left: (0.1, 0.2) to (0.2, 0.2)
+        // Sentinel: (-1.0, -1.0, -1.0)
+        // Stroke 2 in bottom-right: (0.8, 0.8) to (0.9, 0.8)
+        let layer = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_BRUSH,
+                params: vec![
+                    0.08, // radius
+                    0.2,  // feather
+                    5.0,  // count (2 + 1 + 2)
+                    0.1, 0.2, 1.0, // stroke 1 pt 0
+                    0.2, 0.2, 1.0, // stroke 1 pt 1
+                    -1.0, -1.0, -1.0, // stroke break sentinel
+                    0.8, 0.8, 1.0, // stroke 2 pt 0
+                    0.9, 0.8, 1.0, // stroke 2 pt 1
+                ],
+            },
+            params: brighten(),
+        };
+        let out = apply_local(&src, 32, 32, &[layer]);
+        // Pixel along stroke 1
+        let s1 = out[(6 * 32 + 5) * 4];
+        // Pixel along stroke 2
+        let s2 = out[(26 * 32 + 27) * 4];
+        // Pixel exactly midway between the two strokes (at 0.5, 0.5 -> idx (16, 16))
+        let midway = out[(16 * 32 + 16) * 4];
+
+        assert!(s1 > 120, "stroke 1 pixel brightens: {s1}");
+        assert!(s2 > 120, "stroke 2 pixel brightens: {s2}");
+        assert_eq!(
+            midway, 100,
+            "midway between strokes is untouched (no line connecting them)"
+        );
     }
 
     #[test]

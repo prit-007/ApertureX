@@ -376,13 +376,15 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         final feather = oldParams.length > 1 ? oldParams[1] : 0.25;
         final oldCount = (oldParams.length > 2) ? oldParams[2].toInt() : 0;
         final addedCount = _liveBrushPoints!.length ~/ 3;
-        final newCount = oldCount + addedCount;
+        final newCount = oldCount > 0 ? (oldCount + 1 + addedCount) : addedCount;
         final newParams = <double>[
           baseR,
           feather,
           newCount.toDouble(),
-          if (oldCount > 0 && oldParams.length >= 3 + oldCount * 3)
+          if (oldCount > 0 && oldParams.length >= 3 + oldCount * 3) ...[
             ...oldParams.sublist(3, 3 + oldCount * 3),
+            -1.0, -1.0, -1.0, // Stroke break sentinel
+          ],
           ..._liveBrushPoints!,
         ];
         ref.read(recipeControllerProvider.notifier).updateLayerAt(
@@ -675,12 +677,23 @@ class _NodesPainter extends CustomPainter {
                 ..strokeCap = StrokeCap.round
                 ..strokeJoin = StrokeJoin.round;
 
-              for (var j = 0; j < pts.length - 3; j += 3) {
-                final p0 = t.toScreen(Offset(pts[j], pts[j + 1]));
-                final p1 = t.toScreen(Offset(pts[j + 3], pts[j + 4]));
-                final pr = (pts[j + 2] + pts[j + 5]) / 2;
-                strokePaint.strokeWidth = math.max(4.0, baseR * 2 * pr.clamp(0.2, 1.0));
-                canvas.drawLine(p0, p1, strokePaint);
+              for (var j = 0; j < pts.length; j += 3) {
+                final x0 = pts[j];
+                final y0 = pts[j + 1];
+                final pr0 = pts[j + 2];
+                if (x0 < 0 || y0 < 0) continue;
+                final p0 = t.toScreen(Offset(x0, y0));
+
+                if (j + 3 < pts.length && pts[j + 3] >= 0 && pts[j + 4] >= 0) {
+                  final p1 = t.toScreen(Offset(pts[j + 3], pts[j + 4]));
+                  final pr1 = pts[j + 5];
+                  final pr = (pr0 + pr1) / 2;
+                  strokePaint.strokeWidth = math.max(4.0, baseR * 2 * pr.clamp(0.2, 1.0));
+                  canvas.drawLine(p0, p1, strokePaint);
+                } else {
+                  final effR = math.max(2.0, baseR * pr0.clamp(0.2, 1.0));
+                  canvas.drawCircle(p0, effR, Paint()..color = ruby);
+                }
               }
             }
           }
@@ -760,17 +773,28 @@ class _NodesPainter extends CustomPainter {
 
     // Paint live brush stroke in progress
     if (liveBrushPoints != null && liveBrushPoints!.length >= 3) {
+      final baseR = (selectedIndex != null && selectedIndex! < layers.length)
+          ? layers[selectedIndex!].brushRadius * t.fitted.width * t.scale
+          : 20.0;
+      final ruby = rubyColor.withValues(alpha: 0.45);
       final livePaint = Paint()
-        ..color = rubyColor.withValues(alpha: 0.45)
+        ..color = ruby
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..strokeWidth = 24.0;
+        ..strokeJoin = StrokeJoin.round;
 
-      for (var j = 0; j < liveBrushPoints!.length - 3; j += 3) {
-        final p0 = t.toScreen(Offset(liveBrushPoints![j], liveBrushPoints![j + 1]));
-        final p1 = t.toScreen(Offset(liveBrushPoints![j + 3], liveBrushPoints![j + 4]));
-        canvas.drawLine(p0, p1, livePaint);
+      if (liveBrushPoints!.length == 3) {
+        final p0 = t.toScreen(Offset(liveBrushPoints![0], liveBrushPoints![1]));
+        final pr = liveBrushPoints![2].clamp(0.2, 1.0);
+        canvas.drawCircle(p0, math.max(2.0, baseR * pr), Paint()..color = ruby);
+      } else {
+        for (var j = 0; j < liveBrushPoints!.length - 3; j += 3) {
+          final p0 = t.toScreen(Offset(liveBrushPoints![j], liveBrushPoints![j + 1]));
+          final p1 = t.toScreen(Offset(liveBrushPoints![j + 3], liveBrushPoints![j + 4]));
+          final pr = (liveBrushPoints![j + 2] + liveBrushPoints![j + 5]) / 2;
+          livePaint.strokeWidth = math.max(4.0, baseR * 2 * pr.clamp(0.2, 1.0));
+          canvas.drawLine(p0, p1, livePaint);
+        }
       }
     }
   }

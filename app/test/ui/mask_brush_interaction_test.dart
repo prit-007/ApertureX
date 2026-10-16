@@ -156,4 +156,46 @@ void main() {
     final layer = container.read(recipeControllerProvider).recipe.layers.first;
     expect(layer.exposure, greaterThan(0.5));
   });
+
+  testWidgets('multiple brush strokes separate with break sentinel and do not connect', (
+    tester,
+  ) async {
+    await pumpMaskingApp(tester);
+
+    await tester.tap(find.text('Brush +'));
+    await tester.pumpAndSettle();
+
+    // First stroke: drag from (50, 50) to (80, 50)
+    final g1 = await tester.startGesture(const Offset(50, 50));
+    await tester.pump();
+    await g1.moveTo(const Offset(80, 50));
+    await tester.pump();
+    await g1.up();
+    await tester.pump();
+
+    final layer1 = container.read(recipeControllerProvider).recipe.layers.first;
+    final count1 = layer1.brushPointCount;
+    expect(count1, greaterThanOrEqualTo(2));
+
+    // Second stroke: drag from (200, 200) to (250, 200)
+    final g2 = await tester.startGesture(const Offset(200, 200));
+    await tester.pump();
+    await g2.moveTo(const Offset(250, 200));
+    await tester.pump();
+    await g2.up();
+    await tester.pump();
+
+    final layer2 = container.read(recipeControllerProvider).recipe.layers.first;
+    final params2 = layer2.maskParams;
+    // Verify that sentinel [-1.0, -1.0, -1.0] exists separating stroke 1 and stroke 2
+    final pts2 = params2.sublist(3);
+    var foundSentinel = false;
+    for (var i = 0; i < pts2.length - 2; i += 3) {
+      if (pts2[i] == -1.0 && pts2[i + 1] == -1.0 && pts2[i + 2] == -1.0) {
+        foundSentinel = true;
+        break;
+      }
+    }
+    expect(foundSentinel, isTrue, reason: 'Must have stroke-break sentinel separating strokes');
+  });
 }
