@@ -178,4 +178,34 @@ void main() {
     final l = layers().first;
     expect(l.skyHorizon, closeTo(0.60, 0.02));
   });
+
+  testWidgets('dragging brush mask origin pin translates all stroke points', (
+    tester,
+  ) async {
+    // Brush with radius 0.06, feather 0.25, 2 points at (0.25, 0.25) and (0.35, 0.35)
+    container.read(recipeControllerProvider.notifier).addLayer(
+          const AdjustmentLayer(
+            maskKind: MaskKind.brush,
+            maskParams: [0.06, 0.25, 2, 0.25, 0.25, 1.0, 0.35, 0.35, 1.0],
+          ),
+        );
+    container.read(nodeEditorProvider.notifier).select(0);
+
+    await pumpOverlay(tester);
+
+    // Origin is at (0.25, 0.25) -> screen (100, 100)
+    final gesture = await tester.startGesture(const Offset(100, 100));
+    await tester.pump();
+    await gesture.moveBy(const Offset(40, 40));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final l = layers().first;
+    final pts = l.maskParams;
+    expect(pts[3], closeTo(0.35, 0.02));
+    expect(pts[4], closeTo(0.35, 0.02));
+    expect(pts[6], closeTo(0.45, 0.02));
+    expect(pts[7], closeTo(0.45, 0.02));
+  });
 }

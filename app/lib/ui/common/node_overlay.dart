@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
 
 import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
@@ -52,6 +52,8 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
   static const double _defaultRadius = 0.18;
 
   Offset? _down;
+  Offset? _downNorm;
+  List<double>? _initialParams;
   bool _moved = false;
   int? _dragIndex;
   _NodeDrag _mode = _NodeDrag.idle;
@@ -61,6 +63,8 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
 
   void _reset() {
     _down = null;
+    _downNorm = null;
+    _initialParams = null;
     _moved = false;
     _dragIndex = null;
     _mode = _NodeDrag.idle;
@@ -140,29 +144,50 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       return;
     }
     _down = e.localPosition;
+    _downNorm = t.toNormalized(e.localPosition);
     _moved = false;
-
     final selectedIdx = ref.read(nodeEditorProvider.select((s) => s.selected));
+    final isEraser = ref.read(nodeEditorProvider.select((s) => s.eraserMode)) ||
+        e.kind == PointerDeviceKind.invertedStylus;
+
+    if (selectedIdx != null &&
+        selectedIdx >= 0 &&
+        selectedIdx < layers.length &&
+        layers[selectedIdx].maskKind == MaskKind.brush &&
+        isEraser) {
+      final n = _downNorm;
+      if (n != null) {
+        _isErasing = true;
+        _dragIndex = selectedIdx;
+        final layer = layers[selectedIdx];
+        final eraseR = layer.brushRadius;
+        ref.read(recipeControllerProvider.notifier).updateLayerAt(
+          selectedIdx,
+          layer.withErasedNear(n.dx, n.dy, eraseR),
+        );
+        setState(() {});
+        return;
+      }
+    }
+
+    final hit = _hitNode(t, layers, e.localPosition);
+    if (hit != null) {
+      _dragIndex = hit.$1;
+      _mode = hit.$2;
+      if (hit.$1 < layers.length) {
+        _initialParams = List<double>.from(layers[hit.$1].maskParams);
+      }
+      ref.read(nodeEditorProvider.notifier).select(hit.$1);
+      HapticFeedback.selectionClick();
+      return;
+    }
+
     if (selectedIdx != null &&
         selectedIdx >= 0 &&
         selectedIdx < layers.length &&
         layers[selectedIdx].maskKind == MaskKind.brush) {
-      final n = t.toNormalized(e.localPosition);
+      final n = _downNorm;
       if (n != null) {
-        final isEraser = ref.read(nodeEditorProvider.select((s) => s.eraserMode)) ||
-            e.kind == PointerDeviceKind.invertedStylus;
-        if (isEraser) {
-          _isErasing = true;
-          _dragIndex = selectedIdx;
-          final layer = layers[selectedIdx];
-          final eraseR = layer.brushRadius;
-          ref.read(recipeControllerProvider.notifier).updateLayerAt(
-            selectedIdx,
-            layer.withErasedNear(n.dx, n.dy, eraseR),
-          );
-          setState(() {});
-          return;
-        }
         final pr = (e.kind == PointerDeviceKind.stylus)
             ? e.pressure.clamp(0.05, 1.0)
             : 1.0;
@@ -173,16 +198,8 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       }
     }
 
-    final hit = _hitNode(t, layers, e.localPosition);
-    if (hit == null) {
-      _mode = _NodeDrag.place;
-      _dragIndex = null;
-    } else {
-      _dragIndex = hit.$1;
-      _mode = hit.$2;
-      ref.read(nodeEditorProvider.notifier).select(hit.$1);
-      HapticFeedback.selectionClick();
-    }
+    _mode = _NodeDrag.place;
+    _dragIndex = null;
   }
 
   void _onMove(PointerMoveEvent e, CanvasTransform t, List<AdjustmentLayer> layers) {
@@ -235,15 +252,19 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       return;
     }
     final layer = layers[index];
-    if (layer.maskKind == MaskKind.linear && layer.maskParams.length >= 4) {
-      final n = t.toNormalized(e.localPosition);
-      if (n == null) return;
-      final p = layer.maskParams;
+    final n = t.toNormalized(e.localPosition);
+    if (n == null) return;
+    final delta = _downNorm != null
+        ? Offset(n.dx - _downNorm!.dx, n.dy - _downNorm!.dy)
+        : Offset.zero;
+    final p = _initialParams ?? layer.maskParams;
+
+    if (layer.maskKind == MaskKind.linear && p.length >= 4) {
       List<double> newParams;
       if (_mode == _NodeDrag.startHandle) {
         newParams = [
-          n.dx.clamp(0.0, 1.0),
-          n.dy.clamp(0.0, 1.0),
+          (p[0] + delta.dx).clamp(0.0, 1.0),
+          (p[1] + delta.dy).clamp(0.0, 1.0),
           p[2],
           p[3],
         ];
@@ -251,17 +272,15 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         newParams = [
           p[0],
           p[1],
-          n.dx.clamp(0.0, 1.0),
-          n.dy.clamp(0.0, 1.0),
+          (p[2] + delta.dx).clamp(0.0, 1.0),
+          (p[3] + delta.dy).clamp(0.0, 1.0),
         ];
       } else {
-        final halfDx = (p[2] - p[0]) / 2;
-        final halfDy = (p[3] - p[1]) / 2;
         newParams = [
-          (n.dx - halfDx).clamp(0.0, 1.0),
-          (n.dy - halfDy).clamp(0.0, 1.0),
-          (n.dx + halfDx).clamp(0.0, 1.0),
-          (n.dy + halfDy).clamp(0.0, 1.0),
+          (p[0] + delta.dx).clamp(0.0, 1.0),
+          (p[1] + delta.dy).clamp(0.0, 1.0),
+          (p[2] + delta.dx).clamp(0.0, 1.0),
+          (p[3] + delta.dy).clamp(0.0, 1.0),
         ];
       }
       ref.read(recipeControllerProvider.notifier).updateLayerAt(
@@ -271,15 +290,12 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       return;
     }
 
-    if (layer.maskKind == MaskKind.sky && layer.maskParams.isNotEmpty) {
-      final n = t.toNormalized(e.localPosition);
-      if (n == null) return;
-      final p = layer.maskParams;
+    if (layer.maskKind == MaskKind.sky && p.isNotEmpty) {
       ref.read(recipeControllerProvider.notifier).updateLayerAt(
         index,
         layer.copyWith(
           maskParams: [
-            n.dy.clamp(0.05, 0.95),
+            (p[0] + delta.dy).clamp(0.05, 0.95),
             p.length > 1 ? p[1] : 0.15,
             p.length > 2 ? p[2] : 0.5,
           ],
@@ -288,17 +304,31 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       return;
     }
 
-    if (layer.maskKind == MaskKind.subject && layer.maskParams.length >= 4) {
-      final p = layer.maskParams;
+    if (layer.maskKind == MaskKind.brush && p.length >= 5) {
+      if (_mode == _NodeDrag.move) {
+        final newPts = List<double>.from(p);
+        for (var j = 3; j < newPts.length; j += 3) {
+          if (newPts[j] >= 0 && newPts[j + 1] >= 0) {
+            newPts[j] = (p[j] + delta.dx).clamp(0.0, 1.0);
+            newPts[j + 1] = (p[j + 1] + delta.dy).clamp(0.0, 1.0);
+          }
+        }
+        ref.read(recipeControllerProvider.notifier).updateLayerAt(
+          index,
+          layer.copyWith(maskParams: newPts),
+        );
+        return;
+      }
+    }
+
+    if (layer.maskKind == MaskKind.subject && p.length >= 4) {
       final feather = p.length >= 5 ? p[4] : 0.25;
       final List<double> params;
       switch (_mode) {
         case _NodeDrag.move:
-          final n = t.toNormalized(e.localPosition);
-          if (n == null) return;
           params = [
-            n.dx.clamp(0.0, 1.0),
-            n.dy.clamp(0.0, 1.0),
+            (p[0] + delta.dx).clamp(0.0, 1.0),
+            (p[1] + delta.dy).clamp(0.0, 1.0),
             p[2],
             p[3],
             feather,
@@ -325,20 +355,16 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       return;
     }
 
-    if (layer.maskKind != MaskKind.radial || layer.maskParams.length < 5) {
+    if (layer.maskKind != MaskKind.radial || p.length < 5) {
       _reset();
       return;
     }
-    final p = layer.maskParams;
     final List<double> params;
     switch (_mode) {
       case _NodeDrag.move:
-
-        final n = t.toNormalized(e.localPosition);
-        if (n == null) return;
         params = [
-          n.dx.clamp(0.0, 1.0),
-          n.dy.clamp(0.0, 1.0),
+          (p[0] + delta.dx).clamp(0.0, 1.0),
+          (p[1] + delta.dy).clamp(0.0, 1.0),
           p[2],
           p[3],
           p[4],
@@ -352,8 +378,6 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         final dy = (e.localPosition.dy - c.dy) / ryScreen;
         final d = math.sqrt(dx * dx + dy * dy);
         if (d <= 0) return;
-        // Scale the ellipse so its ring passes through the pointer, keeping
-        // the aspect (the shape) and clamping to sane bounds.
         final rx = (p[2] * d).clamp(0.03, 1.0);
         final ratio = p[2] > 0 ? rx / p[2] : 1.0;
         params = [p[0], p[1], rx, p[3] * ratio, p[4]];
@@ -478,6 +502,13 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         final pm = l.maskParams;
         final horizonY = t.toScreen(Offset(0.5, pm[0])).dy;
         if ((p.dy - horizonY).abs() <= _centerHit * 1.8) return (i, _NodeDrag.move);
+      } else if (l.maskKind == MaskKind.brush && l.maskParams.length >= 5) {
+        final pts = l.maskParams;
+        final count = pts.length > 2 ? pts[2].toInt() : 0;
+        if (count > 0 && pts.length >= 5 && pts[3] >= 0 && pts[4] >= 0) {
+          final origin = t.toScreen(Offset(pts[3], pts[4]));
+          if ((p - origin).distance <= _centerHit * 1.8) return (i, _NodeDrag.move);
+        }
       }
     }
 
@@ -703,6 +734,27 @@ class _NodesPainter extends CustomPainter {
                 } else {
                   final effR = math.max(2.0, baseR * pr0.clamp(0.2, 1.0));
                   canvas.drawCircle(p0, effR, Paint()..color = ruby);
+                }
+              }
+
+              // Draw prominent anchor pin at stroke start
+              if (pts.length >= 2 && pts[0] >= 0 && pts[1] >= 0) {
+                final origin = t.toScreen(Offset(pts[0], pts[1]));
+                canvas.drawCircle(
+                  origin,
+                  selected ? 7 : 5,
+                  Paint()..color = selected ? primary : Colors.white,
+                );
+                canvas.drawCircle(
+                  origin,
+                  selected ? 7 : 5,
+                  Paint()
+                    ..color = Colors.black.withValues(alpha: 0.7)
+                    ..style = PaintingStyle.stroke
+                    ..strokeWidth = 1.5,
+                );
+                if (selected) {
+                  canvas.drawCircle(origin, 3, Paint()..color = Colors.white);
                 }
               }
             }
