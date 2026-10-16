@@ -109,6 +109,22 @@ void main() {
         matching: find.byType(Row),
       );
       expect(row, findsWidgets);
+
+      // In wide mode, drag sidebar's chip bar to bring Blur into view
+      final chipBar = find.byType(ListView).first;
+      await tester.drag(chipBar, const Offset(-100, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Blur'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SwitchListTile), findsWidgets);
+
+      await tester.drag(chipBar, const Offset(-250, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Optics'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SwitchListTile), findsWidgets);
     });
   });
 }
+
+

@@ -112,4 +112,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(scrollState.position.pixels, greaterThan(0.0));
   });
+
+  testWidgets(
+    'switching to blur, optics, and masking tabs renders without intermediate DecoratedBox ListTile error',
+    (tester) async {
+      await pumpPortrait(tester);
+
+      final chipBar = find.byType(ListView).first;
+
+      // Drag slightly to bring Blur on-screen
+      await tester.drag(chipBar, const Offset(-60, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Blur'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SwitchListTile), findsWidgets);
+
+      // Drag further to bring Optics on-screen
+      await tester.drag(chipBar, const Offset(-180, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Optics'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SwitchListTile), findsWidgets);
+
+      // Drag further to bring Masking on-screen
+      await tester.drag(chipBar, const Offset(-180, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Masking'));
+      await tester.pumpAndSettle();
+    },
+  );
 }
+
+

@@ -23,14 +23,15 @@ class NodeControls extends ConsumerWidget {
       recipeControllerProvider.select((s) => s.recipe.layers),
     );
 
-    Widget card(Widget child) => DecoratedBox(
+    Widget card(Widget child) => Material(
       key: const Key('node-controls'),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh.withValues(alpha: 0.95),
-        borderRadius: Radii.mdAll,
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Padding(
+      color: scheme.surfaceContainerHigh.withValues(alpha: 0.95),
+      borderRadius: Radii.mdAll,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: Radii.mdAll,
+          border: Border.all(color: scheme.outlineVariant),
+        ),
         padding: const EdgeInsets.fromLTRB(
           Insets.md,
           Insets.xs,

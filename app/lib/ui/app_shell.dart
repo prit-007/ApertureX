@@ -299,7 +299,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         );
 
         if (wide) {
-          return ColoredBox(
+          return Material(
             color: scheme.surface,
             child: Row(
               children: [
@@ -340,7 +340,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         return Stack(
           children: [
             Positioned.fill(
-              child: ColoredBox(color: scheme.surface, child: canvas),
+              child: Material(color: scheme.surface, child: canvas),
             ),
             Positioned(
               left: 0,
@@ -549,14 +549,12 @@ class _LightroomSheetState extends State<_LightroomSheet> {
             height: contentHeight,
             child: contentHeight <= 0.5
                 ? const SizedBox.shrink()
-                : ClipRect(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: scheme.surface,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(Radii.md),
-                        ),
-                      ),
+                : ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(Radii.md),
+                    ),
+                    child: Material(
+                      color: scheme.surface,
                       child: SizedBox(
                         height: contentHeight,
                         child: Column(

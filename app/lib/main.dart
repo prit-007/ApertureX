@@ -33,11 +33,11 @@ import 'viewport/shader_warmup.dart';
 void main() {
   final reporter = ErrorReporter(presenter: showErrorDialog);
   installBoundaryHooks(reporter: reporter);
-  WidgetsFlutterBinding.ensureInitialized();
-  lifecycleObserver.attach();
 
   runGuarded(
     () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      lifecycleObserver.attach();
       try {
         await TesseraEngine.init();
         await _initActivityLog(reporter);

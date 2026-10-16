@@ -480,14 +480,16 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
     final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
     final descriptor = await ui.ImageDescriptor.encoded(buffer);
-    var tw = descriptor.width;
-    var th = descriptor.height;
+    int? tw;
+    int? th;
     if (maxDim != null) {
-      final longest = math.max(tw, th);
+      final longest = math.max(descriptor.width, descriptor.height);
       if (longest > maxDim) {
-        final scale = maxDim / longest;
-        tw = math.max(1, (tw * scale).round());
-        th = math.max(1, (th * scale).round());
+        if (descriptor.width >= descriptor.height) {
+          tw = maxDim;
+        } else {
+          th = maxDim;
+        }
       }
     }
     final codec = await ui.instantiateImageCodecFromBuffer(

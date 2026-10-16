@@ -149,26 +149,29 @@ class MaskControls extends ConsumerWidget {
             ),
           ),
         for (var i = 0; i < layers.length; i++) ...[
-          ListTile(
-            dense: true,
-            selected: i == ref.watch(nodeEditorProvider.select((s) => s.selected)),
-            leading: Icon(_maskIcon(layers[i].maskKind), size: 18),
-            title: Text(
-              '${layers[i].maskKind.name.toUpperCase()} layer  '
-              'EV ${layers[i].exposure.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 13),
-            ),
-            subtitle: layers[i].inverted
-                ? const Text('Inverted', style: TextStyle(fontSize: 11, color: Colors.orange))
-                : null,
-            onTap: () {
-              ref.read(nodeEditorProvider.notifier).select(i);
-              ref.read(nodeEditorProvider.notifier).enable();
-            },
-            trailing: IconButton(
-              tooltip: 'Remove layer',
-              icon: const Icon(Icons.delete_outline, size: 18),
-              onPressed: () => notifier.removeLayerAt(i),
+          Material(
+            color: Colors.transparent,
+            child: ListTile(
+              dense: true,
+              selected: i == ref.watch(nodeEditorProvider.select((s) => s.selected)),
+              leading: Icon(_maskIcon(layers[i].maskKind), size: 18),
+              title: Text(
+                '${layers[i].maskKind.name.toUpperCase()} layer  '
+                'EV ${layers[i].exposure.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 13),
+              ),
+              subtitle: layers[i].inverted
+                  ? const Text('Inverted', style: TextStyle(fontSize: 11, color: Colors.orange))
+                  : null,
+              onTap: () {
+                ref.read(nodeEditorProvider.notifier).select(i);
+                ref.read(nodeEditorProvider.notifier).enable();
+              },
+              trailing: IconButton(
+                tooltip: 'Remove layer',
+                icon: const Icon(Icons.delete_outline, size: 18),
+                onPressed: () => notifier.removeLayerAt(i),
+              ),
             ),
           ),
           if (i == ref.watch(nodeEditorProvider.select((s) => s.selected)))
