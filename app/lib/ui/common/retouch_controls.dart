@@ -1,10 +1,10 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/retouch_patch.dart';
-import 'app_primitives.dart';
 
 /// Currently selected retouch patch index for inspector/editing (null = none).
 class SelectedRetouchPatchIndex extends Notifier<int?> {
@@ -87,11 +87,113 @@ class RetouchControls extends ConsumerWidget {
     final currentFeather = selectedPatch?.feather ?? brush.feather;
     final currentOpacity = selectedPatch?.opacity ?? brush.opacity;
 
-    return ListView(
+    void addSpot(RetouchMode mode) {
+      HapticFeedback.selectionClick();
+      final double tx = patches.isEmpty ? 0.5 : ((patches.last.targetX + 0.06) % 0.8 + 0.1);
+      final double ty = patches.isEmpty ? 0.5 : ((patches.last.targetY + 0.06) % 0.8 + 0.1);
+      final double sx = (tx > 0.5 ? tx - 0.10 : tx + 0.10).clamp(0.05, 0.95);
+      final double sy = (ty > 0.5 ? ty - 0.10 : ty + 0.10).clamp(0.05, 0.95);
+
+      final newPatch = RetouchPatch(
+        targetX: tx,
+        targetY: ty,
+        sourceX: sx,
+        sourceY: sy,
+        radius: brush.radius,
+        feather: brush.feather,
+        opacity: brush.opacity,
+        mode: mode,
+      );
+
+      final idx = patches.length;
+      notifier.addRetouchPatch(newPatch);
+      ref.read(selectedRetouchPatchIndexProvider.notifier).select(idx);
+    }
+
+    return Material(
+      type: MaterialType.transparency,
+      child: ListView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.symmetric(horizontal: Insets.lg, vertical: Insets.sm),
       children: [
-        const SectionHeader('Repair Mode'),
+        // Action buttons: add heal/clone points directly
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.center,
+          children: [
+            OutlinedButton.icon(
+              key: const Key('retouch-add-heal'),
+              onPressed: () => addSpot(RetouchMode.heal),
+              icon: const Icon(Icons.auto_fix_high, size: 16),
+              label: const Text('Heal Spot +'),
+            ),
+            OutlinedButton.icon(
+              key: const Key('retouch-add-clone'),
+              onPressed: () => addSpot(RetouchMode.clone),
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('Clone Spot +'),
+            ),
+            if (selectedPatch != null && selectedIndex != null)
+              OutlinedButton.icon(
+                key: const Key('retouch-reset-source'),
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  final p = selectedPatch;
+                  final sx = (p.targetX > 0.5 ? p.targetX - 0.08 : p.targetX + 0.08).clamp(0.05, 0.95);
+                  final sy = (p.targetY > 0.5 ? p.targetY - 0.08 : p.targetY + 0.08).clamp(0.05, 0.95);
+                  notifier.updateRetouchPatchAt(
+                    selectedIndex,
+                    p.copyWith(sourceX: sx, sourceY: sy),
+                  );
+                },
+                icon: const Icon(Icons.replay, size: 16),
+                label: const Text('Reset Source'),
+              ),
+          ],
+        ),
+        const SizedBox(height: Insets.sm),
+
+        // If patches exist, show horizontal patch selection bar
+        if (patches.isNotEmpty) ...[
+          SizedBox(
+            height: 34,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: patches.length,
+              itemBuilder: (context, idx) {
+                final p = patches[idx];
+                final isSelected = idx == selectedIndex;
+                final isHeal = p.mode == RetouchMode.heal;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    visualDensity: VisualDensity.compact,
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isHeal ? Icons.auto_fix_high : Icons.copy,
+                          size: 13,
+                          color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text('#${idx + 1} ${isHeal ? 'Heal' : 'Clone'}'),
+                      ],
+                    ),
+                    selected: isSelected,
+                    onSelected: (_) {
+                      HapticFeedback.selectionClick();
+                      ref.read(selectedRetouchPatchIndexProvider.notifier).select(idx);
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: Insets.xs),
+        ],
+
         Center(
           child: SegmentedButton<RetouchMode>(
             segments: const [
@@ -108,6 +210,7 @@ class RetouchControls extends ConsumerWidget {
             ],
             selected: {currentMode},
             onSelectionChanged: (set) {
+              HapticFeedback.selectionClick();
               final newMode = set.first;
               brushNotifier.setMode(newMode);
               if (selectedPatch != null && selectedIndex != null) {
@@ -119,14 +222,18 @@ class RetouchControls extends ConsumerWidget {
             },
           ),
         ),
-        const SizedBox(height: Insets.md),
+        const SizedBox(height: Insets.sm),
         Text(
           selectedPatch != null
-              ? 'Editing Patch #${selectedIndex! + 1}'
-              : 'Brush Settings (Tap canvas to heal)',
-          style: theme.textTheme.titleSmall?.copyWith(color: scheme.primary),
+              ? 'Editing Spot #${selectedIndex! + 1} (${currentMode == RetouchMode.heal ? 'Heal' : 'Clone'})'
+              : 'Tap photo or button to add spot',
+          style: theme.textTheme.titleSmall?.copyWith(
+            color: scheme.primary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: Insets.xs),
+
 
         // Radius Slider
         Row(
@@ -155,7 +262,9 @@ class RetouchControls extends ConsumerWidget {
               width: 44,
               child: Text(
                 '${(currentRadius * 100).round()}%',
-                style: theme.textTheme.bodySmall,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
           ],
@@ -188,7 +297,9 @@ class RetouchControls extends ConsumerWidget {
               width: 44,
               child: Text(
                 '${(currentFeather * 100).round()}%',
-                style: theme.textTheme.bodySmall,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
           ],
@@ -221,7 +332,9 @@ class RetouchControls extends ConsumerWidget {
               width: 44,
               child: Text(
                 '${(currentOpacity * 100).round()}%',
-                style: theme.textTheme.bodySmall,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
           ],
@@ -257,6 +370,7 @@ class RetouchControls extends ConsumerWidget {
           ],
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 }

@@ -81,4 +81,144 @@ void main() {
     // Pressure 0.8 should scale radius: 0.05 * (0.5 + 0.5 * 0.8) = 0.045
     expect(patches.first.radius, greaterThan(0.01));
   });
+
+  testWidgets('Dragging target pin moves target and translates source', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 400,
+                height: 400,
+                child: RetouchCanvasOverlay(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Tap to create patch at center
+    await tester.tap(find.byType(RetouchCanvasOverlay));
+    await tester.pumpAndSettle();
+
+    final initial = container.read(recipeControllerProvider).recipe.retouchPatches.first;
+    expect(initial.targetX, closeTo(0.5, 0.02));
+
+    final origin = tester.getTopLeft(find.byType(RetouchCanvasOverlay));
+    final targetPos = origin + Offset(initial.targetX * 400, initial.targetY * 400);
+
+    // Drag from target pin to (+40, +20)
+    final gesture = await tester.startGesture(targetPos);
+    await tester.pump();
+    await gesture.moveTo(targetPos + const Offset(40, 20));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final updated = container.read(recipeControllerProvider).recipe.retouchPatches.first;
+    expect(updated.targetX, closeTo(0.60, 0.02));
+    expect(updated.targetY, closeTo(0.55, 0.02));
+    expect(updated.sourceX - initial.sourceX, closeTo(0.10, 0.02));
+  });
+
+  testWidgets('Dragging source pin moves source independently', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 400,
+                height: 400,
+                child: RetouchCanvasOverlay(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Tap to create patch
+    await tester.tap(find.byType(RetouchCanvasOverlay));
+    await tester.pumpAndSettle();
+
+    final patch = container.read(recipeControllerProvider).recipe.retouchPatches.first;
+    final origin = tester.getTopLeft(find.byType(RetouchCanvasOverlay));
+    final sourcePos = origin + Offset(patch.sourceX * 400, patch.sourceY * 400);
+
+    // Drag source pin by (+20, -20)
+    final gesture = await tester.startGesture(sourcePos);
+    await tester.pump();
+    await gesture.moveTo(sourcePos + const Offset(20, -20));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final updated = container.read(recipeControllerProvider).recipe.retouchPatches.first;
+    // Target remained unchanged
+    expect(updated.targetX, closeTo(patch.targetX, 0.01));
+    expect(updated.targetY, closeTo(patch.targetY, 0.01));
+    // Source moved
+    expect(updated.sourceX, closeTo(patch.sourceX + 20 / 400, 0.02));
+    expect(updated.sourceY, closeTo(patch.sourceY - 20 / 400, 0.02));
+  });
+
+  testWidgets('Dragging radius handle on selected patch resizes radius', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 400,
+                height: 400,
+                child: RetouchCanvasOverlay(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Tap center to create and select patch
+    await tester.tap(find.byType(RetouchCanvasOverlay));
+    await tester.pumpAndSettle();
+
+    final patch = container.read(recipeControllerProvider).recipe.retouchPatches.first;
+    expect(patch.radius, closeTo(0.05, 0.01));
+
+    final origin = tester.getTopLeft(find.byType(RetouchCanvasOverlay));
+    final rScreen = patch.radius * 400; // 20px
+    final handlePos = origin + Offset(patch.targetX * 400 + rScreen, patch.targetY * 400);
+
+    // Drag radius handle outward by +20px
+    final gesture = await tester.startGesture(handlePos);
+    await tester.pump();
+    await gesture.moveTo(handlePos + const Offset(20, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final updated = container.read(recipeControllerProvider).recipe.retouchPatches.first;
+    // Radius resized from 0.05 to ~0.10
+    expect(updated.radius, closeTo(0.10, 0.02));
+    // Position stayed same
+    expect(updated.targetX, closeTo(patch.targetX, 0.01));
+    expect(updated.targetY, closeTo(patch.targetY, 0.01));
+  });
 }
+

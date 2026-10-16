@@ -64,6 +64,7 @@ class ImageCanvas extends ConsumerStatefulWidget {
     super.key,
     this.imageBytes,
     this.editInterpreter,
+    this.onTap,
   });
 
   /// JPEG bytes of the photo being edited (null → the built-in sample).
@@ -72,6 +73,9 @@ class ImageCanvas extends ConsumerStatefulWidget {
   /// When non-null, 1-finger drags are routed to this Snapseed gesture model
   /// instead of panning (Lightroom).
   final GestureInterpreter? editInterpreter;
+
+  /// Tapping the canvas toggles Immersive Mode (dissolving HUD chrome).
+  final VoidCallback? onTap;
 
   @override
   ConsumerState<ImageCanvas> createState() => _ImageCanvasState();
@@ -913,16 +917,19 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       builder: (context, constraints) {
         final bounds = constraints.biggest;
         final fitted = fitContained(content, bounds);
-        // Remembered for the ROI overlay planner (#55) — it runs after the
-        // viewport settles, outside this build.
+        final boundsChanged = _lastBounds != bounds && _lastBounds != Size.zero;
         _lastFitted = fitted;
         _lastBounds = bounds;
-        if (_needsReset || (_offset == Offset.zero && bounds.width > 0 && bounds.height > 0)) {
+        if (_needsReset ||
+            (_scale == 1.0 && boundsChanged) ||
+            (_offset == Offset.zero && bounds.width > 0 && bounds.height > 0)) {
           _needsReset = false;
           // Contain-fit is the baseline: the photo always fits inside the
           // canvas, so zoom only ever goes in.
           _minScale = 1.0;
           _resetView(fitted, bounds);
+        } else if (boundsChanged && _scale > 1.0) {
+          _offset = _clampOffset(_offset, _scale, fitted, bounds);
         }
         // Publish the view transform so overlays outside this widget (the
         // selective-editing nodes, issue #25) can map image ↔ screen.
@@ -933,6 +940,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
+                onTap: widget.onTap,
                 onScaleStart: (d) => _onScaleStart(d, fitted, tat),
                 onScaleUpdate: (d) => _onScaleUpdate(d, fitted, bounds, tat),
                 onScaleEnd: (_) => _onScaleEnd(),

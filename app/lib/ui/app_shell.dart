@@ -26,6 +26,7 @@ import 'lightroom/lightroom_shell.dart';
 import 'common/brush_toolbar.dart';
 import 'common/node_controls.dart';
 import 'common/node_overlay.dart';
+import 'common/retouch_canvas_overlay.dart';
 import 'snapseed/ghost_hint.dart';
 import 'snapseed/snapseed_shell.dart';
 
@@ -139,6 +140,18 @@ class _AppShellState extends ConsumerState<AppShell> {
       child: ImageCanvas(
         imageBytes: widget.imageBytes,
         editInterpreter: interpreter,
+        onTap: () {
+          final activeSection = ref.read(activeSectionProvider);
+          if (activeSection != RecipeSection.masking &&
+              activeSection != RecipeSection.retouch) {
+            HapticFeedback.selectionClick();
+            setState(() {
+              _sheetSnap = _sheetSnap == _SheetSnap.hidden
+                  ? _SheetSnap.half
+                  : _SheetSnap.hidden;
+            });
+          }
+        },
       ),
     );
   }
@@ -148,6 +161,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     final kind = ref.watch(shellPreferenceProvider);
     final active = ref.watch(editActivityProvider);
     final nodeMode = ref.watch(nodeEditorProvider.select((s) => s.enabled));
+    final activeSection = ref.watch(activeSectionProvider);
+    final isRetouch = activeSection == RecipeSection.retouch;
     final scheme = Theme.of(context).colorScheme;
     // Only rebuild when the histogram's *presence* changes (not on every bake).
     final hasHistogram = ref.watch(
@@ -177,6 +192,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           child: Stack(
             children: [
               Positioned.fill(child: _canvas(interpreter: _fsm)),
+              if (isRetouch) const Positioned.fill(child: RetouchCanvasOverlay()),
               // Selective editing (issue #25): the node layer sits above the
               // canvas and absorbs every pointer until Done is tapped.
               if (nodeMode) const Positioned.fill(child: NodeOverlay()),
@@ -295,6 +311,8 @@ class _AppShellState extends ConsumerState<AppShell> {
         final canvas = Stack(
           children: [
             Positioned.fill(child: _canvas()),
+            // Retouch overlay (Lightroom heal/clone pins directly on canvas)
+            if (isRetouch) const Positioned.fill(child: RetouchCanvasOverlay()),
             // Selective editing (issue #25) over the photo, with the
             // adjust bar floating at its bottom edge.
             if (nodeMode) const Positioned.fill(child: NodeOverlay()),
@@ -305,7 +323,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 right: Insets.sm,
                 child: const SafeArea(bottom: false, child: BrushToolbar()),
               ),
-            if (nodeMode)
+            if (nodeMode && (wide || kind == AppShellKind.snapseed))
               Positioned(
                 left: Insets.sm,
                 right: Insets.sm,
@@ -315,7 +333,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                   child: NodeControls(),
                 ),
               ),
-            if (!nodeMode)
+            if (!nodeMode && !isRetouch)
               Positioned(
                 left: Insets.sm,
                 bottom: Insets.sm,

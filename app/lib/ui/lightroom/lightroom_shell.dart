@@ -36,6 +36,17 @@ String _sectionLabel(RecipeSection section) => switch (section) {
   RecipeSection.lab => 'Lab',
 };
 
+class ActiveSectionNotifier extends Notifier<RecipeSection> {
+  @override
+  RecipeSection build() => RecipeSection.light;
+  void select(RecipeSection section) => state = section;
+}
+
+final activeSectionProvider =
+    NotifierProvider<ActiveSectionNotifier, RecipeSection>(
+  ActiveSectionNotifier.new,
+);
+
 /// Lightroom shell: a scrollable row of tool tabs over the shared recipe. The
 /// histogram is no longer a permanent strip here — it lives as a collapsible
 /// overlay on the image (see `AppShell`), so the tools get the whole area.
@@ -66,6 +77,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   _Tab _tab = _Tab.panel;
   late final ScrollController _tabScrollController;
   EditRecipe? _sessionStartRecipe;
+
 
   @override
   void initState() {
@@ -142,17 +154,14 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
       builder: (context, constraints) {
         final content = Column(
           children: [
-            // Full-width chip strip: on a phone the trailing icon cluster used to
-            // squeeze the scrollable chips to ~2 visible sections, so the rest of
-            // the tools (Effects/Detail/Geometry/Masking) were undiscoverable.
-            // The chips get their own row; actions sit below them.
+            // Category Chips Bar (top): scrollable row of tool categories
             SizedBox(
-              height: 44,
+              height: 40,
               child: ListView(
                 controller: _tabScrollController,
                 physics: const BouncingScrollPhysics(),
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 children: [
                   for (final section in _sections)
                     chip(
@@ -169,9 +178,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                           _tab = _Tab.panel;
                           _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
                         });
+                        ref.read(activeSectionProvider.notifier).select(section);
                         final idx = _sections.indexOf(section);
                         if (_tabScrollController.hasClients) {
-                          final target = (idx * 90.0 - 60.0).clamp(
+                          final target = (idx * 84.0 - 40.0).clamp(
                             0.0,
                             _tabScrollController.position.maxScrollExtent,
                           );
@@ -186,9 +196,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 ],
               ),
             ),
-            Divider(height: 1, color: scheme.outlineVariant),
+            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
+            // Streamlined Action Bar: Cancel, TAT, Undo, Redo, Compare, Apply
             SizedBox(
-              height: 44,
+              height: 38,
               child: Row(
                 children: [
                   IconButton(
@@ -292,20 +303,21 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 ],
               ),
             ),
-            Divider(height: 1, color: scheme.outlineVariant),
+            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
+            // Active Tool Controls (Sliders, Curves, Mixers, etc.)
             Expanded(
-              child: SafeArea(bottom: true, child: _sectionBody()),
+              child: SafeArea(bottom: false, child: _sectionBody()),
             ),
           ],
         );
 
-        if (constraints.maxHeight < 180) {
+        if (constraints.maxHeight < 120) {
           return OverflowBox(
             minHeight: 0,
             maxHeight: double.infinity,
             alignment: Alignment.topCenter,
             child: SizedBox(
-              height: 200,
+              height: 160,
               child: content,
             ),
           );
@@ -362,10 +374,13 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
 
   Widget _subTabs() {
     Widget tab(String label, _Tab value) => TextButton(
-      onPressed: () => setState(() => _tab = value),
+      onPressed: () {
+        HapticFeedback.selectionClick();
+        setState(() => _tab = value);
+      },
       style: TextButton.styleFrom(
         visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         foregroundColor: _tab == value
             ? Theme.of(context).colorScheme.primary
             : null,
@@ -379,14 +394,19 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
       ),
     );
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        tab('Sliders', _Tab.panel),
-        tab('Curve', _Tab.curve),
-        tab('Mix', _Tab.mix),
-        tab('Grade', _Tab.grade),
-      ],
+    return SizedBox(
+      height: 32,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          tab('Sliders', _Tab.panel),
+          tab('Curve', _Tab.curve),
+          tab('Mix', _Tab.mix),
+          tab('Grade', _Tab.grade),
+        ],
+      ),
     );
   }
 }
+
