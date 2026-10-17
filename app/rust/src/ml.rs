@@ -286,6 +286,63 @@ pub fn compute_iou(mask_a: &[f32], mask_b: &[f32], threshold: f32) -> f32 {
     }
 }
 
+/// Estimates an on-device monocular depth map from RGBA pixels using
+/// boundary priors, saliency, and perspective gradients.
+pub fn estimate_depth_map(
+    rgba: &[u8],
+    src_w: usize,
+    src_h: usize,
+    target_w: usize,
+    target_h: usize,
+) -> Result<Vec<f32>, String> {
+    if src_w < 4 || src_h < 4 || rgba.len() < src_w * src_h * 4 {
+        return Err("Image dimensions too small for depth estimation".into());
+    }
+
+    // 1. Compute saliency subject segmentation
+    let segmenter = SaliencySegmenter {};
+    let subject_mask = segmenter.segment(rgba, src_w, src_h, target_w, target_h)?;
+
+    let mut depth = vec![0.0f32; target_w * target_h];
+    let inv_w = if target_w > 1 {
+        1.0 / (target_w - 1) as f32
+    } else {
+        0.5
+    };
+    let inv_h = if target_h > 1 {
+        1.0 / (target_h - 1) as f32
+    } else {
+        0.5
+    };
+
+    for y in 0..target_h {
+        let v = y as f32 * inv_h;
+        // Perspective baseline: foreground near bottom (0.2), horizon/background near top/horizon (0.8)
+        let perspective = 0.25 + 0.55 * v;
+        let row_offset = y * target_w;
+        for x in 0..target_w {
+            let u = x as f32 * inv_w;
+            let du = u - 0.5;
+            let dv = v - 0.5;
+            let radial_dist = (du * du + dv * dv).sqrt();
+
+            let subject_alpha = subject_mask[row_offset + x];
+
+            // Subject plane sits at focused focal depth ~0.35
+            let subject_depth = 0.35;
+            // Background depth increases with distance from center and horizon
+            let background_depth = (perspective + 0.35 * radial_dist).clamp(0.2, 1.0);
+
+            // Blend subject depth and background depth based on AI saliency
+            let pixel_depth =
+                subject_alpha * subject_depth + (1.0 - subject_alpha) * background_depth;
+            depth[row_offset + x] = pixel_depth.clamp(0.0, 1.0);
+        }
+    }
+
+    Ok(depth)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -434,5 +491,39 @@ mod tests {
         let res = segmenter.segment(&rgba, 16, 16, 8, 8);
         assert!(res.is_ok());
         assert_eq!(res.unwrap().len(), 64);
+    }
+
+    #[test]
+    fn test_estimate_depth_map_produces_calibrated_plane() {
+        let w = 32;
+        let h = 32;
+        let mut rgba = vec![20u8; w * h * 4];
+
+        // Central bright subject
+        for y in 10..22 {
+            for x in 10..22 {
+                let idx = (y * w + x) * 4;
+                rgba[idx] = 220;
+                rgba[idx + 1] = 200;
+                rgba[idx + 2] = 190;
+                rgba[idx + 3] = 255;
+            }
+        }
+
+        let depth = estimate_depth_map(&rgba, w, h, 16, 16).expect("depth estimation succeeded");
+        assert_eq!(depth.len(), 16 * 16);
+
+        // All depths in [0.0, 1.0]
+        for &d in &depth {
+            assert!((0.0..=1.0).contains(&d));
+        }
+
+        // Center subject depth should be closer (lower depth) than corner background
+        let center_depth = depth[8 * 16 + 8];
+        let corner_depth = depth[0];
+        assert!(
+            center_depth < corner_depth,
+            "Center subject ({center_depth}) should be closer than distant corner ({corner_depth})"
+        );
     }
 }
