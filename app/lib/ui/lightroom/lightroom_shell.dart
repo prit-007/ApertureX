@@ -9,6 +9,7 @@ import '../../edit/parameter.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../viewport/compare_hold.dart';
+import '../../viewport/wiper_compare.dart';
 import '../common/blur_controls.dart';
 import '../common/color_grading_editor.dart';
 import '../common/film_controls.dart';
@@ -290,6 +291,17 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                       onPressed: () {},
                       icon: const Icon(Icons.compare),
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Split Curtain Wiper Compare (120 FPS)',
+                    visualDensity: VisualDensity.compact,
+                    isSelected: ref.watch(wiperCompareProvider).isActive,
+                    onPressed: () {
+                      ref.read(wiperCompareProvider.notifier).toggle();
+                      HapticFeedback.selectionClick();
+                    },
+                    icon: const Icon(Icons.splitscreen),
+                    selectedIcon: Icon(Icons.splitscreen, color: scheme.primary),
                   ),
                   IconButton(
                     key: const Key('tray-apply'),

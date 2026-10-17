@@ -25,6 +25,7 @@ import '../core/haptics.dart';
 import '../gesture/gesture_interpreter.dart';
 import '../gesture/zone_mask.dart';
 import 'compare_hold.dart';
+import 'wiper_compare.dart';
 import 'canvas_transform.dart';
 import 'exif_orientation.dart';
 import 'live_warp.dart';
@@ -179,6 +180,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   Offset _startFocal = Offset.zero;
   bool _multi = false;
   bool _zoneTargeting = false;
+  bool _wiperDragging = false;
 
   @override
   void initState() {
@@ -1031,7 +1033,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 onScaleStart: (d) => _onScaleStart(d, fitted, tat),
                 onScaleUpdate: (d) => _onScaleUpdate(d, fitted, bounds, tat),
                 onScaleEnd: (_) => _onScaleEnd(),
-                onDoubleTap: () => _resetView(fitted, bounds),
+                onDoubleTap: () {
+                  if (ref.read(wiperCompareProvider).isActive) {
+                    ref.read(wiperCompareProvider.notifier).resetPosition();
+                    HapticFeedback.selectionClick();
+                  } else {
+                    _resetView(fitted, bounds);
+                  }
+                },
                 onLongPressStart: (_) =>
                     ref.read(compareHoldProvider.notifier).hold(),
                 onLongPressEnd: (_) =>
@@ -1063,6 +1072,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                             final tiles = _tilesActive && _fullH > 0
                                 ? _visibleTileImages(fitted)
                                 : const <_CanvasTile>[];
+                            final wiper = ref.watch(wiperCompareProvider);
                             final zoneMask = ref.watch(zoneMaskProvider);
                             final (zLo, zHi) = zoneMask.isTargeting
                                 ? zoneMask.lumaBounds
@@ -1074,8 +1084,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                               // Issue #54: actually display the texture Rust is
                               // writing into; the shader paint is the fallback
                               // (imported LUTs, iOS/tests, compare/peek fades,
-                              // tile overlay, geometry edits).
-                              textureId: zeroCopy && !zoneMask.isTargeting ? _textureId : null,
+                              // tile overlay, geometry edits, wiper split curtain).
+                              textureId: zeroCopy && !zoneMask.isTargeting && !wiper.isActive ? _textureId : null,
                               fallback: (_) => CustomPaint(
                                 size: fitted,
                                 painter: _CanvasPainter(
@@ -1090,6 +1100,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                                   maskBlend: effectiveMaskBlend,
                                   zoneLo: zLo,
                                   zoneHi: zHi,
+                                  wiperActive: wiper.isActive,
+                                  wiperPosition: wiper.position,
+                                  wiperOrientation: wiper.orientation,
                                   tiles: tiles,
                                 ),
                               ),
@@ -1162,6 +1175,20 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }
 
   void _onScaleStart(ScaleStartDetails d, Size fitted, bool tat) {
+    final wiper = ref.read(wiperCompareProvider);
+    if (wiper.isActive) {
+      if (d.pointerCount >= 2) {
+        ref.read(wiperCompareProvider.notifier).toggleOrientation();
+        HapticFeedback.selectionClick();
+        return;
+      }
+      _wiperDragging = true;
+      final pos = wiper.orientation == WiperOrientation.vertical
+          ? (d.localFocalPoint.dx / fitted.width).clamp(0.0, 1.0)
+          : (d.localFocalPoint.dy / fitted.height).clamp(0.0, 1.0);
+      ref.read(wiperCompareProvider.notifier).setPosition(pos);
+      return;
+    }
     _startScale = _scale;
     _startOffset = _offset;
     _startFocal = d.localFocalPoint;
@@ -1193,6 +1220,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     Size bounds,
     bool tat,
   ) {
+    if (_wiperDragging) {
+      final wiper = ref.read(wiperCompareProvider);
+      final pos = wiper.orientation == WiperOrientation.vertical
+          ? (d.localFocalPoint.dx / fitted.width).clamp(0.0, 1.0)
+          : (d.localFocalPoint.dy / fitted.height).clamp(0.0, 1.0);
+      ref.read(wiperCompareProvider.notifier).setPosition(pos);
+      return;
+    }
     if (d.pointerCount >= 2 || _multi) {
       if (!_multi) {
         // Transition 1 -> 2 fingers: cancel the edit (no tap-reset) and
@@ -1253,6 +1288,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }
 
   void _onScaleEnd() {
+    if (_wiperDragging) {
+      _wiperDragging = false;
+      return;
+    }
     if (_editing) widget.editInterpreter?.onPanEnd();
     _editing = false;
     _multi = false;
@@ -1505,6 +1544,9 @@ class _CanvasPainter extends CustomPainter {
     required this.maskBlend,
     this.zoneLo = -1.0,
     this.zoneHi = -1.0,
+    this.wiperActive = false,
+    this.wiperPosition = 0.50,
+    this.wiperOrientation = WiperOrientation.vertical,
     this.tiles = const [],
   });
 
@@ -1517,6 +1559,9 @@ class _CanvasPainter extends CustomPainter {
   final double maskBlend;
   final double zoneLo;
   final double zoneHi;
+  final bool wiperActive;
+  final double wiperPosition;
+  final WiperOrientation wiperOrientation;
 
   /// High-zoom tiles (#16): baked level-0 tiles of the original frame, drawn
   /// through the same uniforms over the proxy at their fitted-space rects.
@@ -1538,6 +1583,171 @@ class _CanvasPainter extends CustomPainter {
       ..setFloat(7, zoneHi)
       ..setImageSampler(0, source)
       ..setImageSampler(1, lut);
+
+    if (wiperActive) {
+      if (wiperOrientation == WiperOrientation.vertical) {
+        final splitX = dst.left + dst.width * wiperPosition.clamp(0.0, 1.0);
+
+        // 1. Unedited Source on Left side
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, splitX, dst.bottom));
+        canvas.drawImageRect(
+          source,
+          Rect.fromLTWH(0, 0, source.width.toDouble(), source.height.toDouble()),
+          dst,
+          Paint(),
+        );
+        canvas.restore();
+
+        // 2. Graded result on Right side
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(splitX, dst.top, dst.right, dst.bottom));
+        canvas.drawRect(dst, Paint()..shader = shader);
+        if (tiles.isNotEmpty) {
+          for (final tile in tiles) {
+            canvas.save();
+            canvas.translate(tile.dst.left, tile.dst.top);
+            shader
+              ..setFloat(0, tile.dst.width)
+              ..setFloat(1, tile.dst.height)
+              ..setFloat(2, lutSize)
+              ..setFloat(3, maskBlend)
+              ..setFloat(4, tile.image.width.toDouble())
+              ..setFloat(5, tile.image.height.toDouble())
+              ..setFloat(6, zoneLo)
+              ..setFloat(7, zoneHi)
+              ..setImageSampler(0, tile.image)
+              ..setImageSampler(1, lut);
+            canvas.drawRect(
+              Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
+              Paint()..shader = shader,
+            );
+            canvas.restore();
+          }
+        }
+        canvas.restore();
+
+        // 3. Glowing cyan divider line
+        final glowPaint = Paint()
+          ..color = const Color(0x6600E5FF)
+          ..strokeWidth = 6.0
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
+        canvas.drawLine(Offset(splitX, dst.top), Offset(splitX, dst.bottom), glowPaint);
+
+        final linePaint = Paint()
+          ..color = const Color(0xFF00E5FF)
+          ..strokeWidth = 2.0;
+        canvas.drawLine(Offset(splitX, dst.top), Offset(splitX, dst.bottom), linePaint);
+
+        // 4. Circular thumb handle at center
+        final handleCenter = Offset(splitX, dst.top + dst.height * 0.5);
+        canvas.drawCircle(handleCenter, 18, Paint()..color = const Color(0xDD000000));
+        canvas.drawCircle(
+          handleCenter,
+          18,
+          Paint()
+            ..color = const Color(0xFF00E5FF)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.0,
+        );
+
+        final tp = TextPainter(
+          text: const TextSpan(
+            text: '◀ ▶',
+            style: TextStyle(
+              color: Color(0xFF00E5FF),
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, handleCenter - Offset(tp.width / 2, tp.height / 2));
+      } else {
+        // Horizontal split
+        final splitY = dst.top + dst.height * wiperPosition.clamp(0.0, 1.0);
+
+        // 1. Unedited Source on Top side
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, dst.right, splitY));
+        canvas.drawImageRect(
+          source,
+          Rect.fromLTWH(0, 0, source.width.toDouble(), source.height.toDouble()),
+          dst,
+          Paint(),
+        );
+        canvas.restore();
+
+        // 2. Graded result on Bottom side
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(dst.left, splitY, dst.right, dst.bottom));
+        canvas.drawRect(dst, Paint()..shader = shader);
+        if (tiles.isNotEmpty) {
+          for (final tile in tiles) {
+            canvas.save();
+            canvas.translate(tile.dst.left, tile.dst.top);
+            shader
+              ..setFloat(0, tile.dst.width)
+              ..setFloat(1, tile.dst.height)
+              ..setFloat(2, lutSize)
+              ..setFloat(3, maskBlend)
+              ..setFloat(4, tile.image.width.toDouble())
+              ..setFloat(5, tile.image.height.toDouble())
+              ..setFloat(6, zoneLo)
+              ..setFloat(7, zoneHi)
+              ..setImageSampler(0, tile.image)
+              ..setImageSampler(1, lut);
+            canvas.drawRect(
+              Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
+              Paint()..shader = shader,
+            );
+            canvas.restore();
+          }
+        }
+        canvas.restore();
+
+        // 3. Glowing cyan divider line
+        final glowPaint = Paint()
+          ..color = const Color(0x6600E5FF)
+          ..strokeWidth = 6.0
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
+        canvas.drawLine(Offset(dst.left, splitY), Offset(dst.right, splitY), glowPaint);
+
+        final linePaint = Paint()
+          ..color = const Color(0xFF00E5FF)
+          ..strokeWidth = 2.0;
+        canvas.drawLine(Offset(dst.left, splitY), Offset(dst.right, splitY), linePaint);
+
+        // 4. Circular thumb handle at center
+        final handleCenter = Offset(dst.left + dst.width * 0.5, splitY);
+        canvas.drawCircle(handleCenter, 18, Paint()..color = const Color(0xDD000000));
+        canvas.drawCircle(
+          handleCenter,
+          18,
+          Paint()
+            ..color = const Color(0xFF00E5FF)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.0,
+        );
+
+        final tp = TextPainter(
+          text: const TextSpan(
+            text: '▲\n▼',
+            style: TextStyle(
+              color: Color(0xFF00E5FF),
+              fontSize: 8,
+              fontWeight: FontWeight.bold,
+              height: 1.0,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center,
+        )..layout();
+        tp.paint(canvas, handleCenter - Offset(tp.width / 2, tp.height / 2));
+      }
+      return;
+    }
+
     canvas.drawRect(dst, Paint()..shader = shader);
 
     if (blend > 0) {
@@ -1589,6 +1799,9 @@ class _CanvasPainter extends CustomPainter {
       old.maskBlend != maskBlend ||
       old.zoneLo != zoneLo ||
       old.zoneHi != zoneHi ||
+      old.wiperActive != wiperActive ||
+      old.wiperPosition != wiperPosition ||
+      old.wiperOrientation != wiperOrientation ||
       old.dst != dst ||
       !_sameTiles(old.tiles, tiles);
 

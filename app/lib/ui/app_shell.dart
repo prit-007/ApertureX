@@ -24,6 +24,7 @@ import '../settings/shell_preference.dart';
 import '../settings/app_settings.dart';
 import '../settings/onboarding.dart';
 import '../viewport/compare_hold.dart';
+import '../viewport/wiper_compare.dart';
 import '../viewport/image_canvas.dart';
 import '../viewport/mask_peek.dart';
 import 'edit_activity.dart';
@@ -1086,46 +1087,86 @@ class _CompareHint extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: (_) => ref.read(compareHoldProvider.notifier).hold(),
-      onPointerUp: (_) => ref.read(compareHoldProvider.notifier).release(),
-      onPointerCancel: (_) => ref.read(compareHoldProvider.notifier).release(),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.88),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: 0.5),
+    final wiper = ref.watch(wiperCompareProvider);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.90),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Insets.sm,
+          vertical: 4,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (_) => ref.read(compareHoldProvider.notifier).hold(),
+              onPointerUp: (_) => ref.read(compareHoldProvider.notifier).release(),
+              onPointerCancel: (_) => ref.read(compareHoldProvider.notifier).release(),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.compare, size: 14, color: scheme.primary),
+                  const SizedBox(width: Insets.xs),
+                  Text(
+                    'Hold to compare',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 1,
+              height: 12,
+              color: scheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                ref.read(wiperCompareProvider.notifier).toggle();
+                HapticFeedback.selectionClick();
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.splitscreen,
+                    size: 14,
+                    color: wiper.isActive ? scheme.primary : scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: Insets.xs),
+                  Text(
+                    'Wiper',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: wiper.isActive ? FontWeight.bold : FontWeight.w600,
+                      color: wiper.isActive ? scheme.primary : scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Insets.sm,
-            vertical: 5,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.compare, size: 14, color: scheme.primary),
-              const SizedBox(width: Insets.xs),
-              Text(
-                'Hold to compare',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
