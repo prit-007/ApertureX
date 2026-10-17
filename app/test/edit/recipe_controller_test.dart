@@ -301,5 +301,50 @@ void main() {
       expect(activityLog.entries.any((e) => e.domain == LogDomain.editor && e.message.contains('Crop')), isTrue);
     });
   });
+
+  group('git-style DAG branching', () {
+    test('creates and switches branches with independent lineages', () {
+      notifier.update(Parameter.exposure, 0.5);
+      notifier.commit(label: 'Exposure +0.5');
+
+      // Create branch 'moody-bw'
+      notifier.createBranch('moody-bw');
+      expect(state().historyTree?.activeBranch, 'moody-bw');
+
+      notifier.update(Parameter.saturation, -1.0);
+      notifier.commit(label: 'B&W');
+      expect(state().recipe.saturation, -1.0);
+      expect(state().history.length, 3); // Original, Exposure, B&W
+
+      // Switch back to main
+      notifier.switchBranch('main');
+      expect(state().historyTree?.activeBranch, 'main');
+      expect(state().recipe.saturation, 0.0);
+      expect(state().recipe.exposure, 0.5);
+      expect(state().history.length, 2); // Original, Exposure
+
+      // Switch back to moody-bw
+      notifier.switchBranch('moody-bw');
+      expect(state().historyTree?.activeBranch, 'moody-bw');
+      expect(state().recipe.saturation, -1.0);
+    });
+
+    test('jumpToNode hops to any node in DAG regardless of active branch', () {
+      notifier.update(Parameter.exposure, 0.5);
+      notifier.commit(label: 'Step 1');
+
+      final step1Id = state().historyTree!.currentNodeId;
+
+      notifier.createBranch('film');
+      notifier.update(Parameter.grain, 0.5);
+      notifier.commit(label: 'Grain +0.5');
+
+      // Jump directly back to step1Id
+      notifier.jumpToNode(step1Id);
+      expect(state().historyTree?.currentNodeId, step1Id);
+      expect(state().recipe.grain, 0.0);
+      expect(state().recipe.exposure, 0.5);
+    });
+  });
 }
 

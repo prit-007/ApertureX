@@ -13,6 +13,7 @@ import '../common/blur_controls.dart';
 import '../common/color_grading_editor.dart';
 import '../common/film_controls.dart';
 import '../common/geometry_controls.dart';
+import '../common/history_tree_sheet.dart';
 import '../common/hsl_mixer.dart';
 import '../common/lab_controls.dart';
 import '../common/mask_controls.dart';
@@ -268,6 +269,12 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     visualDensity: VisualDensity.compact,
                     onPressed: canRedo ? controller.redo : null,
                     icon: const Icon(Icons.redo),
+                  ),
+                  IconButton(
+                    tooltip: 'Edit History & Branches (Git-style)',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => HistoryTreeSheet.show(context),
+                    icon: const Icon(Icons.alt_route),
                   ),
                   Listener(
                     behavior: HitTestBehavior.opaque,

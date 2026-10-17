@@ -38,6 +38,7 @@ import '../../ui/app_shell.dart';
 import '../../ui/common/app_primitives.dart';
 import '../../ui/common/app_sheet.dart';
 import '../../ui/common/editor_guide_sheet.dart';
+import '../../ui/common/history_tree_sheet.dart';
 import '../../ui/common/settings_sheet.dart';
 import '../../ui/edit_activity.dart';
 
@@ -710,6 +711,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       onPressed: canRedo ? notifier.redo : null,
       icon: const Icon(Icons.redo),
     );
+    final history = IconButton(
+      tooltip: 'History & Branches (Git-style)',
+      onPressed: () => HistoryTreeSheet.show(context),
+      icon: const Icon(Icons.alt_route),
+    );
     final guide = IconButton(
       tooltip: 'Editor Guide',
       onPressed: () => EditorGuideSheet.show(context),
@@ -761,7 +767,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               child: AppBar(
                 leading: const BackButton(),
                 title: const Text('Edit'),
-                actions: gestureShell ? null : [crop, info, guide, more, export],
+                actions: gestureShell ? null : [crop, history, info, guide, more, export],
                 backgroundColor: glassmorphic
                     ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.70)
                     : null,
@@ -799,7 +805,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   _body(
                     gestureShell: gestureShell,
                     hud: Row(
-                      children: [crop, undo, redo, info, guide, more, const Spacer(), export],
+                      children: [crop, undo, redo, history, info, guide, more, const Spacer(), export],
                     ),
                   ),
                   // Modal barrier while the share sheet's temp files are

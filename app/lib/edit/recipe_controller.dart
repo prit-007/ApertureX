@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
 import 'adjustment_layer.dart';
+import 'history_tree.dart';
 import 'parameter.dart';
 import 'recipe.dart';
 import 'recipe_state.dart';
@@ -14,8 +15,7 @@ import 'tool_definition.dart';
 /// and the Snapseed gesture FSM) read and write exactly this one controller —
 /// neither shell owns edit state (ADR 0008 §6).
 ///
-/// History is a **branchable list**: committing after an undo truncates the
-/// redo tail, so a new edit branches from the current node (ADR 0011).
+/// History is backed by a non-linear Git-style DAG [HistoryTree] (Issue #97).
 final recipeControllerProvider = NotifierProvider<RecipeController, RecipeState>(
   RecipeController.new,
 );
@@ -25,10 +25,15 @@ enum GradeWheelZone { shadows, midtones, highlights }
 
 class RecipeController extends Notifier<RecipeState> {
   @override
-  RecipeState build() => const RecipeState(
-    recipe: EditRecipe.neutral,
-    history: [RecipeHistoryEntry('Original', EditRecipe.neutral)],
-  );
+  RecipeState build() {
+    final tree = HistoryTree.initial();
+    return RecipeState(
+      recipe: EditRecipe.neutral,
+      history: [RecipeHistoryEntry('Original', EditRecipe.neutral, tree.currentNodeId)],
+      historyTree: tree,
+      index: 0,
+    );
+  }
 
   bool get isDirty => state.isDirty;
 
@@ -385,50 +390,155 @@ class RecipeController extends Notifier<RecipeState> {
   /// Replaces the session with [recipe] from a sidecar/preset, resetting the
   /// history to a single node.
   void loadRecipe(EditRecipe recipe, {String label = 'Loaded'}) {
+    final tree = HistoryTree.initial(initialRecipe: recipe, rootLabel: label);
     state = RecipeState(
       recipe: recipe,
-      history: [RecipeHistoryEntry(label, recipe)],
+      history: [RecipeHistoryEntry(label, recipe, tree.currentNodeId)],
+      historyTree: tree,
       index: 0,
     );
     axLog(LogDomain.editor, 'Loaded recipe: $label');
   }
 
-  /// Commits the live recipe as a new (optionally named) history node. Truncates
-  /// the redo tail — this is where a branch happens.
-  void commit({String? label}) {
+  /// Commits the live recipe as a new (optionally named) history node.
+  ///
+  /// Backed by the DAG [HistoryTree] (Issue #97). Appends a child to the current
+  /// node on [HistoryTree.activeBranch] while preserving parallel branches.
+  void commit({String? label, Map<String, dynamic>? metadata}) {
     if (!state.isDirty) return;
     final name = label ?? 'Edit';
-    final history = [
-      ...state.history.sublist(0, state.index + 1),
-      RecipeHistoryEntry(name, state.recipe),
-    ];
-    state = state.copyWith(history: history, index: history.length - 1);
-    axLog(LogDomain.editor, 'Committed edit: $name');
+    final currentTree = state.historyTree ??
+        HistoryTree.initial(initialRecipe: state.committed);
+    final updatedTree = currentTree.commit(
+      recipe: state.recipe,
+      label: name,
+      metadata: metadata,
+    );
+    final lineage = updatedTree.activeLineage;
+    final history = lineage
+        .map((n) => RecipeHistoryEntry(n.label, n.recipe, n.id))
+        .toList();
+
+    state = state.copyWith(
+      historyTree: updatedTree,
+      history: history,
+      index: history.length - 1,
+    );
+    axLog(LogDomain.editor, 'Committed edit: $name (branch: ${updatedTree.activeBranch})');
   }
 
   /// Discards live edits back to the current committed node.
   void cancel() => state = state.copyWith(recipe: state.committed);
 
-  /// Steps back one history node.
+  /// Steps back one history node along the active branch lineage.
   void undo() {
     if (state.index == 0) return;
     final i = state.index - 1;
-    state = state.copyWith(index: i, recipe: state.history[i].recipe);
+    final targetEntry = state.history[i];
+    final currentTree = state.historyTree;
+    final updatedTree = targetEntry.nodeId != null && currentTree != null
+        ? currentTree.jumpTo(targetEntry.nodeId!)
+        : currentTree;
+
+    state = state.copyWith(
+      index: i,
+      recipe: targetEntry.recipe,
+      historyTree: updatedTree,
+    );
     axLog(LogDomain.editor, 'Undo');
   }
 
-  /// Steps forward one history node.
+  /// Steps forward one history node along the active branch lineage.
   void redo() {
     if (state.index >= state.history.length - 1) return;
     final i = state.index + 1;
-    state = state.copyWith(index: i, recipe: state.history[i].recipe);
+    final targetEntry = state.history[i];
+    final currentTree = state.historyTree;
+    final updatedTree = targetEntry.nodeId != null && currentTree != null
+        ? currentTree.jumpTo(targetEntry.nodeId!)
+        : currentTree;
+
+    state = state.copyWith(
+      index: i,
+      recipe: targetEntry.recipe,
+      historyTree: updatedTree,
+    );
     axLog(LogDomain.editor, 'Redo');
   }
 
-  /// Jumps to a history node (viewing it). A later commit branches from here.
+  /// Jumps to a history node along the active branch lineage.
   void jumpTo(int index) {
     if (index < 0 || index >= state.history.length) return;
-    state = state.copyWith(index: index, recipe: state.history[index].recipe);
-    axLog(LogDomain.editor, 'Jumped to history entry $index: ${state.history[index].label}');
+    final targetEntry = state.history[index];
+    final currentTree = state.historyTree;
+    final updatedTree = targetEntry.nodeId != null && currentTree != null
+        ? currentTree.jumpTo(targetEntry.nodeId!)
+        : currentTree;
+
+    state = state.copyWith(
+      index: index,
+      recipe: targetEntry.recipe,
+      historyTree: updatedTree,
+    );
+    axLog(LogDomain.editor, 'Jumped to history entry $index: ${targetEntry.label}');
+  }
+
+  /// Jumps to an arbitrary node in the DAG by [nodeId], regardless of active branch.
+  void jumpToNode(NodeId nodeId) {
+    final currentTree = state.historyTree;
+    if (currentTree == null || !currentTree.nodes.containsKey(nodeId)) return;
+    final updatedTree = currentTree.jumpTo(nodeId);
+    final targetNode = updatedTree.nodes[nodeId]!;
+    final lineage = updatedTree.activeLineage;
+    final history = lineage
+        .map((n) => RecipeHistoryEntry(n.label, n.recipe, n.id))
+        .toList();
+    final index = lineage.indexWhere((n) => n.id == nodeId);
+
+    state = state.copyWith(
+      historyTree: updatedTree,
+      history: history,
+      index: index >= 0 ? index : history.length - 1,
+      recipe: targetNode.recipe,
+    );
+    axLog(LogDomain.editor, 'Jumped to DAG node $nodeId: ${targetNode.label}');
+  }
+
+  /// Creates a new named branch pointing at the current commit and switches to it.
+  void createBranch(String branchName) {
+    final currentTree = state.historyTree ??
+        HistoryTree.initial(initialRecipe: state.committed);
+    final updatedTree = currentTree.createBranch(branchName);
+    state = state.copyWith(historyTree: updatedTree);
+    axLog(LogDomain.editor, 'Created branch: $branchName');
+  }
+
+  /// Switches active branch to [branchName] and checks out its HEAD commit.
+  void switchBranch(String branchName) {
+    final currentTree = state.historyTree;
+    if (currentTree == null || !currentTree.branches.containsKey(branchName)) return;
+    final updatedTree = currentTree.switchBranch(branchName);
+    final headNode = updatedTree.currentNode;
+    final lineage = updatedTree.activeLineage;
+    final history = lineage
+        .map((n) => RecipeHistoryEntry(n.label, n.recipe, n.id))
+        .toList();
+
+    state = state.copyWith(
+      historyTree: updatedTree,
+      history: history,
+      index: history.length - 1,
+      recipe: headNode.recipe,
+    );
+    axLog(LogDomain.editor, 'Switched to branch: $branchName');
+  }
+
+  /// Deletes a branch pointer. The commits themselves remain in the DAG.
+  void deleteBranch(String branchName) {
+    final currentTree = state.historyTree;
+    if (currentTree == null) return;
+    final updatedTree = currentTree.deleteBranch(branchName);
+    state = state.copyWith(historyTree: updatedTree);
+    axLog(LogDomain.editor, 'Deleted branch: $branchName');
   }
 }
