@@ -67,5 +67,32 @@ void main() {
       expect(g.tileCount, 1);
       expect(g.visibleTiles(g.imageBounds).single.coord, const TileCoord(0, 0));
     });
+
+    test('coordinate scaling maps fitted dstRect (4000x3000 -> 1000x750) to correct image tiles', () {
+      final g = TileGrid(imageWidth: 4000, imageHeight: 3000, tileSize: 512);
+      // Visible rect in fitted coordinates (e.g. bottom-right 500x375 of 1000x750)
+      const fittedRect = Rect.fromLTWH(500, 375, 500, 375);
+      const fittedSize = Size(1000, 750);
+      final sx = 4000 / fittedSize.width; // 4.0
+      final sy = 3000 / fittedSize.height; // 4.0
+      final imagePixelsRect = Rect.fromLTWH(
+        fittedRect.left * sx,
+        fittedRect.top * sy,
+        fittedRect.width * sx,
+        fittedRect.height * sy,
+      );
+      // Image pixel rect should be (2000, 1500, 2000, 1500)
+      expect(imagePixelsRect, const Rect.fromLTWH(2000, 1500, 2000, 1500));
+      final tiles = g.visibleTiles(imagePixelsRect);
+      // 2000..4000 in X with 512 tile size spans cols 3..7
+      // 1500..3000 in Y with 512 tile size spans rows 2..5
+      final cols = tiles.map((t) => t.coord.col).toSet();
+      final rows = tiles.map((t) => t.coord.row).toSet();
+      expect(cols, containsAll([3, 4, 5, 6, 7]));
+      expect(rows, containsAll([2, 3, 4, 5]));
+      // Tile (0, 0) should NOT be in the bottom-right region
+      expect(tiles.any((t) => t.coord.col == 0 && t.coord.row == 0), isFalse);
+    });
   });
 }
+

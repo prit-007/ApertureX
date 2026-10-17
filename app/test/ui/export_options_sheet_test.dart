@@ -169,5 +169,45 @@ void main() {
     await tester.tap(find.byKey(const Key('c2pa_switch')));
     await tester.pumpAndSettle();
   });
+
+  testWidgets('ExportOptionsSheet selects Display-P3 gamut and toggles Ultra HDR', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                await ExportOptionsSheet.show(context, isRaw: false);
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    // Verify Gamut selector
+    expect(find.byKey(const Key('color_space_srgb_chip')), findsOneWidget);
+    expect(find.byKey(const Key('color_space_p3_chip')), findsOneWidget);
+
+    // Select Display-P3 chip
+    await tester.ensureVisible(find.byKey(const Key('color_space_p3_chip')));
+    await tester.tap(find.byKey(const Key('color_space_p3_chip')));
+    await tester.pumpAndSettle();
+
+    // Verify Ultra HDR switch
+    expect(find.byKey(const Key('ultra_hdr_switch')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('ultra_hdr_switch')));
+    await tester.tap(find.byKey(const Key('ultra_hdr_switch')));
+    await tester.pumpAndSettle();
+
+    // Headroom slider should now be visible
+    expect(find.textContaining('Peak Headroom:'), findsOneWidget);
+  });
 }
 

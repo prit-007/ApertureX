@@ -9,7 +9,6 @@ import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
-import '../../engine/image_format.dart';
 import '../../settings/ai_consent.dart';
 import '../../viewport/canvas_transform.dart';
 import '../../viewport/mask_peek.dart';
@@ -21,9 +20,7 @@ typedef SkyDetectorFn = Future<DetectedSky?> Function(Uint8List imageBytes);
 /// Riverpod provider for sky detection, overridable in tests.
 final skyDetectorProvider = Provider<SkyDetectorFn>((ref) {
   return (Uint8List bytes) async {
-    final decoded = isRawImage(bytes)
-        ? await AxEngine.decodeRawRgba(bytes)
-        : await AxEngine.decodeJpegRgba(bytes);
+    final decoded = await AxEngine.decodeAnalysisProxy(bytes);
     return AxEngine.detectSky(
       decoded.rgba,
       width: decoded.width,
@@ -46,9 +43,7 @@ final subjectSegmenterProvider = Provider<SubjectSegmenterFn>((ref) {
     int targetWidth = 256,
     int targetHeight = 256,
   }) async {
-    final decoded = isRawImage(bytes)
-        ? await AxEngine.decodeRawRgba(bytes)
-        : await AxEngine.decodeJpegRgba(bytes);
+    final decoded = await AxEngine.decodeAnalysisProxy(bytes);
     return AxEngine.segmentSubject(
       decoded.rgba,
       width: decoded.width,
@@ -65,9 +60,7 @@ typedef SubjectDetectorFn = Future<DetectedSubject?> Function(Uint8List imageByt
 /// Riverpod provider for subject detection (parametric fallback), overridable in tests.
 final subjectDetectorProvider = Provider<SubjectDetectorFn>((ref) {
   return (Uint8List bytes) async {
-    final decoded = isRawImage(bytes)
-        ? await AxEngine.decodeRawRgba(bytes)
-        : await AxEngine.decodeJpegRgba(bytes);
+    final decoded = await AxEngine.decodeAnalysisProxy(bytes);
     return AxEngine.detectSubject(
       decoded.rgba,
       width: decoded.width,
@@ -118,9 +111,7 @@ final maskRefinerProvider = Provider<MaskRefinerFn>((ref) {
     List<double> strokePoints = const [],
     double brushRadius = 0.05,
   }) async {
-    final decoded = isRawImage(bytes)
-        ? await AxEngine.decodeRawRgba(bytes)
-        : await AxEngine.decodeJpegRgba(bytes);
+    final decoded = await AxEngine.decodeAnalysisProxy(bytes);
     final refinedAlphas = await AxEngine.refineMask(
       rgba: decoded.rgba,
       width: decoded.width,
@@ -1636,7 +1627,8 @@ class _MaskColorGradingSectionState extends State<_MaskColorGradingSection> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final (hue, sat, lum) = _currentZoneValues;
+    final (rawHue, sat, lum) = _currentZoneValues;
+    final hue = (rawHue <= 1.0 && rawHue > 0) ? rawHue * 360.0 : rawHue;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

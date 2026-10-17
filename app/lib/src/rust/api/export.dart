@@ -359,6 +359,15 @@ class ExportSpec {
   /// Opaque cancel token from [`export_cancel_new`] (0 = no cancellation).
   final BigInt cancelToken;
 
+  /// Target color space: 0 = sRGB, 1 = Display-P3 (wide color gamut).
+  final int colorSpace;
+
+  /// Ultra HDR (ISO 21496-1) gain map generation and packaging.
+  final bool ultraHdr;
+
+  /// HDR headroom in EV stops (e.g. 2.0 = 400% brightness boost).
+  final double hdrHeadroom;
+
   const ExportSpec({
     required this.flipH,
     required this.flipV,
@@ -402,6 +411,9 @@ class ExportSpec {
     required this.maxDim,
     required this.bandRows,
     required this.cancelToken,
+    required this.colorSpace,
+    required this.ultraHdr,
+    required this.hdrHeadroom,
   });
 
   @override
@@ -447,7 +459,10 @@ class ExportSpec {
       quality.hashCode ^
       maxDim.hashCode ^
       bandRows.hashCode ^
-      cancelToken.hashCode;
+      cancelToken.hashCode ^
+      colorSpace.hashCode ^
+      ultraHdr.hashCode ^
+      hdrHeadroom.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -495,5 +510,8 @@ class ExportSpec {
           quality == other.quality &&
           maxDim == other.maxDim &&
           bandRows == other.bandRows &&
-          cancelToken == other.cancelToken;
+          cancelToken == other.cancelToken &&
+          colorSpace == other.colorSpace &&
+          ultraHdr == other.ultraHdr &&
+          hdrHeadroom == other.hdrHeadroom;
 }

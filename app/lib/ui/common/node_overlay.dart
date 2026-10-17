@@ -109,6 +109,11 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       behavior: HitTestBehavior.opaque,
       onPointerHover: (e) => setState(() => _pointerPos = e.localPosition),
       onPointerDown: (e) {
+        final stylusOnly = ref.read(stylusOnlyModeProvider);
+        final isStylus = e.kind == PointerDeviceKind.stylus ||
+            e.kind == PointerDeviceKind.invertedStylus;
+        if (stylusOnly && !isStylus) return;
+
         _activePointers[e.pointer] = e.localPosition;
         if (_activePointers.length >= 2) {
           _reset();
@@ -123,6 +128,11 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         _onDown(e, transform, layers);
       },
       onPointerMove: (e) {
+        final stylusOnly = ref.read(stylusOnlyModeProvider);
+        final isStylus = e.kind == PointerDeviceKind.stylus ||
+            e.kind == PointerDeviceKind.invertedStylus;
+        if (stylusOnly && !isStylus) return;
+
         _activePointers[e.pointer] = e.localPosition;
         if (_activePointers.length >= 2) {
           final pts = _activePointers.values.toList();
@@ -148,6 +158,11 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         _onMove(e, transform, layers);
       },
       onPointerUp: (e) {
+        final stylusOnly = ref.read(stylusOnlyModeProvider);
+        final isStylus = e.kind == PointerDeviceKind.stylus ||
+            e.kind == PointerDeviceKind.invertedStylus;
+        if (stylusOnly && !isStylus) return;
+
         _activePointers.remove(e.pointer);
         if (_activePointers.length < 2 && _prevFocalPoint != null) {
           _prevFocalPoint = null;
@@ -159,6 +174,11 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         }
       },
       onPointerCancel: (e) {
+        final stylusOnly = ref.read(stylusOnlyModeProvider);
+        final isStylus = e.kind == PointerDeviceKind.stylus ||
+            e.kind == PointerDeviceKind.invertedStylus;
+        if (stylusOnly && !isStylus) return;
+
         _activePointers.remove(e.pointer);
         if (_activePointers.isEmpty) {
           if (_prevFocalPoint != null) {
@@ -479,8 +499,9 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
     if (_liveBrushPoints != null && _dragIndex != null) {
       final isRefine = ref.read(nodeEditorProvider.select((s) => s.refineBrushMode));
       final layers = ref.read(recipeControllerProvider).recipe.layers;
-      if (_dragIndex! < layers.length) {
-        final layer = layers[_dragIndex!];
+      final targetIndex = _dragIndex!;
+      if (targetIndex < layers.length) {
+        final layer = layers[targetIndex];
         if (isRefine) {
           final pts = List<double>.from(_liveBrushPoints!);
           final bytes = ref.read(activeImageBytesProvider);
@@ -490,8 +511,11 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
                 ? layer.brushRadius
                 : 0.05;
             refiner(layer, bytes, strokePoints: pts, brushRadius: brushR).then((refined) {
-              if (refined != null) {
-                ref.read(recipeControllerProvider.notifier).updateLayerAt(_dragIndex!, refined);
+              if (refined != null && mounted) {
+                final currentLayers = ref.read(recipeControllerProvider).recipe.layers;
+                if (targetIndex < currentLayers.length) {
+                  ref.read(recipeControllerProvider.notifier).updateLayerAt(targetIndex, refined);
+                }
               }
             });
           }

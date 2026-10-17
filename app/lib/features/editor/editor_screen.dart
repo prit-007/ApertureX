@@ -80,6 +80,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   Uint8List? _bytes;
   GalleryAsset? _currentAsset;
   String? _currentEntryId;
+
+  GalleryAsset? get currentAsset => _currentAsset;
+  String? get currentEntryId => _currentEntryId;
+
   bool _loading = true;
   String? _error;
   bool _exporting = false;
@@ -259,9 +263,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     var token = 0;
     ExportProgressPoller? poller;
     try {
-      final bytes = widget.asset != null
-          ? await ref.read(gallerySourceProvider).loadImage(widget.asset!.id)
+      final currentAsset = _currentAsset ?? widget.asset;
+      final bytes = currentAsset != null
+          ? await ref.read(gallerySourceProvider).loadImage(currentAsset.id)
           : previewBytes;
+
       if (bytes.isEmpty) throw StateError('The image could not be read.');
 
       final recipe = ref.read(recipeControllerProvider).recipe;
@@ -313,7 +319,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       if (!mounted) return;
       setState(() => _exportPhase = ExportPhase.saving);
 
-      final entryId = widget._entryId ?? 'sample';
+      final entryId = _currentEntryId ?? widget._entryId ?? 'sample';
       final hash = computeRecipeHash(recipe);
       final aspect = decoded.width / decoded.height;
       int outW = decoded.width;
@@ -446,9 +452,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     try {
       // Export at full resolution: fetch the original only now (never during
       // preview), so the editor's memory stays at preview size until export.
-      final bytes = widget.asset != null
-          ? await ref.read(gallerySourceProvider).loadImage(widget.asset!.id)
+      final currentAsset = _currentAsset ?? widget.asset;
+      final bytes = currentAsset != null
+          ? await ref.read(gallerySourceProvider).loadImage(currentAsset.id)
           : previewBytes;
+
       if (bytes.isEmpty) throw StateError('The image could not be read.');
 
       final recipe = ref.read(recipeControllerProvider).recipe;
@@ -504,6 +512,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         quality: settings.quality,
         maxDim: settings.maxDim == 0 ? null : settings.maxDim,
         cancelToken: token,
+        colorSpace: settings.colorSpace,
+        ultraHdr: settings.ultraHdr,
+        hdrHeadroom: settings.hdrHeadroom,
       );
       if (jpeg == null) {
         axLog(LogDomain.export, 'Export cancelled');
@@ -567,9 +578,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _exportRenderFraction = 0;
     });
     try {
-      final bytes = widget.asset != null
-          ? await ref.read(gallerySourceProvider).loadImage(widget.asset!.id)
+      final currentAsset = _currentAsset ?? widget.asset;
+      final bytes = currentAsset != null
+          ? await ref.read(gallerySourceProvider).loadImage(currentAsset.id)
           : previewBytes;
+
       if (bytes.isEmpty) throw StateError('The image could not be read.');
       if (!isRawImage(bytes)) throw StateError('The image is not a RAW image.');
 
@@ -639,9 +652,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     var token = 0;
     ExportProgressPoller? poller;
     try {
-      final bytes = widget.asset != null
-          ? await ref.read(gallerySourceProvider).loadImage(widget.asset!.id)
+      final currentAsset = _currentAsset ?? widget.asset;
+      final bytes = currentAsset != null
+          ? await ref.read(gallerySourceProvider).loadImage(currentAsset.id)
           : previewBytes;
+
       if (bytes.isEmpty) throw StateError('The image could not be read.');
 
       final recipe = ref.read(recipeControllerProvider).recipe;
@@ -691,6 +706,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         quality: settings.quality,
         maxDim: settings.maxDim == 0 ? null : settings.maxDim,
         cancelToken: token,
+        colorSpace: settings.colorSpace,
+        ultraHdr: settings.ultraHdr,
+        hdrHeadroom: settings.hdrHeadroom,
       );
       if (jpeg == null) {
         axLog(LogDomain.export, 'Export cancelled');
@@ -854,7 +872,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 context,
                 imageBytes: _bytes!,
                 recipe: state.recipe,
-                asset: widget.asset,
+                asset: _currentAsset ?? widget.asset,
               ),
       icon: const Icon(Icons.info_outline),
     );
@@ -876,7 +894,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     );
 
     return EditorShortcuts(
-      entryId: widget._entryId,
+      entryId: _currentEntryId ?? widget._entryId,
       child: Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(kToolbarHeight),
@@ -943,22 +961,35 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 children: [
                   _body(
                     gestureShell: gestureShell,
-                    hud: Row(
-                      children: [
-                        crop,
-                        undo,
-                        redo,
-                        history,
-                        info,
-                        guide,
-                        more,
-                        const Spacer(),
-                        Padding(
-                          padding: const EdgeInsets.only(right: Insets.sm),
-                          child: export,
-                        ),
-                      ],
+                    hud: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final wide = constraints.maxWidth.isFinite && constraints.maxWidth >= 500;
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(
+                            width: wide ? constraints.maxWidth : null,
+                            child: Row(
+                              children: [
+                                crop,
+                                undo,
+                                redo,
+                                history,
+                                info,
+                                guide,
+                                more,
+                                if (wide) const Spacer() else const SizedBox(width: Insets.md),
+                                Padding(
+                                  padding: const EdgeInsets.only(right: Insets.sm),
+                                  child: export,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
+
+
                   ),
                   // Modal barrier while the share sheet's temp files are
                   // being written. It dismisses itself right before the system

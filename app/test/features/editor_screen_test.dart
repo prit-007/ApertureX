@@ -306,5 +306,31 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(HistoryTreeSheet), findsOneWidget);
     });
+
+    testWidgets('EditorScreen initializes and tracks currentAsset and currentEntryId for navigation', (
+      tester,
+    ) async {
+      final container = containerWith(images: {'a': _png, 'b': _png});
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: EditorScreen(
+              asset: GalleryAsset(id: 'a', width: 1, height: 1),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final state = tester.state(find.byType(EditorScreen)) as dynamic;
+      expect(state.currentAsset?.id, 'a');
+      expect(state.currentEntryId, originalEntryId('a'));
+
+    });
   });
 }
+

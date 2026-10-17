@@ -3837,8 +3837,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ExportSpec dco_decode_export_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 42)
-      throw Exception('unexpected arr length: expect 42 but see ${arr.length}');
+    if (arr.length != 45)
+      throw Exception('unexpected arr length: expect 45 but see ${arr.length}');
     return ExportSpec(
       flipH: dco_decode_bool(arr[0]),
       flipV: dco_decode_bool(arr[1]),
@@ -3882,6 +3882,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       maxDim: dco_decode_u_32(arr[39]),
       bandRows: dco_decode_u_32(arr[40]),
       cancelToken: dco_decode_u_64(arr[41]),
+      colorSpace: dco_decode_u_32(arr[42]),
+      ultraHdr: dco_decode_bool(arr[43]),
+      hdrHeadroom: dco_decode_f_32(arr[44]),
     );
   }
 
@@ -4668,6 +4671,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_maxDim = sse_decode_u_32(deserializer);
     var var_bandRows = sse_decode_u_32(deserializer);
     var var_cancelToken = sse_decode_u_64(deserializer);
+    var var_colorSpace = sse_decode_u_32(deserializer);
+    var var_ultraHdr = sse_decode_bool(deserializer);
+    var var_hdrHeadroom = sse_decode_f_32(deserializer);
     return ExportSpec(
       flipH: var_flipH,
       flipV: var_flipV,
@@ -4711,6 +4717,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       maxDim: var_maxDim,
       bandRows: var_bandRows,
       cancelToken: var_cancelToken,
+      colorSpace: var_colorSpace,
+      ultraHdr: var_ultraHdr,
+      hdrHeadroom: var_hdrHeadroom,
     );
   }
 
@@ -5549,6 +5558,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_32(self.maxDim, serializer);
     sse_encode_u_32(self.bandRows, serializer);
     sse_encode_u_64(self.cancelToken, serializer);
+    sse_encode_u_32(self.colorSpace, serializer);
+    sse_encode_bool(self.ultraHdr, serializer);
+    sse_encode_f_32(self.hdrHeadroom, serializer);
   }
 
   @protected

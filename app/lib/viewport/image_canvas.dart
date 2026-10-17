@@ -255,7 +255,6 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         height: proxy.$4,
       );
       if (!mounted) {
-        proxy.$1.dispose();
         unawaited(AxEngine.previewClose(handle));
         return;
       }
@@ -375,9 +374,17 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
 
     final grid = _tileGrid;
-    if (grid == null) return;
-    final world = plan.dstRect; // visible world rect, in image pixels
-    final visible = grid.visibleTiles(world);
+    if (grid == null || fitted.width <= 0 || fitted.height <= 0) return;
+    final scaleToImageX = _fullW / fitted.width;
+    final scaleToImageY = _fullH / fitted.height;
+    final imagePixelRect = Rect.fromLTWH(
+      plan.dstRect.left * scaleToImageX,
+      plan.dstRect.top * scaleToImageY,
+      plan.dstRect.width * scaleToImageX,
+      plan.dstRect.height * scaleToImageY,
+    );
+    final visible = grid.visibleTiles(imagePixelRect);
+
     final baseKey = _baseKey(recipe);
     final spatialChanged = _tileBaseKey != baseKey;
     final needed = [
@@ -1378,14 +1385,23 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final scale = _scale;
     if (scale <= 0) return const [];
     // Inverse of the viewport transform (translate(offset) * scale, topLeft):
-    // world = (screen - offset) / scale.
-    final visibleWorld = Rect.fromLTWH(
+    // world = (screen - offset) / scale (in fitted coordinates).
+    final visibleFitted = Rect.fromLTWH(
       -_offset.dx / scale,
       -_offset.dy / scale,
       _lastBounds.width / scale,
       _lastBounds.height / scale,
-    ).intersect(Rect.fromLTWH(0, 0, _fullW.toDouble(), _fullH.toDouble()));
-    if (visibleWorld.width <= 0 || visibleWorld.height <= 0) return const [];
+    ).intersect(Rect.fromLTWH(0, 0, fitted.width, fitted.height));
+    if (visibleFitted.width <= 0 || visibleFitted.height <= 0) return const [];
+    final scaleToImageX = _fullW / fitted.width;
+    final scaleToImageY = _fullH / fitted.height;
+    final visibleWorld = Rect.fromLTWH(
+      visibleFitted.left * scaleToImageX,
+      visibleFitted.top * scaleToImageY,
+      visibleFitted.width * scaleToImageX,
+      visibleFitted.height * scaleToImageY,
+    );
+
     final sx = fitted.width / _fullW;
     final sy = fitted.height / _fullH;
     final out = <_CanvasTile>[];

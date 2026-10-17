@@ -3210,6 +3210,9 @@ impl SseDecode for crate::api::export::ExportSpec {
         let mut var_maxDim = <u32>::sse_decode(deserializer);
         let mut var_bandRows = <u32>::sse_decode(deserializer);
         let mut var_cancelToken = <u64>::sse_decode(deserializer);
+        let mut var_colorSpace = <u32>::sse_decode(deserializer);
+        let mut var_ultraHdr = <bool>::sse_decode(deserializer);
+        let mut var_hdrHeadroom = <f32>::sse_decode(deserializer);
         return crate::api::export::ExportSpec {
             flip_h: var_flipH,
             flip_v: var_flipV,
@@ -3253,6 +3256,9 @@ impl SseDecode for crate::api::export::ExportSpec {
             max_dim: var_maxDim,
             band_rows: var_bandRows,
             cancel_token: var_cancelToken,
+            color_space: var_colorSpace,
+            ultra_hdr: var_ultraHdr,
+            hdr_headroom: var_hdrHeadroom,
         };
     }
 }
@@ -4325,6 +4331,9 @@ impl flutter_rust_bridge::IntoDart for crate::api::export::ExportSpec {
             self.max_dim.into_into_dart().into_dart(),
             self.band_rows.into_into_dart().into_dart(),
             self.cancel_token.into_into_dart().into_dart(),
+            self.color_space.into_into_dart().into_dart(),
+            self.ultra_hdr.into_into_dart().into_dart(),
+            self.hdr_headroom.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4883,6 +4892,9 @@ impl SseEncode for crate::api::export::ExportSpec {
         <u32>::sse_encode(self.max_dim, serializer);
         <u32>::sse_encode(self.band_rows, serializer);
         <u64>::sse_encode(self.cancel_token, serializer);
+        <u32>::sse_encode(self.color_space, serializer);
+        <bool>::sse_encode(self.ultra_hdr, serializer);
+        <f32>::sse_encode(self.hdr_headroom, serializer);
     }
 }
 

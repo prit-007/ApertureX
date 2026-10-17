@@ -455,7 +455,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 6, 8, 8),
                     child: SizedBox(
-                      width: 330,
+                      width: math.min(330.0, MediaQuery.sizeOf(context).width - 32.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [

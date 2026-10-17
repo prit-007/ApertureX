@@ -38,27 +38,29 @@ class LabControls extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Custom GLSL Shader'),
-        content: SizedBox(
-          width: 500,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Paste custom fragment shader code or uniforms.\nu_param1, u_param2, u_param3 are available as float uniforms.',
-                style: TextStyle(fontSize: 12),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                maxLines: 10,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: '// Paste GLSL fragment shader code here...',
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Paste custom fragment shader code or uniforms.\nu_param1, u_param2, u_param3 are available as float uniforms.',
+                  style: TextStyle(fontSize: 12),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  maxLines: 10,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: '// Paste GLSL fragment shader code here...',
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         actions: [

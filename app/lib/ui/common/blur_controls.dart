@@ -9,7 +9,6 @@ import '../../edit/active_image.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
-import '../../engine/image_format.dart';
 import '../../settings/ai_consent.dart';
 import '../../src/rust/api/mask.dart' as rust_mask;
 import 'app_primitives.dart';
@@ -22,9 +21,7 @@ typedef SubjectDetectorFn = Future<rust_mask.DetectedSubject?> Function(Uint8Lis
 /// Riverpod provider for subject detection for depth calibration, overridable in tests.
 final subjectDetectorProvider = Provider<SubjectDetectorFn>((ref) {
   return (Uint8List bytes) async {
-    final decoded = isRawImage(bytes)
-        ? await AxEngine.decodeRawRgba(bytes)
-        : await AxEngine.decodeJpegRgba(bytes);
+    final decoded = await AxEngine.decodeAnalysisProxy(bytes);
     return AxEngine.detectSubject(
       decoded.rgba,
       width: decoded.width,

@@ -1,5 +1,7 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'image_format.dart';
 import '../color/grade_spec.dart';
 import '../color/optics_spec.dart';
 import '../color/spatial_spec.dart';
@@ -108,7 +110,43 @@ class AxEngine {
     height: height,
   );
 
+  /// Decodes an image into a bounded proxy buffer (<= [maxDim], ~2 MP) for AI / mask /
+  /// geometry analysis to prevent out-of-memory errors on large mobile photos.
+  static Future<RgbaImage> decodeAnalysisProxy(
+    Uint8List bytes, {
+    int maxDim = 1920,
+  }) async {
+    final decoded = isRawImage(bytes)
+        ? await decodeRawRgba(bytes)
+        : await decodeJpegRgba(bytes);
+    if (maxDim > 0 && math.max(decoded.width, decoded.height) > maxDim) {
+      final d = await downscale(
+        decoded.rgba,
+        width: decoded.width,
+        height: decoded.height,
+        maxDim: maxDim,
+      );
+      return RgbaImage(
+        rgba: d.rgba,
+        width: d.width,
+        height: d.height,
+      );
+    }
+    return decoded;
+  }
+
   // --- colour / 3D LUT (P2 Slice D) -----------------------------------------
+
+  /// Normalizes a color-grading hue value (either in degrees `0..360` from the UI
+  /// or already normalized `0..1` from presets) into the canonical `[0.0, 1.0)`
+  /// range expected by the Rust grading engine (`color.rs`).
+  static double normalizeHue(double h) {
+    if (h > 1.0 || h < 0.0) {
+      final deg = ((h % 360.0) + 360.0) % 360.0;
+      return (deg / 360.0).clamp(0.0, 1.0);
+    }
+    return h.clamp(0.0, 1.0);
+  }
 
   static rust_color.ColorParams _colorParams(GradeSpec s) =>
       rust_color.ColorParams(
@@ -122,18 +160,19 @@ class AxEngine {
         temperature: s.temperature,
         tint: s.tint,
         vibrance: s.vibrance,
-        gradeShadowHue: s.gradeShadowHue,
+        gradeShadowHue: normalizeHue(s.gradeShadowHue),
         gradeShadowSat: s.gradeShadowSat,
         gradeShadowLum: s.gradeShadowLum,
-        gradeMidHue: s.gradeMidHue,
+        gradeMidHue: normalizeHue(s.gradeMidHue),
         gradeMidSat: s.gradeMidSat,
         gradeMidLum: s.gradeMidLum,
-        gradeHighlightHue: s.gradeHighlightHue,
+        gradeHighlightHue: normalizeHue(s.gradeHighlightHue),
         gradeHighlightSat: s.gradeHighlightSat,
         gradeHighlightLum: s.gradeHighlightLum,
         gradeBlending: s.gradeBlending,
         gradeBalance: s.gradeBalance,
       );
+
 
   static rust_color.CurveParams _curveParams(GradeSpec s) =>
       rust_color.CurveParams(
@@ -442,13 +481,13 @@ class AxEngine {
         temperature: l.temperature,
         tint: l.tint,
         vibrance: 0,
-        gradeShadowHue: l.gradeShadowHue,
+        gradeShadowHue: normalizeHue(l.gradeShadowHue),
         gradeShadowSat: l.gradeShadowSat,
         gradeShadowLum: l.gradeShadowLum,
-        gradeMidHue: l.gradeMidHue,
+        gradeMidHue: normalizeHue(l.gradeMidHue),
         gradeMidSat: l.gradeMidSat,
         gradeMidLum: l.gradeMidLum,
-        gradeHighlightHue: l.gradeHighlightHue,
+        gradeHighlightHue: normalizeHue(l.gradeHighlightHue),
         gradeHighlightSat: l.gradeHighlightSat,
         gradeHighlightLum: l.gradeHighlightLum,
         gradeBlending: l.gradeBlending,
@@ -467,18 +506,19 @@ class AxEngine {
         temperature: g.temperature,
         tint: g.tint,
         vibrance: 0,
-        gradeShadowHue: g.gradeShadowHue,
+        gradeShadowHue: normalizeHue(g.gradeShadowHue),
         gradeShadowSat: g.gradeShadowSat,
         gradeShadowLum: g.gradeShadowLum,
-        gradeMidHue: g.gradeMidHue,
+        gradeMidHue: normalizeHue(g.gradeMidHue),
         gradeMidSat: g.gradeMidSat,
         gradeMidLum: g.gradeMidLum,
-        gradeHighlightHue: g.gradeHighlightHue,
+        gradeHighlightHue: normalizeHue(g.gradeHighlightHue),
         gradeHighlightSat: g.gradeHighlightSat,
         gradeHighlightLum: g.gradeHighlightLum,
         gradeBlending: g.gradeBlending,
         gradeBalance: g.gradeBalance,
       );
+
 
   static rust_mask.MaskLayer _maskLayer(
     AdjustmentLayer l, {
@@ -729,6 +769,9 @@ class AxEngine {
     int quality = 90,
     int? maxDim,
     int cancelToken = 0,
+    int colorSpace = 0,
+    bool ultraHdr = false,
+    double hdrHeadroom = 2.0,
   }) async {
     final exportSpec = rust_export.ExportSpec(
       flipH: geometry.flipH,
@@ -773,6 +816,9 @@ class AxEngine {
       maxDim: maxDim ?? 0,
       bandRows: 256,
       cancelToken: BigInt.from(cancelToken),
+      colorSpace: colorSpace,
+      ultraHdr: ultraHdr,
+      hdrHeadroom: hdrHeadroom,
     );
 
     final mappedLayers = _mapLayers(layers, maskGroups);
@@ -846,6 +892,9 @@ class AxEngine {
     List<int> exif = const <int>[],
     int quality = 90,
     int? maxDim,
+    int colorSpace = 0,
+    bool ultraHdr = false,
+    double hdrHeadroom = 2.0,
   }) async {
     final jpeg = await exportJpegFull(
       rgba: rgba,
@@ -860,6 +909,9 @@ class AxEngine {
       exif: exif,
       quality: quality,
       maxDim: maxDim,
+      colorSpace: colorSpace,
+      ultraHdr: ultraHdr,
+      hdrHeadroom: hdrHeadroom,
     );
     // Token 0 never cancels, so this is always non-null.
     return jpeg!;

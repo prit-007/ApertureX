@@ -104,33 +104,46 @@ class _LutImportSheetState extends ConsumerState<LutImportSheet> {
           decoration: const InputDecoration(hintText: 'Paste .cube / .3dl…'),
         ),
         const SizedBox(height: Insets.md),
-        Row(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: Insets.xs,
+          runSpacing: Insets.xs,
           children: [
-            TextButton(
-              onPressed: active == null
-                  ? null
-                  : () {
-                      ref.read(importedLutProvider.notifier).clear();
-                      Navigator.of(context).maybePop();
-                    },
-              child: const Text('Clear'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton(
+                  onPressed: active == null
+                      ? null
+                      : () {
+                          ref.read(importedLutProvider.notifier).clear();
+                          Navigator.of(context).maybePop();
+                        },
+                  child: const Text('Clear'),
+                ),
+                const SizedBox(width: Insets.xs),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).maybePop();
+                    showAppSheet(context, const LutExportSheet());
+                  },
+                  icon: const Icon(Icons.file_upload, size: 16),
+                  label: const Text('Export .CUBE'),
+                ),
+              ],
             ),
-            const SizedBox(width: Insets.xs),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.of(context).maybePop();
-                showAppSheet(context, const LutExportSheet());
-              },
-              icon: const Icon(Icons.file_upload, size: 16),
-              label: const Text('Export .CUBE'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton(
+                  onPressed: _pickHald,
+                  child: const Text('Pick HALD PNG'),
+                ),
+                const SizedBox(width: Insets.sm),
+                FilledButton(onPressed: _apply, child: const Text('Apply')),
+              ],
             ),
-            const Spacer(),
-            OutlinedButton(
-              onPressed: _pickHald,
-              child: const Text('Pick HALD PNG'),
-            ),
-            const SizedBox(width: Insets.sm),
-            FilledButton(onPressed: _apply, child: const Text('Apply')),
           ],
         ),
       ],

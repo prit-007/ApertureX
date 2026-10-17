@@ -557,7 +557,9 @@ class _AppShellState extends ConsumerState<AppShell> {
         );
 
         if (wide) {
-          final sidebarWidth = (constraints.maxWidth * 0.30).clamp(320.0, 480.0);
+          final sidebarWidth = (constraints.maxWidth * 0.30)
+              .clamp(240.0, 480.0)
+              .clamp(200.0, constraints.maxWidth * 0.40);
           return Material(
             color: scheme.surface,
             child: Row(
@@ -1111,99 +1113,102 @@ class _CompareHint extends ConsumerWidget {
           horizontal: Insets.sm,
           vertical: 4,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Listener(
-              behavior: HitTestBehavior.opaque,
-              onPointerDown: (_) => ref.read(compareHoldProvider.notifier).hold(),
-              onPointerUp: (_) => ref.read(compareHoldProvider.notifier).release(),
-              onPointerCancel: (_) => ref.read(compareHoldProvider.notifier).release(),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.compare, size: 14, color: scheme.primary),
-                  const SizedBox(width: Insets.xs),
-                  Text(
-                    'Hold to compare',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.onSurfaceVariant,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (_) => ref.read(compareHoldProvider.notifier).hold(),
+                onPointerUp: (_) => ref.read(compareHoldProvider.notifier).release(),
+                onPointerCancel: (_) => ref.read(compareHoldProvider.notifier).release(),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.compare, size: 14, color: scheme.primary),
+                    const SizedBox(width: Insets.xs),
+                    Text(
+                      'Hold to compare',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              width: 1,
-              height: 12,
-              color: scheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                ref.read(wiperCompareProvider.notifier).toggle();
-                HapticFeedback.selectionClick();
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.splitscreen,
-                    size: 14,
-                    color: wiper.isActive ? scheme.primary : scheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: Insets.xs),
-                  Text(
-                    'Wiper',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: wiper.isActive ? FontWeight.bold : FontWeight.w600,
+              const SizedBox(width: 8),
+              Container(
+                width: 1,
+                height: 12,
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  ref.read(wiperCompareProvider.notifier).toggle();
+                  HapticFeedback.selectionClick();
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.splitscreen,
+                      size: 14,
                       color: wiper.isActive ? scheme.primary : scheme.onSurfaceVariant,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: Insets.xs),
+                    Text(
+                      'Wiper',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: wiper.isActive ? FontWeight.bold : FontWeight.w600,
+                        color: wiper.isActive ? scheme.primary : scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              width: 1,
-              height: 12,
-              color: scheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                ref.read(exposureAssistProvider.notifier).cycleMode();
-                HapticFeedback.selectionClick();
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.wb_iridescent_outlined,
-                    size: 14,
-                    color: assist.isActive ? scheme.primary : scheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: Insets.xs),
-                  Text(
-                    assist.mode == ExposureAssistMode.zebras
-                        ? 'Zebras'
-                        : (assist.mode == ExposureAssistMode.falseColor ? 'IRE' : 'Assist'),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: assist.isActive ? FontWeight.bold : FontWeight.w600,
+              const SizedBox(width: 8),
+              Container(
+                width: 1,
+                height: 12,
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  ref.read(exposureAssistProvider.notifier).cycleMode();
+                  HapticFeedback.selectionClick();
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.wb_iridescent_outlined,
+                      size: 14,
                       color: assist.isActive ? scheme.primary : scheme.onSurfaceVariant,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: Insets.xs),
+                    Text(
+                      assist.mode == ExposureAssistMode.zebras
+                          ? 'Zebras'
+                          : (assist.mode == ExposureAssistMode.falseColor ? 'IRE' : 'Assist'),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: assist.isActive ? FontWeight.bold : FontWeight.w600,
+                        color: assist.isActive ? scheme.primary : scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

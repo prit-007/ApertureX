@@ -227,6 +227,89 @@ class _ExportOptionsSheetContentState
                   ),
                 ),
 
+                // Color Space (Wide Color Gamut #15)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Insets.md,
+                    vertical: Insets.xs,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.palette_outlined, size: 18),
+                      const SizedBox(width: Insets.sm),
+                      Text(
+                        'Gamut:',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: Insets.md),
+                      ChoiceChip(
+                        key: const Key('color_space_srgb_chip'),
+                        label: const Text('sRGB'),
+                        selected: exportSettings.colorSpace == 0,
+                        onSelected: (selected) {
+                          if (selected) exportNotifier.setColorSpace(0);
+                        },
+                      ),
+                      const SizedBox(width: Insets.xs),
+                      ChoiceChip(
+                        key: const Key('color_space_p3_chip'),
+                        label: const Text('Display-P3 (WCG)'),
+                        selected: exportSettings.colorSpace == 1,
+                        onSelected: (selected) {
+                          if (selected) exportNotifier.setColorSpace(1);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Ultra HDR (ISO 21496-1 Gain Map #20)
+                SwitchListTile(
+                  key: const Key('ultra_hdr_switch'),
+                  secondary: const Icon(Icons.hdr_on_outlined),
+                  title: const Text(
+                    'Ultra HDR (Gain Map)',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'ISO 21496-1 gain map for HDR OLED displays & Google Photos',
+                  ),
+                  value: exportSettings.ultraHdr,
+                  onChanged: (enabled) {
+                    exportNotifier.setUltraHdr(enabled);
+                  },
+                ),
+                if (exportSettings.ultraHdr)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Insets.lg,
+                      vertical: Insets.xs,
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Peak Headroom: +${exportSettings.hdrHeadroom.toStringAsFixed(1)} EV',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Expanded(
+                          child: Slider(
+                            value: exportSettings.hdrHeadroom,
+                            min: 1.0,
+                            max: 4.0,
+                            divisions: 30,
+                            onChanged: (val) {
+                              exportNotifier.setHdrHeadroom(val);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 const Divider(height: 1),
 
                 // Progressive Disclosure Section: Watermarks & Custom Branding

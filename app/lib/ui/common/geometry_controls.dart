@@ -5,7 +5,6 @@ import 'package:material_ui/material_ui.dart';
 import '../../edit/active_image.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
-import '../../engine/image_format.dart';
 import 'precision_rotation_dial.dart';
 
 enum GeometrySubTab {
@@ -38,9 +37,7 @@ class GeometryControls extends ConsumerWidget {
           return;
         }
         try {
-          final decoded = isRawImage(bytes)
-              ? await AxEngine.decodeRawRgba(bytes)
-              : await AxEngine.decodeJpegRgba(bytes);
+          final decoded = await AxEngine.decodeAnalysisProxy(bytes);
           final angle = await AxEngine.detectStraightenAngle(
             decoded.rgba,
             width: decoded.width,

@@ -95,6 +95,12 @@ pub struct ExportSpec {
     pub band_rows: u32,
     /// Opaque cancel token from [`export_cancel_new`] (0 = no cancellation).
     pub cancel_token: u64,
+    /// Target color space: 0 = sRGB, 1 = Display-P3 (wide color gamut).
+    pub color_space: u32,
+    /// Ultra HDR (ISO 21496-1) gain map generation and packaging.
+    pub ultra_hdr: bool,
+    /// HDR headroom in EV stops (e.g. 2.0 = 400% brightness boost).
+    pub hdr_headroom: f32,
 }
 
 /// The result of [`export_full`]: JPEG bytes, or a flag when the export was
@@ -424,10 +430,41 @@ pub fn export_full_with_branding(
 
     // Process custom branding & watermarking (Museum Frame, Signature, FOSS Badge)
     let core_branding = branding.to_core();
-    let (branded_rgba, final_w, final_h) =
+    let (mut branded_rgba, final_w, final_h) =
         crate::watermark::process_branding_pipeline(&rgba, out_w, out_h, &core_branding);
 
-    let mut jpeg = export::encode_jpeg(&branded_rgba, final_w, final_h, spec.quality, &exif)?;
+    let is_p3 = spec.color_space == 1;
+    if is_p3 {
+        branded_rgba = crate::icc::srgb_to_p3(&branded_rgba, final_w as usize, final_h as usize);
+    }
+
+    let mut jpeg = if spec.ultra_hdr {
+        let meta = crate::ultrahdr::UltraHdrMetadata {
+            gain_map_max: if spec.hdr_headroom > 0.0 {
+                spec.hdr_headroom
+            } else {
+                2.0
+            },
+            ..Default::default()
+        };
+        crate::ultrahdr::encode_ultra_hdr_jpeg(
+            &branded_rgba,
+            final_w as usize,
+            final_h as usize,
+            spec.quality,
+            85,
+            &exif,
+            &meta,
+            None,
+        )?
+    } else {
+        export::encode_jpeg(&branded_rgba, final_w, final_h, spec.quality, &exif)?
+    };
+
+    if is_p3 {
+        let p3_seg = crate::icc::make_p3_app2_segment();
+        jpeg = crate::exif::inject_app1(jpeg, &p3_seg);
+    }
 
     // If C2PA is requested, sign claims and inject JUMBF APP11
     if c2pa.enable_c2pa && !c2pa.device_private_key.is_empty() {
@@ -553,6 +590,9 @@ mod tests {
             max_dim: 0,
             band_rows: 16,
             cancel_token: 0,
+            color_space: 0,
+            ultra_hdr: false,
+            hdr_headroom: 2.0,
         }
     }
 
@@ -696,5 +736,54 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.contains("expected"), "got: {err}");
+    }
+
+    #[test]
+    fn export_full_with_display_p3_embeds_icc_profile() {
+        let mut s = spec();
+        s.color_space = 1; // Display-P3
+        let res = export_full(
+            solid(8, 8, 200, 100, 50),
+            8,
+            8,
+            s,
+            Vec::new(),
+            ColorParams::default(),
+            neutral_curves(),
+            vec![0.0; 24],
+            Vec::new(),
+        )
+        .unwrap();
+
+        assert!(!res.cancelled);
+        assert_eq!(
+            crate::icc::detect_colorspace(&res.jpeg),
+            crate::icc::CS_DISPLAY_P3
+        );
+    }
+
+    #[test]
+    fn export_full_with_ultra_hdr_embeds_gain_map_and_xmp() {
+        let mut s = spec();
+        s.ultra_hdr = true;
+        s.hdr_headroom = 2.5;
+        let res = export_full(
+            solid(16, 16, 220, 180, 120),
+            16,
+            16,
+            s,
+            Vec::new(),
+            ColorParams::default(),
+            neutral_curves(),
+            vec![0.0; 24],
+            Vec::new(),
+        )
+        .unwrap();
+
+        assert!(!res.cancelled);
+        let (gain_map, meta) = crate::ultrahdr::extract_gain_map(&res.jpeg)
+            .expect("must contain secondary gain map and XMP metadata");
+        assert!(!gain_map.is_empty());
+        assert!((meta.gain_map_max - 2.5).abs() < 1e-4);
     }
 }

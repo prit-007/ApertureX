@@ -156,6 +156,32 @@ void main() {
       expect(layers().single.maskKind, MaskKind.radial);
     });
 
+    testWidgets('stylus-only mode ignores concurrent palm touch during stylus interaction', (
+      tester,
+    ) async {
+      container.read(stylusOnlyModeProvider.notifier).set(true);
+      await pumpOverlay(tester);
+      final palmGesture = await tester.startGesture(
+        const Offset(50, 50),
+        kind: PointerDeviceKind.touch,
+      );
+      await tester.pump();
+
+      final stylusGesture = await tester.startGesture(
+        const Offset(100, 200),
+        kind: PointerDeviceKind.stylus,
+      );
+      await tester.pump();
+      await stylusGesture.up();
+      await tester.pump();
+
+      await palmGesture.up();
+      await tester.pump();
+
+      expect(layers(), hasLength(1));
+      expect(layers().single.maskKind, MaskKind.radial);
+    });
+
     testWidgets('touch mode places with touch as before', (tester) async {
       container.read(stylusOnlyModeProvider.notifier).set(false);
       await pumpOverlay(tester);

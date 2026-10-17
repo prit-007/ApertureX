@@ -19,4 +19,5 @@ pub mod retouch;
 pub mod sha256;
 pub mod simd;
 pub mod spatial;
+pub mod ultrahdr;
 pub mod watermark;

@@ -41,7 +41,8 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
     final scheme = Theme.of(context).colorScheme;
     final recipe = ref.watch(recipeControllerProvider).recipe;
     final notifier = ref.read(recipeControllerProvider.notifier);
-    final (hue, sat, lum) = _zoneValues(recipe);
+    final (rawHue, sat, lum) = _zoneValues(recipe);
+    final hue = (rawHue <= 1.0 && rawHue > 0) ? rawHue * 360.0 : rawHue;
 
     Widget sliderRow({
       required String label,

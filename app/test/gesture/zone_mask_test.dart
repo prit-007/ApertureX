@@ -120,5 +120,13 @@ void main() {
       expect(lo10, closeTo(0.92, 1e-3));
       expect(hi10, 1.0);
     });
+
+    test('removeLockedMask does not crash or delete invalid layer', () {
+      final container = ProviderContainer();
+      final notifier = container.read(zoneMaskProvider.notifier);
+      notifier.state = notifier.state.copyWith(lockedLayerIndex: 99);
+      expect(() => notifier.removeLockedMask(container), returnsNormally);
+      expect(notifier.state.lockedLayerIndex, isNull);
+    });
   });
 }

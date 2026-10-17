@@ -150,7 +150,10 @@ class ZoneMaskController extends Notifier<ZoneMaskState> {
   void removeLockedMask([dynamic context]) {
     final idx = state.lockedLayerIndex;
     if (idx != null) {
-      _getRecipeController(context).removeLayerAt(idx);
+      final layers = _getLayers(context);
+      if (idx >= 0 && idx < layers.length && layers[idx].maskKind == MaskKind.luminance) {
+        _getRecipeController(context).removeLayerAt(idx);
+      }
     }
     state = state.copyWith(lockedLayerIndex: null);
   }

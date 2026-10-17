@@ -51,9 +51,11 @@ class BrushToolbar extends ConsumerWidget {
           border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // Mode toggle: Paint vs Erase vs Refine
             ChoiceChip(
               key: const Key('brush-toolbar-paint'),
@@ -196,6 +198,7 @@ class BrushToolbar extends ConsumerWidget {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
