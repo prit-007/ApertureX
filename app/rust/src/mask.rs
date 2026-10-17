@@ -48,6 +48,13 @@ impl MaskSpec {
         }
     }
 
+    pub fn luminance_band(min_luma: f32, max_luma: f32, feather_lo: f32, feather_hi: f32) -> Self {
+        MaskSpec {
+            kind: MASK_LUMINANCE,
+            params: vec![min_luma, max_luma, feather_lo, feather_hi],
+        }
+    }
+
     pub fn bitmap(w: usize, h: usize, alpha_bytes: &[u8]) -> Self {
         let mut params = Vec::with_capacity(2 + w * h);
         params.push(w as f32);
@@ -140,12 +147,27 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
             1.0 - smoothstep(1.0 - feather, 1.0, d)
         }
         MASK_LUMINANCE => {
-            if p.len() < 2 {
+            if p.is_empty() {
                 return 0.0;
             }
-            // Selects dark tones: coverage 1 below `lo`, fading to 0 at `hi`.
-            let (lo, hi) = (p[0], p[1]);
-            1.0 - smoothstep(lo, hi, luma)
+            if p.len() < 3 {
+                // Legacy: selects dark tones: coverage 1 below `lo`, fading to 0 at `hi`.
+                let (lo, hi) = (p[0], p.get(1).copied().unwrap_or(0.4));
+                1.0 - smoothstep(lo, hi, luma)
+            } else {
+                // Zone System band: [min_luma, max_luma, feather_lo, feather_hi]
+                let min_luma = p[0];
+                let max_luma = p[1];
+                let f_lo = p[2].max(1e-4);
+                let f_hi = p.get(3).copied().unwrap_or(f_lo).max(1e-4);
+                if luma < min_luma {
+                    smoothstep(min_luma - f_lo, min_luma, luma)
+                } else if luma > max_luma {
+                    1.0 - smoothstep(max_luma, max_luma + f_hi, luma)
+                } else {
+                    1.0
+                }
+            }
         }
         MASK_BRUSH => {
             // [radius, feather, count, x0, y0, p0, x1, y1, p1, ...]
@@ -693,6 +715,48 @@ mod tests {
         let bright = out[(4 * 16 + 13) * 4];
         assert!(dark > 48, "darks brightened: {dark}");
         assert!(bright.abs_diff(220) < 8, "brights ~untouched: {bright}");
+    }
+
+    #[test]
+    fn luminance_mask_zone_band_selects_midtones() {
+        // Target middle gray (Zone V ~ 0.5) with [0.4, 0.6, 0.1, 0.1]
+        let layer = LocalAdjustment {
+            mask: MaskSpec::luminance_band(0.4, 0.6, 0.1, 0.1),
+            params: brighten(),
+            inverted: false,
+            amount: 1.0,
+            ..Default::default()
+        };
+        // Create 3 pixels: dark (luma ~0.2), mid (luma ~0.5), bright (luma ~0.8)
+        let img = vec![51, 51, 51, 255, 128, 128, 128, 255, 204, 204, 204, 255];
+        let out = apply_local(&img, 3, 1, &[layer]);
+        let p_dark = out[0];
+        let p_mid = out[4];
+        let p_bright = out[8];
+
+        // Midtone pixel is inside [0.4, 0.6] -> fully brightened
+        assert!(p_mid > 150, "mid pixel brightened: {p_mid}");
+        // Dark pixel (0.2 < 0.3) -> outside feather, untouched
+        assert_eq!(p_dark, 51, "dark pixel untouched: {p_dark}");
+        // Bright pixel (0.8 > 0.7) -> outside feather, untouched
+        assert_eq!(p_bright, 204, "bright pixel untouched: {p_bright}");
+    }
+
+    #[test]
+    fn luminance_mask_zone_band_falls_off_smoothly() {
+        // Band [0.5, 0.5, 0.2, 0.2]
+        // Center at 0.5 has cov 1.0; 0.4 has cov 0.5; 0.2 has cov 0.0
+        let cov_center = coverage(MASK_LUMINANCE, &[0.5, 0.5, 0.2, 0.2], 0.0, 0.0, 0.5);
+        let cov_half_lo = coverage(MASK_LUMINANCE, &[0.5, 0.5, 0.2, 0.2], 0.0, 0.0, 0.4);
+        let cov_half_hi = coverage(MASK_LUMINANCE, &[0.5, 0.5, 0.2, 0.2], 0.0, 0.0, 0.6);
+        let cov_outside_lo = coverage(MASK_LUMINANCE, &[0.5, 0.5, 0.2, 0.2], 0.0, 0.0, 0.2);
+        let cov_outside_hi = coverage(MASK_LUMINANCE, &[0.5, 0.5, 0.2, 0.2], 0.0, 0.0, 0.8);
+
+        assert_eq!(cov_center, 1.0);
+        assert!((cov_half_lo - 0.5).abs() < 1e-3);
+        assert!((cov_half_hi - 0.5).abs() < 1e-3);
+        assert_eq!(cov_outside_lo, 0.0);
+        assert_eq!(cov_outside_hi, 0.0);
     }
 
     /// A deterministic per-pixel ramp so mask coverage varies across the frame.

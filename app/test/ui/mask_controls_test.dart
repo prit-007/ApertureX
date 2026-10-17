@@ -327,6 +327,44 @@ void main() {
     expect(container.read(recipeControllerProvider).recipe.maskGroups, isEmpty);
     expect(container.read(recipeControllerProvider).recipe.layers, isEmpty);
   });
+
+  testWidgets('Zone System controls render for luminance mask and tapping zone updates band', (tester) async {
+    final notifier = container.read(recipeControllerProvider.notifier);
+    notifier.addLayer(
+      const AdjustmentLayer(
+        maskKind: MaskKind.luminance,
+        maskParams: [0.0, 0.4],
+      ),
+    );
+    container.read(nodeEditorProvider.notifier).enable();
+    container.read(nodeEditorProvider.notifier).select(0);
+
+    await pumpMaskControls(tester);
+
+    // Zone chips 0 through 10
+    for (var z = 0; z <= 10; z++) {
+      expect(find.byKey(Key('mask-zone-chip-$z')), findsOneWidget);
+    }
+
+    // Sliders for Min Luma, Max Luma, Feather
+    expect(find.byKey(const Key('mask-inline-luma-min-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-inline-luma-max-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-inline-luma-feather-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-luma-eyedropper')), findsOneWidget);
+
+    // Initial zone is Zone 2 (midpoint of 0.0 and 0.4 is 0.2)
+    final chip2 = tester.widget<ChoiceChip>(find.byKey(const Key('mask-zone-chip-2')));
+    expect(chip2.selected, isTrue);
+
+    // Tap Zone V (Zone 5)
+    await tester.tap(find.byKey(const Key('mask-zone-chip-5')));
+    await tester.pumpAndSettle();
+
+    final updated = container.read(recipeControllerProvider).recipe.layers.first;
+    expect(updated.lumaZone, 5);
+    expect((updated.lumaMin - 0.45).abs(), lessThan(1e-3));
+    expect((updated.lumaMax - 0.55).abs(), lessThan(1e-3));
+  });
 }
 
 

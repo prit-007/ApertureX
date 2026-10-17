@@ -135,3 +135,21 @@ final canvasTransformProvider =
       CanvasTransformNotifier.new,
     );
 
+/// Callback function that samples normalized luminance (0.0..1.0) at normalized coordinates (u, v).
+typedef PixelLumaSampler = double? Function(double u, double v);
+
+class PixelSamplerNotifier extends Notifier<PixelLumaSampler?> {
+  @override
+  PixelLumaSampler? build() => null;
+
+  void setSampler(PixelLumaSampler? sampler) {
+    state = sampler;
+  }
+}
+
+/// Active pixel luminance sampler provided by the image canvas.
+final pixelSamplerProvider =
+    NotifierProvider<PixelSamplerNotifier, PixelLumaSampler?>(
+  PixelSamplerNotifier.new,
+);
+

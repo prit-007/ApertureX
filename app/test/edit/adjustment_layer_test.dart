@@ -494,6 +494,61 @@ void main() {
       expect(recipe.schemaVersion, EditRecipe.currentSchemaVersion);
     });
   });
+
+  group('Zone System & Luminance Band (Issue #93)', () {
+    test('extracts lumaMin, lumaMax, lumaFeatherLo, lumaFeatherHi, and lumaZone', () {
+      const darksLayer = AdjustmentLayer(
+        maskKind: MaskKind.luminance,
+        maskParams: [0.0, 0.4],
+      );
+      expect(darksLayer.lumaMin, 0.0);
+      expect(darksLayer.lumaMax, 0.4);
+      expect(darksLayer.lumaFeatherLo, 0.15);
+      expect(darksLayer.lumaFeatherHi, 0.15);
+      expect(darksLayer.lumaZone, 2); // (0.0 + 0.4) / 2 = 0.2 -> Zone 2
+
+      const bandLayer = AdjustmentLayer(
+        maskKind: MaskKind.luminance,
+        maskParams: [0.45, 0.55, 0.08, 0.12],
+      );
+      expect(bandLayer.lumaMin, 0.45);
+      expect(bandLayer.lumaMax, 0.55);
+      expect(bandLayer.lumaFeatherLo, 0.08);
+      expect(bandLayer.lumaFeatherHi, 0.12);
+      expect(bandLayer.lumaZone, 5); // 0.5 -> Zone V
+    });
+
+    test('withLumaBand updates luminance parameters', () {
+      const base = AdjustmentLayer(
+        maskKind: MaskKind.luminance,
+        maskParams: [0.0, 0.4],
+      );
+      final updated = base.withLumaBand(min: 0.3, max: 0.7, featherLo: 0.1, featherHi: 0.1);
+      expect(updated.lumaMin, 0.3);
+      expect(updated.lumaMax, 0.7);
+      expect(updated.lumaFeatherLo, 0.1);
+      expect(updated.lumaFeatherHi, 0.1);
+    });
+
+    test('withZone sets correct band for Ansel Adams zones', () {
+      const base = AdjustmentLayer(maskKind: MaskKind.luminance);
+      // Zone 0: pure black
+      final z0 = base.withZone(0);
+      expect(z0.lumaMin, 0.0);
+      expect(z0.lumaZone, 0);
+
+      // Zone V: middle gray
+      final z5 = base.withZone(5);
+      expect(z5.lumaZone, 5);
+      expect((z5.lumaMin - 0.45).abs(), lessThan(1e-3));
+      expect((z5.lumaMax - 0.55).abs(), lessThan(1e-3));
+
+      // Zone X: pure white
+      final z10 = base.withZone(10);
+      expect(z10.lumaMax, 1.0);
+      expect(z10.lumaZone, 10);
+    });
+  });
 }
 
 

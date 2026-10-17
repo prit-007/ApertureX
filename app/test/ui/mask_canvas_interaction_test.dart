@@ -208,4 +208,36 @@ void main() {
     expect(pts[6], closeTo(0.45, 0.02));
     expect(pts[7], closeTo(0.45, 0.02));
   });
+
+  testWidgets('tapping canvas when luminance mask is selected samples pixel luminance', (
+    tester,
+  ) async {
+    container.read(recipeControllerProvider.notifier).addLayer(
+          const AdjustmentLayer(
+            maskKind: MaskKind.luminance,
+            maskParams: [0.0, 0.4],
+          ),
+        );
+    container.read(nodeEditorProvider.notifier).select(0);
+
+    // Register a pixel luminance sampler that returns 0.70 at (0.5, 0.5)
+    container.read(pixelSamplerProvider.notifier).setSampler((u, v) {
+      if ((u - 0.5).abs() < 0.1 && (v - 0.5).abs() < 0.1) {
+        return 0.70;
+      }
+      return 0.20;
+    });
+
+    await pumpOverlay(tester);
+
+    // Tap at screen center (200, 200) -> normalized (0.5, 0.5)
+    await tester.tapAt(const Offset(200, 200));
+    await tester.pumpAndSettle();
+
+    final l = layers().first;
+    expect(l.maskKind, MaskKind.luminance);
+    expect(l.lumaMin, closeTo(0.62, 0.02));
+    expect(l.lumaMax, closeTo(0.78, 0.02));
+    expect(l.lumaZone, 7);
+  });
 }

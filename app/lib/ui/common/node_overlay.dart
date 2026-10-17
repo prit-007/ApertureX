@@ -486,6 +486,26 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
     if (t == null || down == null) return;
     final n = t.toNormalized(down);
     if (n == null) return;
+
+    final selectedIdx = ref.read(nodeEditorProvider.select((s) => s.selected));
+    final layers = ref.read(recipeControllerProvider).recipe.layers;
+    if (selectedIdx != null &&
+        selectedIdx >= 0 &&
+        selectedIdx < layers.length &&
+        layers[selectedIdx].maskKind == MaskKind.luminance) {
+      final layer = layers[selectedIdx];
+      final sampler = ref.read(pixelSamplerProvider);
+      final luma = sampler?.call(n.dx, n.dy) ?? ((n.dx + n.dy) / 2.0).clamp(0.0, 1.0);
+      final lo = (luma - 0.08).clamp(0.0, 1.0);
+      final hi = (luma + 0.08).clamp(0.0, 1.0);
+      ref.read(recipeControllerProvider.notifier).updateLayerAt(
+        selectedIdx,
+        layer.withLumaBand(min: lo, max: hi, featherLo: 0.12, featherHi: 0.12),
+      );
+      HapticFeedback.selectionClick();
+      return;
+    }
+
     final controller = ref.read(recipeControllerProvider.notifier);
     final index = ref.read(recipeControllerProvider).recipe.layers.length;
     controller.addLayer(
@@ -621,6 +641,28 @@ class _NodesPainter extends CustomPainter {
           ..strokeWidth = 1.0;
         canvas.drawCircle(pointerPos!, radius * (1.0 + feather), outerPaint);
       }
+    }
+
+    // Eyedropper cursor when a luminance mask is selected
+    if (selectedIndex != null &&
+        selectedIndex! >= 0 &&
+        selectedIndex! < layers.length &&
+        layers[selectedIndex!].maskKind == MaskKind.luminance &&
+        pointerPos != null) {
+      final p = pointerPos!;
+      final ringPaint = Paint()
+        ..color = primary
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+      canvas.drawCircle(p, 12, ringPaint);
+      canvas.drawCircle(p, 2, Paint()..color = primary..style = PaintingStyle.fill);
+      final linePaint = Paint()
+        ..color = primary
+        ..strokeWidth = 1.0;
+      canvas.drawLine(Offset(p.dx - 16, p.dy), Offset(p.dx - 4, p.dy), linePaint);
+      canvas.drawLine(Offset(p.dx + 4, p.dy), Offset(p.dx + 16, p.dy), linePaint);
+      canvas.drawLine(Offset(p.dx, p.dy - 16), Offset(p.dx, p.dy - 4), linePaint);
+      canvas.drawLine(Offset(p.dx, p.dy + 4), Offset(p.dx, p.dy + 16), linePaint);
     }
 
     for (var i = 0; i < layers.length; i++) {

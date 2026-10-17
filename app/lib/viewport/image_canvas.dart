@@ -715,6 +715,28 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _lastBaseKey = _baseKey(recipe);
       if (dimsChanged) _needsReset = true;
     });
+    _updatePixelSampler();
+  }
+
+  void _updatePixelSampler() {
+    if (_disposed || !mounted) return;
+    final rgba = _baseRgba;
+    final w = _baseW;
+    final h = _baseH;
+    if (rgba == null || w <= 0 || h <= 0) {
+      ref.read(pixelSamplerProvider.notifier).setSampler(null);
+      return;
+    }
+    ref.read(pixelSamplerProvider.notifier).setSampler((double u, double v) {
+      final x = (u * w).clamp(0, w - 1).toInt();
+      final y = (v * h).clamp(0, h - 1).toInt();
+      final i = (y * w + x) * 4;
+      if (i + 2 >= rgba.length) return null;
+      final r = rgba[i] / 255.0;
+      final g = rgba[i + 1] / 255.0;
+      final b = rgba[i + 2] / 255.0;
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    });
   }
 
   Future<void> _rebuildLut(EditRecipe recipe, int token) async {
@@ -804,6 +826,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _textureId = null;
     _useTexture = false;
     _baseRgba = null;
+    if (!_disposed && mounted) {
+      _updatePixelSampler();
+    }
     if (id != null) unawaited(PreviewTextureChannel.dispose(id));
   }
   @override

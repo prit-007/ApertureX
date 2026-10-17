@@ -504,6 +504,76 @@ class AdjustmentLayer {
         ],
       );
 
+  /// For luminance masks: minimum target luminance threshold (0..1).
+  double get lumaMin =>
+      maskKind == MaskKind.luminance && maskParams.isNotEmpty ? maskParams[0] : 0.0;
+
+  /// For luminance masks: maximum target luminance threshold (0..1).
+  double get lumaMax =>
+      maskKind == MaskKind.luminance && maskParams.length > 1 ? maskParams[1] : 1.0;
+
+  /// For luminance masks: feather/transition width on lower edge.
+  double get lumaFeatherLo =>
+      maskKind == MaskKind.luminance && maskParams.length > 2 ? maskParams[2] : 0.15;
+
+  /// For luminance masks: feather/transition width on upper edge.
+  double get lumaFeatherHi =>
+      maskKind == MaskKind.luminance && maskParams.length > 3
+          ? maskParams[3]
+          : lumaFeatherLo;
+
+  /// Approximates closest Ansel Adams Zone (0..10) based on target band center.
+  int get lumaZone {
+    final mid = (lumaMin + lumaMax) / 2.0;
+    return (mid * 10.0).round().clamp(0, 10);
+  }
+
+  /// Returns a copy with updated luminance band parameters.
+  AdjustmentLayer withLumaBand({
+    double? min,
+    double? max,
+    double? featherLo,
+    double? featherHi,
+  }) {
+    final newMin = (min ?? lumaMin).clamp(0.0, 1.0);
+    final newMax = (max ?? lumaMax).clamp(0.0, 1.0);
+    final lo = newMin <= newMax ? newMin : newMax;
+    final hi = newMin <= newMax ? newMax : newMin;
+    final fLo = (featherLo ?? lumaFeatherLo).clamp(0.01, 1.0);
+    final fHi = (featherHi ?? lumaFeatherHi).clamp(0.01, 1.0);
+    return copyWith(
+      maskKind: MaskKind.luminance,
+      maskParams: [lo, hi, fLo, fHi],
+    );
+  }
+
+  /// Sets this luminance mask to target an Ansel Adams Zone (0..10).
+  AdjustmentLayer withZone(int zone, {double width = 0.10, double feather = 0.10}) {
+    final z = zone.clamp(0, 10);
+    final double min;
+    final double max;
+    final double fLo;
+    final double fHi;
+    if (z == 0) {
+      min = 0.0;
+      max = 0.08;
+      fLo = 0.01;
+      fHi = feather;
+    } else if (z == 10) {
+      min = 0.92;
+      max = 1.0;
+      fLo = feather;
+      fHi = 0.01;
+    } else {
+      final c = z / 10.0;
+      min = (c - width / 2).clamp(0.0, 1.0);
+      max = (c + width / 2).clamp(0.0, 1.0);
+      fLo = feather;
+      fHi = feather;
+    }
+    return withLumaBand(min: min, max: max, featherLo: fLo, featherHi: fHi);
+  }
+
   /// For bitmap masks: pixel width of the alpha map.
   int get bitmapWidth => maskKind == MaskKind.bitmap && maskParams.isNotEmpty ? maskParams[0].toInt() : 0;
 

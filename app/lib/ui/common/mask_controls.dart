@@ -658,6 +658,25 @@ class MaskControls extends ConsumerWidget {
                     padding: EdgeInsets.zero,
                     onPressed: () => notifier.addLayer(layer.copyWith()),
                   ),
+                  if (layer.maskKind == MaskKind.luminance)
+                    ActionChip(
+                      key: const Key('mask-luma-eyedropper'),
+                      avatar: const Icon(Icons.colorize, size: 14),
+                      label: const Text('Sample Luma', style: TextStyle(fontSize: 11)),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        ref.read(nodeEditorProvider.notifier).enable();
+                        ref.read(nodeEditorProvider.notifier).select(i);
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Tap photo to sample luminance band'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
                   if (layer.maskKind == MaskKind.brush && layer.brushPointCount > 0)
                     TextButton.icon(
                       key: const Key('mask-inline-brush-clear'),
@@ -723,6 +742,72 @@ class MaskControls extends ConsumerWidget {
                   min: 0.0,
                   max: 1.0,
                   onChanged: (val) => notifier.updateLayerAt(i, layer.withSkyBlueWeight(val)),
+                ),
+              ],
+              if (layer.maskKind == MaskKind.luminance) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'ANSEL ADAMS ZONE SYSTEM',
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 1.0,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (var z = 0; z <= 10; z++) ...[
+                        ChoiceChip(
+                          key: Key('mask-zone-chip-$z'),
+                          label: Text(
+                            _zoneRoman(z),
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                          selected: layer.lumaZone == z,
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          showCheckmark: false,
+                          onSelected: (selected) {
+                            if (selected) {
+                              notifier.updateLayerAt(i, layer.withZone(z));
+                            }
+                          },
+                        ),
+                        if (z < 10) const SizedBox(width: 4),
+                      ],
+                    ],
+                  ),
+                ),
+                _MaskSlider(
+                  label: 'Min Luma',
+                  sliderKey: const Key('mask-inline-luma-min-slider'),
+                  value: layer.lumaMin,
+                  min: 0.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.withLumaBand(min: val)),
+                ),
+                _MaskSlider(
+                  label: 'Max Luma',
+                  sliderKey: const Key('mask-inline-luma-max-slider'),
+                  value: layer.lumaMax,
+                  min: 0.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.withLumaBand(max: val)),
+                ),
+                _MaskSlider(
+                  label: 'Feather',
+                  sliderKey: const Key('mask-inline-luma-feather-slider'),
+                  value: layer.lumaFeatherLo,
+                  min: 0.01,
+                  max: 0.5,
+                  onChanged: (val) => notifier.updateLayerAt(
+                    i,
+                    layer.withLumaBand(featherLo: val, featherHi: val),
+                  ),
                 ),
               ],
               const SizedBox(height: 6),
@@ -915,6 +1000,12 @@ class MaskControls extends ConsumerWidget {
     MaskKind.luminance => Icons.dark_mode,
     MaskKind.bitmap => Icons.auto_awesome,
   };
+
+  static const List<String> _zoneRomans = [
+    '0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'
+  ];
+
+  static String _zoneRoman(int z) => _zoneRomans[z.clamp(0, 10)];
 
   void _toggleStylusOnly(WidgetRef ref, bool value) {
     ref.read(stylusOnlyModeProvider.notifier).set(value);
