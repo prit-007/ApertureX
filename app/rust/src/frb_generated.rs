@@ -2771,11 +2771,13 @@ impl SseDecode for crate::api::mask::MaskLayer {
         let mut var_mask = <Vec<f32>>::sse_decode(deserializer);
         let mut var_params = <crate::api::color::ColorParams>::sse_decode(deserializer);
         let mut var_inverted = <bool>::sse_decode(deserializer);
+        let mut var_amount = <f32>::sse_decode(deserializer);
         return crate::api::mask::MaskLayer {
             kind: var_kind,
             mask: var_mask,
             params: var_params,
             inverted: var_inverted,
+            amount: var_amount,
         };
     }
 }
@@ -3390,6 +3392,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::mask::MaskLayer {
             self.mask.into_into_dart().into_dart(),
             self.params.into_into_dart().into_dart(),
             self.inverted.into_into_dart().into_dart(),
+            self.amount.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3754,6 +3757,7 @@ impl SseEncode for crate::api::mask::MaskLayer {
         <Vec<f32>>::sse_encode(self.mask, serializer);
         <crate::api::color::ColorParams>::sse_encode(self.params, serializer);
         <bool>::sse_encode(self.inverted, serializer);
+        <f32>::sse_encode(self.amount, serializer);
     }
 }
 

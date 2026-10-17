@@ -335,6 +335,72 @@ void main() {
       expect(layer.inverted, isTrue);
     });
   });
+
+  group('amount (issue #91)', () {
+    test('round-trips through JSON', () {
+      const layer = AdjustmentLayer(
+        maskKind: MaskKind.linear,
+        maskParams: [0, 0, 0, 1],
+        amount: 0.75,
+        exposure: 0.5,
+      );
+      final json = layer.toJson();
+      expect(json['amount'], 0.75);
+      final restored = AdjustmentLayer.fromJson(json);
+      expect(restored.amount, 0.75);
+      expect(restored, equals(layer));
+    });
+
+    test('missing amount in JSON defaults to 1.0 (v19 migration)', () {
+      final v19Json = <String, Object?>{
+        'maskKind': 0,
+        'maskParams': [0.0, 0.0, 0.0, 1.0],
+        'exposure': 0.5,
+      };
+      final restored = AdjustmentLayer.fromJson(v19Json);
+      expect(restored.amount, 1.0);
+    });
+
+    test('stored v19 recipe JSON fixture loads with amount == 1.0', () {
+      final v19RecipeJson = <String, Object?>{
+        'schemaVersion': 19,
+        'exposure': 0.2,
+        'layers': [
+          {
+            'maskKind': 1,
+            'maskParams': [0.5, 0.5, 0.2, 0.2, 0.3],
+            'exposure': 0.5,
+          }
+        ],
+      };
+      final recipe = EditRecipe.fromJson(v19RecipeJson);
+      expect(recipe.layers.single.amount, 1.0);
+      expect(recipe.schemaVersion, EditRecipe.currentSchemaVersion);
+    });
+
+    test('copyWith(amount: 0.5) changes == and recipe hash', () {
+      const layer1 = AdjustmentLayer(amount: 1.0, exposure: 0.5);
+      final layer2 = layer1.copyWith(amount: 0.5);
+      expect(layer2.amount, 0.5);
+      expect(layer1, isNot(equals(layer2)));
+      expect(layer1.hashCode, isNot(equals(layer2.hashCode)));
+
+      final r1 = EditRecipe.neutral.copyWith(layers: [layer1]);
+      final r2 = EditRecipe.neutral.copyWith(layers: [layer2]);
+      expect(r1, isNot(equals(r2)));
+      expect(r1.hashCode, isNot(equals(r2.hashCode)));
+    });
+
+    test('bitmap constructor accepts amount', () {
+      final layer = AdjustmentLayer.bitmap(
+        width: 2,
+        height: 2,
+        alphas: const [0, 1, 0, 1],
+        amount: 1.5,
+      );
+      expect(layer.amount, 1.5);
+    });
+  });
 }
 
 

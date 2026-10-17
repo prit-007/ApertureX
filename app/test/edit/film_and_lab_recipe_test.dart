@@ -5,8 +5,8 @@ import 'package:aperturex/edit/recipe_mapping.dart';
 
 void main() {
   group('EditRecipe v19 (Film Emulation & Shader Lab)', () {
-    test('currentSchemaVersion is 19', () {
-      expect(EditRecipe.currentSchemaVersion, 19);
+    test('currentSchemaVersion is 20', () {
+      expect(EditRecipe.currentSchemaVersion, 20);
     });
 
     test('default recipe has neutral film and lab parameters', () {
@@ -44,7 +44,7 @@ void main() {
       final json = r.toJson();
       final restored = EditRecipe.fromJson(json);
 
-      expect(restored.schemaVersion, 19);
+      expect(restored.schemaVersion, EditRecipe.currentSchemaVersion);
       expect(restored.filmHalation, 0.75);
       expect(restored.filmHalationRadius, 0.6);
       expect(restored.filmHalationThreshold, 0.7);
@@ -60,7 +60,7 @@ void main() {
       expect(restored, r);
     });
 
-    test('migrates older v18 recipes to v19 with neutral film & lab fields', () {
+    test('migrates older v18 recipes to v20 with neutral film & lab fields', () {
       final oldJson = <String, dynamic>{
         'schemaVersion': 18,
         'exposure': 1.0,
@@ -68,7 +68,7 @@ void main() {
       };
 
       final migrated = EditRecipe.fromJson(oldJson);
-      expect(migrated.schemaVersion, 19);
+      expect(migrated.schemaVersion, EditRecipe.currentSchemaVersion);
       expect(migrated.exposure, 1.0);
       expect(migrated.contrast, 0.2);
       expect(migrated.filmHalation, 0.0);

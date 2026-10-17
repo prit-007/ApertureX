@@ -226,6 +226,33 @@ void main() {
     expect(layers.first.maskKind, MaskKind.subject);
     expect(layers.first.inverted, isTrue);
   });
+
+  testWidgets('Amount slider displays 100% and updates layer amount', (tester) async {
+    final notifier = container.read(recipeControllerProvider.notifier);
+    notifier.addLayer(
+      const AdjustmentLayer(
+        maskKind: MaskKind.radial,
+        exposure: 0.5,
+      ),
+    );
+    container.read(nodeEditorProvider.notifier).enable();
+    container.read(nodeEditorProvider.notifier).select(0);
+
+    await pumpMaskControls(tester);
+
+    // Initial value is 100%
+    expect(find.text('100%'), findsOneWidget);
+
+    final amountSlider = find.byKey(const Key('mask-inline-amount-slider'));
+    expect(amountSlider, findsOneWidget);
+
+    // Drag slider to ~50%
+    await tester.drag(amountSlider, const Offset(-50, 0));
+    await tester.pumpAndSettle();
+
+    final updatedLayer = container.read(recipeControllerProvider).recipe.layers.first;
+    expect(updatedLayer.amount, isNot(1.0));
+  });
 }
 
 

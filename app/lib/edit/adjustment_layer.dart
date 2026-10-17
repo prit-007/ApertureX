@@ -87,6 +87,7 @@ class AdjustmentLayer {
     this.maskParams = const <double>[0.5, 0.5, 0.3, 0.3, 0.3],
     this.maskBlob,
     this.inverted = false,
+    this.amount = 1.0,
     this.exposure = 0,
     this.contrast = 0,
     this.saturation = 0,
@@ -108,6 +109,7 @@ class AdjustmentLayer {
     required int height,
     required List<double> alphas,
     bool inverted = false,
+    double amount = 1.0,
     double exposure = 0,
     double contrast = 0,
     double saturation = 0,
@@ -131,6 +133,7 @@ class AdjustmentLayer {
       maskParams: <double>[tw.toDouble(), th.toDouble()],
       maskBlob: capped,
       inverted: inverted,
+      amount: amount,
       exposure: exposure,
       contrast: contrast,
       saturation: saturation,
@@ -158,6 +161,9 @@ class AdjustmentLayer {
   /// Whether the mask coverage should be inverted `(1.0 - coverage)`.
   final bool inverted;
 
+  /// Global amount scalar for this layer (0.0–2.0, default 1.0 = 100%).
+  final double amount;
+
   final double exposure;
   final double contrast;
   final double saturation;
@@ -171,6 +177,7 @@ class AdjustmentLayer {
     List<double>? maskParams,
     Uint8List? maskBlob,
     bool? inverted,
+    double? amount,
     double? exposure,
     double? contrast,
     double? saturation,
@@ -183,6 +190,7 @@ class AdjustmentLayer {
     maskParams: maskParams ?? this.maskParams,
     maskBlob: maskBlob ?? this.maskBlob,
     inverted: inverted ?? this.inverted,
+    amount: amount ?? this.amount,
     exposure: exposure ?? this.exposure,
     contrast: contrast ?? this.contrast,
     saturation: saturation ?? this.saturation,
@@ -385,6 +393,7 @@ class AdjustmentLayer {
     if (maskKind == MaskKind.bitmap && maskBlob != null)
       'maskBlob': base64Encode(maskBlob!),
     'inverted': inverted,
+    'amount': amount,
     'exposure': exposure,
     'contrast': contrast,
     'saturation': saturation,
@@ -413,6 +422,7 @@ class AdjustmentLayer {
       maskParams: params,
       maskBlob: blob,
       inverted: (json['inverted'] as bool?) ?? false,
+      amount: json.containsKey('amount') ? d('amount') : 1.0,
       exposure: d('exposure'),
       contrast: d('contrast'),
       saturation: d('saturation'),
@@ -430,6 +440,7 @@ class AdjustmentLayer {
       listEquals(other.maskParams, maskParams) &&
       listEquals(other.maskBlob, maskBlob) &&
       other.inverted == inverted &&
+      other.amount == amount &&
       other.exposure == exposure &&
       other.contrast == contrast &&
       other.saturation == saturation &&
@@ -444,6 +455,7 @@ class AdjustmentLayer {
     Object.hashAll(maskParams),
     maskBlob == null ? 0 : Object.hashAll(maskBlob!),
     inverted,
+    amount,
     exposure,
     contrast,
     saturation,

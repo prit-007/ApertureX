@@ -79,16 +79,24 @@ class MaskLayer {
   /// When true, inverts the mask coverage (`1.0 - coverage`).
   final bool inverted;
 
+  /// Global amount scalar for this layer (0.0–2.0, default 1.0 = 100%).
+  final double amount;
+
   const MaskLayer({
     required this.kind,
     required this.mask,
     required this.params,
     required this.inverted,
+    required this.amount,
   });
 
   @override
   int get hashCode =>
-      kind.hashCode ^ mask.hashCode ^ params.hashCode ^ inverted.hashCode;
+      kind.hashCode ^
+      mask.hashCode ^
+      params.hashCode ^
+      inverted.hashCode ^
+      amount.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -98,5 +106,6 @@ class MaskLayer {
           kind == other.kind &&
           mask == other.mask &&
           params == other.params &&
-          inverted == other.inverted;
+          inverted == other.inverted &&
+          amount == other.amount;
 }

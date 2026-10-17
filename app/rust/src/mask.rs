@@ -68,6 +68,7 @@ pub struct LocalAdjustment {
     pub mask: MaskSpec,
     pub params: GradeParams,
     pub inverted: bool,
+    pub amount: f32,
 }
 
 fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
@@ -485,12 +486,15 @@ fn apply_local_rows(
                 let luma = 0.2126 * base[0] + 0.7152 * base[1] + 0.0722 * base[2];
                 let cov = coverage(layer.mask.kind, &layer.mask.params, u, v, luma);
                 let cov = if layer.inverted { 1.0 - cov } else { cov };
-                if cov <= 0.0 {
+                let t = cov * layer.amount;
+                if t <= 0.0 {
                     continue;
                 }
                 let adjusted = grade_pointwise(base, layer.params);
                 for c in 0..3 {
-                    let mixed = base[c] + (adjusted[c] - base[c]) * cov;
+                    // Lightroom-style Amount (0–200%): t extrapolates past 1.0 when amount > 1.0.
+                    // Keep unclamped t so overdrive works, clamping to [0.0, 255.0] only at final byte write.
+                    let mixed = base[c] + (adjusted[c] - base[c]) * t;
                     buf[i + c] = (mixed * 255.0 + 0.5).clamp(0.0, 255.0) as u8;
                 }
             }
@@ -533,6 +537,7 @@ mod tests {
             },
             params: brighten(),
             inverted: false,
+            amount: 1.0,
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         let centre = out[(16 * 32 + 16) * 4];
@@ -551,6 +556,7 @@ mod tests {
             },
             params: brighten(),
             inverted: false,
+            amount: 1.0,
         };
         let out = apply_local(&src, 16, 16, &[layer]);
         let top = out[(16 + 8) * 4];
@@ -577,6 +583,7 @@ mod tests {
             },
             params: brighten(),
             inverted: false,
+            amount: 1.0,
         };
         let out = apply_local(&img, 16, 8, &[layer]);
         let dark = out[(4 * 16 + 2) * 4];
@@ -609,6 +616,7 @@ mod tests {
                 },
                 params: brighten(),
                 inverted: false,
+                amount: 1.0,
             },
             LocalAdjustment {
                 mask: MaskSpec {
@@ -620,6 +628,7 @@ mod tests {
                     ..Default::default()
                 },
                 inverted: false,
+                amount: 1.0,
             },
             LocalAdjustment {
                 mask: MaskSpec {
@@ -631,6 +640,7 @@ mod tests {
                     ..Default::default()
                 },
                 inverted: false,
+                amount: 1.0,
             },
         ]
     }
@@ -683,6 +693,7 @@ mod tests {
             },
             params: brighten(),
             inverted: false,
+            amount: 1.0,
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         let center = out[(16 * 32 + 16) * 4];
@@ -713,6 +724,7 @@ mod tests {
             },
             params: brighten(),
             inverted: false,
+            amount: 1.0,
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         // Pixel along stroke 1
@@ -740,6 +752,7 @@ mod tests {
             },
             params: brighten(),
             inverted: false,
+            amount: 1.0,
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         let center = out[(16 * 32 + 16) * 4];
@@ -768,6 +781,7 @@ mod tests {
             },
             params: brighten(),
             inverted: false,
+            amount: 1.0,
         };
         let out = apply_local(&img, 32, 32, &[layer]);
         let sky_pixel = out[(4 * 32 + 16) * 4 + 2]; // Blue channel in sky
@@ -786,6 +800,7 @@ mod tests {
             mask: MaskSpec::bitmap(2, 2, &bitmap_alphas),
             params: brighten(),
             inverted: false,
+            amount: 1.0,
         };
         let src = grey(32, 32, 100);
         let out = apply_local(&src, 32, 32, &[layer]);
@@ -815,6 +830,7 @@ mod tests {
                 mask: MaskSpec::bitmap(4, 4, &bitmap_alphas),
                 params: brighten(),
                 inverted: false,
+                amount: 1.0,
             }],
         );
 
@@ -828,6 +844,7 @@ mod tests {
                 mask: MaskSpec::bitmap(4, 4, &bitmap_alphas),
                 params: brighten(),
                 inverted: false,
+                amount: 1.0,
             }],
         );
         let band1 = apply_local_band(
@@ -839,6 +856,7 @@ mod tests {
                 mask: MaskSpec::bitmap(4, 4, &bitmap_alphas),
                 params: brighten(),
                 inverted: false,
+                amount: 1.0,
             }],
         );
 
@@ -934,6 +952,7 @@ mod tests {
             },
             params: brighten(),
             inverted: false,
+            amount: 1.0,
         };
         let inverted_layer = LocalAdjustment {
             mask: MaskSpec {
@@ -942,6 +961,7 @@ mod tests {
             },
             params: brighten(),
             inverted: true,
+            amount: 1.0,
         };
         let out_normal = apply_local(&src, 16, 16, &[normal_layer]);
         let out_inverted = apply_local(&src, 16, 16, &[inverted_layer]);
@@ -970,6 +990,7 @@ mod tests {
             },
             params: brighten(),
             inverted: false,
+            amount: 1.0,
         };
         let inverted_layer = LocalAdjustment {
             mask: MaskSpec {
@@ -978,6 +999,7 @@ mod tests {
             },
             params: brighten(),
             inverted: true,
+            amount: 1.0,
         };
         let out_normal = apply_local(&src, 16, 16, &[normal_layer]);
         let out_inverted = apply_local(&src, 16, 16, &[inverted_layer]);
@@ -1004,6 +1026,7 @@ mod tests {
             mask: MaskSpec::bitmap(4, 4, &bitmap_alphas),
             params: brighten(),
             inverted: true,
+            amount: 1.0,
         };
         let src = grey(32, 32, 100);
         let out = apply_local(&src, 32, 32, &[inverted_layer]);
@@ -1020,6 +1043,72 @@ mod tests {
         assert_eq!(
             right_px, 100,
             "inverted bitmap: right pixel with 255 alpha should be untouched: {right_px}"
+        );
+    }
+
+    #[test]
+    fn amount_zero_is_byte_identical_to_input() {
+        let src = ramp(32, 32);
+        let layer = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_RADIAL,
+                params: vec![0.5, 0.5, 0.4, 0.4, 0.2],
+            },
+            params: brighten(),
+            inverted: false,
+            amount: 0.0,
+        };
+        let out = apply_local(&src, 32, 32, &[layer]);
+        assert_eq!(out, src, "amount=0.0 must be byte-identical to input");
+    }
+
+    #[test]
+    fn amount_scales_per_pixel_delta_linearly_and_doubles_at_two() {
+        let src = grey(16, 16, 100);
+        let layer_full = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_RADIAL,
+                params: vec![0.5, 0.5, 0.5, 0.5, 0.0],
+            },
+            params: GradeParams {
+                exposure: 0.5,
+                ..Default::default()
+            },
+            inverted: false,
+            amount: 1.0,
+        };
+        let layer_half = LocalAdjustment {
+            amount: 0.5,
+            ..layer_full.clone()
+        };
+        let layer_double = LocalAdjustment {
+            amount: 2.0,
+            ..layer_full.clone()
+        };
+
+        let out_full = apply_local(&src, 16, 16, &[layer_full]);
+        let out_half = apply_local(&src, 16, 16, &[layer_half]);
+        let out_double = apply_local(&src, 16, 16, &[layer_double]);
+
+        let center_idx = (8 * 16 + 8) * 4;
+        let base_val = 100.0f32;
+        let delta_full = out_full[center_idx] as f32 - base_val;
+        let delta_half = out_half[center_idx] as f32 - base_val;
+        let delta_double = out_double[center_idx] as f32 - base_val;
+
+        assert!(
+            delta_full > 10.0,
+            "full delta should be significant: {delta_full}"
+        );
+        // Half delta should be approximately half of full delta (+/- 1 due to rounding)
+        assert!(
+            (delta_half - delta_full * 0.5).abs() <= 1.5,
+            "delta_half ({delta_half}) should be ~half of delta_full ({delta_full})"
+        );
+        // Double delta should be approximately double of full delta (+/- 1 due to rounding)
+        assert!(
+            (delta_double - delta_full * 2.0).abs() <= 1.5,
+            "delta_double ({delta_double}) should be ~double of delta_full ({delta_full})"
         );
     }
 }

@@ -134,8 +134,9 @@ class EditRecipe {
   /// v17: adds retouch patches (healing brush & clone stamp).
   /// v18: adds depth-aware lens blur and synthetic bokeh.
   /// v19: adds photochemical film physics (halation, bloom, dust/scratches) and shader lab.
+  /// v20: adds global Amount slider (0–200%) to adjustment layers.
   /// `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 19;
+  static const int currentSchemaVersion = 20;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();

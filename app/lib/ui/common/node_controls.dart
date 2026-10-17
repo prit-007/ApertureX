@@ -232,6 +232,15 @@ class NodeControls extends ConsumerWidget {
               },
             ),
           _LayerSlider(
+            label: 'Amount',
+            valueLabel: '${(layer.amount * 100).round()}%',
+            value: layer.amount.clamp(0.0, 2.0),
+            min: 0.0,
+            max: 2.0,
+            sliderKey: const Key('node-amount-slider'),
+            onChanged: (v) => notifier.updateLayerAt(i, layer.copyWith(amount: v)),
+          ),
+          _LayerSlider(
             label: 'Exposure',
             valueLabel:
                 '${layer.exposure >= 0 ? '+' : ''}'

@@ -245,6 +245,7 @@ mod tests {
                     ..Default::default()
                 },
                 inverted: false,
+                amount: 1.0,
             }],
             grade: GradeParams {
                 exposure: 0.4,

@@ -263,6 +263,7 @@ pub fn export_full(
                 },
                 params: l.params.to_core(),
                 inverted: l.inverted,
+                amount: l.amount,
             })
             .collect(),
         grade: params.to_core(),

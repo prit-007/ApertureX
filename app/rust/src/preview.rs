@@ -387,6 +387,7 @@ fn bake_base(
                 },
                 params: l.params.to_core(),
                 inverted: l.inverted,
+                amount: l.amount,
             })
             .collect();
         buf = Cow::Owned(mask::apply_local(&buf, w as usize, h as usize, &core));

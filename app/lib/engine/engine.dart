@@ -405,6 +405,7 @@ class AxEngine {
         mask: l.toBridgeMaskParams(),
         params: _localParams(l),
         inverted: l.inverted,
+        amount: l.amount,
       );
 
   /// Composites local adjustment [layers] over [rgba] (masks + sub-grades).

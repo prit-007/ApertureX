@@ -459,6 +459,16 @@ class MaskControls extends ConsumerWidget {
                         ),
                       ],
                       const SizedBox(height: 6),
+                      _MaskSlider(
+                        label: 'Amount',
+                        sliderKey: const Key('mask-inline-amount-slider'),
+                        value: layers[i].amount,
+                        min: 0.0,
+                        max: 2.0,
+                        displayValue: '${(layers[i].amount * 100).round()}%',
+                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(amount: val)),
+                      ),
+                      const SizedBox(height: 6),
                       Text(
                         'LIGHT CONTROLS',
                         style: TextStyle(
@@ -567,6 +577,7 @@ class _MaskSlider extends StatelessWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.displayValue,
   });
 
   final String label;
@@ -575,6 +586,7 @@ class _MaskSlider extends StatelessWidget {
   final double min;
   final double max;
   final ValueChanged<double> onChanged;
+  final String? displayValue;
 
   @override
   Widget build(BuildContext context) {
@@ -606,7 +618,7 @@ class _MaskSlider extends StatelessWidget {
           SizedBox(
             width: 44,
             child: Text(
-              '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
+              displayValue ?? '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
               textAlign: TextAlign.end,
               style: TextStyle(
                 fontSize: 11,

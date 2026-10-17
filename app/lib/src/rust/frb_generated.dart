@@ -3263,13 +3263,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MaskLayer dco_decode_mask_layer(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 4)
-      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return MaskLayer(
       kind: dco_decode_u_32(arr[0]),
       mask: dco_decode_list_prim_f_32_strict(arr[1]),
       params: dco_decode_color_params(arr[2]),
       inverted: dco_decode_bool(arr[3]),
+      amount: dco_decode_f_32(arr[4]),
     );
   }
 
@@ -3813,11 +3814,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_mask = sse_decode_list_prim_f_32_strict(deserializer);
     var var_params = sse_decode_color_params(deserializer);
     var var_inverted = sse_decode_bool(deserializer);
+    var var_amount = sse_decode_f_32(deserializer);
     return MaskLayer(
       kind: var_kind,
       mask: var_mask,
       params: var_params,
       inverted: var_inverted,
+      amount: var_amount,
     );
   }
 
@@ -4328,6 +4331,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_list_prim_f_32_strict(self.mask, serializer);
     sse_encode_color_params(self.params, serializer);
     sse_encode_bool(self.inverted, serializer);
+    sse_encode_f_32(self.amount, serializer);
   }
 
   @protected

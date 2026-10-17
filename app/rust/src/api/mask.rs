@@ -20,6 +20,8 @@ pub struct MaskLayer {
     pub params: ColorParams,
     /// When true, inverts the mask coverage (`1.0 - coverage`).
     pub inverted: bool,
+    /// Global amount scalar for this layer (0.0–2.0, default 1.0 = 100%).
+    pub amount: f32,
 }
 
 /// Composites [layers] over [rgba] (RGBA8, `width*height*4`), in order.
@@ -33,6 +35,7 @@ pub fn apply_masks(rgba: Vec<u8>, width: u32, height: u32, layers: Vec<MaskLayer
             },
             params: l.params.to_core(),
             inverted: l.inverted,
+            amount: l.amount,
         })
         .collect();
     mask::apply_local(&rgba, width as usize, height as usize, &core)
