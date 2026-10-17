@@ -15,11 +15,15 @@
 
 uniform vec2 uSize;          // drawn rect size (px)   — floats 0,1
 uniform float uLutSize;      // N                       — float 2
-uniform float uMaskBlend;    // 0 = graded, 1 = mask view (auto-peek, #27)
+uniform float uMaskBlend;    // 0 = graded, 1 = mask view (auto-peek, #27) — float 3
 uniform float uSrcW;         // source image width (px)  — float 4
 uniform float uSrcH;         // source image height (px) — float 5
 uniform float uZoneLo;       // min luminance for zone mask (negative if inactive) — float 6
 uniform float uZoneHi;       // max luminance for zone mask (negative if inactive) — float 7
+uniform float uZebraMode;    // 0 = off, 1 = zebras, 2 = false color — float 8
+uniform float uTime;         // animation phase for moving zebras — float 9
+uniform float uZebraHigh;    // overexposure zebra threshold — float 10
+uniform float uZebraLow;     // underexposure zebra threshold — float 11
 uniform sampler2D uTexture;  // source image            — sampler 0
 uniform sampler2D uLut;      // LUT atlas               — sampler 1
 
@@ -51,6 +55,17 @@ vec3 lutLookup(vec3 c) {
   float b0 = floor(bf);
   float b1 = min(b0 + 1.0, n - 1.0);
   return mix(lutSlice(s, b0, n), lutSlice(s, b1, n), bf - b0);
+}
+
+vec3 evaluateFalseColor(float luma) {
+  if (luma >= 0.98) return vec3(1.0, 0.0, 0.0);       // Red: Clipping Highlights
+  if (luma >= 0.85) return vec3(1.0, 0.85, 0.0);      // Yellow: Near Clip / Very Bright
+  if (luma >= 0.68) return vec3(1.0, 0.45, 0.75);     // Pink: Fair Skin High
+  if (luma >= 0.48) return vec3(0.70, 0.70, 0.70);     // Light Grey: Neutral Skin
+  if (luma >= 0.38) return vec3(0.0, 0.85, 0.15);      // Green: 18% Gray Reference
+  if (luma >= 0.20) return vec3(0.35, 0.35, 0.35);     // Dark Grey: Shadow Detail
+  if (luma >= 0.02) return vec3(0.0, 0.35, 1.0);       // Blue: Deep Shadow Detail
+  return vec3(0.65, 0.0, 0.85);                        // Purple: Crushed Black
 }
 
 void main() {
@@ -85,6 +100,30 @@ void main() {
 
     mask = mix(mask, vec3(1.0, 0.12, 0.12), clamp(redHighlight * 0.85, 0.0, 1.0));
     color = mix(graded, mask, uMaskBlend);
+  }
+
+  // Exposure Assist: Cinematographic False Color & Animated Zebra Peaking (Issue #98)
+  if (uZebraMode > 1.5) {
+    // False Color Mode (ARRI 16-zone IRE heatmap)
+    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    color = evaluateFalseColor(clamp(luma, 0.0, 1.0));
+  } else if (uZebraMode > 0.5) {
+    // Animated Zebra Peaking Mode (moving 45-degree diagonal stripes)
+    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    vec2 coord = FlutterFragCoord().xy;
+    if (luma >= uZebraHigh) {
+      // Overexposure clipping: Diagonal red stripes
+      float stripe = mod(coord.x + coord.y - uTime * 48.0, 16.0);
+      if (stripe < 8.0) {
+        color = vec3(1.0, 0.1, 0.1);
+      }
+    } else if (luma <= uZebraLow) {
+      // Underexposure shadow crush: Diagonal cyan/blue stripes
+      float stripe = mod(coord.x - coord.y - uTime * 48.0, 16.0);
+      if (stripe < 8.0) {
+        color = vec3(0.0, 0.6, 1.0);
+      }
+    }
   }
 
   fragColor = vec4(clamp(color, 0.0, 1.0), src.a);

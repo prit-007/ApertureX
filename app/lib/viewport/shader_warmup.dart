@@ -66,9 +66,10 @@ class ShaderWarmup {
       await _rasterize(
         lut,
         pixel,
-        // uSize(0,1), uLutSize(2), uMaskBlend(3), uSrcW(4), uSrcH(5) —
+        // uSize(0,1), uLutSize(2), uMaskBlend(3), uSrcW(4), uSrcH(5),
+        // uZoneLo(6), uZoneHi(7), uZebraMode(8), uTime(9), uZebraHigh(10), uZebraLow(11) —
         // must match the uniform contract in `shaders/lut.frag`.
-        floats: const [1, 1, 1, 0, 1, 1],
+        floats: const [1, 1, 1, 0, 1, 1, -1.0, -1.0, 0.0, 0.0, 0.98, 0.02],
         samplerCount: 2,
       );
       await _rasterize(

@@ -10,6 +10,7 @@ import 'package:aperturex/ui/common/color_grading_editor.dart';
 import 'package:aperturex/ui/common/film_controls.dart';
 import 'package:aperturex/ui/common/hsl_mixer.dart';
 import 'package:aperturex/ui/common/lab_controls.dart';
+import 'package:aperturex/ui/common/mask_controls.dart';
 import 'package:aperturex/ui/common/optics_controls.dart';
 import 'package:aperturex/ui/common/retouch_controls.dart';
 import 'package:aperturex/ui/common/tone_curve_editor.dart';
@@ -39,104 +40,139 @@ void main() {
     );
   }
 
-  testWidgets('the top chip row covers every section that has real controls', (
+  testWidgets('the top chip row covers the 6 Master Tabs', (
     tester,
   ) async {
     await pump(tester);
 
     for (final label in const [
-      'Light',
-      'Color',
-      'Retouch',
-      'Blur',
-      'Effects',
-      'Detail',
-      'Optics',
-      'Geometry',
-      'Masking',
-      'Film',
-      'Lab',
+      'Light & Color',
+      'Effects & Detail',
+      'Crop & Geometry',
+      'Pro Tools',
+      'Masks',
+      'Plugins',
     ]) {
-      expect(find.text(label), findsOneWidget, reason: 'missing $label chip');
+      expect(find.text(label), findsOneWidget, reason: 'missing $label Master Tab');
     }
   });
 
-  testWidgets('Film section displays FilmControls', (tester) async {
+  testWidgets('Light & Color sub-tabs switch between Light, Color, Curve, Mix, and Grade', (
+    tester,
+  ) async {
     await pump(tester);
+    expect(find.text('Light'), findsOneWidget);
+    expect(find.text('Color'), findsOneWidget);
+    expect(find.text('Curve'), findsOneWidget);
+    expect(find.text('Mix'), findsOneWidget);
+    expect(find.text('Grade'), findsOneWidget);
+
+    // Default is Light -> verify Light parameters are present
+    expect(find.byKey(const Key('param-track-exposure')), findsOneWidget);
+    expect(find.byKey(const Key('param-track-contrast')), findsOneWidget);
+
+    // Tap Color -> verify Color parameters are present
+    await tester.tap(find.text('Color'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('param-track-temperature')), findsOneWidget);
+    expect(find.byKey(const Key('param-track-tint')), findsOneWidget);
+
+    await tester.tap(find.text('Curve'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ToneCurveEditor), findsOneWidget);
+
+    await tester.tap(find.text('Mix'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HslMixer), findsOneWidget);
+
+    await tester.tap(find.text('Grade'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ColorGradingEditor), findsOneWidget);
+  });
+
+  testWidgets('Effects & Detail tab displays sub-tabs and controls', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('Effects & Detail'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Effects'), findsOneWidget);
+    expect(find.text('Detail'), findsOneWidget);
+    expect(find.text('Blur'), findsOneWidget);
+    expect(find.text('Film'), findsOneWidget);
+
+    // Default is Effects -> verify Clarity
+    expect(find.byKey(const Key('param-track-clarity')), findsOneWidget);
+
+    // Tap Detail -> verify Sharpening
+    await tester.tap(find.text('Detail'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('param-track-sharpen')), findsOneWidget);
+
+    await tester.tap(find.text('Blur'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BlurControls), findsOneWidget);
+
     await tester.tap(find.text('Film'));
     await tester.pumpAndSettle();
     expect(find.byType(FilmControls), findsOneWidget);
   });
 
-  testWidgets('Lab section displays LabControls', (tester) async {
+  testWidgets('Crop & Geometry tab displays Straighten, Transform, and Perspective sub-tabs', (tester) async {
     await pump(tester);
-    await tester.tap(find.text('Lab'));
+    await tester.tap(find.text('Crop & Geometry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Straighten'), findsOneWidget);
+    expect(find.text('Transform'), findsOneWidget);
+    expect(find.text('Perspective'), findsOneWidget);
+
+    // Default Straighten has auto-straighten & rotation dial ruler
+    expect(find.byKey(const Key('geometry-auto-straighten')), findsOneWidget);
+    expect(find.byKey(const Key('rotation-dial-ruler')), findsOneWidget);
+
+    // Tap Transform has Rotate Left/Right & Flip H/V
+    await tester.tap(find.text('Transform'));
+    await tester.pumpAndSettle();
+    expect(find.text('Left'), findsOneWidget);
+    expect(find.text('Right'), findsOneWidget);
+    expect(find.text('Flip H'), findsOneWidget);
+    expect(find.text('Flip V'), findsOneWidget);
+
+    // Tap Perspective has Perspective X and Skew X
+    await tester.tap(find.text('Perspective'));
+    await tester.pumpAndSettle();
+    expect(find.text('Perspective X'), findsOneWidget);
+    expect(find.text('Skew X'), findsOneWidget);
+  });
+
+  testWidgets('Pro Tools tab displays Retouch, Optics, and Shader Lab', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('Pro Tools'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Retouch'), findsOneWidget);
+    expect(find.text('Optics'), findsOneWidget);
+    expect(find.text('Shader Lab'), findsOneWidget);
+
+    await tester.tap(find.text('Retouch'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RetouchControls), findsOneWidget);
+
+    await tester.tap(find.text('Optics'));
+    await tester.pumpAndSettle();
+    expect(find.byType(OpticsControls), findsOneWidget);
+
+    await tester.tap(find.text('Shader Lab'));
     await tester.pumpAndSettle();
     expect(find.byType(LabControls), findsOneWidget);
   });
 
-  testWidgets('empty section (Tone) is not offered as a chip, while Optics is offered', (
-    tester,
-  ) async {
+  testWidgets('Masks tab displays MaskControls', (tester) async {
     await pump(tester);
-
-    // Tone has no sliders of its own (its views live in Color).
-    // Optics has controls now and is present.
-    expect(find.text('Tone'), findsNothing);
-    expect(find.text('Optics'), findsOneWidget);
-  });
-
-  testWidgets('Optics section displays OpticsControls', (tester) async {
-    await pump(tester);
-    await tester.tap(find.text('Optics'));
+    await tester.tap(find.text('Masks'));
     await tester.pumpAndSettle();
-    expect(find.byType(OpticsControls), findsOneWidget);
+    expect(find.byType(MaskControls), findsOneWidget);
   });
-
-  testWidgets('Retouch section displays RetouchControls', (tester) async {
-    await pump(tester);
-    await tester.tap(find.text('Retouch'));
-    await tester.pumpAndSettle();
-    expect(find.byType(RetouchControls), findsOneWidget);
-  });
-
-  testWidgets('Blur section displays BlurControls', (tester) async {
-    await pump(tester);
-    await tester.tap(find.text('Blur'));
-    await tester.pumpAndSettle();
-    expect(find.byType(BlurControls), findsOneWidget);
-  });
-
-  testWidgets(
-    'Curve, Mix, and Grade live inside the Color panel, not the top row',
-    (tester) async {
-      await pump(tester);
-
-      // No Curve/Mix/Grade chips until a colour section is open.
-      expect(find.text('Curve'), findsNothing);
-      expect(find.text('Mix'), findsNothing);
-      expect(find.text('Grade'), findsNothing);
-
-      await tester.tap(find.text('Color'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Curve'), findsOneWidget);
-      expect(find.text('Mix'), findsOneWidget);
-      expect(find.text('Grade'), findsOneWidget);
-
-      await tester.tap(find.text('Curve'));
-      await tester.pumpAndSettle();
-      expect(find.byType(ToneCurveEditor), findsOneWidget);
-
-      await tester.tap(find.text('Mix'));
-      await tester.pumpAndSettle();
-      expect(find.byType(HslMixer), findsOneWidget);
-
-      await tester.tap(find.text('Grade'));
-      await tester.pumpAndSettle();
-      expect(find.byType(ColorGradingEditor), findsOneWidget);
-    },
-  );
 
   testWidgets(
     'LightroomShell renders safely without RenderFlex overflow under small height constraints (h=63.9)',
@@ -231,6 +267,64 @@ void main() {
       // Changes committed, cancel is disabled for committed state
       expect(container.read(recipeControllerProvider).recipe.contrast, 0.8);
       expect(cancelBtn(tester).onPressed, isNull);
+    },
+  );
+
+  testWidgets(
+    'sub-master tabs display individual applied dots and subtab cancel/apply actions',
+    (tester) async {
+      await pump(tester);
+
+      // Initially neutral - no dot on Light or Color subtab or Master Tab
+      expect(find.byKey(const Key('applied-dot-light')), findsNothing);
+      expect(find.byKey(const Key('applied-dot-color')), findsNothing);
+      expect(find.byKey(const Key('applied-dot-lightColor')), findsNothing);
+      expect(find.byKey(const Key('subtab-cancel')), findsNothing);
+      expect(find.byKey(const Key('subtab-apply')), findsNothing);
+
+      // Modify Exposure in Light sub-tab
+      container.read(recipeControllerProvider.notifier).update(
+            Parameter.exposure,
+            1.2,
+          );
+      await tester.pumpAndSettle();
+
+      // Dot appears on Light sub-tab and on Master Tab
+      expect(find.byKey(const Key('applied-dot-light')), findsOneWidget);
+      expect(find.byKey(const Key('applied-dot-color')), findsNothing);
+      expect(find.byKey(const Key('applied-dot-lightColor')), findsOneWidget);
+
+      // Sub-tab Cancel and Apply buttons appear
+      expect(find.byKey(const Key('subtab-cancel')), findsOneWidget);
+      expect(find.byKey(const Key('subtab-apply')), findsOneWidget);
+
+      // Tap subtab-cancel reverts changes
+      await tester.tap(find.byKey(const Key('subtab-cancel')));
+      await tester.pumpAndSettle();
+      expect(container.read(recipeControllerProvider).recipe.exposure, 0.0);
+      expect(find.byKey(const Key('applied-dot-light')), findsNothing);
+      expect(find.byKey(const Key('applied-dot-lightColor')), findsNothing);
+      expect(find.byKey(const Key('subtab-cancel')), findsNothing);
+
+      // Now modify temperature in Color sub-tab
+      await tester.tap(find.text('Color'));
+      await tester.pumpAndSettle();
+      container.read(recipeControllerProvider.notifier).update(
+            Parameter.temperature,
+            0.5,
+          );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('applied-dot-color')), findsOneWidget);
+      expect(find.byKey(const Key('applied-dot-lightColor')), findsOneWidget);
+      expect(find.byKey(const Key('subtab-apply')), findsOneWidget);
+
+      // Tap subtab-apply commits changes
+      await tester.tap(find.byKey(const Key('subtab-apply')));
+      await tester.pumpAndSettle();
+      expect(container.read(recipeControllerProvider).recipe.temperature, 0.5);
+      expect(find.byKey(const Key('subtab-apply')), findsNothing);
+      expect(find.byKey(const Key('applied-dot-lightColor')), findsOneWidget);
     },
   );
 }

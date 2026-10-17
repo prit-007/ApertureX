@@ -25,6 +25,7 @@ import '../settings/app_settings.dart';
 import '../settings/onboarding.dart';
 import '../viewport/compare_hold.dart';
 import '../viewport/wiper_compare.dart';
+import '../viewport/exposure_assist.dart';
 import '../viewport/image_canvas.dart';
 import '../viewport/mask_peek.dart';
 import 'edit_activity.dart';
@@ -1088,6 +1089,7 @@ class _CompareHint extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final wiper = ref.watch(wiperCompareProvider);
+    final assist = ref.watch(exposureAssistProvider);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1161,6 +1163,41 @@ class _CompareHint extends ConsumerWidget {
                       fontSize: 11,
                       fontWeight: wiper.isActive ? FontWeight.bold : FontWeight.w600,
                       color: wiper.isActive ? scheme.primary : scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 1,
+              height: 12,
+              color: scheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                ref.read(exposureAssistProvider.notifier).cycleMode();
+                HapticFeedback.selectionClick();
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.wb_iridescent_outlined,
+                    size: 14,
+                    color: assist.isActive ? scheme.primary : scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: Insets.xs),
+                  Text(
+                    assist.mode == ExposureAssistMode.zebras
+                        ? 'Zebras'
+                        : (assist.mode == ExposureAssistMode.falseColor ? 'IRE' : 'Assist'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: assist.isActive ? FontWeight.bold : FontWeight.w600,
+                      color: assist.isActive ? scheme.primary : scheme.onSurfaceVariant,
                     ),
                   ),
                 ],

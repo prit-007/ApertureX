@@ -26,6 +26,7 @@ import '../gesture/gesture_interpreter.dart';
 import '../gesture/zone_mask.dart';
 import 'compare_hold.dart';
 import 'wiper_compare.dart';
+import 'exposure_assist.dart';
 import 'canvas_transform.dart';
 import 'exif_orientation.dart';
 import 'live_warp.dart';
@@ -171,6 +172,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// Crossfade into/out of the auto-peeking mask view (issue #27).
   late final AnimationController _maskPeek;
 
+  /// Continuous ticker for animated zebra peaking stripes (Issue #98).
+  late final AnimationController _zebraTicker;
+
   // Transform (own, so it never fights the edit gestures).
   double _scale = 1;
   Offset _offset = Offset.zero;
@@ -192,6 +196,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _maskPeek = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
+    );
+    _zebraTicker = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
     );
     // Re-evaluate delivery whenever a compare/peek crossfade settles: the
     // fade runs on the shader path, idle returns to zero-copy (#54).
@@ -307,7 +315,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _comparing ||
       _compare.status != AnimationStatus.dismissed ||
       _maskPeek.status != AnimationStatus.dismissed ||
-      ref.read(zoneMaskProvider).isTargeting;
+      ref.read(zoneMaskProvider).isTargeting ||
+      ref.read(wiperCompareProvider).isActive ||
+      ref.read(exposureAssistProvider).isActive;
 
   void _onDeliveryGestureSettled(AnimationStatus _) => _scheduleBake(
     _renderRecipe(ref.read(recipeControllerProvider).recipe),
@@ -871,6 +881,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _debounce?.cancel();
     _compare.dispose();
     _maskPeek.dispose();
+    _zebraTicker.dispose();
     _busy.dispose();
     _shader?.dispose();
     _source?.dispose();
@@ -1063,7 +1074,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                           width: fitted.width,
                           height: fitted.height,
                         child: AnimatedBuilder(
-                          animation: Listenable.merge([_compare, _maskPeek]),
+                          animation: Listenable.merge([_compare, _maskPeek, _zebraTicker]),
                           builder: (context, _) {
                             // High-zoom tiles (#16): the cached, baked level-0
                             // tiles, drawn over the proxy through the shader.
@@ -1074,6 +1085,16 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                                 : const <_CanvasTile>[];
                             final wiper = ref.watch(wiperCompareProvider);
                             final zoneMask = ref.watch(zoneMaskProvider);
+                            final exposureAssist = ref.watch(exposureAssistProvider);
+                            if (exposureAssist.mode == ExposureAssistMode.zebras) {
+                              if (!_zebraTicker.isAnimating) {
+                                _zebraTicker.repeat();
+                              }
+                            } else {
+                              if (_zebraTicker.isAnimating) {
+                                _zebraTicker.stop();
+                              }
+                            }
                             final (zLo, zHi) = zoneMask.isTargeting
                                 ? zoneMask.lumaBounds
                                 : (-1.0, -1.0);
@@ -1084,8 +1105,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                               // Issue #54: actually display the texture Rust is
                               // writing into; the shader paint is the fallback
                               // (imported LUTs, iOS/tests, compare/peek fades,
-                              // tile overlay, geometry edits, wiper split curtain).
-                              textureId: zeroCopy && !zoneMask.isTargeting && !wiper.isActive ? _textureId : null,
+                              // tile overlay, geometry edits, wiper split curtain, exposure assist).
+                              textureId: zeroCopy && !zoneMask.isTargeting && !wiper.isActive && !exposureAssist.isActive ? _textureId : null,
                               fallback: (_) => CustomPaint(
                                 size: fitted,
                                 painter: _CanvasPainter(
@@ -1103,6 +1124,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                                   wiperActive: wiper.isActive,
                                   wiperPosition: wiper.position,
                                   wiperOrientation: wiper.orientation,
+                                  zebraMode: exposureAssist.mode,
+                                  time: _zebraTicker.value * 1.0,
+                                  zebraHigh: exposureAssist.zebraHigh,
+                                  zebraLow: exposureAssist.zebraLow,
                                   tiles: tiles,
                                 ),
                               ),
@@ -1547,6 +1572,10 @@ class _CanvasPainter extends CustomPainter {
     this.wiperActive = false,
     this.wiperPosition = 0.50,
     this.wiperOrientation = WiperOrientation.vertical,
+    this.zebraMode = ExposureAssistMode.off,
+    this.time = 0.0,
+    this.zebraHigh = 0.98,
+    this.zebraLow = 0.02,
     this.tiles = const [],
   });
 
@@ -1562,6 +1591,10 @@ class _CanvasPainter extends CustomPainter {
   final bool wiperActive;
   final double wiperPosition;
   final WiperOrientation wiperOrientation;
+  final ExposureAssistMode zebraMode;
+  final double time;
+  final double zebraHigh;
+  final double zebraLow;
 
   /// High-zoom tiles (#16): baked level-0 tiles of the original frame, drawn
   /// through the same uniforms over the proxy at their fitted-space rects.
@@ -1572,6 +1605,10 @@ class _CanvasPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.drawColor(const Color(0xFF000000), BlendMode.src);
 
+    final zebraVal = zebraMode == ExposureAssistMode.zebras
+        ? 1.0
+        : (zebraMode == ExposureAssistMode.falseColor ? 2.0 : 0.0);
+
     shader
       ..setFloat(0, dst.width)
       ..setFloat(1, dst.height)
@@ -1581,6 +1618,10 @@ class _CanvasPainter extends CustomPainter {
       ..setFloat(5, source.height.toDouble())
       ..setFloat(6, zoneLo)
       ..setFloat(7, zoneHi)
+      ..setFloat(8, zebraVal)
+      ..setFloat(9, time)
+      ..setFloat(10, zebraHigh)
+      ..setFloat(11, zebraLow)
       ..setImageSampler(0, source)
       ..setImageSampler(1, lut);
 
@@ -1616,6 +1657,10 @@ class _CanvasPainter extends CustomPainter {
               ..setFloat(5, tile.image.height.toDouble())
               ..setFloat(6, zoneLo)
               ..setFloat(7, zoneHi)
+              ..setFloat(8, zebraVal)
+              ..setFloat(9, time)
+              ..setFloat(10, zebraHigh)
+              ..setFloat(11, zebraLow)
               ..setImageSampler(0, tile.image)
               ..setImageSampler(1, lut);
             canvas.drawRect(
@@ -1695,6 +1740,10 @@ class _CanvasPainter extends CustomPainter {
               ..setFloat(5, tile.image.height.toDouble())
               ..setFloat(6, zoneLo)
               ..setFloat(7, zoneHi)
+              ..setFloat(8, zebraVal)
+              ..setFloat(9, time)
+              ..setFloat(10, zebraHigh)
+              ..setFloat(11, zebraLow)
               ..setImageSampler(0, tile.image)
               ..setImageSampler(1, lut);
             canvas.drawRect(
@@ -1779,6 +1828,10 @@ class _CanvasPainter extends CustomPainter {
           ..setFloat(5, tile.image.height.toDouble())
           ..setFloat(6, zoneLo)
           ..setFloat(7, zoneHi)
+          ..setFloat(8, zebraVal)
+          ..setFloat(9, time)
+          ..setFloat(10, zebraHigh)
+          ..setFloat(11, zebraLow)
           ..setImageSampler(0, tile.image)
           ..setImageSampler(1, lut);
         canvas.drawRect(
@@ -1802,6 +1855,10 @@ class _CanvasPainter extends CustomPainter {
       old.wiperActive != wiperActive ||
       old.wiperPosition != wiperPosition ||
       old.wiperOrientation != wiperOrientation ||
+      old.zebraMode != zebraMode ||
+      old.time != time ||
+      old.zebraHigh != zebraHigh ||
+      old.zebraLow != zebraLow ||
       old.dst != dst ||
       !_sameTiles(old.tiles, tiles);
 

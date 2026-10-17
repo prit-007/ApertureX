@@ -129,26 +129,34 @@ void main() {
     (tester) async {
       await pumpPortrait(tester);
 
-      final chipBar = find.byType(ListView).first;
+      final chipBar = find.byKey(const Key('lightroom-master-tabs-bar'));
 
-      // Drag slightly to bring Blur on-screen
-      await tester.drag(chipBar, const Offset(-60, 0));
+      // Tap Effects & Detail -> Blur sub-tab
+      await tester.tap(find.text('Effects & Detail'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Blur'));
       await tester.pumpAndSettle();
       expect(find.byType(SwitchListTile), findsWidgets);
 
-      // Drag further to bring Optics on-screen
-      await tester.drag(chipBar, const Offset(-180, 0));
+      final chipBarScrollable = find.descendant(
+        of: chipBar,
+        matching: find.byType(Scrollable),
+      );
+
+      // Ensure Pro Tools is visible and tap it
+      await tester.scrollUntilVisible(find.text('Pro Tools'), 50, scrollable: chipBarScrollable);
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Pro Tools'));
+      await tester.pumpAndSettle();
+
       await tester.tap(find.text('Optics'));
       await tester.pumpAndSettle();
       expect(find.byType(SwitchListTile), findsWidgets);
 
-      // Drag further to bring Masking on-screen
-      await tester.drag(chipBar, const Offset(-180, 0));
+      // Ensure Masks is visible and tap it
+      await tester.scrollUntilVisible(find.text('Masks'), 50, scrollable: chipBarScrollable);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Masking'));
+      await tester.tap(find.text('Masks'));
       await tester.pumpAndSettle();
     },
   );

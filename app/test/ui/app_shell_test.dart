@@ -110,15 +110,22 @@ void main() {
       );
       expect(row, findsWidgets);
 
-      // In wide mode, drag sidebar's chip bar to bring Blur into view
-      final chipBar = find.byType(ListView).first;
-      await tester.drag(chipBar, const Offset(-100, 0));
+      // Tap Effects & Detail Master Tab, then Blur sub-tab
+      await tester.tap(find.text('Effects & Detail'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Blur'));
       await tester.pumpAndSettle();
       expect(find.byType(SwitchListTile), findsWidgets);
 
-      await tester.drag(chipBar, const Offset(-250, 0));
+      // Tap Pro Tools Master Tab, then Optics sub-tab
+      await tester.scrollUntilVisible(
+        find.text('Pro Tools'),
+        80,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(find.text('Pro Tools'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Pro Tools'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Optics'));
       await tester.pumpAndSettle();

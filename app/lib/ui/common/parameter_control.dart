@@ -10,6 +10,7 @@ import '../../edit/recipe_controller.dart';
 import '../../viewport/mask_peek.dart';
 import '../edit_activity.dart';
 import '../precision_gear.dart';
+import 'rotary_jog_dial.dart';
 import 'slider_math.dart';
 
 /// The single parameter control shared by **both** shells (P2 Slice B) — the
@@ -94,6 +95,22 @@ class ParameterControl extends ConsumerWidget {
                 muted: muted,
                 precise: precise,
                 onType: (v) => notifier.update(parameter, v),
+              ),
+              IconButton(
+                key: Key('param-jog-dial-${parameter.name}'),
+                tooltip: 'Jog Dial (${spec.label})',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  showRotaryJogDial(context, parameter: parameter);
+                },
+                icon: Icon(
+                  Icons.album_outlined,
+                  size: 16,
+                  color: isNeutral ? scheme.onSurfaceVariant : scheme.primary,
+                ),
               ),
               if (precise)
                 Padding(

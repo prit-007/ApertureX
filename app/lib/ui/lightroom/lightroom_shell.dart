@@ -4,11 +4,15 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../color/tat.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
+import '../../features/ai_plugins/ai_plugin_store.dart';
+import '../../features/ai_plugins/ai_plugins_screen.dart';
 import '../../viewport/compare_hold.dart';
+import '../../viewport/exposure_assist.dart';
 import '../../viewport/wiper_compare.dart';
 import '../common/blur_controls.dart';
 import '../common/color_grading_editor.dart';
@@ -23,29 +27,35 @@ import '../common/parameter_panel.dart';
 import '../common/retouch_controls.dart';
 import '../common/tone_curve_editor.dart';
 
-enum _Tab { panel, curve, mix, grade }
+enum MasterTab {
+  lightColor,
+  effectsDetail,
+  cropGeometry,
+  proTools,
+  masks,
+  plugins,
+}
 
-String _sectionLabel(RecipeSection section) => switch (section) {
-  RecipeSection.light => 'Light',
-  RecipeSection.color => 'Color',
-  RecipeSection.tone => 'Tone',
-  RecipeSection.retouch => 'Retouch',
-  RecipeSection.blur => 'Blur',
-  RecipeSection.effects => 'Effects',
-  RecipeSection.detail => 'Detail',
-  RecipeSection.optics => 'Optics',
-  RecipeSection.geometry => 'Geometry',
-  RecipeSection.masking => 'Masking',
-  RecipeSection.film => 'Film',
-  RecipeSection.lab => 'Lab',
+String _masterTabLabel(MasterTab tab) => switch (tab) {
+  MasterTab.lightColor => 'Light & Color',
+  MasterTab.effectsDetail => 'Effects & Detail',
+  MasterTab.cropGeometry => 'Crop & Geometry',
+  MasterTab.proTools => 'Pro Tools',
+  MasterTab.masks => 'Masks',
+  MasterTab.plugins => 'Plugins',
 };
+
+enum _LightColorSubTab { light, color, curve, mix, grade }
+enum _EffectsDetailSubTab { effects, detail, blur, film }
+enum _CropGeometrySubTab { straighten, transform, perspective }
+enum _ProToolsSubTab { retouch, optics, shaderLab }
 
 class ActiveSectionNotifier extends Notifier<RecipeSection> {
   @override
   RecipeSection build() => RecipeSection.light;
   void select(RecipeSection section) {
     state = section;
-    axLog(LogDomain.editor, 'Switched tool tab to ${_sectionLabel(section)}');
+    axLog(LogDomain.editor, 'Switched tool tab to ${section.name}');
   }
 }
 
@@ -54,9 +64,7 @@ final activeSectionProvider =
   ActiveSectionNotifier.new,
 );
 
-/// Lightroom shell: a scrollable row of tool tabs over the shared recipe. The
-/// histogram is no longer a permanent strip here — it lives as a collapsible
-/// overlay on the image (see `AppShell`), so the tools get the whole area.
+/// Lightroom shell: a streamlined 6 Master Tabs tray over the shared recipe.
 class LightroomShell extends ConsumerStatefulWidget {
   const LightroomShell({super.key});
 
@@ -65,26 +73,23 @@ class LightroomShell extends ConsumerStatefulWidget {
 }
 
 class _LightroomShellState extends ConsumerState<LightroomShell> {
-  /// Sections rendered as chips.
-  static const List<RecipeSection> _sections = [
-    RecipeSection.light,
-    RecipeSection.color,
-    RecipeSection.retouch,
-    RecipeSection.blur,
-    RecipeSection.effects,
-    RecipeSection.detail,
-    RecipeSection.optics,
-    RecipeSection.geometry,
-    RecipeSection.masking,
-    RecipeSection.film,
-    RecipeSection.lab,
+  static const List<MasterTab> _masterTabs = [
+    MasterTab.lightColor,
+    MasterTab.effectsDetail,
+    MasterTab.cropGeometry,
+    MasterTab.proTools,
+    MasterTab.masks,
+    MasterTab.plugins,
   ];
 
-  RecipeSection _section = RecipeSection.light;
-  _Tab _tab = _Tab.panel;
+  MasterTab _activeTab = MasterTab.lightColor;
+  _LightColorSubTab _lightColorTab = _LightColorSubTab.light;
+  _EffectsDetailSubTab _effectsDetailTab = _EffectsDetailSubTab.effects;
+  _CropGeometrySubTab _cropGeometryTab = _CropGeometrySubTab.straighten;
+  _ProToolsSubTab _proToolsTab = _ProToolsSubTab.retouch;
+
   late final ScrollController _tabScrollController;
   EditRecipe? _sessionStartRecipe;
-
 
   @override
   void initState() {
@@ -97,6 +102,80 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     _tabScrollController.dispose();
     super.dispose();
   }
+
+  bool _isMasterTabModified(EditRecipe recipe, MasterTab tab) => switch (tab) {
+    MasterTab.lightColor =>
+      _isLightColorSubTabModified(recipe, _LightColorSubTab.light) ||
+      _isLightColorSubTabModified(recipe, _LightColorSubTab.color) ||
+      _isLightColorSubTabModified(recipe, _LightColorSubTab.curve) ||
+      _isLightColorSubTabModified(recipe, _LightColorSubTab.mix) ||
+      _isLightColorSubTabModified(recipe, _LightColorSubTab.grade),
+    MasterTab.effectsDetail =>
+      _isEffectsDetailSubTabModified(recipe, _EffectsDetailSubTab.effects) ||
+      _isEffectsDetailSubTabModified(recipe, _EffectsDetailSubTab.detail) ||
+      _isEffectsDetailSubTabModified(recipe, _EffectsDetailSubTab.blur) ||
+      _isEffectsDetailSubTabModified(recipe, _EffectsDetailSubTab.film),
+    MasterTab.cropGeometry =>
+      _isCropGeometrySubTabModified(recipe, _CropGeometrySubTab.straighten) ||
+      _isCropGeometrySubTabModified(recipe, _CropGeometrySubTab.transform) ||
+      _isCropGeometrySubTabModified(recipe, _CropGeometrySubTab.perspective),
+    MasterTab.proTools =>
+      _isProToolsSubTabModified(recipe, _ProToolsSubTab.retouch) ||
+      _isProToolsSubTabModified(recipe, _ProToolsSubTab.optics) ||
+      _isProToolsSubTabModified(recipe, _ProToolsSubTab.shaderLab),
+    MasterTab.masks => isSectionModified(recipe, RecipeSection.masking),
+    MasterTab.plugins => false,
+  };
+
+  bool _isLightColorSubTabModified(EditRecipe recipe, _LightColorSubTab tab) => switch (tab) {
+    _LightColorSubTab.light => isSectionModified(recipe, RecipeSection.light),
+    _LightColorSubTab.color =>
+      recipe.temperature != 0 ||
+      recipe.tint != 0 ||
+      recipe.vibrance != 0 ||
+      recipe.saturation != 0,
+    _LightColorSubTab.curve => isSectionModified(recipe, RecipeSection.tone),
+    _LightColorSubTab.mix => recipe.hsl != neutralHsl,
+    _LightColorSubTab.grade =>
+      recipe.gradeShadowHue != 0 ||
+      recipe.gradeShadowSat != 0 ||
+      recipe.gradeShadowLum != 0 ||
+      recipe.gradeMidHue != 0 ||
+      recipe.gradeMidSat != 0 ||
+      recipe.gradeMidLum != 0 ||
+      recipe.gradeHighlightHue != 0 ||
+      recipe.gradeHighlightSat != 0 ||
+      recipe.gradeHighlightLum != 0 ||
+      recipe.gradeBlending != 0.5 ||
+      recipe.gradeBalance != 0,
+  };
+
+  bool _isEffectsDetailSubTabModified(EditRecipe recipe, _EffectsDetailSubTab tab) => switch (tab) {
+    _EffectsDetailSubTab.effects => isSectionModified(recipe, RecipeSection.effects),
+    _EffectsDetailSubTab.detail => isSectionModified(recipe, RecipeSection.detail),
+    _EffectsDetailSubTab.blur => isSectionModified(recipe, RecipeSection.blur),
+    _EffectsDetailSubTab.film => isSectionModified(recipe, RecipeSection.film),
+  };
+
+  bool _isCropGeometrySubTabModified(EditRecipe recipe, _CropGeometrySubTab tab) => switch (tab) {
+    _CropGeometrySubTab.straighten => recipe.straighten != 0,
+    _CropGeometrySubTab.transform =>
+      recipe.rotation != 0 ||
+      recipe.flipH ||
+      recipe.flipV ||
+      recipe.crop != fullCrop,
+    _CropGeometrySubTab.perspective =>
+      recipe.perspectiveX != 0 ||
+      recipe.perspectiveY != 0 ||
+      recipe.skewX != 0 ||
+      recipe.skewY != 0,
+  };
+
+  bool _isProToolsSubTabModified(EditRecipe recipe, _ProToolsSubTab tab) => switch (tab) {
+    _ProToolsSubTab.retouch => isSectionModified(recipe, RecipeSection.retouch),
+    _ProToolsSubTab.optics => isSectionModified(recipe, RecipeSection.optics),
+    _ProToolsSubTab.shaderLab => isSectionModified(recipe, RecipeSection.lab),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -113,17 +192,17 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     );
     final controller = ref.read(recipeControllerProvider.notifier);
 
-    Widget chip(RecipeSection section, bool selected, bool isModified, VoidCallback onTap) => Padding(
+    Widget chip(MasterTab tab, bool selected, bool isModified, VoidCallback onTap) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: ChoiceChip(
         label: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_sectionLabel(section)),
+            Text(_masterTabLabel(tab)),
             if (isModified) ...[
               const SizedBox(width: 4),
               Container(
-                key: Key('applied-dot-${section.name}'),
+                key: Key('applied-dot-${tab.name}'),
                 width: 5,
                 height: 5,
                 decoration: BoxDecoration(
@@ -161,34 +240,68 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
       builder: (context, constraints) {
         final content = Column(
           children: [
-            // Category Chips Bar (top): scrollable row of tool categories
+            // Master Tabs Bar (top): scrollable row of 6 consolidated Master Tabs
             SizedBox(
               height: 40,
               child: ListView(
+                key: const Key('lightroom-master-tabs-bar'),
                 controller: _tabScrollController,
                 physics: const BouncingScrollPhysics(),
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 children: [
-                  for (final section in _sections)
+                  for (final tab in _masterTabs)
                     chip(
-                      section,
-                      _tab == _Tab.panel && section == _section,
-                      isSectionModified(currentRecipe, section),
+                      tab,
+                      tab == _activeTab,
+                      _isMasterTabModified(currentRecipe, tab),
                       () {
                         HapticFeedback.selectionClick();
                         if (hasChanges) {
-                          controller.commit(label: 'Applied ${_sectionLabel(_section)}');
+                          controller.commit(label: 'Applied ${_masterTabLabel(_activeTab)}');
                         }
                         setState(() {
-                          _section = section;
-                          _tab = _Tab.panel;
+                          _activeTab = tab;
                           _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
                         });
-                        ref.read(activeSectionProvider.notifier).select(section);
-                        final idx = _sections.indexOf(section);
+                        // Update activeSectionProvider for canvas overlays
+                        switch (tab) {
+                          case MasterTab.lightColor:
+                            ref.read(activeSectionProvider.notifier).select(
+                              _lightColorTab == _LightColorSubTab.color
+                                  ? RecipeSection.color
+                                  : RecipeSection.light,
+                            );
+                            break;
+                          case MasterTab.effectsDetail:
+                            ref.read(activeSectionProvider.notifier).select(
+                              _effectsDetailTab == _EffectsDetailSubTab.detail
+                                  ? RecipeSection.detail
+                                  : RecipeSection.effects,
+                            );
+                            break;
+                          case MasterTab.cropGeometry:
+                            ref.read(activeSectionProvider.notifier).select(RecipeSection.geometry);
+                            break;
+                          case MasterTab.proTools:
+                            ref.read(activeSectionProvider.notifier).select(
+                              _proToolsTab == _ProToolsSubTab.retouch
+                                  ? RecipeSection.retouch
+                                  : _proToolsTab == _ProToolsSubTab.optics
+                                      ? RecipeSection.optics
+                                      : RecipeSection.lab,
+                            );
+                            break;
+                          case MasterTab.masks:
+                            ref.read(activeSectionProvider.notifier).select(RecipeSection.masking);
+                            break;
+                          case MasterTab.plugins:
+                            break;
+                        }
+
+                        final idx = _masterTabs.indexOf(tab);
                         if (_tabScrollController.hasClients) {
-                          final target = (idx * 84.0 - 40.0).clamp(
+                          final target = (idx * 110.0 - 40.0).clamp(
                             0.0,
                             _tabScrollController.position.maxScrollExtent,
                           );
@@ -204,11 +317,16 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
               ),
             ),
             Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
-            // Streamlined Action Bar: Cancel, TAT, Undo, Redo, Compare, Apply
+            // Streamlined Action Bar: Cancel, TAT, Undo, Redo, History, Compare, Wiper, Apply
             SizedBox(
               height: 38,
-              child: Row(
-                children: [
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: Row(
+                    children: [
                   IconButton(
                     key: const Key('tray-cancel'),
                     tooltip: 'Discard changes',
@@ -218,7 +336,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                             HapticFeedback.lightImpact();
                             controller.loadRecipe(
                               _sessionStartRecipe!,
-                              label: 'Discarded ${_sectionLabel(_section)} changes',
+                              label: 'Discarded ${_masterTabLabel(_activeTab)} changes',
                             );
                             setState(() {});
                           }
@@ -258,7 +376,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     icon: const Icon(Icons.colorize),
                     selectedIcon: Icon(Icons.colorize, color: scheme.primary),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: Insets.sm),
                   IconButton(
                     tooltip: 'Undo',
                     visualDensity: VisualDensity.compact,
@@ -304,13 +422,24 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     selectedIcon: Icon(Icons.splitscreen, color: scheme.primary),
                   ),
                   IconButton(
+                    tooltip: 'Exposure Assist: Zebras & False Color Heatmap (ARRI IRE)',
+                    visualDensity: VisualDensity.compact,
+                    isSelected: ref.watch(exposureAssistProvider).isActive,
+                    onPressed: () {
+                      ref.read(exposureAssistProvider.notifier).cycleMode();
+                      HapticFeedback.selectionClick();
+                    },
+                    icon: const Icon(Icons.wb_iridescent_outlined),
+                    selectedIcon: Icon(Icons.wb_iridescent, color: scheme.primary),
+                  ),
+                  IconButton(
                     key: const Key('tray-apply'),
                     tooltip: 'Apply changes',
                     visualDensity: VisualDensity.compact,
                     onPressed: hasChanges
                         ? () {
                             HapticFeedback.lightImpact();
-                            controller.commit(label: 'Applied ${_sectionLabel(_section)}');
+                            controller.commit(label: 'Applied ${_masterTabLabel(_activeTab)}');
                             setState(() {
                               _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
                             });
@@ -325,12 +454,17 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     ),
                   ),
                 ],
+                  ),
+                ),
               ),
             ),
             Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
-            // Active Tool Controls (Sliders, Curves, Mixers, etc.)
+            // Active Master Tab Controls
             Expanded(
-              child: SafeArea(bottom: false, child: _sectionBody()),
+              child: SafeArea(
+                bottom: false,
+                child: _sectionBody(currentRecipe, hasChanges, controller),
+              ),
             ),
           ],
         );
@@ -351,86 +485,394 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     );
   }
 
-  /// The body for the selected top-level section.
-  Widget _sectionBody() {
-    switch (_section) {
-      case RecipeSection.color:
+  /// The body for the active Master Tab.
+  Widget _sectionBody(
+    EditRecipe currentRecipe,
+    bool hasChanges,
+    RecipeController controller,
+  ) {
+    switch (_activeTab) {
+      case MasterTab.lightColor:
         return Column(
           children: [
-            _subTabs(),
+            _subTabs(
+              tabs: [
+                ('Light', _LightColorSubTab.light, 'light', _isLightColorSubTabModified(currentRecipe, _LightColorSubTab.light)),
+                ('Color', _LightColorSubTab.color, 'color', _isLightColorSubTabModified(currentRecipe, _LightColorSubTab.color)),
+                ('Curve', _LightColorSubTab.curve, 'curve', _isLightColorSubTabModified(currentRecipe, _LightColorSubTab.curve)),
+                ('Mix', _LightColorSubTab.mix, 'mix', _isLightColorSubTabModified(currentRecipe, _LightColorSubTab.mix)),
+                ('Grade', _LightColorSubTab.grade, 'grade', _isLightColorSubTabModified(currentRecipe, _LightColorSubTab.grade)),
+              ],
+              current: _lightColorTab,
+              hasChanges: hasChanges,
+              onCancel: () {
+                HapticFeedback.lightImpact();
+                controller.loadRecipe(
+                  _sessionStartRecipe!,
+                  label: 'Discarded Light & Color changes',
+                );
+                setState(() {});
+              },
+              onApply: () {
+                HapticFeedback.lightImpact();
+                controller.commit(label: 'Applied Light & Color');
+                setState(() {
+                  _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
+                });
+              },
+              onSelect: (val) {
+                setState(() => _lightColorTab = val);
+                if (val == _LightColorSubTab.light) {
+                  ref.read(activeSectionProvider.notifier).select(RecipeSection.light);
+                } else if (val == _LightColorSubTab.color) {
+                  ref.read(activeSectionProvider.notifier).select(RecipeSection.color);
+                }
+              },
+            ),
             Expanded(
-              child: switch (_tab) {
-                _Tab.curve => const ToneCurveEditor(),
-                _Tab.mix => const SingleChildScrollView(
+              child: switch (_lightColorTab) {
+                _LightColorSubTab.light => ParameterPanel(section: RecipeSection.light),
+                _LightColorSubTab.color => ParameterPanel(section: RecipeSection.color),
+                _LightColorSubTab.curve => const ToneCurveEditor(),
+                _LightColorSubTab.mix => const SingleChildScrollView(
                     physics: BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     child: HslMixer(),
                   ),
-                _Tab.grade => const SingleChildScrollView(
+                _LightColorSubTab.grade => const SingleChildScrollView(
                     physics: BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     child: ColorGradingEditor(),
                   ),
-                _Tab.panel => ParameterPanel(section: _section),
               },
             ),
           ],
         );
-      case RecipeSection.geometry:
-        return const SingleChildScrollView(
-          physics: BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-          child: GeometryControls(),
+
+      case MasterTab.effectsDetail:
+        return Column(
+          children: [
+            _subTabs(
+              tabs: [
+                ('Effects', _EffectsDetailSubTab.effects, 'effects', _isEffectsDetailSubTabModified(currentRecipe, _EffectsDetailSubTab.effects)),
+                ('Detail', _EffectsDetailSubTab.detail, 'detail', _isEffectsDetailSubTabModified(currentRecipe, _EffectsDetailSubTab.detail)),
+                ('Blur', _EffectsDetailSubTab.blur, 'blur', _isEffectsDetailSubTabModified(currentRecipe, _EffectsDetailSubTab.blur)),
+                ('Film', _EffectsDetailSubTab.film, 'film', _isEffectsDetailSubTabModified(currentRecipe, _EffectsDetailSubTab.film)),
+              ],
+              current: _effectsDetailTab,
+              hasChanges: hasChanges,
+              onCancel: () {
+                HapticFeedback.lightImpact();
+                controller.loadRecipe(
+                  _sessionStartRecipe!,
+                  label: 'Discarded Effects & Detail changes',
+                );
+                setState(() {});
+              },
+              onApply: () {
+                HapticFeedback.lightImpact();
+                controller.commit(label: 'Applied Effects & Detail');
+                setState(() {
+                  _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
+                });
+              },
+              onSelect: (val) {
+                setState(() => _effectsDetailTab = val);
+                if (val == _EffectsDetailSubTab.effects) {
+                  ref.read(activeSectionProvider.notifier).select(RecipeSection.effects);
+                } else if (val == _EffectsDetailSubTab.detail) {
+                  ref.read(activeSectionProvider.notifier).select(RecipeSection.detail);
+                }
+              },
+            ),
+            Expanded(
+              child: switch (_effectsDetailTab) {
+                _EffectsDetailSubTab.effects => ParameterPanel(section: RecipeSection.effects),
+                _EffectsDetailSubTab.detail => ParameterPanel(section: RecipeSection.detail),
+                _EffectsDetailSubTab.blur => const BlurControls(),
+                _EffectsDetailSubTab.film => const FilmControls(),
+              },
+            ),
+          ],
         );
-      case RecipeSection.retouch:
-        return const RetouchControls();
-      case RecipeSection.blur:
-        return const BlurControls();
-      case RecipeSection.masking:
+
+      case MasterTab.cropGeometry:
+        return Column(
+          children: [
+            _subTabs(
+              tabs: [
+                ('Straighten', _CropGeometrySubTab.straighten, 'straighten', _isCropGeometrySubTabModified(currentRecipe, _CropGeometrySubTab.straighten)),
+                ('Transform', _CropGeometrySubTab.transform, 'transform', _isCropGeometrySubTabModified(currentRecipe, _CropGeometrySubTab.transform)),
+                ('Perspective', _CropGeometrySubTab.perspective, 'perspective', _isCropGeometrySubTabModified(currentRecipe, _CropGeometrySubTab.perspective)),
+              ],
+              current: _cropGeometryTab,
+              hasChanges: hasChanges,
+              onCancel: () {
+                HapticFeedback.lightImpact();
+                controller.loadRecipe(
+                  _sessionStartRecipe!,
+                  label: 'Discarded Crop & Geometry changes',
+                );
+                setState(() {});
+              },
+              onApply: () {
+                HapticFeedback.lightImpact();
+                controller.commit(label: 'Applied Crop & Geometry');
+                setState(() {
+                  _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
+                });
+              },
+              onSelect: (val) => setState(() => _cropGeometryTab = val),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                child: GeometryControls(
+                  subTab: switch (_cropGeometryTab) {
+                    _CropGeometrySubTab.straighten => GeometrySubTab.straighten,
+                    _CropGeometrySubTab.transform => GeometrySubTab.transform,
+                    _CropGeometrySubTab.perspective => GeometrySubTab.perspective,
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+
+      case MasterTab.proTools:
+        return Column(
+          children: [
+            _subTabs(
+              tabs: [
+                ('Retouch', _ProToolsSubTab.retouch, 'retouch', _isProToolsSubTabModified(currentRecipe, _ProToolsSubTab.retouch)),
+                ('Optics', _ProToolsSubTab.optics, 'optics', _isProToolsSubTabModified(currentRecipe, _ProToolsSubTab.optics)),
+                ('Shader Lab', _ProToolsSubTab.shaderLab, 'shaderLab', _isProToolsSubTabModified(currentRecipe, _ProToolsSubTab.shaderLab)),
+              ],
+              current: _proToolsTab,
+              hasChanges: hasChanges,
+              onCancel: () {
+                HapticFeedback.lightImpact();
+                controller.loadRecipe(
+                  _sessionStartRecipe!,
+                  label: 'Discarded Pro Tools changes',
+                );
+                setState(() {});
+              },
+              onApply: () {
+                HapticFeedback.lightImpact();
+                controller.commit(label: 'Applied Pro Tools');
+                setState(() {
+                  _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
+                });
+              },
+              onSelect: (val) {
+                setState(() => _proToolsTab = val);
+                if (val == _ProToolsSubTab.retouch) {
+                  ref.read(activeSectionProvider.notifier).select(RecipeSection.retouch);
+                } else if (val == _ProToolsSubTab.optics) {
+                  ref.read(activeSectionProvider.notifier).select(RecipeSection.optics);
+                } else {
+                  ref.read(activeSectionProvider.notifier).select(RecipeSection.lab);
+                }
+              },
+            ),
+            Expanded(
+              child: switch (_proToolsTab) {
+                _ProToolsSubTab.retouch => const RetouchControls(),
+                _ProToolsSubTab.optics => const OpticsControls(),
+                _ProToolsSubTab.shaderLab => const LabControls(),
+              },
+            ),
+          ],
+        );
+
+      case MasterTab.masks:
         return const MaskControls();
-      case RecipeSection.optics:
-        return const OpticsControls();
-      case RecipeSection.film:
-        return const FilmControls();
-      case RecipeSection.lab:
-        return const LabControls();
-      default:
-        return ParameterPanel(section: _section);
+
+      case MasterTab.plugins:
+        return const _PluginsPanelView();
     }
   }
 
-  Widget _subTabs() {
-    Widget tab(String label, _Tab value) => TextButton(
+  Widget _subTabs<T>({
+    required List<(String label, T value, String keyName, bool isModified)> tabs,
+    required T current,
+    required ValueChanged<T> onSelect,
+    required bool hasChanges,
+    required VoidCallback onCancel,
+    required VoidCallback onApply,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+
+    Widget tab(String label, T value, String keyName, bool isModified) => TextButton(
       onPressed: () {
         HapticFeedback.selectionClick();
-        setState(() => _tab = value);
+        if (hasChanges) {
+          onApply();
+        }
+        onSelect(value);
       },
       style: TextButton.styleFrom(
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        foregroundColor: _tab == value
-            ? Theme.of(context).colorScheme.primary
+        foregroundColor: current == value
+            ? scheme.primary
             : null,
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: _tab == value ? FontWeight.w700 : FontWeight.w500,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: current == value ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+          if (isModified) ...[
+            const SizedBox(width: 4),
+            Container(
+              key: Key('applied-dot-$keyName'),
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: current == value ? scheme.primary : scheme.primary.withValues(alpha: 0.85),
+              ),
+            ),
+          ],
+        ],
       ),
     );
 
     return SizedBox(
-      height: 32,
+      height: 34,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          tab('Sliders', _Tab.panel),
-          tab('Curve', _Tab.curve),
-          tab('Mix', _Tab.mix),
-          tab('Grade', _Tab.grade),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final item in tabs)
+                    tab(item.$1, item.$2, item.$3, item.$4),
+                ],
+              ),
+            ),
+          ),
+          if (hasChanges) ...[
+            VerticalDivider(
+              width: 1,
+              indent: 8,
+              endIndent: 8,
+              color: scheme.outlineVariant.withValues(alpha: 0.3),
+            ),
+            IconButton(
+              key: const Key('subtab-cancel'),
+              tooltip: 'Discard changes',
+              visualDensity: VisualDensity.compact,
+              iconSize: 18,
+              padding: const EdgeInsets.all(4),
+              constraints: const BoxConstraints(),
+              onPressed: onCancel,
+              icon: Icon(Icons.close, color: scheme.error, size: 18),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              key: const Key('subtab-apply'),
+              tooltip: 'Apply changes',
+              visualDensity: VisualDensity.compact,
+              iconSize: 18,
+              padding: const EdgeInsets.all(4),
+              constraints: const BoxConstraints(),
+              onPressed: onApply,
+              icon: Icon(Icons.check, color: scheme.primary, size: 18),
+            ),
+            const SizedBox(width: 6),
+          ],
         ],
       ),
     );
   }
 }
 
+class _PluginsPanelView extends ConsumerWidget {
+  const _PluginsPanelView();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(aiPluginProvider);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final installed = state.installedPlugins;
+
+    return ListView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      padding: const EdgeInsets.all(Insets.md),
+      children: [
+        Card.outlined(
+          child: Padding(
+            padding: const EdgeInsets.all(Insets.md),
+            child: Row(
+              children: [
+                Icon(Icons.offline_bolt_rounded, color: scheme.primary, size: 28),
+                const SizedBox(width: Insets.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Neural Forge On-Device AI',
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Zero cloud inference. Local zero-copy tensors.',
+                        style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.tonal(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(builder: (_) => const AiPluginsScreen()),
+                    );
+                  },
+                  child: const Text('Manage'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: Insets.sm),
+        for (final p in installed)
+          ListTile(
+            dense: true,
+            leading: Icon(
+              p.isBuiltIn ? Icons.verified_rounded : Icons.extension_rounded,
+              color: scheme.primary,
+            ),
+            title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(p.description, maxLines: 1, overflow: TextOverflow.ellipsis),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                p.task.label,
+                style: TextStyle(
+                  color: scheme.onPrimaryContainer,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}

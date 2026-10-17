@@ -204,6 +204,39 @@ class _GesturesTab extends StatelessWidget {
         ),
         const SizedBox(height: Insets.sm),
         _GuideCard(
+          icon: Icons.track_changes,
+          title: '2D Invisible Trackball',
+          badge: 'Thumb Drag 🎯',
+          description:
+              'In Color Grading (Shadows, Midtones, Highlights), dragging your thumb '
+              'anywhere on screen controls Hue (vertical) and Saturation (horizontal) simultaneously with haptic detents.',
+          scheme: scheme,
+          theme: theme,
+        ),
+        const SizedBox(height: Insets.sm),
+        _GuideCard(
+          icon: Icons.filter_hdr,
+          title: 'Ansel Adams Zone Masking',
+          badge: '2 Fingers 🖐️',
+          description:
+              'Slide two fingers in parallel across the canvas to scrub through Ansel Adams '
+              'Luminance Zones 0 to 10 with live GPU rubylith mask preview. Release to lock an adjustment layer.',
+          scheme: scheme,
+          theme: theme,
+        ),
+        const SizedBox(height: Insets.sm),
+        _GuideCard(
+          icon: Icons.flash_on,
+          title: '3-Finger Speed Editor Macros',
+          badge: '3 Fingers ⚡',
+          description:
+              'Swipe 3 fingers UP to quickly copy current recipe settings, DOWN to paste onto '
+              'the photo, and LEFT or RIGHT to navigate to the previous or next photo in your library.',
+          scheme: scheme,
+          theme: theme,
+        ),
+        const SizedBox(height: Insets.sm),
+        _GuideCard(
           icon: Icons.compare,
           title: 'Hold to Compare',
           badge: 'Long Press 👆',
@@ -258,6 +291,50 @@ class _ProToolsTab extends StatelessWidget {
           description:
               'Fine-tune tonal contrast with a 5-point cubic spline. Switch '
               'between Luminance and individual Red, Green, and Blue color channels.',
+          scheme: scheme,
+          theme: theme,
+        ),
+        const SizedBox(height: Insets.sm),
+        _GuideCard(
+          icon: Icons.alt_route,
+          title: 'Zen Top Bar & History Tree',
+          badge: 'Tap vs Hold ↶',
+          description:
+              'Tap Undo to step back one edit. Long-press Undo to open the Git-style branching '
+              'history DAG tree, jump between edit branches, or review your complete edit lineage.',
+          scheme: scheme,
+          theme: theme,
+        ),
+        const SizedBox(height: Insets.sm),
+        _GuideCard(
+          icon: Icons.adjust,
+          title: 'Rotary Jog Dial',
+          badge: '0.1 Micro-Step 🎛️',
+          description:
+              'Tap any numerical parameter badge to summon the dockable tactile edge jog dial. '
+              'Scrub smoothly in 0.1 decimal micro-increments with haptic clicks and a firm center-zero notch.',
+          scheme: scheme,
+          theme: theme,
+        ),
+        const SizedBox(height: Insets.sm),
+        _GuideCard(
+          icon: Icons.wb_iridescent_outlined,
+          title: 'Cine Peaking & Zebras',
+          badge: '98% / 2% Assist 🦓',
+          description:
+              'Highlights blown whites (>98% IRE) and crushed shadows (<2% IRE) using animated 45° '
+              'diagonal stripes running live on the GPU shader at 120 FPS. Configurable in Settings.',
+          scheme: scheme,
+          theme: theme,
+        ),
+        const SizedBox(height: Insets.sm),
+        _GuideCard(
+          icon: Icons.palette_outlined,
+          title: 'False Color Heatmap',
+          badge: 'ARRI IRE 🌈',
+          description:
+              'Inspect luminance with the cinema-standard ARRI 16-zone false-color spectrum to ensure skin tones '
+              'and middle gray sit precisely in the target exposure zones.',
           scheme: scheme,
           theme: theme,
         ),
@@ -336,6 +413,17 @@ class _PanelsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(Insets.lg),
       children: [
+        _GuideCard(
+          icon: Icons.tab,
+          title: '6 Master Tabs Architecture',
+          badge: 'Consolidated Tray',
+          description:
+              'The Lightroom shell consolidates editing into 6 dedicated master tabs: '
+              'Light & Color, Effects & Detail, Crop & Geometry, Pro Tools, Masks, and Neural Plugins.',
+          scheme: scheme,
+          theme: theme,
+        ),
+        const SizedBox(height: Insets.sm),
         _GuideCard(
           icon: Icons.view_sidebar,
           title: 'Dual-Shell Architecture',

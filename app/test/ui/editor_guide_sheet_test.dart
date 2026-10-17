@@ -7,6 +7,13 @@ void main() {
   testWidgets('EditorGuideSheet renders title, tabs, and gesture instructions', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(
@@ -33,7 +40,10 @@ void main() {
     // Gestures tab should show core gestures by default
     expect(find.text('Vertical Drag'), findsOneWidget);
     expect(find.text('Horizontal Scrub'), findsOneWidget);
+    expect(find.text('2D Invisible Trackball'), findsOneWidget);
     expect(find.text('Two-Finger Precision Gear'), findsOneWidget);
+    expect(find.text('Ansel Adams Zone Masking'), findsOneWidget);
+    expect(find.text('3-Finger Speed Editor Macros'), findsOneWidget);
     expect(find.text('Hold to Compare'), findsOneWidget);
 
     // Switch to Pro Tools tab
@@ -43,6 +53,10 @@ void main() {
     expect(find.text('Targeted Adjustment (TAT)'), findsOneWidget);
     expect(find.text('Selective Control Points'), findsOneWidget);
     expect(find.text('Tone & RGB Curves'), findsOneWidget);
+    expect(find.text('Zen Top Bar & History Tree'), findsOneWidget);
+    expect(find.text('Rotary Jog Dial'), findsOneWidget);
+    expect(find.text('Cine Peaking & Zebras'), findsOneWidget);
+    expect(find.text('False Color Heatmap'), findsOneWidget);
     expect(find.text('Precision Straighten & Rotate'), findsOneWidget);
 
     // Switch to Masking & Pen tab
@@ -57,6 +71,7 @@ void main() {
     await tester.tap(find.text('Panels & Keys'));
     await tester.pumpAndSettle();
 
+    expect(find.text('6 Master Tabs Architecture'), findsOneWidget);
     expect(find.text('Dual-Shell Architecture'), findsOneWidget);
     expect(find.text('Keyboard Shortcuts'), findsOneWidget);
   });

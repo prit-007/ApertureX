@@ -2,7 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' show ImageFilter;
 
-import 'package:flutter/services.dart' show SystemChrome, SystemUiMode;
+import 'package:flutter/services.dart'
+    show HapticFeedback, SystemChrome, SystemUiMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
 import 'package:material_ui/material_ui.dart';
@@ -701,10 +702,21 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             ),
       icon: const Icon(Icons.crop),
     );
-    final undo = IconButton(
-      tooltip: 'Undo',
-      onPressed: canUndo ? notifier.undo : null,
-      icon: const Icon(Icons.undo),
+    final undo = Tooltip(
+      message: 'Undo',
+      triggerMode: TooltipTriggerMode.manual,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onLongPress: () {
+          HapticFeedback.mediumImpact();
+          HistoryTreeSheet.show(context);
+        },
+        child: IconButton(
+          tooltip: null,
+          onPressed: canUndo ? notifier.undo : null,
+          icon: const Icon(Icons.undo),
+        ),
+      ),
     );
     final redo = IconButton(
       tooltip: 'Redo',
@@ -738,19 +750,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       onPressed: () => _openSettings(context),
       icon: const Icon(Icons.more_vert),
     );
-    final export = Padding(
-      padding: const EdgeInsets.only(right: Insets.sm),
-      child: FilledButton.tonalIcon(
-        onPressed: _bytes == null
-            ? null
-            : _exporting
-                ? _cancelExport
-                : _export,
-        icon: _exporting
-            ? const Icon(Icons.cancel_outlined, size: 18)
-            : const Icon(Icons.ios_share, size: 18),
-        label: Text(_exporting ? 'Cancel' : 'Export'),
-      ),
+    final export = FilledButton.tonalIcon(
+      onPressed: _bytes == null
+          ? null
+          : _exporting
+              ? _cancelExport
+              : _export,
+      icon: _exporting
+          ? const Icon(Icons.cancel_outlined, size: 18)
+          : const Icon(Icons.ios_share, size: 18),
+      label: Text(_exporting ? 'Cancel' : 'Export'),
     );
 
     return EditorShortcuts(
@@ -766,8 +775,25 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               ignoring: active,
               child: AppBar(
                 leading: const BackButton(),
-                title: const Text('Edit'),
-                actions: gestureShell ? null : [crop, history, info, guide, more, export],
+                centerTitle: true,
+                title: gestureShell
+                    ? null
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          undo,
+                          const SizedBox(width: 4),
+                          redo,
+                        ],
+                      ),
+                actions: gestureShell
+                    ? null
+                    : [
+                        export,
+                        const SizedBox(width: 4),
+                        more,
+                        const SizedBox(width: Insets.xs),
+                      ],
                 backgroundColor: glassmorphic
                     ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.70)
                     : null,
@@ -805,7 +831,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   _body(
                     gestureShell: gestureShell,
                     hud: Row(
-                      children: [crop, undo, redo, history, info, guide, more, const Spacer(), export],
+                      children: [
+                        crop,
+                        undo,
+                        redo,
+                        history,
+                        info,
+                        guide,
+                        more,
+                        const Spacer(),
+                        Padding(
+                          padding: const EdgeInsets.only(right: Insets.sm),
+                          child: export,
+                        ),
+                      ],
                     ),
                   ),
                   // Modal barrier while the share sheet's temp files are

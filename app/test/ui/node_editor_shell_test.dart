@@ -144,16 +144,15 @@ void main() {
 
     testWidgets('the Mask tab button toggles node mode', (tester) async {
       await pumpShell(tester, kind: AppShellKind.lightroom);
-      // The chip row scrolls horizontally; Masking is past the fold on a
-      // 800px test surface.
       await tester.scrollUntilVisible(
-        find.text('Masking'),
+        find.text('Masks'),
         80,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.ensureVisible(find.text('Masks'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Masking'));
-      await tester.pump();
+      await tester.tap(find.text('Masks'));
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('edit-on-canvas')), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('edit-on-canvas')));

@@ -22,6 +22,11 @@ import 'lut_export_sheet.dart';
 import 'lut_import_sheet.dart';
 import 'mask_controls.dart';
 import 'xmp_import_sheet.dart';
+import 'editor_guide_sheet.dart';
+import '../../features/editor/image_info_sheet.dart';
+import '../../features/crop/crop_screen.dart';
+import '../../viewport/exposure_assist.dart';
+import 'history_tree_sheet.dart';
 
 /// The verifiable trust line (#76): stated in the settings footer and the
 /// About dialog, and enforced against pubspec drift by
@@ -42,10 +47,148 @@ class SettingsSheet extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final shell = ref.watch(shellPreferenceProvider);
     final notifier = ref.read(recipeControllerProvider.notifier);
+    final exposureAssist = ref.watch(exposureAssistProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     return AppSheet(
       title: 'Settings',
       children: [
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.tonalIcon(
+                onPressed: () {
+                  Navigator.of(context).maybePop();
+                  EditorGuideSheet.show(context);
+                },
+                icon: const Icon(Icons.help_outline, size: 18),
+                label: const Text('Editor Guide'),
+              ),
+            ),
+            const SizedBox(width: Insets.sm),
+            Expanded(
+              child: FilledButton.tonalIcon(
+                onPressed: () {
+                  final bytes = ref.read(activeImageBytesProvider);
+                  Navigator.of(context).maybePop();
+                  if (bytes != null) {
+                    ImageInfoSheet.show(
+                      context,
+                      imageBytes: bytes,
+                      recipe: ref.read(recipeControllerProvider).recipe,
+                    );
+                  }
+                },
+                icon: const Icon(Icons.info_outline, size: 18),
+                label: const Text('Image Info & EXIF'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: Insets.lg),
+        const _Label('Exposure Assist & Cine Peaking'),
+        SegmentedButton<ExposureAssistMode>(
+          segments: const [
+            ButtonSegment(
+              value: ExposureAssistMode.off,
+              label: Text('Off'),
+            ),
+            ButtonSegment(
+              value: ExposureAssistMode.zebras,
+              icon: Icon(Icons.wb_iridescent_outlined, size: 16),
+              label: Text('Zebras'),
+            ),
+            ButtonSegment(
+              value: ExposureAssistMode.falseColor,
+              icon: Icon(Icons.palette_outlined, size: 16),
+              label: Text('False Color'),
+            ),
+          ],
+          selected: {exposureAssist.mode},
+          onSelectionChanged: (s) =>
+              ref.read(exposureAssistProvider.notifier).setMode(s.first),
+        ),
+        if (exposureAssist.mode == ExposureAssistMode.zebras) ...[
+          const SizedBox(height: Insets.sm),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Insets.xs),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Highlight Clipping Zebras',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      '${(exposureAssist.zebraHigh * 100).round()}%',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: exposureAssist.zebraHigh,
+                  min: 0.80,
+                  max: 1.00,
+                  divisions: 20,
+                  onChanged: (val) => ref
+                      .read(exposureAssistProvider.notifier)
+                      .setThresholds(high: val),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Shadow Crush Zebras',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      '${(exposureAssist.zebraLow * 100).round()}%',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: exposureAssist.zebraLow,
+                  min: 0.00,
+                  max: 0.10,
+                  divisions: 10,
+                  onChanged: (val) => ref
+                      .read(exposureAssistProvider.notifier)
+                      .setThresholds(low: val),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (exposureAssist.mode == ExposureAssistMode.falseColor) ...[
+          const SizedBox(height: Insets.sm),
+          Container(
+            padding: const EdgeInsets.all(Insets.sm),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'ARRI 16-Zone IRE Heatmap\n'
+              'Red: Clip (98-100 IRE) · Yellow: Highlight (85 IRE) · '
+              'Pink: Skin (70 IRE) · Green: 18% Neutral (40 IRE) · '
+              'Blue: Shadow (5-10 IRE) · Purple: Crushed Black (0-2 IRE)',
+              style: TextStyle(fontSize: 11, height: 1.4),
+            ),
+          ),
+        ],
+        const SizedBox(height: Insets.lg),
         const _Label('Appearance'),
         SegmentedButton<ThemeMode>(
           segments: const [
@@ -92,7 +235,30 @@ class SettingsSheet extends ConsumerWidget {
               ref.read(shellPreferenceProvider.notifier).select(s.first),
         ),
         const SizedBox(height: Insets.lg),
-        const _Label('Session'),
+        const _Label('Session & Tools'),
+        _Action(
+          icon: Icons.alt_route,
+          title: 'Edit history & branches (Git-style)...',
+          onTap: () {
+            Navigator.of(context).maybePop();
+            HistoryTreeSheet.show(context);
+          },
+        ),
+        _Action(
+          icon: Icons.crop,
+          title: 'Crop & rotate...',
+          onTap: () {
+            final bytes = ref.read(activeImageBytesProvider);
+            Navigator.of(context).maybePop();
+            if (bytes != null) {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CropScreen(imageBytes: bytes),
+                ),
+              );
+            }
+          },
+        ),
         _Action(
           icon: Icons.restart_alt,
           title: 'Reset all',

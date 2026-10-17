@@ -30,7 +30,13 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Copy settings'));
+    final copyBtn = find.text('Copy settings');
+    await tester.scrollUntilVisible(
+      copyBtn,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(copyBtn);
     await tester.pumpAndSettle();
 
     notifier.resetAll();
@@ -42,7 +48,13 @@ void main() {
         child: const MaterialApp(home: Scaffold(body: SettingsSheet())),
       ),
     );
-    await tester.tap(find.text('Paste settings'));
+    final pasteBtn = find.text('Paste settings');
+    await tester.scrollUntilVisible(
+      pasteBtn,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(pasteBtn);
     await tester.pumpAndSettle();
 
     expect(container.read(recipeControllerProvider).recipe.contrast, 0.4);
@@ -130,5 +142,52 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(container.read(glassmorphicUiProvider), isTrue);
+  });
+
+  testWidgets('Exposure Assist segmented button switches between Off, Zebras, and False Color', (tester) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: SettingsSheet())),
+      ),
+    );
+
+    final zebrasBtn = find.text('Zebras');
+    await tester.scrollUntilVisible(
+      zebrasBtn,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(zebrasBtn, findsOneWidget);
+    await tester.tap(zebrasBtn);
+    await tester.pumpAndSettle();
+
+    // Mode is now Zebras
+    expect(find.text('Highlight Clipping Zebras'), findsOneWidget);
+    expect(find.text('Shadow Crush Zebras'), findsOneWidget);
+
+    final falseColorBtn = find.text('False Color');
+    await tester.tap(falseColorBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('ARRI 16-Zone IRE Heatmap'), findsOneWidget);
+
+    final offBtn = find.text('Off');
+    await tester.tap(offBtn);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Settings sheet displays Editor Guide and Image Info quick action tiles', (tester) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: SettingsSheet())),
+      ),
+    );
+
+    expect(find.text('Editor Guide'), findsOneWidget);
+    expect(find.text('Image Info & EXIF'), findsOneWidget);
   });
 }

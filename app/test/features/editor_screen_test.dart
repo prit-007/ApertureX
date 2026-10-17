@@ -14,8 +14,8 @@ import 'package:aperturex/gallery/gallery_asset.dart';
 import 'package:aperturex/gallery/gallery_controller.dart';
 import 'package:aperturex/gallery/gallery_source.dart';
 import 'package:aperturex/settings/shell_preference.dart';
-import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
 import 'package:aperturex/ui/app_shell.dart';
+import 'package:aperturex/ui/common/history_tree_sheet.dart';
 import 'package:aperturex/viewport/image_canvas.dart';
 
 /// A valid 1×1 PNG (non-empty bytes so the editor proceeds to the canvas).
@@ -55,10 +55,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('Edit'), findsOneWidget);
+    expect(find.byType(BackButton), findsOneWidget);
     expect(find.text('Export'), findsOneWidget);
-    expect(find.byTooltip('Undo'), findsOneWidget);
-    expect(find.byTooltip('Redo'), findsOneWidget);
+    expect(find.byTooltip('Undo'), findsWidgets);
+    expect(find.byTooltip('Redo'), findsWidgets);
+    expect(find.byTooltip('More'), findsOneWidget);
     expect(find.byType(AppShell), findsOneWidget);
   });
 
@@ -228,8 +229,8 @@ void main() {
     });
   });
 
-  group('bottom-heavy ergonomics (issue #28)', () {
-    testWidgets('undo/redo live with the Lightroom tabs, not the app bar', (
+  group('Zen top bar ergonomics', () {
+    testWidgets('AppBar houses Back, centered Undo/Redo, and trailing Export/More', (
       tester,
     ) async {
       final container = containerWith(images: {'a': _png});
@@ -247,38 +248,43 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      // The app bar keeps only crop / more / export.
+      final appBar = find.byType(AppBar);
       expect(
-        find.descendant(
-          of: find.byType(AppBar),
-          matching: find.byTooltip('Undo'),
-        ),
-        findsNothing,
-      );
-      expect(
-        find.descendant(
-          of: find.byType(AppBar),
-          matching: find.byTooltip('Redo'),
-        ),
-        findsNothing,
-      );
-
-      // History + compare sit with the tabs at the bottom.
-      final shell = find.byType(LightroomShell);
-      expect(
-        find.descendant(of: shell, matching: find.byTooltip('Undo')),
+        find.descendant(of: appBar, matching: find.byType(BackButton)),
         findsOneWidget,
       );
       expect(
-        find.descendant(of: shell, matching: find.byTooltip('Redo')),
+        find.descendant(of: appBar, matching: find.byTooltip('Undo')),
         findsOneWidget,
       );
       expect(
-        find.descendant(of: shell, matching: find.byTooltip('Hold to compare')),
+        find.descendant(of: appBar, matching: find.byTooltip('Redo')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: appBar, matching: find.text('Export')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: appBar, matching: find.byTooltip('More')),
         findsOneWidget,
       );
 
-      // And undo works from there.
+      // Verify secondary tools are not cluttering the top app bar
+      expect(
+        find.descendant(of: appBar, matching: find.byTooltip('Crop & rotate')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: appBar, matching: find.byTooltip('Editor Guide')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: appBar, matching: find.byTooltip('Image Info')),
+        findsNothing,
+      );
+
+      // Single tap on Undo in the AppBar undoes an edit
       final controller = container.read(recipeControllerProvider.notifier);
       controller
         ..update(Parameter.exposure, 1.5)
@@ -287,10 +293,18 @@ void main() {
       expect(container.read(recipeControllerProvider).recipe.exposure, 1.5);
 
       await tester.tap(
-        find.descendant(of: shell, matching: find.byTooltip('Undo')),
+        find.descendant(of: appBar, matching: find.byTooltip('Undo')),
       );
       await tester.pump();
       expect(container.read(recipeControllerProvider).recipe.exposure, 0);
+
+      // Long-press on Undo summons HistoryTreeSheet
+      await tester.longPress(
+        find.descendant(of: appBar, matching: find.byTooltip('Undo')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(HistoryTreeSheet), findsOneWidget);
     });
   });
 }
