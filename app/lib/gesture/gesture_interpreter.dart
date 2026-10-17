@@ -18,6 +18,16 @@ enum GradeTool {
   vignette,
   grain,
   sharpen,
+  shadowsGrade,
+  midtonesGrade,
+  highlightsGrade,
+}
+
+extension GradeToolExt on GradeTool {
+  bool get is2D =>
+      this == GradeTool.shadowsGrade ||
+      this == GradeTool.midtonesGrade ||
+      this == GradeTool.highlightsGrade;
 }
 
 /// Tool categories, mirroring the Lightroom sections. The gesture shell cycles
@@ -39,6 +49,9 @@ const Map<ToolCategory, List<GradeTool>> gestureCategories = {
     GradeTool.tint,
     GradeTool.vibrance,
     GradeTool.saturation,
+    GradeTool.shadowsGrade,
+    GradeTool.midtonesGrade,
+    GradeTool.highlightsGrade,
   ],
   ToolCategory.effects: [
     GradeTool.clarity,
@@ -76,8 +89,10 @@ class GestureInterpreter {
     this.touchSlop = 18.0,
     this.cycleStep = 48.0,
     this.fullSwipeValue = 600.0,
+    this.edgeMargin = 44.0,
     this.onToolChanged,
     this.onValueChanged,
+    this.onValue2DChanged,
     this.onReset,
     this.onPhaseChanged,
   }) : assert(tools.isNotEmpty),
@@ -99,8 +114,13 @@ class GestureInterpreter {
   /// Horizontal travel (logical px) that maps to a full `-1..1` value change.
   final double fullSwipeValue;
 
+  /// Inset from screen left/right within which vertical swipes still cycle tools
+  /// even when a 2D trackball tool is active.
+  final double edgeMargin;
+
   void Function(GradeTool tool)? onToolChanged;
   void Function(GradeTool tool, double delta)? onValueChanged;
+  void Function(GradeTool tool, double deltaX, double deltaY)? onValue2DChanged;
   void Function(GradeTool tool)? onReset;
   void Function(GesturePhase phase)? onPhaseChanged;
 
@@ -109,6 +129,7 @@ class GestureInterpreter {
   GestureAxis _axis = GestureAxis.undecided;
   Offset _accumulated = Offset.zero;
   double _cycleAccumulator = 0;
+  bool _isEdge = false;
 
   int get toolIndex => _toolIndex;
   GradeTool get tool => tools[_toolIndex];
@@ -134,10 +155,12 @@ class GestureInterpreter {
     onToolChanged?.call(this.tools[_toolIndex]);
   }
 
-  void onPanStart(Offset localPosition) {
+  void onPanStart(Offset localPosition, {double? screenWidth}) {
     _accumulated = Offset.zero;
     _cycleAccumulator = 0;
     _axis = GestureAxis.undecided;
+    _isEdge = localPosition.dx < edgeMargin ||
+        (screenWidth != null && screenWidth > 0 && localPosition.dx > screenWidth - edgeMargin);
     _setPhase(GesturePhase.scanning);
   }
 
@@ -147,7 +170,11 @@ class GestureInterpreter {
     switch (_phase) {
       case GesturePhase.scanning:
         if (_accumulated.distance < touchSlop) return;
-        if (_accumulated.dx.abs() >= _accumulated.dy.abs()) {
+        if (tool.is2D && !_isEdge) {
+          // 2D Trackball: anywhere away from edges enters 2D scrubbing!
+          _axis = GestureAxis.horizontal;
+          _setPhase(GesturePhase.scrubbing);
+        } else if (_accumulated.dx.abs() >= _accumulated.dy.abs()) {
           _axis = GestureAxis.horizontal;
           _setPhase(GesturePhase.scrubbing);
         } else {
@@ -172,6 +199,7 @@ class GestureInterpreter {
     _axis = GestureAxis.undecided;
     _accumulated = Offset.zero;
     _cycleAccumulator = 0;
+    _isEdge = false;
   }
 
   /// Aborts the in-progress gesture **without** firing the tap-reset — used when
@@ -182,6 +210,7 @@ class GestureInterpreter {
     _axis = GestureAxis.undecided;
     _accumulated = Offset.zero;
     _cycleAccumulator = 0;
+    _isEdge = false;
   }
 
   void _apply(Offset delta) {
@@ -196,8 +225,16 @@ class GestureInterpreter {
   }
 
   void _applyHorizontal(Offset delta) {
-    final normalized = delta.dx / fullSwipeValue;
-    if (normalized != 0) onValueChanged?.call(tool, normalized);
+    if (tool.is2D) {
+      final normalizedX = delta.dx / fullSwipeValue;
+      final normalizedY = -delta.dy / fullSwipeValue;
+      if (normalizedX != 0 || normalizedY != 0) {
+        onValue2DChanged?.call(tool, normalizedX, normalizedY);
+      }
+    } else {
+      final normalized = delta.dx / fullSwipeValue;
+      if (normalized != 0) onValueChanged?.call(tool, normalized);
+    }
   }
 
   void _applyVertical(Offset delta) {

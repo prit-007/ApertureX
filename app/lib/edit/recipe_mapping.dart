@@ -25,6 +25,9 @@ const Map<GradeTool, List<Parameter>> snapseedToolParameters = {
   GradeTool.vignette: [Parameter.vignette],
   GradeTool.grain: [Parameter.grain],
   GradeTool.sharpen: [Parameter.sharpen],
+  GradeTool.shadowsGrade: [Parameter.gradeShadowHue, Parameter.gradeShadowSat],
+  GradeTool.midtonesGrade: [Parameter.gradeMidHue, Parameter.gradeMidSat],
+  GradeTool.highlightsGrade: [Parameter.gradeHighlightHue, Parameter.gradeHighlightSat],
 };
 
 /// Every parameter belonging to a [RecipeSection] (a Lightroom category).

@@ -56,6 +56,9 @@ const Map<GradeTool, _ToolRange> _ranges = {
   GradeTool.vignette: _ToolRange(1.0, -1.0, 1.0),
   GradeTool.grain: _ToolRange(1.0, 0.0, 1.0),
   GradeTool.sharpen: _ToolRange(1.0, 0.0, 1.0),
+  GradeTool.shadowsGrade: _ToolRange(1.0, 0.0, 1.0),
+  GradeTool.midtonesGrade: _ToolRange(1.0, 0.0, 1.0),
+  GradeTool.highlightsGrade: _ToolRange(1.0, 0.0, 1.0),
 };
 
 /// Applies a gesture [delta] to [tool]'s field on [recipe], returning a new
@@ -68,8 +71,18 @@ EditRecipe applyToolDelta(EditRecipe recipe, GradeTool tool, double delta) {
 }
 
 /// Resets [tool]'s field on [recipe] back to neutral. Pure.
-EditRecipe resetTool(EditRecipe recipe, GradeTool tool) =>
-    _write(recipe, tool, 0);
+EditRecipe resetTool(EditRecipe recipe, GradeTool tool) {
+  if (tool == GradeTool.shadowsGrade) {
+    return recipe.copyWith(gradeShadowHue: 0, gradeShadowSat: 0);
+  }
+  if (tool == GradeTool.midtonesGrade) {
+    return recipe.copyWith(gradeMidHue: 0, gradeMidSat: 0);
+  }
+  if (tool == GradeTool.highlightsGrade) {
+    return recipe.copyWith(gradeHighlightHue: 0, gradeHighlightSat: 0);
+  }
+  return _write(recipe, tool, 0);
+}
 
 double _read(EditRecipe recipe, GradeTool tool) => switch (tool) {
   GradeTool.exposure => recipe.exposure,
@@ -87,6 +100,9 @@ double _read(EditRecipe recipe, GradeTool tool) => switch (tool) {
   GradeTool.vignette => recipe.vignette,
   GradeTool.grain => recipe.grain,
   GradeTool.sharpen => recipe.sharpen,
+  GradeTool.shadowsGrade => recipe.gradeShadowSat,
+  GradeTool.midtonesGrade => recipe.gradeMidSat,
+  GradeTool.highlightsGrade => recipe.gradeHighlightSat,
 };
 
 EditRecipe _write(EditRecipe recipe, GradeTool tool, double value) =>
@@ -106,4 +122,7 @@ EditRecipe _write(EditRecipe recipe, GradeTool tool, double value) =>
       GradeTool.vignette => recipe.copyWith(vignette: value),
       GradeTool.grain => recipe.copyWith(grain: value),
       GradeTool.sharpen => recipe.copyWith(sharpen: value),
+      GradeTool.shadowsGrade => recipe.copyWith(gradeShadowSat: value),
+      GradeTool.midtonesGrade => recipe.copyWith(gradeMidSat: value),
+      GradeTool.highlightsGrade => recipe.copyWith(gradeHighlightSat: value),
     };

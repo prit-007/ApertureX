@@ -250,6 +250,32 @@ void main() {
       expect(state().recipe.gradeBlending, 1.0);
       expect(state().recipe.gradeBalance, -1.0);
     });
+
+    test('applyGradeWheel2DDelta updates hue and saturation with wrapping and clamping', () {
+      notifier.setGradeWheel(
+        GradeWheelZone.shadows,
+        hue: 350,
+        sat: 0.5,
+      );
+
+      // Add +30 hue -> 380 wraps to 20; add +0.3 sat -> 0.8
+      notifier.applyGradeWheel2DDelta(
+        GradeWheelZone.shadows,
+        hueDelta: 30,
+        satDelta: 0.3,
+      );
+      expect(state().recipe.gradeShadowHue, closeTo(20, 1e-6));
+      expect(state().recipe.gradeShadowSat, closeTo(0.8, 1e-6));
+
+      // Subtract -40 hue -> -20 wraps to 340; subtract -1.0 sat -> clamps to 0.0
+      notifier.applyGradeWheel2DDelta(
+        GradeWheelZone.shadows,
+        hueDelta: -40,
+        satDelta: -1.0,
+      );
+      expect(state().recipe.gradeShadowHue, closeTo(340, 1e-6));
+      expect(state().recipe.gradeShadowSat, 0.0);
+    });
   });
 
   group('activity logging', () {

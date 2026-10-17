@@ -20,7 +20,9 @@ import '../edit/recipe_controller.dart';
 import '../engine/engine.dart';
 import '../engine/image_format.dart';
 import '../engine/preview_texture.dart';
+import '../core/haptics.dart';
 import '../gesture/gesture_interpreter.dart';
+import '../gesture/zone_mask.dart';
 import 'compare_hold.dart';
 import 'canvas_transform.dart';
 import 'exif_orientation.dart';
@@ -175,6 +177,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   Offset _startOffset = Offset.zero;
   Offset _startFocal = Offset.zero;
   bool _multi = false;
+  bool _zoneTargeting = false;
 
   @override
   void initState() {
@@ -300,7 +303,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   bool get _gestureActive =>
       _comparing ||
       _compare.status != AnimationStatus.dismissed ||
-      _maskPeek.status != AnimationStatus.dismissed;
+      _maskPeek.status != AnimationStatus.dismissed ||
+      ref.read(zoneMaskProvider).isTargeting;
 
   void _onDeliveryGestureSettled(AnimationStatus _) => _scheduleBake(
     _renderRecipe(ref.read(recipeControllerProvider).recipe),
@@ -1052,6 +1056,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                             final tiles = _tilesActive && _fullH > 0
                                 ? _visibleTileImages(fitted)
                                 : const <_CanvasTile>[];
+                            final zoneMask = ref.watch(zoneMaskProvider);
+                            final (zLo, zHi) = zoneMask.isTargeting
+                                ? zoneMask.lumaBounds
+                                : (-1.0, -1.0);
+                            final effectiveMaskBlend = zoneMask.isTargeting
+                                ? 1.0
+                                : _maskPeek.value;
                             return PreviewSurface(
                               // Issue #54: actually display the texture Rust is
                               // writing into; the shader paint is the fallback
@@ -1069,7 +1080,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                                   lutSize: _activeLutSize.toDouble(),
                                   dst: Offset.zero & fitted,
                                   blend: _compare.value,
-                                  maskBlend: _maskPeek.value,
+                                  maskBlend: effectiveMaskBlend,
+                                  zoneLo: zLo,
+                                  zoneHi: zHi,
                                   tiles: tiles,
                                 ),
                               ),
@@ -1151,7 +1164,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (tat) {
       _tatTouch(d.localFocalPoint, fitted);
     } else if (widget.editInterpreter != null) {
-      widget.editInterpreter!.onPanStart(d.localFocalPoint);
+      widget.editInterpreter!.onPanStart(
+        d.localFocalPoint,
+        screenWidth: _lastBounds.width > 0 ? _lastBounds.width : null,
+      );
       _editing = true;
     }
   }
@@ -1447,6 +1463,8 @@ class _CanvasPainter extends CustomPainter {
     required this.dst,
     required this.blend,
     required this.maskBlend,
+    this.zoneLo = -1.0,
+    this.zoneHi = -1.0,
     this.tiles = const [],
   });
 
@@ -1457,6 +1475,8 @@ class _CanvasPainter extends CustomPainter {
   final Rect dst;
   final double blend;
   final double maskBlend;
+  final double zoneLo;
+  final double zoneHi;
 
   /// High-zoom tiles (#16): baked level-0 tiles of the original frame, drawn
   /// through the same uniforms over the proxy at their fitted-space rects.
@@ -1474,6 +1494,8 @@ class _CanvasPainter extends CustomPainter {
       ..setFloat(3, maskBlend)
       ..setFloat(4, source.width.toDouble())
       ..setFloat(5, source.height.toDouble())
+      ..setFloat(6, zoneLo)
+      ..setFloat(7, zoneHi)
       ..setImageSampler(0, source)
       ..setImageSampler(1, lut);
     canvas.drawRect(dst, Paint()..shader = shader);
@@ -1505,6 +1527,8 @@ class _CanvasPainter extends CustomPainter {
           ..setFloat(3, maskBlend)
           ..setFloat(4, tile.image.width.toDouble())
           ..setFloat(5, tile.image.height.toDouble())
+          ..setFloat(6, zoneLo)
+          ..setFloat(7, zoneHi)
           ..setImageSampler(0, tile.image)
           ..setImageSampler(1, lut);
         canvas.drawRect(
@@ -1523,6 +1547,8 @@ class _CanvasPainter extends CustomPainter {
       old.lut != lut ||
       old.blend != blend ||
       old.maskBlend != maskBlend ||
+      old.zoneLo != zoneLo ||
+      old.zoneHi != zoneHi ||
       old.dst != dst ||
       !_sameTiles(old.tiles, tiles);
 

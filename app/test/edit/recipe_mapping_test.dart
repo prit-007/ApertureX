@@ -12,6 +12,18 @@ void main() {
         snapseedToolParameters[GradeTool.saturation],
         [Parameter.saturation],
       );
+      expect(
+        snapseedToolParameters[GradeTool.shadowsGrade],
+        [Parameter.gradeShadowHue, Parameter.gradeShadowSat],
+      );
+      expect(
+        snapseedToolParameters[GradeTool.midtonesGrade],
+        [Parameter.gradeMidHue, Parameter.gradeMidSat],
+      );
+      expect(
+        snapseedToolParameters[GradeTool.highlightsGrade],
+        [Parameter.gradeHighlightHue, Parameter.gradeHighlightSat],
+      );
     });
   });
 
@@ -67,6 +79,12 @@ void main() {
         Parameter.vignette,
         Parameter.grain,
         Parameter.sharpen,
+        Parameter.gradeShadowHue,
+        Parameter.gradeShadowSat,
+        Parameter.gradeMidHue,
+        Parameter.gradeMidSat,
+        Parameter.gradeHighlightHue,
+        Parameter.gradeHighlightSat,
       ]);
     });
   });

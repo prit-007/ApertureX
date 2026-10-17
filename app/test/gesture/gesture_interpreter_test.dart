@@ -131,4 +131,54 @@ void main() {
     expect(fsm.axis, GestureAxis.vertical);
     expect(fsm.tool, GradeTool.contrast);
   });
+
+  group('2D trackball tools', () {
+    test('shadowsGrade, midtonesGrade, and highlightsGrade are marked 2D', () {
+      expect(GradeTool.shadowsGrade.is2D, isTrue);
+      expect(GradeTool.midtonesGrade.is2D, isTrue);
+      expect(GradeTool.highlightsGrade.is2D, isTrue);
+      expect(GradeTool.exposure.is2D, isFalse);
+      expect(GradeTool.saturation.is2D, isFalse);
+    });
+
+    test('2D tool emits onValue2DChanged with both horizontal and vertical deltas', () {
+      final deltas2D = <String>[];
+      final trackballFsm = GestureInterpreter(
+        onToolChanged: (t) => log.add('tool:${t.name}'),
+        onValueChanged: (t, d) => log.add('value:${t.name}:$d'),
+        onValue2DChanged: (t, dx, dy) =>
+            deltas2D.add('${t.name}:${dx.toStringAsFixed(3)}:${dy.toStringAsFixed(3)}'),
+        onReset: (t) => log.add('reset:${t.name}'),
+        onPhaseChanged: (p) => log.add('phase:${p.name}'),
+      );
+
+      trackballFsm.setTool(GradeTool.shadowsGrade);
+      trackballFsm.onPanStart(const Offset(200, 300));
+      // Drag in a diagonal / circular direction: right (+300) and up (-150)
+      trackballFsm.onPanUpdate(const Offset(300, -150));
+
+      expect(trackballFsm.phase, GesturePhase.scrubbing);
+      expect(trackballFsm.axis, GestureAxis.horizontal);
+      expect(deltas2D, contains('shadowsGrade:0.500:0.250'));
+    });
+
+    test('2D tool edge drag (near screen margin) cycles tools instead of scrubbing', () {
+      final trackballFsm = GestureInterpreter(
+        onToolChanged: (t) => log.add('tool:${t.name}'),
+        onValueChanged: (t, d) => log.add('value:${t.name}:$d'),
+        onValue2DChanged: (t, dx, dy) => log.add('value2D:${t.name}:$dx:$dy'),
+        onReset: (t) => log.add('reset:${t.name}'),
+        onPhaseChanged: (p) => log.add('phase:${p.name}'),
+      );
+
+      trackballFsm.setTool(GradeTool.shadowsGrade);
+      // Touch down at left edge (x=10 < edgeMargin 44)
+      trackballFsm.onPanStart(const Offset(10, 300), screenWidth: 400);
+      trackballFsm.onPanUpdate(const Offset(0, -60)); // vertical swipe up
+
+      expect(trackballFsm.phase, GesturePhase.cycling);
+      expect(trackballFsm.axis, GestureAxis.vertical);
+      expect(trackballFsm.tool, isNot(GradeTool.shadowsGrade));
+    });
+  });
 }

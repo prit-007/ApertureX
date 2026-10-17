@@ -16,8 +16,10 @@
 uniform vec2 uSize;          // drawn rect size (px)   — floats 0,1
 uniform float uLutSize;      // N                       — float 2
 uniform float uMaskBlend;    // 0 = graded, 1 = mask view (auto-peek, #27)
-uniform float uSrcW;         // source image width (px)  — floats 4,5
-uniform float uSrcH;         // source image height (px)
+uniform float uSrcW;         // source image width (px)  — float 4
+uniform float uSrcH;         // source image height (px) — float 5
+uniform float uZoneLo;       // min luminance for zone mask (negative if inactive) — float 6
+uniform float uZoneHi;       // max luminance for zone mask (negative if inactive) — float 7
 uniform sampler2D uTexture;  // source image            — sampler 0
 uniform sampler2D uLut;      // LUT atlas               — sampler 1
 
@@ -61,19 +63,27 @@ void main() {
   vec3 graded = lutLookup(clamp(src.rgb, 0.0, 1.0));
   vec3 color = graded;
 
-  // Auto-peeking mask view (issue #27): a high-contrast B/W detail map with
-  // the edges that a detail tool acts on glowing red. Crossfaded in/out by
-  // the canvas while a sharpen/denoise/clarity slider is held.
+  // Auto-peeking mask view (#27) & Haptic Zone Masking:
+  // A high-contrast B/W base with red rubylith glow over targeted zone or detail edges.
   if (uMaskBlend > 0.001) {
-    vec2 texel = vec2(1.0 / max(uSrcW, 1.0), 1.0 / max(uSrcH, 1.0));
     float l0 = dot(src.rgb, vec3(0.299, 0.587, 0.114));
-    float lx = dot(texture(uTexture, uv + vec2(texel.x, 0.0)).rgb,
-                   vec3(0.299, 0.587, 0.114));
-    float ly = dot(texture(uTexture, uv + vec2(0.0, texel.y)).rgb,
-                   vec3(0.299, 0.587, 0.114));
-    float edge = smoothstep(0.015, 0.22, length(vec2(lx - l0, ly - l0)) * 3.0);
-    vec3 mask = mix(vec3(0.10), vec3(0.92), l0);
-    mask = mix(mask, vec3(1.0, 0.12, 0.12), edge);
+    vec3 mask = mix(vec3(0.08), vec3(0.92), l0);
+
+    float redHighlight = 0.0;
+    if (uZoneHi >= 0.0 && uZoneLo >= 0.0) {
+      // Zone masking targeting: isolate pixels between uZoneLo and uZoneHi with smooth feather
+      float fLo = 0.08;
+      float fHi = 0.08;
+      redHighlight = smoothstep(uZoneLo - fLo, uZoneLo, l0) * (1.0 - smoothstep(uZoneHi, uZoneHi + fHi, l0));
+    } else {
+      // Fallback detail edge peek (#27)
+      vec2 texel = vec2(1.0 / max(uSrcW, 1.0), 1.0 / max(uSrcH, 1.0));
+      float lx = dot(texture(uTexture, uv + vec2(texel.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+      float ly = dot(texture(uTexture, uv + vec2(0.0, texel.y)).rgb, vec3(0.299, 0.587, 0.114));
+      redHighlight = smoothstep(0.015, 0.22, length(vec2(lx - l0, ly - l0)) * 3.0);
+    }
+
+    mask = mix(mask, vec3(1.0, 0.12, 0.12), clamp(redHighlight * 0.85, 0.0, 1.0));
     color = mix(graded, mask, uMaskBlend);
   }
 

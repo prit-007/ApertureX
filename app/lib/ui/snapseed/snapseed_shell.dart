@@ -93,6 +93,9 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
     GradeTool.vignette => Icons.vignette,
     GradeTool.grain => Icons.grain,
     GradeTool.sharpen => Icons.details,
+    GradeTool.shadowsGrade => Icons.tonality,
+    GradeTool.midtonesGrade => Icons.brightness_medium,
+    GradeTool.highlightsGrade => Icons.wb_sunny,
   };
 
   void _openToolsSheet(BuildContext context) {
@@ -225,19 +228,59 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
-                            spec.label,
+                            widget.tool.is2D
+                                ? switch (widget.tool) {
+                                    GradeTool.shadowsGrade => 'Shadows Grade',
+                                    GradeTool.midtonesGrade => 'Midtones Grade',
+                                    GradeTool.highlightsGrade => 'Highlights Grade',
+                                    _ => spec.label,
+                                  }
+                                : spec.label,
                             overflow: TextOverflow.ellipsis,
                             style: themeStyle(context, FontWeight.w600).copyWith(fontSize: 11),
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
-                          style: themeStyle(context, FontWeight.w700).copyWith(
-                            color: scheme.primary,
-                            fontSize: 11,
+                        if (widget.tool.is2D) ...[
+                          Builder(builder: (_) {
+                            final (h, s) = switch (widget.tool) {
+                              GradeTool.shadowsGrade => (recipe.gradeShadowHue, recipe.gradeShadowSat),
+                              GradeTool.midtonesGrade => (recipe.gradeMidHue, recipe.gradeMidSat),
+                              GradeTool.highlightsGrade => (recipe.gradeHighlightHue, recipe.gradeHighlightSat),
+                              _ => (0.0, 0.0),
+                            };
+                            final swatch = HSVColor.fromAHSV(1.0, h, s, 0.85).toColor();
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: s > 0.01 ? swatch : scheme.outline,
+                                    border: Border.all(color: Colors.white24, width: 0.5),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'H:${h.round()}° S:${(s * 100).round()}%',
+                                  style: themeStyle(context, FontWeight.w700).copyWith(
+                                    color: scheme.primary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            );
+                          }),
+                        ] else
+                          Text(
+                            '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
+                            style: themeStyle(context, FontWeight.w700).copyWith(
+                              color: scheme.primary,
+                              fontSize: 11,
+                            ),
                           ),
-                        ),
                         Container(
                           width: 1,
                           height: 18,

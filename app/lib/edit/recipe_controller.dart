@@ -108,6 +108,36 @@ class RecipeController extends Notifier<RecipeState> {
     state = state.copyWith(recipe: recipe);
   }
 
+  /// Applies 2D trackball deltas to a color grading wheel:
+  /// [hueDelta] in degrees, wrapping around 0..360°.
+  /// [satDelta] normalized delta, clamped to 0..1.
+  void applyGradeWheel2DDelta(
+    GradeWheelZone zone, {
+    required double hueDelta,
+    required double satDelta,
+  }) {
+    final (currentHue, currentSat, currentLum) = switch (zone) {
+      GradeWheelZone.shadows => (
+        state.recipe.gradeShadowHue,
+        state.recipe.gradeShadowSat,
+        state.recipe.gradeShadowLum,
+      ),
+      GradeWheelZone.midtones => (
+        state.recipe.gradeMidHue,
+        state.recipe.gradeMidSat,
+        state.recipe.gradeMidLum,
+      ),
+      GradeWheelZone.highlights => (
+        state.recipe.gradeHighlightHue,
+        state.recipe.gradeHighlightSat,
+        state.recipe.gradeHighlightLum,
+      ),
+    };
+    final newHue = ((currentHue + hueDelta) % 360.0 + 360.0) % 360.0;
+    final newSat = (currentSat + satDelta).clamp(0.0, 1.0);
+    setGradeWheel(zone, hue: newHue, sat: newSat, lum: currentLum);
+  }
+
   /// Updates global color grading parameters (blending, balance).
   void setGradeGlobal({
     double? blending,

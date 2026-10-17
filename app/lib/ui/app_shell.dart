@@ -16,6 +16,7 @@ import '../edit/node_editor.dart';
 import '../edit/recipe_controller.dart';
 import '../edit/recipe_mapping.dart';
 import '../gesture/gesture_interpreter.dart';
+import '../gesture/zone_mask.dart';
 import '../settings/shell_preference.dart';
 import '../settings/app_settings.dart';
 import '../settings/onboarding.dart';
@@ -87,6 +88,41 @@ class _AppShellState extends ConsumerState<AppShell> {
         if (maskPeekParameters.contains(parameter)) {
           ref.read(maskPeekProvider.notifier).set(true);
         }
+
+        // Haptic Zone Masking: if a luminosity zone mask is locked,
+        // target that specific layer's parameters!
+        final zoneMask = ref.read(zoneMaskProvider);
+        final lockedIdx = zoneMask.lockedLayerIndex;
+        final layers = ref.read(recipeControllerProvider).recipe.layers;
+        if (lockedIdx != null && lockedIdx < layers.length) {
+          final layer = layers[lockedIdx];
+          final updatedLayer = switch (parameter) {
+            Parameter.exposure => layer.copyWith(exposure: (layer.exposure + delta * spec.scale).clamp(-4.0, 4.0)),
+            Parameter.contrast => layer.copyWith(contrast: (layer.contrast + delta * spec.scale).clamp(-1.0, 1.0)),
+            Parameter.highlights => layer.copyWith(highlights: (layer.highlights + delta * spec.scale).clamp(-1.0, 1.0)),
+            Parameter.shadows => layer.copyWith(shadows: (layer.shadows + delta * spec.scale).clamp(-1.0, 1.0)),
+            Parameter.saturation => layer.copyWith(saturation: (layer.saturation + delta * spec.scale).clamp(-1.0, 1.0)),
+            Parameter.temperature => layer.copyWith(temperature: (layer.temperature + delta * spec.scale).clamp(-1.0, 1.0)),
+            Parameter.tint => layer.copyWith(tint: (layer.tint + delta * spec.scale).clamp(-1.0, 1.0)),
+            _ => null,
+          };
+          if (updatedLayer != null) {
+            ref.read(recipeControllerProvider.notifier).updateLayerAt(lockedIdx, updatedLayer);
+            final nextVal = switch (parameter) {
+              Parameter.exposure => updatedLayer.exposure,
+              Parameter.contrast => updatedLayer.contrast,
+              Parameter.highlights => updatedLayer.highlights,
+              Parameter.shadows => updatedLayer.shadows,
+              Parameter.saturation => updatedLayer.saturation,
+              Parameter.temperature => updatedLayer.temperature,
+              Parameter.tint => updatedLayer.tint,
+              _ => 0.0,
+            };
+            fireHaptic(hapticFor(0.0, nextVal, spec.min, spec.max));
+            return;
+          }
+        }
+
         final previous = valueOf(ref.read(recipeControllerProvider).recipe, parameter);
         ref.read(recipeControllerProvider.notifier).applyDelta(parameter, delta);
         final next = clampParameter(parameter, previous + delta * spec.scale);
@@ -97,9 +133,61 @@ class _AppShellState extends ConsumerState<AppShell> {
           HapticFeedback.selectionClick();
         }
       },
-      onReset: (tool) => ref
-          .read(recipeControllerProvider.notifier)
-          .reset(snapseedToolParameters[tool]!.first),
+      onValue2DChanged: (tool, deltaX, deltaY) {
+        final zone = switch (tool) {
+          GradeTool.shadowsGrade => GradeWheelZone.shadows,
+          GradeTool.midtonesGrade => GradeWheelZone.midtones,
+          GradeTool.highlightsGrade => GradeWheelZone.highlights,
+          _ => null,
+        };
+        if (zone == null) return;
+        final recipe = ref.read(recipeControllerProvider).recipe;
+        final (prevHue, prevSat) = switch (zone) {
+          GradeWheelZone.shadows => (recipe.gradeShadowHue, recipe.gradeShadowSat),
+          GradeWheelZone.midtones => (recipe.gradeMidHue, recipe.gradeMidSat),
+          GradeWheelZone.highlights => (recipe.gradeHighlightHue, recipe.gradeHighlightSat),
+        };
+        // Hue delta in degrees (full swipe = 360°), sat delta in 0..1 (full swipe = 1.0)
+        final hueDelta = deltaY * 360.0;
+        final satDelta = deltaX * 1.0;
+        ref.read(recipeControllerProvider.notifier).applyGradeWheel2DDelta(
+          zone,
+          hueDelta: hueDelta,
+          satDelta: satDelta,
+        );
+        final nextRecipe = ref.read(recipeControllerProvider).recipe;
+        final (nextHue, nextSat) = switch (zone) {
+          GradeWheelZone.shadows => (nextRecipe.gradeShadowHue, nextRecipe.gradeShadowSat),
+          GradeWheelZone.midtones => (nextRecipe.gradeMidHue, nextRecipe.gradeMidSat),
+          GradeWheelZone.highlights => (nextRecipe.gradeHighlightHue, nextRecipe.gradeHighlightSat),
+        };
+        // Haptics: neutral crossing (sat=0) and limits (sat=1)
+        fireHaptic(hapticFor(prevSat, nextSat, 0.0, 1.0));
+        // Hue primary detent tick (every 60 degrees: 0, 60, 120, 180, 240, 300)
+        final prevSector = (prevHue / 60.0).floor();
+        final nextSector = (nextHue / 60.0).floor();
+        if (prevSector != nextSector) {
+          HapticFeedback.selectionClick();
+        }
+        final elapsed = _gestureSw.elapsed;
+        _gestureSw.reset();
+        if (_gradient.tick(elapsed, value: nextSat, min: 0.0, max: 1.0)) {
+          HapticFeedback.selectionClick();
+        }
+      },
+      onReset: (tool) {
+        if (tool == GradeTool.shadowsGrade) {
+          ref.read(recipeControllerProvider.notifier).setGradeWheel(GradeWheelZone.shadows, hue: 0, sat: 0);
+        } else if (tool == GradeTool.midtonesGrade) {
+          ref.read(recipeControllerProvider.notifier).setGradeWheel(GradeWheelZone.midtones, hue: 0, sat: 0);
+        } else if (tool == GradeTool.highlightsGrade) {
+          ref.read(recipeControllerProvider.notifier).setGradeWheel(GradeWheelZone.highlights, hue: 0, sat: 0);
+        } else {
+          ref
+              .read(recipeControllerProvider.notifier)
+              .reset(snapseedToolParameters[tool]!.first);
+        }
+      },
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
