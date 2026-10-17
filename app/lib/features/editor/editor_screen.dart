@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/services.dart' show SystemChrome, SystemUiMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,8 +28,10 @@ import '../../gallery/edit_preview_store.dart';
 import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
 import 'export_options_sheet.dart';
+import 'image_info_sheet.dart';
 import '../../engine/engine.dart';
 import '../../engine/image_format.dart';
+import '../../settings/app_settings.dart';
 import '../../settings/export_settings.dart';
 import '../../settings/shell_preference.dart';
 import '../../ui/app_shell.dart';
@@ -128,7 +131,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   Future<void> _export() => _onExportPressed();
 
   Future<void> _onExportPressed() async {
-    final action = await ExportOptionsSheet.show(context);
+    final previewBytes = _bytes;
+    final isRaw = previewBytes != null && isRawImage(previewBytes);
+    final action = await ExportOptionsSheet.show(context, isRaw: isRaw);
     if (action == null || !mounted) return;
     switch (action) {
       case ExportAction.saveToApertureX:
@@ -136,6 +141,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         break;
       case ExportAction.saveToPhotos:
         await _exportToPhotos();
+        break;
+      case ExportAction.saveDngWithXmp:
+        await _exportDngToPhotos();
         break;
       case ExportAction.share:
         await _exportAndShare();
@@ -381,6 +389,76 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
   }
 
+  Future<void> _exportDngToPhotos() async {
+    final previewBytes = _bytes;
+    if (previewBytes == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _exporting = true;
+      _exportPhase = ExportPhase.loading;
+      _exportRenderFraction = 0;
+    });
+    try {
+      final bytes = widget.asset != null
+          ? await ref.read(gallerySourceProvider).loadImage(widget.asset!.id)
+          : previewBytes;
+      if (bytes.isEmpty) throw StateError('The image could not be read.');
+      if (!isRawImage(bytes)) throw StateError('The image is not a RAW image.');
+
+      final recipe = ref.read(recipeControllerProvider).recipe;
+      final xmp = writeXmp(recipe);
+
+      if (!mounted) return;
+      setState(() => _exportPhase = ExportPhase.rendering);
+
+      final dng = await AxEngine.exportDng(
+        rawBytes: bytes,
+        xmp: xmp,
+      );
+
+      if (!mounted) return;
+      setState(() => _exportPhase = ExportPhase.saving);
+      if (!await Gal.hasAccess()) await Gal.requestAccess();
+      final outName = 'aperturex_${DateTime.now().millisecondsSinceEpoch}';
+
+      final dir = await getTemporaryDirectory();
+      final tempFile = File('${dir.path}/$outName.dng');
+      await tempFile.writeAsBytes(dng, flush: true);
+      await Gal.putImage(tempFile.path);
+
+      await emitXmpSidecar(
+        ref.read(exportSidecarSinkProvider),
+        outName,
+        recipe,
+      );
+
+      axLog(
+        LogDomain.export,
+        'Exported lossless DNG with injected XMP (${dng.length} bytes)',
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('DNG saved to your photos'),
+          action: SnackBarAction(
+            label: 'Share',
+            onPressed: () => _shareDng(Uint8List.fromList(dng)),
+          ),
+        ),
+      );
+    } catch (e) {
+      axLog(LogDomain.export, 'DNG export failed: $e', level: LogLevel.error);
+      messenger.showSnackBar(SnackBar(content: Text('DNG export failed: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _exporting = false;
+          _exportPhase = null;
+          _exportRenderFraction = 0;
+        });
+      }
+    }
+  }
+
   Future<void> _exportAndShare() async {
     final previewBytes = _bytes;
     if (previewBytes == null) return;
@@ -498,6 +576,28 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
   }
 
+  Future<void> _shareDng(Uint8List dngBytes) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _sharing = true);
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/aperturex-share.dng');
+      await file.writeAsBytes(dngBytes, flush: true);
+      if (!mounted) return;
+      setState(() => _sharing = false);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile(file.path, mimeType: 'image/x-adobe-dng'),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) setState(() => _sharing = false);
+      messenger.showSnackBar(SnackBar(content: Text('Share failed: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Persist every edit back to this photo's recipe (non-destructive editing:
@@ -516,6 +616,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final gestureShell = ref.watch(shellPreferenceProvider) ==
         AppShellKind.snapseed;
     final active = ref.watch(editActivityProvider);
+    final glassmorphic = ref.watch(glassmorphicUiProvider);
 
     // Active Mode (issue #26): hand the whole screen to the photo while the
     // user is touching it — system bars out, chrome faded; restore on lift.
@@ -552,6 +653,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       onPressed: () => EditorGuideSheet.show(context),
       icon: const Icon(Icons.help_outline),
     );
+    final info = IconButton(
+      tooltip: 'Image Info',
+      onPressed: _bytes == null
+          ? null
+          : () => ImageInfoSheet.show(
+                context,
+                imageBytes: _bytes!,
+                recipe: state.recipe,
+                asset: widget.asset,
+              ),
+      icon: const Icon(Icons.info_outline),
+    );
     final more = IconButton(
       tooltip: 'More',
       onPressed: () => _openSettings(context),
@@ -586,7 +699,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               child: AppBar(
                 leading: const BackButton(),
                 title: const Text('Edit'),
-                actions: gestureShell ? null : [crop, guide, more, export],
+                actions: gestureShell ? null : [crop, info, guide, more, export],
+                backgroundColor: glassmorphic
+                    ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.70)
+                    : null,
+                flexibleSpace: glassmorphic
+                    ? ClipRect(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                          child: const SizedBox.expand(),
+                        ),
+                      )
+                    : null,
               ),
             ),
           ),
@@ -613,7 +737,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   _body(
                     gestureShell: gestureShell,
                     hud: Row(
-                      children: [crop, undo, redo, guide, more, const Spacer(), export],
+                      children: [crop, undo, redo, info, guide, more, const Spacer(), export],
                     ),
                   ),
                   // Modal barrier while the share sheet's temp files are

@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../features/guide/app_guide_screen.dart';
 
 /// Interactive in-app guide sheet demonstrating editor gestures, pro tools,
 /// stylus workflows, and shortcuts.
@@ -93,12 +94,23 @@ class _EditorGuideSheetState extends State<EditorGuideSheet>
                       ),
                       Text(
                         'Master gestures, non-destructive editing & pro tools',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
+                ),
+                IconButton(
+                  key: const Key('editor-guide-academy'),
+                  icon: const Icon(Icons.school_outlined),
+                  tooltip: 'ApertureX Academy',
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    AppGuideScreen.showModal(context);
+                  },
                 ),
                 IconButton(
                   key: const Key('editor-guide-close'),
