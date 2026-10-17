@@ -444,9 +444,14 @@ void main() {
   });
 
   testWidgets('Refine Edge button calls maskRefinerProvider and converts mask to bitmap', (tester) async {
-    final fakeRefiner = (AdjustmentLayer layer, Uint8List bytes, {List<double> strokePoints = const [], double brushRadius = 0.05}) async {
+    Future<AdjustmentLayer?> fakeRefiner(
+      AdjustmentLayer layer,
+      Uint8List bytes, {
+      List<double> strokePoints = const [],
+      double brushRadius = 0.05,
+    }) async {
       return layer.withRefinedAlphas([0.1, 0.2, 0.8, 0.9], 2, 2);
-    };
+    }
 
     container = ProviderContainer(
       overrides: [
