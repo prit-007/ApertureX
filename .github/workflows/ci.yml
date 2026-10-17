@@ -298,9 +298,24 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release/assets
-          cp release/apks/**/*.apk release/assets/
+          # upload-artifact strips parent dirs to the least common ancestor,
+          # so APKs arrive flat in release/apks/. Plain '**' only globs
+          # recursively when `globstar` is on (bash defaults it off, which
+          # made cp stat the literal pattern and fail with "cannot stat").
+          # `nullglob` keeps an empty match from reaching cp at all.
+          shopt -s nullglob globstar
+          apks=(release/apks/**/*.apk)
+          if [ "${#apks[@]}" -eq 0 ]; then
+            echo "No APKs found under release/apks/:" >&2
+            find release -type f >&2 || true
+            exit 1
+          fi
+          cp "${apks[@]}" release/assets/
           if [ -d release/ios ]; then
-            cp release/ios/*.zip release/assets/ 2>/dev/null || true
+            zips=(release/ios/*.zip)
+            if [ "${#zips[@]}" -gt 0 ]; then
+              cp "${zips[@]}" release/assets/
+            fi
           fi
           echo "Staged assets:"
           ls -la release/assets/
