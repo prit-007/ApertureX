@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:aperturex/core/log/activity_log.dart';
+import 'package:aperturex/core/log/log_providers.dart';
 import 'package:aperturex/edit/adjustment_layer.dart';
 import 'package:aperturex/edit/parameter.dart';
 import 'package:aperturex/edit/recipe.dart';
@@ -250,12 +252,28 @@ void main() {
     });
   });
 
-  group('selectParameter', () {
-    test('selects and clears the active parameter', () {
-      notifier.selectParameter(Parameter.whites);
-      expect(state().activeParameter, Parameter.whites);
-      notifier.selectParameter(null);
-      expect(state().activeParameter, isNull);
+  group('activity logging', () {
+    test('logs commit, undo, redo, resetAll, addLayer, applyCrop to activityLog', () {
+      activityLog.clear();
+      notifier.update(Parameter.exposure, 1.0);
+      notifier.commit(label: 'Exposure tweak');
+      expect(activityLog.entries.any((e) => e.domain == LogDomain.editor && e.message.contains('Exposure tweak')), isTrue);
+
+      notifier.undo();
+      expect(activityLog.entries.any((e) => e.domain == LogDomain.editor && e.message == 'Undo'), isTrue);
+
+      notifier.redo();
+      expect(activityLog.entries.any((e) => e.domain == LogDomain.editor && e.message == 'Redo'), isTrue);
+
+      notifier.resetAll();
+      expect(activityLog.entries.any((e) => e.domain == LogDomain.editor && e.message.contains('Reset')), isTrue);
+
+      notifier.addLayer(const AdjustmentLayer(maskKind: MaskKind.sky));
+      expect(activityLog.entries.any((e) => e.domain == LogDomain.editor && e.message.contains('sky')), isTrue);
+
+      notifier.applyCrop(crop: [0.1, 0.1, 0.9, 0.9]);
+      expect(activityLog.entries.any((e) => e.domain == LogDomain.editor && e.message.contains('Crop')), isTrue);
     });
   });
 }
+

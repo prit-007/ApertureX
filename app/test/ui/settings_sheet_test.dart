@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:aperturex/edit/parameter.dart';
 import 'package:aperturex/edit/recipe.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
+import 'package:aperturex/settings/app_settings.dart';
 import 'package:aperturex/ui/common/settings_sheet.dart';
 
 void main() {
@@ -104,5 +105,30 @@ void main() {
     // Switched to true
     final switchWidget = tester.widget<SwitchListTile>(switchFinder);
     expect(switchWidget.value, isTrue);
+  });
+
+  testWidgets('Glassmorphic UI toggle updates glassmorphicUiProvider', (tester) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: SettingsSheet())),
+      ),
+    );
+
+    final switchFinder = find.byKey(const Key('settings-glassmorphic-toggle'));
+    await tester.scrollUntilVisible(
+      switchFinder,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(switchFinder, findsOneWidget);
+    expect(container.read(glassmorphicUiProvider), isFalse);
+
+    await tester.tap(switchFinder);
+    await tester.pumpAndSettle();
+
+    expect(container.read(glassmorphicUiProvider), isTrue);
   });
 }

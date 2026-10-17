@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
+
 /// Export preferences, persisted on-device.
 class ExportSettings {
   const ExportSettings({this.quality = 90, this.maxDim = 0});
@@ -30,14 +33,21 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
 
   void setQuality(int quality) {
     _userSet = true;
-    state = state.copyWith(quality: quality.clamp(60, 100));
+    final clamped = quality.clamp(60, 100);
+    state = state.copyWith(quality: clamped);
     _persist();
+    axLog(LogDomain.export, 'Export quality set to $clamped');
   }
 
   void setMaxDim(int maxDim) {
     _userSet = true;
-    state = state.copyWith(maxDim: maxDim.clamp(0, 100000));
+    final clamped = maxDim.clamp(0, 100000);
+    state = state.copyWith(maxDim: clamped);
     _persist();
+    axLog(
+      LogDomain.export,
+      'Export max dimension set to ${clamped == 0 ? 'Original' : '$clamped px'}',
+    );
   }
 
   Future<void> _restore() async {

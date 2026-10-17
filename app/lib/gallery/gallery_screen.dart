@@ -14,15 +14,17 @@ import '../edit/recipe.dart';
 import '../edit/recipe_store.dart';
 import '../edit/settings_clipboard.dart';
 import '../features/editor/editor_screen.dart';
+import '../settings/settings_screen.dart';
 import '../ui/common/app_primitives.dart';
 import '../ui/common/app_sheet.dart';
-import '../ui/common/settings_sheet.dart';
 import 'edit_preview_store.dart';
+import 'edited_versions_screen.dart';
 import 'gallery_asset.dart';
 import 'gallery_controller.dart';
 import 'gallery_export.dart';
 import 'gallery_grouping.dart';
 import 'gallery_source.dart';
+import 'staggered_photo_grid.dart';
 
 /// Which gallery scope is displayed (#85).
 enum GalleryScope {
@@ -280,9 +282,22 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                 icon: const Icon(Icons.checklist),
               ),
               IconButton(
+                tooltip: 'Edited versions',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const EditedVersionsScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.collections_bookmark_outlined),
+              ),
+              IconButton(
                 tooltip: 'Settings',
-                onPressed: () => showAppSheet(context, const SettingsSheet()),
-                icon: const Icon(Icons.more_vert),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SettingsScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.settings_outlined),
               ),
             ],
           ],
@@ -382,14 +397,9 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
           slivers.add(SliverToBoxAdapter(child: _DateHeader(label: entry.key)));
           final items = entry.value;
           slivers.add(
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              sliver: SliverGrid.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 2,
-                  crossAxisSpacing: 2,
-                ),
+            SliverToBoxAdapter(
+              child: StaggeredPhotoGrid(
+                spacing: 2,
                 itemCount: items.length,
                 itemBuilder: (context, idx) {
                   final preview = items[idx];
@@ -398,22 +408,28 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                     (a) => a?.id == sourceAssetIdFor(preview.entryId),
                     orElse: () => null,
                   );
+                  final aspect = (preview.width > 0 && preview.height > 0)
+                      ? (preview.width / preview.height).clamp(0.65, 1.8)
+                      : 1.0;
 
-                  return _EditPreviewCell(
-                    preview: preview,
-                    catalogEntry: catalogEntry,
-                    onTap: () {
-                      if (matchingAsset != null) {
-                        _openEntry(matchingAsset, preview.entryId);
-                      } else {
-                        _openSavedPreview(preview);
-                      }
-                    },
-                    onLongPressStart: (pos) => _editPreviewMenu(
-                      preview,
-                      matchingAsset,
-                      catalogEntry,
-                      pos,
+                  return AspectRatio(
+                    aspectRatio: aspect,
+                    child: _EditPreviewCell(
+                      preview: preview,
+                      catalogEntry: catalogEntry,
+                      onTap: () {
+                        if (matchingAsset != null) {
+                          _openEntry(matchingAsset, preview.entryId);
+                        } else {
+                          _openSavedPreview(preview);
+                        }
+                      },
+                      onLongPressStart: (pos) => _editPreviewMenu(
+                        preview,
+                        matchingAsset,
+                        catalogEntry,
+                        pos,
+                      ),
                     ),
                   );
                 },
@@ -611,43 +627,48 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
           ],
         ];
         slivers.add(
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            sliver: SliverGrid.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 2,
-                crossAxisSpacing: 2,
-              ),
+          SliverToBoxAdapter(
+            child: StaggeredPhotoGrid(
+              spacing: 2,
               itemCount: items.length,
               itemBuilder: (context, j) => switch (items[j]) {
-                _OriginalItem(:final asset) => _Cell(
-                  source: _source,
-                  asset: asset,
-                  selected: state.isSelected(asset.id),
-                  edited: recipes.containsKey(originalEntryId(asset.id)),
-                  copyCount: vcsBySource[asset.id]?.length ?? 0,
-                  selectionMode: state.selectionMode,
-                  exporting: _exportingIds.contains(asset.id),
-                  exported: _exportedIds.contains(asset.id),
-                  onTap: () => state.selectionMode
-                      ? controller.toggle(asset.id)
-                      : _open(asset),
-                  onLongPress: () => controller.startSelection(asset.id),
+                _OriginalItem(:final asset) => AspectRatio(
+                  aspectRatio: (asset.width > 0 && asset.height > 0)
+                      ? (asset.width / asset.height).clamp(0.65, 1.8)
+                      : 1.0,
+                  child: _Cell(
+                    source: _source,
+                    asset: asset,
+                    selected: state.isSelected(asset.id),
+                    edited: recipes.containsKey(originalEntryId(asset.id)),
+                    copyCount: vcsBySource[asset.id]?.length ?? 0,
+                    selectionMode: state.selectionMode,
+                    exporting: _exportingIds.contains(asset.id),
+                    exported: _exportedIds.contains(asset.id),
+                    onTap: () => state.selectionMode
+                        ? controller.toggle(asset.id)
+                        : _open(asset),
+                    onLongPress: () => controller.startSelection(asset.id),
+                  ),
                 ),
-                _VirtualItem(:final entry, :final asset) => _VirtualCell(
-                  source: _source,
-                  asset: asset,
-                  entry: entry,
-                  selected: state.isSelected(asset.id),
-                  edited: recipes.containsKey(entry.entryId),
-                  selectionMode: state.selectionMode,
-                  onTap: () => state.selectionMode
-                      ? controller.toggle(asset.id)
-                      : _openEntry(asset, entry.entryId),
-                  onLongPressStart: (details) => state.selectionMode
-                      ? controller.startSelection(asset.id)
-                      : _vcMenu(entry, details.globalPosition),
+                _VirtualItem(:final entry, :final asset) => AspectRatio(
+                  aspectRatio: (asset.width > 0 && asset.height > 0)
+                      ? (asset.width / asset.height).clamp(0.65, 1.8)
+                      : 1.0,
+                  child: _VirtualCell(
+                    source: _source,
+                    asset: asset,
+                    entry: entry,
+                    selected: state.isSelected(asset.id),
+                    edited: recipes.containsKey(entry.entryId),
+                    selectionMode: state.selectionMode,
+                    onTap: () => state.selectionMode
+                        ? controller.toggle(asset.id)
+                        : _openEntry(asset, entry.entryId),
+                    onLongPressStart: (details) => state.selectionMode
+                        ? controller.startSelection(asset.id)
+                        : _vcMenu(entry, details.globalPosition),
+                  ),
                 ),
               },
             ),

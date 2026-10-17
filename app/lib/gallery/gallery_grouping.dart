@@ -42,14 +42,14 @@ DateTime _midnight(DateTime d) => DateTime(d.year, d.month, d.day);
 /// (Google-Photos style). Photos with no date fall into an "Unknown date" group
 /// at the end.
 List<GalleryRow> buildGalleryRows(List<GalleryAsset> assets) {
-  final dated = [for (final a in assets) if (a.created != null) a]
-    ..sort((a, b) => b.created!.compareTo(a.created!));
-  final undated = [for (final a in assets) if (a.created == null) a];
+  final dated = [for (final a in assets) if (a.latestDate != null) a]
+    ..sort((a, b) => b.latestDate!.compareTo(a.latestDate!));
+  final undated = [for (final a in assets) if (a.latestDate == null) a];
 
   final rows = <GalleryRow>[];
   DateTime? currentDay;
   for (final asset in dated) {
-    final day = _midnight(asset.created!);
+    final day = _midnight(asset.latestDate!);
     if (currentDay == null || day != currentDay) {
       rows.add(GalleryDateHeader(dateHeaderLabel(day), day));
       currentDay = day;

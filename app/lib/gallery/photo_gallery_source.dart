@@ -56,6 +56,7 @@ class PhotoGallerySource implements GallerySource {
           width: e.width,
           height: e.height,
           created: e.createDateTime,
+          modified: e.modifiedDateTime,
         ),
     ];
   }

@@ -17,6 +17,7 @@ import '../edit/recipe_controller.dart';
 import '../edit/recipe_mapping.dart';
 import '../gesture/gesture_interpreter.dart';
 import '../settings/shell_preference.dart';
+import '../settings/app_settings.dart';
 import '../settings/onboarding.dart';
 import '../viewport/compare_hold.dart';
 import '../viewport/image_canvas.dart';
@@ -161,6 +162,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final kind = ref.watch(shellPreferenceProvider);
+    final glassmorphic = ref.watch(glassmorphicUiProvider);
     final active = ref.watch(editActivityProvider);
     final nodeMode = ref.watch(nodeEditorProvider.select((s) => s.enabled));
     final activeSection = ref.watch(activeSectionProvider);
@@ -250,25 +252,45 @@ class _AppShellState extends ConsumerState<AppShell> {
                   right: 0,
                   child: _Fade(
                     active: active,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.5),
-                            Colors.black.withValues(alpha: 0.0),
-                          ],
+                    child: ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(
+                          sigmaX: glassmorphic ? 16 : 0,
+                          sigmaY: glassmorphic ? 16 : 0,
                         ),
-                      ),
-                      child: SafeArea(
-                        bottom: false,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: Insets.xs,
-                            vertical: Insets.xs,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: glassmorphic
+                                ? scheme.surface.withValues(alpha: 0.65)
+                                : null,
+                            gradient: glassmorphic
+                                ? null
+                                : LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.black.withValues(alpha: 0.5),
+                                      Colors.black.withValues(alpha: 0.0),
+                                    ],
+                                  ),
+                            border: glassmorphic
+                                ? Border(
+                                    bottom: BorderSide(
+                                      color: scheme.outlineVariant.withValues(alpha: 0.3),
+                                    ),
+                                  )
+                                : null,
                           ),
-                          child: widget.topHud,
+                          child: SafeArea(
+                            bottom: false,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Insets.xs,
+                                vertical: Insets.xs,
+                              ),
+                              child: widget.topHud,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -380,6 +402,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         );
 
         if (wide) {
+          final sidebarWidth = (constraints.maxWidth * 0.30).clamp(320.0, 480.0);
           return Material(
             color: scheme.surface,
             child: Row(
@@ -390,24 +413,37 @@ class _AppShellState extends ConsumerState<AppShell> {
                   left: false,
                   right: true,
                   child: SizedBox(
-                    width: 350,
-                    child: Column(
-                      children: [
-                        _PanelHandle(
-                          collapsed: _panelCollapsed,
-                          onToggle: () => setState(
-                            () => _panelCollapsed = !_panelCollapsed,
+                    width: sidebarWidth,
+                    child: ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(
+                          sigmaX: glassmorphic ? 20 : 0,
+                          sigmaY: glassmorphic ? 20 : 0,
+                        ),
+                        child: Material(
+                          color: glassmorphic
+                              ? scheme.surface.withValues(alpha: 0.75)
+                              : scheme.surface,
+                          child: Column(
+                            children: [
+                              _PanelHandle(
+                                collapsed: _panelCollapsed,
+                                onToggle: () => setState(
+                                  () => _panelCollapsed = !_panelCollapsed,
+                                ),
+                              ),
+                              if (!_panelCollapsed && hasHistogram)
+                                _HistogramDrawer(
+                                  open: _histogramOpen,
+                                  setOpen: (v) =>
+                                      setState(() => _histogramOpen = v),
+                                ),
+                              if (!_panelCollapsed)
+                                const Expanded(child: LightroomShell()),
+                            ],
                           ),
                         ),
-                        if (!_panelCollapsed && hasHistogram)
-                          _HistogramDrawer(
-                            open: _histogramOpen,
-                            setOpen: (v) =>
-                                setState(() => _histogramOpen = v),
-                          ),
-                        if (!_panelCollapsed)
-                          const Expanded(child: LightroomShell()),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -462,7 +498,7 @@ class _Fade extends StatelessWidget {
 
 /// The grab-handle between the image and the Lightroom panel. Tapping it
 /// collapses the tools so the photo can fill the screen.
-class _PanelHandle extends StatelessWidget {
+class _PanelHandle extends ConsumerWidget {
   const _PanelHandle({
     required this.collapsed,
     required this.onToggle,
@@ -474,49 +510,60 @@ class _PanelHandle extends StatelessWidget {
   final VoidCallback? onDoubleTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surface,
-      child: InkWell(
-        onTap: onToggle,
-        onDoubleTap: onDoubleTap,
-        child: SizedBox(
-          height: 30,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: scheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Row(
+    final glassmorphic = ref.watch(glassmorphicUiProvider);
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: glassmorphic ? 16 : 0,
+          sigmaY: glassmorphic ? 16 : 0,
+        ),
+        child: Material(
+          color: glassmorphic
+              ? scheme.surface.withValues(alpha: 0.65)
+              : scheme.surface,
+          child: InkWell(
+            onTap: onToggle,
+            onDoubleTap: onDoubleTap,
+            child: SizedBox(
+              height: 30,
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    collapsed ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                    size: 14,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    collapsed ? 'Show tools' : 'Hide tools',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.4,
-                      color: scheme.onSurfaceVariant,
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: scheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
                     ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        collapsed ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        size: 14,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        collapsed ? 'Show tools' : 'Hide tools',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.4,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -538,7 +585,7 @@ const Map<_SheetSnap, double> _sheetFractions = {
 /// A draggable, floating bottom sheet holding the Lightroom tools over the
 /// edge-to-edge photo. Drag the grab bar to move between snap points, or tap it
 /// to collapse/restore (issue #32).
-class _LightroomSheet extends StatefulWidget {
+class _LightroomSheet extends ConsumerStatefulWidget {
   const _LightroomSheet({
     required this.availableHeight,
     required this.snap,
@@ -556,10 +603,10 @@ class _LightroomSheet extends StatefulWidget {
   final ValueChanged<bool> setHistogramOpen;
 
   @override
-  State<_LightroomSheet> createState() => _LightroomSheetState();
+  ConsumerState<_LightroomSheet> createState() => _LightroomSheetState();
 }
 
-class _LightroomSheetState extends State<_LightroomSheet> {
+class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
   /// Upward drag accumulated since the gesture started (positive = taller).
   double _dragDy = 0;
   bool _dragging = false;
@@ -619,6 +666,7 @@ class _LightroomSheetState extends State<_LightroomSheet> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final glassmorphic = ref.watch(glassmorphicUiProvider);
     final contentHeight = _height;
     return SafeArea(
       top: false,
@@ -649,26 +697,41 @@ class _LightroomSheetState extends State<_LightroomSheet> {
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(Radii.md),
                     ),
-                    child: Material(
-                      color: scheme.surface,
-                      child: OverflowBox(
-                        minHeight: 0,
-                        maxHeight: double.infinity,
-                        alignment: Alignment.topCenter,
-                        child: SizedBox(
-                          height: math.max(
-                            contentHeight,
-                            widget.histogramOpen ? 260.0 : 190.0,
-                          ),
-                          child: Column(
-                            children: [
-                              if (widget.hasHistogram)
-                                _HistogramDrawer(
-                                  open: widget.histogramOpen,
-                                  setOpen: widget.setHistogramOpen,
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: glassmorphic ? 20 : 0,
+                        sigmaY: glassmorphic ? 20 : 0,
+                      ),
+                      child: Material(
+                        color: glassmorphic
+                            ? scheme.surface.withValues(alpha: 0.72)
+                            : scheme.surface,
+                        shape: glassmorphic
+                            ? Border(
+                                top: BorderSide(
+                                  color: scheme.outlineVariant.withValues(alpha: 0.35),
                                 ),
-                              const Expanded(child: LightroomShell()),
-                            ],
+                              )
+                            : null,
+                        child: OverflowBox(
+                          minHeight: 0,
+                          maxHeight: double.infinity,
+                          alignment: Alignment.topCenter,
+                          child: SizedBox(
+                            height: math.max(
+                              contentHeight,
+                              widget.histogramOpen ? 260.0 : 190.0,
+                            ),
+                            child: Column(
+                              children: [
+                                if (widget.hasHistogram)
+                                  _HistogramDrawer(
+                                    open: widget.histogramOpen,
+                                    setOpen: widget.setHistogramOpen,
+                                  ),
+                                const Expanded(child: LightroomShell()),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -689,17 +752,17 @@ class _LightroomSheetState extends State<_LightroomSheet> {
 /// flick shorter than the displacement threshold still works), then net
 /// displacement with hysteresis (close needs a slightly larger drift than
 /// open); anything below both thresholds snaps back to the previous state.
-class _HistogramDrawer extends StatefulWidget {
+class _HistogramDrawer extends ConsumerStatefulWidget {
   const _HistogramDrawer({required this.open, required this.setOpen});
 
   final bool open;
   final ValueChanged<bool> setOpen;
 
   @override
-  State<_HistogramDrawer> createState() => _HistogramDrawerState();
+  ConsumerState<_HistogramDrawer> createState() => _HistogramDrawerState();
 }
 
-class _HistogramDrawerState extends State<_HistogramDrawer> {
+class _HistogramDrawerState extends ConsumerState<_HistogramDrawer> {
   /// Flick threshold in logical px/s (a slow drag never reaches it).
   static const double _flickVelocity = 400;
 
@@ -734,8 +797,11 @@ class _HistogramDrawerState extends State<_HistogramDrawer> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final glassmorphic = ref.watch(glassmorphicUiProvider);
     return Material(
-      color: scheme.surface,
+      color: glassmorphic
+          ? scheme.surface.withValues(alpha: 0.70)
+          : scheme.surface,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

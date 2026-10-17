@@ -2,6 +2,8 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../color/tat.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe.dart';
@@ -39,7 +41,10 @@ String _sectionLabel(RecipeSection section) => switch (section) {
 class ActiveSectionNotifier extends Notifier<RecipeSection> {
   @override
   RecipeSection build() => RecipeSection.light;
-  void select(RecipeSection section) => state = section;
+  void select(RecipeSection section) {
+    state = section;
+    axLog(LogDomain.editor, 'Switched tool tab to ${_sectionLabel(section)}');
+  }
 }
 
 final activeSectionProvider =

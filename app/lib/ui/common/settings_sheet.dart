@@ -5,14 +5,18 @@ import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/settings_clipboard.dart';
+import '../../features/ai_plugins/ai_plugins_screen.dart';
 import '../../features/logs/logs_screen.dart';
+import '../../gallery/edited_versions_screen.dart';
 import '../../settings/ai_consent.dart';
 import '../../settings/app_settings.dart';
 import '../../settings/export_settings.dart';
+import '../../settings/settings_screen.dart';
 import '../../settings/shell_preference.dart';
 import '../../edit/active_image.dart';
 import '../../edit/ai_mask_resolver.dart';
 import 'app_sheet.dart';
+import 'copy_settings_sheet.dart';
 import 'looks_sheet.dart';
 import 'lut_export_sheet.dart';
 import 'lut_import_sheet.dart';
@@ -52,6 +56,21 @@ class SettingsSheet extends ConsumerWidget {
           selected: {themeMode},
           onSelectionChanged: (s) =>
               ref.read(themeModeProvider.notifier).setThemeMode(s.first),
+        ),
+        const SizedBox(height: Insets.sm),
+        SwitchListTile.adaptive(
+          key: const Key('settings-glassmorphic-toggle'),
+          title: const Text(
+            'Glassmorphic UI',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          subtitle: const Text(
+            'Translucent frosted-glass panels and HUD so the photo stays visible behind controls',
+            style: TextStyle(fontSize: 12),
+          ),
+          value: ref.watch(glassmorphicUiProvider),
+          onChanged: (val) =>
+              ref.read(glassmorphicUiProvider.notifier).setEnabled(val),
         ),
         const SizedBox(height: Insets.lg),
         const _Label('Interface'),
@@ -93,13 +112,25 @@ class SettingsSheet extends ConsumerWidget {
           },
         ),
         _Action(
+          icon: Icons.checklist_rtl,
+          title: 'Selective copy settings...',
+          onTap: () {
+            Navigator.of(context).maybePop();
+            showAppSheet(context, const CopySettingsSheet());
+          },
+        ),
+        _Action(
           icon: Icons.paste,
           title: clipboard == null
               ? 'Paste settings (nothing copied)'
               : 'Paste settings',
           enabled: clipboard != null,
           onTap: () async {
-            final cp = clipboard!;
+            final cpSettings =
+                ref.read(settingsClipboardProvider.notifier).copiedSettings;
+            final cp = cpSettings != null
+                ? cpSettings.applyTo(ref.read(recipeControllerProvider).recipe)
+                : clipboard!;
             Navigator.of(context).maybePop();
             if (cp.layers.any((l) => l.aiIntent != null)) {
               final bytes = ref.read(activeImageBytesProvider);
@@ -151,6 +182,30 @@ class SettingsSheet extends ConsumerWidget {
           title: 'Browse looks',
           onTap: () => showAppSheet(context, const LooksSheet()),
         ),
+        _Action(
+          icon: Icons.collections_bookmark_outlined,
+          title: 'Browse edited versions...',
+          onTap: () {
+            Navigator.of(context).maybePop();
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const EditedVersionsScreen(),
+              ),
+            );
+          },
+        ),
+        _Action(
+          icon: Icons.settings_outlined,
+          title: 'All app settings...',
+          onTap: () {
+            Navigator.of(context).maybePop();
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const SettingsScreen(),
+              ),
+            );
+          },
+        ),
         const SizedBox(height: Insets.lg),
         const _Label('Export'),
         const _ExportSection(),
@@ -180,6 +235,18 @@ class SettingsSheet extends ConsumerWidget {
             } else {
               ref.read(aiConsentProvider.notifier).revokeConsent();
             }
+          },
+        ),
+        _Action(
+          icon: Icons.hub_outlined,
+          title: 'AI Models & Plugins',
+          onTap: () {
+            Navigator.of(context).maybePop();
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const AiPluginsScreen(),
+              ),
+            );
           },
         ),
         const SizedBox(height: Insets.lg),

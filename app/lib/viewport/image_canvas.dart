@@ -474,33 +474,60 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }) async {
     // RAW/DNG can't go through Flutter's codec; the Rust engine (ADR 0005)
     // demosaics + applies the camera matrix, then we downscale to the proxy.
-    if (isRawImage(bytes)) return _decodeRaw(bytes, maxDim: maxDim);
+    if (isRawImage(bytes)) {
+      try {
+        return await _decodeRaw(bytes, maxDim: maxDim);
+      } catch (_) {
+        // Fall back to standard codec if Rust raw decode failed
+      }
+    }
 
-    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-    final descriptor = await ui.ImageDescriptor.encoded(buffer);
-    final orientation = readExifOrientation(bytes);
-    final target = computeDecodeTarget(
-      rawWidth: descriptor.width,
-      rawHeight: descriptor.height,
-      orientation: orientation,
-      maxDim: maxDim,
-    );
-    final codec = await ui.instantiateImageCodecFromBuffer(
-      buffer,
-      targetWidth: target.targetWidth,
-      targetHeight: target.targetHeight,
-    );
-    final frame = await codec.getNextFrame();
-    codec.dispose();
-    descriptor.dispose();
-    final image = frame.image;
-    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-    // Copy into a tightly-packed buffer with an explicit offset+length — never
-    // rely on the ByteData's backing buffer being exactly w*h*4 at offset 0.
-    final pixels = Uint8List.fromList(
-      data!.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-    );
-    return (image, pixels, image.width, image.height);
+    try {
+      final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+      final descriptor = await ui.ImageDescriptor.encoded(buffer);
+      final orientation = readExifOrientation(bytes);
+      final target = computeDecodeTarget(
+        rawWidth: descriptor.width,
+        rawHeight: descriptor.height,
+        orientation: orientation,
+        maxDim: maxDim,
+      );
+      final codec = await ui.instantiateImageCodecFromBuffer(
+        buffer,
+        targetWidth: target.targetWidth,
+        targetHeight: target.targetHeight,
+      );
+      final frame = await codec.getNextFrame();
+      codec.dispose();
+      descriptor.dispose();
+      final image = frame.image;
+      final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      // Copy into a tightly-packed buffer with an explicit offset+length — never
+      // rely on the ByteData's backing buffer being exactly w*h*4 at offset 0.
+      var pixels = Uint8List.fromList(
+        data!.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+      );
+      var finalImage = image;
+
+      // Wide-gamut handling (#15): convert Display-P3 JPEG to sRGB so preview
+      // matches export 1:1.
+      if (detectImageFormat(bytes) == ImageFormat.jpeg) {
+        final cs = await AxEngine.detectColorspace(bytes);
+        if (cs == 2) {
+          pixels = await AxEngine.p3ToSrgb(
+            pixels,
+            width: image.width,
+            height: image.height,
+          );
+          finalImage = await _imageFrom(pixels, image.width, image.height);
+        }
+      }
+
+      return (finalImage, pixels, finalImage.width, finalImage.height);
+    } catch (_) {
+      // If standard codec fails (e.g. uncommon raw or tiff variant), try Rust raw decoder
+      return await _decodeRaw(bytes, maxDim: maxDim);
+    }
   }
 
   /// RAW/DNG branch of [_decode]: the Rust engine demosaics + applies the

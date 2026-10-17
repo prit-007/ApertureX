@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import 'adjustment_layer.dart';
 import 'parameter.dart';
 import 'recipe.dart';
@@ -214,22 +216,28 @@ class RecipeController extends Notifier<RecipeState> {
   void resetAll() => loadRecipe(EditRecipe.neutral, label: 'Reset');
 
   /// Applies a shareable look (tool definition) onto the current recipe.
-  void applyTool(ToolDefinition tool) =>
-      state = state.copyWith(recipe: tool.applyTo(state.recipe));
+  void applyTool(ToolDefinition tool) {
+    state = state.copyWith(recipe: tool.applyTo(state.recipe));
+    axLog(LogDomain.preset, 'Applied tool preset: ${tool.name}');
+  }
 
   /// Appends a local adjustment layer (masking).
-  void addLayer(AdjustmentLayer layer) => state = state.copyWith(
-    recipe: state.recipe.copyWith(
-      layers: [...state.recipe.layers, layer],
-    ),
-  );
+  void addLayer(AdjustmentLayer layer) {
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(
+        layers: [...state.recipe.layers, layer],
+      ),
+    );
+    axLog(LogDomain.editor, 'Added mask layer: ${layer.maskKind.name}');
+  }
 
   /// Removes the layer at [index].
   void removeLayerAt(int index) {
     final layers = [...state.recipe.layers];
     if (index < 0 || index >= layers.length) return;
-    layers.removeAt(index);
+    final removed = layers.removeAt(index);
     state = state.copyWith(recipe: state.recipe.copyWith(layers: layers));
+    axLog(LogDomain.editor, 'Removed mask layer at $index: ${removed.maskKind.name}');
   }
 
   /// Replaces the layer at [index] (node moves/resizes/parameter edits,
@@ -239,10 +247,13 @@ class RecipeController extends Notifier<RecipeState> {
     if (index < 0 || index >= layers.length) return;
     layers[index] = layer;
     state = state.copyWith(recipe: state.recipe.copyWith(layers: layers));
+    axLog(LogDomain.editor, 'Updated mask layer at $index: ${layer.maskKind.name}');
   }
 
-  void clearLayers() =>
-      state = state.copyWith(recipe: state.recipe.copyWith(layers: const []));
+  void clearLayers() {
+    state = state.copyWith(recipe: state.recipe.copyWith(layers: const []));
+    axLog(LogDomain.editor, 'Cleared all mask layers');
+  }
 
   /// Adds a mask group.
   void addMaskGroup(MaskGroup group) {
@@ -251,6 +262,7 @@ class RecipeController extends Notifier<RecipeState> {
         maskGroups: [...state.recipe.maskGroups, group],
       ),
     );
+    axLog(LogDomain.editor, 'Added mask group: ${group.name}');
   }
 
   /// Updates a mask group by id.
@@ -261,6 +273,7 @@ class RecipeController extends Notifier<RecipeState> {
     state = state.copyWith(
       recipe: state.recipe.copyWith(maskGroups: groups),
     );
+    axLog(LogDomain.editor, 'Updated mask group: ${group.name}');
   }
 
   /// Removes a mask group and all member layers.
@@ -275,6 +288,7 @@ class RecipeController extends Notifier<RecipeState> {
         layers: layers,
       ),
     );
+    axLog(LogDomain.editor, 'Removed mask group: $groupId');
   }
 
   /// Appends a layer to a specific group with join operation.
@@ -346,17 +360,20 @@ class RecipeController extends Notifier<RecipeState> {
       history: [RecipeHistoryEntry(label, recipe)],
       index: 0,
     );
+    axLog(LogDomain.editor, 'Loaded recipe: $label');
   }
 
   /// Commits the live recipe as a new (optionally named) history node. Truncates
   /// the redo tail — this is where a branch happens.
   void commit({String? label}) {
     if (!state.isDirty) return;
+    final name = label ?? 'Edit';
     final history = [
       ...state.history.sublist(0, state.index + 1),
-      RecipeHistoryEntry(label ?? 'Edit', state.recipe),
+      RecipeHistoryEntry(name, state.recipe),
     ];
     state = state.copyWith(history: history, index: history.length - 1);
+    axLog(LogDomain.editor, 'Committed edit: $name');
   }
 
   /// Discards live edits back to the current committed node.
@@ -367,6 +384,7 @@ class RecipeController extends Notifier<RecipeState> {
     if (state.index == 0) return;
     final i = state.index - 1;
     state = state.copyWith(index: i, recipe: state.history[i].recipe);
+    axLog(LogDomain.editor, 'Undo');
   }
 
   /// Steps forward one history node.
@@ -374,11 +392,13 @@ class RecipeController extends Notifier<RecipeState> {
     if (state.index >= state.history.length - 1) return;
     final i = state.index + 1;
     state = state.copyWith(index: i, recipe: state.history[i].recipe);
+    axLog(LogDomain.editor, 'Redo');
   }
 
   /// Jumps to a history node (viewing it). A later commit branches from here.
   void jumpTo(int index) {
     if (index < 0 || index >= state.history.length) return;
     state = state.copyWith(index: index, recipe: state.history[index].recipe);
+    axLog(LogDomain.editor, 'Jumped to history entry $index: ${state.history[index].label}');
   }
 }

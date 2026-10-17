@@ -49,7 +49,15 @@ class CatalogDb extends _$CatalogDb {
     return LazyDatabase(() async {
       final dbFolder = await getApplicationDocumentsDirectory();
       final file = File('${dbFolder.path}/catalog.sqlite');
-      return NativeDatabase(file);
+      return NativeDatabase.createInBackground(
+        file,
+        setup: (rawDb) {
+          rawDb.execute('PRAGMA journal_mode = WAL;');
+          rawDb.execute('PRAGMA synchronous = NORMAL;');
+          rawDb.execute('PRAGMA foreign_keys = ON;');
+          rawDb.execute('PRAGMA busy_timeout = 5000;');
+        },
+      );
     });
   }
 }
