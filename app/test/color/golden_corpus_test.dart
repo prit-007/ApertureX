@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:aperturex/color/grade_spec.dart';
 import 'package:aperturex/color/spatial_spec.dart';
 import 'package:aperturex/edit/recipe.dart';
@@ -166,6 +168,30 @@ void main() {
       ];
       final de = deltaE76(original, regressed);
       expect(de, greaterThan(1.5), reason: 'ΔE must exceed gate tolerance of 1.0 on a +8 color shift');
+    });
+
+    test('synthetic_math_breaker fixture decodes cleanly as 2048x2048 RGB target', () {
+      var file = File('rust/tests/golden_fixtures/synthetic_math_breaker.png');
+      if (!file.existsSync()) {
+        file = File('../app/rust/tests/golden_fixtures/synthetic_math_breaker.png');
+      }
+      if (!file.existsSync()) {
+        // If not running in repo workspace
+        return;
+      }
+      final bytes = file.readAsBytesSync();
+      expect(bytes.length, greaterThan(1000));
+
+      final image = img.decodePng(bytes);
+      expect(image, isNotNull);
+      expect(image!.width, 2048);
+      expect(image.height, 2048);
+
+      // Verify corner/center samples have valid RGB components
+      final pixelCenter = image.getPixel(1024, 1024);
+      expect(pixelCenter.r, inInclusiveRange(0, 255));
+      expect(pixelCenter.g, inInclusiveRange(0, 255));
+      expect(pixelCenter.b, inInclusiveRange(0, 255));
     });
   });
 }

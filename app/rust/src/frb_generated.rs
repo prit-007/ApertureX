@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1395527831;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 656980342;
 
 // Section: executor
 
@@ -886,6 +886,40 @@ fn wire__crate__api__export__export_progress_get_impl(
         },
     )
 }
+fn wire__crate__api__export__export_raw_dng_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "export_raw_dng",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_raw_bytes = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_xmp = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok = crate::api::export::export_raw_dng(api_raw_bytes, api_xmp)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__exif__extract_embedded_depth_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1297,6 +1331,39 @@ fn wire__crate__api__geometry__geometry_straighten_impl(
                         api_height,
                         api_angle_deg,
                     ))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__exif__get_image_metadata_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_image_metadata",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_bytes = <Vec<u8>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::exif::get_image_metadata(api_bytes))?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -2822,6 +2889,13 @@ impl SseDecode for f32 {
     }
 }
 
+impl SseDecode for f64 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_f64::<NativeEndian>().unwrap()
+    }
+}
+
 impl SseDecode for crate::api::geometry::GeometryResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2867,6 +2941,56 @@ impl SseDecode for crate::api::decode::ImageDims {
         return crate::api::decode::ImageDims {
             width: var_width,
             height: var_height,
+        };
+    }
+}
+
+impl SseDecode for crate::exif::ImageMetadata {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_make = <Option<String>>::sse_decode(deserializer);
+        let mut var_model = <Option<String>>::sse_decode(deserializer);
+        let mut var_lensMake = <Option<String>>::sse_decode(deserializer);
+        let mut var_lensModel = <Option<String>>::sse_decode(deserializer);
+        let mut var_focalLength = <Option<f32>>::sse_decode(deserializer);
+        let mut var_focalLength35Mm = <Option<f32>>::sse_decode(deserializer);
+        let mut var_fNumber = <Option<f32>>::sse_decode(deserializer);
+        let mut var_exposureTime = <Option<String>>::sse_decode(deserializer);
+        let mut var_exposureTimeSeconds = <Option<f32>>::sse_decode(deserializer);
+        let mut var_iso = <Option<u32>>::sse_decode(deserializer);
+        let mut var_exposureBias = <Option<f32>>::sse_decode(deserializer);
+        let mut var_flashFired = <Option<bool>>::sse_decode(deserializer);
+        let mut var_meteringMode = <Option<String>>::sse_decode(deserializer);
+        let mut var_whiteBalanceMode = <Option<String>>::sse_decode(deserializer);
+        let mut var_dateTime = <Option<String>>::sse_decode(deserializer);
+        let mut var_gpsLatitude = <Option<f64>>::sse_decode(deserializer);
+        let mut var_gpsLongitude = <Option<f64>>::sse_decode(deserializer);
+        let mut var_gpsAltitude = <Option<f32>>::sse_decode(deserializer);
+        let mut var_width = <Option<u32>>::sse_decode(deserializer);
+        let mut var_height = <Option<u32>>::sse_decode(deserializer);
+        let mut var_formatName = <Option<String>>::sse_decode(deserializer);
+        return crate::exif::ImageMetadata {
+            make: var_make,
+            model: var_model,
+            lens_make: var_lensMake,
+            lens_model: var_lensModel,
+            focal_length: var_focalLength,
+            focal_length_35mm: var_focalLength35Mm,
+            f_number: var_fNumber,
+            exposure_time: var_exposureTime,
+            exposure_time_seconds: var_exposureTimeSeconds,
+            iso: var_iso,
+            exposure_bias: var_exposureBias,
+            flash_fired: var_flashFired,
+            metering_mode: var_meteringMode,
+            white_balance_mode: var_whiteBalanceMode,
+            date_time: var_dateTime,
+            gps_latitude: var_gpsLatitude,
+            gps_longitude: var_gpsLongitude,
+            gps_altitude: var_gpsAltitude,
+            width: var_width,
+            height: var_height,
+            format_name: var_formatName,
         };
     }
 }
@@ -2986,6 +3110,17 @@ impl SseDecode for Option<String> {
     }
 }
 
+impl SseDecode for Option<bool> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<bool>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<crate::api::mask::DetectedSky> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3017,6 +3152,39 @@ impl SseDecode for Option<crate::api::exif::EmbeddedDepthResult> {
             return Some(<crate::api::exif::EmbeddedDepthResult>::sse_decode(
                 deserializer,
             ));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<f32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<f32>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<f64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<f64>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<u32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<u32>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -3191,72 +3359,74 @@ fn pde_ffi_dispatcher_primary_impl(
         20 => wire__crate__api__color__export_cube_lut_impl(port, ptr, rust_vec_len, data_len),
         21 => wire__crate__api__export__export_full_impl(port, ptr, rust_vec_len, data_len),
         22 => wire__crate__api__export__export_progress_get_impl(port, ptr, rust_vec_len, data_len),
-        23 => {
+        23 => wire__crate__api__export__export_raw_dng_impl(port, ptr, rust_vec_len, data_len),
+        24 => {
             wire__crate__api__exif__extract_embedded_depth_impl(port, ptr, rust_vec_len, data_len)
         }
-        24 => wire__crate__api__exif__extract_exif_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__geometry__geometry_apply_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__geometry__geometry_crop_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__geometry__geometry_detect_straighten_angle_impl(
+        25 => wire__crate__api__exif__extract_exif_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__geometry__geometry_apply_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__geometry__geometry_crop_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__geometry__geometry_detect_straighten_angle_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        28 => {
+        29 => {
             wire__crate__api__geometry__geometry_downscale_impl(port, ptr, rust_vec_len, data_len)
         }
-        29 => wire__crate__api__geometry__geometry_flip_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__geometry__geometry_perspective_rgba_impl(
+        30 => wire__crate__api__geometry__geometry_flip_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__geometry__geometry_perspective_rgba_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        31 => wire__crate__api__geometry__geometry_rotate_impl(port, ptr, rust_vec_len, data_len),
-        32 => {
+        32 => wire__crate__api__geometry__geometry_rotate_impl(port, ptr, rust_vec_len, data_len),
+        33 => {
             wire__crate__api__geometry__geometry_straighten_impl(port, ptr, rust_vec_len, data_len)
         }
-        33 => wire__crate__api__color__grade_rgba_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__histogram__histogram_graded_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__engine__init_app_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__logging__init_panic_hook_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__mask__mask_layer_default_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__optics__optics_apply_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__optics__optics_defringe_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__optics__optics_lateral_ca_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__optics__optics_lens_profile_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__icc__p3_to_srgb_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__preview__preview_base_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__mask__refine_mask_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__retouch__retouch_apply_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__mask__segment_subject_impl(port, ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
+        34 => wire__crate__api__exif__get_image_metadata_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__color__grade_rgba_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__histogram__histogram_graded_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__engine__init_app_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__logging__init_panic_hook_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__mask__mask_layer_default_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__optics__optics_apply_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__optics__optics_defringe_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__optics__optics_lateral_ca_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__optics__optics_lens_profile_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__icc__p3_to_srgb_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__preview__preview_base_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__mask__refine_mask_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__retouch__retouch_apply_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__mask__segment_subject_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        59 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__spatial__spatial_sharpen_edge_mask_impl(
+        61 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__spatial__spatial_sharpen_edge_mask_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        61 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -3603,6 +3773,41 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::decode::ImageDims>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::exif::ImageMetadata {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.make.into_into_dart().into_dart(),
+            self.model.into_into_dart().into_dart(),
+            self.lens_make.into_into_dart().into_dart(),
+            self.lens_model.into_into_dart().into_dart(),
+            self.focal_length.into_into_dart().into_dart(),
+            self.focal_length_35mm.into_into_dart().into_dart(),
+            self.f_number.into_into_dart().into_dart(),
+            self.exposure_time.into_into_dart().into_dart(),
+            self.exposure_time_seconds.into_into_dart().into_dart(),
+            self.iso.into_into_dart().into_dart(),
+            self.exposure_bias.into_into_dart().into_dart(),
+            self.flash_fired.into_into_dart().into_dart(),
+            self.metering_mode.into_into_dart().into_dart(),
+            self.white_balance_mode.into_into_dart().into_dart(),
+            self.date_time.into_into_dart().into_dart(),
+            self.gps_latitude.into_into_dart().into_dart(),
+            self.gps_longitude.into_into_dart().into_dart(),
+            self.gps_altitude.into_into_dart().into_dart(),
+            self.width.into_into_dart().into_dart(),
+            self.height.into_into_dart().into_dart(),
+            self.format_name.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::exif::ImageMetadata {}
+impl flutter_rust_bridge::IntoIntoDart<crate::exif::ImageMetadata> for crate::exif::ImageMetadata {
+    fn into_into_dart(self) -> crate::exif::ImageMetadata {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::color::LutData {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -3909,6 +4114,13 @@ impl SseEncode for f32 {
     }
 }
 
+impl SseEncode for f64 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_f64::<NativeEndian>(self).unwrap();
+    }
+}
+
 impl SseEncode for crate::api::geometry::GeometryResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3940,6 +4152,33 @@ impl SseEncode for crate::api::decode::ImageDims {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <u32>::sse_encode(self.width, serializer);
         <u32>::sse_encode(self.height, serializer);
+    }
+}
+
+impl SseEncode for crate::exif::ImageMetadata {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<String>>::sse_encode(self.make, serializer);
+        <Option<String>>::sse_encode(self.model, serializer);
+        <Option<String>>::sse_encode(self.lens_make, serializer);
+        <Option<String>>::sse_encode(self.lens_model, serializer);
+        <Option<f32>>::sse_encode(self.focal_length, serializer);
+        <Option<f32>>::sse_encode(self.focal_length_35mm, serializer);
+        <Option<f32>>::sse_encode(self.f_number, serializer);
+        <Option<String>>::sse_encode(self.exposure_time, serializer);
+        <Option<f32>>::sse_encode(self.exposure_time_seconds, serializer);
+        <Option<u32>>::sse_encode(self.iso, serializer);
+        <Option<f32>>::sse_encode(self.exposure_bias, serializer);
+        <Option<bool>>::sse_encode(self.flash_fired, serializer);
+        <Option<String>>::sse_encode(self.metering_mode, serializer);
+        <Option<String>>::sse_encode(self.white_balance_mode, serializer);
+        <Option<String>>::sse_encode(self.date_time, serializer);
+        <Option<f64>>::sse_encode(self.gps_latitude, serializer);
+        <Option<f64>>::sse_encode(self.gps_longitude, serializer);
+        <Option<f32>>::sse_encode(self.gps_altitude, serializer);
+        <Option<u32>>::sse_encode(self.width, serializer);
+        <Option<u32>>::sse_encode(self.height, serializer);
+        <Option<String>>::sse_encode(self.format_name, serializer);
     }
 }
 
@@ -4028,6 +4267,16 @@ impl SseEncode for Option<String> {
     }
 }
 
+impl SseEncode for Option<bool> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <bool>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<crate::api::mask::DetectedSky> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4054,6 +4303,36 @@ impl SseEncode for Option<crate::api::exif::EmbeddedDepthResult> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::api::exif::EmbeddedDepthResult>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<f32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <f32>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<f64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <f64>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<u32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <u32>::sse_encode(value, serializer);
         }
     }
 }

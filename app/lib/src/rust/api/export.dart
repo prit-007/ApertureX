@@ -28,6 +28,15 @@ Future<Uint8List> encodeJpegRgba({
   exif: exif,
 );
 
+/// Exports raw camera CFA samples into a lossless DNG format with injected XMP sidecar (#79).
+Future<Uint8List> exportRawDng({
+  required List<int> rawBytes,
+  required String xmp,
+}) => RustLib.instance.api.crateApiExportExportRawDng(
+  rawBytes: rawBytes,
+  xmp: xmp,
+);
+
 /// Creates a cancel token. Pass it to [`export_full`], call
 /// [`export_cancel_set`] from the UI to abort, then [`export_cancel_drop`].
 Future<BigInt> exportCancelNew() =>

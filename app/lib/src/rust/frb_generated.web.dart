@@ -25,6 +25,7 @@ import 'api/roi.dart';
 import 'api/spatial.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'exif.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 
@@ -52,6 +53,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ApiLensBlurParams dco_decode_box_autoadd_api_lens_blur_params(dynamic raw);
 
   @protected
+  bool dco_decode_box_autoadd_bool(dynamic raw);
+
+  @protected
   ColorParams dco_decode_box_autoadd_color_params(dynamic raw);
 
   @protected
@@ -70,7 +74,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ExportSpec dco_decode_box_autoadd_export_spec(dynamic raw);
 
   @protected
+  double dco_decode_box_autoadd_f_32(dynamic raw);
+
+  @protected
+  double dco_decode_box_autoadd_f_64(dynamic raw);
+
+  @protected
   PreviewBaseSpec dco_decode_box_autoadd_preview_base_spec(dynamic raw);
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw);
 
   @protected
   ColorParams dco_decode_color_params(dynamic raw);
@@ -97,6 +110,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double dco_decode_f_32(dynamic raw);
 
   @protected
+  double dco_decode_f_64(dynamic raw);
+
+  @protected
   GeometryResult dco_decode_geometry_result(dynamic raw);
 
   @protected
@@ -107,6 +123,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImageDims dco_decode_image_dims(dynamic raw);
+
+  @protected
+  ImageMetadata dco_decode_image_metadata(dynamic raw);
 
   @protected
   List<ApiRetouchPatch> dco_decode_list_api_retouch_patch(dynamic raw);
@@ -139,6 +158,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+
+  @protected
   DetectedSky? dco_decode_opt_box_autoadd_detected_sky(dynamic raw);
 
   @protected
@@ -148,6 +170,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   EmbeddedDepthResult? dco_decode_opt_box_autoadd_embedded_depth_result(
     dynamic raw,
   );
+
+  @protected
+  double? dco_decode_opt_box_autoadd_f_32(dynamic raw);
+
+  @protected
+  double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
   @protected
   Float32List? dco_decode_opt_list_prim_f_32_strict(dynamic raw);
@@ -193,6 +224,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
   ColorParams sse_decode_box_autoadd_color_params(SseDeserializer deserializer);
 
   @protected
@@ -215,9 +249,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ExportSpec sse_decode_box_autoadd_export_spec(SseDeserializer deserializer);
 
   @protected
+  double sse_decode_box_autoadd_f_32(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
   PreviewBaseSpec sse_decode_box_autoadd_preview_base_spec(
     SseDeserializer deserializer,
   );
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
   ColorParams sse_decode_color_params(SseDeserializer deserializer);
@@ -246,6 +289,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double sse_decode_f_32(SseDeserializer deserializer);
 
   @protected
+  double sse_decode_f_64(SseDeserializer deserializer);
+
+  @protected
   GeometryResult sse_decode_geometry_result(SseDeserializer deserializer);
 
   @protected
@@ -256,6 +302,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImageDims sse_decode_image_dims(SseDeserializer deserializer);
+
+  @protected
+  ImageMetadata sse_decode_image_metadata(SseDeserializer deserializer);
 
   @protected
   List<ApiRetouchPatch> sse_decode_list_api_retouch_patch(
@@ -290,6 +339,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
   DetectedSky? sse_decode_opt_box_autoadd_detected_sky(
     SseDeserializer deserializer,
   );
@@ -303,6 +355,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   EmbeddedDepthResult? sse_decode_opt_box_autoadd_embedded_depth_result(
     SseDeserializer deserializer,
   );
+
+  @protected
+  double? sse_decode_opt_box_autoadd_f_32(SseDeserializer deserializer);
+
+  @protected
+  double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
   Float32List? sse_decode_opt_list_prim_f_32_strict(
@@ -355,6 +416,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_color_params(
     ColorParams self,
     SseSerializer serializer,
@@ -391,10 +455,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_f_32(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_preview_base_spec(
     PreviewBaseSpec self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_color_params(ColorParams self, SseSerializer serializer);
@@ -427,6 +500,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_f_32(double self, SseSerializer serializer);
 
   @protected
+  void sse_encode_f_64(double self, SseSerializer serializer);
+
+  @protected
   void sse_encode_geometry_result(
     GeometryResult self,
     SseSerializer serializer,
@@ -440,6 +516,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_image_dims(ImageDims self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_image_metadata(ImageMetadata self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_api_retouch_patch(
@@ -490,6 +569,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
   void sse_encode_opt_box_autoadd_detected_sky(
     DetectedSky? self,
     SseSerializer serializer,
@@ -506,6 +588,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     EmbeddedDepthResult? self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_box_autoadd_f_32(double? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_list_prim_f_32_strict(

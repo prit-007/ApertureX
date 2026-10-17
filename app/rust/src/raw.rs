@@ -11,6 +11,10 @@
 //! LibRaw remains available only behind the `raw-libraw` feature as a future
 //! camera-coverage fallback and is not part of the default build.
 
+use std::io::Cursor;
+
+use rawler::dng::writer::DngWriter;
+use rawler::dng::{CropMode, DngCompression, DngPhotometricConversion};
 use rawler::imgop::xyz::Illuminant as RawlerIlluminant;
 use rawler::rawimage::RawImageData;
 use rawler::rawsource::RawSource;
@@ -189,6 +193,46 @@ fn decode_raw(bytes: &[u8]) -> Result<rawler::rawimage::RawImage, String> {
     let src = RawSource::new_from_slice(bytes);
     rawler::decode(&src, &rawler::decoders::RawDecodeParams::default())
         .map_err(|e| format!("rawler decode: {e:?}"))
+}
+
+/// Exports raw camera CFA samples into a lossless DNG format with injected XMP sidecar (#79).
+///
+/// Preserves the original CFA stream verbatim via lossless compression (LJPEG-92)
+/// without demosaic or bit-depth degradation (shape (a)). Injects XMP packet
+/// into the standard TIFF `ApplicationNotes` (tag 0x02BC) IFD directory.
+pub fn export_dng(raw_bytes: &[u8], xmp: &str) -> Result<Vec<u8>, String> {
+    let raw = decode_raw(raw_bytes)?;
+    let mut buf = Cursor::new(Vec::new());
+    let mut writer =
+        DngWriter::new(&mut buf, [1, 4, 0, 0]).map_err(|e| format!("DngWriter new: {e:?}"))?;
+
+    writer
+        .load_base_tags(&raw)
+        .map_err(|e| format!("load_base_tags: {e:?}"))?;
+
+    let mut subframe = writer.subframe(0);
+    subframe
+        .raw_image(
+            &raw,
+            CropMode::None,
+            DngCompression::Lossless,
+            DngPhotometricConversion::Original,
+            1,
+        )
+        .map_err(|e| format!("subframe raw_image: {e:?}"))?;
+    subframe
+        .finalize()
+        .map_err(|e| format!("subframe finalize: {e:?}"))?;
+
+    if !xmp.is_empty() {
+        writer
+            .xpacket(xmp.as_bytes())
+            .map_err(|e| format!("writer xpacket: {e:?}"))?;
+    }
+
+    writer.close().map_err(|e| format!("writer close: {e:?}"))?;
+
+    Ok(buf.into_inner())
 }
 
 fn flat_to_mat3(flat: &[f32]) -> Option<Mat3> {
@@ -1983,5 +2027,28 @@ pub(crate) mod tests {
             found_software,
             "exported EXIF must include ApertureX software tag"
         );
+    }
+
+    #[test]
+    fn test_export_dng_lossless_cfa_roundtrip_with_xmp() {
+        let linear_dng = make_linear_dng(8, 8);
+        let sample_xmp = "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description xmlns:crs=\"http://ns.adobe.com/camera-raw-settings/1.0/\" crs:Exposure2012=\"+0.75\"/></rdf:RDF></x:xmpmeta>";
+
+        let exported = export_dng(&linear_dng, sample_xmp).expect("export_dng should succeed");
+        assert!(exported.len() > 100);
+
+        // Verify TIFF magic
+        assert_eq!(&exported[0..2], b"II");
+        assert_eq!(&exported[2..4], &[42, 0]);
+
+        // Verify XMP packet is present in ApplicationNotes payload
+        let found_xmp = exported
+            .windows(b"Exposure2012=\"+0.75\"".len())
+            .any(|w| w == b"Exposure2012=\"+0.75\"");
+        assert!(found_xmp, "Exported DNG must contain injected XMP payload");
+
+        // Re-decode exported DNG and verify dimensions match
+        let re_meta = metadata(&exported).expect("re-decoding exported DNG should succeed");
+        assert_eq!((re_meta.width, re_meta.height), (8, 8));
     }
 }

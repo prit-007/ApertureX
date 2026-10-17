@@ -33,6 +33,11 @@ pub fn encode_jpeg_rgba(
     export::encode_jpeg(&rgba, width, height, quality, &exif)
 }
 
+/// Exports raw camera CFA samples into a lossless DNG format with injected XMP sidecar (#79).
+pub fn export_raw_dng(raw_bytes: Vec<u8>, xmp: String) -> Result<Vec<u8>, String> {
+    crate::raw::export_dng(&raw_bytes, &xmp)
+}
+
 /// Everything [`export_full`] bakes, in one bridge struct — geometry, spatial,
 /// and the encode knobs. Grade/curves/HSL/layers arrive as their own args so
 /// they reuse the existing bridge types.
