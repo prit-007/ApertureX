@@ -48,6 +48,15 @@ void main() {
       );
     });
 
+    test('recognises HEIC and AVIF (ISO-BMFF)', () {
+      final heic = '....ftypheic'.codeUnits;
+      expect(detectImageFormat(_bytes(heic)), ImageFormat.heic);
+      final mif1 = '....ftypmif1'.codeUnits;
+      expect(detectImageFormat(_bytes(mif1)), ImageFormat.heic);
+      final avif = '....ftypavif'.codeUnits;
+      expect(detectImageFormat(_bytes(avif)), ImageFormat.avif);
+    });
+
     test('isRawImage only for raw containers', () {
       expect(isRawImage(_bytes([0x49, 0x49, 0x2A, 0x00])), isTrue);
       expect(isRawImage(_bytes([0xFF, 0xD8, 0xFF])), isFalse);

@@ -33,6 +33,13 @@ pub fn extract_embedded_depth(jpeg: Vec<u8>) -> Option<EmbeddedDepthResult> {
     })
 }
 
+pub use crate::exif::ImageMetadata;
+
+/// Parses comprehensive image format, dimensions, camera, lens, exposure, and GPS metadata.
+pub fn get_image_metadata(bytes: Vec<u8>) -> ImageMetadata {
+    exif::parse_image_metadata(&bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

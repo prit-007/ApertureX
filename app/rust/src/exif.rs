@@ -183,6 +183,532 @@ pub fn extract_embedded_depth(jpeg: &[u8]) -> Option<(Vec<u8>, usize, usize)> {
     None
 }
 
+/// Comprehensive image and shooting metadata parsed from EXIF and RAW headers.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ImageMetadata {
+    pub make: Option<String>,
+    pub model: Option<String>,
+    pub lens_make: Option<String>,
+    pub lens_model: Option<String>,
+    pub focal_length: Option<f32>,
+    pub focal_length_35mm: Option<f32>,
+    pub f_number: Option<f32>,
+    pub exposure_time: Option<String>,
+    pub exposure_time_seconds: Option<f32>,
+    pub iso: Option<u32>,
+    pub exposure_bias: Option<f32>,
+    pub flash_fired: Option<bool>,
+    pub metering_mode: Option<String>,
+    pub white_balance_mode: Option<String>,
+    pub date_time: Option<String>,
+    pub gps_latitude: Option<f64>,
+    pub gps_longitude: Option<f64>,
+    pub gps_altitude: Option<f32>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub format_name: Option<String>,
+}
+
+struct TiffReader<'a> {
+    data: &'a [u8],
+    is_le: bool,
+}
+
+impl<'a> TiffReader<'a> {
+    fn new(data: &'a [u8]) -> Option<Self> {
+        if data.len() < 8 {
+            return None;
+        }
+        let is_le = if &data[0..2] == b"II" {
+            true
+        } else if &data[0..2] == b"MM" {
+            false
+        } else {
+            return None;
+        };
+        let magic = if is_le {
+            u16::from_le_bytes([data[2], data[3]])
+        } else {
+            u16::from_be_bytes([data[2], data[3]])
+        };
+        if magic != 42 && magic != 0x4f52 && magic != 0x55 {
+            return None;
+        }
+        Some(Self { data, is_le })
+    }
+
+    fn u16(&self, offset: usize) -> Option<u16> {
+        if offset + 2 > self.data.len() {
+            return None;
+        }
+        let b = [self.data[offset], self.data[offset + 1]];
+        Some(if self.is_le {
+            u16::from_le_bytes(b)
+        } else {
+            u16::from_be_bytes(b)
+        })
+    }
+
+    fn u32(&self, offset: usize) -> Option<u32> {
+        if offset + 4 > self.data.len() {
+            return None;
+        }
+        let b: [u8; 4] = self.data[offset..offset + 4].try_into().ok()?;
+        Some(if self.is_le {
+            u32::from_le_bytes(b)
+        } else {
+            u32::from_be_bytes(b)
+        })
+    }
+
+    fn i32(&self, offset: usize) -> Option<i32> {
+        self.u32(offset).map(|v| v as i32)
+    }
+
+    fn rational(&self, offset: usize) -> Option<(u32, u32)> {
+        let num = self.u32(offset)?;
+        let den = self.u32(offset + 4)?;
+        Some((num, den))
+    }
+
+    fn srational(&self, offset: usize) -> Option<(i32, i32)> {
+        let num = self.i32(offset)?;
+        let den = self.i32(offset + 4)?;
+        Some((num, den))
+    }
+
+    fn ascii(&self, offset: usize, count: usize) -> Option<String> {
+        if offset + count > self.data.len() {
+            return None;
+        }
+        let slice = &self.data[offset..offset + count];
+        let end = slice.iter().position(|&b| b == 0).unwrap_or(slice.len());
+        let s = std::str::from_utf8(&slice[..end]).ok()?.trim().to_string();
+        if s.is_empty() {
+            None
+        } else {
+            Some(s)
+        }
+    }
+}
+
+fn type_size(dtype: u16) -> usize {
+    match dtype {
+        1 | 2 | 6 | 7 => 1,
+        3 | 8 => 2,
+        4 | 9 | 11 => 4,
+        5 | 10 | 12 => 8,
+        _ => 1,
+    }
+}
+
+fn format_exposure_time(num: u32, den: u32) -> String {
+    if den == 0 {
+        return "0s".to_string();
+    }
+    if num == 1 || (den > num && num > 0 && den.is_multiple_of(num)) {
+        format!("1/{}s", den / num)
+    } else {
+        let sec = num as f32 / den as f32;
+        if sec < 1.0 {
+            format!("{:.3}s", sec)
+        } else {
+            format!("{:.1}s", sec)
+        }
+    }
+}
+
+fn parse_ifd(
+    reader: &TiffReader,
+    ifd_offset: usize,
+    meta: &mut ImageMetadata,
+    depth: usize,
+    is_exif_subifd: bool,
+) {
+    if depth > 4 || ifd_offset + 2 > reader.data.len() {
+        return;
+    }
+    let num_entries = match reader.u16(ifd_offset) {
+        Some(n) => n as usize,
+        None => return,
+    };
+
+    let mut exif_subifd_offset = None;
+    let mut gps_ifd_offset = None;
+
+    for i in 0..num_entries {
+        let entry = ifd_offset + 2 + i * 12;
+        if entry + 12 > reader.data.len() {
+            break;
+        }
+        let tag = match reader.u16(entry) {
+            Some(t) => t,
+            None => break,
+        };
+        let dtype = match reader.u16(entry + 2) {
+            Some(t) => t,
+            None => break,
+        };
+        let count = match reader.u32(entry + 4) {
+            Some(c) => c as usize,
+            None => break,
+        };
+        let total_size = count * type_size(dtype);
+        let val_offset = if total_size <= 4 {
+            entry + 8
+        } else {
+            match reader.u32(entry + 8) {
+                Some(off) => off as usize,
+                None => continue,
+            }
+        };
+
+        if !is_exif_subifd {
+            match tag {
+                0x010F => meta.make = reader.ascii(val_offset, count).or(meta.make.take()),
+                0x0110 => meta.model = reader.ascii(val_offset, count).or(meta.model.take()),
+                0x0132 => {
+                    if meta.date_time.is_none() {
+                        meta.date_time = reader.ascii(val_offset, count);
+                    }
+                }
+                0x0100 => {
+                    if meta.width.is_none() {
+                        meta.width = if dtype == 3 {
+                            reader.u16(val_offset).map(|v| v as u32)
+                        } else {
+                            reader.u32(val_offset)
+                        };
+                    }
+                }
+                0x0101 => {
+                    if meta.height.is_none() {
+                        meta.height = if dtype == 3 {
+                            reader.u16(val_offset).map(|v| v as u32)
+                        } else {
+                            reader.u32(val_offset)
+                        };
+                    }
+                }
+                0x8769 => exif_subifd_offset = reader.u32(val_offset).map(|v| v as usize),
+                0x8825 => gps_ifd_offset = reader.u32(val_offset).map(|v| v as usize),
+                _ => {}
+            }
+        } else {
+            match tag {
+                0x829A => {
+                    if let Some((num, den)) = reader.rational(val_offset) {
+                        if den > 0 {
+                            meta.exposure_time_seconds = Some(num as f32 / den as f32);
+                            meta.exposure_time = Some(format_exposure_time(num, den));
+                        }
+                    }
+                }
+                0x829D => {
+                    if let Some((num, den)) = reader.rational(val_offset) {
+                        if den > 0 {
+                            meta.f_number = Some(num as f32 / den as f32);
+                        }
+                    }
+                }
+                0x8827 => {
+                    let iso_val = if dtype == 3 {
+                        reader.u16(val_offset).map(|v| v as u32)
+                    } else {
+                        reader.u32(val_offset)
+                    };
+                    if let Some(iso) = iso_val {
+                        meta.iso = Some(iso);
+                    }
+                }
+                0x9003 | 0x9004 => {
+                    if let Some(dt) = reader.ascii(val_offset, count) {
+                        meta.date_time = Some(dt);
+                    }
+                }
+                0x9204 => {
+                    if let Some((num, den)) = reader.srational(val_offset) {
+                        if den > 0 {
+                            meta.exposure_bias = Some(num as f32 / den as f32);
+                        }
+                    }
+                }
+                0x9207 => {
+                    if let Some(m) = reader.u16(val_offset) {
+                        meta.metering_mode = Some(
+                            match m {
+                                1 => "Average",
+                                2 => "Center-weighted",
+                                3 => "Spot",
+                                4 => "Multi-spot",
+                                5 => "Multi-segment",
+                                6 => "Partial",
+                                _ => "Pattern",
+                            }
+                            .to_string(),
+                        );
+                    }
+                }
+                0x9209 => {
+                    if let Some(flash) = reader.u16(val_offset) {
+                        meta.flash_fired = Some((flash & 1) != 0);
+                    }
+                }
+                0x920A => {
+                    if let Some((num, den)) = reader.rational(val_offset) {
+                        if den > 0 {
+                            meta.focal_length = Some(num as f32 / den as f32);
+                        }
+                    }
+                }
+                0xA002 => {
+                    if meta.width.is_none() {
+                        meta.width = if dtype == 3 {
+                            reader.u16(val_offset).map(|v| v as u32)
+                        } else {
+                            reader.u32(val_offset)
+                        };
+                    }
+                }
+                0xA003 => {
+                    if meta.height.is_none() {
+                        meta.height = if dtype == 3 {
+                            reader.u16(val_offset).map(|v| v as u32)
+                        } else {
+                            reader.u32(val_offset)
+                        };
+                    }
+                }
+                0xA403 => {
+                    if let Some(wb) = reader.u16(val_offset) {
+                        meta.white_balance_mode =
+                            Some(if wb == 0 { "Auto" } else { "Manual" }.to_string());
+                    }
+                }
+                0xA405 => {
+                    if let Some(fl35) = reader.u16(val_offset) {
+                        meta.focal_length_35mm = Some(fl35 as f32);
+                    }
+                }
+                0xA433 => {
+                    meta.lens_make = reader.ascii(val_offset, count).or(meta.lens_make.take())
+                }
+                0xA434 => {
+                    meta.lens_model = reader.ascii(val_offset, count).or(meta.lens_model.take())
+                }
+                _ => {}
+            }
+        }
+    }
+
+    if let Some(exif_offset) = exif_subifd_offset {
+        parse_ifd(reader, exif_offset, meta, depth + 1, true);
+    }
+    if let Some(gps_offset) = gps_ifd_offset {
+        parse_gps_ifd(reader, gps_offset, meta);
+    }
+}
+
+fn parse_gps_ifd(reader: &TiffReader, ifd_offset: usize, meta: &mut ImageMetadata) {
+    if ifd_offset + 2 > reader.data.len() {
+        return;
+    }
+    let num_entries = match reader.u16(ifd_offset) {
+        Some(n) => n as usize,
+        None => return,
+    };
+
+    let mut lat_ref = None;
+    let mut lat_deg = None;
+    let mut lon_ref = None;
+    let mut lon_deg = None;
+    let mut alt_ref = None;
+    let mut alt_val = None;
+
+    for i in 0..num_entries {
+        let entry = ifd_offset + 2 + i * 12;
+        if entry + 12 > reader.data.len() {
+            break;
+        }
+        let tag = match reader.u16(entry) {
+            Some(t) => t,
+            None => break,
+        };
+        let dtype = match reader.u16(entry + 2) {
+            Some(t) => t,
+            None => break,
+        };
+        let count = match reader.u32(entry + 4) {
+            Some(c) => c as usize,
+            None => break,
+        };
+        let total_size = count * type_size(dtype);
+        let val_offset = if total_size <= 4 {
+            entry + 8
+        } else {
+            match reader.u32(entry + 8) {
+                Some(off) => off as usize,
+                None => continue,
+            }
+        };
+
+        match tag {
+            0x0001 => {
+                lat_ref = reader
+                    .ascii(val_offset, count)
+                    .and_then(|s| s.chars().next())
+            }
+            0x0002 if count >= 3 => {
+                let d = reader.rational(val_offset);
+                let m = reader.rational(val_offset + 8);
+                let s = reader.rational(val_offset + 16);
+                if let (Some(d), Some(m), Some(s)) = (d, m, s) {
+                    if d.1 > 0 && m.1 > 0 && s.1 > 0 {
+                        let deg = d.0 as f64 / d.1 as f64
+                            + (m.0 as f64 / m.1 as f64) / 60.0
+                            + (s.0 as f64 / s.1 as f64) / 3600.0;
+                        lat_deg = Some(deg);
+                    }
+                }
+            }
+            0x0003 => {
+                lon_ref = reader
+                    .ascii(val_offset, count)
+                    .and_then(|s| s.chars().next())
+            }
+            0x0004 if count >= 3 => {
+                let d = reader.rational(val_offset);
+                let m = reader.rational(val_offset + 8);
+                let s = reader.rational(val_offset + 16);
+                if let (Some(d), Some(m), Some(s)) = (d, m, s) {
+                    if d.1 > 0 && m.1 > 0 && s.1 > 0 {
+                        let deg = d.0 as f64 / d.1 as f64
+                            + (m.0 as f64 / m.1 as f64) / 60.0
+                            + (s.0 as f64 / s.1 as f64) / 3600.0;
+                        lon_deg = Some(deg);
+                    }
+                }
+            }
+            0x0005 => {
+                if let Some(&b) = reader.data.get(val_offset) {
+                    alt_ref = Some(b);
+                }
+            }
+            0x0006 => {
+                if let Some((num, den)) = reader.rational(val_offset) {
+                    if den > 0 {
+                        alt_val = Some(num as f32 / den as f32);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if let (Some(mut lat), Some(r)) = (lat_deg, lat_ref) {
+        if r == 'S' || r == 's' {
+            lat = -lat;
+        }
+        meta.gps_latitude = Some(lat);
+    }
+    if let (Some(mut lon), Some(r)) = (lon_deg, lon_ref) {
+        if r == 'W' || r == 'w' {
+            lon = -lon;
+        }
+        meta.gps_longitude = Some(lon);
+    }
+    if let Some(mut alt) = alt_val {
+        if alt_ref == Some(1) {
+            alt = -alt;
+        }
+        meta.gps_altitude = Some(alt);
+    }
+}
+
+/// Parses image format, dimensions, camera, lens, exposure, and GPS metadata from source bytes.
+pub fn parse_image_metadata(bytes: &[u8]) -> ImageMetadata {
+    let mut meta = ImageMetadata::default();
+    if bytes.is_empty() {
+        return meta;
+    }
+
+    // 1. JPEG
+    if bytes.len() >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF {
+        meta.format_name = Some("JPEG".to_string());
+        if let Some(app1) = extract_app1(bytes) {
+            if app1.len() >= 10 && &app1[4..10] == b"Exif\0\0" {
+                if let Some(reader) = TiffReader::new(&app1[10..]) {
+                    if let Some(first_ifd) = reader.u32(4) {
+                        parse_ifd(&reader, first_ifd as usize, &mut meta, 0, false);
+                    }
+                }
+            }
+        }
+        return meta;
+    }
+
+    // 2. PNG
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        meta.format_name = Some("PNG".to_string());
+        if bytes.len() >= 24 {
+            let w = u32::from_be_bytes(bytes[16..20].try_into().unwrap_or_default());
+            let h = u32::from_be_bytes(bytes[20..24].try_into().unwrap_or_default());
+            meta.width = Some(w);
+            meta.height = Some(h);
+        }
+        return meta;
+    }
+
+    // 3. RAW / TIFF formats
+    if bytes.starts_with(b"II") || bytes.starts_with(b"MM") {
+        if let Some(reader) = TiffReader::new(bytes) {
+            if let Some(first_ifd) = reader.u32(4) {
+                parse_ifd(&reader, first_ifd as usize, &mut meta, 0, false);
+            }
+        }
+
+        // Query rawler metadata for any rawler-specific decoded fields
+        if let Ok(raw_meta) = crate::raw::metadata(bytes) {
+            if meta.width.is_none() || meta.width == Some(0) {
+                meta.width = Some(raw_meta.width as u32);
+            }
+            if meta.height.is_none() || meta.height == Some(0) {
+                meta.height = Some(raw_meta.height as u32);
+            }
+            if meta.make.is_none() {
+                meta.make = raw_meta.make;
+            }
+            if meta.model.is_none() {
+                meta.model = raw_meta.model;
+            }
+        }
+
+        let make_lower = meta.make.as_deref().unwrap_or("").to_lowercase();
+        let model_lower = meta.model.as_deref().unwrap_or("").to_lowercase();
+        if make_lower.contains("sony")
+            || model_lower.contains("ilce")
+            || model_lower.contains("alpha")
+        {
+            meta.format_name = Some("Sony ARW RAW".to_string());
+        } else if make_lower.contains("canon") || (bytes.len() > 10 && &bytes[8..11] == b"CR2") {
+            meta.format_name = Some("Canon CR2 RAW".to_string());
+        } else if make_lower.contains("panasonic") || make_lower.contains("lumix") {
+            meta.format_name = Some("Panasonic RW2 RAW".to_string());
+        } else if make_lower.contains("nikon") {
+            meta.format_name = Some("Nikon NEF RAW".to_string());
+        } else if make_lower.contains("fujifilm") || make_lower.contains("fuji") {
+            meta.format_name = Some("Fujifilm RAF RAW".to_string());
+        } else {
+            meta.format_name = Some("Adobe DNG / RAW".to_string());
+        }
+
+        return meta;
+    }
+
+    meta.format_name = Some("Image".to_string());
+    meta
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,5 +845,38 @@ mod tests {
         assert_eq!(depth_pixels.len(), 64);
         // Intensity is approx 180 (within lossy JPEG margin)
         assert!((depth_pixels[0] as i16 - 180).abs() <= 5);
+    }
+
+    #[test]
+    fn test_parse_image_metadata_jpeg() {
+        let jpeg = sample_jpeg();
+        let meta = parse_image_metadata(&jpeg);
+        assert_eq!(meta.format_name.as_deref(), Some("JPEG"));
+    }
+
+    #[test]
+    fn test_parse_image_metadata_png() {
+        let png = vec![
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0x08, 0x02, 0x00, 0x00,
+            0x00,
+        ];
+        let meta = parse_image_metadata(&png);
+        assert_eq!(meta.format_name.as_deref(), Some("PNG"));
+        assert_eq!(meta.width, Some(256));
+        assert_eq!(meta.height, Some(128));
+    }
+
+    #[test]
+    fn test_parse_image_metadata_raw_golden_fixture() {
+        let dng_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/golden_fixtures/image_2.dng");
+        if dng_path.exists() {
+            let bytes = std::fs::read(&dng_path).unwrap();
+            let meta = parse_image_metadata(&bytes);
+            assert!(meta.format_name.is_some());
+            assert!(meta.width.is_some());
+            assert!(meta.height.is_some());
+        }
     }
 }

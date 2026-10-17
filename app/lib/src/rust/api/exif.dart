@@ -3,6 +3,7 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
+import '../exif.dart';
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
@@ -15,6 +16,10 @@ Future<Uint8List> extractExif({required List<int> jpeg}) =>
 /// Returns None if no embedded depth map exists.
 Future<EmbeddedDepthResult?> extractEmbeddedDepth({required List<int> jpeg}) =>
     RustLib.instance.api.crateApiExifExtractEmbeddedDepth(jpeg: jpeg);
+
+/// Parses comprehensive image format, dimensions, camera, lens, exposure, and GPS metadata.
+Future<ImageMetadata> getImageMetadata({required List<int> bytes}) =>
+    RustLib.instance.api.crateApiExifGetImageMetadata(bytes: bytes);
 
 /// Embedded depth map extracted from JPEG container metadata.
 class EmbeddedDepthResult {

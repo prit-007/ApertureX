@@ -10,6 +10,7 @@ import '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 import '../src/rust/api/decode.dart' as rust_decode;
 import '../src/rust/api/engine.dart' as rust_engine;
 import '../src/rust/api/exif.dart' as rust_exif;
+import '../src/rust/exif.dart' show ImageMetadata;
 import '../src/rust/api/export.dart' as rust_export;
 import '../src/rust/api/geometry.dart' as rust_geometry;
 import '../src/rust/api/histogram.dart' as rust_hist;
@@ -28,6 +29,7 @@ export '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 export '../src/rust/api/histogram.dart' show Histogram;
 export '../src/rust/api/preview.dart' show PreviewBaseSpec;
 export '../src/rust/api/exif.dart' show EmbeddedDepthResult;
+export '../src/rust/exif.dart' show ImageMetadata;
 export '../src/rust/api/mask.dart' show DetectedSky, DetectedSubject;
 export '../src/rust/frb_generated.dart' show RustLib;
 
@@ -699,6 +701,10 @@ class AxEngine {
   static Future<Uint8List> extractExif(Uint8List jpeg) =>
       rust_exif.extractExif(jpeg: jpeg);
 
+  /// Parses comprehensive image format, dimensions, camera, lens, exposure, and GPS metadata.
+  static Future<ImageMetadata> getImageMetadata(Uint8List bytes) =>
+      rust_exif.getImageMetadata(bytes: bytes);
+
   /// Runs the whole export recipe — geometry → banded spatial → masks → grade →
   /// optional downscale → JPEG — inside Rust in a **single** call (P4), so a
   /// full-resolution export crosses the bridge once and never holds several
@@ -813,6 +819,18 @@ class AxEngine {
     // Token 0 never cancels, so this is always non-null.
     return jpeg!;
   }
+
+  /// Exports raw camera CFA samples into a lossless DNG format with injected
+  /// XMP sidecar (#79).
+  ///
+  /// Preserves the original CFA stream verbatim via lossless compression
+  /// (LJPEG-92) without demosaic or bit-depth degradation (shape (a)). Injects
+  /// the non-destructive edit recipe into the TIFF ApplicationNotes tag (0x02BC).
+  static Future<Uint8List> exportDng({
+    required List<int> rawBytes,
+    required String xmp,
+  }) =>
+      rust_export.exportRawDng(rawBytes: rawBytes, xmp: xmp);
 
   /// Creates an opaque cancel token for [exportJpegFull]. Call
   /// [exportCancelSet] to abort a running export, then [exportCancelDrop].

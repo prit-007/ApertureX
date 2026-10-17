@@ -7,6 +7,8 @@ enum ImageFormat {
   webp,
   gif,
   bmp,
+  heic,
+  avif,
   /// A raw camera format (DNG/CR2/NEF/ARW/ORF/RW2/CR3/RAF…). Flutter's image
   /// codec cannot decode these, so they are routed through the Rust engine.
   raw,
@@ -31,6 +33,19 @@ ImageFormat detectImageFormat(Uint8List bytes) {
   }
   if (_isTiff(bytes)) return ImageFormat.raw;
   if (bytes.length >= 12 && _asciiAt(bytes, 4, 'ftypcrx')) return ImageFormat.raw;
+  if (bytes.length >= 12 && _asciiAt(bytes, 4, 'ftyp')) {
+    if (_asciiAt(bytes, 8, 'heic') ||
+        _asciiAt(bytes, 8, 'heix') ||
+        _asciiAt(bytes, 8, 'heim') ||
+        _asciiAt(bytes, 8, 'heis') ||
+        _asciiAt(bytes, 8, 'mif1') ||
+        _asciiAt(bytes, 8, 'msf1')) {
+      return ImageFormat.heic;
+    }
+    if (_asciiAt(bytes, 8, 'avif') || _asciiAt(bytes, 8, 'avis')) {
+      return ImageFormat.avif;
+    }
+  }
   if (_asciiAt(bytes, 0, 'FUJIFILM')) return ImageFormat.raw;
   return ImageFormat.unknown;
 }
