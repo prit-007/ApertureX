@@ -223,7 +223,13 @@ jobs:
 
       - name: Build unsigned iOS app
         working-directory: app
-        run: flutter build ios --release --no-codesign
+        # On failure, retry with -v: without it flutter hides the raw
+        # xcodebuild output behind a canned "Development Team" diagnosis
+        # (mac.dart diagnoseXcodeBuildFailure), which is misleading under
+        # --no-codesign where DEVELOPMENT_TEAM is legitimately empty.
+        run: |
+          flutter build ios --release --no-codesign || \
+            flutter build ios --release --no-codesign -v
 
       - name: Package Runner.app as zip
         working-directory: app/build/ios/iphoneos
