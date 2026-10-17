@@ -760,49 +760,73 @@
   }
   
   .mock-hud-tray {
-    height: 220px;
+    height: 236px;
     background: rgba(11, 14, 21, 0.95);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(16px);
     display: flex;
     flex-direction: column;
-    padding: 10px 14px;
-    gap: 10px;
+    padding: 8px 12px;
+    gap: 8px;
     z-index: 10;
   }
   .mock-chip-row {
     display: flex;
-    gap: 6px;
+    gap: 5px;
     overflow-x: auto;
     scrollbar-width: none;
-    padding-bottom: 4px;
+    padding-bottom: 2px;
   }
   .mock-chip {
-    padding: 4px 10px;
+    padding: 3px 8px;
     border-radius: 100px;
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     font-family: var(--display);
     font-weight: 700;
     color: var(--text-muted);
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.08);
     white-space: nowrap;
+    cursor: pointer;
   }
   .mock-chip.active {
     background: rgba(0, 229, 255, 0.15);
     color: var(--cyan);
     border-color: rgba(0, 229, 255, 0.4);
   }
+  .mock-subchip-row {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .mock-subchip {
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.56rem;
+    font-family: var(--mono);
+    color: var(--text-faint);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .mock-subchip.active {
+    color: var(--amber);
+    background: rgba(255, 179, 0, 0.12);
+    border-color: rgba(255, 179, 0, 0.35);
+  }
   
   .mock-slider-box {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
   }
   .mock-slider-head {
     display: flex;
     justify-content: space-between;
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     font-family: var(--display);
     font-weight: 700;
   }
@@ -891,7 +915,7 @@
   }
   .mock-gesture-hud span.active { color: var(--cyan); }
   
-  /* Mockup View 3: Export Ring */
+  /* Mockup View 3: Export Ring & C2PA */
   .mock-export-box {
     position: absolute;
     inset: 0;
@@ -900,12 +924,12 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 16px;
-    padding: 24px;
+    gap: 12px;
+    padding: 20px;
   }
   .mock-ring {
-    width: 110px;
-    height: 110px;
+    width: 96px;
+    height: 96px;
     border-radius: 50%;
     background: conic-gradient(var(--cyan) 0% 74%, rgba(255, 255, 255, 0.08) 74% 100%);
     display: flex;
@@ -917,7 +941,7 @@
   .mock-ring::after {
     content: '';
     position: absolute;
-    inset: 10px;
+    inset: 9px;
     border-radius: 50%;
     background: #0B0E15;
   }
@@ -925,8 +949,145 @@
     position: relative;
     z-index: 2;
     font-family: var(--display);
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     font-weight: 800;
+    color: var(--cyan);
+  }
+
+  /* Mockup View 4: Look QR & Film Preset Card */
+  .mock-qr-box {
+    position: absolute;
+    inset: 0;
+    background: #090C12;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 14px 14px 14px;
+    gap: 10px;
+    align-items: center;
+    overflow-y: auto;
+  }
+  .mock-qr-card {
+    width: 100%;
+    background: linear-gradient(145deg, #141924, #0D111A);
+    border: 1px solid rgba(0, 229, 255, 0.25);
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  }
+  .mock-qr-preview-thumb {
+    width: 100%;
+    height: 90px;
+    border-radius: 10px;
+    background: radial-gradient(circle at 60% 40%, #FFB300 0%, #FF3366 50%, #007799 100%);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 8px 10px;
+  }
+  .mock-qr-preview-thumb span {
+    font-size: 0.62rem;
+    font-weight: 700;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    padding: 2px 7px;
+    border-radius: 4px;
+    color: #FFF;
+  }
+  .mock-qr-code-graphic {
+    width: 100px;
+    height: 100px;
+    background: #FFF;
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+  .mock-qr-meta {
+    text-align: center;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+  }
+  .mock-qr-meta strong {
+    display: block;
+    color: var(--text);
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+  }
+  .mock-qr-badge {
+    font-size: 0.6rem;
+    font-family: var(--mono);
+    color: var(--cyan);
+    background: rgba(0, 229, 255, 0.1);
+    padding: 3px 8px;
+    border-radius: 100px;
+    border: 1px solid rgba(0, 229, 255, 0.25);
+  }
+
+  /* Mockup View 5: Asset Gallery */
+  .mock-gallery-box {
+    position: absolute;
+    inset: 0;
+    background: #090C12;
+    display: flex;
+    flex-direction: column;
+    padding: 30px 12px 12px 12px;
+    gap: 10px;
+  }
+  .mock-gallery-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px;
+  }
+  .mock-gallery-header h4 {
+    font-size: 0.78rem;
+    font-family: var(--display);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mock-gallery-badge {
+    font-size: 0.6rem;
+    font-family: var(--mono);
+    color: var(--cyan);
+    background: rgba(0, 229, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 229, 255, 0.2);
+  }
+  .mock-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    flex: 1;
+  }
+  .mock-photo-tile {
+    position: relative;
+    border-radius: 8px;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .mock-photo-tag {
+    position: absolute;
+    top: 4px; left: 4px;
+    font-size: 0.52rem;
+    font-weight: 800;
+    font-family: var(--mono);
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.75);
     color: var(--cyan);
   }
 
@@ -1302,7 +1463,7 @@
       <li><a href="#changelog">Changelog</a></li>
     </ul>
     <div class="nav-cta">
-      <span class="nav-version" id="navVersion">v0.1.0</span>
+      <span class="nav-version" id="navVersion">v0.2.0</span>
       <a class="btn btn-primary" id="navDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK</a>
       <button class="nav-menu-btn" id="menuBtn" aria-label="Toggle navigation menu" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -1343,7 +1504,7 @@
     <div class="hero-cta">
       <a class="btn btn-primary" id="heroDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
-        <span id="heroDlText">Download APK (v0.1.0)</span>
+        <span id="heroDlText">Download APK (v0.2.0)</span>
       </a>
       <a class="btn btn-ghost" href="https://github.com/prit-007/ApertureX" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>

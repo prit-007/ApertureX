@@ -63,7 +63,7 @@ pub fn build_c2pa_claim(
     };
 
     format!(
-        "{{\"title\": \"ApertureX Content Credential\", \"claim_generator\": \"ApertureX/0.1.0 (True FOSS)\", \"signer\": \"{}\", \"{}\"pixel_hash\": \"{}\", \"recipe_hash\": \"{}\", \"metadata\": \"{}\", \"actions\": [{}]}}",
+        "{{\"title\": \"ApertureX Content Credential\", \"claim_generator\": \"ApertureX/0.2.0 (True FOSS)\", \"signer\": \"{}\", \"{}\"pixel_hash\": \"{}\", \"recipe_hash\": \"{}\", \"metadata\": \"{}\", \"actions\": [{}]}}",
         key_id, parent_entry, pixel_hash_hex, recipe_hash, camera_metadata, actions_json
     )
 }

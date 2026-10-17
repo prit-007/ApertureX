@@ -4,6 +4,40 @@ All notable changes to ApertureX are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-10-17
+
+Major milestone release: Look QR Open Standard, Pat David film emulation core,
+Community Preset Hub, C2PA Content Credentials provenance, interactive Wiper
+split curtain compare, Git-style non-linear edit history branching, and Zen
+pro controls.
+
+### Added
+- **Look QR Open Standard (`apx://look/v1`)**:
+  - Open URI protocol with sparse Deflate compression and URL-safe Base64 encoding.
+  - Pure-FOSS offline optical QR image decoder (`zxing2`), reading presets from
+    screenshots and downloaded photos without camera permissions or Google blobs.
+  - Creator Preset Card Generator (1:1 Square & 9:16 Story formats) with
+    frosted glass branding, live photo preview, watermark, and QR badge.
+  - Direct "Export as Preset Card (QR)" action in editor export options.
+- **Pre-Installed Film Simulation Core**:
+  - Curated Pat David analog film profiles adding only ~0.04 MB to base APK:
+    Kodak Portra 160 & 400, Kodak Ektar 100, Fuji Pro 400H, Fuji Velvia 50,
+    Agfa Vista 200, Kodachrome 64, Ilford HP5 Plus, CineStill 800T, and Tri-X 400.
+- **Community Preset Hub ("Plugin Store")**:
+  - Live storefront browsing open GitHub repository (`devparadise/aperturex-presets`).
+  - Category filter chips (`Film`, `Portraits`, `Moody`, `Landscape`), search,
+    one-tap apply, and local offline saving.
+- **C2PA Content Credentials & Authenticity Provenance**:
+  - Offline Ed25519 signing key generation and SHA-256 pixel/recipe hashing.
+  - In-app authenticity verification inspector and museum frame watermark.
+- **Interactive Wiper Split Curtain Compare (120 FPS)**:
+  - Drag-anywhere before/after split line with haptic boundary snaps.
+- **Git-Style Non-Linear Edit Branching**:
+  - Visual HistoryTreeSheet with commit snapshots, branching, and diff previews.
+- **Zen Chrome, Exposure Assist & Precision Jog Dial**:
+  - Zebra overexposure clipping stripes, 6 Master Tabs, and 120 FPS haptic Rotary
+    Jog Dial with fine vernier gear steps.
+
 ## [0.1.0] - 2026-10-16
 
 First public pre-release: a dual-UI (Lightroom panels + Snapseed gestures),

@@ -99,5 +99,75 @@ void main() {
 
     expect(selected, ExportAction.sharePresetCard);
   });
+
+  testWidgets('ExportOptionsSheet interacts with branding accordion and C2PA toggle', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => ExportOptionsSheet.show(context, isRaw: false),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    // Verify Branding & Watermark section header exists
+    expect(find.text('Branding & Watermark'), findsOneWidget);
+    expect(find.byKey(const Key('c2pa_switch')), findsOneWidget);
+
+    // Expand Branding section
+    await tester.ensureVisible(find.text('Branding & Watermark'));
+    await tester.tap(find.text('Branding & Watermark'));
+    await tester.pumpAndSettle();
+
+    // Museum frame switch is now visible
+    expect(find.byKey(const Key('museum_frame_switch')), findsOneWidget);
+    expect(find.byKey(const Key('signature_switch')), findsOneWidget);
+    expect(find.byKey(const Key('foss_badge_switch')), findsOneWidget);
+
+    // Toggle Museum Frame switch
+    await tester.ensureVisible(find.byKey(const Key('museum_frame_switch')));
+    await tester.tap(find.byKey(const Key('museum_frame_switch')));
+    await tester.pumpAndSettle();
+
+    // Verify themes appear
+    expect(find.text('Studio White'), findsOneWidget);
+    expect(find.text('Matte Dark'), findsOneWidget);
+    expect(find.text('Warm Gallery'), findsOneWidget);
+
+    // Select Matte Dark
+    await tester.ensureVisible(find.text('Matte Dark'));
+    await tester.tap(find.text('Matte Dark'));
+    await tester.pumpAndSettle();
+
+    // Toggle Signature switch
+    await tester.ensureVisible(find.byKey(const Key('signature_switch')));
+    await tester.tap(find.byKey(const Key('signature_switch')));
+    await tester.pumpAndSettle();
+
+    // Verify signature text field appears
+    expect(find.byKey(const Key('signature_text_field')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('signature_text_field')));
+    await tester.enterText(find.byKey(const Key('signature_text_field')), '© 2026 Test Photographer');
+    await tester.pumpAndSettle();
+
+    // Toggle FOSS badge
+    await tester.ensureVisible(find.byKey(const Key('foss_badge_switch')));
+    await tester.tap(find.byKey(const Key('foss_badge_switch')));
+    await tester.pumpAndSettle();
+
+    // Toggle C2PA switch
+    await tester.ensureVisible(find.byKey(const Key('c2pa_switch')));
+    await tester.tap(find.byKey(const Key('c2pa_switch')));
+    await tester.pumpAndSettle();
+  });
 }
 

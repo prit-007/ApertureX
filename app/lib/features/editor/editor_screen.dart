@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' show ImageFilter;
@@ -36,8 +37,11 @@ import 'image_info_sheet.dart';
 import '../../engine/engine.dart';
 import '../../engine/image_format.dart';
 import '../../settings/app_settings.dart';
+import '../../settings/export_branding_settings.dart';
 import '../../settings/export_settings.dart';
 import '../../settings/shell_preference.dart';
+import '../../src/rust/api/export.dart' as rust_export;
+import '../c2pa/c2pa_service.dart';
 import '../../ui/app_shell.dart';
 import '../../ui/common/app_primitives.dart';
 import '../../ui/common/app_sheet.dart';
@@ -365,6 +369,69 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
   }
 
+  Future<({rust_export.ExportBrandingSpec branding, rust_export.C2paExportSpec? c2pa})>
+      _buildExportBrandingAndC2pa({
+    required Uint8List bytes,
+    required EditRecipe recipe,
+    required Uint8List exif,
+  }) async {
+    final branding = ref.read(exportBrandingProvider);
+    final c2paService = ref.read(c2paServiceProvider);
+
+    var rustBranding = branding.toRustBrandingSpec();
+    if (branding.enableMuseumFrame &&
+        branding.exifLine1.isEmpty &&
+        branding.exifLine2.isEmpty) {
+      try {
+        final meta = await AxEngine.getImageMetadata(bytes);
+        final makeModel = [meta.make, meta.model]
+            .where((s) => s != null && s.isNotEmpty)
+            .join(' ');
+        final lens = meta.lensModel ?? '';
+        final line1 = [makeModel, lens].where((s) => s.isNotEmpty).join(' • ');
+        final exposureParts = <String>[];
+        if (meta.exposureTime != null && meta.exposureTime!.isNotEmpty) {
+          exposureParts.add(meta.exposureTime!);
+        }
+        if (meta.iso != null && meta.iso! > 0) {
+          exposureParts.add('ISO ${meta.iso}');
+        }
+        if (meta.fNumber != null && meta.fNumber! > 0) {
+          exposureParts.add('f/${meta.fNumber!.toStringAsFixed(1)}');
+        }
+        final line2 = exposureParts.join(' • ');
+        rustBranding = rust_export.ExportBrandingSpec(
+          enableMuseumFrame: true,
+          frameTheme: branding.frameThemeIndex,
+          exifLine1: line1.isEmpty ? 'APERTUREX • ORIGINAL' : line1,
+          exifLine2: line2,
+          enableSignature: branding.enableSignature,
+          signatureText: branding.signatureText,
+          signatureAnchor: branding.signatureAnchorIndex,
+          signatureOpacity: branding.signatureOpacity,
+          signatureSizePct: branding.signatureSizePct,
+          enableLogo: branding.enableLogo,
+          logoBytes: branding.logoBytes ?? Uint8List(0),
+          logoAnchor: branding.logoAnchorIndex,
+          logoOpacity: branding.logoOpacity,
+          logoScalePct: branding.logoScalePct,
+          enableFossBadge: branding.enableFossBadge,
+        );
+      } catch (_) {}
+    }
+
+    rust_export.C2paExportSpec? c2paSpec;
+    if (branding.enableC2pa) {
+      c2paSpec = await c2paService.buildExportSpec(
+        enabled: true,
+        recipeJson: jsonEncode(recipe.toJson()),
+        exifSummary: 'Exif (${exif.length} bytes)',
+      );
+    }
+
+    return (branding: rustBranding, c2pa: c2paSpec);
+  }
+
   Future<void> _exportToPhotos() async {
     final previewBytes = _bytes;
     if (previewBytes == null) return;
@@ -396,6 +463,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           : await AxEngine.decodeJpegRgba(bytes);
       final exif = await AxEngine.extractExif(bytes);
 
+      // Build custom branding (Museum Frame, Signature, FOSS Badge) and C2PA provenance
+      final exportCustoms = await _buildExportBrandingAndC2pa(
+        bytes: bytes,
+        recipe: recipe,
+        exif: exif,
+      );
+
       // One-call export inside Rust (geometry → banded spatial → masks → grade
       // → encode), cancellable via a token so a big render can be aborted.
       token = await AxEngine.exportCancelNew();
@@ -425,6 +499,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         layers: recipe.layers,
         maskGroups: recipe.maskGroups,
         exif: exif,
+        branding: exportCustoms.branding,
+        c2pa: exportCustoms.c2pa,
         quality: settings.quality,
         maxDim: settings.maxDim == 0 ? null : settings.maxDim,
         cancelToken: token,
@@ -593,6 +669,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         },
       )..start();
 
+      // Build custom branding (Museum Frame, Signature, FOSS Badge) and C2PA provenance
+      final exportCustoms = await _buildExportBrandingAndC2pa(
+        bytes: bytes,
+        recipe: recipe,
+        exif: exif,
+      );
+
       final jpeg = await AxEngine.exportJpegFull(
         rgba: decoded.rgba,
         width: decoded.width,
@@ -603,6 +686,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         layers: recipe.layers,
         maskGroups: recipe.maskGroups,
         exif: exif,
+        branding: exportCustoms.branding,
+        c2pa: exportCustoms.c2pa,
         quality: settings.quality,
         maxDim: settings.maxDim == 0 ? null : settings.maxDim,
         cancelToken: token,

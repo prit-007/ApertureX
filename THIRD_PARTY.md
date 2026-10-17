@@ -27,6 +27,7 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 | [`sqlite3_flutter_libs`](https://pub.dev/packages/sqlite3_flutter_libs) | ^0.6.0 | MIT | Bundles latest native SQLite binary across Android / iOS platforms | ✅ |
 | [`qr_flutter`](https://pub.dev/packages/qr_flutter) | ^4.1.0 | BSD-3-Clause | QR code generation and rendering for Look/QR open standard sharing | ✅ |
 | [`zxing2`](https://pub.dev/packages/zxing2) | ^0.2.4 | Apache-2.0 | Pure-Dart port of ZXing for offline QR code detection and decoding from image buffers | ✅ |
+| [`miniz_oxide`](https://crates.io/crates/miniz_oxide) | ^0.8.9 | MIT OR Zlib OR Apache-2.0 | Pure-Rust DEFLATE decompression for watermark PNG decoding & C2PA payload decompression | ✅ |
 | [`zune-jpeg`](https://crates.io/crates/zune-jpeg) | ^0.5.15 | MIT OR Apache-2.0 OR Zlib | Rust JPEG decode for the ROI/proxy path | ✅ |
 
 Apache-2.0 and GPL-3.0 are mutually compatible (both are modern, patent-granting
