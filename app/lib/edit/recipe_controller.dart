@@ -244,6 +244,60 @@ class RecipeController extends Notifier<RecipeState> {
   void clearLayers() =>
       state = state.copyWith(recipe: state.recipe.copyWith(layers: const []));
 
+  /// Adds a mask group.
+  void addMaskGroup(MaskGroup group) {
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(
+        maskGroups: [...state.recipe.maskGroups, group],
+      ),
+    );
+  }
+
+  /// Updates a mask group by id.
+  void updateMaskGroup(MaskGroup group) {
+    final groups = state.recipe.maskGroups
+        .map((g) => g.id == group.id ? group : g)
+        .toList();
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(maskGroups: groups),
+    );
+  }
+
+  /// Removes a mask group and all member layers.
+  void removeMaskGroup(String groupId) {
+    final groups =
+        state.recipe.maskGroups.where((g) => g.id != groupId).toList();
+    final layers =
+        state.recipe.layers.where((l) => l.groupId != groupId).toList();
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(
+        maskGroups: groups,
+        layers: layers,
+      ),
+    );
+  }
+
+  /// Appends a layer to a specific group with join operation.
+  void addLayerToGroup({
+    required String groupId,
+    required AdjustmentLayer layer,
+    MaskJoinOp joinOp = MaskJoinOp.add,
+  }) {
+    final member = layer.copyWith(groupId: groupId, joinOp: joinOp);
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(
+        layers: [...state.recipe.layers, member],
+      ),
+    );
+  }
+
+  /// Updates join operation of the layer at [index].
+  void setLayerJoinOp(int index, MaskJoinOp joinOp) {
+    if (index < 0 || index >= state.recipe.layers.length) return;
+    final layer = state.recipe.layers[index].copyWith(joinOp: joinOp);
+    updateLayerAt(index, layer);
+  }
+
   /// Appends a retouch patch (heal/clone blemish removal).
   void addRetouchPatch(RetouchPatch patch) {
     state = state.copyWith(

@@ -62,6 +62,11 @@ impl MaskSpec {
     }
 }
 
+/// Mask join operations for boolean coverage algebra (ADR 0013).
+pub const JOIN_ADD: u32 = 0;
+pub const JOIN_SUBTRACT: u32 = 1;
+pub const JOIN_INTERSECT: u32 = 2;
+
 /// A stack entry: where ([`MaskSpec`]) and what ([`GradeParams`]) to adjust.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LocalAdjustment {
@@ -69,6 +74,25 @@ pub struct LocalAdjustment {
     pub params: GradeParams,
     pub inverted: bool,
     pub amount: f32,
+    pub group_id: Option<String>,
+    pub join_op: u32,
+    pub group_inverted: bool,
+    pub group_amount: f32,
+}
+
+impl Default for LocalAdjustment {
+    fn default() -> Self {
+        Self {
+            mask: MaskSpec::default(),
+            params: GradeParams::default(),
+            inverted: false,
+            amount: 1.0,
+            group_id: None,
+            join_op: JOIN_ADD,
+            group_inverted: false,
+            group_amount: 1.0,
+        }
+    }
 }
 
 fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
@@ -459,6 +483,44 @@ pub fn apply_local_rect(
     out
 }
 
+struct LocalGroup<'a> {
+    params: GradeParams,
+    inverted: bool,
+    amount: f32,
+    members: Vec<&'a LocalAdjustment>,
+}
+
+fn group_adjustments<'a>(layers: &'a [LocalAdjustment]) -> Vec<LocalGroup<'a>> {
+    let mut groups: Vec<LocalGroup<'a>> = Vec::new();
+    let mut group_indices: std::collections::HashMap<&str, usize> =
+        std::collections::HashMap::new();
+
+    for layer in layers {
+        if let Some(gid) = layer.group_id.as_deref().filter(|s| !s.is_empty()) {
+            if let Some(&idx) = group_indices.get(gid) {
+                groups[idx].members.push(layer);
+            } else {
+                let idx = groups.len();
+                group_indices.insert(gid, idx);
+                groups.push(LocalGroup {
+                    params: layer.params,
+                    inverted: layer.group_inverted,
+                    amount: layer.group_amount,
+                    members: vec![layer],
+                });
+            }
+        } else {
+            groups.push(LocalGroup {
+                params: layer.params,
+                inverted: false,
+                amount: 1.0,
+                members: vec![layer],
+            });
+        }
+    }
+    groups
+}
+
 /// The shared per-pixel body of [`apply_local`] / [`apply_local_band`] /
 /// [`apply_local_rect`]. `(x_origin, row_origin)` is the global position of
 /// the buffer's first pixel (0,0 for the full image; tile/band offsets
@@ -472,7 +534,11 @@ fn apply_local_rows(
     full_h: usize,
     layers: &[LocalAdjustment],
 ) {
-    for layer in layers {
+    let groups = group_adjustments(layers);
+    for group in groups {
+        if group.members.is_empty() {
+            continue;
+        }
         for y in 0..buf.len() / (buf_w * 4).max(1) {
             let v = ((row_origin + y) as f32 + 0.5) / full_h as f32;
             for x in 0..buf_w {
@@ -484,13 +550,47 @@ fn apply_local_rows(
                     buf[i + 2] as f32 / 255.0,
                 ];
                 let luma = 0.2126 * base[0] + 0.7152 * base[1] + 0.0722 * base[2];
-                let cov = coverage(layer.mask.kind, &layer.mask.params, u, v, luma);
-                let cov = if layer.inverted { 1.0 - cov } else { cov };
-                let t = cov * layer.amount;
+
+                let mut group_cov = 0.0f32;
+                for (m_idx, member) in group.members.iter().enumerate() {
+                    let raw_cov = coverage(member.mask.kind, &member.mask.params, u, v, luma);
+                    let member_cov = if member.inverted {
+                        1.0 - raw_cov
+                    } else {
+                        raw_cov
+                    };
+                    let c = (member_cov * member.amount).clamp(0.0, 1.0);
+                    if m_idx == 0 {
+                        group_cov = if group.members.len() > 1 {
+                            c
+                        } else {
+                            member_cov * member.amount
+                        };
+                    } else {
+                        match member.join_op {
+                            JOIN_SUBTRACT => {
+                                group_cov = (group_cov - c).max(0.0);
+                            }
+                            JOIN_INTERSECT => {
+                                group_cov *= c;
+                            }
+                            _ => {
+                                group_cov = (group_cov + c).min(1.0);
+                            }
+                        }
+                    }
+                }
+
+                if group.inverted {
+                    group_cov = (1.0 - group_cov).clamp(0.0, 1.0);
+                }
+
+                let t = group_cov * group.amount;
                 if t <= 0.0 {
                     continue;
                 }
-                let adjusted = grade_pointwise(base, layer.params);
+
+                let adjusted = grade_pointwise(base, group.params);
                 for c in 0..3 {
                     // Lightroom-style Amount (0–200%): t extrapolates past 1.0 when amount > 1.0.
                     // Keep unclamped t so overdrive works, clamping to [0.0, 255.0] only at final byte write.
@@ -538,6 +638,7 @@ mod tests {
             params: brighten(),
             inverted: false,
             amount: 1.0,
+            ..Default::default()
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         let centre = out[(16 * 32 + 16) * 4];
@@ -557,6 +658,7 @@ mod tests {
             params: brighten(),
             inverted: false,
             amount: 1.0,
+            ..Default::default()
         };
         let out = apply_local(&src, 16, 16, &[layer]);
         let top = out[(16 + 8) * 4];
@@ -584,6 +686,7 @@ mod tests {
             params: brighten(),
             inverted: false,
             amount: 1.0,
+            ..Default::default()
         };
         let out = apply_local(&img, 16, 8, &[layer]);
         let dark = out[(4 * 16 + 2) * 4];
@@ -617,6 +720,7 @@ mod tests {
                 params: brighten(),
                 inverted: false,
                 amount: 1.0,
+                ..Default::default()
             },
             LocalAdjustment {
                 mask: MaskSpec {
@@ -629,6 +733,7 @@ mod tests {
                 },
                 inverted: false,
                 amount: 1.0,
+                ..Default::default()
             },
             LocalAdjustment {
                 mask: MaskSpec {
@@ -641,6 +746,7 @@ mod tests {
                 },
                 inverted: false,
                 amount: 1.0,
+                ..Default::default()
             },
         ]
     }
@@ -694,6 +800,7 @@ mod tests {
             params: brighten(),
             inverted: false,
             amount: 1.0,
+            ..Default::default()
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         let center = out[(16 * 32 + 16) * 4];
@@ -725,6 +832,7 @@ mod tests {
             params: brighten(),
             inverted: false,
             amount: 1.0,
+            ..Default::default()
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         // Pixel along stroke 1
@@ -753,6 +861,7 @@ mod tests {
             params: brighten(),
             inverted: false,
             amount: 1.0,
+            ..Default::default()
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         let center = out[(16 * 32 + 16) * 4];
@@ -782,6 +891,7 @@ mod tests {
             params: brighten(),
             inverted: false,
             amount: 1.0,
+            ..Default::default()
         };
         let out = apply_local(&img, 32, 32, &[layer]);
         let sky_pixel = out[(4 * 32 + 16) * 4 + 2]; // Blue channel in sky
@@ -801,6 +911,7 @@ mod tests {
             params: brighten(),
             inverted: false,
             amount: 1.0,
+            ..Default::default()
         };
         let src = grey(32, 32, 100);
         let out = apply_local(&src, 32, 32, &[layer]);
@@ -831,6 +942,7 @@ mod tests {
                 params: brighten(),
                 inverted: false,
                 amount: 1.0,
+                ..Default::default()
             }],
         );
 
@@ -845,6 +957,7 @@ mod tests {
                 params: brighten(),
                 inverted: false,
                 amount: 1.0,
+                ..Default::default()
             }],
         );
         let band1 = apply_local_band(
@@ -857,6 +970,7 @@ mod tests {
                 params: brighten(),
                 inverted: false,
                 amount: 1.0,
+                ..Default::default()
             }],
         );
 
@@ -953,6 +1067,7 @@ mod tests {
             params: brighten(),
             inverted: false,
             amount: 1.0,
+            ..Default::default()
         };
         let inverted_layer = LocalAdjustment {
             mask: MaskSpec {
@@ -962,6 +1077,7 @@ mod tests {
             params: brighten(),
             inverted: true,
             amount: 1.0,
+            ..Default::default()
         };
         let out_normal = apply_local(&src, 16, 16, &[normal_layer]);
         let out_inverted = apply_local(&src, 16, 16, &[inverted_layer]);
@@ -991,6 +1107,7 @@ mod tests {
             params: brighten(),
             inverted: false,
             amount: 1.0,
+            ..Default::default()
         };
         let inverted_layer = LocalAdjustment {
             mask: MaskSpec {
@@ -1000,6 +1117,7 @@ mod tests {
             params: brighten(),
             inverted: true,
             amount: 1.0,
+            ..Default::default()
         };
         let out_normal = apply_local(&src, 16, 16, &[normal_layer]);
         let out_inverted = apply_local(&src, 16, 16, &[inverted_layer]);
@@ -1027,6 +1145,7 @@ mod tests {
             params: brighten(),
             inverted: true,
             amount: 1.0,
+            ..Default::default()
         };
         let src = grey(32, 32, 100);
         let out = apply_local(&src, 32, 32, &[inverted_layer]);
@@ -1057,6 +1176,7 @@ mod tests {
             params: brighten(),
             inverted: false,
             amount: 0.0,
+            ..Default::default()
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         assert_eq!(out, src, "amount=0.0 must be byte-identical to input");
@@ -1076,6 +1196,7 @@ mod tests {
             },
             inverted: false,
             amount: 1.0,
+            ..Default::default()
         };
         let layer_half = LocalAdjustment {
             amount: 0.5,
@@ -1110,5 +1231,203 @@ mod tests {
             (delta_double - delta_full * 2.0).abs() <= 1.5,
             "delta_double ({delta_double}) should be ~double of delta_full ({delta_full})"
         );
+    }
+
+    #[test]
+    fn mask_group_add_combines_coverage() {
+        let src = grey(32, 32, 100);
+        let group_id = Some("test_group".to_string());
+        let layer1 = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_RADIAL,
+                params: vec![0.3, 0.5, 0.15, 0.15, 0.0],
+            },
+            params: brighten(),
+            inverted: false,
+            amount: 1.0,
+            group_id: group_id.clone(),
+            join_op: JOIN_ADD,
+            group_inverted: false,
+            group_amount: 1.0,
+        };
+        let layer2 = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_RADIAL,
+                params: vec![0.7, 0.5, 0.15, 0.15, 0.0],
+            },
+            params: brighten(),
+            inverted: false,
+            amount: 1.0,
+            group_id: group_id.clone(),
+            join_op: JOIN_ADD,
+            group_inverted: false,
+            group_amount: 1.0,
+        };
+        let out = apply_local(&src, 32, 32, &[layer1, layer2]);
+        // Point in circle 1: brightened
+        let p1 = out[(16 * 32 + (0.3 * 32.0) as usize) * 4];
+        // Point in circle 2: brightened
+        let p2 = out[(16 * 32 + (0.7 * 32.0) as usize) * 4];
+        // Point between them: untouched
+        let p_mid = out[(16 * 32 + 16) * 4];
+        assert!(p1 > 120, "circle 1 should brighten: {p1}");
+        assert!(p2 > 120, "circle 2 should brighten: {p2}");
+        assert_eq!(p_mid, 100, "point between circles untouched");
+    }
+
+    #[test]
+    fn mask_group_subtract_removes_coverage() {
+        let src = grey(32, 32, 100);
+        let group_id = Some("sub_group".to_string());
+        // Layer 1 covers left half (x=0 is 1.0, x=1 is 0.0)
+        let layer_base = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_LINEAR,
+                params: vec![1.0, 0.0, 0.0, 0.0],
+            },
+            params: brighten(),
+            inverted: false,
+            amount: 1.0,
+            group_id: group_id.clone(),
+            join_op: JOIN_ADD,
+            group_inverted: false,
+            group_amount: 1.0,
+        };
+        // Layer 2 subtracts a radial spot in bottom-left
+        let layer_sub = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_RADIAL,
+                params: vec![0.15, 0.85, 0.15, 0.15, 0.0],
+            },
+            params: brighten(),
+            inverted: false,
+            amount: 1.0,
+            group_id: group_id.clone(),
+            join_op: JOIN_SUBTRACT,
+            group_inverted: false,
+            group_amount: 1.0,
+        };
+        let out = apply_local(&src, 32, 32, &[layer_base, layer_sub]);
+        // Point in top-left (linear without subtracted radial): brightened
+        let p_top_left = out[(4 * 32 + 4) * 4];
+        // Point in bottom-left (subtracted): untouched
+        let p_bot_left = out[(27 * 32 + 4) * 4];
+        assert!(
+            p_top_left > 120,
+            "non-subtracted region brightened: {p_top_left}"
+        );
+        assert_eq!(p_bot_left, 100, "subtracted region untouched: {p_bot_left}");
+    }
+
+    #[test]
+    fn mask_group_intersect_multiplies_coverage() {
+        let src = grey(32, 32, 100);
+        let group_id = Some("intersect_group".to_string());
+        // Linear 1: top half (bright at y=0)
+        let layer1 = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_LINEAR,
+                params: vec![0.0, 1.0, 0.0, 0.0],
+            },
+            params: brighten(),
+            inverted: false,
+            amount: 1.0,
+            group_id: group_id.clone(),
+            join_op: JOIN_ADD,
+            group_inverted: false,
+            group_amount: 1.0,
+        };
+        // Linear 2: left half (bright at x=0)
+        let layer2 = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_LINEAR,
+                params: vec![1.0, 0.0, 0.0, 0.0],
+            },
+            params: brighten(),
+            inverted: false,
+            amount: 1.0,
+            group_id: group_id.clone(),
+            join_op: JOIN_INTERSECT,
+            group_inverted: false,
+            group_amount: 1.0,
+        };
+        let out = apply_local(&src, 32, 32, &[layer1, layer2]);
+        // Top-left: both are ~1.0 -> 1.0 * 1.0 = 1.0 (brightened)
+        let top_left = out[(2 * 32 + 2) * 4];
+        // Top-right: ~1.0 * 0.0 = 0.0 (untouched)
+        let top_right = out[(2 * 32 + 30) * 4];
+        // Bottom-left: 0.0 * ~1.0 = 0.0 (untouched)
+        let bottom_left = out[(30 * 32 + 2) * 4];
+        // Bottom-right: 0.0 * 0.0 = 0.0 (untouched)
+        let bottom_right = out[(30 * 32 + 30) * 4];
+
+        assert!(top_left > 120, "intersection brightened: {top_left}");
+        assert_eq!(top_right, 100, "top-right untouched");
+        assert_eq!(bottom_left, 100, "bottom-left untouched");
+        assert_eq!(bottom_right, 100, "bottom-right untouched");
+    }
+
+    #[test]
+    fn mask_group_invert_inverts_composite_coverage() {
+        let src = grey(32, 32, 100);
+        let group_id = Some("inv_group".to_string());
+        let layer = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_RADIAL,
+                params: vec![0.5, 0.5, 0.3, 0.3, 0.0],
+            },
+            params: brighten(),
+            inverted: false,
+            amount: 1.0,
+            group_id: group_id.clone(),
+            join_op: JOIN_ADD,
+            group_inverted: true,
+            group_amount: 1.0,
+        };
+        let out = apply_local(&src, 32, 32, &[layer]);
+        // Center: inside radial, but group inverted -> untouched
+        let center = out[(16 * 32 + 16) * 4];
+        // Corner: outside radial, group inverted -> brightened
+        let corner = out[0];
+        assert_eq!(center, 100, "center inverted to untouched");
+        assert!(corner > 120, "corner inverted to brightened: {corner}");
+    }
+
+    #[test]
+    fn mask_group_amount_scales_composite_coverage() {
+        let src = grey(16, 16, 100);
+        let group_id = Some("amt_group".to_string());
+        let mk_group = |grp_amt: f32| LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_RADIAL,
+                params: vec![0.5, 0.5, 0.5, 0.5, 0.0],
+            },
+            params: GradeParams {
+                exposure: 0.5,
+                ..Default::default()
+            },
+            inverted: false,
+            amount: 1.0,
+            group_id: group_id.clone(),
+            join_op: JOIN_ADD,
+            group_inverted: false,
+            group_amount: grp_amt,
+        };
+
+        let out_zero = apply_local(&src, 16, 16, &[mk_group(0.0)]);
+        let out_half = apply_local(&src, 16, 16, &[mk_group(0.5)]);
+        let out_full = apply_local(&src, 16, 16, &[mk_group(1.0)]);
+        let out_double = apply_local(&src, 16, 16, &[mk_group(2.0)]);
+
+        assert_eq!(out_zero, src, "group amount 0 is identity");
+
+        let center_idx = (8 * 16 + 8) * 4;
+        let delta_half = out_half[center_idx] as f32 - 100.0;
+        let delta_full = out_full[center_idx] as f32 - 100.0;
+        let delta_double = out_double[center_idx] as f32 - 100.0;
+
+        assert!(delta_full > 10.0);
+        assert!((delta_half - delta_full * 0.5).abs() <= 1.5);
+        assert!((delta_double - delta_full * 2.0).abs() <= 1.5);
     }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:aperturex/edit/adjustment_layer.dart';
 import 'package:aperturex/edit/recipe.dart';
 
 void main() {
@@ -243,6 +244,17 @@ void main() {
       final json = recipe.toJson();
       final restored = EditRecipe.fromJson(json);
       expect(restored, recipe);
+    });
+
+    test('maskGroups round-trip and participate in equality', () {
+      const g = MaskGroup(id: 'g1', name: 'Mask 1', amount: 1.5, inverted: true);
+      final r1 = const EditRecipe().copyWith(maskGroups: [g]);
+      final r2 = const EditRecipe().copyWith(maskGroups: [g]);
+      final r3 = const EditRecipe().copyWith(maskGroups: []);
+      expect(r1, r2);
+      expect(r1, isNot(r3));
+      final restored = EditRecipe.fromJson(r1.toJson());
+      expect(restored, r1);
     });
   });
 }

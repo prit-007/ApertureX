@@ -83,6 +83,10 @@ pub fn bake_roi_band(
                 params: l.params.to_core(),
                 inverted: l.inverted,
                 amount: l.amount,
+                group_id: l.group_id.clone(),
+                join_op: l.join_op,
+                group_inverted: l.group_inverted,
+                group_amount: l.group_amount,
             })
             .collect();
         out = mask::apply_local_band(&out, full.0, full.1, out_top as usize, &core);
@@ -165,6 +169,10 @@ pub fn bake_roi_rect(
                 params: l.params.to_core(),
                 inverted: l.inverted,
                 amount: l.amount,
+                group_id: l.group_id.clone(),
+                join_op: l.join_op,
+                group_inverted: l.group_inverted,
+                group_amount: l.group_amount,
             })
             .collect();
         out = mask::apply_local_rect(
@@ -299,6 +307,7 @@ mod tests {
             },
             inverted: false,
             amount: 1.0,
+            ..Default::default()
         }
     }
 

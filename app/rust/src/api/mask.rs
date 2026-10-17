@@ -3,6 +3,10 @@
 use crate::api::color::ColorParams;
 use crate::mask::{self, LocalAdjustment, MaskSpec};
 
+pub const JOIN_ADD: u32 = mask::JOIN_ADD;
+pub const JOIN_SUBTRACT: u32 = mask::JOIN_SUBTRACT;
+pub const JOIN_INTERSECT: u32 = mask::JOIN_INTERSECT;
+
 /// One adjustment layer: a parametric mask + a point-wise sub-grade.
 pub struct MaskLayer {
     /// Mask kind:
@@ -22,6 +26,30 @@ pub struct MaskLayer {
     pub inverted: bool,
     /// Global amount scalar for this layer (0.0–2.0, default 1.0 = 100%).
     pub amount: f32,
+    /// Parent group ID (if part of a mask group; null for ungrouped layers).
+    pub group_id: Option<String>,
+    /// Join operation (0: add, 1: subtract, 2: intersect) within group.
+    pub join_op: u32,
+    /// Group-level invert flag.
+    pub group_inverted: bool,
+    /// Group-level amount scalar (0.0–2.0, default 1.0 = 100%).
+    pub group_amount: f32,
+}
+
+impl Default for MaskLayer {
+    fn default() -> Self {
+        Self {
+            kind: 0,
+            mask: Vec::new(),
+            params: ColorParams::default(),
+            inverted: false,
+            amount: 1.0,
+            group_id: None,
+            join_op: JOIN_ADD,
+            group_inverted: false,
+            group_amount: 1.0,
+        }
+    }
 }
 
 /// Composites [layers] over [rgba] (RGBA8, `width*height*4`), in order.
@@ -36,6 +64,10 @@ pub fn apply_masks(rgba: Vec<u8>, width: u32, height: u32, layers: Vec<MaskLayer
             params: l.params.to_core(),
             inverted: l.inverted,
             amount: l.amount,
+            group_id: l.group_id,
+            join_op: l.join_op,
+            group_inverted: l.group_inverted,
+            group_amount: l.group_amount,
         })
         .collect();
     mask::apply_local(&rgba, width as usize, height as usize, &core)

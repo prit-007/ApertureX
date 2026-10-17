@@ -87,6 +87,7 @@ class EditRecipe {
     this.skewX = 0,
     this.skewY = 0,
     this.layers = const <AdjustmentLayer>[],
+    this.maskGroups = const <MaskGroup>[],
     // Optics.
     this.removeChromaticAberration = false,
     this.defringePurpleAmount = 0,
@@ -135,8 +136,9 @@ class EditRecipe {
   /// v18: adds depth-aware lens blur and synthetic bokeh.
   /// v19: adds photochemical film physics (halation, bloom, dust/scratches) and shader lab.
   /// v20: adds global Amount slider (0–200%) to adjustment layers.
+  /// v21: adds mask group architecture (ADR 0013) with boolean coverage algebra.
   /// `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 20;
+  static const int currentSchemaVersion = 21;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
@@ -219,6 +221,9 @@ class EditRecipe {
 
   /// Local adjustment layers (masking, P2.5), applied in order.
   final List<AdjustmentLayer> layers;
+
+  /// Local adjustment mask groups (ADR 0013).
+  final List<MaskGroup> maskGroups;
 
   /// Retouch patches (healing brush & clone stamp), applied in order.
   final List<RetouchPatch> retouchPatches;
@@ -310,6 +315,7 @@ class EditRecipe {
     double? skewX,
     double? skewY,
     List<AdjustmentLayer>? layers,
+    List<MaskGroup>? maskGroups,
     List<RetouchPatch>? retouchPatches,
     bool? removeChromaticAberration,
     double? defringePurpleAmount,
@@ -407,6 +413,7 @@ class EditRecipe {
       skewX: skewX ?? this.skewX,
       skewY: skewY ?? this.skewY,
       layers: layers ?? this.layers,
+      maskGroups: maskGroups ?? this.maskGroups,
       retouchPatches: retouchPatches ?? this.retouchPatches,
       blurEnabled: blurEnabled ?? this.blurEnabled,
       blurAmount: blurAmount ?? this.blurAmount,
@@ -496,6 +503,7 @@ class EditRecipe {
     'skewX': skewX,
     'skewY': skewY,
     'layers': [for (final layer in layers) layer.toJson()],
+    'maskGroups': [for (final group in maskGroups) group.toJson()],
     'retouchPatches': [for (final patch in retouchPatches) patch.toJson()],
     'blurEnabled': blurEnabled,
     'blurAmount': blurAmount,
@@ -605,6 +613,13 @@ class EditRecipe {
               )
               .toList() ??
           const <AdjustmentLayer>[],
+      maskGroups:
+          (json['maskGroups'] as List?)
+              ?.map(
+                (e) => MaskGroup.fromJson((e as Map).cast<String, Object?>()),
+              )
+              .toList() ??
+          const <MaskGroup>[],
       retouchPatches:
           (json['retouchPatches'] as List?)
               ?.map(
@@ -704,6 +719,7 @@ class EditRecipe {
       other.skewX == skewX &&
       other.skewY == skewY &&
       listEquals(other.layers, layers) &&
+      listEquals(other.maskGroups, maskGroups) &&
       listEquals(other.retouchPatches, retouchPatches) &&
       other.blurEnabled == blurEnabled &&
       other.blurAmount == blurAmount &&
@@ -789,6 +805,7 @@ class EditRecipe {
       Object.hashAll(crop),
       Object.hash(perspectiveX, perspectiveY, skewX, skewY),
       Object.hashAll(layers),
+      Object.hashAll(maskGroups),
       Object.hashAll(retouchPatches),
       blurEnabled,
       blurAmount,

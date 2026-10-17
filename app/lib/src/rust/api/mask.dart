@@ -82,13 +82,32 @@ class MaskLayer {
   /// Global amount scalar for this layer (0.0–2.0, default 1.0 = 100%).
   final double amount;
 
+  /// Parent group ID (if part of a mask group; null for ungrouped layers).
+  final String? groupId;
+
+  /// Join operation (0: add, 1: subtract, 2: intersect) within group.
+  final int joinOp;
+
+  /// Group-level invert flag.
+  final bool groupInverted;
+
+  /// Group-level amount scalar (0.0–2.0, default 1.0 = 100%).
+  final double groupAmount;
+
   const MaskLayer({
     required this.kind,
     required this.mask,
     required this.params,
     required this.inverted,
     required this.amount,
+    this.groupId,
+    required this.joinOp,
+    required this.groupInverted,
+    required this.groupAmount,
   });
+
+  static Future<MaskLayer> default_() =>
+      RustLib.instance.api.crateApiMaskMaskLayerDefault();
 
   @override
   int get hashCode =>
@@ -96,7 +115,11 @@ class MaskLayer {
       mask.hashCode ^
       params.hashCode ^
       inverted.hashCode ^
-      amount.hashCode;
+      amount.hashCode ^
+      groupId.hashCode ^
+      joinOp.hashCode ^
+      groupInverted.hashCode ^
+      groupAmount.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -107,5 +130,9 @@ class MaskLayer {
           mask == other.mask &&
           params == other.params &&
           inverted == other.inverted &&
-          amount == other.amount;
+          amount == other.amount &&
+          groupId == other.groupId &&
+          joinOp == other.joinOp &&
+          groupInverted == other.groupInverted &&
+          groupAmount == other.groupAmount;
 }

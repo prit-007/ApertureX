@@ -401,6 +401,99 @@ void main() {
       expect(layer.amount, 1.5);
     });
   });
+
+  group('MaskGroup & MaskJoinOp (Issue #92 / Schema v21)', () {
+    test('MaskJoinOp serialization and deserialization', () {
+      expect(MaskJoinOp.add.index, 0);
+      expect(MaskJoinOp.subtract.index, 1);
+      expect(MaskJoinOp.intersect.index, 2);
+    });
+
+    test('AdjustmentLayer roundtrips groupId and joinOp through JSON', () {
+      const layer = AdjustmentLayer(
+        maskKind: MaskKind.radial,
+        groupId: 'group_test_1',
+        joinOp: MaskJoinOp.subtract,
+        amount: 1.2,
+      );
+      final json = layer.toJson();
+      expect(json['groupId'], 'group_test_1');
+      expect(json['joinOp'], MaskJoinOp.subtract.index);
+
+      final restored = AdjustmentLayer.fromJson(json);
+      expect(restored.groupId, 'group_test_1');
+      expect(restored.joinOp, MaskJoinOp.subtract);
+      expect(restored, layer);
+
+      final fromString = AdjustmentLayer.fromJson({
+        ...json,
+        'joinOp': 'subtract',
+      });
+      expect(fromString.joinOp, MaskJoinOp.subtract);
+    });
+
+    test('MaskGroup roundtrips through JSON with defaults', () {
+      const group = MaskGroup(
+        id: 'grp_42',
+        name: 'Sky & Subject',
+        amount: 1.5,
+        inverted: true,
+        exposure: 0.4,
+        contrast: 0.2,
+        highlights: -0.3,
+        shadows: 0.1,
+        temperature: 0.2,
+        tint: -0.1,
+        saturation: 0.3,
+      );
+      final json = group.toJson();
+      final restored = MaskGroup.fromJson(json);
+      expect(restored, group);
+      expect(restored.id, 'grp_42');
+      expect(restored.amount, 1.5);
+      expect(restored.inverted, isTrue);
+      expect(restored.exposure, 0.4);
+    });
+
+    test('Recipe serializes and deserializes maskGroups', () {
+      const group = MaskGroup(id: 'g1', name: 'Mask 1', amount: 1.25);
+      const layer = AdjustmentLayer(
+        maskKind: MaskKind.linear,
+        groupId: 'g1',
+        joinOp: MaskJoinOp.add,
+      );
+      final recipe = EditRecipe.neutral.copyWith(
+        maskGroups: const [group],
+        layers: const [layer],
+      );
+      final json = recipe.toJson();
+      final restored = EditRecipe.fromJson(json);
+      expect(restored.maskGroups.length, 1);
+      expect(restored.maskGroups.first.id, 'g1');
+      expect(restored.maskGroups.first.amount, 1.25);
+      expect(restored.layers.first.groupId, 'g1');
+      expect(restored.layers.first.joinOp, MaskJoinOp.add);
+      expect(restored.schemaVersion, EditRecipe.currentSchemaVersion);
+    });
+
+    test('v20 recipe migrates to v21 with empty maskGroups', () {
+      final v20Json = {
+        'schemaVersion': 20,
+        'layers': [
+          {
+            'maskKind': 1,
+            'maskParams': [0.5, 0.5, 0.2, 0.2, 0.3],
+            'exposure': 0.5,
+          }
+        ],
+      };
+      final recipe = EditRecipe.fromJson(v20Json);
+      expect(recipe.maskGroups, isEmpty);
+      expect(recipe.layers.single.groupId, isNull);
+      expect(recipe.layers.single.joinOp, MaskJoinOp.add);
+      expect(recipe.schemaVersion, EditRecipe.currentSchemaVersion);
+    });
+  });
 }
 
 

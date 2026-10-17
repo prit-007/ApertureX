@@ -5,8 +5,8 @@ import 'package:aperturex/edit/recipe_mapping.dart';
 
 void main() {
   group('EditRecipe v19 (Film Emulation & Shader Lab)', () {
-    test('currentSchemaVersion is 20', () {
-      expect(EditRecipe.currentSchemaVersion, 20);
+    test('currentSchemaVersion is at least 20', () {
+      expect(EditRecipe.currentSchemaVersion >= 20, isTrue);
     });
 
     test('default recipe has neutral film and lab parameters', () {

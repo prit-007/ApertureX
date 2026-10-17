@@ -253,6 +253,80 @@ void main() {
     final updatedLayer = container.read(recipeControllerProvider).recipe.layers.first;
     expect(updatedLayer.amount, isNot(1.0));
   });
+
+  testWidgets('New Group + button creates a new MaskGroup in recipe', (tester) async {
+    await pumpMaskControls(tester);
+
+    final newGroupBtn = find.byKey(const Key('mask-new-group'));
+    expect(newGroupBtn, findsOneWidget);
+
+    await tester.tap(newGroupBtn);
+    await tester.pumpAndSettle();
+
+    final recipe = container.read(recipeControllerProvider).recipe;
+    expect(recipe.maskGroups.length, 1);
+    expect(recipe.maskGroups.first.name, 'Mask 1');
+  });
+
+  testWidgets('MaskGroup card displays group controls and updates group amount and invert', (tester) async {
+    final notifier = container.read(recipeControllerProvider.notifier);
+    const group = MaskGroup(id: 'g_test', name: 'Mask 1', amount: 1.0);
+    notifier.addMaskGroup(group);
+    notifier.addLayerToGroup(
+      groupId: 'g_test',
+      layer: const AdjustmentLayer(maskKind: MaskKind.radial, exposure: 0.6),
+      joinOp: MaskJoinOp.add,
+    );
+
+    await pumpMaskControls(tester);
+
+    // Group header rendered
+    expect(find.byKey(const Key('group-title-g_test')), findsOneWidget);
+    expect(find.text('Mask 1'), findsOneWidget);
+
+    // Group Invert toggle
+    final invertBtn = find.byKey(const Key('group-invert-g_test'));
+    expect(invertBtn, findsOneWidget);
+    await tester.tap(invertBtn);
+    await tester.pumpAndSettle();
+
+    expect(container.read(recipeControllerProvider).recipe.maskGroups.first.inverted, isTrue);
+
+    // Group Amount slider
+    final amtSlider = find.byKey(const Key('group-amount-g_test'));
+    expect(amtSlider, findsOneWidget);
+    await tester.drag(amtSlider, const Offset(60, 0));
+    await tester.pumpAndSettle();
+
+    expect(container.read(recipeControllerProvider).recipe.maskGroups.first.amount, greaterThan(1.0));
+
+    // Member layer join operation chips (Add, Subtract, Intersect)
+    final addChip = find.byKey(const Key('mask-join-add-0'));
+    final subChip = find.byKey(const Key('mask-join-subtract-0'));
+    final intChip = find.byKey(const Key('mask-join-intersect-0'));
+    expect(addChip, findsOneWidget);
+    expect(subChip, findsOneWidget);
+    expect(intChip, findsOneWidget);
+
+    // Switch joinOp to Subtract
+    await tester.tap(subChip);
+    await tester.pumpAndSettle();
+    expect(container.read(recipeControllerProvider).recipe.layers.first.joinOp, MaskJoinOp.subtract);
+
+    // Switch joinOp to Intersect
+    await tester.tap(intChip);
+    await tester.pumpAndSettle();
+    expect(container.read(recipeControllerProvider).recipe.layers.first.joinOp, MaskJoinOp.intersect);
+
+    // Group Delete removes group and member layer
+    final delBtn = find.byKey(const Key('group-delete-g_test'));
+    expect(delBtn, findsOneWidget);
+    await tester.tap(delBtn);
+    await tester.pumpAndSettle();
+
+    expect(container.read(recipeControllerProvider).recipe.maskGroups, isEmpty);
+    expect(container.read(recipeControllerProvider).recipe.layers, isEmpty);
+  });
 }
 
 

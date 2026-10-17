@@ -7,6 +7,129 @@ import 'package:flutter/foundation.dart' show listEquals;
 /// Mask kinds (must match the Rust `MASK_*` constants).
 enum MaskKind { linear, radial, luminance, brush, subject, sky, bitmap }
 
+/// Mask boolean operations (ADR 0013, matches Rust `JOIN_*` constants).
+enum MaskJoinOp { add, subtract, intersect }
+
+/// A local adjustment mask group (ADR 0013).
+///
+/// In Adobe Lightroom, member masks define geometry and selection coverage,
+/// while the group owns the composite grade parameters, group amount (0–200%),
+/// and group invert.
+class MaskGroup {
+  const MaskGroup({
+    required this.id,
+    this.name = 'Mask',
+    this.inverted = false,
+    this.amount = 1.0,
+    this.exposure = 0,
+    this.contrast = 0,
+    this.saturation = 0,
+    this.temperature = 0,
+    this.tint = 0,
+    this.highlights = 0,
+    this.shadows = 0,
+  });
+
+  final String id;
+  final String name;
+  final bool inverted;
+  final double amount;
+  final double exposure;
+  final double contrast;
+  final double saturation;
+  final double temperature;
+  final double tint;
+  final double highlights;
+  final double shadows;
+
+  MaskGroup copyWith({
+    String? id,
+    String? name,
+    bool? inverted,
+    double? amount,
+    double? exposure,
+    double? contrast,
+    double? saturation,
+    double? temperature,
+    double? tint,
+    double? highlights,
+    double? shadows,
+  }) => MaskGroup(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    inverted: inverted ?? this.inverted,
+    amount: amount ?? this.amount,
+    exposure: exposure ?? this.exposure,
+    contrast: contrast ?? this.contrast,
+    saturation: saturation ?? this.saturation,
+    temperature: temperature ?? this.temperature,
+    tint: tint ?? this.tint,
+    highlights: highlights ?? this.highlights,
+    shadows: shadows ?? this.shadows,
+  );
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'name': name,
+    'inverted': inverted,
+    'amount': amount,
+    'exposure': exposure,
+    'contrast': contrast,
+    'saturation': saturation,
+    'temperature': temperature,
+    'tint': tint,
+    'highlights': highlights,
+    'shadows': shadows,
+  };
+
+  factory MaskGroup.fromJson(Map<String, Object?> json) {
+    double d(String k) => (json[k] as num?)?.toDouble() ?? 0;
+    return MaskGroup(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? 'Mask',
+      inverted: (json['inverted'] as bool?) ?? false,
+      amount: json.containsKey('amount') ? d('amount') : 1.0,
+      exposure: d('exposure'),
+      contrast: d('contrast'),
+      saturation: d('saturation'),
+      temperature: d('temperature'),
+      tint: d('tint'),
+      highlights: d('highlights'),
+      shadows: d('shadows'),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is MaskGroup &&
+      other.id == id &&
+      other.name == name &&
+      other.inverted == inverted &&
+      other.amount == amount &&
+      other.exposure == exposure &&
+      other.contrast == contrast &&
+      other.saturation == saturation &&
+      other.temperature == temperature &&
+      other.tint == tint &&
+      other.highlights == highlights &&
+      other.shadows == shadows;
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    inverted,
+    amount,
+    exposure,
+    contrast,
+    saturation,
+    temperature,
+    tint,
+    highlights,
+    shadows,
+  );
+}
+
 /// Longest allowed side for a stored bitmap mask (#86): keeping masks at or
 /// under this bound caps a base64-encoded layer at ~90 KB of recipe JSON and
 /// ~65 KB of in-memory bytes, versus ~4.7 MB for the old inline double array.
@@ -88,6 +211,8 @@ class AdjustmentLayer {
     this.maskBlob,
     this.inverted = false,
     this.amount = 1.0,
+    this.groupId,
+    this.joinOp = MaskJoinOp.add,
     this.exposure = 0,
     this.contrast = 0,
     this.saturation = 0,
@@ -110,6 +235,8 @@ class AdjustmentLayer {
     required List<double> alphas,
     bool inverted = false,
     double amount = 1.0,
+    String? groupId,
+    MaskJoinOp joinOp = MaskJoinOp.add,
     double exposure = 0,
     double contrast = 0,
     double saturation = 0,
@@ -134,6 +261,8 @@ class AdjustmentLayer {
       maskBlob: capped,
       inverted: inverted,
       amount: amount,
+      groupId: groupId,
+      joinOp: joinOp,
       exposure: exposure,
       contrast: contrast,
       saturation: saturation,
@@ -164,6 +293,12 @@ class AdjustmentLayer {
   /// Global amount scalar for this layer (0.0–2.0, default 1.0 = 100%).
   final double amount;
 
+  /// Optional ID of parent [MaskGroup] (ADR 0013). Null indicates an ungrouped layer.
+  final String? groupId;
+
+  /// Boolean operation to combine with preceding group members (ADR 0013).
+  final MaskJoinOp joinOp;
+
   final double exposure;
   final double contrast;
   final double saturation;
@@ -178,6 +313,9 @@ class AdjustmentLayer {
     Uint8List? maskBlob,
     bool? inverted,
     double? amount,
+    String? groupId,
+    bool clearGroupId = false,
+    MaskJoinOp? joinOp,
     double? exposure,
     double? contrast,
     double? saturation,
@@ -191,6 +329,8 @@ class AdjustmentLayer {
     maskBlob: maskBlob ?? this.maskBlob,
     inverted: inverted ?? this.inverted,
     amount: amount ?? this.amount,
+    groupId: clearGroupId ? null : (groupId ?? this.groupId),
+    joinOp: joinOp ?? this.joinOp,
     exposure: exposure ?? this.exposure,
     contrast: contrast ?? this.contrast,
     saturation: saturation ?? this.saturation,
@@ -394,6 +534,8 @@ class AdjustmentLayer {
       'maskBlob': base64Encode(maskBlob!),
     'inverted': inverted,
     'amount': amount,
+    if (groupId != null) 'groupId': groupId,
+    if (joinOp != MaskJoinOp.add) 'joinOp': joinOp.index,
     'exposure': exposure,
     'contrast': contrast,
     'saturation': saturation,
@@ -417,12 +559,25 @@ class AdjustmentLayer {
       blob = bytes;
       params = <double>[w.toDouble(), h.toDouble()];
     }
+    final rawJoinOp = json['joinOp'];
+    final MaskJoinOp joinOp;
+    if (rawJoinOp is String) {
+      joinOp = MaskJoinOp.values.firstWhere(
+        (e) => e.name == rawJoinOp,
+        orElse: () => MaskJoinOp.add,
+      );
+    } else {
+      final idx = (rawJoinOp as num?)?.toInt() ?? 0;
+      joinOp = MaskJoinOp.values[idx.clamp(0, MaskJoinOp.values.length - 1)];
+    }
     return AdjustmentLayer(
       maskKind: kind,
       maskParams: params,
       maskBlob: blob,
       inverted: (json['inverted'] as bool?) ?? false,
       amount: json.containsKey('amount') ? d('amount') : 1.0,
+      groupId: json['groupId'] as String?,
+      joinOp: joinOp,
       exposure: d('exposure'),
       contrast: d('contrast'),
       saturation: d('saturation'),
@@ -441,6 +596,8 @@ class AdjustmentLayer {
       listEquals(other.maskBlob, maskBlob) &&
       other.inverted == inverted &&
       other.amount == amount &&
+      other.groupId == groupId &&
+      other.joinOp == joinOp &&
       other.exposure == exposure &&
       other.contrast == contrast &&
       other.saturation == saturation &&
@@ -456,6 +613,8 @@ class AdjustmentLayer {
     maskBlob == null ? 0 : Object.hashAll(maskBlob!),
     inverted,
     amount,
+    groupId,
+    joinOp,
     exposure,
     contrast,
     saturation,

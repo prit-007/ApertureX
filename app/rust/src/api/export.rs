@@ -264,6 +264,10 @@ pub fn export_full(
                 params: l.params.to_core(),
                 inverted: l.inverted,
                 amount: l.amount,
+                group_id: l.group_id.clone(),
+                join_op: l.join_op,
+                group_inverted: l.group_inverted,
+                group_amount: l.group_amount,
             })
             .collect(),
         grade: params.to_core(),

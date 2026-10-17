@@ -32,15 +32,20 @@ final skyDetectorProvider = Provider<SkyDetectorFn>((ref) {
 
 /// Local-adjustment (masking) controls: add analytic masks and manage the
 /// layer stack. Masks are parametric, so no brush data is stored (#18).
+/// Supports mask groups with Boolean Add/Subtract/Intersect coverage algebra (ADR 0013 / #92).
 class MaskControls extends ConsumerWidget {
   const MaskControls({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final layers = ref.watch(recipeControllerProvider).recipe.layers;
+    final recipe = ref.watch(recipeControllerProvider).recipe;
+    final layers = recipe.layers;
+    final maskGroups = recipe.maskGroups;
     final notifier = ref.read(recipeControllerProvider.notifier);
     final stylusOnly = ref.watch(stylusOnlyModeProvider);
     final nodeMode = ref.watch(nodeEditorProvider.select((s) => s.enabled));
+    final selectedIndex = ref.watch(nodeEditorProvider.select((s) => s.selected));
+    final groupIds = {for (final g in maskGroups) g.id};
 
     return ListView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -53,106 +58,44 @@ class MaskControls extends ConsumerWidget {
             children: [
               OutlinedButton.icon(
                 key: const Key('edit-on-canvas'),
-                onPressed: () =>
-                    ref.read(nodeEditorProvider.notifier).toggle(),
-                icon: Icon(
-                  nodeMode ? Icons.check : Icons.touch_app,
-                ),
-                label: Text(
-                  nodeMode ? 'Done placing' : 'Edit on canvas',
-                ),
+                onPressed: () => ref.read(nodeEditorProvider.notifier).toggle(),
+                icon: Icon(nodeMode ? Icons.check : Icons.touch_app),
+                label: Text(nodeMode ? 'Done placing' : 'Edit on canvas'),
               ),
               OutlinedButton.icon(
+                key: const Key('mask-new-group'),
                 onPressed: () {
-                  final idx = layers.length;
-                  notifier.addLayer(
-                    const AdjustmentLayer(
-                      maskKind: MaskKind.brush,
-                      maskParams: [0.06, 0.25, 0],
-                      exposure: 0.6,
-                    ),
-                  );
-                  ref.read(nodeEditorProvider.notifier).enable();
-                  ref.read(nodeEditorProvider.notifier).select(idx);
+                  final gid = 'group_${DateTime.now().microsecondsSinceEpoch}';
+                  final num = maskGroups.length + 1;
+                  notifier.addMaskGroup(MaskGroup(id: gid, name: 'Mask $num'));
                 },
+                icon: const Icon(Icons.create_new_folder_outlined),
+                label: const Text('New Group +'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _addMask(context, ref, MaskKind.brush),
                 icon: const Icon(Icons.brush),
                 label: const Text('Brush +'),
               ),
               OutlinedButton.icon(
-                onPressed: () {
-                  final idx = layers.length;
-                  final transform = ref.read(canvasTransformProvider);
-                  final center = transform?.viewportCenterNormalized() ?? const Offset(0.5, 0.5);
-                  final halfSpan = (0.25 / (transform?.scale ?? 1.0)).clamp(0.06, 0.35);
-                  final p0y = (center.dy - halfSpan).clamp(0.02, 0.98);
-                  final p1y = (center.dy + halfSpan).clamp(0.02, 0.98);
-                  notifier.addLayer(
-                    AdjustmentLayer(
-                      maskKind: MaskKind.linear,
-                      maskParams: [center.dx, p0y, center.dx, p1y],
-                      exposure: 0.6,
-                    ),
-                  );
-                  ref.read(nodeEditorProvider.notifier).enable();
-                  ref.read(nodeEditorProvider.notifier).select(idx);
-                },
+                onPressed: () => _addMask(context, ref, MaskKind.linear),
                 icon: const Icon(Icons.gradient),
                 label: const Text('Linear +'),
               ),
               OutlinedButton.icon(
-                onPressed: () {
-                  final idx = layers.length;
-                  final transform = ref.read(canvasTransformProvider);
-                  final center = transform?.viewportCenterNormalized() ?? const Offset(0.5, 0.5);
-                  final rx = (0.25 / (transform?.scale ?? 1.0)).clamp(0.05, 0.4);
-                  final ry = rx * (transform?.aspect ?? 1.0);
-                  notifier.addLayer(
-                    AdjustmentLayer(
-                      maskKind: MaskKind.radial,
-                      maskParams: [center.dx, center.dy, rx, ry, 0.3],
-                      exposure: 0.7,
-                    ),
-                  );
-                  ref.read(nodeEditorProvider.notifier).enable();
-                  ref.read(nodeEditorProvider.notifier).select(idx);
-                },
+                onPressed: () => _addMask(context, ref, MaskKind.radial),
                 icon: const Icon(Icons.brightness_5),
                 label: const Text('Radial +'),
               ),
               OutlinedButton.icon(
-                onPressed: () {
-                  final idx = layers.length;
-                  final transform = ref.read(canvasTransformProvider);
-                  final center = transform?.viewportCenterNormalized() ?? const Offset(0.5, 0.5);
-                  notifier.addLayer(
-                    AdjustmentLayer(
-                      maskKind: MaskKind.subject,
-                      maskParams: [center.dx, center.dy, 0.28, 0.38, 0.25],
-                      exposure: 0.5,
-                    ),
-                  );
-                  ref.read(nodeEditorProvider.notifier).enable();
-                  ref.read(nodeEditorProvider.notifier).select(idx);
-                },
+                onPressed: () => _addMask(context, ref, MaskKind.subject),
                 icon: const Icon(Icons.person),
                 label: const Text('Subject +'),
               ),
               OutlinedButton.icon(
                 key: const Key('mask-add-background'),
                 onPressed: () {
-                  final idx = layers.length;
-                  final transform = ref.read(canvasTransformProvider);
-                  final center = transform?.viewportCenterNormalized() ?? const Offset(0.5, 0.5);
-                  notifier.addLayer(
-                    AdjustmentLayer(
-                      maskKind: MaskKind.subject,
-                      maskParams: [center.dx, center.dy, 0.28, 0.38, 0.25],
-                      inverted: true,
-                      exposure: -0.4,
-                    ),
-                  );
-                  ref.read(nodeEditorProvider.notifier).enable();
-                  ref.read(nodeEditorProvider.notifier).select(idx);
+                  _addMask(context, ref, MaskKind.subject, inverted: true, exposure: -0.4);
                   HapticFeedback.selectionClick();
                 },
                 icon: const Icon(Icons.wallpaper),
@@ -196,13 +139,7 @@ class MaskControls extends ConsumerWidget {
                 label: const Text('Sky +'),
               ),
               OutlinedButton.icon(
-                onPressed: () => notifier.addLayer(
-                  const AdjustmentLayer(
-                    maskKind: MaskKind.luminance,
-                    maskParams: [0, 0.4],
-                    exposure: 0.8,
-                  ),
-                ),
+                onPressed: () => _addMask(context, ref, MaskKind.luminance),
                 icon: const Icon(Icons.dark_mode),
                 label: const Text('Darks +'),
               ),
@@ -248,14 +185,13 @@ class MaskControls extends ConsumerWidget {
               OutlinedButton.icon(
                 onPressed: () => _toggleStylusOnly(ref, !stylusOnly),
                 icon: const Icon(Icons.gesture),
-                label: stylusOnly
-                    ? const Text('Touch mode')
-                    : const Text('Stylus mode'),
+                label: stylusOnly ? const Text('Touch mode') : const Text('Stylus mode'),
               ),
             ],
           ),
         ),
-        if (layers.isEmpty)
+
+        if (layers.isEmpty && maskGroups.isEmpty)
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
@@ -263,295 +199,711 @@ class MaskControls extends ConsumerWidget {
               style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
-        for (var i = 0; i < layers.length; i++) ...[
-          Material(
-            color: Colors.transparent,
-            child: ListTile(
-              dense: true,
-              selected: i == ref.watch(nodeEditorProvider.select((s) => s.selected)),
-              leading: Icon(_maskIcon(layers[i].maskKind), size: 18),
-              title: Text(
-                '${layers[i].maskKind.name.toUpperCase()} layer ${i + 1}  '
-                'EV ${layers[i].exposure >= 0 ? '+' : ''}${layers[i].exposure.toStringAsFixed(2)}',
+
+        // --- MASK GROUPS (ADR 0013 / #92) ---
+        for (final group in maskGroups)
+          _buildGroupCard(
+            context,
+            ref,
+            group: group,
+            layers: layers,
+            selectedIndex: selectedIndex,
+            notifier: notifier,
+          ),
+
+        // --- UNGROUPED LAYERS (Backward-compatible / standalone) ---
+        if (maskGroups.isNotEmpty && layers.any((l) => l.groupId == null || !groupIds.contains(l.groupId)))
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'UNGROUPED MASKS',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+        for (var i = 0; i < layers.length; i++)
+          if (layers[i].groupId == null || !groupIds.contains(layers[i].groupId)) ...[
+            _buildLayerTile(
+              context,
+              ref,
+              i: i,
+              layer: layers[i],
+              isSelected: i == selectedIndex,
+              notifier: notifier,
+              showJoinOp: false,
+            ),
+            if (i == selectedIndex)
+              _buildInlineCard(context, ref, i: i, layer: layers[i], notifier: notifier),
+          ],
+      ],
+    );
+  }
+
+  Widget _buildGroupCard(
+    BuildContext context,
+    WidgetRef ref, {
+    required MaskGroup group,
+    required List<AdjustmentLayer> layers,
+    required int? selectedIndex,
+    required RecipeController notifier,
+  }) {
+    final theme = Theme.of(context);
+    final memberIndices = [for (var i = 0; i < layers.length; i++) if (layers[i].groupId == group.id) i];
+
+    return Card(
+      key: Key('mask-group-${group.id}'),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Group Header
+            Row(
+              children: [
+                Icon(Icons.layers, size: 20, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  group.name,
+                  key: Key('group-title-${group.id}'),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+                if (group.inverted) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Inverted',
+                      style: TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                IconButton(
+                  key: Key('group-invert-${group.id}'),
+                  tooltip: 'Invert Group Coverage',
+                  icon: Icon(
+                    group.inverted ? Icons.swap_horiz : Icons.swap_horizontal_circle_outlined,
+                    color: group.inverted ? Colors.orange : null,
+                    size: 20,
+                  ),
+                  onPressed: () => notifier.updateMaskGroup(group.copyWith(inverted: !group.inverted)),
+                ),
+                IconButton(
+                  key: Key('group-delete-${group.id}'),
+                  tooltip: 'Delete Group and Members',
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                  onPressed: () => notifier.removeMaskGroup(group.id),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+
+            // Group-level Amount Slider (0..200%)
+            _MaskSlider(
+              label: 'Group Amt',
+              sliderKey: Key('group-amount-${group.id}'),
+              value: group.amount,
+              min: 0.0,
+              max: 2.0,
+              displayValue: '${(group.amount * 100).round()}%',
+              onChanged: (val) => notifier.updateMaskGroup(group.copyWith(amount: val)),
+            ),
+
+            // Group-level Light & Color Sliders
+            _MaskSlider(
+              label: 'Exposure',
+              sliderKey: Key('group-exposure-${group.id}'),
+              value: group.exposure,
+              min: -2.0,
+              max: 2.0,
+              onChanged: (val) => notifier.updateMaskGroup(group.copyWith(exposure: val)),
+            ),
+            _MaskSlider(
+              label: 'Contrast',
+              sliderKey: Key('group-contrast-${group.id}'),
+              value: group.contrast,
+              min: -1.0,
+              max: 1.0,
+              onChanged: (val) => notifier.updateMaskGroup(group.copyWith(contrast: val)),
+            ),
+            _MaskSlider(
+              label: 'Highlights',
+              sliderKey: Key('group-highlights-${group.id}'),
+              value: group.highlights,
+              min: -1.0,
+              max: 1.0,
+              onChanged: (val) => notifier.updateMaskGroup(group.copyWith(highlights: val)),
+            ),
+            _MaskSlider(
+              label: 'Shadows',
+              sliderKey: Key('group-shadows-${group.id}'),
+              value: group.shadows,
+              min: -1.0,
+              max: 1.0,
+              onChanged: (val) => notifier.updateMaskGroup(group.copyWith(shadows: val)),
+            ),
+            _MaskSlider(
+              label: 'Temp',
+              sliderKey: Key('group-temp-${group.id}'),
+              value: group.temperature,
+              min: -1.0,
+              max: 1.0,
+              onChanged: (val) => notifier.updateMaskGroup(group.copyWith(temperature: val)),
+            ),
+            _MaskSlider(
+              label: 'Tint',
+              sliderKey: Key('group-tint-${group.id}'),
+              value: group.tint,
+              min: -1.0,
+              max: 1.0,
+              onChanged: (val) => notifier.updateMaskGroup(group.copyWith(tint: val)),
+            ),
+            _MaskSlider(
+              label: 'Saturation',
+              sliderKey: Key('group-saturation-${group.id}'),
+              value: group.saturation,
+              min: -1.0,
+              max: 1.0,
+              onChanged: (val) => notifier.updateMaskGroup(group.copyWith(saturation: val)),
+            ),
+
+            const Divider(height: 16),
+
+            // Group Action Toolbar (Add / Subtract / Intersect)
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                PopupMenuButton<MaskKind>(
+                  key: Key('group-add-${group.id}'),
+                  tooltip: 'Add mask to group',
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: MaskKind.brush, child: Text('Brush')),
+                    PopupMenuItem(value: MaskKind.linear, child: Text('Linear Gradient')),
+                    PopupMenuItem(value: MaskKind.radial, child: Text('Radial Gradient')),
+                    PopupMenuItem(value: MaskKind.subject, child: Text('Subject')),
+                    PopupMenuItem(value: MaskKind.sky, child: Text('Sky')),
+                    PopupMenuItem(value: MaskKind.luminance, child: Text('Luminance')),
+                  ],
+                  onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.add),
+                  child: Chip(
+                    avatar: const Icon(Icons.add, size: 14),
+                    label: const Text('Add', style: TextStyle(fontSize: 11)),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuButton<MaskKind>(
+                  key: Key('group-subtract-${group.id}'),
+                  tooltip: 'Subtract mask from group',
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: MaskKind.brush, child: Text('Brush')),
+                    PopupMenuItem(value: MaskKind.linear, child: Text('Linear Gradient')),
+                    PopupMenuItem(value: MaskKind.radial, child: Text('Radial Gradient')),
+                    PopupMenuItem(value: MaskKind.subject, child: Text('Subject')),
+                    PopupMenuItem(value: MaskKind.sky, child: Text('Sky')),
+                    PopupMenuItem(value: MaskKind.luminance, child: Text('Luminance')),
+                  ],
+                  onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.subtract),
+                  child: Chip(
+                    avatar: const Icon(Icons.remove, size: 14),
+                    label: const Text('Subtract', style: TextStyle(fontSize: 11)),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuButton<MaskKind>(
+                  key: Key('group-intersect-${group.id}'),
+                  tooltip: 'Intersect mask with group',
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: MaskKind.brush, child: Text('Brush')),
+                    PopupMenuItem(value: MaskKind.linear, child: Text('Linear Gradient')),
+                    PopupMenuItem(value: MaskKind.radial, child: Text('Radial Gradient')),
+                    PopupMenuItem(value: MaskKind.subject, child: Text('Subject')),
+                    PopupMenuItem(value: MaskKind.sky, child: Text('Sky')),
+                    PopupMenuItem(value: MaskKind.luminance, child: Text('Luminance')),
+                  ],
+                  onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.intersect),
+                  child: Chip(
+                    avatar: const Icon(Icons.join_inner, size: 14),
+                    label: const Text('Intersect', style: TextStyle(fontSize: 11)),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+
+            if (memberIndices.isNotEmpty) const SizedBox(height: 8),
+
+            // Members inside this group
+            for (final i in memberIndices) ...[
+              _buildLayerTile(
+                context,
+                ref,
+                i: i,
+                layer: layers[i],
+                isSelected: i == selectedIndex,
+                notifier: notifier,
+                showJoinOp: true,
+              ),
+              if (i == selectedIndex)
+                _buildInlineCard(context, ref, i: i, layer: layers[i], notifier: notifier),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLayerTile(
+    BuildContext context,
+    WidgetRef ref, {
+    required int i,
+    required AdjustmentLayer layer,
+    required bool isSelected,
+    required RecipeController notifier,
+    required bool showJoinOp,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        dense: true,
+        selected: isSelected,
+        leading: Icon(_maskIcon(layer.maskKind), size: 18),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${layer.maskKind.name.toUpperCase()} layer ${i + 1}  '
+                'EV ${layer.exposure >= 0 ? '+' : ''}${layer.exposure.toStringAsFixed(2)}',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               ),
-              subtitle: layers[i].inverted
-                  ? const Text(
-                      'Inverted (Reversed)',
-                      style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.w600),
-                    )
-                  : null,
-              onTap: () {
-                ref.read(nodeEditorProvider.notifier).select(i);
-                ref.read(nodeEditorProvider.notifier).enable();
-              },
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+            ),
+            if (showJoinOp) ...[
+              Wrap(
+                spacing: 4,
                 children: [
-                  IconButton(
-                    key: Key('mask-invert-$i'),
-                    tooltip: 'Invert / Reverse mask',
-                    icon: Icon(
-                      layers[i].inverted ? Icons.swap_horiz : Icons.swap_horizontal_circle_outlined,
-                      size: 18,
-                    ),
-                    onPressed: () =>
-                        notifier.updateLayerAt(i, layers[i].copyWith(inverted: !layers[i].inverted)),
+                  ChoiceChip(
+                    key: Key('mask-join-add-$i'),
+                    label: const Text('+', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    selected: layer.joinOp == MaskJoinOp.add,
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    showCheckmark: false,
+                    onSelected: (val) {
+                      if (val) notifier.updateLayerAt(i, layer.copyWith(joinOp: MaskJoinOp.add));
+                    },
                   ),
-                  IconButton(
-                    key: Key('mask-duplicate-$i'),
-                    tooltip: 'Duplicate mask',
-                    icon: const Icon(Icons.copy, size: 18),
-                    onPressed: () => notifier.addLayer(layers[i].copyWith()),
+                  ChoiceChip(
+                    key: Key('mask-join-subtract-$i'),
+                    label: const Text('-', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    selected: layer.joinOp == MaskJoinOp.subtract,
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    showCheckmark: false,
+                    onSelected: (val) {
+                      if (val) notifier.updateLayerAt(i, layer.copyWith(joinOp: MaskJoinOp.subtract));
+                    },
                   ),
-                  IconButton(
-                    key: Key('mask-delete-$i'),
-                    tooltip: 'Remove layer',
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    onPressed: () {
-                      notifier.removeLayerAt(i);
-                      if (ref.read(nodeEditorProvider).selected == i) {
-                        ref.read(nodeEditorProvider.notifier).select(null);
-                      }
+                  ChoiceChip(
+                    key: Key('mask-join-intersect-$i'),
+                    label: const Text('⋂', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    selected: layer.joinOp == MaskJoinOp.intersect,
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    showCheckmark: false,
+                    onSelected: (val) {
+                      if (val) notifier.updateLayerAt(i, layer.copyWith(joinOp: MaskJoinOp.intersect));
                     },
                   ),
                 ],
               ),
+            ],
+          ],
+        ),
+        subtitle: layer.inverted
+            ? const Text(
+                'Inverted (Reversed)',
+                style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.w600),
+              )
+            : null,
+        onTap: () {
+          ref.read(nodeEditorProvider.notifier).select(i);
+          ref.read(nodeEditorProvider.notifier).enable();
+        },
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              key: Key('mask-invert-$i'),
+              tooltip: 'Invert / Reverse mask',
+              icon: Icon(
+                layer.inverted ? Icons.swap_horiz : Icons.swap_horizontal_circle_outlined,
+                size: 18,
+              ),
+              onPressed: () => notifier.updateLayerAt(i, layer.copyWith(inverted: !layer.inverted)),
             ),
-          ),
-          if (i == ref.watch(nodeEditorProvider.select((s) => s.selected)))
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Card(
-                elevation: 0,
-                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          FilterChip(
-                            key: const Key('mask-inline-invert'),
-                            label: const Text('Invert', style: TextStyle(fontSize: 11)),
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            selected: layers[i].inverted,
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            onSelected: (val) {
-                              notifier.updateLayerAt(i, layers[i].copyWith(inverted: val));
-                            },
-                          ),
-                          if (layers[i].maskKind == MaskKind.brush) ...[
-                            ChoiceChip(
-                              key: const Key('mask-inline-brush-paint'),
-                              label: const Text('Paint', style: TextStyle(fontSize: 11)),
-                              selected: !ref.watch(nodeEditorProvider.select((s) => s.eraserMode)),
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              showCheckmark: false,
-                              onSelected: (val) {
-                                if (val) ref.read(nodeEditorProvider.notifier).setEraserMode(false);
-                              },
-                            ),
-                            ChoiceChip(
-                              key: const Key('mask-inline-brush-erase'),
-                              label: const Text('Erase', style: TextStyle(fontSize: 11)),
-                              selected: ref.watch(nodeEditorProvider.select((s) => s.eraserMode)),
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              showCheckmark: false,
-                              onSelected: (val) {
-                                if (val) ref.read(nodeEditorProvider.notifier).setEraserMode(true);
-                              },
-                            ),
-                          ] else ...[
-                            ActionChip(
-                              key: const Key('mask-subtract'),
-                              avatar: const Icon(Icons.remove_circle_outline, size: 14),
-                              label: const Text('Subtract', style: TextStyle(fontSize: 11)),
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              onPressed: () {
-                                notifier.updateLayerAt(i, layers[i].copyWith(inverted: true));
-                              },
-                            ),
-                          ],
-                          ActionChip(
-                            key: const Key('mask-inline-duplicate'),
-                            avatar: const Icon(Icons.copy, size: 14),
-                            label: const Text('Duplicate', style: TextStyle(fontSize: 11)),
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            onPressed: () => notifier.addLayer(layers[i].copyWith()),
-                          ),
-                          if (layers[i].maskKind == MaskKind.brush && layers[i].brushPointCount > 0)
-                            TextButton.icon(
-                              key: const Key('mask-inline-brush-clear'),
-                              style: TextButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              icon: const Icon(Icons.clear, size: 14),
-                              label: const Text('Clear', style: TextStyle(fontSize: 11)),
-                              onPressed: () {
-                                notifier.updateLayerAt(i, layers[i].withClearedStrokes());
-                              },
-                            ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Text(
-                              'EV ${layers[i].exposure >= 0 ? '+' : ''}${layers[i].exposure.toStringAsFixed(2)}',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (layers[i].maskKind == MaskKind.brush) ...[
-                        _MaskSlider(
-                          label: 'Brush Size',
-                          sliderKey: const Key('mask-inline-brush-size-slider'),
-                          value: layers[i].brushRadius,
-                          min: 0.01,
-                          max: 0.5,
-                          onChanged: (val) => notifier.updateLayerAt(i, layers[i].withBrushRadius(val)),
-                        ),
-                        _MaskSlider(
-                          label: 'Feather',
-                          sliderKey: const Key('mask-inline-brush-feather-slider'),
-                          value: layers[i].brushFeather,
-                          min: 0.0,
-                          max: 1.0,
-                          onChanged: (val) => notifier.updateLayerAt(i, layers[i].withBrushFeather(val)),
-                        ),
-                      ],
-                      if (layers[i].maskKind == MaskKind.sky) ...[
-                        _MaskSlider(
-                          label: 'Horizon',
-                          sliderKey: const Key('mask-inline-sky-horizon-slider'),
-                          value: layers[i].skyHorizon,
-                          min: 0.05,
-                          max: 0.95,
-                          onChanged: (val) => notifier.updateLayerAt(i, layers[i].withSkyHorizon(val)),
-                        ),
-                        _MaskSlider(
-                          label: 'Feather',
-                          sliderKey: const Key('mask-inline-sky-feather-slider'),
-                          value: layers[i].skyFeather,
-                          min: 0.01,
-                          max: 0.5,
-                          onChanged: (val) => notifier.updateLayerAt(i, layers[i].withSkyFeather(val)),
-                        ),
-                        _MaskSlider(
-                          label: 'Blue Weight',
-                          sliderKey: const Key('mask-inline-sky-blue-weight-slider'),
-                          value: layers[i].skyBlueWeight,
-                          min: 0.0,
-                          max: 1.0,
-                          onChanged: (val) => notifier.updateLayerAt(i, layers[i].withSkyBlueWeight(val)),
-                        ),
-                      ],
-                      const SizedBox(height: 6),
-                      _MaskSlider(
-                        label: 'Amount',
-                        sliderKey: const Key('mask-inline-amount-slider'),
-                        value: layers[i].amount,
-                        min: 0.0,
-                        max: 2.0,
-                        displayValue: '${(layers[i].amount * 100).round()}%',
-                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(amount: val)),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'LIGHT CONTROLS',
-                        style: TextStyle(
-                          fontSize: 10,
-                          letterSpacing: 1.0,
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      _MaskSlider(
-                        label: 'Exposure',
-                        sliderKey: const Key('mask-inline-exposure-slider'),
-                        value: layers[i].exposure,
-                        min: -2.0,
-                        max: 2.0,
-                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(exposure: val)),
-                      ),
-                      _MaskSlider(
-                        label: 'Contrast',
-                        sliderKey: const Key('mask-inline-contrast-slider'),
-                        value: layers[i].contrast,
-                        min: -1.0,
-                        max: 1.0,
-                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(contrast: val)),
-                      ),
-                      _MaskSlider(
-                        label: 'Highlights',
-                        sliderKey: const Key('mask-inline-highlights-slider'),
-                        value: layers[i].highlights,
-                        min: -1.0,
-                        max: 1.0,
-                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(highlights: val)),
-                      ),
-                      _MaskSlider(
-                        label: 'Shadows',
-                        sliderKey: const Key('mask-inline-shadows-slider'),
-                        value: layers[i].shadows,
-                        min: -1.0,
-                        max: 1.0,
-                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(shadows: val)),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'COLOR CONTROLS',
-                        style: TextStyle(
-                          fontSize: 10,
-                          letterSpacing: 1.0,
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      _MaskSlider(
-                        label: 'Temp',
-                        sliderKey: const Key('mask-inline-temp-slider'),
-                        value: layers[i].temperature,
-                        min: -1.0,
-                        max: 1.0,
-                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(temperature: val)),
-                      ),
-                      _MaskSlider(
-                        label: 'Tint',
-                        sliderKey: const Key('mask-inline-tint-slider'),
-                        value: layers[i].tint,
-                        min: -1.0,
-                        max: 1.0,
-                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(tint: val)),
-                      ),
-                      _MaskSlider(
-                        label: 'Saturation',
-                        sliderKey: const Key('mask-inline-saturation-slider'),
-                        value: layers[i].saturation,
-                        min: -1.0,
-                        max: 1.0,
-                        onChanged: (val) => notifier.updateLayerAt(i, layers[i].copyWith(saturation: val)),
-                      ),
-                    ],
+            IconButton(
+              key: Key('mask-duplicate-$i'),
+              tooltip: 'Duplicate mask',
+              icon: const Icon(Icons.copy, size: 18),
+              onPressed: () => notifier.addLayer(layer.copyWith()),
+            ),
+            IconButton(
+              key: Key('mask-delete-$i'),
+              tooltip: 'Remove layer',
+              icon: const Icon(Icons.delete_outline, size: 18),
+              onPressed: () {
+                notifier.removeLayerAt(i);
+                if (ref.read(nodeEditorProvider).selected == i) {
+                  ref.read(nodeEditorProvider.notifier).select(null);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInlineCard(
+    BuildContext context,
+    WidgetRef ref, {
+    required int i,
+    required AdjustmentLayer layer,
+    required RecipeController notifier,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Card(
+        elevation: 0,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  FilterChip(
+                    key: const Key('mask-inline-invert'),
+                    label: const Text('Invert', style: TextStyle(fontSize: 11)),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    selected: layer.inverted,
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    onSelected: (val) {
+                      notifier.updateLayerAt(i, layer.copyWith(inverted: val));
+                    },
                   ),
+                  if (layer.maskKind == MaskKind.brush) ...[
+                    ChoiceChip(
+                      key: const Key('mask-inline-brush-paint'),
+                      label: const Text('Paint', style: TextStyle(fontSize: 11)),
+                      selected: !ref.watch(nodeEditorProvider.select((s) => s.eraserMode)),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      showCheckmark: false,
+                      onSelected: (val) {
+                        if (val) ref.read(nodeEditorProvider.notifier).setEraserMode(false);
+                      },
+                    ),
+                    ChoiceChip(
+                      key: const Key('mask-inline-brush-erase'),
+                      label: const Text('Erase', style: TextStyle(fontSize: 11)),
+                      selected: ref.watch(nodeEditorProvider.select((s) => s.eraserMode)),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      showCheckmark: false,
+                      onSelected: (val) {
+                        if (val) ref.read(nodeEditorProvider.notifier).setEraserMode(true);
+                      },
+                    ),
+                  ] else ...[
+                    ActionChip(
+                      key: const Key('mask-subtract'),
+                      avatar: const Icon(Icons.remove_circle_outline, size: 14),
+                      label: const Text('Subtract', style: TextStyle(fontSize: 11)),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        notifier.updateLayerAt(i, layer.copyWith(inverted: true));
+                      },
+                    ),
+                  ],
+                  ActionChip(
+                    key: const Key('mask-inline-duplicate'),
+                    avatar: const Icon(Icons.copy, size: 14),
+                    label: const Text('Duplicate', style: TextStyle(fontSize: 11)),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    onPressed: () => notifier.addLayer(layer.copyWith()),
+                  ),
+                  if (layer.maskKind == MaskKind.brush && layer.brushPointCount > 0)
+                    TextButton.icon(
+                      key: const Key('mask-inline-brush-clear'),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: const Icon(Icons.clear, size: 14),
+                      label: const Text('Clear', style: TextStyle(fontSize: 11)),
+                      onPressed: () {
+                        notifier.updateLayerAt(i, layer.withClearedStrokes());
+                      },
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      'EV ${layer.exposure >= 0 ? '+' : ''}${layer.exposure.toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              if (layer.maskKind == MaskKind.brush) ...[
+                _MaskSlider(
+                  label: 'Brush Size',
+                  sliderKey: const Key('mask-inline-brush-size-slider'),
+                  value: layer.brushRadius,
+                  min: 0.01,
+                  max: 0.5,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.withBrushRadius(val)),
+                ),
+                _MaskSlider(
+                  label: 'Feather',
+                  sliderKey: const Key('mask-inline-brush-feather-slider'),
+                  value: layer.brushFeather,
+                  min: 0.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.withBrushFeather(val)),
+                ),
+              ],
+              if (layer.maskKind == MaskKind.sky) ...[
+                _MaskSlider(
+                  label: 'Horizon',
+                  sliderKey: const Key('mask-inline-sky-horizon-slider'),
+                  value: layer.skyHorizon,
+                  min: 0.05,
+                  max: 0.95,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.withSkyHorizon(val)),
+                ),
+                _MaskSlider(
+                  label: 'Feather',
+                  sliderKey: const Key('mask-inline-sky-feather-slider'),
+                  value: layer.skyFeather,
+                  min: 0.01,
+                  max: 0.5,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.withSkyFeather(val)),
+                ),
+                _MaskSlider(
+                  label: 'Blue Weight',
+                  sliderKey: const Key('mask-inline-sky-blue-weight-slider'),
+                  value: layer.skyBlueWeight,
+                  min: 0.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.withSkyBlueWeight(val)),
+                ),
+              ],
+              const SizedBox(height: 6),
+              _MaskSlider(
+                label: 'Amount',
+                sliderKey: const Key('mask-inline-amount-slider'),
+                value: layer.amount,
+                min: 0.0,
+                max: 2.0,
+                displayValue: '${(layer.amount * 100).round()}%',
+                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(amount: val)),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'LIGHT CONTROLS',
+                style: TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 1.0,
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
-            ),
-        ],
-      ],
+              _MaskSlider(
+                label: 'Exposure',
+                sliderKey: const Key('mask-inline-exposure-slider'),
+                value: layer.exposure,
+                min: -2.0,
+                max: 2.0,
+                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(exposure: val)),
+              ),
+              _MaskSlider(
+                label: 'Contrast',
+                sliderKey: const Key('mask-inline-contrast-slider'),
+                value: layer.contrast,
+                min: -1.0,
+                max: 1.0,
+                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(contrast: val)),
+              ),
+              _MaskSlider(
+                label: 'Highlights',
+                sliderKey: const Key('mask-inline-highlights-slider'),
+                value: layer.highlights,
+                min: -1.0,
+                max: 1.0,
+                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(highlights: val)),
+              ),
+              _MaskSlider(
+                label: 'Shadows',
+                sliderKey: const Key('mask-inline-shadows-slider'),
+                value: layer.shadows,
+                min: -1.0,
+                max: 1.0,
+                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(shadows: val)),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'COLOR CONTROLS',
+                style: TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 1.0,
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              _MaskSlider(
+                label: 'Temp',
+                sliderKey: const Key('mask-inline-temp-slider'),
+                value: layer.temperature,
+                min: -1.0,
+                max: 1.0,
+                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(temperature: val)),
+              ),
+              _MaskSlider(
+                label: 'Tint',
+                sliderKey: const Key('mask-inline-tint-slider'),
+                value: layer.tint,
+                min: -1.0,
+                max: 1.0,
+                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(tint: val)),
+              ),
+              _MaskSlider(
+                label: 'Saturation',
+                sliderKey: const Key('mask-inline-saturation-slider'),
+                value: layer.saturation,
+                min: -1.0,
+                max: 1.0,
+                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(saturation: val)),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+  }
+
+  void _addMask(
+    BuildContext context,
+    WidgetRef ref,
+    MaskKind kind, {
+    String? groupId,
+    MaskJoinOp joinOp = MaskJoinOp.add,
+    bool inverted = false,
+    double? exposure,
+  }) {
+    final notifier = ref.read(recipeControllerProvider.notifier);
+    final transform = ref.read(canvasTransformProvider);
+    final center = transform?.viewportCenterNormalized() ?? const Offset(0.5, 0.5);
+    final halfSpan = (0.25 / (transform?.scale ?? 1.0)).clamp(0.06, 0.35);
+    final p0y = (center.dy - halfSpan).clamp(0.02, 0.98);
+    final p1y = (center.dy + halfSpan).clamp(0.02, 0.98);
+    final rx = (0.25 / (transform?.scale ?? 1.0)).clamp(0.05, 0.4);
+    final ry = rx * (transform?.aspect ?? 1.0);
+
+    final AdjustmentLayer layer = switch (kind) {
+      MaskKind.brush => AdjustmentLayer(
+        maskKind: MaskKind.brush,
+        maskParams: const [0.06, 0.25, 0],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        exposure: exposure ?? 0.6,
+      ),
+      MaskKind.linear => AdjustmentLayer(
+        maskKind: MaskKind.linear,
+        maskParams: [center.dx, p0y, center.dx, p1y],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        exposure: exposure ?? 0.6,
+      ),
+      MaskKind.radial => AdjustmentLayer(
+        maskKind: MaskKind.radial,
+        maskParams: [center.dx, center.dy, rx, ry, 0.3],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        exposure: exposure ?? 0.7,
+      ),
+      MaskKind.subject => AdjustmentLayer(
+        maskKind: MaskKind.subject,
+        maskParams: [center.dx, center.dy, 0.28, 0.38, 0.25],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        exposure: exposure ?? (inverted ? -0.4 : 0.5),
+      ),
+      MaskKind.sky => AdjustmentLayer(
+        maskKind: MaskKind.sky,
+        maskParams: const [0.5, 0.15, 0.6],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        highlights: -0.6,
+        saturation: 0.2,
+      ),
+      MaskKind.luminance => AdjustmentLayer(
+        maskKind: MaskKind.luminance,
+        maskParams: const [0, 0.4],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        exposure: exposure ?? 0.8,
+      ),
+      MaskKind.bitmap => AdjustmentLayer(
+        maskKind: MaskKind.brush,
+        maskParams: const [0.06, 0.25, 0],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        exposure: exposure ?? 0.6,
+      ),
+    };
+
+    final idx = ref.read(recipeControllerProvider).recipe.layers.length;
+    if (groupId != null) {
+      notifier.addLayerToGroup(groupId: groupId, layer: layer, joinOp: joinOp);
+    } else {
+      notifier.addLayer(layer);
+    }
+    ref.read(nodeEditorProvider.notifier).enable();
+    ref.read(nodeEditorProvider.notifier).select(idx);
   }
 
   IconData _maskIcon(MaskKind kind) => switch (kind) {

@@ -136,6 +136,7 @@ class ExportSpecs {
     required this.optics,
     required this.geometry,
     required this.layers,
+    this.maskGroups = const [],
   });
 
   final GradeSpec grade;
@@ -143,6 +144,7 @@ class ExportSpecs {
   final OpticsSpec optics;
   final GeometrySpec geometry;
   final List<AdjustmentLayer> layers;
+  final List<MaskGroup> maskGroups;
 }
 
 ExportSpecs specsFor(EditRecipe recipe) => ExportSpecs(
@@ -151,6 +153,7 @@ ExportSpecs specsFor(EditRecipe recipe) => ExportSpecs(
   optics: OpticsSpec.fromRecipe(recipe),
   geometry: GeometrySpec.fromRecipe(recipe),
   layers: recipe.layers,
+  maskGroups: recipe.maskGroups,
 );
 
 /// Exports gallery assets to the device Photos/DCIM (batch or single), applying
@@ -242,6 +245,7 @@ class GalleryExporter {
         optics: specs.optics,
         geometry: specs.geometry,
         layers: specs.layers,
+        maskGroups: specs.maskGroups,
         exif: exif,
         cancelToken: token,
       );

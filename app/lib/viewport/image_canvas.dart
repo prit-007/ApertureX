@@ -459,6 +459,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       fullHeight: _fullH,
       spec: spec,
       layers: recipe.layers,
+      maskGroups: recipe.maskGroups,
     );
     return _imageFrom(baked.rgba, baked.width, baked.height);
   }
@@ -561,6 +562,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     r.denoiseChroma,
     Object.hashAll(r.crop),
     Object.hashAll(r.layers),
+    Object.hashAll(r.maskGroups),
   );
 
   int _gradeKey(EditRecipe r) => Object.hash(
@@ -696,6 +698,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       handle,
       spec: _baseSpec(recipe),
       layers: recipe.layers,
+      maskGroups: recipe.maskGroups,
     );
     final image = await _imageFrom(frame.rgba, frame.width, frame.height);
     if (!mounted || token != _bakeToken) {
@@ -774,6 +777,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         handle,
         spec: _baseSpec(recipe),
         layers: recipe.layers,
+        maskGroups: recipe.maskGroups,
         grade: GradeSpec.fromRecipe(recipe),
         baseChanged: baseChanged,
       );

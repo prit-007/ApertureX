@@ -399,14 +399,54 @@ class AxEngine {
         gradeBalance: 0,
       );
 
-  static rust_mask.MaskLayer _maskLayer(AdjustmentLayer l) =>
+  static rust_color.ColorParams _groupParams(MaskGroup g) =>
+      rust_color.ColorParams(
+        exposure: g.exposure,
+        contrast: g.contrast,
+        whites: 0,
+        blacks: 0,
+        saturation: g.saturation,
+        temperature: g.temperature,
+        tint: g.tint,
+        vibrance: 0,
+        gradeShadowHue: 0,
+        gradeShadowSat: 0,
+        gradeShadowLum: 0,
+        gradeMidHue: 0,
+        gradeMidSat: 0,
+        gradeMidLum: 0,
+        gradeHighlightHue: 0,
+        gradeHighlightSat: 0,
+        gradeHighlightLum: 0,
+        gradeBlending: 0.5,
+        gradeBalance: 0,
+      );
+
+  static rust_mask.MaskLayer _maskLayer(
+    AdjustmentLayer l, {
+    MaskGroup? group,
+  }) =>
       rust_mask.MaskLayer(
         kind: l.maskKind.index,
         mask: l.toBridgeMaskParams(),
-        params: _localParams(l),
+        params: group != null ? _groupParams(group) : _localParams(l),
         inverted: l.inverted,
         amount: l.amount,
+        groupId: l.groupId,
+        joinOp: l.joinOp.index,
+        groupInverted: group?.inverted ?? false,
+        groupAmount: group?.amount ?? 1.0,
       );
+
+  static List<rust_mask.MaskLayer> _mapLayers(
+    List<AdjustmentLayer> layers, [
+    List<MaskGroup> maskGroups = const [],
+  ]) {
+    final groupMap = {for (final g in maskGroups) g.id: g};
+    return layers
+        .map((l) => _maskLayer(l, group: l.groupId != null ? groupMap[l.groupId] : null))
+        .toList();
+  }
 
   /// Composites local adjustment [layers] over [rgba] (masks + sub-grades).
   static Future<Uint8List> applyMasks(
@@ -414,13 +454,14 @@ class AxEngine {
     required int width,
     required int height,
     required List<AdjustmentLayer> layers,
+    List<MaskGroup> maskGroups = const [],
   }) {
     if (layers.isEmpty) return Future.value(rgba);
     return rust_mask.applyMasks(
       rgba: rgba,
       width: width,
       height: height,
-      layers: layers.map(_maskLayer).toList(),
+      layers: _mapLayers(layers, maskGroups),
     );
   }
 
@@ -455,10 +496,11 @@ class AxEngine {
     int handle, {
     required PreviewBaseSpec spec,
     required List<AdjustmentLayer> layers,
+    List<MaskGroup> maskGroups = const [],
   }) => rust_preview.previewBase(
     handle: BigInt.from(handle),
     spec: spec,
-    layers: layers.map(_maskLayer).toList(),
+    layers: _mapLayers(layers, maskGroups),
   );
 
   /// Halo rows of context ([spatial margin]) the high-zoom ROI overlay (#55)
@@ -491,6 +533,7 @@ class AxEngine {
     required int fullHeight,
     required PreviewBaseSpec spec,
     required List<AdjustmentLayer> layers,
+    List<MaskGroup> maskGroups = const [],
   }) => rust_roi.bakeRoiBand(
     band: band,
     decodeTop: decodeTop,
@@ -499,7 +542,7 @@ class AxEngine {
     fullWidth: fullWidth,
     fullHeight: fullHeight,
     spec: spec,
-    layers: layers.map(_maskLayer).toList(),
+    layers: _mapLayers(layers, maskGroups),
   );
 
   /// Bakes the spatial + mask chain of [previewBase] onto a decoded **rect
@@ -524,6 +567,7 @@ class AxEngine {
     required int fullHeight,
     required PreviewBaseSpec spec,
     required List<AdjustmentLayer> layers,
+    List<MaskGroup> maskGroups = const [],
   }) => rust_roi.bakeRoiRect(
     rect: rect,
     decodeX: decodeX,
@@ -537,7 +581,7 @@ class AxEngine {
     fullWidth: fullWidth,
     fullHeight: fullHeight,
     spec: spec,
-    layers: layers.map(_maskLayer).toList(),
+    layers: _mapLayers(layers, maskGroups),
   );
 
   /// Histogram binned from the **cached** base inside Rust — zero pixels
@@ -563,12 +607,13 @@ class AxEngine {
     int handle, {
     required PreviewBaseSpec spec,
     required List<AdjustmentLayer> layers,
+    List<MaskGroup> maskGroups = const [],
     required GradeSpec grade,
     required bool baseChanged,
   }) => rust_preview.previewRender(
     handle: BigInt.from(handle),
     spec: spec,
-    layers: layers.map(_maskLayer).toList(),
+    layers: _mapLayers(layers, maskGroups),
     params: _colorParams(grade),
     curves: _curveParams(grade),
     hsl: grade.hsl,
@@ -615,6 +660,7 @@ class AxEngine {
     OpticsSpec optics = const OpticsSpec(),
     GeometrySpec geometry = const GeometrySpec(),
     List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
+    List<MaskGroup> maskGroups = const <MaskGroup>[],
     List<int> exif = const <int>[],
     int quality = 90,
     int? maxDim,
@@ -668,7 +714,7 @@ class AxEngine {
         bandRows: 256,
         cancelToken: BigInt.from(cancelToken),
       ),
-      layers: layers.map(_maskLayer).toList(),
+      layers: _mapLayers(layers, maskGroups),
       params: _colorParams(spec),
       curves: _curveParams(spec),
       hsl: spec.hsl,
@@ -689,6 +735,7 @@ class AxEngine {
     OpticsSpec optics = const OpticsSpec(),
     GeometrySpec geometry = const GeometrySpec(),
     List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
+    List<MaskGroup> maskGroups = const <MaskGroup>[],
     List<int> exif = const <int>[],
     int quality = 90,
     int? maxDim,
@@ -702,6 +749,7 @@ class AxEngine {
       optics: optics,
       geometry: geometry,
       layers: layers,
+      maskGroups: maskGroups,
       exif: exif,
       quality: quality,
       maxDim: maxDim,
