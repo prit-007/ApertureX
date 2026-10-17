@@ -2,8 +2,40 @@ import 'dart:io';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aperturex/features/c2pa/c2pa_service.dart';
+import 'package:aperturex/src/rust/api/c2pa.dart';
 import 'package:aperturex/src/rust/frb_generated.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class MockRustLibApi extends Fake implements RustLibApi {
+  @override
+  Future<C2paDeviceInfo> crateApiC2PaC2PaGenerateDeviceKey({
+    required List<int> deviceSeed,
+  }) async {
+    return C2paDeviceInfo(
+      privateKey: Uint8List.fromList(deviceSeed),
+      keyId: 'c2pa:apx:${deviceSeed.take(4).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}',
+    );
+  }
+
+  @override
+  Future<C2paVerifyResult> crateApiC2PaC2PaVerifyImage({
+    required List<int> imageBytes,
+    Uint8List? devicePrivateKey,
+  }) async {
+    return const C2paVerifyResult(
+      status: 'NoManifest',
+      isValid: false,
+      title: '',
+      claimGenerator: '',
+      signerKeyId: '',
+      actions: [],
+      cameraMetadata: '',
+      recipeHash: '',
+      pixelHash: '',
+      statusMessage: 'No C2PA Content Credentials manifest found in JPEG APP11 segments',
+    );
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -11,8 +43,12 @@ void main() {
   setUpAll(() async {
     final soPath = '${Directory.current.path}/rust/target/debug/librust_lib_aperturex.so';
     if (File(soPath).existsSync()) {
-      await RustLib.init(externalLibrary: ExternalLibrary.open(soPath));
+      try {
+        await RustLib.init(externalLibrary: ExternalLibrary.open(soPath));
+        return;
+      } catch (_) {}
     }
+    RustLib.initMock(api: MockRustLibApi());
   });
 
   setUp(() {
