@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../core/log/activity_log.dart';
@@ -15,11 +17,18 @@ import '../features/editor/editor_screen.dart';
 import '../ui/common/app_primitives.dart';
 import '../ui/common/app_sheet.dart';
 import '../ui/common/settings_sheet.dart';
+import 'edit_preview_store.dart';
 import 'gallery_asset.dart';
 import 'gallery_controller.dart';
 import 'gallery_export.dart';
 import 'gallery_grouping.dart';
 import 'gallery_source.dart';
+
+/// Which gallery scope is displayed (#85).
+enum GalleryScope {
+  photos,
+  edits,
+}
 
 /// The app home: the device gallery, grouped by date (newest first) with album
 /// switching — Google-Photos style. Tap a photo to edit it; long-press to
@@ -33,6 +42,8 @@ class GalleryScreen extends ConsumerStatefulWidget {
 }
 
 class _GalleryScreenState extends ConsumerState<GalleryScreen> {
+  GalleryScope _scope = GalleryScope.photos;
+
   /// Non-null while a batch export runs — owns the cooperative cancel and
   /// drives the bottom-bar progress UI (#75).
   BatchCancel? _exportCancel;
@@ -58,20 +69,41 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
 
   GallerySource get _source => ref.read(gallerySourceProvider);
 
-  void _open(GalleryAsset asset) {
+  void _open(GalleryAsset asset) async {
     axLog(LogDomain.editor, 'Opened photo ${asset.id}');
-    Navigator.of(
+    final res = await Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (_) => EditorScreen(asset: asset)));
+    ).push<dynamic>(MaterialPageRoute<dynamic>(builder: (_) => EditorScreen(asset: asset)));
+    if (res == 'show_edits' && mounted) {
+      setState(() => _scope = GalleryScope.edits);
+    }
   }
 
   /// Opens [asset]'s pixels under a specific catalog entry — a virtual copy
   /// shares the original's data but carries its own recipe (#73).
-  void _openEntry(GalleryAsset asset, String entryId) {
+  void _openEntry(GalleryAsset asset, String entryId) async {
     axLog(LogDomain.editor, 'Opened $entryId');
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final res = await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute<dynamic>(
         builder: (_) => EditorScreen(asset: asset, entryId: entryId),
+      ),
+    );
+    if (res == 'show_edits' && mounted) {
+      setState(() => _scope = GalleryScope.edits);
+    }
+  }
+
+  void _openSavedPreview(EditPreview preview) async {
+    final file = File(preview.path);
+    if (!file.existsSync()) return;
+    final bytes = file.readAsBytesSync();
+    axLog(LogDomain.editor, 'Opened saved edit ${preview.entryId}');
+    await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute<dynamic>(
+        builder: (_) => EditorScreen(
+          imageBytes: bytes,
+          entryId: preview.entryId,
+        ),
       ),
     );
   }
@@ -127,6 +159,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
         await _renameVc(entry);
       case 'delete':
         catalog.deleteVirtualCopy(entry.entryId);
+        ref.read(editPreviewStoreProvider).delete(entry.entryId);
         _snack('Deleted virtual copy');
     }
   }
@@ -254,7 +287,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
             ],
           ],
         ),
-        body: _body(state, controller),
+        body: _buildBody(state, controller),
         bottomNavigationBar: _exportCancel != null
             ? _ExportProgressBar(
                 done: _exportDone,
@@ -271,6 +304,203 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                 onExport: _export,
               )
             : null,
+      ),
+    );
+  }
+
+  Widget _buildBody(GalleryState state, GalleryController controller) {
+    return Column(
+      children: [
+        if (!state.selectionMode)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Insets.md,
+              vertical: Insets.xs,
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<GalleryScope>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                ),
+                segments: const [
+                  ButtonSegment<GalleryScope>(
+                    value: GalleryScope.photos,
+                    label: Text('Photos'),
+                    icon: Icon(Icons.photo_library_outlined, size: 16),
+                  ),
+                  ButtonSegment<GalleryScope>(
+                    value: GalleryScope.edits,
+                    label: Text('Edits'),
+                    icon: Icon(Icons.auto_fix_high_outlined, size: 16),
+                  ),
+                ],
+                selected: {_scope},
+                onSelectionChanged: (set) => setState(() => _scope = set.first),
+              ),
+            ),
+          ),
+        Expanded(
+          child: _scope == GalleryScope.photos
+              ? _body(state, controller)
+              : _editsBody(state),
+        ),
+      ],
+    );
+  }
+
+  Widget _editsBody(GalleryState state) {
+    final previewsAsync = ref.watch(editPreviewsStreamProvider);
+    return previewsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, _) => Center(child: Text('Error loading edits: $e')),
+      data: (previews) {
+        if (previews.isEmpty) {
+          return EmptyState(
+            icon: Icons.auto_fix_normal_outlined,
+            title: 'No edits saved yet',
+            message:
+                'Use "Save to ApertureX" in the editor export sheet to keep your rendered edits here.',
+            action: FilledButton.tonal(
+              onPressed: _openSample,
+              child: const Text('Try the editor'),
+            ),
+          );
+        }
+
+        final grouped = <String, List<EditPreview>>{};
+        for (final p in previews) {
+          final label = dateHeaderLabel(p.created);
+          (grouped[label] ??= []).add(p);
+        }
+
+        final catalog = ref.watch(libraryCatalogProvider);
+
+        final slivers = <Widget>[];
+        for (final entry in grouped.entries) {
+          slivers.add(SliverToBoxAdapter(child: _DateHeader(label: entry.key)));
+          final items = entry.value;
+          slivers.add(
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              sliver: SliverGrid.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 2,
+                  crossAxisSpacing: 2,
+                ),
+                itemCount: items.length,
+                itemBuilder: (context, idx) {
+                  final preview = items[idx];
+                  final catalogEntry = catalog[preview.entryId];
+                  final matchingAsset = state.assets.cast<GalleryAsset?>().firstWhere(
+                    (a) => a?.id == sourceAssetIdFor(preview.entryId),
+                    orElse: () => null,
+                  );
+
+                  return _EditPreviewCell(
+                    preview: preview,
+                    catalogEntry: catalogEntry,
+                    onTap: () {
+                      if (matchingAsset != null) {
+                        _openEntry(matchingAsset, preview.entryId);
+                      } else {
+                        _openSavedPreview(preview);
+                      }
+                    },
+                    onLongPressStart: (pos) => _editPreviewMenu(
+                      preview,
+                      matchingAsset,
+                      catalogEntry,
+                      pos,
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+        }
+        slivers.add(const SliverToBoxAdapter(child: SizedBox(height: Insets.lg)));
+        return CustomScrollView(slivers: slivers);
+      },
+    );
+  }
+
+  void _editPreviewMenu(
+    EditPreview preview,
+    GalleryAsset? asset,
+    CatalogEntry? catalogEntry,
+    Offset pos,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Insets.sm),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Insets.md,
+                  vertical: Insets.xs,
+                ),
+                child: Text(
+                  catalogEntry?.label ?? 'Edit Preview',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Open'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  if (asset != null) {
+                    _openEntry(asset, preview.entryId);
+                  } else {
+                    _openSavedPreview(preview);
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share_outlined),
+                title: const Text('Share'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  SharePlus.instance.share(
+                    ShareParams(
+                      files: [
+                        XFile(preview.path, mimeType: 'image/jpeg'),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () async {
+                  final previewStore = ref.read(editPreviewStoreProvider);
+                  final catalogNotifier =
+                      ref.read(libraryCatalogProvider.notifier);
+                  Navigator.of(sheetContext).pop();
+                  await previewStore.delete(preview.entryId);
+                  if (preview.entryId.startsWith('vc:')) {
+                    catalogNotifier.deleteVirtualCopy(preview.entryId);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1023,3 +1253,164 @@ class _AlbumSheet extends ConsumerWidget {
     );
   }
 }
+
+class _EditPreviewCell extends StatefulWidget {
+  const _EditPreviewCell({
+    required this.preview,
+    required this.catalogEntry,
+    required this.onTap,
+    required this.onLongPressStart,
+  });
+
+  final EditPreview preview;
+  final CatalogEntry? catalogEntry;
+  final VoidCallback onTap;
+  final ValueChanged<Offset> onLongPressStart;
+
+  @override
+  State<_EditPreviewCell> createState() => _EditPreviewCellState();
+}
+
+class _EditPreviewCellState extends State<_EditPreviewCell> {
+  Uint8List? _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBytes();
+  }
+
+  @override
+  void didUpdateWidget(_EditPreviewCell old) {
+    super.didUpdateWidget(old);
+    if (old.preview.path != widget.preview.path) {
+      _loadBytes();
+    }
+  }
+
+  void _loadBytes() {
+    final file = File(widget.preview.path);
+    if (file.existsSync()) {
+      try {
+        _bytes = file.readAsBytesSync();
+      } catch (_) {
+        _bytes = null;
+      }
+    } else {
+      _bytes = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bytes = _bytes;
+    final catalogEntry = widget.catalogEntry;
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      onLongPressStart: (d) => widget.onLongPressStart(d.globalPosition),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          bytes != null && bytes.isNotEmpty
+              ? Image.memory(
+                  bytes,
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const ColoredBox(
+                    color: Colors.black26,
+                    child: Icon(Icons.broken_image, size: 24),
+                  ),
+                )
+              : const ColoredBox(
+                  color: Colors.black12,
+                  child: Center(
+                    child: Icon(Icons.photo, color: Colors.black26),
+                  ),
+                ),
+          // Top badges: rating and flag
+          Positioned(
+            top: 4,
+            left: 4,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (catalogEntry != null && catalogEntry.rating > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star,
+                          size: 12,
+                          color: Colors.amber,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${catalogEntry.rating}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (catalogEntry != null && catalogEntry.flag) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(
+                      Icons.flag,
+                      size: 12,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          // Bottom badge: label if present
+          if (catalogEntry?.label != null && catalogEntry!.label!.isNotEmpty)
+            Positioned(
+              left: 4,
+              right: 4,
+              bottom: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  catalogEntry.label!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+

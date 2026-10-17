@@ -23,8 +23,10 @@ import '../../edit/recipe_store.dart';
 import '../../edit/xmp_sidecar.dart';
 import '../../edit/xmp_writer.dart';
 import '../../features/crop/crop_screen.dart';
+import '../../gallery/edit_preview_store.dart';
 import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
+import 'export_options_sheet.dart';
 import '../../engine/engine.dart';
 import '../../engine/image_format.dart';
 import '../../settings/export_settings.dart';
@@ -123,7 +125,146 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
   }
 
-  Future<void> _export() async {
+  Future<void> _export() => _onExportPressed();
+
+  Future<void> _onExportPressed() async {
+    final action = await ExportOptionsSheet.show(context);
+    if (action == null || !mounted) return;
+    switch (action) {
+      case ExportAction.saveToApertureX:
+        await _saveToApertureX();
+        break;
+      case ExportAction.saveToPhotos:
+        await _exportToPhotos();
+        break;
+      case ExportAction.share:
+        await _exportAndShare();
+        break;
+    }
+  }
+
+  Future<void> _saveToApertureX() async {
+    final previewBytes = _bytes;
+    if (previewBytes == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _exporting = true;
+      _exportPhase = ExportPhase.loading;
+      _exportRenderFraction = 0;
+    });
+    var token = 0;
+    ExportProgressPoller? poller;
+    try {
+      final bytes = widget.asset != null
+          ? await ref.read(gallerySourceProvider).loadImage(widget.asset!.id)
+          : previewBytes;
+      if (bytes.isEmpty) throw StateError('The image could not be read.');
+
+      final recipe = ref.read(recipeControllerProvider).recipe;
+      final isRaw = isRawImage(bytes);
+      if (!mounted) return;
+      setState(() => _exportPhase = ExportPhase.decoding);
+      final decoded = isRaw
+          ? await AxEngine.decodeRawRgba(bytes)
+          : await AxEngine.decodeJpegRgba(bytes);
+      final exif = await AxEngine.extractExif(bytes);
+
+      token = await AxEngine.exportCancelNew();
+      if (!mounted) return;
+      setState(() {
+        _exportCancelToken = token;
+        _exportPhase = ExportPhase.rendering;
+      });
+      poller = ExportProgressPoller(
+        token: token,
+        read: AxEngine.exportProgressFraction,
+        onValue: (fraction) {
+          if (!mounted) return;
+          setState(() => _exportRenderFraction = fraction);
+        },
+      )..start();
+
+      // Explicit save: proxy render with maxDim 1600, quality 85 (#85)
+      final jpeg = await AxEngine.exportJpegFull(
+        rgba: decoded.rgba,
+        width: decoded.width,
+        height: decoded.height,
+        spec: GradeSpec.fromRecipe(recipe),
+        spatial: SpatialSpec.fromRecipe(recipe),
+        geometry: GeometrySpec.fromRecipe(recipe),
+        layers: recipe.layers,
+        exif: exif,
+        quality: 85,
+        maxDim: 1600,
+        cancelToken: token,
+      );
+      if (jpeg == null) {
+        axLog(LogDomain.export, 'Save to ApertureX cancelled');
+        if (mounted) {
+          messenger.showSnackBar(const SnackBar(content: Text('Save cancelled')));
+        }
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _exportPhase = ExportPhase.saving);
+
+      final entryId = widget._entryId ?? 'sample';
+      final hash = computeRecipeHash(recipe);
+      final aspect = decoded.width / decoded.height;
+      int outW = decoded.width;
+      int outH = decoded.height;
+      if (outW > 1600 || outH > 1600) {
+        if (aspect >= 1.0) {
+          outW = 1600;
+          outH = (1600 / aspect).round();
+        } else {
+          outH = 1600;
+          outW = (1600 * aspect).round();
+        }
+      }
+
+      final store = ref.read(editPreviewStoreProvider);
+      await store.savePreview(
+        entryId: entryId,
+        jpegBytes: jpeg,
+        width: outW,
+        height: outH,
+        recipeHash: hash,
+      );
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Saved to Edits'),
+          action: SnackBarAction(
+            label: 'View',
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop('show_edits');
+              }
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      axLog(LogDomain.export, 'Save to ApertureX failed: $e', level: LogLevel.error);
+      messenger.showSnackBar(SnackBar(content: Text('Save failed: $e')));
+    } finally {
+      poller?.stop();
+      if (token != 0) {
+        await AxEngine.exportCancelDrop(token);
+      }
+      if (mounted) {
+        setState(() {
+          _exporting = false;
+          _exportCancelToken = null;
+          _exportPhase = null;
+          _exportRenderFraction = 0;
+        });
+      }
+    }
+  }
+
+  Future<void> _exportToPhotos() async {
     final previewBytes = _bytes;
     if (previewBytes == null) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -221,6 +362,86 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       );
     } catch (e) {
       axLog(LogDomain.export, 'Export failed: $e', level: LogLevel.error);
+      messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
+    } finally {
+      poller?.stop();
+      if (token != 0) {
+        await AxEngine.exportCancelDrop(token);
+      }
+      if (mounted) {
+        setState(() {
+          _exporting = false;
+          _exportCancelToken = null;
+          _exportPhase = null;
+          _exportRenderFraction = 0;
+        });
+      }
+    }
+  }
+
+  Future<void> _exportAndShare() async {
+    final previewBytes = _bytes;
+    if (previewBytes == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _exporting = true;
+      _exportPhase = ExportPhase.loading;
+      _exportRenderFraction = 0;
+    });
+    var token = 0;
+    ExportProgressPoller? poller;
+    try {
+      final bytes = widget.asset != null
+          ? await ref.read(gallerySourceProvider).loadImage(widget.asset!.id)
+          : previewBytes;
+      if (bytes.isEmpty) throw StateError('The image could not be read.');
+
+      final recipe = ref.read(recipeControllerProvider).recipe;
+      final settings = ref.read(exportSettingsProvider);
+      final isRaw = isRawImage(bytes);
+      if (!mounted) return;
+      setState(() => _exportPhase = ExportPhase.decoding);
+      final decoded = isRaw
+          ? await AxEngine.decodeRawRgba(bytes)
+          : await AxEngine.decodeJpegRgba(bytes);
+      final exif = await AxEngine.extractExif(bytes);
+
+      token = await AxEngine.exportCancelNew();
+      if (!mounted) return;
+      setState(() {
+        _exportCancelToken = token;
+        _exportPhase = ExportPhase.rendering;
+      });
+      poller = ExportProgressPoller(
+        token: token,
+        read: AxEngine.exportProgressFraction,
+        onValue: (fraction) {
+          if (!mounted) return;
+          setState(() => _exportRenderFraction = fraction);
+        },
+      )..start();
+
+      final jpeg = await AxEngine.exportJpegFull(
+        rgba: decoded.rgba,
+        width: decoded.width,
+        height: decoded.height,
+        spec: GradeSpec.fromRecipe(recipe),
+        spatial: SpatialSpec.fromRecipe(recipe),
+        geometry: GeometrySpec.fromRecipe(recipe),
+        layers: recipe.layers,
+        exif: exif,
+        quality: settings.quality,
+        maxDim: settings.maxDim == 0 ? null : settings.maxDim,
+        cancelToken: token,
+      );
+      if (jpeg == null) {
+        axLog(LogDomain.export, 'Export cancelled');
+        return;
+      }
+      if (!mounted) return;
+      await _share(jpeg, recipe);
+    } catch (e) {
+      axLog(LogDomain.export, 'Export and share failed: $e', level: LogLevel.error);
       messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
     } finally {
       poller?.stop();
