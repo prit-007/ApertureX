@@ -2,9 +2,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../edit/active_image.dart';
+import '../../edit/ai_mask_resolver.dart';
 import '../../edit/library_catalog.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/settings_clipboard.dart';
+import '../../ui/common/mask_controls.dart';
 import '../../viewport/compare_hold.dart';
 
 /// What a keyboard shortcut does — mapped 1:1 onto existing Riverpod notifiers
@@ -147,6 +150,35 @@ class EditorShortcuts extends ConsumerWidget {
       case EditorShortcutAction.pasteSettings:
         final recipe = ref.read(settingsClipboardProvider);
         if (recipe != null) {
+          if (recipe.layers.any((l) => l.aiIntent != null)) {
+            final bytes = ref.read(activeImageBytesProvider);
+            if (bytes != null) {
+              ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+              ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+                  'Smart Paste: Re-inferring AI masks for this photo… Please wait a moment');
+              () async {
+                try {
+                  final resolver = ref.read(aiMaskResolverProvider);
+                  final segmenter = ref.read(subjectSegmenterProvider);
+                  final skyDetector = ref.read(skyDetectorProvider);
+                  final resolved = await resolver.resolveRecipe(
+                    recipe,
+                    targetAssetId: 'photo_${bytes.hashCode}',
+                    targetProxyBytes: bytes,
+                    segmenter: segmenter,
+                    skyDetector: skyDetector,
+                  );
+                  ref
+                      .read(recipeControllerProvider.notifier)
+                      .loadRecipe(resolved, label: 'Pasted');
+                } finally {
+                  ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+                  ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+                }
+              }();
+              break;
+            }
+          }
           ref
               .read(recipeControllerProvider.notifier)
               .loadRecipe(recipe, label: 'Pasted');

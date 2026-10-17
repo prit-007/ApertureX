@@ -170,17 +170,27 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         }
       },
       child: IgnorePointer(
-        child: CustomPaint(
-          size: Size.infinite,
-          painter: _NodesPainter(
-            layers: layers,
-            selectedIndex: selected,
-            transform: transform,
-            primary: scheme.primary,
-            liveBrushPoints: _liveBrushPoints,
-            pointerPos: _pointerPos,
-            isEraser: eraserMode,
-            isRefine: ref.watch(nodeEditorProvider.select((s) => s.refineBrushMode)),
+        child: TweenAnimationBuilder<double>(
+          key: ValueKey(selected),
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          builder: (context, opacity, child) => Opacity(
+            opacity: opacity,
+            child: child,
+          ),
+          child: CustomPaint(
+            size: Size.infinite,
+            painter: _NodesPainter(
+              layers: layers,
+              selectedIndex: selected,
+              transform: transform,
+              primary: scheme.primary,
+              liveBrushPoints: _liveBrushPoints,
+              pointerPos: _pointerPos,
+              isEraser: eraserMode,
+              isRefine: ref.watch(nodeEditorProvider.select((s) => s.refineBrushMode)),
+            ),
           ),
         ),
       ),

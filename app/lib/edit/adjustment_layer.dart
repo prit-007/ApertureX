@@ -321,6 +321,8 @@ class AdjustmentLayer {
     this.gradeHighlightLum = 0,
     this.gradeBlending = 0.5,
     this.gradeBalance = 0,
+    this.aiIntent,
+    this.originAssetId,
   });
 
   /// Creates a local adjustment layer backed by an 8-bit alpha probability tensor / bitmap.
@@ -356,6 +358,8 @@ class AdjustmentLayer {
     double gradeHighlightLum = 0,
     double gradeBlending = 0.5,
     double gradeBalance = 0,
+    String? aiIntent,
+    String? originAssetId,
   }) {
     if (width <= 0 || height <= 0 || alphas.length != width * height) {
       throw ArgumentError(
@@ -393,6 +397,8 @@ class AdjustmentLayer {
       gradeHighlightLum: gradeHighlightLum,
       gradeBlending: gradeBlending,
       gradeBalance: gradeBalance,
+      aiIntent: aiIntent,
+      originAssetId: originAssetId,
     );
   }
 
@@ -441,6 +447,12 @@ class AdjustmentLayer {
   final double gradeBlending;
   final double gradeBalance;
 
+  /// Optional AI generation intent for this layer ('subject', 'sky', 'background').
+  final String? aiIntent;
+
+  /// ID of the asset where this layer was originally inferred.
+  final String? originAssetId;
+
   AdjustmentLayer copyWith({
     MaskKind? maskKind,
     List<double>? maskParams,
@@ -468,6 +480,8 @@ class AdjustmentLayer {
     double? gradeHighlightLum,
     double? gradeBlending,
     double? gradeBalance,
+    String? aiIntent,
+    String? originAssetId,
   }) => AdjustmentLayer(
     maskKind: maskKind ?? this.maskKind,
     maskParams: maskParams ?? this.maskParams,
@@ -494,6 +508,8 @@ class AdjustmentLayer {
     gradeHighlightLum: gradeHighlightLum ?? this.gradeHighlightLum,
     gradeBlending: gradeBlending ?? this.gradeBlending,
     gradeBalance: gradeBalance ?? this.gradeBalance,
+    aiIntent: aiIntent ?? this.aiIntent,
+    originAssetId: originAssetId ?? this.originAssetId,
   );
 
   /// For brush masks: base radius (default 0.06).
@@ -811,6 +827,8 @@ class AdjustmentLayer {
     'gradeHighlightLum': gradeHighlightLum,
     'gradeBlending': gradeBlending,
     'gradeBalance': gradeBalance,
+    if (aiIntent != null) 'aiIntent': aiIntent,
+    if (originAssetId != null) 'originAssetId': originAssetId,
   };
 
   factory AdjustmentLayer.fromJson(Map<String, Object?> json) {
@@ -864,6 +882,8 @@ class AdjustmentLayer {
       gradeHighlightLum: d('gradeHighlightLum'),
       gradeBlending: json.containsKey('gradeBlending') ? d('gradeBlending') : 0.5,
       gradeBalance: d('gradeBalance'),
+      aiIntent: json['aiIntent'] as String?,
+      originAssetId: json['originAssetId'] as String?,
     );
   }
 
@@ -894,7 +914,9 @@ class AdjustmentLayer {
       other.gradeHighlightSat == gradeHighlightSat &&
       other.gradeHighlightLum == gradeHighlightLum &&
       other.gradeBlending == gradeBlending &&
-      other.gradeBalance == gradeBalance;
+      other.gradeBalance == gradeBalance &&
+      other.aiIntent == aiIntent &&
+      other.originAssetId == originAssetId;
 
   @override
   int get hashCode => Object.hash(
@@ -912,6 +934,8 @@ class AdjustmentLayer {
     tint,
     highlights,
     shadows,
+    aiIntent,
+    originAssetId,
     Object.hash(
       gradeShadowHue,
       gradeShadowSat,

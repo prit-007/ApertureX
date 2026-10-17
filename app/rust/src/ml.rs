@@ -165,7 +165,7 @@ pub fn resize_mask(
 /// Uses boundary background color estimation, color contrast, and center-weighted priors
 /// to produce high-quality subject alpha masks.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct SaliencySegmenter;
+pub struct SaliencySegmenter {}
 
 impl Segmenter for SaliencySegmenter {
     fn segment(
@@ -374,7 +374,7 @@ mod tests {
             }
         }
 
-        let segmenter = SaliencySegmenter;
+        let segmenter = SaliencySegmenter {};
         let mask = segmenter
             .segment(&rgba, w, h, 32, 32)
             .expect("segmentation succeeded");
@@ -388,8 +388,48 @@ mod tests {
     }
 
     #[test]
+    fn test_saliency_segmenter_background_inverted_iou_golden() {
+        let w = 40;
+        let h = 40;
+        let mut rgba = vec![30u8; w * h * 4];
+
+        for y in 12..28 {
+            for x in 12..28 {
+                let idx = (y * w + x) * 4;
+                rgba[idx] = 230;
+                rgba[idx + 1] = 220;
+                rgba[idx + 2] = 210;
+                rgba[idx + 3] = 255;
+            }
+        }
+
+        let mut bg_ground_truth = vec![1.0f32; 32 * 32];
+        for y in 0..32 {
+            let vy = (y as f32 + 0.5) / 32.0;
+            for x in 0..32 {
+                let ux = (x as f32 + 0.5) / 32.0;
+                if (0.3..=0.7).contains(&ux) && (0.3..=0.7).contains(&vy) {
+                    bg_ground_truth[y * 32 + x] = 0.0;
+                }
+            }
+        }
+
+        let segmenter = SaliencySegmenter {};
+        let mask = segmenter
+            .segment(&rgba, w, h, 32, 32)
+            .expect("segmentation succeeded");
+
+        let inverted_mask: Vec<f32> = mask.iter().map(|&a| 1.0 - a).collect();
+        let bg_iou = compute_iou(&inverted_mask, &bg_ground_truth, 0.5);
+        assert!(
+            bg_iou >= 0.70,
+            "Background inverted IoU must exceed 0.70 threshold, got: {bg_iou}"
+        );
+    }
+
+    #[test]
     fn test_segmenter_trait_object_dispatch() {
-        let segmenter: Box<dyn Segmenter> = Box::new(SaliencySegmenter);
+        let segmenter: Box<dyn Segmenter> = Box::new(SaliencySegmenter {});
         let rgba = vec![50u8; 16 * 16 * 4];
         let res = segmenter.segment(&rgba, 16, 16, 8, 8);
         assert!(res.is_ok());

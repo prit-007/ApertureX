@@ -24,6 +24,7 @@ import '../viewport/mask_peek.dart';
 import 'edit_activity.dart';
 import 'lightroom/lightroom_shell.dart';
 import 'common/brush_toolbar.dart';
+import 'common/mask_controls.dart';
 import 'common/node_controls.dart';
 import 'common/node_overlay.dart';
 import 'common/retouch_canvas_overlay.dart';
@@ -236,6 +237,12 @@ class _AppShellState extends ConsumerState<AppShell> {
                     child: Center(child: RetouchToolbar()),
                   ),
                 ),
+              Positioned(
+                top: Insets.lg + 16,
+                left: Insets.md,
+                right: Insets.md,
+                child: const SafeArea(bottom: false, child: _AiProgressFloatingPill()),
+              ),
               if (widget.topHud != null)
                 Positioned(
                   top: 0,
@@ -344,6 +351,12 @@ class _AppShellState extends ConsumerState<AppShell> {
                   child: Center(child: RetouchToolbar()),
                 ),
               ),
+            Positioned(
+              top: Insets.lg + 16,
+              left: Insets.md,
+              right: Insets.md,
+              child: const SafeArea(bottom: false, child: _AiProgressFloatingPill()),
+            ),
             if (nodeMode && (wide || kind == AppShellKind.snapseed))
               Positioned(
                 left: Insets.sm,
@@ -892,6 +905,80 @@ class _CompareHint extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Floating glassmorphic HUD pill displayed over the viewport when an on-device
+/// AI segmentation or re-inference operation is processing (#83, #89, #96).
+class _AiProgressFloatingPill extends ConsumerWidget {
+  const _AiProgressFloatingPill();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isInferring = ref.watch(aiMaskInferringProvider);
+    final statusMsg = ref.watch(aiMaskStatusMessageProvider) ??
+        'Processing with on-device AI… Please wait a moment';
+
+    return AnimatedOpacity(
+      opacity: isInferring ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      child: IgnorePointer(
+        ignoring: !isInferring,
+        child: isInferring
+            ? Center(
+                child: Container(
+                  key: const Key('ai-floating-pill'),
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outlineVariant
+                          .withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2.2),
+                      ),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text(
+                          statusMsg,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : const SizedBox.shrink(),
       ),
     );
   }

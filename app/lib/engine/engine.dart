@@ -28,7 +28,7 @@ export '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 export '../src/rust/api/histogram.dart' show Histogram;
 export '../src/rust/api/preview.dart' show PreviewBaseSpec;
 export '../src/rust/api/exif.dart' show EmbeddedDepthResult;
-export '../src/rust/api/mask.dart' show DetectedSky;
+export '../src/rust/api/mask.dart' show DetectedSky, DetectedSubject;
 export '../src/rust/frb_generated.dart' show RustLib;
 
 /// Thin, app-facing facade over the generated `flutter_rust_bridge` bindings.
@@ -370,6 +370,32 @@ class AxEngine {
     rgba: rgba,
     width: width,
     height: height,
+  );
+
+  /// Automatically detects dominant subject center, radii, and feather from [rgba] pixels.
+  static Future<rust_mask.DetectedSubject?> detectSubject(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+  }) => rust_mask.detectSubject(
+    rgba: rgba,
+    width: width,
+    height: height,
+  );
+
+  /// Segments dominant subject into an alpha plane of dimensions [targetWidth] x [targetHeight] from [rgba] pixels.
+  static Future<Float32List> segmentSubject(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    required int targetWidth,
+    required int targetHeight,
+  }) => rust_mask.segmentSubject(
+    rgba: rgba,
+    width: width,
+    height: height,
+    targetWidth: targetWidth,
+    targetHeight: targetHeight,
   );
 
   /// Refines a mask alpha channel using guided-filter re-matting against image [rgba].

@@ -80,4 +80,29 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('AI consent toggle updates aiConsentProvider', (tester) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: SettingsSheet())),
+      ),
+    );
+
+    final switchFinder = find.byKey(const Key('settings-ai-consent-toggle'));
+    await tester.scrollUntilVisible(
+      switchFinder,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(switchFinder, findsOneWidget);
+    await tester.tap(switchFinder);
+    await tester.pumpAndSettle();
+
+    // Switched to true
+    final switchWidget = tester.widget<SwitchListTile>(switchFinder);
+    expect(switchWidget.value, isTrue);
+  });
 }

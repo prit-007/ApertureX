@@ -111,6 +111,27 @@ pub fn detect_subject(rgba: Vec<u8>, width: u32, height: u32) -> Option<Detected
     })
 }
 
+/// Segments dominant subject into an alpha plane of dimensions `target_width x target_height`.
+///
+/// Uses on-device offline segmentation pipeline (Segmenter trait).
+pub fn segment_subject(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    target_width: u32,
+    target_height: u32,
+) -> Result<Vec<f32>, String> {
+    use crate::ml::Segmenter;
+    let segmenter = crate::ml::SaliencySegmenter {};
+    segmenter.segment(
+        &rgba,
+        width as usize,
+        height as usize,
+        target_width as usize,
+        target_height as usize,
+    )
+}
+
 /// Refines a mask alpha channel using guided-filter re-matting against image RGBA.
 ///
 /// Returns the refined alpha map (length `width * height`, values in `0.0..1.0`).

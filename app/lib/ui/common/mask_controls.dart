@@ -10,6 +10,7 @@ import '../../edit/node_editor.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
 import '../../engine/image_format.dart';
+import '../../settings/ai_consent.dart';
 import '../../viewport/canvas_transform.dart';
 import '../../viewport/mask_peek.dart';
 import 'color_grading_editor.dart';
@@ -30,6 +31,76 @@ final skyDetectorProvider = Provider<SkyDetectorFn>((ref) {
     );
   };
 });
+
+/// Function signature for subject segmentation into alpha mask.
+typedef SubjectSegmenterFn = Future<Float32List?> Function(
+  Uint8List imageBytes, {
+  int targetWidth,
+  int targetHeight,
+});
+
+/// Riverpod provider for subject segmentation, overridable in tests.
+final subjectSegmenterProvider = Provider<SubjectSegmenterFn>((ref) {
+  return (
+    Uint8List bytes, {
+    int targetWidth = 256,
+    int targetHeight = 256,
+  }) async {
+    final decoded = isRawImage(bytes)
+        ? await AxEngine.decodeRawRgba(bytes)
+        : await AxEngine.decodeJpegRgba(bytes);
+    return AxEngine.segmentSubject(
+      decoded.rgba,
+      width: decoded.width,
+      height: decoded.height,
+      targetWidth: targetWidth,
+      targetHeight: targetHeight,
+    );
+  };
+});
+
+/// Function signature for parametric subject detection.
+typedef SubjectDetectorFn = Future<DetectedSubject?> Function(Uint8List imageBytes);
+
+/// Riverpod provider for subject detection (parametric fallback), overridable in tests.
+final subjectDetectorProvider = Provider<SubjectDetectorFn>((ref) {
+  return (Uint8List bytes) async {
+    final decoded = isRawImage(bytes)
+        ? await AxEngine.decodeRawRgba(bytes)
+        : await AxEngine.decodeJpegRgba(bytes);
+    return AxEngine.detectSubject(
+      decoded.rgba,
+      width: decoded.width,
+      height: decoded.height,
+    );
+  };
+});
+
+/// Notifier tracking in-flight AI mask inference.
+class AiMaskInferringNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void setInferring(bool val) => state = val;
+}
+
+/// Riverpod state provider tracking in-flight AI mask inference.
+final aiMaskInferringProvider =
+    NotifierProvider<AiMaskInferringNotifier, bool>(AiMaskInferringNotifier.new);
+
+/// Notifier tracking human-readable status for in-flight AI mask inference.
+class AiMaskStatusMessageNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void setMessage(String? msg) => state = msg;
+}
+
+/// Riverpod state provider tracking human-readable status for in-flight AI mask inference.
+final aiMaskStatusMessageProvider =
+    NotifierProvider<AiMaskStatusMessageNotifier, String?>(
+  AiMaskStatusMessageNotifier.new,
+);
 
 /// Function signature for mask refinement from layer and photo bytes.
 typedef MaskRefinerFn = Future<AdjustmentLayer?> Function(
@@ -79,6 +150,7 @@ class MaskControls extends ConsumerWidget {
     final nodeMode = ref.watch(nodeEditorProvider.select((s) => s.enabled));
     final selectedIndex = ref.watch(nodeEditorProvider.select((s) => s.selected));
     final groupIds = {for (final g in maskGroups) g.id};
+    final isInferring = ref.watch(aiMaskInferringProvider);
 
     return ListView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -121,53 +193,79 @@ class MaskControls extends ConsumerWidget {
                 label: const Text('Radial +'),
               ),
               OutlinedButton.icon(
-                onPressed: () => _addMask(context, ref, MaskKind.subject),
-                icon: const Icon(Icons.person),
+                key: const Key('mask-add-subject'),
+                onPressed: isInferring
+                    ? null
+                    : () => _addAiSubjectMask(context, ref, inverted: false),
+                icon: isInferring
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.person),
                 label: const Text('Subject +'),
               ),
               OutlinedButton.icon(
                 key: const Key('mask-add-background'),
-                onPressed: () {
-                  _addMask(context, ref, MaskKind.subject, inverted: true, exposure: -0.4);
-                  HapticFeedback.selectionClick();
-                },
-                icon: const Icon(Icons.wallpaper),
+                onPressed: isInferring
+                    ? null
+                    : () {
+                        _addAiSubjectMask(context, ref, inverted: true);
+                        HapticFeedback.selectionClick();
+                      },
+                icon: isInferring
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.wallpaper),
                 label: const Text('Background +'),
               ),
               OutlinedButton.icon(
                 key: const Key('mask-add-sky'),
-                onPressed: () async {
-                  final idx = layers.length;
-                  var horizon = 0.5;
-                  var feather = 0.15;
-                  var blueWeight = 0.6;
+                onPressed: isInferring
+                    ? null
+                    : () async {
+                        final idx = layers.length;
+                        var horizon = 0.5;
+                        var feather = 0.15;
+                        var blueWeight = 0.6;
 
-                  final bytes = ref.read(activeImageBytesProvider);
-                  if (bytes != null) {
-                    try {
-                      final detector = ref.read(skyDetectorProvider);
-                      final detected = await detector(bytes);
-                      if (detected != null) {
-                        horizon = detected.horizonY;
-                        feather = detected.feather;
-                        blueWeight = detected.blueWeight;
-                      }
-                    } catch (_) {
-                      // Fallback to default params
-                    }
-                  }
+                        final bytes = ref.read(activeImageBytesProvider);
+                        if (bytes != null) {
+                          ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+                          ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+                              'Detecting sky boundary… Please wait a moment');
+                          try {
+                            final detector = ref.read(skyDetectorProvider);
+                            final detected = await detector(bytes);
+                            if (detected != null) {
+                              horizon = detected.horizonY;
+                              feather = detected.feather;
+                              blueWeight = detected.blueWeight;
+                            }
+                          } catch (_) {
+                            // Fallback to default params
+                          } finally {
+                            ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+                            ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+                          }
+                        }
 
-                  notifier.addLayer(
-                    AdjustmentLayer(
-                      maskKind: MaskKind.sky,
-                      maskParams: [horizon, feather, blueWeight],
-                      highlights: -0.6,
-                      saturation: 0.2,
-                    ),
-                  );
-                  ref.read(nodeEditorProvider.notifier).enable();
-                  ref.read(nodeEditorProvider.notifier).select(idx);
-                },
+                        notifier.addLayer(
+                          AdjustmentLayer(
+                            maskKind: MaskKind.sky,
+                            maskParams: [horizon, feather, blueWeight],
+                            highlights: -0.6,
+                            saturation: 0.2,
+                            aiIntent: 'sky',
+                          ),
+                        );
+                        ref.read(nodeEditorProvider.notifier).enable();
+                        ref.read(nodeEditorProvider.notifier).select(idx);
+                      },
                 icon: const Icon(Icons.cloud_outlined),
                 label: const Text('Sky +'),
               ),
@@ -178,40 +276,50 @@ class MaskControls extends ConsumerWidget {
               ),
               OutlinedButton.icon(
                 key: const Key('mask-add-depth'),
-                onPressed: () async {
-                  final bytes = ref.read(activeImageBytesProvider);
-                  if (bytes == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('No photo loaded for depth extraction')),
-                    );
-                    return;
-                  }
-                  final depthResult = await AxEngine.extractEmbeddedDepth(bytes);
-                  if (depthResult != null) {
-                    final alphas = depthResult.depth.map((b) => b / 255.0).toList();
-                    final idx = layers.length;
-                    notifier.addLayer(
-                      AdjustmentLayer.bitmap(
-                        width: depthResult.width,
-                        height: depthResult.height,
-                        alphas: alphas,
-                        exposure: 0.3,
-                      ),
-                    );
-                    ref.read(nodeEditorProvider.notifier).enable();
-                    ref.read(nodeEditorProvider.notifier).select(idx);
-                    HapticFeedback.selectionClick();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Loaded embedded portrait depth mask')),
-                      );
-                    }
-                  } else if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('No embedded depth map in photo metadata')),
-                    );
-                  }
-                },
+                onPressed: isInferring
+                    ? null
+                    : () async {
+                        final bytes = ref.read(activeImageBytesProvider);
+                        if (bytes == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('No photo loaded for depth extraction')),
+                          );
+                          return;
+                        }
+                        ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+                        ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+                            'Extracting portrait depth map… Please wait a moment');
+                        try {
+                          final depthResult = await AxEngine.extractEmbeddedDepth(bytes);
+                          if (depthResult != null) {
+                            final alphas = depthResult.depth.map((b) => b / 255.0).toList();
+                            final idx = layers.length;
+                            notifier.addLayer(
+                              AdjustmentLayer.bitmap(
+                                width: depthResult.width,
+                                height: depthResult.height,
+                                alphas: alphas,
+                                exposure: 0.3,
+                              ),
+                            );
+                            ref.read(nodeEditorProvider.notifier).enable();
+                            ref.read(nodeEditorProvider.notifier).select(idx);
+                            HapticFeedback.selectionClick();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Loaded embedded portrait depth mask')),
+                              );
+                            }
+                          } else if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('No embedded depth map in photo metadata')),
+                            );
+                          }
+                        } finally {
+                          ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+                          ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+                        }
+                      },
                 icon: const Icon(Icons.blur_on),
                 label: const Text('Depth +'),
               ),
@@ -222,6 +330,68 @@ class MaskControls extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+
+        // Animated AI Progress Indicator (#83, #89, #96)
+        AnimatedSize(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          child: isInferring
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Container(
+                    key: const Key('ai-mask-progress-banner'),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primaryContainer
+                          .withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                ref.watch(aiMaskStatusMessageProvider) ??
+                                    'Processing with on-device AI… Please wait a moment',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onPrimaryContainer,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: const LinearProgressIndicator(minHeight: 3),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
 
         if (layers.isEmpty && maskGroups.isEmpty)
@@ -270,7 +440,11 @@ class MaskControls extends ConsumerWidget {
               showJoinOp: false,
             ),
             if (i == selectedIndex)
-              _buildInlineCard(context, ref, i: i, layer: layers[i], notifier: notifier),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                child: _buildInlineCard(context, ref, i: i, layer: layers[i], notifier: notifier),
+              ),
           ],
       ],
     );
@@ -542,7 +716,11 @@ class MaskControls extends ConsumerWidget {
                 showJoinOp: true,
               ),
               if (i == selectedIndex)
-                _buildInlineCard(context, ref, i: i, layer: layers[i], notifier: notifier),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  child: _buildInlineCard(context, ref, i: i, layer: layers[i], notifier: notifier),
+                ),
             ],
           ],
         ),
@@ -559,24 +737,57 @@ class MaskControls extends ConsumerWidget {
     required RecipeController notifier,
     required bool showJoinOp,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: ListTile(
-        dense: true,
-        selected: isSelected,
-        leading: Icon(_maskIcon(layer.maskKind), size: 18),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                '${layer.maskKind.name.toUpperCase()} layer ${i + 1}  '
-                'EV ${layer.exposure >= 0 ? '+' : ''}${layer.exposure.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: isSelected
+            ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.15)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          dense: true,
+          selected: isSelected,
+          leading: Icon(_maskIcon(layer.maskKind), size: 18),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${layer.maskKind.name.toUpperCase()} layer ${i + 1}  '
+                  'EV ${layer.exposure >= 0 ? '+' : ''}${layer.exposure.toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
               ),
-            ),
-            if (showJoinOp) ...[
-              Wrap(
-                spacing: 4,
+              if (layer.aiIntent != null) ...[
+                Tooltip(
+                  message: 'AI masks run on-device; no image leaves your device',
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.auto_awesome, size: 10),
+                        const SizedBox(width: 2),
+                        Text(
+                          'AI ${layer.aiIntent} ✓',
+                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+              if (showJoinOp) ...[
+                Wrap(
+                  spacing: 4,
                 children: [
                   ChoiceChip(
                     key: Key('mask-join-add-$i'),
@@ -678,6 +889,7 @@ class MaskControls extends ConsumerWidget {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -688,6 +900,7 @@ class MaskControls extends ConsumerWidget {
     required AdjustmentLayer layer,
     required RecipeController notifier,
   }) {
+    final isInferring = ref.watch(aiMaskInferringProvider);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Card(
@@ -777,21 +990,31 @@ class MaskControls extends ConsumerWidget {
                     label: const Text('Refine Edge', style: TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
-                    onPressed: () async {
-                      final bytes = ref.read(activeImageBytesProvider);
-                      if (bytes == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('No photo loaded to refine mask')),
-                        );
-                        return;
-                      }
-                      final refiner = ref.read(maskRefinerProvider);
-                      final refined = await refiner(layer, bytes);
-                      if (refined != null) {
-                        notifier.updateLayerAt(i, refined);
-                        HapticFeedback.mediumImpact();
-                      }
-                    },
+                    onPressed: isInferring
+                        ? null
+                        : () async {
+                            final bytes = ref.read(activeImageBytesProvider);
+                            if (bytes == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('No photo loaded to refine mask')),
+                              );
+                              return;
+                            }
+                            ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+                            ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+                                'Refining mask edges with guided filter… Please wait a moment');
+                            try {
+                              final refiner = ref.read(maskRefinerProvider);
+                              final refined = await refiner(layer, bytes);
+                              if (refined != null) {
+                                notifier.updateLayerAt(i, refined);
+                                HapticFeedback.mediumImpact();
+                              }
+                            } finally {
+                              ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+                              ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+                            }
+                          },
                   ),
                   ActionChip(
                     key: const Key('mask-inline-duplicate'),
@@ -1092,6 +1315,92 @@ class MaskControls extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _addAiSubjectMask(
+    BuildContext context,
+    WidgetRef ref, {
+    bool inverted = false,
+  }) async {
+    final bytes = ref.read(activeImageBytesProvider);
+    if (bytes == null) {
+      _addMask(
+        context,
+        ref,
+        MaskKind.subject,
+        inverted: inverted,
+        exposure: inverted ? -0.4 : 0.5,
+      );
+      return;
+    }
+
+    // 1. Consent check
+    final consent =
+        await ref.read(aiConsentProvider.notifier).requestConsentDialog(context);
+    if (!consent) {
+      if (context.mounted) {
+        _addMask(
+          context,
+          ref,
+          MaskKind.subject,
+          inverted: inverted,
+          exposure: inverted ? -0.4 : 0.5,
+        );
+      }
+      return;
+    }
+
+    // 2. Segmenter with progress & cancellation handling
+    ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+    ref.read(aiMaskStatusMessageProvider.notifier).setMessage(inverted
+        ? 'Segmenting background on-device… Please wait a moment'
+        : 'Finding subject on-device… Please wait a moment');
+    try {
+      final segmenter = ref.read(subjectSegmenterProvider);
+      final alphas =
+          await segmenter(bytes, targetWidth: 256, targetHeight: 256);
+      if (alphas != null && alphas.isNotEmpty) {
+        final notifier = ref.read(recipeControllerProvider.notifier);
+        final layers = ref.read(recipeControllerProvider).recipe.layers;
+        final idx = layers.length;
+        notifier.addLayer(
+          AdjustmentLayer.bitmap(
+            width: 256,
+            height: 256,
+            alphas: alphas,
+            inverted: inverted,
+            exposure: inverted ? -0.4 : 0.5,
+            aiIntent: inverted ? 'background' : 'subject',
+          ),
+        );
+        ref.read(nodeEditorProvider.notifier).enable();
+        ref.read(nodeEditorProvider.notifier).select(idx);
+        HapticFeedback.selectionClick();
+        return;
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('AI segmentation failed; using fallback subject mask'),
+          ),
+        );
+      }
+    } finally {
+      ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+      ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+    }
+
+    // 3. Fallback path
+    if (context.mounted) {
+      _addMask(
+        context,
+        ref,
+        MaskKind.subject,
+        inverted: inverted,
+        exposure: inverted ? -0.4 : 0.5,
+      );
+    }
   }
 
   void _addMask(

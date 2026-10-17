@@ -6,13 +6,17 @@ import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/settings_clipboard.dart';
 import '../../features/logs/logs_screen.dart';
+import '../../settings/ai_consent.dart';
 import '../../settings/app_settings.dart';
 import '../../settings/export_settings.dart';
 import '../../settings/shell_preference.dart';
+import '../../edit/active_image.dart';
+import '../../edit/ai_mask_resolver.dart';
 import 'app_sheet.dart';
 import 'looks_sheet.dart';
 import 'lut_export_sheet.dart';
 import 'lut_import_sheet.dart';
+import 'mask_controls.dart';
 import 'xmp_import_sheet.dart';
 
 /// The verifiable trust line (#76): stated in the settings footer and the
@@ -94,9 +98,35 @@ class SettingsSheet extends ConsumerWidget {
               ? 'Paste settings (nothing copied)'
               : 'Paste settings',
           enabled: clipboard != null,
-          onTap: () {
-            notifier.loadRecipe(clipboard!, label: 'Paste settings');
+          onTap: () async {
+            final cp = clipboard!;
             Navigator.of(context).maybePop();
+            if (cp.layers.any((l) => l.aiIntent != null)) {
+              final bytes = ref.read(activeImageBytesProvider);
+              if (bytes != null) {
+                ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+                ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+                    'Smart Paste: Re-inferring AI masks for this photo… Please wait a moment');
+                try {
+                  final resolver = ref.read(aiMaskResolverProvider);
+                  final segmenter = ref.read(subjectSegmenterProvider);
+                  final skyDetector = ref.read(skyDetectorProvider);
+                  final resolved = await resolver.resolveRecipe(
+                    cp,
+                    targetAssetId: 'photo_${bytes.hashCode}',
+                    targetProxyBytes: bytes,
+                    segmenter: segmenter,
+                    skyDetector: skyDetector,
+                  );
+                  notifier.loadRecipe(resolved, label: 'Paste settings');
+                } finally {
+                  ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+                  ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+                }
+                return;
+              }
+            }
+            notifier.loadRecipe(cp, label: 'Paste settings');
           },
         ),
         const SizedBox(height: Insets.lg),
@@ -133,6 +163,24 @@ class SettingsSheet extends ConsumerWidget {
             title: 'Activity log (${activityLog.length})',
             onTap: () => _openLogs(context),
           ),
+        ),
+        const SizedBox(height: Insets.lg),
+        const _Label('Privacy & Local AI'),
+        SwitchListTile.adaptive(
+          key: const Key('settings-ai-consent-toggle'),
+          title: const Text('On-device AI processing', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          subtitle: const Text(
+            'Enables local intelligent masking (Select Subject/Sky). 100% offline, zero telemetry.',
+            style: TextStyle(fontSize: 12),
+          ),
+          value: ref.watch(aiConsentProvider) == AiConsentStatus.granted,
+          onChanged: (val) {
+            if (val) {
+              ref.read(aiConsentProvider.notifier).grantConsent();
+            } else {
+              ref.read(aiConsentProvider.notifier).revokeConsent();
+            }
+          },
         ),
         const SizedBox(height: Insets.lg),
         const _Label('About'),

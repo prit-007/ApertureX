@@ -44,6 +44,23 @@ Future<DetectedSubject?> detectSubject({
   height: height,
 );
 
+/// Segments dominant subject into an alpha plane of dimensions `target_width x target_height`.
+///
+/// Uses on-device offline segmentation pipeline (Segmenter trait).
+Future<Float32List> segmentSubject({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required int targetWidth,
+  required int targetHeight,
+}) => RustLib.instance.api.crateApiMaskSegmentSubject(
+  rgba: rgba,
+  width: width,
+  height: height,
+  targetWidth: targetWidth,
+  targetHeight: targetHeight,
+);
+
 /// Refines a mask alpha channel using guided-filter re-matting against image RGBA.
 ///
 /// Returns the refined alpha map (length `width * height`, values in `0.0..1.0`).
