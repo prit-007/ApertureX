@@ -246,16 +246,22 @@ void main() {
       expect(container.read(nodeEditorProvider).eraserMode, isTrue);
 
       // Drag feather
+      final featherFinder = find.byKey(const Key('mask-inline-brush-feather-slider'));
+      await tester.scrollUntilVisible(featherFinder, 100);
+      await tester.pumpAndSettle();
       await tester.drag(
-        find.byKey(const Key('mask-inline-brush-feather-slider')),
+        featherFinder,
         const Offset(60, 0),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(container.read(recipeControllerProvider).recipe.layers.first.brushFeather, greaterThan(0.35));
 
       // Tap clear
-      await tester.tap(find.byKey(const Key('mask-inline-brush-clear')));
-      await tester.pump();
+      final clearFinder = find.byKey(const Key('mask-inline-brush-clear'));
+      await tester.scrollUntilVisible(clearFinder, -100);
+      await tester.pumpAndSettle();
+      await tester.tap(clearFinder);
+      await tester.pumpAndSettle();
       expect(container.read(recipeControllerProvider).recipe.layers.first.brushPointCount, 0);
     },
   );

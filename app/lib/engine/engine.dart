@@ -372,6 +372,30 @@ class AxEngine {
     height: height,
   );
 
+  /// Refines a mask alpha channel using guided-filter re-matting against image [rgba].
+  static Future<Float32List> refineMask({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    required int maskKind,
+    required List<double> maskParams,
+    List<double> strokePoints = const [],
+    double brushRadius = 0.05,
+    int filterRadius = 8,
+    double eps = 0.005,
+  }) =>
+      rust_mask.refineMask(
+        rgba: rgba,
+        width: width,
+        height: height,
+        kind: maskKind,
+        params: Float32List.fromList(maskParams),
+        strokePoints: Float32List.fromList(strokePoints),
+        brushRadius: brushRadius,
+        filterRadius: filterRadius,
+        eps: eps,
+      );
+
   /// Attempts to extract an embedded portrait depth map from JPEG container metadata.
   static Future<rust_exif.EmbeddedDepthResult?> extractEmbeddedDepth(Uint8List jpeg) =>
       rust_exif.extractEmbeddedDepth(jpeg: jpeg);

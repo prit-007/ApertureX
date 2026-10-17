@@ -736,6 +736,37 @@ class AdjustmentLayer {
   /// For bitmap masks: pixel height of the alpha map.
   int get bitmapHeight => maskKind == MaskKind.bitmap && maskParams.length > 1 ? maskParams[1].toInt() : 0;
 
+  /// Returns a new [MaskKind.bitmap] adjustment layer with the refined alpha plane
+  /// while preserving all grading parameters, group bindings, and amount.
+  AdjustmentLayer withRefinedAlphas(List<double> alphas, int width, int height) =>
+      AdjustmentLayer.bitmap(
+        width: width,
+        height: height,
+        alphas: alphas,
+        inverted: inverted,
+        amount: amount,
+        groupId: groupId,
+        joinOp: joinOp,
+        exposure: exposure,
+        contrast: contrast,
+        saturation: saturation,
+        temperature: temperature,
+        tint: tint,
+        highlights: highlights,
+        shadows: shadows,
+        gradeShadowHue: gradeShadowHue,
+        gradeShadowSat: gradeShadowSat,
+        gradeShadowLum: gradeShadowLum,
+        gradeMidHue: gradeMidHue,
+        gradeMidSat: gradeMidSat,
+        gradeMidLum: gradeMidLum,
+        gradeHighlightHue: gradeHighlightHue,
+        gradeHighlightSat: gradeHighlightSat,
+        gradeHighlightLum: gradeHighlightLum,
+        gradeBlending: gradeBlending,
+        gradeBalance: gradeBalance,
+      );
+
   /// The `[width, height, alpha_0…]` float params the Rust `MASK_*` contract
   /// expects (`app/rust/src/mask.rs`), expanding [maskBlob] for bitmap layers
   /// and passing [maskParams] through unchanged for analytic kinds. This is

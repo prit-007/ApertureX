@@ -11,6 +11,7 @@ class NodeEditorState {
     this.enabled = false,
     this.selected,
     this.eraserMode = false,
+    this.refineBrushMode = false,
   });
 
   /// Whether the photo is in "tap to place / drag to adjust" node mode.
@@ -22,14 +23,19 @@ class NodeEditorState {
   /// Whether the brush is currently in eraser mode.
   final bool eraserMode;
 
+  /// Whether the brush is currently in refine edge mode (issue #95).
+  final bool refineBrushMode;
+
   NodeEditorState copyWith({
     bool? enabled,
     int? selected,
     bool? eraserMode,
+    bool? refineBrushMode,
   }) => NodeEditorState(
     enabled: enabled ?? this.enabled,
     selected: selected ?? this.selected,
     eraserMode: eraserMode ?? this.eraserMode,
+    refineBrushMode: refineBrushMode ?? this.refineBrushMode,
   );
 
   @override
@@ -37,10 +43,11 @@ class NodeEditorState {
       other is NodeEditorState &&
       other.enabled == enabled &&
       other.selected == selected &&
-      other.eraserMode == eraserMode;
+      other.eraserMode == eraserMode &&
+      other.refineBrushMode == refineBrushMode;
 
   @override
-  int get hashCode => Object.hash(enabled, selected, eraserMode);
+  int get hashCode => Object.hash(enabled, selected, eraserMode, refineBrushMode);
 }
 
 class NodeEditor extends Notifier<NodeEditorState> {
@@ -53,7 +60,12 @@ class NodeEditor extends Notifier<NodeEditorState> {
   }
 
   void disable() {
-    if (!state.enabled && state.selected == null && !state.eraserMode) return;
+    if (!state.enabled &&
+        state.selected == null &&
+        !state.eraserMode &&
+        !state.refineBrushMode) {
+      return;
+    }
     state = const NodeEditorState();
   }
 
@@ -65,15 +77,29 @@ class NodeEditor extends Notifier<NodeEditorState> {
       enabled: state.enabled,
       selected: index,
       eraserMode: state.eraserMode,
+      refineBrushMode: state.refineBrushMode,
     );
   }
 
   void setEraserMode(bool value) {
     if (state.eraserMode == value) return;
-    state = state.copyWith(eraserMode: value);
+    state = state.copyWith(
+      eraserMode: value,
+      refineBrushMode: value ? false : state.refineBrushMode,
+    );
   }
 
   void toggleEraserMode() => setEraserMode(!state.eraserMode);
+
+  void setRefineBrushMode(bool value) {
+    if (state.refineBrushMode == value) return;
+    state = state.copyWith(
+      refineBrushMode: value,
+      eraserMode: value ? false : state.eraserMode,
+    );
+  }
+
+  void toggleRefineBrushMode() => setRefineBrushMode(!state.refineBrushMode);
 }
 
 /// Active selective-editing mode + selection (issue #25).

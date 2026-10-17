@@ -33,6 +33,31 @@ Future<DetectedSky?> detectSky({
   height: height,
 );
 
+/// Refines a mask alpha channel using guided-filter re-matting against image RGBA.
+///
+/// Returns the refined alpha map (length `width * height`, values in `0.0..1.0`).
+Future<Float32List> refineMask({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required int kind,
+  required List<double> params,
+  required List<double> strokePoints,
+  required double brushRadius,
+  required int filterRadius,
+  required double eps,
+}) => RustLib.instance.api.crateApiMaskRefineMask(
+  rgba: rgba,
+  width: width,
+  height: height,
+  kind: kind,
+  params: params,
+  strokePoints: strokePoints,
+  brushRadius: brushRadius,
+  filterRadius: filterRadius,
+  eps: eps,
+);
+
 /// Detected sky parameters from a proxy image.
 class DetectedSky {
   final double horizonY;

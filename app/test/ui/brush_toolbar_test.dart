@@ -100,6 +100,18 @@ void main() {
     await tester.tap(find.byKey(const Key('brush-toolbar-paint')));
     await tester.pump();
     expect(container.read(nodeEditorProvider).eraserMode, isFalse);
+
+    // Switch to Refine
+    await tester.tap(find.byKey(const Key('brush-toolbar-refine')));
+    await tester.pump();
+    expect(container.read(nodeEditorProvider).refineBrushMode, isTrue);
+    expect(container.read(nodeEditorProvider).eraserMode, isFalse);
+
+    // Switch to Erase cancels Refine
+    await tester.tap(find.byKey(const Key('brush-toolbar-erase')));
+    await tester.pump();
+    expect(container.read(nodeEditorProvider).eraserMode, isTrue);
+    expect(container.read(nodeEditorProvider).refineBrushMode, isFalse);
   });
 
   testWidgets('BrushToolbar adjusts brush size and clears strokes', (

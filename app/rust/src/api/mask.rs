@@ -89,3 +89,38 @@ pub fn detect_sky(rgba: Vec<u8>, width: u32, height: u32) -> Option<DetectedSky>
         blue_weight: d.blue_weight,
     })
 }
+
+/// Refines a mask alpha channel using guided-filter re-matting against image RGBA.
+///
+/// Returns the refined alpha map (length `width * height`, values in `0.0..1.0`).
+#[allow(clippy::too_many_arguments)]
+pub fn refine_mask(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    kind: u32,
+    params: Vec<f32>,
+    stroke_points: Vec<f32>,
+    brush_radius: f32,
+    filter_radius: u32,
+    eps: f32,
+) -> Vec<f32> {
+    let w = width as usize;
+    let h = height as usize;
+    let initial_alphas = if kind == mask::MASK_BITMAP && params.len() == 2 + w * h {
+        params[2..2 + w * h].to_vec()
+    } else {
+        mask::rasterize_mask(kind, &params, w, h, Some(&rgba))
+    };
+
+    mask::refine_mask_guided(
+        &rgba,
+        w,
+        h,
+        &initial_alphas,
+        &stroke_points,
+        brush_radius,
+        filter_radius as usize,
+        eps,
+    )
+}

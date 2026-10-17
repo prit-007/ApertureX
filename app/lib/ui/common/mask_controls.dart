@@ -31,6 +31,38 @@ final skyDetectorProvider = Provider<SkyDetectorFn>((ref) {
   };
 });
 
+/// Function signature for mask refinement from layer and photo bytes.
+typedef MaskRefinerFn = Future<AdjustmentLayer?> Function(
+  AdjustmentLayer layer,
+  Uint8List imageBytes, {
+  List<double> strokePoints,
+  double brushRadius,
+});
+
+/// Riverpod provider for mask refinement via guided filter, overridable in tests.
+final maskRefinerProvider = Provider<MaskRefinerFn>((ref) {
+  return (
+    AdjustmentLayer layer,
+    Uint8List bytes, {
+    List<double> strokePoints = const [],
+    double brushRadius = 0.05,
+  }) async {
+    final decoded = isRawImage(bytes)
+        ? await AxEngine.decodeRawRgba(bytes)
+        : await AxEngine.decodeJpegRgba(bytes);
+    final refinedAlphas = await AxEngine.refineMask(
+      rgba: decoded.rgba,
+      width: decoded.width,
+      height: decoded.height,
+      maskKind: layer.maskKind.index,
+      maskParams: layer.maskParams,
+      strokePoints: strokePoints,
+      brushRadius: brushRadius,
+    );
+    return layer.withRefinedAlphas(refinedAlphas, decoded.width, decoded.height);
+  };
+});
+
 /// Local-adjustment (masking) controls: add analytic masks and manage the
 /// layer stack. Masks are parametric, so no brush data is stored (#18).
 /// Supports mask groups with Boolean Add/Subtract/Intersect coverage algebra (ADR 0013 / #92).
@@ -598,6 +630,26 @@ class MaskControls extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
+              key: Key('mask-refine-$i'),
+              tooltip: 'Refine mask edges',
+              icon: const Icon(Icons.auto_fix_high, size: 18),
+              onPressed: () async {
+                final bytes = ref.read(activeImageBytesProvider);
+                if (bytes == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('No photo loaded to refine mask')),
+                  );
+                  return;
+                }
+                final refiner = ref.read(maskRefinerProvider);
+                final refined = await refiner(layer, bytes);
+                if (refined != null) {
+                  notifier.updateLayerAt(i, refined);
+                  HapticFeedback.selectionClick();
+                }
+              },
+            ),
+            IconButton(
               key: Key('mask-invert-$i'),
               tooltip: 'Invert / Reverse mask',
               icon: Icon(
@@ -668,12 +720,16 @@ class MaskControls extends ConsumerWidget {
                     ChoiceChip(
                       key: const Key('mask-inline-brush-paint'),
                       label: const Text('Paint', style: TextStyle(fontSize: 11)),
-                      selected: !ref.watch(nodeEditorProvider.select((s) => s.eraserMode)),
+                      selected: !ref.watch(nodeEditorProvider.select((s) => s.eraserMode)) &&
+                          !ref.watch(nodeEditorProvider.select((s) => s.refineBrushMode)),
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
                       showCheckmark: false,
                       onSelected: (val) {
-                        if (val) ref.read(nodeEditorProvider.notifier).setEraserMode(false);
+                        if (val) {
+                          ref.read(nodeEditorProvider.notifier).setEraserMode(false);
+                          ref.read(nodeEditorProvider.notifier).setRefineBrushMode(false);
+                        }
                       },
                     ),
                     ChoiceChip(
@@ -699,6 +755,44 @@ class MaskControls extends ConsumerWidget {
                       },
                     ),
                   ],
+                  ChoiceChip(
+                    key: const Key('mask-inline-refine-brush'),
+                    label: const Text('Refine Brush', style: TextStyle(fontSize: 11)),
+                    selected: ref.watch(nodeEditorProvider.select((s) => s.refineBrushMode)),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    showCheckmark: false,
+                    onSelected: (val) {
+                      if (val) {
+                        ref.read(nodeEditorProvider.notifier).setRefineBrushMode(true);
+                        ref.read(nodeEditorProvider.notifier).enable();
+                      } else {
+                        ref.read(nodeEditorProvider.notifier).setRefineBrushMode(false);
+                      }
+                    },
+                  ),
+                  ActionChip(
+                    key: const Key('mask-inline-refine-edge'),
+                    avatar: const Icon(Icons.auto_fix_high, size: 14),
+                    label: const Text('Refine Edge', style: TextStyle(fontSize: 11)),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    onPressed: () async {
+                      final bytes = ref.read(activeImageBytesProvider);
+                      if (bytes == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('No photo loaded to refine mask')),
+                        );
+                        return;
+                      }
+                      final refiner = ref.read(maskRefinerProvider);
+                      final refined = await refiner(layer, bytes);
+                      if (refined != null) {
+                        notifier.updateLayerAt(i, refined);
+                        HapticFeedback.mediumImpact();
+                      }
+                    },
+                  ),
                   ActionChip(
                     key: const Key('mask-inline-duplicate'),
                     avatar: const Icon(Icons.copy, size: 14),

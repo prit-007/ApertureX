@@ -82,7 +82,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -303535543;
+  int get rustContentHash => 771723109;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -402,6 +402,18 @@ abstract class RustLibApi extends BaseApi {
   Future<Float32List> crateApiRawRawCameraMatrix({required List<int> raw});
 
   Future<ImageDims> crateApiRawRawDimensions({required List<int> raw});
+
+  Future<Float32List> crateApiMaskRefineMask({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int kind,
+    required List<double> params,
+    required List<double> strokePoints,
+    required double brushRadius,
+    required int filterRadius,
+    required double eps,
+  });
 
   Future<Uint8List> crateApiRetouchRetouchApply({
     required List<int> rgba,
@@ -2488,6 +2500,74 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "raw_dimensions", argNames: ["raw"]);
 
   @override
+  Future<Float32List> crateApiMaskRefineMask({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int kind,
+    required List<double> params,
+    required List<double> strokePoints,
+    required double brushRadius,
+    required int filterRadius,
+    required double eps,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_u_32(kind, serializer);
+          sse_encode_list_prim_f_32_loose(params, serializer);
+          sse_encode_list_prim_f_32_loose(strokePoints, serializer);
+          sse_encode_f_32(brushRadius, serializer);
+          sse_encode_u_32(filterRadius, serializer);
+          sse_encode_f_32(eps, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 50,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_f_32_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMaskRefineMaskConstMeta,
+        argValues: [
+          rgba,
+          width,
+          height,
+          kind,
+          params,
+          strokePoints,
+          brushRadius,
+          filterRadius,
+          eps,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMaskRefineMaskConstMeta => const TaskConstMeta(
+    debugName: "refine_mask",
+    argNames: [
+      "rgba",
+      "width",
+      "height",
+      "kind",
+      "params",
+      "strokePoints",
+      "brushRadius",
+      "filterRadius",
+      "eps",
+    ],
+  );
+
+  @override
   Future<Uint8List> crateApiRetouchRetouchApply({
     required List<int> rgba,
     required int width,
@@ -2505,7 +2585,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 50,
+            funcId: 51,
             port: port_,
           );
         },
@@ -2542,7 +2622,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 51,
+            funcId: 52,
             port: port_,
           );
         },
@@ -2616,7 +2696,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 52,
+            funcId: 53,
             port: port_,
           );
         },
@@ -2701,7 +2781,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 53,
+            funcId: 54,
             port: port_,
           );
         },
@@ -2742,7 +2822,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 54,
+            funcId: 55,
             port: port_,
           );
         },
@@ -2783,7 +2863,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 55,
+            funcId: 56,
             port: port_,
           );
         },
@@ -2824,7 +2904,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 56,
+            funcId: 57,
             port: port_,
           );
         },
@@ -2863,7 +2943,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 57,
+            funcId: 58,
             port: port_,
           );
         },
@@ -2902,7 +2982,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 58,
+            funcId: 59,
             port: port_,
           );
         },
@@ -2937,7 +3017,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 59,
+            funcId: 60,
             port: port_,
           );
         },

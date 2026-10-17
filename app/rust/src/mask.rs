@@ -452,6 +452,158 @@ pub fn detect_sky(rgba: &[u8], width: usize, height: usize) -> Option<DetectedSk
     })
 }
 
+/// Rasterizes a mask into an alpha plane `[0.0, 1.0]` of dimensions `w x h`.
+///
+/// If `rgba` is provided (RGBA8, `w * h * 4`), it is used for luminance-dependent
+/// and sky-dependent mask evaluation. Otherwise a neutral 50% gray image is assumed.
+pub fn rasterize_mask(
+    kind: u32,
+    params: &[f32],
+    w: usize,
+    h: usize,
+    rgba: Option<&[u8]>,
+) -> Vec<f32> {
+    if w == 0 || h == 0 {
+        return Vec::new();
+    }
+    let mut out = vec![0.0f32; w * h];
+    for y in 0..h {
+        let v = (y as f32 + 0.5) / h as f32;
+        let row_offset = y * w;
+        for x in 0..w {
+            let u = (x as f32 + 0.5) / w as f32;
+            let idx = row_offset + x;
+            let (luma, rgb) = if let Some(buf) = rgba {
+                if (idx + 1) * 4 <= buf.len() {
+                    let r = buf[idx * 4] as f32 / 255.0;
+                    let g = buf[idx * 4 + 1] as f32 / 255.0;
+                    let b = buf[idx * 4 + 2] as f32 / 255.0;
+                    let l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                    (l, [r, g, b])
+                } else {
+                    (0.5, [0.5, 0.5, 0.5])
+                }
+            } else {
+                (0.5, [0.5, 0.5, 0.5])
+            };
+            out[idx] = coverage_rgb(kind, params, u, v, luma, rgb);
+        }
+    }
+    out
+}
+
+/// Refines a mask alpha channel using guided-filter re-matting against image luminance.
+///
+/// Implements edge-preserving alpha matting where the underlying image edges guide
+/// the transition boundaries of the mask.
+///
+/// If `stroke_points` is non-empty (`[x0, y0, x1, y1, ...]`), refinement is localized
+/// to within `brush_radius` of the stroke points (Refine Edge Brush).
+/// If `stroke_points` is empty, refinement applies along the mask's edge transitions
+/// (whole-mask edge refine).
+#[allow(clippy::too_many_arguments)]
+pub fn refine_mask_guided(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    mask_alphas: &[f32],
+    stroke_points: &[f32],
+    brush_radius: f32,
+    filter_radius: usize,
+    eps: f32,
+) -> Vec<f32> {
+    if w == 0 || h == 0 || mask_alphas.is_empty() {
+        return mask_alphas.to_vec();
+    }
+    let n = w * h;
+    assert_eq!(mask_alphas.len(), n);
+
+    // 1. Compute guide image (normalized luminance in 0..1)
+    let mut luma_guide = Vec::with_capacity(n);
+    for i in 0..n {
+        let (r, g, b) = if (i + 1) * 4 <= rgba.len() {
+            (
+                rgba[i * 4] as f32 / 255.0,
+                rgba[i * 4 + 1] as f32 / 255.0,
+                rgba[i * 4 + 2] as f32 / 255.0,
+            )
+        } else {
+            (0.5, 0.5, 0.5)
+        };
+        luma_guide.push(0.2126 * r + 0.7152 * g + 0.0722 * b);
+    }
+
+    // 2. Run guided filter on mask alphas with luma guide
+    let filtered_q = crate::spatial::guided_filter_channel(
+        &luma_guide,
+        mask_alphas,
+        w,
+        h,
+        filter_radius.max(1),
+        eps.max(1e-6),
+    );
+
+    // 3. Blend filtered alphas back into original mask according to region of influence
+    let mut out = Vec::with_capacity(n);
+
+    if stroke_points.len() >= 2 {
+        // Refine Edge Brush: blend inside stroke radius
+        let pt_count = stroke_points.len() / 2;
+        let r_eff = brush_radius.max(1e-4);
+        let r_sq = r_eff * r_eff;
+
+        for y in 0..h {
+            let v = (y as f32 + 0.5) / h as f32;
+            let row_offset = y * w;
+            for x in 0..w {
+                let u = (x as f32 + 0.5) / w as f32;
+                let idx = row_offset + x;
+                let p = mask_alphas[idx];
+                let q = filtered_q[idx].clamp(0.0, 1.0);
+
+                // Find minimum distance to stroke points/segments
+                let mut min_d_sq = f32::MAX;
+                for i in 0..pt_count {
+                    let px0 = stroke_points[i * 2];
+                    let py0 = stroke_points[i * 2 + 1];
+                    if px0 < 0.0 || py0 < 0.0 {
+                        continue;
+                    }
+                    if i + 1 < pt_count {
+                        let px1 = stroke_points[(i + 1) * 2];
+                        let py1 = stroke_points[(i + 1) * 2 + 1];
+                        if px1 >= 0.0 && py1 >= 0.0 {
+                            let (dist, _) = dist_to_segment(u, v, px0, py0, px1, py1);
+                            min_d_sq = min_d_sq.min(dist * dist);
+                            continue;
+                        }
+                    }
+                    let d_sq = (u - px0).powi(2) + (v - py0).powi(2);
+                    min_d_sq = min_d_sq.min(d_sq);
+                }
+
+                if min_d_sq <= r_sq {
+                    let dist = min_d_sq.sqrt();
+                    let stroke_weight = 1.0 - smoothstep(r_eff * 0.4, r_eff, dist);
+                    out.push(p * (1.0 - stroke_weight) + q * stroke_weight);
+                } else {
+                    out.push(p);
+                }
+            }
+        }
+    } else {
+        // Whole-mask edge refine: re-matte the transition zone (0.01 < p < 0.99)
+        for i in 0..n {
+            let p = mask_alphas[i];
+            let q = filtered_q[i].clamp(0.0, 1.0);
+            let edge_weight = (1.0 - (2.0 * p - 1.0).abs().powi(2)).clamp(0.0, 1.0);
+            out.push(p * (1.0 - edge_weight) + q * edge_weight);
+        }
+    }
+
+    out
+}
+
 /// Composites every layer over [rgba] (RGBA8, `w*h*4`), in order.
 pub fn apply_local(rgba: &[u8], w: usize, h: usize, layers: &[LocalAdjustment]) -> Vec<u8> {
     let mut out = rgba.to_vec();
@@ -1493,5 +1645,135 @@ mod tests {
         assert!(delta_full > 10.0);
         assert!((delta_half - delta_full * 0.5).abs() <= 1.5);
         assert!((delta_double - delta_full * 2.0).abs() <= 1.5);
+    }
+
+    #[test]
+    fn test_rasterize_mask() {
+        // 32x32 radial mask centered at (0.5, 0.5) with radius 0.25, feather 0.0
+        let p = vec![0.5, 0.5, 0.25, 0.25, 0.0];
+        let alphas = rasterize_mask(MASK_RADIAL, &p, 32, 32, None);
+        assert_eq!(alphas.len(), 32 * 32);
+
+        // Center pixel (16, 16) is inside
+        let center_idx = 16 * 32 + 16;
+        assert_eq!(alphas[center_idx], 1.0);
+
+        // Corner pixel (0, 0) is outside
+        assert_eq!(alphas[0], 0.0);
+    }
+
+    #[test]
+    fn test_refine_mask_guided_aligns_to_step_edge() {
+        let w = 32;
+        let h = 32;
+        // Image with dark background on left (x < 16) and bright foreground on right (x >= 16)
+        let mut rgba = vec![0u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                let val = if x < 16 { 25 } else { 230 };
+                rgba[idx] = val;
+                rgba[idx + 1] = val;
+                rgba[idx + 2] = val;
+                rgba[idx + 3] = 255;
+            }
+        }
+
+        // Initial mask with a fuzzy linear transition ramp across x = 8..24
+        let mut initial_mask = vec![0.0f32; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = y * w + x;
+                initial_mask[idx] = if x < 8 {
+                    0.0
+                } else if x >= 24 {
+                    1.0
+                } else {
+                    (x as f32 - 8.0) / 16.0
+                };
+            }
+        }
+
+        let refined = refine_mask_guided(&rgba, w, h, &initial_mask, &[], 0.05, 4, 0.005);
+        assert_eq!(refined.len(), w * h);
+
+        // At y = 16, x = 14 (dark background side): refined alpha should be pulled lower than initial
+        let idx_dark = 16 * w + 14;
+        assert!(
+            refined[idx_dark] < initial_mask[idx_dark],
+            "refined on dark side ({}) should be lower than initial ({})",
+            refined[idx_dark],
+            initial_mask[idx_dark]
+        );
+
+        // At y = 16, x = 18 (bright foreground side): refined alpha should be pulled higher than initial
+        let idx_bright = 16 * w + 18;
+        assert!(
+            refined[idx_bright] > initial_mask[idx_bright],
+            "refined on bright side ({}) should be higher than initial ({})",
+            refined[idx_bright],
+            initial_mask[idx_bright]
+        );
+
+        // Pure background (x = 2) and pure foreground (x = 30) stay clean
+        assert_eq!(refined[16 * w + 2], 0.0);
+        assert_eq!(refined[16 * w + 30], 1.0);
+    }
+
+    #[test]
+    fn test_refine_mask_guided_with_brush_stroke() {
+        let w = 32;
+        let h = 32;
+        let mut rgba = vec![0u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                let val = if x < 16 { 25 } else { 230 };
+                rgba[idx] = val;
+                rgba[idx + 1] = val;
+                rgba[idx + 2] = val;
+                rgba[idx + 3] = 255;
+            }
+        }
+
+        let mut initial_mask = vec![0.0f32; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = y * w + x;
+                initial_mask[idx] = if x < 8 {
+                    0.0
+                } else if x >= 24 {
+                    1.0
+                } else {
+                    (x as f32 - 8.0) / 16.0
+                };
+            }
+        }
+
+        // Brush stroke only over top-left region around (u=0.45, v=0.2)
+        let stroke_points = vec![0.45, 0.15, 0.45, 0.25];
+        let brush_radius = 0.15;
+
+        let refined = refine_mask_guided(
+            &rgba,
+            w,
+            h,
+            &initial_mask,
+            &stroke_points,
+            brush_radius,
+            4,
+            0.005,
+        );
+
+        // In brushed region (e.g. y = 6, x = 14), alpha changed
+        let idx_brushed = 6 * w + 14;
+        assert!((refined[idx_brushed] - initial_mask[idx_brushed]).abs() > 1e-4);
+
+        // In distant unbrushed region (e.g. bottom half, y = 28, x = 14), alpha is unchanged!
+        let idx_unbrushed = 28 * w + 14;
+        assert_eq!(
+            refined[idx_unbrushed], initial_mask[idx_unbrushed],
+            "unbrushed region must remain completely untouched"
+        );
     }
 }

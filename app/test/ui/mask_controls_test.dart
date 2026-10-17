@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:aperturex/edit/active_image.dart';
 import 'package:aperturex/edit/adjustment_layer.dart';
 import 'package:aperturex/edit/node_editor.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
@@ -438,6 +441,52 @@ void main() {
     await tester.drag(find.byKey(const Key('group-highlights-group_ui_test')), const Offset(50, 0));
     await tester.pumpAndSettle();
     expect(container.read(recipeControllerProvider).recipe.maskGroups.first.highlights, isNonZero);
+  });
+
+  testWidgets('Refine Edge button calls maskRefinerProvider and converts mask to bitmap', (tester) async {
+    final fakeRefiner = (AdjustmentLayer layer, Uint8List bytes, {List<double> strokePoints = const [], double brushRadius = 0.05}) async {
+      return layer.withRefinedAlphas([0.1, 0.2, 0.8, 0.9], 2, 2);
+    };
+
+    container = ProviderContainer(
+      overrides: [
+        maskRefinerProvider.overrideWithValue(fakeRefiner),
+      ],
+    );
+
+    // Set active image bytes
+    container.read(activeImageBytesProvider.notifier).setBytes(Uint8List.fromList([1, 2, 3, 4]));
+
+    final notifier = container.read(recipeControllerProvider.notifier);
+    notifier.addLayer(
+      const AdjustmentLayer(
+        maskKind: MaskKind.radial,
+        exposure: 0.5,
+      ),
+    );
+    container.read(nodeEditorProvider.notifier).enable();
+    container.read(nodeEditorProvider.notifier).select(0);
+
+    await pumpMaskControls(tester);
+
+    final refineEdgeBtn = find.byKey(const Key('mask-inline-refine-edge'));
+    expect(refineEdgeBtn, findsOneWidget);
+
+    await tester.tap(refineEdgeBtn);
+    await tester.pumpAndSettle();
+
+    final updated = container.read(recipeControllerProvider).recipe.layers.first;
+    expect(updated.maskKind, MaskKind.bitmap);
+    expect(updated.bitmapWidth, 2);
+    expect(updated.bitmapHeight, 2);
+    expect(updated.exposure, 0.5);
+
+    // Refine Brush chip toggles refineBrushMode
+    final refineBrushChip = find.byKey(const Key('mask-inline-refine-brush'));
+    expect(refineBrushChip, findsOneWidget);
+    await tester.tap(refineBrushChip);
+    await tester.pumpAndSettle();
+    expect(container.read(nodeEditorProvider).refineBrushMode, isTrue);
   });
 }
 

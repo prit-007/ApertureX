@@ -54,7 +54,7 @@ class BrushToolbar extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Mode toggle: Paint vs Erase
+            // Mode toggle: Paint vs Erase vs Refine
             ChoiceChip(
               key: const Key('brush-toolbar-paint'),
               label: Row(
@@ -63,13 +63,13 @@ class BrushToolbar extends ConsumerWidget {
                   Icon(
                     Icons.brush,
                     size: 14,
-                    color: !editor.eraserMode ? scheme.primary : null,
+                    color: (!editor.eraserMode && !editor.refineBrushMode) ? scheme.primary : null,
                   ),
                   const SizedBox(width: 4),
                   const Text('Paint', style: TextStyle(fontSize: 11)),
                 ],
               ),
-              selected: !editor.eraserMode,
+              selected: !editor.eraserMode && !editor.refineBrushMode,
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               showCheckmark: false,
@@ -77,6 +77,7 @@ class BrushToolbar extends ConsumerWidget {
                 if (val) {
                   HapticFeedback.selectionClick();
                   ref.read(nodeEditorProvider.notifier).setEraserMode(false);
+                  ref.read(nodeEditorProvider.notifier).setRefineBrushMode(false);
                 }
               },
             ),
@@ -103,6 +104,32 @@ class BrushToolbar extends ConsumerWidget {
                 if (val) {
                   HapticFeedback.selectionClick();
                   ref.read(nodeEditorProvider.notifier).setEraserMode(true);
+                }
+              },
+            ),
+            const SizedBox(width: 4),
+            ChoiceChip(
+              key: const Key('brush-toolbar-refine'),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.auto_fix_high,
+                    size: 14,
+                    color: editor.refineBrushMode ? scheme.primary : null,
+                  ),
+                  const SizedBox(width: 4),
+                  const Text('Refine', style: TextStyle(fontSize: 11)),
+                ],
+              ),
+              selected: editor.refineBrushMode,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              showCheckmark: false,
+              onSelected: (val) {
+                if (val) {
+                  HapticFeedback.selectionClick();
+                  ref.read(nodeEditorProvider.notifier).setRefineBrushMode(true);
                 }
               },
             ),

@@ -656,6 +656,48 @@ void main() {
       expect(group.gradeBalance, 0.0);
     });
   });
+
+  group('withRefinedAlphas (issue #95)', () {
+    test('converts layer to MaskKind.bitmap while preserving all grading settings', () {
+      const original = AdjustmentLayer(
+        maskKind: MaskKind.radial,
+        maskParams: [0.5, 0.5, 0.2, 0.2, 0.3],
+        exposure: 0.75,
+        contrast: 0.2,
+        highlights: -0.3,
+        shadows: 0.4,
+        gradeMidHue: 210,
+        gradeMidSat: 0.5,
+        groupId: 'grp1',
+        joinOp: MaskJoinOp.intersect,
+        inverted: true,
+        amount: 1.5,
+      );
+
+      final alphas = [0.0, 0.5, 1.0, 0.25];
+      final refined = original.withRefinedAlphas(alphas, 2, 2);
+
+      expect(refined.maskKind, MaskKind.bitmap);
+      expect(refined.bitmapWidth, 2);
+      expect(refined.bitmapHeight, 2);
+      expect(refined.exposure, 0.75);
+      expect(refined.contrast, 0.2);
+      expect(refined.highlights, -0.3);
+      expect(refined.shadows, 0.4);
+      expect(refined.gradeMidHue, 210);
+      expect(refined.gradeMidSat, 0.5);
+      expect(refined.groupId, 'grp1');
+      expect(refined.joinOp, MaskJoinOp.intersect);
+      expect(refined.inverted, isTrue);
+      expect(refined.amount, 1.5);
+      expect(refined.maskBlob, isNotNull);
+      expect(refined.maskBlob!.length, 4);
+      expect(refined.maskBlob![0], 0);
+      expect(refined.maskBlob![1], 128); // 0.5 * 255 rounded = 128
+      expect(refined.maskBlob![2], 255);
+      expect(refined.maskBlob![3], 64);
+    });
+  });
 }
 
 

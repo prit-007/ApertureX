@@ -5,11 +5,13 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../edit/active_image.dart';
 import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
 import '../../edit/recipe_controller.dart';
 import '../../viewport/canvas_transform.dart';
 import '../../viewport/mask_peek.dart';
+import 'mask_controls.dart' show maskRefinerProvider;
 
 /// How an active pointer is interacting with a node.
 enum _NodeDrag { idle, move, resize, place, startHandle, endHandle }
@@ -178,6 +180,7 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
             liveBrushPoints: _liveBrushPoints,
             pointerPos: _pointerPos,
             isEraser: eraserMode,
+            isRefine: ref.watch(nodeEditorProvider.select((s) => s.refineBrushMode)),
           ),
         ),
       ),
@@ -234,6 +237,23 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       ref.read(nodeEditorProvider.notifier).select(hit.$1);
       HapticFeedback.selectionClick();
       return;
+    }
+
+    final isRefine = ref.read(nodeEditorProvider.select((s) => s.refineBrushMode));
+    if (selectedIdx != null &&
+        selectedIdx >= 0 &&
+        selectedIdx < layers.length &&
+        isRefine) {
+      final n = _downNorm;
+      if (n != null) {
+        final pr = (e.kind == PointerDeviceKind.stylus)
+            ? e.pressure.clamp(0.05, 1.0)
+            : 1.0;
+        _liveBrushPoints = [n.dx, n.dy, pr];
+        _dragIndex = selectedIdx;
+        setState(() {});
+        return;
+      }
     }
 
     if (selectedIdx != null &&
@@ -447,29 +467,46 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
     if (_down == null) return;
 
     if (_liveBrushPoints != null && _dragIndex != null) {
+      final isRefine = ref.read(nodeEditorProvider.select((s) => s.refineBrushMode));
       final layers = ref.read(recipeControllerProvider).recipe.layers;
       if (_dragIndex! < layers.length) {
         final layer = layers[_dragIndex!];
-        final oldParams = layer.maskParams;
-        final baseR = oldParams.isNotEmpty ? oldParams[0] : 0.06;
-        final feather = oldParams.length > 1 ? oldParams[1] : 0.25;
-        final oldCount = (oldParams.length > 2) ? oldParams[2].toInt() : 0;
-        final addedCount = _liveBrushPoints!.length ~/ 3;
-        final newCount = oldCount > 0 ? (oldCount + 1 + addedCount) : addedCount;
-        final newParams = <double>[
-          baseR,
-          feather,
-          newCount.toDouble(),
-          if (oldCount > 0 && oldParams.length >= 3 + oldCount * 3) ...[
-            ...oldParams.sublist(3, 3 + oldCount * 3),
-            -1.0, -1.0, -1.0, // Stroke break sentinel
-          ],
-          ..._liveBrushPoints!,
-        ];
-        ref.read(recipeControllerProvider.notifier).updateLayerAt(
-          _dragIndex!,
-          layer.copyWith(maskParams: newParams),
-        );
+        if (isRefine) {
+          final pts = List<double>.from(_liveBrushPoints!);
+          final bytes = ref.read(activeImageBytesProvider);
+          if (bytes != null) {
+            final refiner = ref.read(maskRefinerProvider);
+            final brushR = (layer.maskKind == MaskKind.brush && layer.brushRadius > 0)
+                ? layer.brushRadius
+                : 0.05;
+            refiner(layer, bytes, strokePoints: pts, brushRadius: brushR).then((refined) {
+              if (refined != null) {
+                ref.read(recipeControllerProvider.notifier).updateLayerAt(_dragIndex!, refined);
+              }
+            });
+          }
+        } else {
+          final oldParams = layer.maskParams;
+          final baseR = oldParams.isNotEmpty ? oldParams[0] : 0.06;
+          final feather = oldParams.length > 1 ? oldParams[1] : 0.25;
+          final oldCount = (oldParams.length > 2) ? oldParams[2].toInt() : 0;
+          final addedCount = _liveBrushPoints!.length ~/ 3;
+          final newCount = oldCount > 0 ? (oldCount + 1 + addedCount) : addedCount;
+          final newParams = <double>[
+            baseR,
+            feather,
+            newCount.toDouble(),
+            if (oldCount > 0 && oldParams.length >= 3 + oldCount * 3) ...[
+              ...oldParams.sublist(3, 3 + oldCount * 3),
+              -1.0, -1.0, -1.0, // Stroke break sentinel
+            ],
+            ..._liveBrushPoints!,
+          ];
+          ref.read(recipeControllerProvider.notifier).updateLayerAt(
+            _dragIndex!,
+            layer.copyWith(maskParams: newParams),
+          );
+        }
       }
       _liveBrushPoints = null;
       _reset();
@@ -600,6 +637,7 @@ class _NodesPainter extends CustomPainter {
     this.liveBrushPoints,
     this.pointerPos,
     this.isEraser = false,
+    this.isRefine = false,
   });
 
   final List<AdjustmentLayer> layers;
@@ -609,6 +647,7 @@ class _NodesPainter extends CustomPainter {
   final List<double>? liveBrushPoints;
   final Offset? pointerPos;
   final bool isEraser;
+  final bool isRefine;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -616,17 +655,22 @@ class _NodesPainter extends CustomPainter {
     if (t == null) return;
     const rubyColor = Color(0xFFE53935);
 
-    // Draw brush / eraser cursor ring at pointerPos
+    // Draw brush / eraser / refine cursor ring at pointerPos
     if (selectedIndex != null &&
         selectedIndex! >= 0 &&
         selectedIndex! < layers.length &&
-        layers[selectedIndex!].maskKind == MaskKind.brush &&
+        (layers[selectedIndex!].maskKind == MaskKind.brush || isRefine) &&
         pointerPos != null) {
       final layer = layers[selectedIndex!];
-      final radius = layer.brushRadius * t.fitted.width * t.scale;
-      final feather = layer.brushFeather;
+      final radius = (layer.maskKind == MaskKind.brush && layer.brushRadius > 0)
+          ? layer.brushRadius * t.fitted.width * t.scale
+          : 0.05 * t.fitted.width * t.scale;
+      final feather = layer.maskKind == MaskKind.brush ? layer.brushFeather : 0.2;
+      final ringColor = isEraser
+          ? Colors.white
+          : (isRefine ? Colors.cyanAccent : primary);
       final ringPaint = Paint()
-        ..color = (isEraser ? Colors.white : primary).withValues(alpha: 0.8)
+        ..color = ringColor.withValues(alpha: 0.8)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5;
 
@@ -636,7 +680,7 @@ class _NodesPainter extends CustomPainter {
       // Outer circle for feather boundary
       if (feather > 0) {
         final outerPaint = Paint()
-          ..color = (isEraser ? Colors.white : primary).withValues(alpha: 0.35)
+          ..color = ringColor.withValues(alpha: 0.35)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.0;
         canvas.drawCircle(pointerPos!, radius * (1.0 + feather), outerPaint);
@@ -1004,5 +1048,6 @@ class _NodesPainter extends CustomPainter {
       old.primary != primary ||
       old.liveBrushPoints != liveBrushPoints ||
       old.pointerPos != pointerPos ||
-      old.isEraser != isEraser;
+      old.isEraser != isEraser ||
+      old.isRefine != isRefine;
 }
