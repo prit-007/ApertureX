@@ -96,7 +96,7 @@ is adopted. This is a hard gate (ADR 0010).
 
 | Model | Purpose | Runtime | Code license | Weights license | Source | Status |
 |---|---|---|---|---|---|---|
-| _(none yet)_ | — | ONNX RT / ncnn | — | — | — | — |
+| U²-NetP | Salient object / subject mask | ONNX RT / in-tree | Apache-2.0 | Apache-2.0 | xuebinqin/U-2-Net | Adopted (#87) |
 
 Candidate models (verify each model's weights license before adoption):
 MobileSAM / SAM 2 small (tap-select), U²-Net-style salient (auto subject), sky

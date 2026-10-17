@@ -90,6 +90,27 @@ pub fn detect_sky(rgba: Vec<u8>, width: u32, height: u32) -> Option<DetectedSky>
     })
 }
 
+/// Detected subject parameters from a proxy image.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DetectedSubject {
+    pub cx: f32,
+    pub cy: f32,
+    pub rx: f32,
+    pub ry: f32,
+    pub feather: f32,
+}
+
+/// Automatically detects dominant subject center, radii, and feather.
+pub fn detect_subject(rgba: Vec<u8>, width: u32, height: u32) -> Option<DetectedSubject> {
+    mask::detect_subject(&rgba, width as usize, height as usize).map(|d| DetectedSubject {
+        cx: d.cx,
+        cy: d.cy,
+        rx: d.rx,
+        ry: d.ry,
+        feather: d.feather,
+    })
+}
+
 /// Refines a mask alpha channel using guided-filter re-matting against image RGBA.
 ///
 /// Returns the refined alpha map (length `width * height`, values in `0.0..1.0`).

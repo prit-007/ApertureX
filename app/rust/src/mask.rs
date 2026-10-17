@@ -452,6 +452,174 @@ pub fn detect_sky(rgba: &[u8], width: usize, height: usize) -> Option<DetectedSk
     })
 }
 
+/// Detected subject parameters from a proxy image.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DetectedSubject {
+    pub cx: f32,
+    pub cy: f32,
+    pub rx: f32,
+    pub ry: f32,
+    pub feather: f32,
+}
+
+/// Automatically detects dominant subject center, radii, and feather using
+/// spatial saliency and boundary-contrast priors.
+pub fn detect_subject(rgba: &[u8], width: usize, height: usize) -> Option<DetectedSubject> {
+    if width < 8 || height < 8 || rgba.len() < width * height * 4 {
+        return None;
+    }
+
+    // 1. Compute average boundary color (background prior)
+    let mut bg_r = 0.0f32;
+    let mut bg_g = 0.0f32;
+    let mut bg_b = 0.0f32;
+    let mut border_count = 0usize;
+
+    for x in 0..width {
+        // top row
+        let idx0 = x * 4;
+        bg_r += rgba[idx0] as f32 / 255.0;
+        bg_g += rgba[idx0 + 1] as f32 / 255.0;
+        bg_b += rgba[idx0 + 2] as f32 / 255.0;
+        // bottom row
+        let idx1 = ((height - 1) * width + x) * 4;
+        bg_r += rgba[idx1] as f32 / 255.0;
+        bg_g += rgba[idx1 + 1] as f32 / 255.0;
+        bg_b += rgba[idx1 + 2] as f32 / 255.0;
+        border_count += 2;
+    }
+
+    for y in 1..height - 1 {
+        // left column
+        let idx0 = y * width * 4;
+        bg_r += rgba[idx0] as f32 / 255.0;
+        bg_g += rgba[idx0 + 1] as f32 / 255.0;
+        bg_b += rgba[idx0 + 2] as f32 / 255.0;
+        // right column
+        let idx1 = (y * width + (width - 1)) * 4;
+        bg_r += rgba[idx1] as f32 / 255.0;
+        bg_g += rgba[idx1 + 1] as f32 / 255.0;
+        bg_b += rgba[idx1 + 2] as f32 / 255.0;
+        border_count += 2;
+    }
+
+    if border_count > 0 {
+        bg_r /= border_count as f32;
+        bg_g /= border_count as f32;
+        bg_b /= border_count as f32;
+    }
+
+    // 2. Compute saliency map & first/second moments
+    let mut sum_w = 0.0f32;
+    let mut sum_x = 0.0f32;
+    let mut sum_y = 0.0f32;
+
+    for y in 0..height {
+        let v = (y as f32 + 0.5) / height as f32;
+        let row_start = y * width * 4;
+        for x in 0..width {
+            let u = (x as f32 + 0.5) / width as f32;
+            let px = row_start + x * 4;
+            let r = rgba[px] as f32 / 255.0;
+            let g = rgba[px + 1] as f32 / 255.0;
+            let b = rgba[px + 2] as f32 / 255.0;
+
+            // Distance from background
+            let dr = r - bg_r;
+            let dg = g - bg_g;
+            let db = b - bg_b;
+            let color_diff = (dr * dr + dg * dg + db * db).sqrt();
+
+            // Local gradient energy (horizontal + vertical step)
+            let grad_x = if x + 1 < width {
+                let next = px + 4;
+                ((rgba[next] as f32 - rgba[px] as f32).abs()
+                    + (rgba[next + 1] as f32 - rgba[px + 1] as f32).abs()
+                    + (rgba[next + 2] as f32 - rgba[px + 2] as f32).abs())
+                    / (3.0 * 255.0)
+            } else {
+                0.0
+            };
+
+            let grad_y = if y + 1 < height {
+                let next = (y + 1) * width * 4 + x * 4;
+                ((rgba[next] as f32 - rgba[px] as f32).abs()
+                    + (rgba[next + 1] as f32 - rgba[px + 1] as f32).abs()
+                    + (rgba[next + 2] as f32 - rgba[px + 2] as f32).abs())
+                    / (3.0 * 255.0)
+            } else {
+                0.0
+            };
+
+            // Center prior (Gaussian-like soft falloff)
+            let du = u - 0.5;
+            let dv = v - 0.5;
+            let center_falloff = (-2.0 * (du * du + dv * dv)).exp();
+
+            let saliency = (color_diff * 0.65 + (grad_x + grad_y) * 0.35) * center_falloff;
+            sum_w += saliency;
+            sum_x += u * saliency;
+            sum_y += v * saliency;
+        }
+    }
+
+    if sum_w < 1e-4 {
+        // Fallback default center subject
+        return Some(DetectedSubject {
+            cx: 0.5,
+            cy: 0.5,
+            rx: 0.28,
+            ry: 0.38,
+            feather: 0.25,
+        });
+    }
+
+    let cx = (sum_x / sum_w).clamp(0.15, 0.85);
+    let cy = (sum_y / sum_w).clamp(0.15, 0.85);
+
+    // Second central moments for rx and ry
+    let mut sum_var_x = 0.0f32;
+    let mut sum_var_y = 0.0f32;
+
+    for y in 0..height {
+        let v = (y as f32 + 0.5) / height as f32;
+        let row_start = y * width * 4;
+        for x in 0..width {
+            let u = (x as f32 + 0.5) / width as f32;
+            let px = row_start + x * 4;
+            let r = rgba[px] as f32 / 255.0;
+            let g = rgba[px + 1] as f32 / 255.0;
+            let b = rgba[px + 2] as f32 / 255.0;
+
+            let dr = r - bg_r;
+            let dg = g - bg_g;
+            let db = b - bg_b;
+            let color_diff = (dr * dr + dg * dg + db * db).sqrt();
+
+            let du = u - 0.5;
+            let dv = v - 0.5;
+            let center_falloff = (-2.0 * (du * du + dv * dv)).exp();
+
+            let saliency = color_diff * center_falloff;
+            let dx = u - cx;
+            let dy = v - cy;
+            sum_var_x += dx * dx * saliency;
+            sum_var_y += dy * dy * saliency;
+        }
+    }
+
+    let rx = ((sum_var_x / sum_w).sqrt() * 2.2).clamp(0.12, 0.45);
+    let ry = ((sum_var_y / sum_w).sqrt() * 2.2).clamp(0.15, 0.48);
+
+    Some(DetectedSubject {
+        cx,
+        cy,
+        rx,
+        ry,
+        feather: 0.25,
+    })
+}
+
 /// Rasterizes a mask into an alpha plane `[0.0, 1.0]` of dimensions `w x h`.
 ///
 /// If `rgba` is provided (RGBA8, `w * h * 4`), it is used for luminance-dependent
@@ -1775,5 +1943,74 @@ mod tests {
             refined[idx_unbrushed], initial_mask[idx_unbrushed],
             "unbrushed region must remain completely untouched"
         );
+    }
+
+    #[test]
+    fn test_detect_subject_centered_figure() {
+        let w = 40;
+        let h = 40;
+        let mut rgba = vec![30u8; w * h * 4]; // Dark background (30)
+
+        // Draw bright salient subject (220) around center (x=20, y=20)
+        for y in 12..28 {
+            for x in 12..28 {
+                let idx = (y * w + x) * 4;
+                rgba[idx] = 220;
+                rgba[idx + 1] = 210;
+                rgba[idx + 2] = 200;
+                rgba[idx + 3] = 255;
+            }
+        }
+
+        let detected = detect_subject(&rgba, w, h).expect("subject detected");
+        assert!(
+            (detected.cx - 0.5).abs() < 0.05,
+            "cx near center: {}",
+            detected.cx
+        );
+        assert!(
+            (detected.cy - 0.5).abs() < 0.05,
+            "cy near center: {}",
+            detected.cy
+        );
+        assert!(detected.rx > 0.15 && detected.rx < 0.45);
+        assert!(detected.ry > 0.15 && detected.ry < 0.45);
+    }
+
+    #[test]
+    fn test_detect_subject_off_center_figure() {
+        let w = 40;
+        let h = 40;
+        let mut rgba = vec![40u8; w * h * 4];
+
+        // Draw bright salient subject in left third (x=10, y=14)
+        for y in 8..20 {
+            for x in 6..16 {
+                let idx = (y * w + x) * 4;
+                rgba[idx] = 240;
+                rgba[idx + 1] = 230;
+                rgba[idx + 2] = 220;
+                rgba[idx + 3] = 255;
+            }
+        }
+
+        let detected = detect_subject(&rgba, w, h).expect("subject detected");
+        // cx should shift towards 0.25 - 0.35
+        assert!(
+            detected.cx < 0.42,
+            "cx pulled towards left: {}",
+            detected.cx
+        );
+        assert!(detected.cy < 0.45, "cy pulled towards top: {}", detected.cy);
+    }
+
+    #[test]
+    fn test_detect_subject_uniform_fallback() {
+        let w = 32;
+        let h = 32;
+        let rgba = vec![128u8; w * h * 4];
+        let detected = detect_subject(&rgba, w, h).expect("fallback detected");
+        assert_eq!(detected.cx, 0.5);
+        assert_eq!(detected.cy, 0.5);
     }
 }

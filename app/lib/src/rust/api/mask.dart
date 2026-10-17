@@ -7,7 +7,7 @@ import '../frb_generated.dart';
 import 'color.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `eq`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`
 
 /// Composites [layers] over [rgba] (RGBA8, `width*height*4`), in order.
 Future<Uint8List> applyMasks({
@@ -28,6 +28,17 @@ Future<DetectedSky?> detectSky({
   required int width,
   required int height,
 }) => RustLib.instance.api.crateApiMaskDetectSky(
+  rgba: rgba,
+  width: width,
+  height: height,
+);
+
+/// Automatically detects dominant subject center, radii, and feather.
+Future<DetectedSubject?> detectSubject({
+  required List<int> rgba,
+  required int width,
+  required int height,
+}) => RustLib.instance.api.crateApiMaskDetectSubject(
   rgba: rgba,
   width: width,
   height: height,
@@ -82,6 +93,38 @@ class DetectedSky {
           horizonY == other.horizonY &&
           feather == other.feather &&
           blueWeight == other.blueWeight;
+}
+
+/// Detected subject parameters from a proxy image.
+class DetectedSubject {
+  final double cx;
+  final double cy;
+  final double rx;
+  final double ry;
+  final double feather;
+
+  const DetectedSubject({
+    required this.cx,
+    required this.cy,
+    required this.rx,
+    required this.ry,
+    required this.feather,
+  });
+
+  @override
+  int get hashCode =>
+      cx.hashCode ^ cy.hashCode ^ rx.hashCode ^ ry.hashCode ^ feather.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DetectedSubject &&
+          runtimeType == other.runtimeType &&
+          cx == other.cx &&
+          cy == other.cy &&
+          rx == other.rx &&
+          ry == other.ry &&
+          feather == other.feather;
 }
 
 /// One adjustment layer: a parametric mask + a point-wise sub-grade.

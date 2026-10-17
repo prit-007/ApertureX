@@ -19,6 +19,8 @@ libraw = { version = "0.1.1", optional = true }
 # Optional LibRaw fallback for camera coverage. Off by default: the default
 # build is pure-Rust (ADR 0005, see docs/spikes/raw-engine-spike.md).
 raw-libraw = ["dep:libraw"]
+# Optional AI inference runtime feature (ADR 0010, #87).
+ai = []
 
 # The Flutter debug build maps to Cargo's `dev` profile. Without optimization
 # the colour/spatial math runs 10-50x slower — the cause of multi-second slider
