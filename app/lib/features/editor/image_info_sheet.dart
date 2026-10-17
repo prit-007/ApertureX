@@ -326,7 +326,25 @@ class _ImageInfoSheetState extends ConsumerState<ImageInfoSheet> {
         children: [
           Row(
             children: [
-              Icon(statusIcon, color: iconColor, size: 22),
+              if (isVerified)
+                Container(
+                  width: 26,
+                  height: 26,
+                  margin: const EdgeInsets.only(right: Insets.xs),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withAlpha(40),
+                    shape: BoxShape.circle,
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.asset(
+                    'icons/app_icon_monochrome.png',
+                    color: Colors.green,
+                    errorBuilder: (_, _, _) =>
+                        Icon(statusIcon, color: iconColor, size: 20),
+                  ),
+                )
+              else
+                Icon(statusIcon, color: iconColor, size: 22),
               const SizedBox(width: Insets.xs),
               Expanded(
                 child: Column(

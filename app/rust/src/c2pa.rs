@@ -79,10 +79,13 @@ pub fn sign_c2pa_claim(claim_json: &str, private_key: &[u8]) -> String {
     s
 }
 
-/// Packages a claim and its signature into a serializable C2PA manifest container.
+/// Embedded monochrome icon asset of ApertureX (1024x1024 PNG) used for C2PA claim generator branding.
+pub static APERTUREX_ICON_PNG: &[u8] = include_bytes!("../../icons/app_icon_monochrome.png");
+
+/// Packages a claim and its signature into a serializable C2PA manifest container with generator icon metadata.
 pub fn create_c2pa_manifest(claim_json: &str, signature_hex: &str, key_id: &str) -> Vec<u8> {
     let container = format!(
-        "{{\"c2pa_manifest\": {{\"claim\": {}, \"sig\": \"{}\", \"key_id\": \"{}\"}}}}",
+        "{{\"c2pa_manifest\": {{\"claim\": {}, \"sig\": \"{}\", \"key_id\": \"{}\", \"generator_icon\": \"icons/app_icon_monochrome.png\"}}}}",
         claim_json, signature_hex, key_id
     );
     container.into_bytes()

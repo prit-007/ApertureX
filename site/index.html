@@ -3,60 +3,66 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ApertureX — Pro-Grade FOSS Photo Editor</title>
-<meta name="description" content="A non-destructive, 100% offline FOSS photo editor for Android & iOS. Dual UI shells (Lightroom-style precision panel + Snapseed-style gestures) over one shared recipe, powered by a high-performance Rust engine. Free, GPL-3.0.">
+<title>ApertureX — Pro-Grade FOSS Photo Editor | Look QR Standard, Rust Engine & Dual Shells</title>
+<meta name="description" content="ApertureX is the mobile-native FOSS photo editor for Android & iOS. Dual UI shells (Lightroom-style precision panel + Snapseed gesture mode) over one shared recipe, Look QR open preset standard, on-device C2PA provenance, Pat David film emulations, and a compiled Rust engine. 100% offline, GPL-3.0.">
 <meta property="og:title" content="ApertureX — Pro-Grade FOSS Photo Editor">
-<meta property="og:description" content="The Lightroom & Snapseed replacement the FOSS world deserved. Dual UIs over one recipe, Rust engine, tile viewport, zero network calls.">
+<meta property="og:description" content="The Lightroom & Snapseed replacement the open-source community deserved. Dual UI shells, Look QR open standard, C2PA provenance, Pat David film stocks, and high-performance Rust core. Zero cloud, zero subscriptions.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://prit-007.github.io/ApertureX/">
 <meta property="og:image" content="https://raw.githubusercontent.com/prit-007/ApertureX/main/app/icons/app_icon.png">
-<meta name="theme-color" content="#0B0E15">
+<meta name="theme-color" content="#080B11">
 <link rel="icon" type="image/png" href="assets/app_icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
   :root {
-    --bg-darkest: #06080C;
-    --bg: #090C12;
-    --bg-1: #0F131C;
-    --bg-2: #151A26;
-    --bg-card: rgba(18, 23, 34, 0.65);
-    
+    --bg-darkest: #06080D;
+    --bg: #080B11;
+    --bg-1: #0E121A;
+    --bg-2: #141A25;
+    --bg-card: rgba(15, 20, 30, 0.72);
+    --bg-card-hover: rgba(22, 29, 44, 0.85);
+
     --glass: rgba(255, 255, 255, 0.035);
-    --glass-hover: rgba(255, 255, 255, 0.07);
+    --glass-hover: rgba(255, 255, 255, 0.065);
     --glass-active: rgba(255, 255, 255, 0.1);
-    
+
     --border: rgba(255, 255, 255, 0.08);
-    --border-soft: rgba(255, 255, 255, 0.04);
+    --border-soft: rgba(255, 255, 255, 0.045);
     --border-highlight: rgba(255, 255, 255, 0.16);
-    
+
     --text: #F3F5F9;
-    --text-muted: #9EABB8;
-    --text-faint: #606C7E;
-    
+    --text-muted: #94A3B8;
+    --text-faint: #64748B;
+
     --cyan: #00E5FF;
     --cyan-glow: rgba(0, 229, 255, 0.35);
     --cyan-soft: #70F3FF;
     --cyan-dim: #094754;
-    
+
+    --coral: #FF2A55;
+    --coral-soft: #FF5C7E;
+    --coral-glow: rgba(255, 42, 85, 0.3);
+
     --amber: #FFB300;
     --amber-soft: #FFD54F;
-    --amber-glow: rgba(255, 179, 0, 0.3);
-    
-    --red: #FF2A55;
-    --red-soft: #FF5C7E;
-    
+    --amber-glow: rgba(255, 179, 0, 0.28);
+
+    --emerald: #10B981;
+    --emerald-glow: rgba(16, 185, 129, 0.28);
+
     --display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     --body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --mono: 'JetBrains Mono', monospace;
-    
+
     --radius-s: 8px;
-    --radius-m: 16px;
-    --radius-l: 24px;
-    --radius-xl: 36px;
+    --radius-m: 14px;
+    --radius-l: 22px;
+    --radius-xl: 32px;
   }
-  
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
   body {
@@ -69,7 +75,7 @@
     overflow-x: hidden;
     font-variant-numeric: tabular-nums;
   }
-  
+
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     *, *::before, *::after {
@@ -78,34 +84,34 @@
       transition-duration: 0.001ms !important;
     }
   }
-  
+
   a { color: inherit; text-decoration: none; }
   img, svg { display: block; max-width: 100%; }
   ul { list-style: none; }
   :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 4px; }
-  
-  .wrap { max-width: 1220px; margin: 0 auto; padding: 0 32px; }
+
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
   @media (max-width: 640px) { .wrap { padding: 0 20px; } }
-  
-  h1, h2, h3, h4 { font-family: var(--display); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
-  
-  .eyebrow {
+
+  h1, h2, h3, h4 { font-family: var(--display); font-weight: 700; letter-spacing: -0.025em; line-height: 1.15; }
+
+  /* Technical HUD Badges */
+  .hud-tag {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    font-family: var(--display);
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--cyan);
+    gap: 7px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    color: var(--cyan);
     background: rgba(0, 229, 255, 0.08);
     border: 1px solid rgba(0, 229, 255, 0.22);
-    padding: 6px 14px;
-    border-radius: 100px;
-    box-shadow: 0 0 20px rgba(0, 229, 255, 0.12);
+    padding: 5px 12px;
+    border-radius: 6px;
   }
-  .eyebrow::before {
+  .hud-tag::before {
     content: '';
     width: 6px;
     height: 6px;
@@ -113,7 +119,51 @@
     background: var(--cyan);
     box-shadow: 0 0 8px var(--cyan);
   }
-  
+
+  .hud-tag-amber {
+    color: var(--amber);
+    background: rgba(255, 179, 0, 0.08);
+    border-color: rgba(255, 179, 0, 0.24);
+  }
+  .hud-tag-amber::before {
+    background: var(--amber);
+    box-shadow: 0 0 8px var(--amber);
+  }
+
+  .hud-tag-coral {
+    color: var(--coral-soft);
+    background: rgba(255, 42, 85, 0.08);
+    border-color: rgba(255, 42, 85, 0.24);
+  }
+  .hud-tag-coral::before {
+    background: var(--coral);
+    box-shadow: 0 0 8px var(--coral);
+  }
+
+  .hud-tag-emerald {
+    color: var(--emerald);
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.24);
+  }
+  .hud-tag-emerald::before {
+    background: var(--emerald);
+    box-shadow: 0 0 8px var(--emerald);
+  }
+
+  /* Glass Card */
+  .glass-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: var(--radius-l);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .glass-card:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-highlight);
+  }
+
   /* Buttons */
   .btn {
     display: inline-flex;
@@ -122,9 +172,9 @@
     gap: 10px;
     font-family: var(--display);
     font-weight: 700;
-    font-size: 0.94rem;
+    font-size: 0.92rem;
     letter-spacing: 0.01em;
-    padding: 14px 28px;
+    padding: 13px 26px;
     border-radius: 100px;
     border: 1px solid transparent;
     cursor: pointer;
@@ -135,324 +185,270 @@
     user-select: none;
   }
   .btn:active { transform: scale(0.97); }
-  
+
   .btn-primary {
-    background: linear-gradient(135deg, #00F0FF, #00A3FF);
+    background: linear-gradient(135deg, #00F0FF, #0099FF);
     color: #040810;
-    box-shadow: 0 6px 26px -4px rgba(0, 229, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    box-shadow: 0 6px 26px -4px rgba(0, 229, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.7);
   }
   .btn-primary:hover {
-    background: linear-gradient(135deg, #33F5FF, #29B2FF);
-    box-shadow: 0 8px 34px -2px rgba(0, 229, 255, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    background: linear-gradient(135deg, #33F5FF, #26A5FF);
+    box-shadow: 0 8px 34px -2px rgba(0, 229, 255, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.9);
     transform: translateY(-2px);
   }
-  
+
   .btn-ghost {
     background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
     color: var(--text);
-    border-color: var(--border);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(12px);
   }
   .btn-ghost:hover {
     background: rgba(255, 255, 255, 0.09);
     border-color: var(--border-highlight);
     transform: translateY(-2px);
-    box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  }
-  .btn svg { width: 18px; height: 18px; flex-shrink: 0; }
-  
-  /* Glass card base */
-  .glass-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-l);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.07);
-    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-  }
-  .glass-card:hover {
-    border-color: var(--border-highlight);
   }
 
-  /* ============ Nav ============ */
-  .nav {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 1000;
-    background: rgba(6, 8, 12, 0.75);
-    border-bottom: 1px solid var(--border-soft);
+  /* Top Announcement Banner */
+  .announcement-bar {
+    background: linear-gradient(90deg, rgba(0, 229, 255, 0.12), rgba(255, 42, 85, 0.12), rgba(255, 179, 0, 0.12));
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    text-align: center;
+    font-size: 0.8rem;
+    font-family: var(--display);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    z-index: 100;
+  }
+  .announcement-bar strong { color: var(--text); }
+  .announcement-pill {
+    background: rgba(0, 229, 255, 0.2);
+    color: var(--cyan);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 100px;
+    border: 1px solid rgba(0, 229, 255, 0.35);
+  }
+
+  /* Sticky Navigation */
+  .site-nav {
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    background: rgba(8, 11, 17, 0.85);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    transition: background 0.3s ease;
+    border-bottom: 1px solid var(--border);
+    height: 68px;
+    display: flex;
+    align-items: center;
   }
-  .nav .wrap {
+  .nav-inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 72px;
+    width: 100%;
   }
-  .nav-mark {
+  .nav-brand {
     display: flex;
     align-items: center;
     gap: 12px;
     font-family: var(--display);
-    font-size: 1.15rem;
     font-weight: 800;
+    font-size: 1.15rem;
     letter-spacing: -0.01em;
   }
-  .logo-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    box-shadow: 0 0 14px rgba(0, 229, 255, 0.35);
-  }
+  .nav-brand img { width: 34px; height: 34px; border-radius: 9px; box-shadow: 0 4px 14px rgba(0, 229, 255, 0.3); }
   .nav-links {
     display: flex;
     align-items: center;
-    gap: 32px;
-    font-family: var(--display);
-    font-size: 0.92rem;
+    gap: 28px;
+    font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-muted);
   }
-  .nav-links a {
-    transition: color 0.18s ease;
-    position: relative;
-    padding: 6px 0;
-  }
   .nav-links a:hover { color: var(--text); }
-  .nav-links a::after {
-    content: '';
-    position: absolute;
-    bottom: 0; left: 50%; width: 0; height: 2px;
-    background: var(--cyan);
-    transition: all 0.2s ease;
-    transform: translateX(-50%);
+  @media (max-width: 960px) { .nav-links { display: none; } }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
   }
-  .nav-links a:hover::after { width: 100%; }
-  
-  .nav-cta { display: flex; align-items: center; gap: 14px; }
-  .nav-version {
+  .nav-version-badge {
     font-family: var(--mono);
-    font-size: 0.74rem;
-    font-weight: 500;
-    color: var(--cyan-soft);
-    padding: 4px 10px;
-    border-radius: 100px;
+    font-size: 0.72rem;
+    color: var(--cyan);
     background: rgba(0, 229, 255, 0.08);
     border: 1px solid rgba(0, 229, 255, 0.2);
+    padding: 4px 10px;
+    border-radius: 100px;
   }
-  
-  .nav-menu-btn {
+  .menu-toggle-btn {
     display: none;
     background: none;
-    border: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
     color: var(--text);
     cursor: pointer;
-    padding: 8px;
-    border-radius: 8px;
   }
-  .nav-menu-btn svg { width: 24px; height: 24px; }
-  @media (max-width: 880px) {
-    .nav-links { display: none; }
-    .nav-menu-btn { display: block; }
-    .nav-cta .btn { display: none; }
-  }
-  
-  .mobile-panel {
-    position: fixed;
-    top: 72px; left: 0; right: 0; bottom: 0;
-    z-index: 999;
-    background: rgba(7, 9, 14, 0.97);
-    backdrop-filter: blur(28px);
-    -webkit-backdrop-filter: blur(28px);
+  @media (max-width: 960px) { .menu-toggle-btn { display: flex; } }
+
+  /* Mobile Drawer */
+  .mobile-drawer {
     display: none;
     flex-direction: column;
-    padding: 24px 24px 40px;
-    gap: 8px;
-    animation: fadeIn 0.2s ease;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px;
+    gap: 16px;
   }
-  .mobile-panel.open { display: flex; }
-  .mobile-panel a {
-    padding: 16px 12px;
-    font-family: var(--display);
-    font-size: 1.25rem;
-    font-weight: 700;
-    border-bottom: 1px solid var(--border-soft);
-    color: var(--text);
-  }
-  .mobile-panel .btn { margin-top: 24px; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  .mobile-drawer.open { display: flex; }
+  .mobile-drawer a { font-size: 1rem; font-weight: 600; color: var(--text-muted); padding: 6px 0; }
+  .mobile-drawer a:hover { color: var(--cyan); }
 
-  /* ============ Hero ============ */
+  /* ============ HERO SECTION ============ */
   .hero {
     position: relative;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 140px 24px 80px;
+    padding: 110px 0 80px 0;
     overflow: hidden;
+    text-align: center;
   }
   .hero-ambient {
     position: absolute;
-    inset: -30%;
-    z-index: 0;
-    background:
-      radial-gradient(42% 34% at 18% 22%, rgba(0, 229, 255, 0.18), transparent 70%),
-      radial-gradient(38% 30% at 82% 20%, rgba(255, 179, 0, 0.12), transparent 65%),
-      radial-gradient(45% 42% at 50% 80%, rgba(255, 42, 85, 0.14), transparent 70%),
-      radial-gradient(55% 55% at 50% 45%, rgba(15, 19, 28, 0.5), rgba(6, 8, 12, 1) 75%);
-    filter: blur(40px);
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 900px;
+    height: 480px;
+    background: radial-gradient(ellipse at center, rgba(0, 229, 255, 0.15) 0%, rgba(255, 42, 85, 0.08) 45%, transparent 70%);
+    filter: blur(80px);
     pointer-events: none;
+    z-index: 0;
   }
-  .hero-grid {
+  .hero-grid-bg {
     position: absolute;
     inset: 0;
-    z-index: 1;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
     background-size: 48px 48px;
-    background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 20%, transparent 80%);
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 20%, transparent 80%);
+    mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
     pointer-events: none;
+    z-index: 1;
   }
   .hero-content {
     position: relative;
     z-index: 2;
-    max-width: 880px;
-    display: flex;
-    flex-direction: column;
+    max-width: 940px;
+    margin: 0 auto;
+  }
+  .hero-badge-wrap {
+    display: inline-flex;
     align-items: center;
-  }
-  .hero-logo-wrap {
-    position: relative;
+    gap: 8px;
     margin-bottom: 24px;
-    cursor: default;
   }
-  .hero-logo-wrap::before {
-    content: '';
-    position: absolute;
-    inset: -12px;
-    border-radius: 28px;
-    background: radial-gradient(circle, rgba(0, 229, 255, 0.4), transparent 70%);
-    filter: blur(14px);
-    z-index: -1;
-  }
-  .hero-logo {
-    width: 92px;
-    height: 92px;
-    border-radius: 24px;
-    box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.15);
-  }
-  
   .hero h1 {
-    font-size: clamp(2.8rem, 7.5vw, 5.4rem);
-    font-weight: 800;
+    font-size: clamp(2.6rem, 5.8vw, 4.8rem);
     letter-spacing: -0.035em;
-    line-height: 1.04;
-    text-transform: uppercase;
-    background: linear-gradient(180deg, #FFFFFF 0%, #E0F9FD 50%, #79DDEB 100%);
+    line-height: 1.08;
+    color: var(--text);
+    margin-bottom: 24px;
+  }
+  .gradient-text {
+    background: linear-gradient(135deg, #FFFFFF 20%, #70F3FF 60%, #FFB300 100%);
     -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    margin-top: 18px;
+    -webkit-text-fill-color: transparent;
   }
-  .hero-sub {
-    margin: 22px auto 0;
-    max-width: 650px;
-    font-size: clamp(1.05rem, 2vw, 1.25rem);
+  .hero p.lead {
+    font-size: clamp(1.08rem, 2vw, 1.3rem);
     color: var(--text-muted);
+    max-width: 760px;
+    margin: 0 auto 38px auto;
     line-height: 1.6;
-    font-weight: 400;
   }
-  .hero-sub strong { color: var(--text); font-weight: 600; }
-  
   .hero-cta {
     display: flex;
-    gap: 16px;
+    align-items: center;
     justify-content: center;
+    gap: 16px;
     flex-wrap: wrap;
-    margin-top: 36px;
-  }
-  
-  .hero-stats {
-    margin-top: 60px;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
-    width: 100%;
-    max-width: 820px;
-    padding: 22px 28px;
-    border-radius: var(--radius-xl);
-    background: rgba(18, 23, 34, 0.45);
-    border: 1px solid var(--border);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-  }
-  .stat-col {
-    text-align: center;
-    position: relative;
-  }
-  .stat-col:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    right: -10px; top: 15%; height: 70%;
-    width: 1px;
-    background: var(--border-soft);
-  }
-  .stat-col b {
-    display: block;
-    font-family: var(--display);
-    font-size: 1.7rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: var(--text);
-  }
-  .stat-col span {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    font-weight: 500;
-    margin-top: 2px;
-    display: block;
-  }
-  @media (max-width: 700px) {
-    .hero-stats { grid-template-columns: repeat(2, 1fr); gap: 24px; padding: 20px; }
-    .stat-col:nth-child(2)::after { display: none; }
+    margin-bottom: 50px;
   }
 
-  /* ============ Interactive Before / After Split Slider ============ */
-  .compare-section {
-    padding: 80px 0 120px;
-    position: relative;
-    z-index: 10;
-  }
-  .compare-container {
-    max-width: 960px;
+  /* Hero Tech Metrics Strip */
+  .hero-specs-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    max-width: 1100px;
     margin: 0 auto;
-    position: relative;
+    text-align: left;
+  }
+  .hero-spec-card {
+    padding: 16px 20px;
+    border-radius: var(--radius-m);
+    background: rgba(14, 18, 28, 0.6);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+  }
+  .hero-spec-card .val {
+    font-family: var(--display);
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hero-spec-card .label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* Section Styling */
+  section { position: relative; padding: 100px 0; }
+  .section-head { max-width: 720px; margin-bottom: 52px; }
+  .section-head.center { margin-left: auto; margin-right: auto; text-align: center; }
+  .section-head h2 {
+    font-size: clamp(2.1rem, 4.2vw, 3.2rem);
+    margin-top: 16px;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+  .section-head p {
+    margin-top: 14px;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    line-height: 1.6;
+  }
+
+  /* ============ INTERACTIVE BEFORE & AFTER SLIDER ============ */
+  .compare-container {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     overflow: hidden;
-    box-shadow: 0 40px 90px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--border);
-    user-select: none;
-    -webkit-user-select: none;
-    background: #080A10;
+    box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.85);
   }
   .compare-viewport {
     position: relative;
     width: 100%;
-    height: 480px;
+    height: 520px;
     overflow: hidden;
     cursor: ew-resize;
+    user-select: none;
   }
-  @media (max-width: 640px) { .compare-viewport { height: 340px; } }
-  
+  @media (max-width: 640px) { .compare-viewport { height: 360px; } }
+
   .compare-layer {
     position: absolute;
     inset: 0;
@@ -460,52 +456,33 @@
     height: 100%;
   }
   .compare-raw {
-    background:
-      radial-gradient(circle at 30% 40%, #5B6474 0%, #29303D 55%, #181C24 100%);
-    filter: saturate(0.65) contrast(0.9) brightness(0.95);
+    background: radial-gradient(circle at 35% 45%, #4B5565 0%, #242B36 55%, #12151D 100%);
+    filter: saturate(0.65) contrast(0.9) brightness(0.92);
     display: flex;
     align-items: center;
     justify-content: center;
   }
   .compare-graded {
-    background:
-      radial-gradient(circle at 65% 30%, #FFB300 0%, #FF5C7E 35%, #00E5FF 70%, #091322 100%);
-    filter: contrast(1.18) saturate(1.28) brightness(1.05);
+    background: radial-gradient(circle at 65% 35%, #FFB300 0%, #FF2A55 35%, #00E5FF 70%, #081120 100%);
+    filter: contrast(1.18) saturate(1.3) brightness(1.05);
     display: flex;
     align-items: center;
     justify-content: center;
     clip-path: inset(0 calc(100% - var(--split, 50%)) 0 0);
     will-change: clip-path;
   }
-  
   .compare-line {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 0; bottom: 0;
     left: var(--split, 50%);
     width: 2px;
     background: #FFFFFF;
-    box-shadow: 0 0 16px rgba(0, 229, 255, 0.8), 0 0 4px rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 16px rgba(0, 229, 255, 0.85), 0 0 4px #FFFFFF;
     transform: translateX(-50%);
     z-index: 15;
     pointer-events: none;
     will-change: left;
   }
-  
-  .photo-scenery {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    padding: 30px;
-  }
-  .photo-scenery svg {
-    opacity: 0.85;
-    filter: drop-shadow(0 12px 24px rgba(0,0,0,0.5));
-  }
-  
   .compare-handle {
     position: absolute;
     top: 50%;
@@ -515,22 +492,19 @@
     height: 44px;
     border-radius: 50%;
     background: #FFFFFF;
-    color: #080C14;
+    color: #06090E;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 3px rgba(0, 229, 255, 0.4);
-    cursor: ew-resize;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 0 3px rgba(0, 229, 255, 0.5);
     z-index: 20;
     pointer-events: none;
-    transition: transform 0.15s ease;
     will-change: left;
+    transition: transform 0.15s ease;
   }
-  .compare-viewport:hover .compare-handle {
-    transform: translate(-50%, -50%) scale(1.1);
-  }
-  .compare-handle svg { width: 20px; height: 20px; }
-  
+  .compare-viewport:hover .compare-handle { transform: translate(-50%, -50%) scale(1.1); }
+  .compare-handle svg { width: 22px; height: 22px; }
+
   .compare-badge {
     position: absolute;
     top: 20px;
@@ -542,7 +516,6 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     z-index: 15;
     pointer-events: none;
   }
@@ -559,120 +532,112 @@
     color: var(--text-muted);
     border: 1px solid var(--border);
   }
-  
+
   .compare-bar {
-    padding: 16px 24px;
-    background: rgba(14, 18, 28, 0.85);
+    padding: 16px 28px;
+    background: rgba(14, 18, 28, 0.95);
     border-top: 1px solid var(--border-soft);
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
-    font-size: 0.85rem;
+    gap: 14px;
+    font-size: 0.88rem;
     color: var(--text-muted);
   }
   .compare-bar strong { color: var(--text); }
-  .compare-pill {
+  .compare-bar-metrics {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-family: var(--mono);
-    font-size: 0.74rem;
-    color: var(--cyan);
-    background: rgba(0, 229, 255, 0.08);
-    padding: 4px 10px;
-    border-radius: 6px;
+    gap: 12px;
   }
 
-  /* ============ Section Head ============ */
-  section { position: relative; padding: 100px 0; }
-  .section-head { max-width: 680px; margin-bottom: 56px; }
-  .section-head.center { margin-left: auto; margin-right: auto; text-align: center; }
-  .section-head h2 {
-    font-size: clamp(2rem, 4vw, 3rem);
-    margin-top: 16px;
-    color: var(--text);
-  }
-  .section-head p {
-    margin-top: 14px;
-    color: var(--text-muted);
-    font-size: 1.08rem;
-    line-height: 1.6;
-  }
-
-  /* ============ Features Grid ============ */
-  .features-grid {
+  /* ============ ARTCRAFT-INSPIRED BENTO GRID ============ */
+  .bento-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    grid-template-columns: repeat(12, 1fr);
     gap: 20px;
   }
-  .feat-card {
+  .bento-card {
     padding: 32px;
     position: relative;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
   }
-  .feat-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  .bento-span-8 { grid-column: span 8; }
+  .bento-span-7 { grid-column: span 7; }
+  .bento-span-6 { grid-column: span 6; }
+  .bento-span-5 { grid-column: span 5; }
+  .bento-span-4 { grid-column: span 4; }
+  .bento-span-12 { grid-column: span 12; }
+
+  @media (max-width: 980px) {
+    .bento-span-8, .bento-span-7, .bento-span-6, .bento-span-5, .bento-span-4 { grid-column: span 12; }
   }
-  .feat-icon {
+
+  .bento-icon {
     width: 48px;
     height: 48px;
-    border-radius: 14px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 22px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    margin-bottom: 20px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
   }
-  .feat-icon svg { width: 24px; height: 24px; }
-  .feat-card h3 {
-    font-size: 1.25rem;
+  .bento-icon svg { width: 24px; height: 24px; }
+  .bento-title {
+    font-size: 1.35rem;
     font-weight: 700;
-    margin-bottom: 10px;
     color: var(--text);
+    margin-bottom: 10px;
   }
-  .feat-card p {
-    font-size: 0.92rem;
+  .bento-desc {
+    font-size: 0.94rem;
     color: var(--text-muted);
     line-height: 1.6;
+    margin-bottom: 18px;
   }
-  .feat-tag {
-    display: inline-block;
-    margin-top: 16px;
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--cyan);
-    background: rgba(0, 229, 255, 0.08);
-    padding: 2px 8px;
-    border-radius: 4px;
-    border: 1px solid rgba(0, 229, 255, 0.18);
+  .bento-visual {
+    margin-top: 14px;
+    border-radius: var(--radius-m);
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border-soft);
+    padding: 16px;
+    overflow: hidden;
+  }
+  .bento-tag-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
   }
 
-  /* ============ Interactive Shell Tour ============ */
+  /* ============ INTERACTIVE INSIDE THE APP TOUR ============ */
   .interactive-demo {
-    margin-top: 50px;
     background: var(--bg-1);
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
-    padding: 48px;
+    padding: 44px;
     box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.8);
   }
   @media (max-width: 640px) { .interactive-demo { padding: 24px 18px; } }
-  
+
   .demo-nav {
     display: flex;
     justify-content: center;
-    gap: 10px;
-    margin-bottom: 44px;
+    gap: 8px;
+    margin-bottom: 40px;
     flex-wrap: wrap;
   }
   .demo-tab-btn {
-    padding: 10px 20px;
+    padding: 10px 18px;
     border-radius: 100px;
     font-family: var(--display);
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     font-weight: 700;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid var(--border);
@@ -690,33 +655,33 @@
     border-color: var(--cyan);
     box-shadow: 0 4px 20px rgba(0, 229, 255, 0.35);
   }
-  
+
   .demo-stage {
     display: grid;
-    grid-template-columns: 340px 1fr;
-    gap: 60px;
+    grid-template-columns: 310px 1fr;
+    gap: 50px;
     align-items: center;
   }
   @media (max-width: 900px) {
-    .demo-stage { grid-template-columns: 1fr; gap: 40px; }
+    .demo-stage { grid-template-columns: 1fr; gap: 36px; }
     .demo-mockup-col { order: 1; }
     .demo-details-col { order: 2; }
   }
-  
+
   .demo-mockup-col {
     display: flex;
     justify-content: center;
   }
-  
-  /* Studio Phone Mockup */
+
+  /* Phone Mockup Frame */
   .phone-frame {
-    width: 280px;
-    height: 580px;
+    width: 290px;
+    height: 590px;
     border-radius: 44px;
     padding: 10px;
     background: #080B12;
     border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 35px 70px -15px rgba(0, 229, 255, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: 0 35px 70px -15px rgba(0, 229, 255, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.05);
     position: relative;
     user-select: none;
   }
@@ -726,7 +691,7 @@
     height: 100%;
     border-radius: 34px;
     overflow: hidden;
-    background: #0B0E15;
+    background: #0A0D14;
     display: flex;
     flex-direction: column;
   }
@@ -741,8 +706,8 @@
     background: #000;
     z-index: 50;
   }
-  
-  /* Mockup View 1: Lightroom Mode */
+
+  /* Mock View 1: Lightroom Mode */
   .mock-canvas {
     flex: 1;
     position: relative;
@@ -758,7 +723,6 @@
     justify-content: center;
     color: rgba(255,255,255,0.7);
   }
-  
   .mock-hud-tray {
     height: 236px;
     background: rgba(11, 14, 21, 0.95);
@@ -817,7 +781,6 @@
     background: rgba(255, 179, 0, 0.12);
     border-color: rgba(255, 179, 0, 0.35);
   }
-  
   .mock-slider-box {
     display: flex;
     flex-direction: column;
@@ -832,7 +795,6 @@
   }
   .mock-slider-head .name { color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
   .mock-slider-head .val { color: var(--cyan); font-family: var(--mono); }
-  
   .mock-slider-track {
     position: relative;
     height: 6px;
@@ -860,8 +822,8 @@
     box-shadow: 0 0 8px rgba(0, 229, 255, 0.8);
     cursor: grab;
   }
-  
-  /* Mockup View 2: Snapseed Gesture Mode */
+
+  /* Mock View 2: Snapseed Gesture Mode */
   .mock-snapseed {
     position: absolute;
     inset: 0;
@@ -912,10 +874,11 @@
     font-family: var(--display);
     font-weight: 700;
     color: var(--text-muted);
+    cursor: pointer;
   }
   .mock-gesture-hud span.active { color: var(--cyan); }
-  
-  /* Mockup View 3: Export Ring & C2PA */
+
+  /* Mock View 3: Export Ring & C2PA */
   .mock-export-box {
     position: absolute;
     inset: 0;
@@ -954,7 +917,7 @@
     color: var(--cyan);
   }
 
-  /* Mockup View 4: Look QR & Film Preset Card */
+  /* Mock View 4: Look QR & Film Preset Card */
   .mock-qr-box {
     position: absolute;
     inset: 0;
@@ -1031,7 +994,7 @@
     border: 1px solid rgba(0, 229, 255, 0.25);
   }
 
-  /* Mockup View 5: Asset Gallery */
+  /* Mock View 5: Asset Gallery */
   .mock-gallery-box {
     position: absolute;
     inset: 0;
@@ -1091,7 +1054,7 @@
     color: var(--cyan);
   }
 
-  /* Details side */
+  /* Demo Details Side */
   .demo-details-col h3 {
     font-size: clamp(1.8rem, 3.2vw, 2.5rem);
     color: var(--text);
@@ -1110,302 +1073,195 @@
   }
   .check-item {
     display: flex;
-    gap: 14px;
     align-items: flex-start;
+    gap: 14px;
   }
   .check-dot {
     width: 22px;
     height: 22px;
     border-radius: 50%;
     background: rgba(0, 229, 255, 0.12);
-    border: 1px solid rgba(0, 229, 255, 0.3);
     color: var(--cyan);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     margin-top: 2px;
+    border: 1px solid rgba(0, 229, 255, 0.3);
   }
-  .check-dot svg { width: 13px; height: 13px; stroke-width: 2.5; }
-  .check-text strong { display: block; color: var(--text); font-size: 0.98rem; font-weight: 600; }
-  .check-text span { font-size: 0.88rem; color: var(--text-muted); }
+  .check-dot svg { width: 13px; height: 13px; stroke-width: 2.8; }
+  .check-text strong { display: block; font-size: 0.95rem; color: var(--text); }
+  .check-text span { font-size: 0.86rem; color: var(--text-muted); line-height: 1.45; }
 
-  /* ============ Architecture Flow ============ */
-  .pipeline-section {
-    background: var(--bg);
-    border-top: 1px solid var(--border-soft);
-    border-bottom: 1px solid var(--border-soft);
-  }
+  /* ============ ARCHITECTURE PIPELINE ============ */
   .flow-track {
     display: flex;
-    align-items: center;
-    gap: 0;
-    margin: 50px 0 60px;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 48px;
     overflow-x: auto;
-    padding-bottom: 16px;
+    padding-bottom: 12px;
   }
   .flow-step {
     flex: 1;
-    min-width: 170px;
-    padding: 24px 20px;
-    background: var(--bg-card);
+    min-width: 190px;
+    padding: 24px;
+    background: var(--bg-1);
     border: 1px solid var(--border);
     border-radius: var(--radius-m);
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
     position: relative;
   }
   .flow-step .num {
     font-family: var(--mono);
     font-size: 0.72rem;
     color: var(--cyan);
-    margin-bottom: 6px;
+    font-weight: 700;
     display: block;
+    margin-bottom: 8px;
   }
-  .flow-step h4 { font-size: 1.05rem; font-weight: 700; color: var(--text); }
-  .flow-step p { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; line-height: 1.45; }
-  
+  .flow-step h4 { font-size: 1.08rem; color: var(--text); margin-bottom: 8px; }
+  .flow-step p { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; }
   .flow-connector {
-    flex: 0 0 32px;
-    height: 2px;
-    background: linear-gradient(90deg, var(--border), var(--cyan));
-    position: relative;
-  }
-  .flow-connector::after {
-    content: '';
-    position: absolute;
-    right: 0; top: -3px;
-    width: 8px; height: 8px;
-    border-top: 2px solid var(--cyan);
-    border-right: 2px solid var(--cyan);
-    transform: rotate(45deg);
-  }
-  @media (max-width: 800px) {
-    .flow-track { flex-direction: column; align-items: stretch; gap: 12px; }
-    .flow-connector { width: 2px; height: 20px; align-self: center; background: linear-gradient(180deg, var(--border), var(--cyan)); }
-    .flow-connector::after { right: -3px; top: auto; bottom: 0; transform: rotate(135deg); }
+    width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--border-highlight);
+    flex-shrink: 0;
   }
 
-  /* Trust Cards */
+  /* Trust Row */
   .trust-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-top: 40px;
   }
   .trust-card {
-    padding: 30px 24px;
+    padding: 20px;
+    border-radius: var(--radius-m);
     text-align: center;
   }
   .trust-card b {
     display: block;
     font-family: var(--display);
-    font-size: 2.2rem;
-    font-weight: 800;
-    color: var(--cyan);
-    letter-spacing: -0.02em;
-  }
-  .trust-card span {
-    font-size: 0.88rem;
-    color: var(--text-muted);
-    margin-top: 6px;
-    display: block;
-  }
-
-  /* ============ Team Section ============ */
-  .team-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 24px;
-    margin-top: 48px;
-  }
-  .team-card {
-    padding: 36px 30px;
-    text-align: center;
-  }
-  .team-avatar {
-    width: 84px;
-    height: 84px;
-    border-radius: 50%;
-    margin: 0 auto 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--display);
-    font-size: 1.8rem;
-    font-weight: 800;
-    color: #FFF;
-    box-shadow: 0 10px 24px -4px rgba(0, 0, 0, 0.5);
-  }
-  .team-card h3 { font-size: 1.35rem; color: var(--text); }
-  .team-card .role {
-    font-size: 0.84rem;
-    color: var(--cyan);
-    font-weight: 600;
-    margin: 4px 0 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .team-card p { font-size: 0.92rem; color: var(--text-muted); line-height: 1.6; }
-  .team-links {
-    margin-top: 22px;
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-  }
-  .team-links a {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    transition: all 0.2s ease;
-  }
-  .team-links a:hover {
+    font-size: 1.15rem;
     color: var(--text);
-    border-color: var(--border-highlight);
-    background: rgba(255, 255, 255, 0.09);
-    transform: translateY(-2px);
+    margin-bottom: 4px;
   }
-  .team-links a svg { width: 18px; height: 18px; }
+  .trust-card span { font-size: 0.82rem; color: var(--text-muted); }
 
-  /* ============ Download Card ============ */
+  /* ============ DOWNLOAD SECTION ============ */
   .download-box {
-    border-radius: var(--radius-xl);
-    padding: 64px 36px;
+    padding: 60px 40px;
     text-align: center;
+    max-width: 900px;
+    margin: 0 auto;
+    border-radius: var(--radius-xl);
     position: relative;
     overflow: hidden;
-    background:
-      radial-gradient(100% 140% at 50% 0%, rgba(0, 229, 255, 0.15), transparent 70%),
-      var(--bg-card);
   }
-  .download-box h2 {
-    font-size: clamp(2.2rem, 5vw, 3.4rem);
-    color: var(--text);
+  .download-box::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 300px;
+    background: radial-gradient(ellipse at center, rgba(0, 229, 255, 0.2), transparent 70%);
+    filter: blur(50px);
+    pointer-events: none;
   }
-  .download-box p {
-    color: var(--text-muted);
-    max-width: 520px;
-    margin: 16px auto 0;
-    font-size: 1.1rem;
-  }
+  .download-box h2 { font-size: clamp(2.2rem, 4vw, 3.2rem); margin-top: 14px; margin-bottom: 12px; }
+  .download-box p { color: var(--text-muted); font-size: 1.1rem; max-width: 620px; margin: 0 auto 34px auto; }
   .download-actions {
     display: flex;
-    gap: 16px;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-top: 36px;
-  }
-  
-  .version-badge-lg {
-    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 28px;
-    font-family: var(--mono);
-    font-size: 0.85rem;
-    color: var(--text-faint);
-  }
-  .version-badge-lg b { color: var(--cyan); }
-  
-  .arch-strip {
-    margin-top: 36px;
-    display: flex;
-    gap: 24px;
     justify-content: center;
+    gap: 16px;
     flex-wrap: wrap;
-    font-size: 0.86rem;
+    margin-bottom: 24px;
+  }
+  .version-badge-lg {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.84rem;
+    color: var(--cyan);
+    background: rgba(0, 229, 255, 0.1);
+    border: 1px solid rgba(0, 229, 255, 0.25);
+    padding: 6px 16px;
+    border-radius: 100px;
+  }
+  .arch-strip {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-top: 28px;
+    font-size: 0.82rem;
     color: var(--text-muted);
   }
-  .arch-strip span {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+  .arch-strip span { display: flex; align-items: center; gap: 8px; }
   .arch-strip svg { width: 16px; height: 16px; color: var(--cyan); }
 
-  /* ============ Changelog ============ */
+  /* ============ CHANGELOG SECTION ============ */
+  #releasesContainer { max-width: 860px; margin: 0 auto; }
   .cl-entry {
-    background: var(--bg-card);
+    background: var(--bg-1);
     border: 1px solid var(--border);
     border-radius: var(--radius-m);
     margin-bottom: 16px;
     overflow: hidden;
-    transition: all 0.2s ease;
   }
-  .cl-entry:hover { border-color: var(--border-highlight); }
   .cl-toggle {
+    padding: 18px 24px;
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    width: 100%;
-    padding: 22px 28px;
-    background: none;
-    border: none;
-    cursor: pointer;
+    align-items: center;
     font-family: var(--display);
-    font-size: 1.15rem;
     font-weight: 700;
-    color: var(--text);
-    text-align: left;
+    font-size: 1.05rem;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.02);
   }
-  .cl-toggle .arrow {
-    font-size: 1.2rem;
-    color: var(--text-faint);
-    transition: transform 0.2s ease;
-  }
-  details[open] .cl-toggle .arrow { transform: rotate(180deg); }
-  .cl-body { padding: 0 28px 24px; }
-  
-  .cl-items {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+  .cl-toggle:hover { background: rgba(255, 255, 255, 0.05); }
+  .cl-body {
+    padding: 20px 24px 24px 24px;
+    border-top: 1px solid var(--border-soft);
   }
   .cl-items li {
-    display: flex;
-    gap: 10px;
-    font-size: 0.92rem;
+    position: relative;
+    padding-left: 20px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
     color: var(--text-muted);
-    align-items: flex-start;
+    line-height: 1.55;
   }
   .cl-items li::before {
-    content: '';
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    margin-top: 8px;
-    flex-shrink: 0;
-  }
-  .cl-items.cl-added li::before { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
-  .cl-items.cl-changed li::before { background: var(--amber); }
-  .cl-items.cl-fixed li::before { background: var(--red); }
-  .cl-items.cl-notes li::before { background: var(--text-faint); }
-  
-  .releases-loading {
-    text-align: center;
-    padding: 40px;
-    color: var(--text-faint);
+    content: '•';
+    position: absolute;
+    left: 4px;
+    color: var(--cyan);
+    font-weight: 800;
   }
   .spinner {
-    width: 28px;
-    height: 28px;
-    border: 3px solid rgba(255, 255, 255, 0.1);
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(0, 229, 255, 0.2);
     border-top-color: var(--cyan);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
-    margin: 0 auto 12px;
+    margin: 20px auto;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ============ Footer ============ */
+  /* ============ FOOTER ============ */
   footer {
-    padding: 60px 0 44px;
-    border-top: 1px solid var(--border-soft);
+    border-top: 1px solid var(--border);
     background: var(--bg-darkest);
+    padding: 60px 0 36px 0;
   }
   .foot-row {
     display: flex;
@@ -1413,20 +1269,21 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 24px;
+    margin-bottom: 36px;
   }
   .foot-mark {
-    font-family: var(--display);
-    font-size: 1.1rem;
-    font-weight: 800;
-    color: var(--text);
     display: flex;
     align-items: center;
     gap: 10px;
+    font-family: var(--display);
+    font-weight: 800;
+    letter-spacing: 0.05em;
   }
   .foot-links {
     display: flex;
-    gap: 28px;
-    font-size: 0.9rem;
+    align-items: center;
+    gap: 22px;
+    font-size: 0.88rem;
     color: var(--text-muted);
     flex-wrap: wrap;
   }
@@ -1435,99 +1292,122 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 32px;
-    padding-top: 24px;
-    border-top: 1px solid var(--border-soft);
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     color: var(--text-faint);
+    border-top: 1px solid var(--border-soft);
+    padding-top: 24px;
     flex-wrap: wrap;
-    gap: 14px;
+    gap: 12px;
   }
 </style>
 </head>
+
 <body>
 
-<!-- ============ NAVIGATION ============ -->
-<nav class="nav" id="mainNav">
-  <div class="wrap">
-    <a href="#top" class="nav-mark" aria-label="ApertureX Home">
-      <img class="logo-icon" src="assets/app_icon.png" alt="ApertureX Logo">
-      APERTUREX
+<!-- Announcement Bar -->
+<div class="announcement-bar">
+  <span class="announcement-pill">v0.2.0 RELEASED</span>
+  <span><strong>ApertureX v0.2.0 is live!</strong> Look QR Open Standard, Pat David Analog Film Core &amp; On-Device C2PA Provenance.</span>
+  <a href="#changelog" style="color: var(--cyan); font-weight:700; text-decoration:underline;">View Notes &rarr;</a>
+</div>
+
+<!-- Sticky Navigation -->
+<nav class="site-nav">
+  <div class="wrap nav-inner">
+    <a class="nav-brand" href="#top">
+      <img src="assets/app_icon.png" alt="ApertureX logo">
+      <span>APERTUREX</span>
     </a>
-    <ul class="nav-links">
-      <li><a href="#features">Features</a></li>
-      <li><a href="#compare">Compare</a></li>
-      <li><a href="#screens">Inside the App</a></li>
-      <li><a href="#pipeline">Architecture</a></li>
-      <li><a href="#team">Team</a></li>
-      <li><a href="#changelog">Changelog</a></li>
-    </ul>
-    <div class="nav-cta">
-      <span class="nav-version" id="navVersion">v0.2.0</span>
+    
+    <div class="nav-links">
+      <a href="#compare">Compare</a>
+      <a href="#features">Capabilities</a>
+      <a href="#screens">Studio Tour</a>
+      <a href="#pipeline">Architecture</a>
+      <a href="#changelog">Changelog</a>
+    </div>
+    
+    <div class="nav-actions">
+      <span class="nav-version-badge" id="navVersion">v0.2.0</span>
       <a class="btn btn-primary" id="navDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK</a>
-      <button class="nav-menu-btn" id="menuBtn" aria-label="Toggle navigation menu" aria-expanded="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      <button class="menu-toggle-btn" id="menuBtn" aria-label="Toggle navigation menu" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
     </div>
   </div>
 </nav>
 
 <!-- Mobile Navigation Drawer -->
-<div class="mobile-panel" id="mobilePanel">
-  <a href="#features">Features</a>
+<div class="mobile-drawer" id="mobileDrawer">
   <a href="#compare">Before &amp; After</a>
-  <a href="#screens">Inside the App</a>
-  <a href="#pipeline">Architecture</a>
-  <a href="#team">Team</a>
-  <a href="#changelog">Changelog</a>
-  <a class="btn btn-primary" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK</a>
+  <a href="#features">Studio Capabilities</a>
+  <a href="#screens">Interactive Studio Tour</a>
+  <a href="#pipeline">Zero-Copy Architecture</a>
+  <a href="#changelog">Release Changelog</a>
+  <a class="btn btn-primary" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK (v0.2.0)</a>
 </div>
 
 <!-- ============ HERO ============ -->
 <header class="hero" id="top">
-  <div class="hero-ambient" id="heroAmbient"></div>
-  <div class="hero-grid"></div>
+  <div class="hero-ambient"></div>
+  <div class="hero-grid-bg"></div>
   
-  <div class="hero-content">
-    <div class="hero-logo-wrap">
-      <img class="hero-logo" src="assets/app_icon.png" alt="ApertureX Icon">
+  <div class="wrap hero-content">
+    <div class="hero-badge-wrap">
+      <span class="hud-tag">TRUE FOSS CREATIVE SUITE</span>
+      <span class="hud-tag hud-tag-amber">GPL-3.0</span>
+      <span class="hud-tag hud-tag-emerald">100% ON-DEVICE</span>
     </div>
     
-    <span class="eyebrow">Studio-Grade · Free &amp; Open Source · GPL-3.0</span>
+    <h1>
+      Pro Photo Editing.<br>
+      <span class="gradient-text">Zero Cloud. Zero Subscriptions.</span>
+    </h1>
     
-    <h1>Pro Photo Editing.<br>Zero Cloud. Zero Compromise.</h1>
-    
-    <p class="hero-sub">
-      The <strong>Lightroom &amp; Snapseed alternative</strong> the FOSS community deserved. Dual UI shells over one non-destructive recipe, a high-performance <strong>Rust engine</strong> via FFI, and <strong>100% on-device privacy</strong>.
+    <p class="lead">
+      The open-source alternative to Adobe Lightroom &amp; Snapseed. Dual UI shells over one non-destructive recipe, a high-performance <strong>compiled Rust engine</strong>, <strong>Look QR open standard</strong> preset sharing, and cryptographic <strong>C2PA provenance</strong>.
     </p>
     
     <div class="hero-cta">
       <a class="btn btn-primary" id="heroDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
-        <span id="heroDlText">Download APK (v0.2.0)</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
+        <span id="heroDlText">Download Universal APK (v0.2.0)</span>
+      </a>
+      <a class="btn btn-ghost" href="#screens">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+        Explore Studio Tour
       </a>
       <a class="btn btn-ghost" href="https://github.com/prit-007/ApertureX" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-        GitHub Repository
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub (FOSS)
       </a>
     </div>
     
-    <div class="hero-stats">
-      <div class="stat-col">
-        <b>2 Shells</b>
-        <span>Lightroom &amp; Snapseed</span>
+    <!-- Tech Metrics Row -->
+    <div class="hero-specs-row">
+      <div class="hero-spec-card">
+        <div class="val" style="color:var(--cyan);">6 Master Tabs</div>
+        <div class="label">Zen Progressive Inspector</div>
       </div>
-      <div class="stat-col">
-        <b>60 FPS</b>
-        <span>Impeller Fragment LUT</span>
+      <div class="hero-spec-card">
+        <div class="val" style="color:var(--coral-soft);">Look QR Code</div>
+        <div class="label">Zero-Cloud Preset Standard</div>
       </div>
-      <div class="stat-col">
-        <b>0 Calls</b>
-        <span>Guaranteed Offline CI</span>
+      <div class="hero-spec-card">
+        <div class="val" style="color:var(--amber);">Pure Rust rxing</div>
+        <div class="label">Zero Closed Google Blobs</div>
       </div>
-      <div class="stat-col">
-        <b>200 MP</b>
-        <span>Tile Memory Budget</span>
+      <div class="hero-spec-card">
+        <div class="val" style="color:var(--emerald);">C2PA Verified</div>
+        <div class="label">On-Device Provenance Signing</div>
+      </div>
+      <div class="hero-spec-card">
+        <div class="val" style="color:var(--cyan);">120 FPS GPU</div>
+        <div class="label">Impeller 65³ 3D LUT Atlas</div>
+      </div>
+      <div class="hero-spec-card">
+        <div class="val" style="color:var(--text);">200 MP RAM</div>
+        <div class="label">&lt;512MB Tile LRU Safety</div>
       </div>
     </div>
   </div>
@@ -1537,17 +1417,17 @@
 <section class="compare-section" id="compare">
   <div class="wrap">
     <div class="section-head center">
-      <span class="eyebrow">Interactive Demo</span>
-      <h2>Drag to see the grading difference</h2>
-      <p>Uncompressed non-destructive color math running on device. Slide to compare flat camera capture against ApertureX film-calibrated grade.</p>
+      <span class="hud-tag">INTERACTIVE HARDWARE DEMO</span>
+      <h2>Drag to compare the grading math</h2>
+      <p>True 32-bit floating point color pipeline running completely on device. Slide to compare flat camera sensor capture against the ApertureX film-calibrated 3D LUT grade.</p>
     </div>
     
     <div class="compare-container">
       <div class="compare-viewport" id="compareViewport" style="--split: 50%;">
         <!-- Underneath: Raw capture layer -->
         <div class="compare-layer compare-raw">
-          <div class="photo-scenery">
-            <svg width="180" height="180" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.2">
+          <div style="opacity:0.65; transform:scale(1.2);">
+            <svg width="220" height="220" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
               <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/>
               <path d="M12 3a9 9 0 0 0 0 18"/>
               <circle cx="12" cy="12" r="4"/>
@@ -1557,8 +1437,8 @@
         
         <!-- On top: Graded layer with dynamic clip-path -->
         <div class="compare-layer compare-graded">
-          <div class="photo-scenery">
-            <svg width="180" height="180" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="1.2">
+          <div style="opacity:0.95; transform:scale(1.2);">
+            <svg width="220" height="220" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
               <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/>
               <path d="M12 3a9 9 0 0 0 0 18"/>
               <circle cx="12" cy="12" r="4"/>
@@ -1567,8 +1447,8 @@
         </div>
         
         <!-- Badges -->
-        <span class="compare-badge badge-after">ApertureX 3D LUT Grade</span>
-        <span class="compare-badge badge-before">Original (Flat RAW)</span>
+        <span class="compare-badge badge-after">ApertureX Film Grade (Portra 400)</span>
+        <span class="compare-badge badge-before">Original Flat RAW Capture</span>
         
         <!-- Divider line & handle -->
         <div class="compare-line"></div>
@@ -1578,104 +1458,194 @@
       </div>
       
       <div class="compare-bar">
-        <div><span>Recipe applied: </span><strong>Portra 400 + Soft Highlight Roll-off + Radial Mask</strong></div>
-        <div class="compare-pill">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-          Zero Lossy Re-compression
+        <div><span>Grade profile: </span><strong>Pat David Kodak Portra 400 + Soft Highlight Roll-Off + Vignette</strong></div>
+        <div class="compare-bar-metrics">
+          <span class="hud-tag">65³ 3D LUT Atlas</span>
+          <span class="hud-tag hud-tag-emerald">Zero Compression Loss</span>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ============ WHY APERTUREX / FEATURES ============ -->
+<!-- ============ BENTO GRID FEATURE SHOWCASE ============ -->
 <section id="features">
   <div class="wrap">
     <div class="section-head">
-      <span class="eyebrow">Studio-Grade Capabilities</span>
-      <h2>Engineered for creators who value craftsmanship</h2>
-      <p>ApertureX bridges desktop precision and mobile fluidity without proprietary tracking, subscription paywalls, or privacy loss.</p>
+      <span class="hud-tag">STUDIO-GRADE CAPABILITIES</span>
+      <h2>Engineered for creators. Built for freedom.</h2>
+      <p>Whether you are a professional colorist demanding calibrated tone curves, or a mobile creator sharing film looks on Instagram, ApertureX delivers desktop-class power with zero compromise.</p>
     </div>
     
-    <div class="features-grid">
-      <!-- Card 1 -->
-      <div class="feat-card glass-card">
-        <div class="feat-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>
+    <div class="bento-grid">
+      <!-- Card 1: Large Dual Shells -->
+      <div class="bento-card glass-card bento-span-8">
+        <div>
+          <div class="bento-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>
+          </div>
+          <div class="bento-title">Dual UI Shells, One Shared Non-Destructive Recipe</div>
+          <div class="bento-desc">
+            Seamlessly switch back and forth between a <strong>Lightroom-style Precision Instrument Inspector</strong> (with 6 Master Tabs: Light, Color, Blur, Effects, Detail, Geometry) and a <strong>Snapseed-style Gesture Shell</strong> for edge-to-edge painting. Edits manipulate a unified JSON recipe with 0ms sync latency and zero canvas obstruction.
+          </div>
         </div>
-        <h3>Dual UI Shells, One Recipe</h3>
-        <p>Lightroom-style precision instrument tray for calibrated slider tweaking, and Snapseed-style gesture shell for edge-to-edge painting. Switch anytime without interrupting edits.</p>
-        <span class="feat-tag">Zero Desync</span>
+        <div class="bento-tag-row">
+          <span class="hud-tag">6 Master Tabs</span>
+          <span class="hud-tag hud-tag-amber">Rotary Jog Dial</span>
+          <span class="hud-tag hud-tag-coral">Zero Canvas Suffocation</span>
+        </div>
       </div>
       
-      <!-- Card 2 -->
-      <div class="feat-card glass-card">
-        <div class="feat-icon" style="background: rgba(255, 42, 85, 0.12); color: var(--red-soft);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      <!-- Card 2: Look QR Open Standard -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 42, 85, 0.12); color: var(--coral-soft);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          </div>
+          <div class="bento-title">Look QR Code Open Standard</div>
+          <div class="bento-desc">
+            Bypass closed proprietary app silos forever. Turn any color grade into a stunning, printable Creator Card with a scannable QR code. Anyone points their phone camera and imports the full grade instantly. Zero cloud accounts required.
+          </div>
         </div>
-        <h3>High-Performance Rust Core</h3>
-        <p>Raw demosaicing, matrix transformations, spatial denoise, lens optics, and mask arithmetic run in compiled Rust over memory-safe FFI boundaries with zero garbage collector pauses.</p>
-        <span class="feat-tag">rust_lib_aperturex</span>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-coral">Look QR Spec</span>
+          <span class="hud-tag">100% Offline</span>
+        </div>
       </div>
-      
-      <!-- Card 3 -->
-      <div class="feat-card glass-card">
-        <div class="feat-icon" style="background: rgba(255, 179, 0, 0.12); color: var(--amber);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+
+      <!-- Card 3: Pure-FOSS QR Scanner -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 179, 0, 0.12); color: var(--amber);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <div class="bento-title">Pure-FOSS QR Scanner (Rust rxing)</div>
+          <div class="bento-desc">
+            Unlike commercial apps that bundle Google Play Services or closed MLKit blobs, ApertureX processes live camera frames directly in compiled Rust using <code>rxing</code>. Ultra-fast, glare-resistant, and 100% F-Droid compliant.
+          </div>
         </div>
-        <h3>Tile Viewport (200 MP)</h3>
-        <p>Edit medium-format and 200MP phone photos smoothly without out-of-memory crashes. The tile compositor allocates level-0 high-zoom tiles into a strict 512MB LRU device budget.</p>
-        <span class="feat-tag">LRU Tile Cache</span>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-amber">Rust rxing Engine</span>
+          <span class="hud-tag">Zero Google Blobs</span>
+        </div>
       </div>
-      
-      <!-- Card 4 -->
-      <div class="feat-card glass-card">
-        <div class="feat-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+
+      <!-- Card 4: Pat David Film Simulation Core -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(16, 185, 129, 0.12); color: var(--emerald);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20M2 12a14.5 14.5 0 0 0 20 0"/></svg>
+          </div>
+          <div class="bento-title">Pat David Analog Film Simulation Core</div>
+          <div class="bento-desc">
+            Bundles legendary open-source film stock profiling: Kodak Portra 400, Fuji Pro 400H, Ilford HP5 B&amp;W, and Cine Teal &amp; Orange. Mathematical color transforms compressed into lightweight JSON recipes (&lt;0.05MB APK size footprint).
+          </div>
         </div>
-        <h3>120 FPS GPU Preview</h3>
-        <p>Real-time slider scrub feedback generates a 33×33×33 3D LUT atlas in under 1ms, sampled directly by Flutter's Impeller fragment shader. No frame drops, pure tactile response.</p>
-        <span class="feat-tag">Impeller Fragment Shader</span>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-emerald">Pat David Film Stocks</span>
+          <span class="hud-tag">0.05 MB Footprint</span>
+        </div>
       </div>
-      
-      <!-- Card 5 -->
-      <div class="feat-card glass-card">
-        <div class="feat-icon" style="background: rgba(255, 179, 0, 0.12); color: var(--amber);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>
+
+      <!-- Card 5: C2PA Content Credentials -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          </div>
+          <div class="bento-title">C2PA Content Credentials Provenance</div>
+          <div class="bento-desc">
+            Defend human photography against AI scraping and unauthorized alteration. ApertureX generates cryptographic C2PA manifests on-device (<code>c2pa.rs</code>) embedding verifiable digital authorship and edit transparency directly in exported JPEGs.
+          </div>
         </div>
-        <h3>Classical Auto-Straighten</h3>
-        <p>Hough line orientation voting algorithm analyzes proxy gradients and detects tilted horizons instantly. One-tap alignment with 0.1° accuracy without neural model weight bloat.</p>
-        <span class="feat-tag">Hough Voting</span>
+        <div class="bento-tag-row">
+          <span class="hud-tag">C2PA Verified</span>
+          <span class="hud-tag hud-tag-amber">SHA-256 Manifest</span>
+        </div>
       </div>
-      
-      <!-- Card 6 -->
-      <div class="feat-card glass-card">
-        <div class="feat-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+
+      <!-- Card 6: Universal Preset Translation Engine -->
+      <div class="bento-card glass-card bento-span-7">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 42, 85, 0.12); color: var(--coral-soft);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </div>
+          <div class="bento-title">Universal Preset Translation Engine</div>
+          <div class="bento-desc">
+            Import purchased Adobe Lightroom <code>.xmp</code> &amp; <code>.lrtemplate</code> presets, Hollywood <code>.cube</code> 3D LUTs, or reverse-engineer filters from VSCO/Instagram HALD CLUT images. Export your grades straight to DaVinci Resolve or Premiere Pro. Total cross-platform interoperability.
+          </div>
         </div>
-        <h3>Embedded Depth &amp; Lens Blur</h3>
-        <p>Extracts calibrated Google GDepth and Apple disparity metadata from JPEG containers for optical bokeh simulation, with customizable 5/6/7/9-blade iris shapes and specular highlight boost.</p>
-        <span class="feat-tag">GDepth / XMP</span>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-coral">Adobe XMP / LRTEMPLATE</span>
+          <span class="hud-tag">3D LUT .CUBE</span>
+          <span class="hud-tag hud-tag-emerald">HALD CLUT PNG</span>
+        </div>
       </div>
-      
-      <!-- Card 7 -->
-      <div class="feat-card glass-card">
-        <div class="feat-icon" style="background: rgba(255, 42, 85, 0.12); color: var(--red-soft);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+
+      <!-- Card 7: Wiper Split & History Branching -->
+      <div class="bento-card glass-card bento-span-5">
+        <div>
+          <div class="bento-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><path d="m19 15-7 7-7-7"/></svg>
+          </div>
+          <div class="bento-title">Wiper Curtain &amp; History Tree</div>
+          <div class="bento-desc">
+            Interactive Wiper Split Curtain comparison slider for live A/B evaluation, paired with a non-destructive Git-like branching history tree. Never lose an edit idea—branch, snapshot, and undo freely.
+          </div>
         </div>
-        <h3>Precision Local Masks</h3>
-        <p>Stack brush, linear, radial, and raster bitmap masks. Features palm rejection, stylus pressure-sensitive flow mapping, inverted subject/background targeting, and ruby heatmap overlays.</p>
-        <span class="feat-tag">Stylus &amp; Palm Rejection</span>
+        <div class="bento-tag-row">
+          <span class="hud-tag">Live Wiper Compare</span>
+          <span class="hud-tag hud-tag-amber">Branching Snapshots</span>
+        </div>
       </div>
-      
-      <!-- Card 8 -->
-      <div class="feat-card glass-card">
-        <div class="feat-icon" style="background: rgba(255, 179, 0, 0.12); color: var(--amber);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 10h16M10 4v16"/></svg>
+
+      <!-- Card 8: High Performance Rust Core -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 179, 0, 0.12); color: var(--amber);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </div>
+          <div class="bento-title">Compiled Rust Engine Core</div>
+          <div class="bento-desc">
+            Raw sensor demosaicing, spatial denoise, matrix operations, and lens geometry run in memory-safe Rust with zero garbage collection pauses.
+          </div>
         </div>
-        <h3>XMP Sidecars &amp; LUT Import</h3>
-        <p>Import third-party .cube 3D LUTs and Adobe Lightroom .xmp develop presets. Non-destructive edits write standard crs:XMP sidecars alongside photos so you never get locked into an ecosystem.</p>
-        <span class="feat-tag">Open Standards</span>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-amber">rust_lib_aperturex</span>
+        </div>
+      </div>
+
+      <!-- Card 9: 200MP Tile Viewport -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+          </div>
+          <div class="bento-title">200 MP Tile Viewport</div>
+          <div class="bento-desc">
+            Smoothly zoom and pan medium format RAWs and 200MP phone photos. Strict 512MB device LRU tile cache prevents out-of-memory crashes on mobile.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag">512MB LRU Tile Cache</span>
+        </div>
+      </div>
+
+      <!-- Card 10: Stylus & Palm Rejection -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 42, 85, 0.12); color: var(--coral-soft);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+          </div>
+          <div class="bento-title">Pro Pen &amp; Palm Rejection</div>
+          <div class="bento-desc">
+            Full pressure sensitivity (0.0 to 1.0) with Apple Pencil and S-Pen. Hardware device filtering rejects accidental palm touches while painting local masks.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-coral">Hardware Filtering</span>
+          <span class="hud-tag">Ruby Heatmap</span>
+        </div>
       </div>
     </div>
   </div>
@@ -1685,16 +1655,18 @@
 <section id="screens">
   <div class="wrap">
     <div class="section-head center">
-      <span class="eyebrow">Interactive Studio Tour</span>
-      <h2>Experience the dual frontends in action</h2>
-      <p>Test the interactive mockup below to see how ApertureX structures controls for thumb ergonomics and zero canvas obstruction.</p>
+      <span class="hud-tag">INTERACTIVE STUDIO TOUR</span>
+      <h2>Experience the real app workflows</h2>
+      <p>ApertureX is designed with thumb ergonomics and zero canvas obstruction. Test the live interactive simulator below across all five core studios.</p>
     </div>
     
     <div class="interactive-demo">
       <div class="demo-nav">
-        <button class="demo-tab-btn active" data-tab="lightroom" onclick="setDemoTab('lightroom')">1. Lightroom Precision Panel</button>
+        <button class="demo-tab-btn active" data-tab="lightroom" onclick="setDemoTab('lightroom')">1. Zen Lightroom Inspector</button>
         <button class="demo-tab-btn" data-tab="snapseed" onclick="setDemoTab('snapseed')">2. Snapseed Gesture Shell</button>
-        <button class="demo-tab-btn" data-tab="export" onclick="setDemoTab('export')">3. Lossless Banded Export</button>
+        <button class="demo-tab-btn" data-tab="lookqr" onclick="setDemoTab('lookqr')">3. Look QR &amp; Film Studio</button>
+        <button class="demo-tab-btn" data-tab="export" onclick="setDemoTab('export')">4. Lossless Export &amp; C2PA</button>
+        <button class="demo-tab-btn" data-tab="gallery" onclick="setDemoTab('gallery')">5. Studio Library &amp; Batch</button>
       </div>
       
       <div class="demo-stage">
@@ -1703,7 +1675,8 @@
           <div class="phone-frame">
             <div class="phone-island"></div>
             <div class="phone-screen" id="mockScreen">
-              <!-- Lightroom Mode View -->
+              
+              <!-- 1. Lightroom View -->
               <div id="mockLightroomView" style="display:flex; flex-direction:column; height:100%;">
                 <div class="mock-canvas" id="mockCanvas">
                   <div class="mock-canvas-art">
@@ -1712,6 +1685,7 @@
                 </div>
                 
                 <div class="mock-hud-tray">
+                  <!-- 6 Master Tabs -->
                   <div class="mock-chip-row" id="mockChipRow">
                     <span class="mock-chip active" data-cat="Light" onclick="setMockCategory('Light')">Light</span>
                     <span class="mock-chip" data-cat="Color" onclick="setMockCategory('Color')">Color</span>
@@ -1719,9 +1693,16 @@
                     <span class="mock-chip" data-cat="Effects" onclick="setMockCategory('Effects')">Effects</span>
                     <span class="mock-chip" data-cat="Detail" onclick="setMockCategory('Detail')">Detail</span>
                     <span class="mock-chip" data-cat="Geometry" onclick="setMockCategory('Geometry')">Geometry</span>
-                    <span class="mock-chip" data-cat="Masking" onclick="setMockCategory('Masking')">Masking</span>
                   </div>
                   
+                  <!-- Progressive Sub-Menus -->
+                  <div class="mock-subchip-row" id="mockSubchipRow">
+                    <span class="mock-subchip active">Tone</span>
+                    <span class="mock-subchip">Curve</span>
+                    <span class="mock-subchip">Dynamic Range</span>
+                  </div>
+                  
+                  <!-- Slider 1 -->
                   <div class="mock-slider-box">
                     <div class="mock-slider-head">
                       <span class="name" id="mockSlider1Name">Exposure (EV)</span>
@@ -1733,7 +1714,8 @@
                     </div>
                   </div>
                   
-                  <div class="mock-slider-box" style="margin-top:2px;">
+                  <!-- Slider 2 -->
+                  <div class="mock-slider-box">
                     <div class="mock-slider-head">
                       <span class="name" id="mockSlider2Name">Contrast</span>
                       <span class="val" id="mockSlider2Val">+18</span>
@@ -1746,7 +1728,7 @@
                 </div>
               </div>
               
-              <!-- Snapseed Mode View -->
+              <!-- 2. Snapseed Mode View -->
               <div id="mockSnapseedView" class="mock-snapseed" style="display:none;">
                 <div class="mock-canvas" id="mockSnapseedCanvas" style="background: radial-gradient(circle at 45% 45%, #E8455F 0%, #6E1626 55%, #18090C 100%); cursor: crosshair;">
                   <div class="mock-ruby-mask" id="mockRubyMask"></div>
@@ -1760,100 +1742,226 @@
                   <span onclick="setSnapseedTool(this)">ERASER</span>
                 </div>
               </div>
-              
-              <!-- Export Mode View -->
+
+              <!-- 3. Look QR Studio View -->
+              <div id="mockQrView" class="mock-qr-box" style="display:none;">
+                <div class="mock-qr-card">
+                  <div class="mock-qr-preview-thumb">
+                    <span>Kodak Portra 400</span>
+                    <span style="font-size:0.5rem; background:rgba(0,229,255,0.25); color:var(--cyan);">APERTUREX</span>
+                  </div>
+                  <div class="mock-qr-code-graphic">
+                    <svg viewBox="0 0 100 100" width="88" height="88">
+                      <!-- Position markers -->
+                      <rect x="5" y="5" width="28" height="28" fill="#000"/>
+                      <rect x="9" y="9" width="20" height="20" fill="#FFF"/>
+                      <rect x="13" y="13" width="12" height="12" fill="#000"/>
+                      <rect x="67" y="5" width="28" height="28" fill="#000"/>
+                      <rect x="71" y="9" width="20" height="20" fill="#FFF"/>
+                      <rect x="75" y="13" width="12" height="12" fill="#000"/>
+                      <rect x="5" y="67" width="28" height="28" fill="#000"/>
+                      <rect x="9" y="71" width="20" height="20" fill="#FFF"/>
+                      <rect x="13" y="75" width="12" height="12" fill="#000"/>
+                      <!-- Data dots -->
+                      <rect x="38" y="10" width="8" height="8" fill="#000"/>
+                      <rect x="50" y="15" width="8" height="8" fill="#000"/>
+                      <rect x="38" y="25" width="6" height="6" fill="#000"/>
+                      <rect x="48" y="38" width="14" height="14" fill="#000"/>
+                      <rect x="68" y="40" width="8" height="8" fill="#000"/>
+                      <rect x="15" y="42" width="10" height="10" fill="#000"/>
+                      <rect x="38" y="55" width="8" height="8" fill="#000"/>
+                      <rect x="52" y="65" width="10" height="10" fill="#000"/>
+                      <rect x="68" y="65" width="8" height="8" fill="#000"/>
+                      <rect x="40" y="80" width="12" height="12" fill="#000"/>
+                      <rect x="70" y="80" width="8" height="8" fill="#000"/>
+                    </svg>
+                  </div>
+                  <div class="mock-qr-meta">
+                    <strong>Look QR Creator Card</strong>
+                    <span>Exp +0.50 &bull; Warm 5600K &bull; Film Grain 24</span>
+                  </div>
+                </div>
+                <div class="mock-qr-badge">100% Offline &bull; Scanned via Rust rxing</div>
+              </div>
+
+              <!-- 4. Export & C2PA Mode View -->
               <div id="mockExportView" class="mock-export-box" style="display:none;">
                 <div class="mock-ring" id="mockExportRing"><b id="mockExportVal">74%</b></div>
                 <span id="mockExportLabel" style="font-family:var(--display); font-size:0.75rem; color:var(--text-muted); letter-spacing:0.06em; text-transform:uppercase;">Banded Streaming</span>
                 <button type="button" class="btn btn-ghost" style="padding:6px 16px; font-size:0.75rem; border-radius:100px; cursor:pointer;" onclick="triggerSimulatedExport()">Simulate Stream</button>
-                <div style="width:100%; padding:8px 14px; border-radius:10px; background:rgba(255,255,255,0.05); font-size:0.72rem; display:flex; justify-content:space-between;">
-                  <span>Resolution</span><b style="color:var(--text);">6000 × 4000</b>
+                <div style="width:100%; padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.05); font-size:0.7rem; display:flex; justify-content:space-between;">
+                  <span>C2PA Manifest</span><b style="color:var(--emerald);">Signed On-Device</b>
                 </div>
-                <div style="width:100%; padding:8px 14px; border-radius:10px; background:rgba(255,255,255,0.05); font-size:0.72rem; display:flex; justify-content:space-between;">
-                  <span>Sidecar</span><b style="color:var(--cyan);">photo.xmp</b>
+                <div style="width:100%; padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.05); font-size:0.7rem; display:flex; justify-content:space-between;">
+                  <span>Watermark</span><b style="color:var(--cyan);">Photographer Stamp</b>
+                </div>
+                <div style="width:100%; padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.05); font-size:0.7rem; display:flex; justify-content:space-between;">
+                  <span>Sidecar</span><b style="color:var(--text);">photo.xmp + .cube</b>
                 </div>
               </div>
+
+              <!-- 5. Gallery Mode View -->
+              <div id="mockGalleryView" class="mock-gallery-box" style="display:none;">
+                <div class="mock-gallery-header">
+                  <h4>Photos <span style="font-size:0.65rem; color:var(--text-muted);">(October 2026)</span></h4>
+                  <span class="mock-gallery-badge">BATCH SELECT</span>
+                </div>
+                <div class="mock-gallery-grid">
+                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #FFB300, #FF2A55);">
+                    <span class="mock-photo-tag">RAW</span>
+                  </div>
+                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #00E5FF, #006699);">
+                    <span class="mock-photo-tag">HDR</span>
+                  </div>
+                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #70F3FF, #152238);">
+                    <span class="mock-photo-tag">RAW</span>
+                  </div>
+                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #FF5C7E, #3A0C16);">
+                    <span class="mock-photo-tag">EDIT</span>
+                  </div>
+                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #FFD54F, #5D3A00);">
+                    <span class="mock-photo-tag">RAW</span>
+                  </div>
+                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #10B981, #083320);">
+                    <span class="mock-photo-tag">C2PA</span>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
         
         <!-- Details Column -->
         <div class="demo-details-col">
+          
+          <!-- Detail 1: Lightroom -->
           <div id="demoTextLightroom">
-            <span class="eyebrow">Docked Instrument Tray</span>
+            <span class="hud-tag">ZEN 6-MASTER NAVIGATION</span>
             <h3 style="margin-top:14px;">The photo is the hero: never suffocate the canvas</h3>
-            <p>Unlike amateur apps where bottom sheets slide up to cover 80% of the screen, ApertureX guarantees that the photo occupies 75–80% of portrait height, completely unobstructed. Tool controls live docked in the natural thumb reach zone.</p>
+            <p>Unlike bloated apps where bottom sheets cover 80% of the screen, ApertureX guarantees that the photo occupies 75–80% of portrait height. Clean progressive disclosure groups controls into 6 Master Tabs: <strong>Light</strong>, <strong>Color</strong>, <strong>Blur</strong>, <strong>Effects</strong>, <strong>Detail</strong>, and <strong>Geometry</strong> with dedicated sub-menus.</p>
             
             <div class="feature-checklist">
               <div class="check-item">
                 <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
                 <div class="check-text">
-                  <strong>Try scrubbing the slider above</strong>
-                  <span>Interactive 120 FPS response: adjust the slider in the mockup to see real-time preview simulation.</span>
+                  <strong>Interactive 120 FPS Response</strong>
+                  <span>Drag the exposure and contrast sliders in the mockup above to see live preview updates in real-time.</span>
                 </div>
               </div>
               <div class="check-item">
                 <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
                 <div class="check-text">
-                  <strong>Micro-Haptic Feedback &amp; Tabular Figures</strong>
-                  <span>Vibration clicks when crossing the neutral 0 center detent; numbers never jitter during high-speed drag.</span>
+                  <strong>Rotary Jog Dial &amp; Micro-Haptics</strong>
+                  <span>Haptic clicks whenever crossing neutral zero detents; values never jitter during high-speed drag.</span>
                 </div>
               </div>
               <div class="check-item">
                 <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
                 <div class="check-text">
-                  <strong>Single-Tap Edge-to-Edge Preview</strong>
-                  <span>Tapping anywhere on the canvas dissolves all UI chrome in 180ms for complete focus.</span>
+                  <strong>Deep Pro Sub-Menus</strong>
+                  <span>Curve RGB channels, Color Grading Wheels, HSL 8-Channel Mixer, LAB space, and Retouch Healing.</span>
                 </div>
               </div>
             </div>
           </div>
           
+          <!-- Detail 2: Snapseed -->
           <div id="demoTextSnapseed" style="display:none;">
-            <span class="eyebrow">Edge-to-Edge Masking</span>
+            <span class="hud-tag hud-tag-coral">FULL-BLEED GESTURE SHELL</span>
             <h3 style="margin-top:14px;">Pro Pen precision &amp; hardware palm rejection</h3>
-            <p>Switch to the Snapseed shell for gesture-first editing. Paint local adjustments with a pressure-sensitive stylus (Apple Pencil / S-Pen), while touch gestures remain locked to zoom and pan.</p>
+            <p>Switch to the Snapseed shell for gesture-first editing. Paint local adjustments with pressure sensitivity (Apple Pencil / S-Pen), while touch gestures remain locked to zoom and pan.</p>
             
             <div class="feature-checklist">
               <div class="check-item">
                 <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
                 <div class="check-text">
-                  <strong>Stylus Device Filtering</strong>
+                  <strong>Device Filtering &amp; Inverted Eraser</strong>
                   <span>Touch inputs are strictly rejected during brush strokes to eliminate accidental thumb marks.</span>
                 </div>
               </div>
               <div class="check-item">
                 <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
                 <div class="check-text">
-                  <strong>Ruby Heatmap Overlay</strong>
-                  <span>Active mask layers glow in ruby red so you see precisely which highlights, shadows or figures are targeted.</span>
+                  <strong>Ruby Mask Heatmap</strong>
+                  <span>Active mask layers glow in ruby red so you see precisely which highlights, shadows, or figures are affected.</span>
                 </div>
               </div>
             </div>
           </div>
-          
-          <div id="demoTextExport" style="display:none;">
-            <span class="eyebrow">Zero-Loss Export</span>
-            <h3 style="margin-top:14px;">Banded memory processing with XMP sidecars</h3>
-            <p>Exporting a 100MP image requires gigabytes of memory if processed in a single buffer. ApertureX breaks images into streaming bands processed by Rust, keeping RAM usage capped under 512MB.</p>
+
+          <!-- Detail 3: Look QR -->
+          <div id="demoTextLookQr" style="display:none;">
+            <span class="hud-tag hud-tag-amber">LOOK QR OPEN STANDARD</span>
+            <h3 style="margin-top:14px;">Share color grades offline via QR cards</h3>
+            <p>Presets shouldn't be trapped behind paywalls or proprietary server accounts. ApertureX encodes 100% of your color grading recipe mathematics into an offline scannable QR code.</p>
             
             <div class="feature-checklist">
               <div class="check-item">
                 <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
                 <div class="check-text">
-                  <strong>Banded Resampling &amp; Seamless Stitching</strong>
-                  <span>Bilinear raster masks and spatial filters stitch with zero seams across bands.</span>
+                  <strong>Pure-FOSS Rust rxing Scanner</strong>
+                  <span>Point your camera at a computer screen, printed card, or phone. Decodes instantly with zero Google blobs.</span>
                 </div>
               </div>
               <div class="check-item">
                 <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
                 <div class="check-text">
-                  <strong>Lightroom-Compatible .xmp Metadata</strong>
-                  <span>All curves, color wheels, and crop geometry write into open XMP standards alongside exported images.</span>
+                  <strong>Community Preset Hub</strong>
+                  <span>Browse and download community-curated styles from public GitHub repositories with in-app previews.</span>
                 </div>
               </div>
             </div>
           </div>
+
+          <!-- Detail 4: Export & C2PA -->
+          <div id="demoTextExport" style="display:none;">
+            <span class="hud-tag hud-tag-emerald">BANDED EXPORT &amp; C2PA SIGNING</span>
+            <h3 style="margin-top:14px;">Banded 200MP streaming with authenticity manifests</h3>
+            <p>Exporting massive multi-megapixel files requires gigabytes if processed in one buffer. ApertureX streams bands through compiled Rust, keeping memory capped under 512MB while signing C2PA Content Credentials.</p>
+            
+            <div class="feature-checklist">
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>On-Device C2PA Manifest Signing</strong>
+                  <span>Embeds cryptographic proof of digital authorship and transparent edit history without cloud telemetry.</span>
+                </div>
+              </div>
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Custom Export Branding &amp; Watermark</strong>
+                  <span>Render photographer signatures, camera EXIF stamps, and open-source badges in native Rust.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detail 5: Gallery -->
+          <div id="demoTextGallery" style="display:none;">
+            <span class="hud-tag">STUDIO ASSET MANAGEMENT</span>
+            <h3 style="margin-top:14px;">Fast photo catalog with RAW badges &amp; batch ops</h3>
+            <p>Organize, rate, and filter entire photo libraries smoothly. View RAW, HDR, and edited versions, copy-paste settings recipes across multiple photos, and batch export in seconds.</p>
+            
+            <div class="feature-checklist">
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Batch Copy &amp; Paste Recipes</strong>
+                  <span>Grade one photo to perfection and instantly apply the exact adjustments across an entire photoshoot.</span>
+                </div>
+              </div>
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Non-Destructive Versions</strong>
+                  <span>Keep multiple artistic edits of the same capture without duplicating multi-megabyte storage files.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -1864,8 +1972,8 @@
 <section id="pipeline" class="pipeline-section">
   <div class="wrap">
     <div class="section-head center">
-      <span class="eyebrow">Zero-Copy Architecture</span>
-      <h2>Under the Hood: Pure Rust Core &amp; Flutter Viewport</h2>
+      <span class="hud-tag">ZERO-COPY COMPILATION</span>
+      <h2>Under the hood: Pure Rust Core &amp; Flutter Viewport</h2>
       <p>Decoded image data lives resident in Rust native heap memory. Edits manipulate a lightweight Dart recipe object with 0ms sync latency.</p>
     </div>
     
@@ -1873,91 +1981,51 @@
       <div class="flow-step">
         <span class="num">01 // INGEST</span>
         <h4>Native Decode</h4>
-        <p>TurboJPEG &amp; Rust libraw demosaic to proxy and resident heap.</p>
+        <p>TurboJPEG &amp; LibRaw demosaic to native resident heap; EXIF &amp; GDepth extraction.</p>
       </div>
-      <div class="flow-connector"></div>
+      <div class="flow-connector">&rarr;</div>
       <div class="flow-step">
-        <span class="num">02 // RECIPE</span>
-        <h4>Pure Dart State</h4>
-        <p>EditRecipe holds JSON schema. History branching and undo/redo.</p>
+        <span class="num">02 // TRANSLATE</span>
+        <h4>Universal Translation</h4>
+        <p>Ingest/export Adobe XMP, 3D .cube LUTs, HALD CLUTs, and Look QR open standard.</p>
       </div>
-      <div class="flow-connector"></div>
+      <div class="flow-connector">&rarr;</div>
       <div class="flow-step">
         <span class="num">03 // VIEWPORT</span>
-        <h4>65³ 3D LUT Atlas</h4>
-        <p>Slider change bakes LUT in <1ms; Impeller shader renders at 120 FPS.</p>
+        <h4>120 FPS Impeller</h4>
+        <p>65³ 3D LUT atlas baked in &lt;1ms; live Wiper split curtain A/B compare.</p>
       </div>
-      <div class="flow-connector"></div>
+      <div class="flow-connector">&rarr;</div>
       <div class="flow-step">
-        <span class="num">04 // MASKS</span>
-        <h4>Continuous Math</h4>
-        <p>Bilinear MASK_BITMAP (Kind 6) and parametric gradients evaluate on GPU.</p>
+        <span class="num">04 // SCANNER</span>
+        <h4>Rust rxing Scanner</h4>
+        <p>Pure-Rust ZXing barcode detection over camera YUV/RGBA frames with 0 Google blobs.</p>
       </div>
-      <div class="flow-connector"></div>
+      <div class="flow-connector">&rarr;</div>
       <div class="flow-step">
-        <span class="num">05 // EXPORT</span>
-        <h4>Banded Pipeline</h4>
-        <p>Full-res streaming export with ICC profiles and XMP sidecar write.</p>
+        <span class="num">05 // PROVENANCE</span>
+        <h4>Banded &amp; C2PA</h4>
+        <p>Full-res streaming export with C2PA Content Credentials manifests &amp; watermark branding.</p>
       </div>
     </div>
     
     <!-- Trust Metrics -->
     <div class="trust-row">
       <div class="trust-card glass-card">
-        <b>100% Offline</b>
+        <b style="color:var(--cyan);">100% Offline</b>
         <span>Guarded by CI test against any networking code.</span>
       </div>
       <div class="trust-card glass-card">
-        <b>0 Analytics</b>
+        <b style="color:var(--coral-soft);">0 Analytics</b>
         <span>Zero trackers, no analytics SDKs, no device identifiers.</span>
       </div>
       <div class="trust-card glass-card">
-        <b>GPL-3.0</b>
+        <b style="color:var(--amber);">GPL-3.0 FOSS</b>
         <span>Free and open source forever. Auditable code.</span>
       </div>
       <div class="trust-card glass-card">
-        <b>F-Droid Clean</b>
-        <span>No Google Play Services dependencies or closed blobs.</span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ TEAM ============ -->
-<section id="team">
-  <div class="wrap">
-    <div class="section-head center">
-      <span class="eyebrow">Crafted by Developers</span>
-      <h2>Behind ApertureX</h2>
-      <p>Built with pride by Developer's Paradise — creating open-source applications that rival commercial creative software.</p>
-    </div>
-    
-    <div class="team-grid">
-      <div class="team-card glass-card">
-        <div class="team-avatar" style="background: linear-gradient(135deg, #00E5FF, #007799);">PV</div>
-        <h3>Prit Vasani</h3>
-        <div class="role">Founder &amp; Lead Systems Engineer</div>
-        <p>Architect of the Flutter UI shells, Rust image processing pipeline, and cross-platform native bindings. Driven by a mission to bring studio-tier creative software to the open-source ecosystem.</p>
-        <div class="team-links">
-          <a href="https://github.com/prit-007" target="_blank" rel="noopener" aria-label="Prit Vasani on GitHub">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-          </a>
-          <a href="https://linkedin.com/in/prit-vasani" target="_blank" rel="noopener" aria-label="Prit Vasani on LinkedIn">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-          </a>
-        </div>
-      </div>
-      
-      <div class="team-card glass-card">
-        <div class="team-avatar" style="background: linear-gradient(135deg, #FF2A55, #99102B);">DP</div>
-        <h3>Developer's Paradise</h3>
-        <div class="role">Open Source Organization</div>
-        <p>A collective of software engineers crafting high-performance, respectful tools with clean architecture, verifiable test coverage, and modern user experiences.</p>
-        <div class="team-links">
-          <a href="https://github.com/prit-007/ApertureX" target="_blank" rel="noopener" aria-label="Organization on GitHub">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-          </a>
-        </div>
+        <b style="color:var(--emerald);">F-Droid Clean</b>
+        <span>Zero Google Play Services or closed vendor blobs.</span>
       </div>
     </div>
   </div>
@@ -1967,22 +2035,22 @@
 <section id="download">
   <div class="wrap">
     <div class="download-box glass-card">
-      <span class="eyebrow">Ready for Professional Editing</span>
+      <span class="hud-tag">READY FOR STUDIO-GRADE EDITING</span>
       <h2>Download ApertureX Today</h2>
-      <p>Sideload the universal APK directly for Android devices or compile from source for iOS and desktop.</p>
+      <p>Sideload the universal signed APK directly for Android devices or compile from source for iOS and desktop.</p>
       
       <div class="download-actions">
         <a class="btn btn-primary" id="dlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
-          <span id="dlBtnText">Download APK</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
+          <span id="dlBtnText">Download APK (v0.2.0)</span>
         </a>
         <a class="btn btn-ghost" href="https://github.com/prit-007/ApertureX/releases" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5 5-5M12 4v12"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5 5-5M12 4v12"/></svg>
           All Release Assets
         </a>
       </div>
       
-      <div class="version-badge-lg">Latest Release: <b id="latestVersion">v0.1.0</b> &bull; Signed Universal APK</div>
+      <div class="version-badge-lg">Latest Release: <b id="latestVersion">v0.2.0</b> &bull; Signed Universal APK</div>
       
       <div class="arch-strip">
         <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Android 8.0+ (ARM64, ARMv7, x86_64)</span>
@@ -1997,21 +2065,45 @@
 <section id="changelog">
   <div class="wrap">
     <div class="section-head center">
-      <span class="eyebrow">Release History</span>
-      <h2>Continuous Evolution</h2>
+      <span class="hud-tag">CONTINUOUS EVOLUTION</span>
+      <h2>Verified Release History</h2>
       <p>All release artifacts are generated transparently via GitHub Actions with cryptographically verified checksums.</p>
     </div>
     
     <div id="releasesContainer">
       <div class="releases-loading" id="releasesLoading">
         <div class="spinner"></div>
-        Fetching verified release notes from GitHub...
+        <p style="text-align:center; font-size:0.85rem; color:var(--text-muted);">Fetching verified release notes from GitHub...</p>
       </div>
     </div>
     
     <div id="changelogFallback" style="display:none;">
+      <!-- v0.2.0 Entry -->
       <div class="cl-entry">
         <details open>
+          <summary class="cl-toggle">
+            <span>v0.2.0 &mdash; Oct 17, 2026</span>
+            <span class="arrow">&#9662;</span>
+          </summary>
+          <div class="cl-body">
+            <div class="cl-items cl-added">
+              <li><strong>Look QR Code Open Standard:</strong> Encode complete non-destructive edit recipes into scannable offline QR creator cards with zero cloud dependencies.</li>
+              <li><strong>Pure-FOSS Offline QR Engine:</strong> High-performance Rust <code>rxing</code> camera decoder running in compiled memory with zero closed Google Play Services / Firebase blobs.</li>
+              <li><strong>Pat David Analog Film Simulation Core:</strong> Bundled open-source profiles for Kodak Portra 400, Fuji Pro 400H, Ilford HP5, and Cine Teal &amp; Orange in &lt;0.05MB JSON recipes.</li>
+              <li><strong>Community Preset Hub:</strong> Decentralized preset repository powered by public GitHub repos with in-app previews and one-tap import.</li>
+              <li><strong>C2PA Content Credentials:</strong> On-device cryptographic provenance generator (<code>c2pa.rs</code>) embedding verifiable digital authorship and edit transparency manifests into exported JPEGs.</li>
+              <li><strong>Universal Preset Translation Engine:</strong> Two-way conversion between Adobe XMP (<code>.xmp</code>), <code>.lrtemplate</code>, 3D LUT (<code>.cube</code>), and HALD CLUT PNGs.</li>
+              <li><strong>Export Branding &amp; Watermark Engine:</strong> Native Rust watermark renderer supporting custom photographer signatures, EXIF stamps, and FOSS badges.</li>
+              <li><strong>Zen 6-Master Tab Bar:</strong> Clean progressive disclosure organizing Light, Color, Blur, Effects, Detail, and Geometry with deep sub-menus.</li>
+              <li><strong>Wiper Split-Curtain &amp; History Tree:</strong> Smooth interactive comparison curtain and non-destructive snapshot history tree.</li>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <!-- v0.1.0 Entry -->
+      <div class="cl-entry">
+        <details>
           <summary class="cl-toggle">
             <span>v0.1.0 &mdash; Oct 16, 2026</span>
             <span class="arrow">&#9662;</span>
@@ -2036,7 +2128,7 @@
   <div class="wrap">
     <div class="foot-row">
       <span class="foot-mark">
-        <img class="logo-icon" src="assets/app_icon.png" alt="ApertureX icon" style="width:24px; height:24px;">
+        <img src="assets/app_icon.png" alt="ApertureX icon" style="width:28px; height:28px; border-radius:6px;">
         APERTUREX
       </span>
       <div class="foot-links">
@@ -2059,19 +2151,19 @@
 <script>
   // Mobile drawer
   const menuBtn = document.getElementById('menuBtn');
-  const panel = document.getElementById('mobilePanel');
-  if (menuBtn && panel) {
+  const drawer = document.getElementById('mobileDrawer');
+  if (menuBtn && drawer) {
     menuBtn.addEventListener('click', () => {
-      const open = panel.classList.toggle('open');
+      const open = drawer.classList.toggle('open');
       menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
-    panel.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
-      panel.classList.remove('open');
+    drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+      drawer.classList.remove('open');
       menuBtn.setAttribute('aria-expanded', 'false');
     }));
   }
 
-  // Interactive Before/After Split Slider (Hardware Accelerated via clip-path)
+  // Interactive Before/After Split Slider
   const viewport = document.getElementById('compareViewport');
   let isDraggingCompare = false;
 
@@ -2105,7 +2197,7 @@
     window.addEventListener('touchend', () => { isDraggingCompare = false; });
   }
 
-  // Interactive Demo Tab Switcher
+  // Interactive Demo Tab Switcher across 5 screens
   function setDemoTab(tab) {
     document.querySelectorAll('.demo-tab-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.tab === tab);
@@ -2113,56 +2205,65 @@
     
     const lrView = document.getElementById('mockLightroomView');
     const snView = document.getElementById('mockSnapseedView');
+    const qrView = document.getElementById('mockQrView');
     const exView = document.getElementById('mockExportView');
+    const glView = document.getElementById('mockGalleryView');
     
     const lrText = document.getElementById('demoTextLightroom');
     const snText = document.getElementById('demoTextSnapseed');
+    const qrText = document.getElementById('demoTextLookQr');
     const exText = document.getElementById('demoTextExport');
+    const glText = document.getElementById('demoTextGallery');
     
-    lrView.style.display = tab === 'lightroom' ? 'flex' : 'none';
-    snView.style.display = tab === 'snapseed' ? 'block' : 'none';
-    exView.style.display = tab === 'export' ? 'flex' : 'none';
+    if (lrView) lrView.style.display = tab === 'lightroom' ? 'flex' : 'none';
+    if (snView) snView.style.display = tab === 'snapseed' ? 'block' : 'none';
+    if (qrView) qrView.style.display = tab === 'lookqr' ? 'flex' : 'none';
+    if (exView) exView.style.display = tab === 'export' ? 'flex' : 'none';
+    if (glView) glView.style.display = tab === 'gallery' ? 'flex' : 'none';
     
-    lrText.style.display = tab === 'lightroom' ? 'block' : 'none';
-    snText.style.display = tab === 'snapseed' ? 'block' : 'none';
-    exText.style.display = tab === 'export' ? 'block' : 'none';
+    if (lrText) lrText.style.display = tab === 'lightroom' ? 'block' : 'none';
+    if (snText) snText.style.display = tab === 'snapseed' ? 'block' : 'none';
+    if (qrText) qrText.style.display = tab === 'lookqr' ? 'block' : 'none';
+    if (exText) exText.style.display = tab === 'export' ? 'block' : 'none';
+    if (glText) glText.style.display = tab === 'gallery' ? 'block' : 'none';
   }
 
-  // Interactive Mock Categories & Dual Sliders
+  // 6-Master Categories & Interactive Sliders
   const MOCK_CATEGORIES = {
     Light: {
+      submenus: ['Tone', 'Curve', 'Dynamic Range'],
       s1: { name: 'Exposure (EV)', min: -5, max: 5, val: 0.5, format: (v) => (v >= 0 ? '+' : '') + v.toFixed(2) + ' EV' },
       s2: { name: 'Contrast', min: -100, max: 100, val: 18, format: (v) => (v >= 0 ? '+' : '') + Math.round(v) },
       filter: (v1, v2) => 'brightness(' + (1 + v1 * 0.15) + ') contrast(' + (1 + v2 * 0.005) + ')'
     },
     Color: {
+      submenus: ['White Balance', 'HSL Mixer', 'Color Wheels', 'LAB Space'],
       s1: { name: 'Temp (Kelvin)', min: 2000, max: 10000, val: 5600, format: (v) => Math.round(v) + ' K' },
       s2: { name: 'Vibrance', min: -100, max: 100, val: 24, format: (v) => (v >= 0 ? '+' : '') + Math.round(v) },
       filter: (v1, v2) => 'sepia(' + Math.max(0, (v1 - 5000) / 10000) + ') saturate(' + (1 + v2 * 0.006) + ')'
     },
     Blur: {
+      submenus: ['Lens Optics', 'Optical Bokeh', 'Depth Map'],
       s1: { name: 'Iris Aperture', min: 1.2, max: 16, val: 1.8, format: (v) => 'f/' + v.toFixed(1) },
       s2: { name: 'Aperture Blades', min: 5, max: 9, val: 7, format: (v) => Math.round(v) + ' blades' },
       filter: (v1, v2) => 'blur(' + Math.max(0, (4 - v1) * 0.9) + 'px)'
     },
     Effects: {
+      submenus: ['Clarity', 'Film Grain', 'Halation', 'Vignette'],
       s1: { name: 'Clarity', min: -100, max: 100, val: 15, format: (v) => (v >= 0 ? '+' : '') + Math.round(v) },
-      s2: { name: 'Dehaze', min: -100, max: 100, val: 10, format: (v) => (v >= 0 ? '+' : '') + Math.round(v) },
+      s2: { name: 'Film Grain', min: 0, max: 100, val: 24, format: (v) => Math.round(v) + '%' },
       filter: (v1, v2) => 'contrast(' + (1 + v1 * 0.004) + ')'
     },
     Detail: {
+      submenus: ['Sharpening', 'Denoise', 'Retouch Healing'],
       s1: { name: 'Sharpening', min: 0, max: 150, val: 40, format: (v) => Math.round(v) },
       s2: { name: 'Luminance Denoise', min: 0, max: 100, val: 20, format: (v) => Math.round(v) },
       filter: (v1, v2) => 'contrast(' + (1 + v1 * 0.002) + ')'
     },
     Geometry: {
+      submenus: ['Crop & Aspect', 'Auto-Straighten', 'Keystone'],
       s1: { name: 'Auto-Straighten', min: -10, max: 10, val: 0.4, format: (v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '° (Hough)' },
-      s2: { name: 'Distortion Skew', min: -40, max: 40, val: 0, format: (v) => (v >= 0 ? '+' : '') + Math.round(v) + '°' },
-      filter: () => 'none'
-    },
-    Masking: {
-      s1: { name: 'Radial Feather', min: 0, max: 100, val: 75, format: (v) => Math.round(v) + '%' },
-      s2: { name: 'Ruby Density', min: 0, max: 100, val: 60, format: (v) => Math.round(v) + '%' },
+      s2: { name: 'Perspective Skew', min: -40, max: 40, val: 0, format: (v) => (v >= 0 ? '+' : '') + Math.round(v) + '°' },
       filter: () => 'none'
     }
   };
@@ -2180,11 +2281,19 @@
   const s2Track = document.getElementById('mockSlider2Track');
   const s2Fill = document.getElementById('mockSlider2Fill');
   const s2Thumb = document.getElementById('mockSlider2Thumb');
+  const subchipRow = document.getElementById('mockSubchipRow');
 
   function renderMockSliders() {
     const cat = MOCK_CATEGORIES[currentCategory];
     if (!cat) return;
     
+    // Sub-menus
+    if (subchipRow && cat.submenus) {
+      subchipRow.innerHTML = cat.submenus.map((m, idx) => 
+        '<span class="mock-subchip' + (idx === 0 ? ' active' : '') + '">' + m + '</span>'
+      ).join('');
+    }
+
     // Slider 1
     s1Name.textContent = cat.s1.name;
     s1Val.textContent = cat.s1.format(cat.s1.val);
@@ -2317,18 +2426,18 @@
     let p = 0;
     if (label) label.textContent = 'Streaming Bands...';
     exportSimInterval = setInterval(() => {
-      p += 2;
+      p += 3;
       if (p >= 100) {
         p = 100;
         clearInterval(exportSimInterval);
-        if (label) label.textContent = 'Export Ready (photo.xmp)';
+        if (label) label.textContent = 'C2PA Signed (photo.xmp)';
       }
       val.textContent = p + '%';
       ring.style.background = 'conic-gradient(var(--cyan) 0% ' + p + '%, rgba(255, 255, 255, 0.08) ' + p + '% 100%)';
-    }, 20);
+    }, 25);
   }
 
-  // GitHub Releases Live API Fetch
+  // GitHub Releases Live API Fetch with verified fallback
   const REPO = 'prit-007/ApertureX';
   const API_URL = 'https://api.github.com/repos/' + REPO + '/releases?per_page=6';
   const container = document.getElementById('releasesContainer');
@@ -2397,7 +2506,7 @@
       const vText = latest.tag_name.startsWith('v') ? latest.tag_name : 'v' + latest.tag_name;
       if (navVersion) navVersion.textContent = vText;
       if (latestVersion) latestVersion.textContent = vText;
-      if (heroDlText) heroDlText.textContent = 'Download APK (' + vText + ')';
+      if (heroDlText) heroDlText.textContent = 'Download Universal APK (' + vText + ')';
 
       const apkAsset = pickApk(latest.assets);
       if (apkAsset) {
@@ -2409,8 +2518,8 @@
     } catch (_) {
       if (loading) loading.style.display = 'none';
       if (fallback) fallback.style.display = 'block';
-      if (navVersion) navVersion.textContent = 'v0.1.0';
-      if (latestVersion) latestVersion.textContent = 'v0.1.0';
+      if (navVersion) navVersion.textContent = 'v0.2.0';
+      if (latestVersion) latestVersion.textContent = 'v0.2.0';
     }
   }
   fetchReleases();

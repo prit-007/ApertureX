@@ -1100,25 +1100,82 @@ pub fn apply_logo_watermark(
     }
 }
 
-/// Applies the voluntary "⬡ Edited in ApertureX | 100% Offline" FOSS badge.
+/// Embedded monochrome icon asset of ApertureX (1024x1024 PNG) used for branding and watermarking.
+pub static APERTUREX_ICON_PNG: &[u8] = include_bytes!("../../icons/app_icon_monochrome.png");
+
+/// Applies the voluntary "Edited in ApertureX | 100% Offline" FOSS badge,
+/// compositing the official ApertureX camera aperture emblem directly from the embedded icon.
 pub fn apply_foss_badge(buf: &mut [u8], w: u32, h: u32) {
     let font_size = ((w.min(h) as f32 * 0.018).round()).clamp(10.0, 36.0);
-    let text = "⬡ EDITED IN APERTUREX | 100% OFFLINE";
+    let text = "EDITED IN APERTUREX | 100% OFFLINE";
     let (text_w, text_h) = measure_text(text, font_size);
     let margin = (w.min(h) as f32 * 0.025).max(10.0);
+
+    let icon_height = (font_size * 1.35).round().max(12.0);
+    let icon_width = icon_height;
+    let icon_spacing = (font_size * 0.4).round().max(4.0);
+
+    let total_w = icon_width + icon_spacing + text_w;
+    let total_h = text_h.max(icon_height);
 
     let (pos_x, pos_y) = calculate_anchor_position(
         w,
         h,
-        text_w,
-        text_h,
+        total_w,
+        total_h,
         WatermarkAnchor::BottomRight,
         margin,
         margin,
     );
 
-    let color = [255, 255, 255, 115]; // ~45% opacity
-    draw_text_rgba(buf, w, h, text, pos_x, pos_y, font_size, color, true);
+    if let Ok((icon_rgba, iw, ih)) = decode_png_rgba(APERTUREX_ICON_PNG) {
+        let icon_x = pos_x.floor() as u32;
+        let icon_y = (pos_y + (total_h - icon_height) * 0.5).floor() as u32;
+        let tw = icon_width as u32;
+        let th = icon_height as u32;
+        let user_alpha = 0.55f32;
+
+        for dy in 0..th {
+            let py = icon_y + dy;
+            if py >= h {
+                break;
+            }
+            let v = (dy as f32 + 0.5) / th as f32;
+            for dx in 0..tw {
+                let px = icon_x + dx;
+                if px >= w {
+                    break;
+                }
+                let u = (dx as f32 + 0.5) / tw as f32;
+                let sample = sample_bilinear(&icon_rgba, iw, ih, u, v);
+                let a = (sample[3] as f32 / 255.0) * user_alpha;
+                if a > 0.001 {
+                    let idx = ((py * w + px) * 4) as usize;
+                    let inv_a = 1.0 - a;
+                    buf[idx] = (255.0 * a + buf[idx] as f32 * inv_a).round() as u8;
+                    buf[idx + 1] = (255.0 * a + buf[idx + 1] as f32 * inv_a).round() as u8;
+                    buf[idx + 2] = (255.0 * a + buf[idx + 2] as f32 * inv_a).round() as u8;
+                }
+            }
+        }
+        let text_x = pos_x + icon_width + icon_spacing;
+        let color = [255, 255, 255, 140]; // ~55% opacity
+        draw_text_rgba(buf, w, h, text, text_x, pos_y, font_size, color, true);
+    } else {
+        let fallback_text = "⬡ EDITED IN APERTUREX | 100% OFFLINE";
+        let color = [255, 255, 255, 140];
+        draw_text_rgba(
+            buf,
+            w,
+            h,
+            fallback_text,
+            pos_x,
+            pos_y,
+            font_size,
+            color,
+            true,
+        );
+    }
 }
 
 /// Executes all active branding and watermarking transformations on the final export buffer.
