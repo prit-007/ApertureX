@@ -867,6 +867,26 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
     });
 
+    // Multi-touch pan & pinch-to-zoom forwarded by overlays (Retouch, NodeOverlay)
+    ref.listen(canvasGestureProvider, (previous, next) {
+      if (next == null) return;
+      if (next.isStart && next.focalPoint != null) {
+        _multi = true;
+        _startScale = _scale;
+        _startOffset = _offset;
+        _startFocal = next.focalPoint!;
+      } else if (next.isEnd) {
+        _onScaleEnd();
+      } else if (_multi && next.focalPoint != null) {
+        final scale = (_scale * next.scaleDelta).clamp(_minScale, _maxScale);
+        final offset = _offset + next.focalDelta;
+        setState(() {
+          _scale = scale;
+          _offset = _clampOffset(offset, scale, _lastFitted, _lastBounds);
+        });
+      }
+    });
+
     final program = _program;
     final shader = _shader;
     final source = _baseImage ?? _source;

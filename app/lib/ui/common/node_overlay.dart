@@ -60,6 +60,9 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
   List<double>? _liveBrushPoints;
   bool _isErasing = false;
   Offset? _pointerPos;
+  final Map<int, Offset> _activePointers = {};
+  Offset? _prevFocalPoint;
+  double? _prevSpan;
 
   void _reset() {
     _down = null;
@@ -104,15 +107,66 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       behavior: HitTestBehavior.opaque,
       onPointerHover: (e) => setState(() => _pointerPos = e.localPosition),
       onPointerDown: (e) {
+        _activePointers[e.pointer] = e.localPosition;
+        if (_activePointers.length >= 2) {
+          _reset();
+          final pts = _activePointers.values.toList();
+          final focal = Offset((pts[0].dx + pts[1].dx) / 2, (pts[0].dy + pts[1].dy) / 2);
+          _prevFocalPoint = focal;
+          _prevSpan = (pts[0] - pts[1]).distance;
+          ref.read(canvasGestureProvider.notifier).start(focal);
+          return;
+        }
         _pointerPos = e.localPosition;
         _onDown(e, transform, layers);
       },
       onPointerMove: (e) {
+        _activePointers[e.pointer] = e.localPosition;
+        if (_activePointers.length >= 2) {
+          final pts = _activePointers.values.toList();
+          final focal = Offset((pts[0].dx + pts[1].dx) / 2, (pts[0].dy + pts[1].dy) / 2);
+          final span = (pts[0] - pts[1]).distance;
+          if (_prevFocalPoint != null && _prevSpan != null && _prevSpan! > 0) {
+            final scaleDelta = (span / _prevSpan!).clamp(0.5, 2.0);
+            final focalDelta = focal - _prevFocalPoint!;
+            _prevFocalPoint = focal;
+            _prevSpan = span;
+            ref.read(canvasGestureProvider.notifier).update(
+                  focalPoint: focal,
+                  scaleDelta: scaleDelta,
+                  focalDelta: focalDelta,
+                );
+          } else {
+            _prevFocalPoint = focal;
+            _prevSpan = span;
+          }
+          return;
+        }
         _pointerPos = e.localPosition;
         _onMove(e, transform, layers);
       },
-      onPointerUp: (_) => _onUp(),
-      onPointerCancel: (_) => _reset(),
+      onPointerUp: (e) {
+        _activePointers.remove(e.pointer);
+        if (_activePointers.length < 2 && _prevFocalPoint != null) {
+          _prevFocalPoint = null;
+          _prevSpan = null;
+          ref.read(canvasGestureProvider.notifier).end();
+        }
+        if (_activePointers.isEmpty) {
+          _onUp();
+        }
+      },
+      onPointerCancel: (e) {
+        _activePointers.remove(e.pointer);
+        if (_activePointers.isEmpty) {
+          if (_prevFocalPoint != null) {
+            _prevFocalPoint = null;
+            _prevSpan = null;
+            ref.read(canvasGestureProvider.notifier).end();
+          }
+          _reset();
+        }
+      },
       child: IgnorePointer(
         child: CustomPaint(
           size: Size.infinite,

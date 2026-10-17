@@ -10,6 +10,7 @@ import '../../edit/node_editor.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
 import '../../engine/image_format.dart';
+import '../../viewport/canvas_transform.dart';
 import '../../viewport/mask_peek.dart';
 
 /// Function signature for sky detection from photo bytes.
@@ -80,10 +81,15 @@ class MaskControls extends ConsumerWidget {
               OutlinedButton.icon(
                 onPressed: () {
                   final idx = layers.length;
+                  final transform = ref.read(canvasTransformProvider);
+                  final center = transform?.viewportCenterNormalized() ?? const Offset(0.5, 0.5);
+                  final halfSpan = (0.25 / (transform?.scale ?? 1.0)).clamp(0.06, 0.35);
+                  final p0y = (center.dy - halfSpan).clamp(0.02, 0.98);
+                  final p1y = (center.dy + halfSpan).clamp(0.02, 0.98);
                   notifier.addLayer(
-                    const AdjustmentLayer(
+                    AdjustmentLayer(
                       maskKind: MaskKind.linear,
-                      maskParams: [0.5, 0.2, 0.5, 0.8],
+                      maskParams: [center.dx, p0y, center.dx, p1y],
                       exposure: 0.6,
                     ),
                   );
@@ -96,10 +102,14 @@ class MaskControls extends ConsumerWidget {
               OutlinedButton.icon(
                 onPressed: () {
                   final idx = layers.length;
+                  final transform = ref.read(canvasTransformProvider);
+                  final center = transform?.viewportCenterNormalized() ?? const Offset(0.5, 0.5);
+                  final rx = (0.25 / (transform?.scale ?? 1.0)).clamp(0.05, 0.4);
+                  final ry = rx * (transform?.aspect ?? 1.0);
                   notifier.addLayer(
-                    const AdjustmentLayer(
+                    AdjustmentLayer(
                       maskKind: MaskKind.radial,
-                      maskParams: [0.5, 0.5, 0.25, 0.25, 0.3],
+                      maskParams: [center.dx, center.dy, rx, ry, 0.3],
                       exposure: 0.7,
                     ),
                   );
@@ -112,10 +122,12 @@ class MaskControls extends ConsumerWidget {
               OutlinedButton.icon(
                 onPressed: () {
                   final idx = layers.length;
+                  final transform = ref.read(canvasTransformProvider);
+                  final center = transform?.viewportCenterNormalized() ?? const Offset(0.5, 0.5);
                   notifier.addLayer(
-                    const AdjustmentLayer(
+                    AdjustmentLayer(
                       maskKind: MaskKind.subject,
-                      maskParams: [0.5, 0.5, 0.28, 0.38, 0.25],
+                      maskParams: [center.dx, center.dy, 0.28, 0.38, 0.25],
                       exposure: 0.5,
                     ),
                   );
@@ -129,10 +141,12 @@ class MaskControls extends ConsumerWidget {
                 key: const Key('mask-add-background'),
                 onPressed: () {
                   final idx = layers.length;
+                  final transform = ref.read(canvasTransformProvider);
+                  final center = transform?.viewportCenterNormalized() ?? const Offset(0.5, 0.5);
                   notifier.addLayer(
-                    const AdjustmentLayer(
+                    AdjustmentLayer(
                       maskKind: MaskKind.subject,
-                      maskParams: [0.5, 0.5, 0.28, 0.38, 0.25],
+                      maskParams: [center.dx, center.dy, 0.28, 0.38, 0.25],
                       inverted: true,
                       exposure: -0.4,
                     ),

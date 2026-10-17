@@ -26,6 +26,15 @@ class RetouchCanvasOverlay extends ConsumerStatefulWidget {
 class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
   _DragHandle _dragHandle = _DragHandle.none;
   int? _dragIndex;
+  Offset? _dragStartNorm;
+  RetouchPatch? _initialPatch;
+  Offset? _hoverPos;
+
+  // Multi-touch tracking for pinch-zoom and 2-finger pan
+  final Map<int, Offset> _activePointers = {};
+  Offset? _prevFocalPoint;
+  double? _prevSpan;
+  int? _newPatchCreatedOnCurrentDown;
 
   Offset _toScreen(Offset norm, CanvasTransform? t, double w, double h) {
     if (t != null) return t.toScreen(norm);
@@ -40,6 +49,29 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
   double _radiusScreen(double normR, CanvasTransform? t, double minDim) {
     if (t != null) return t.radiusOf(normR);
     return normR * minDim;
+  }
+
+  void _handleMultiTouchUpdate() {
+    if (_activePointers.length < 2) return;
+    final pts = _activePointers.values.toList();
+    final focal = Offset((pts[0].dx + pts[1].dx) / 2, (pts[0].dy + pts[1].dy) / 2);
+    final span = (pts[0] - pts[1]).distance;
+
+    if (_prevFocalPoint != null && _prevSpan != null && _prevSpan! > 0) {
+      final scaleDelta = (span / _prevSpan!).clamp(0.5, 2.0);
+      final focalDelta = focal - _prevFocalPoint!;
+      _prevFocalPoint = focal;
+      _prevSpan = span;
+      ref.read(canvasGestureProvider.notifier).update(
+            focalPoint: focal,
+            scaleDelta: scaleDelta,
+            focalDelta: focalDelta,
+          );
+    } else {
+      _prevFocalPoint = focal;
+      _prevSpan = span;
+      ref.read(canvasGestureProvider.notifier).start(focal);
+    }
   }
 
   @override
@@ -58,7 +90,34 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
 
         return Listener(
           behavior: HitTestBehavior.opaque,
+          onPointerHover: (event) {
+            setState(() => _hoverPos = event.localPosition);
+          },
           onPointerDown: (event) {
+            _activePointers[event.pointer] = event.localPosition;
+            if (_activePointers.length >= 2) {
+              // If a spot was just created on the initial finger down, remove it
+              if (_newPatchCreatedOnCurrentDown != null) {
+                final currentPatches = ref.read(recipeControllerProvider).recipe.retouchPatches;
+                if (_newPatchCreatedOnCurrentDown! < currentPatches.length) {
+                  notifier.removeRetouchPatchAt(_newPatchCreatedOnCurrentDown!);
+                  ref.read(selectedRetouchPatchIndexProvider.notifier).select(null);
+                }
+                _newPatchCreatedOnCurrentDown = null;
+              }
+              // Switch to 2-finger pan & zoom
+              _dragHandle = _DragHandle.none;
+              _dragIndex = null;
+              _dragStartNorm = null;
+              _initialPatch = null;
+              final pts = _activePointers.values.toList();
+              final focal = Offset((pts[0].dx + pts[1].dx) / 2, (pts[0].dy + pts[1].dy) / 2);
+              _prevFocalPoint = focal;
+              _prevSpan = (pts[0] - pts[1]).distance;
+              ref.read(canvasGestureProvider.notifier).start(focal);
+              return;
+            }
+
             final patches = ref.read(recipeControllerProvider).recipe.retouchPatches;
             final px = event.localPosition.dx;
             final py = event.localPosition.dy;
@@ -83,22 +142,40 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
               return;
             }
 
+            // 0. Check on-canvas delete button for the selected patch
+            if (selectedIndex != null &&
+                selectedIndex >= 0 &&
+                selectedIndex < patches.length) {
+              final p = patches[selectedIndex];
+              final tp = _toScreen(Offset(p.targetX, p.targetY), transform, w, h);
+              final r = _radiusScreen(p.radius, transform, minDim);
+              final delPos = Offset(tp.dx + r + 14, tp.dy - 14);
+              if ((px - delPos.dx) * (px - delPos.dx) + (py - delPos.dy) * (py - delPos.dy) <= 16 * 16) {
+                notifier.removeRetouchPatchAt(selectedIndex);
+                ref.read(selectedRetouchPatchIndexProvider.notifier).select(null);
+                HapticFeedback.lightImpact();
+                return;
+              }
+            }
+
             // Check if user tapped on existing patch's handles
             for (int i = patches.length - 1; i >= 0; i--) {
               final p = patches[i];
               final tp = _toScreen(Offset(p.targetX, p.targetY), transform, w, h);
               final sp = _toScreen(Offset(p.sourceX, p.sourceY), transform, w, h);
               final r = _radiusScreen(p.radius, transform, minDim);
-              final handleHitR = math.max(r, 22.0);
+              final handleHitR = math.max(r, 26.0);
 
               // 1. Check radius resize handle (if this patch is currently selected)
               if (i == selectedIndex) {
                 final handlePos = Offset(tp.dx + r, tp.dy);
                 if ((px - handlePos.dx) * (px - handlePos.dx) +
                         (py - handlePos.dy) * (py - handlePos.dy) <=
-                    12 * 12) {
+                    16 * 16) {
                   _dragHandle = _DragHandle.radius;
                   _dragIndex = i;
+                  _dragStartNorm = norm;
+                  _initialPatch = p;
                   HapticFeedback.selectionClick();
                   return;
                 }
@@ -108,6 +185,8 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
               if ((px - sp.dx) * (px - sp.dx) + (py - sp.dy) * (py - sp.dy) <= handleHitR * handleHitR) {
                 _dragHandle = _DragHandle.source;
                 _dragIndex = i;
+                _dragStartNorm = norm;
+                _initialPatch = p;
                 ref.read(selectedRetouchPatchIndexProvider.notifier).select(i);
                 HapticFeedback.selectionClick();
                 return;
@@ -117,6 +196,8 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
               if ((px - tp.dx) * (px - tp.dx) + (py - tp.dy) * (py - tp.dy) <= handleHitR * handleHitR) {
                 _dragHandle = _DragHandle.target;
                 _dragIndex = i;
+                _dragStartNorm = norm;
+                _initialPatch = p;
                 ref.read(selectedRetouchPatchIndexProvider.notifier).select(i);
                 HapticFeedback.selectionClick();
                 return;
@@ -142,12 +223,21 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
             );
 
             notifier.addRetouchPatch(newPatch);
+            _newPatchCreatedOnCurrentDown = patches.length;
             ref.read(selectedRetouchPatchIndexProvider.notifier).select(patches.length);
             _dragHandle = _DragHandle.target;
             _dragIndex = patches.length;
+            _dragStartNorm = norm;
+            _initialPatch = newPatch;
             HapticFeedback.selectionClick();
           },
           onPointerMove: (event) {
+            _activePointers[event.pointer] = event.localPosition;
+            if (_activePointers.length >= 2) {
+              _handleMultiTouchUpdate();
+              return;
+            }
+
             if (_dragHandle == _DragHandle.none || _dragIndex == null) return;
             final patches = ref.read(recipeControllerProvider).recipe.retouchPatches;
             if (_dragIndex! >= patches.length) return;
@@ -157,40 +247,72 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
             final normX = norm.dx.clamp(0.0, 1.0);
             final normY = norm.dy.clamp(0.0, 1.0);
             final current = patches[_dragIndex!];
+            final initial = _initialPatch ?? current;
+            final startNorm = _dragStartNorm ?? norm;
+            final deltaX = normX - startNorm.dx;
+            final deltaY = normY - startNorm.dy;
 
             if (_dragHandle == _DragHandle.target) {
-              final dx = normX - current.targetX;
-              final dy = normY - current.targetY;
               notifier.updateRetouchPatchAt(
                 _dragIndex!,
-                current.copyWith(
-                  targetX: normX,
-                  targetY: normY,
-                  sourceX: (current.sourceX + dx).clamp(0.0, 1.0),
-                  sourceY: (current.sourceY + dy).clamp(0.0, 1.0),
+                initial.copyWith(
+                  targetX: (initial.targetX + deltaX).clamp(0.0, 1.0),
+                  targetY: (initial.targetY + deltaY).clamp(0.0, 1.0),
+                  sourceX: (initial.sourceX + deltaX).clamp(0.0, 1.0),
+                  sourceY: (initial.sourceY + deltaY).clamp(0.0, 1.0),
                 ),
               );
             } else if (_dragHandle == _DragHandle.source) {
               notifier.updateRetouchPatchAt(
                 _dragIndex!,
-                current.copyWith(sourceX: normX, sourceY: normY),
+                initial.copyWith(
+                  sourceX: (initial.sourceX + deltaX).clamp(0.0, 1.0),
+                  sourceY: (initial.sourceY + deltaY).clamp(0.0, 1.0),
+                ),
               );
             } else if (_dragHandle == _DragHandle.radius) {
-              final tp = _toScreen(Offset(current.targetX, current.targetY), transform, w, h);
+              final tp = _toScreen(Offset(initial.targetX, initial.targetY), transform, w, h);
               final dist = (event.localPosition - tp).distance;
               final baseW = transform?.fitted.width ?? minDim;
               final newNormR = (dist / baseW).clamp(0.01, 0.25);
               notifier.updateRetouchPatchAt(
                 _dragIndex!,
-                current.copyWith(radius: newNormR),
+                initial.copyWith(radius: newNormR),
               );
             }
           },
-          onPointerUp: (_) {
-            if (_dragHandle != _DragHandle.none) {
-              notifier.commit(label: 'Move Patch');
+          onPointerUp: (event) {
+            _activePointers.remove(event.pointer);
+            if (_activePointers.length < 2 && _prevFocalPoint != null) {
+              _prevFocalPoint = null;
+              _prevSpan = null;
+              ref.read(canvasGestureProvider.notifier).end();
+            }
+
+            if (_activePointers.isEmpty) {
+              _newPatchCreatedOnCurrentDown = null;
+              if (_dragHandle != _DragHandle.none) {
+                notifier.commit(label: 'Move Patch');
+                _dragHandle = _DragHandle.none;
+                _dragIndex = null;
+                _dragStartNorm = null;
+                _initialPatch = null;
+              }
+            }
+          },
+          onPointerCancel: (event) {
+            _activePointers.remove(event.pointer);
+            if (_activePointers.isEmpty) {
+              _newPatchCreatedOnCurrentDown = null;
+              if (_prevFocalPoint != null) {
+                _prevFocalPoint = null;
+                _prevSpan = null;
+                ref.read(canvasGestureProvider.notifier).end();
+              }
               _dragHandle = _DragHandle.none;
               _dragIndex = null;
+              _dragStartNorm = null;
+              _initialPatch = null;
             }
           },
           child: CustomPaint(
@@ -200,6 +322,8 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
               selectedIndex: selectedIndex,
               themeScheme: Theme.of(context).colorScheme,
               transform: transform,
+              hoverPos: _hoverPos,
+              brushRadius: brush.radius,
             ),
           ),
         );
@@ -214,19 +338,33 @@ class _RetouchPainter extends CustomPainter {
     required this.selectedIndex,
     required this.themeScheme,
     this.transform,
+    this.hoverPos,
+    this.brushRadius = 0.05,
   });
 
   final List<RetouchPatch> patches;
   final int? selectedIndex;
   final ColorScheme themeScheme;
   final CanvasTransform? transform;
+  final Offset? hoverPos;
+  final double brushRadius;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (patches.isEmpty) return;
-
     final minDim = math.min(size.width, size.height);
     final t = transform;
+
+    // Hover cursor reticle
+    if (hoverPos != null) {
+      final cursorR = (brushRadius * (t?.fitted.width ?? minDim) * (t?.scale ?? 1.0)).clamp(8.0, 150.0);
+      final cursorPaint = Paint()
+        ..color = Colors.white54
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      canvas.drawCircle(hoverPos!, cursorR, cursorPaint);
+    }
+
+    if (patches.isEmpty) return;
 
     for (int i = 0; i < patches.length; i++) {
       final patch = patches[i];
@@ -324,6 +462,32 @@ class _RetouchPainter extends CustomPainter {
             ..strokeWidth = 1.5
             ..style = PaintingStyle.stroke,
         );
+
+        // 5. On-canvas Delete badge above target circle
+        final delPos = Offset(tp.dx + r + 14, tp.dy - 14);
+        canvas.drawCircle(delPos, 9.0, Paint()..color = Colors.black87);
+        canvas.drawCircle(
+          delPos,
+          9.0,
+          Paint()
+            ..color = Colors.white70
+            ..strokeWidth = 1.2
+            ..style = PaintingStyle.stroke,
+        );
+        final xPaint = Paint()
+          ..color = const Color(0xFFFF5252)
+          ..strokeWidth = 2.0
+          ..strokeCap = StrokeCap.round;
+        canvas.drawLine(
+          Offset(delPos.dx - 3.5, delPos.dy - 3.5),
+          Offset(delPos.dx + 3.5, delPos.dy + 3.5),
+          xPaint,
+        );
+        canvas.drawLine(
+          Offset(delPos.dx + 3.5, delPos.dy - 3.5),
+          Offset(delPos.dx - 3.5, delPos.dy + 3.5),
+          xPaint,
+        );
       }
     }
   }
@@ -333,6 +497,8 @@ class _RetouchPainter extends CustomPainter {
       old.patches != patches ||
       old.selectedIndex != selectedIndex ||
       old.themeScheme != themeScheme ||
-      old.transform != transform;
+      old.transform != transform ||
+      old.hoverPos != hoverPos ||
+      old.brushRadius != brushRadius;
 }
 

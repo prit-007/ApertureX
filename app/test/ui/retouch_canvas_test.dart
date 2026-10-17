@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:aperturex/edit/recipe_controller.dart';
 import 'package:aperturex/ui/common/retouch_canvas_overlay.dart';
+import 'package:aperturex/ui/common/retouch_controls.dart';
 
 void main() {
   testWidgets('RetouchCanvasOverlay tap creates a patch', (tester) async {
@@ -219,6 +220,90 @@ void main() {
     // Position stayed same
     expect(updated.targetX, closeTo(patch.targetX, 0.01));
     expect(updated.targetY, closeTo(patch.targetY, 0.01));
+  });
+
+  testWidgets('Multi-touch (2 fingers) does not place patch and forwards gesture', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 400,
+                height: 400,
+                child: RetouchCanvasOverlay(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(container.read(recipeControllerProvider).recipe.retouchPatches, isEmpty);
+
+    final center = tester.getCenter(find.byType(RetouchCanvasOverlay));
+    final g1 = await tester.createGesture(pointer: 1);
+    final g2 = await tester.createGesture(pointer: 2);
+
+    await g1.down(center - const Offset(40, 0));
+    await g2.down(center + const Offset(40, 0));
+    await tester.pump();
+
+    await g1.moveTo(center - const Offset(50, 0));
+    await g2.moveTo(center + const Offset(50, 0));
+    await tester.pump();
+
+    await g1.up();
+    await g2.up();
+    await tester.pumpAndSettle();
+
+    // Multi-touch should not create any patches
+    expect(container.read(recipeControllerProvider).recipe.retouchPatches, isEmpty);
+  });
+
+  testWidgets('Tapping on-canvas delete badge removes selected patch', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 400,
+                height: 400,
+                child: RetouchCanvasOverlay(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Tap to create patch
+    await tester.tap(find.byType(RetouchCanvasOverlay));
+    await tester.pumpAndSettle();
+
+    final patches = container.read(recipeControllerProvider).recipe.retouchPatches;
+    expect(patches.length, 1);
+    final patch = patches.first;
+
+    // Delete badge position: (tp.dx + r + 14, tp.dy - 14)
+    final origin = tester.getTopLeft(find.byType(RetouchCanvasOverlay));
+    final rScreen = patch.radius * 400;
+    final delPos = origin + Offset(patch.targetX * 400 + rScreen + 14, patch.targetY * 400 - 14);
+
+    await tester.tapAt(delPos);
+    await tester.pumpAndSettle();
+
+    expect(container.read(recipeControllerProvider).recipe.retouchPatches, isEmpty);
+    expect(container.read(selectedRetouchPatchIndexProvider), isNull);
   });
 }
 

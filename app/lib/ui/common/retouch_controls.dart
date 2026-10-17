@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/retouch_patch.dart';
+import '../../viewport/canvas_transform.dart';
 
 /// Currently selected retouch patch index for inspector/editing (null = none).
 class SelectedRetouchPatchIndex extends Notifier<int?> {
@@ -89,8 +90,17 @@ class RetouchControls extends ConsumerWidget {
 
     void addSpot(RetouchMode mode) {
       HapticFeedback.selectionClick();
-      final double tx = patches.isEmpty ? 0.5 : ((patches.last.targetX + 0.06) % 0.8 + 0.1);
-      final double ty = patches.isEmpty ? 0.5 : ((patches.last.targetY + 0.06) % 0.8 + 0.1);
+      final transform = ref.read(canvasTransformProvider);
+      final centerNorm = transform?.viewportCenterNormalized();
+      final double defaultX = centerNorm?.dx ?? 0.5;
+      final double defaultY = centerNorm?.dy ?? 0.5;
+
+      final double tx = patches.isEmpty
+          ? defaultX
+          : ((defaultX + (patches.length * 0.04 - 0.02)) % 0.8 + 0.1);
+      final double ty = patches.isEmpty
+          ? defaultY
+          : ((defaultY + (patches.length * 0.04 - 0.02)) % 0.8 + 0.1);
       final double sx = (tx > 0.5 ? tx - 0.10 : tx + 0.10).clamp(0.05, 0.95);
       final double sy = (ty > 0.5 ? ty - 0.10 : ty + 0.10).clamp(0.05, 0.95);
 

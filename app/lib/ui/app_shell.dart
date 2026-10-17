@@ -27,6 +27,7 @@ import 'common/brush_toolbar.dart';
 import 'common/node_controls.dart';
 import 'common/node_overlay.dart';
 import 'common/retouch_canvas_overlay.dart';
+import 'common/retouch_toolbar.dart';
 import 'snapseed/ghost_hint.dart';
 import 'snapseed/snapseed_shell.dart';
 
@@ -225,6 +226,16 @@ class _AppShellState extends ConsumerState<AppShell> {
                   right: Insets.sm,
                   child: const SafeArea(bottom: false, child: BrushToolbar()),
                 ),
+              if (isRetouch)
+                Positioned(
+                  top: Insets.md,
+                  left: Insets.sm,
+                  right: Insets.sm,
+                  child: const SafeArea(
+                    bottom: false,
+                    child: Center(child: RetouchToolbar()),
+                  ),
+                ),
               if (widget.topHud != null)
                 Positioned(
                   top: 0,
@@ -322,6 +333,16 @@ class _AppShellState extends ConsumerState<AppShell> {
                 left: Insets.sm,
                 right: Insets.sm,
                 child: const SafeArea(bottom: false, child: BrushToolbar()),
+              ),
+            if (isRetouch)
+              Positioned(
+                top: Insets.md,
+                left: Insets.sm,
+                right: Insets.sm,
+                child: const SafeArea(
+                  bottom: false,
+                  child: Center(child: RetouchToolbar()),
+                ),
               ),
             if (nodeMode && (wide || kind == AppShellKind.snapseed))
               Positioned(

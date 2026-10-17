@@ -47,6 +47,18 @@ class CanvasTransform {
   /// On-screen radius in pixels of a normalised x-radius [rx].
   double radiusOf(double rx) => rx * fitted.width * scale;
 
+  /// Returns the normalized image coordinate of the center of [viewportSize],
+  /// clamped to [0.05..0.95]. If [viewportSize] is null or transform is invalid, returns (0.5, 0.5).
+  Offset viewportCenterNormalized([Size? viewportSize]) {
+    if (viewportSize == null || viewportSize.width <= 0 || viewportSize.height <= 0) {
+      return const Offset(0.5, 0.5);
+    }
+    final center = Offset(viewportSize.width / 2, viewportSize.height / 2);
+    final norm = toNormalized(center);
+    if (norm == null) return const Offset(0.5, 0.5);
+    return Offset(norm.dx.clamp(0.05, 0.95), norm.dy.clamp(0.05, 0.95));
+  }
+
   @override
   bool operator ==(Object other) =>
       other is CanvasTransform &&
@@ -57,6 +69,54 @@ class CanvasTransform {
   @override
   int get hashCode => Object.hash(fitted, offset, scale);
 }
+
+/// Gesture event dispatched by interactive overlays (Retouch, NodeOverlay) to pan/zoom
+/// the underlying ImageCanvas seamlessly.
+class CanvasGestureEvent {
+  const CanvasGestureEvent({
+    this.focalPoint,
+    this.scaleDelta = 1.0,
+    this.focalDelta = Offset.zero,
+    this.isStart = false,
+    this.isEnd = false,
+  });
+
+  final Offset? focalPoint;
+  final double scaleDelta;
+  final Offset focalDelta;
+  final bool isStart;
+  final bool isEnd;
+}
+
+class CanvasGestureNotifier extends Notifier<CanvasGestureEvent?> {
+  @override
+  CanvasGestureEvent? build() => null;
+
+  void start(Offset focalPoint) {
+    state = CanvasGestureEvent(focalPoint: focalPoint, isStart: true);
+  }
+
+  void update({
+    required Offset focalPoint,
+    required double scaleDelta,
+    required Offset focalDelta,
+  }) {
+    state = CanvasGestureEvent(
+      focalPoint: focalPoint,
+      scaleDelta: scaleDelta,
+      focalDelta: focalDelta,
+    );
+  }
+
+  void end() {
+    state = const CanvasGestureEvent(isEnd: true);
+  }
+}
+
+final canvasGestureProvider =
+    NotifierProvider<CanvasGestureNotifier, CanvasGestureEvent?>(
+  CanvasGestureNotifier.new,
+);
 
 class CanvasTransformNotifier extends Notifier<CanvasTransform?> {
   @override
@@ -74,3 +134,4 @@ final canvasTransformProvider =
     NotifierProvider<CanvasTransformNotifier, CanvasTransform?>(
       CanvasTransformNotifier.new,
     );
+

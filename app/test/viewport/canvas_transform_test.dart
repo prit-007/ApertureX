@@ -70,4 +70,20 @@ void main() {
       ),
     );
   });
+
+  test('viewportCenterNormalized returns normalized center clamped to safe bounds', () {
+    const transform = CanvasTransform(
+      fitted: Size(400, 400),
+      offset: Offset.zero,
+      scale: 1,
+    );
+    // Center of a 400x400 viewport is (200, 200) -> normalized (0.5, 0.5)
+    final center = transform.viewportCenterNormalized(const Size(400, 400));
+    expect(center.dx, closeTo(0.5, 1e-4));
+    expect(center.dy, closeTo(0.5, 1e-4));
+
+    // Null or empty viewport returns default (0.5, 0.5)
+    expect(transform.viewportCenterNormalized(), const Offset(0.5, 0.5));
+    expect(transform.viewportCenterNormalized(Size.zero), const Offset(0.5, 0.5));
+  });
 }

@@ -183,5 +183,34 @@ void main() {
       // CustomPaint is present and rendered without error
       expect(find.byType(CustomPaint), findsWidgets);
     });
+
+    testWidgets('multi-touch (2 fingers) dispatches canvas gesture and does not add node', (
+      tester,
+    ) async {
+      await pumpOverlay(tester);
+
+      CanvasGestureEvent? capturedEvent;
+      container.listen(canvasGestureProvider, (_, next) {
+        if (next != null) capturedEvent = next;
+      });
+
+      final g1 = await tester.createGesture(pointer: 1);
+      final g2 = await tester.createGesture(pointer: 2);
+
+      await g1.down(const Offset(100, 150));
+      await g2.down(const Offset(200, 150));
+      await tester.pump();
+
+      await g1.moveTo(const Offset(80, 150));
+      await g2.moveTo(const Offset(220, 150));
+      await tester.pump();
+
+      await g1.up();
+      await g2.up();
+      await tester.pumpAndSettle();
+
+      expect(capturedEvent, isNotNull);
+      expect(layers(), isEmpty);
+    });
   });
 }
