@@ -1,5 +1,6 @@
 pub mod api;
 pub mod blur;
+pub mod c2pa;
 pub mod color;
 pub mod decode;
 pub mod exif;
@@ -15,5 +16,7 @@ pub mod optics;
 pub mod preview;
 pub mod raw;
 pub mod retouch;
+pub mod sha256;
 pub mod simd;
 pub mod spatial;
+pub mod watermark;

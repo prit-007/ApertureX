@@ -4,13 +4,14 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import '../watermark.dart';
 import 'color.dart';
 import 'mask.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `cancel_flag`, `lock_cancels`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CancelStore`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`
 
 /// Encodes an RGBA8 buffer as a JPEG (alpha dropped). [exif] (a full APP1
 /// segment from the source, or empty) is injected to preserve metadata.
@@ -62,6 +63,54 @@ Future<int> exportProgressGet({required BigInt token}) =>
 /// time (bounded memory, seamless — see `export_pipeline`). [spec.cancel_token]
 /// is polled between bands, so a cancelled export returns
 /// `ExportResult { cancelled: true, .. }` without finishing.
+/// Renders a live mini-preview of the branding (museum frame, signature, logo, badge)
+/// on an RGBA buffer.
+Future<BrandedFrame> renderBrandingPreview({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required ExportBrandingSpec branding,
+}) => RustLib.instance.api.crateApiExportRenderBrandingPreview(
+  rgba: rgba,
+  width: width,
+  height: height,
+  branding: branding,
+);
+
+/// Runs the complete export recipe in Rust, applies optional branding (Museum Frame,
+/// Photographer Signature, FOSS Badge), encodes JPEG, and embeds C2PA Content Credentials.
+Future<ExportResult> exportFullWithBranding({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required ExportSpec spec,
+  required List<MaskLayer> layers,
+  required ColorParams params,
+  required CurveParams curves,
+  required List<double> hsl,
+  required List<int> exif,
+  required ExportBrandingSpec branding,
+  required C2paExportSpec c2Pa,
+}) => RustLib.instance.api.crateApiExportExportFullWithBranding(
+  rgba: rgba,
+  width: width,
+  height: height,
+  spec: spec,
+  layers: layers,
+  params: params,
+  curves: curves,
+  hsl: hsl,
+  exif: exif,
+  branding: branding,
+  c2Pa: c2Pa,
+);
+
+/// Runs the whole export recipe in Rust in one call and returns the JPEG.
+///
+/// The geometry stage runs full-frame; spatial + masks + grade run one band at a
+/// time (bounded memory, seamless — see `export_pipeline`). [spec.cancel_token]
+/// is polled between bands, so a cancelled export returns
+/// `ExportResult { cancelled: true, .. }` without finishing.
 Future<ExportResult> exportFull({
   required List<int> rgba,
   required int width,
@@ -83,6 +132,152 @@ Future<ExportResult> exportFull({
   hsl: hsl,
   exif: exif,
 );
+
+/// Branded RGBA frame result for live mini-preview rendering.
+class BrandedFrame {
+  final Uint8List rgba;
+  final int width;
+  final int height;
+
+  const BrandedFrame({
+    required this.rgba,
+    required this.width,
+    required this.height,
+  });
+
+  @override
+  int get hashCode => rgba.hashCode ^ width.hashCode ^ height.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BrandedFrame &&
+          runtimeType == other.runtimeType &&
+          rgba == other.rgba &&
+          width == other.width &&
+          height == other.height;
+}
+
+/// Specifications for C2PA cryptographic provenance signing.
+class C2paExportSpec {
+  final bool enableC2Pa;
+  final Uint8List devicePrivateKey;
+  final String recipeJson;
+  final String exifSummary;
+
+  const C2paExportSpec({
+    required this.enableC2Pa,
+    required this.devicePrivateKey,
+    required this.recipeJson,
+    required this.exifSummary,
+  });
+
+  static Future<C2paExportSpec> default_() =>
+      RustLib.instance.api.crateApiExportC2PaExportSpecDefault();
+
+  @override
+  int get hashCode =>
+      enableC2Pa.hashCode ^
+      devicePrivateKey.hashCode ^
+      recipeJson.hashCode ^
+      exifSummary.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is C2paExportSpec &&
+          runtimeType == other.runtimeType &&
+          enableC2Pa == other.enableC2Pa &&
+          devicePrivateKey == other.devicePrivateKey &&
+          recipeJson == other.recipeJson &&
+          exifSummary == other.exifSummary;
+}
+
+/// Specifications for watermark, signature, museum frame, and FOSS badge.
+class ExportBrandingSpec {
+  final bool enableMuseumFrame;
+
+  /// 0 = StudioWhite, 1 = MatteDark, 2 = WarmGallery
+  final int frameTheme;
+  final String exifLine1;
+  final String exifLine2;
+  final bool enableSignature;
+  final String signatureText;
+
+  /// 0..8 corresponding to 9-point grid
+  final int signatureAnchor;
+  final double signatureOpacity;
+  final double signatureSizePct;
+  final bool enableLogo;
+  final Uint8List logoBytes;
+  final int logoAnchor;
+  final double logoOpacity;
+  final double logoScalePct;
+  final bool enableFossBadge;
+
+  const ExportBrandingSpec({
+    required this.enableMuseumFrame,
+    required this.frameTheme,
+    required this.exifLine1,
+    required this.exifLine2,
+    required this.enableSignature,
+    required this.signatureText,
+    required this.signatureAnchor,
+    required this.signatureOpacity,
+    required this.signatureSizePct,
+    required this.enableLogo,
+    required this.logoBytes,
+    required this.logoAnchor,
+    required this.logoOpacity,
+    required this.logoScalePct,
+    required this.enableFossBadge,
+  });
+
+  static Future<ExportBrandingSpec> default_() =>
+      RustLib.instance.api.crateApiExportExportBrandingSpecDefault();
+
+  Future<WatermarkSpec> toCore() =>
+      RustLib.instance.api.crateApiExportExportBrandingSpecToCore(that: this);
+
+  @override
+  int get hashCode =>
+      enableMuseumFrame.hashCode ^
+      frameTheme.hashCode ^
+      exifLine1.hashCode ^
+      exifLine2.hashCode ^
+      enableSignature.hashCode ^
+      signatureText.hashCode ^
+      signatureAnchor.hashCode ^
+      signatureOpacity.hashCode ^
+      signatureSizePct.hashCode ^
+      enableLogo.hashCode ^
+      logoBytes.hashCode ^
+      logoAnchor.hashCode ^
+      logoOpacity.hashCode ^
+      logoScalePct.hashCode ^
+      enableFossBadge.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ExportBrandingSpec &&
+          runtimeType == other.runtimeType &&
+          enableMuseumFrame == other.enableMuseumFrame &&
+          frameTheme == other.frameTheme &&
+          exifLine1 == other.exifLine1 &&
+          exifLine2 == other.exifLine2 &&
+          enableSignature == other.enableSignature &&
+          signatureText == other.signatureText &&
+          signatureAnchor == other.signatureAnchor &&
+          signatureOpacity == other.signatureOpacity &&
+          signatureSizePct == other.signatureSizePct &&
+          enableLogo == other.enableLogo &&
+          logoBytes == other.logoBytes &&
+          logoAnchor == other.logoAnchor &&
+          logoOpacity == other.logoOpacity &&
+          logoScalePct == other.logoScalePct &&
+          enableFossBadge == other.enableFossBadge;
+}
 
 /// The result of [`export_full`]: JPEG bytes, or a flag when the export was
 /// cancelled before it finished encoding.

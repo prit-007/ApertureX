@@ -19,9 +19,12 @@ import 'editor_shortcuts.dart';
 import 'export_progress.dart';
 import '../../edit/geometry_spec.dart';
 import '../../edit/library_catalog.dart';
+import '../../edit/parameter.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/recipe_store.dart';
+import '../../edit/tool_definition.dart';
+import '../presets/preset_card_dialog.dart';
 import '../../edit/xmp_sidecar.dart';
 import '../../edit/xmp_writer.dart';
 import '../../features/crop/crop_screen.dart';
@@ -212,7 +215,32 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       case ExportAction.share:
         await _exportAndShare();
         break;
+      case ExportAction.sharePresetCard:
+        _exportPresetCard();
+        break;
     }
+  }
+
+  void _exportPresetCard() {
+    final recipe = ref.read(recipeControllerProvider).recipe;
+    final params = <String, double>{};
+    for (final p in Parameter.values) {
+      final v = valueOf(recipe, p);
+      final neutral = specOf(p).neutral;
+      if ((v - neutral).abs() > 1e-4) {
+        params[p.name] = v;
+      }
+    }
+    final tool = ToolDefinition(
+      name: 'Custom Look',
+      description: 'Custom color grade from ApertureX',
+      params: params.isEmpty ? {'contrast': 0.0} : params,
+    );
+    showPresetCardDialog(
+      context,
+      tool: tool,
+      previewImageBytes: _bytes,
+    );
   }
 
   Future<void> _saveToApertureX() async {

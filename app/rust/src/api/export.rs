@@ -20,6 +20,7 @@ use crate::geometry::{self, GeometrySpec};
 use crate::mask::{self, LocalAdjustment};
 use crate::optics::OpticsParams;
 use crate::spatial::SpatialParams;
+use crate::watermark::{MuseumFrameTheme, WatermarkAnchor, WatermarkSpec};
 
 /// Encodes an RGBA8 buffer as a JPEG (alpha dropped). [exif] (a full APP1
 /// segment from the source, or empty) is injected to preserve metadata.
@@ -105,6 +106,83 @@ pub struct ExportResult {
     pub jpeg: Vec<u8>,
 }
 
+/// Specifications for watermark, signature, museum frame, and FOSS badge.
+#[derive(Debug, Clone, Default)]
+pub struct ExportBrandingSpec {
+    pub enable_museum_frame: bool,
+    /// 0 = StudioWhite, 1 = MatteDark, 2 = WarmGallery
+    pub frame_theme: u8,
+    pub exif_line1: String,
+    pub exif_line2: String,
+    pub enable_signature: bool,
+    pub signature_text: String,
+    /// 0..8 corresponding to 9-point grid
+    pub signature_anchor: u8,
+    pub signature_opacity: f32,
+    pub signature_size_pct: f32,
+    pub enable_logo: bool,
+    pub logo_bytes: Vec<u8>,
+    pub logo_anchor: u8,
+    pub logo_opacity: f32,
+    pub logo_scale_pct: f32,
+    pub enable_foss_badge: bool,
+}
+
+impl ExportBrandingSpec {
+    pub fn to_core(&self) -> WatermarkSpec {
+        let theme = match self.frame_theme {
+            1 => MuseumFrameTheme::MatteDark,
+            2 => MuseumFrameTheme::WarmGallery,
+            _ => MuseumFrameTheme::StudioWhite,
+        };
+        let anchor_from_u8 = |val: u8| match val {
+            0 => WatermarkAnchor::TopLeft,
+            1 => WatermarkAnchor::TopCenter,
+            2 => WatermarkAnchor::TopRight,
+            3 => WatermarkAnchor::CenterLeft,
+            4 => WatermarkAnchor::Center,
+            5 => WatermarkAnchor::CenterRight,
+            6 => WatermarkAnchor::BottomLeft,
+            7 => WatermarkAnchor::BottomCenter,
+            _ => WatermarkAnchor::BottomRight,
+        };
+        WatermarkSpec {
+            enable_museum_frame: self.enable_museum_frame,
+            frame_theme: theme,
+            exif_line1: self.exif_line1.clone(),
+            exif_line2: self.exif_line2.clone(),
+            enable_signature: self.enable_signature,
+            signature_text: self.signature_text.clone(),
+            signature_anchor: anchor_from_u8(self.signature_anchor),
+            signature_opacity: self.signature_opacity,
+            signature_size_pct: self.signature_size_pct,
+            enable_logo: self.enable_logo,
+            logo_bytes: self.logo_bytes.clone(),
+            logo_anchor: anchor_from_u8(self.logo_anchor),
+            logo_opacity: self.logo_opacity,
+            logo_scale_pct: self.logo_scale_pct,
+            enable_foss_badge: self.enable_foss_badge,
+        }
+    }
+}
+
+/// Specifications for C2PA cryptographic provenance signing.
+#[derive(Debug, Clone, Default)]
+pub struct C2paExportSpec {
+    pub enable_c2pa: bool,
+    pub device_private_key: Vec<u8>,
+    pub recipe_json: String,
+    pub exif_summary: String,
+}
+
+/// Branded RGBA frame result for live mini-preview rendering.
+#[derive(Debug)]
+pub struct BrandedFrame {
+    pub rgba: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+}
+
 // --- cancel tokens ---------------------------------------------------------
 //
 // Same handle-store pattern as the preview module: Dart keeps an opaque `u64`
@@ -188,8 +266,28 @@ fn cancel_flag(token: u64) -> Option<(Arc<AtomicBool>, Arc<AtomicU32>)> {
 /// time (bounded memory, seamless — see `export_pipeline`). [spec.cancel_token]
 /// is polled between bands, so a cancelled export returns
 /// `ExportResult { cancelled: true, .. }` without finishing.
+/// Renders a live mini-preview of the branding (museum frame, signature, logo, badge)
+/// on an RGBA buffer.
+pub fn render_branding_preview(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    branding: ExportBrandingSpec,
+) -> Result<BrandedFrame, String> {
+    let core_spec = branding.to_core();
+    let (out_rgba, out_w, out_h) =
+        crate::watermark::process_branding_pipeline(&rgba, width, height, &core_spec);
+    Ok(BrandedFrame {
+        rgba: out_rgba,
+        width: out_w,
+        height: out_h,
+    })
+}
+
+/// Runs the complete export recipe in Rust, applies optional branding (Museum Frame,
+/// Photographer Signature, FOSS Badge), encodes JPEG, and embeds C2PA Content Credentials.
 #[allow(clippy::too_many_arguments)]
-pub fn export_full(
+pub fn export_full_with_branding(
     rgba: Vec<u8>,
     width: u32,
     height: u32,
@@ -199,6 +297,8 @@ pub fn export_full(
     curves: CurveParams,
     hsl: Vec<f32>,
     exif: Vec<u8>,
+    branding: ExportBrandingSpec,
+    c2pa: C2paExportSpec,
 ) -> Result<ExportResult, String> {
     let (w, h) = (width as usize, height as usize);
     let expected = w * h * 4;
@@ -322,7 +422,36 @@ pub fn export_full(
         (frame.rgba, frame.width, frame.height)
     };
 
-    let jpeg = export::encode_jpeg(&rgba, out_w, out_h, spec.quality, &exif)?;
+    // Process custom branding & watermarking (Museum Frame, Signature, FOSS Badge)
+    let core_branding = branding.to_core();
+    let (branded_rgba, final_w, final_h) =
+        crate::watermark::process_branding_pipeline(&rgba, out_w, out_h, &core_branding);
+
+    let mut jpeg = export::encode_jpeg(&branded_rgba, final_w, final_h, spec.quality, &exif)?;
+
+    // If C2PA is requested, sign claims and inject JUMBF APP11
+    if c2pa.enable_c2pa && !c2pa.device_private_key.is_empty() {
+        let pixel_hash = crate::sha256::sha256(&branded_rgba);
+        let pixel_hash_hex = crate::sha256::sha256_hex(&pixel_hash);
+        let recipe_hash =
+            crate::sha256::sha256_hex(&crate::sha256::sha256(c2pa.recipe_json.as_bytes()));
+        let key_pub = crate::sha256::sha256(&c2pa.device_private_key);
+        let key_id = format!("c2pa:apx:{}", &crate::sha256::sha256_hex(&key_pub)[..16]);
+
+        let actions = ["c2pa.opened", "c2pa.color_adjustments"];
+        let claim = crate::c2pa::build_c2pa_claim(
+            &pixel_hash_hex,
+            None,
+            &actions,
+            &c2pa.exif_summary,
+            &recipe_hash,
+            &key_id,
+        );
+        let sig_hex = crate::c2pa::sign_c2pa_claim(&claim, &c2pa.device_private_key);
+        let manifest = crate::c2pa::create_c2pa_manifest(&claim, &sig_hex, &key_id);
+        jpeg = crate::c2pa::inject_c2pa_app11(jpeg, &manifest);
+    }
+
     // Encode is the last stage; report a finished export as 1000 permille.
     if let Some(p) = progress {
         p.store(1000, Ordering::Relaxed);
@@ -331,6 +460,39 @@ pub fn export_full(
         cancelled: false,
         jpeg,
     })
+}
+
+/// Runs the whole export recipe in Rust in one call and returns the JPEG.
+///
+/// The geometry stage runs full-frame; spatial + masks + grade run one band at a
+/// time (bounded memory, seamless — see `export_pipeline`). [spec.cancel_token]
+/// is polled between bands, so a cancelled export returns
+/// `ExportResult { cancelled: true, .. }` without finishing.
+#[allow(clippy::too_many_arguments)]
+pub fn export_full(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    spec: ExportSpec,
+    layers: Vec<MaskLayer>,
+    params: ColorParams,
+    curves: CurveParams,
+    hsl: Vec<f32>,
+    exif: Vec<u8>,
+) -> Result<ExportResult, String> {
+    export_full_with_branding(
+        rgba,
+        width,
+        height,
+        spec,
+        layers,
+        params,
+        curves,
+        hsl,
+        exif,
+        ExportBrandingSpec::default(),
+        C2paExportSpec::default(),
+    )
 }
 
 #[cfg(test)]

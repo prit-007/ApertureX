@@ -4,6 +4,7 @@
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
 import 'api/blur.dart';
+import 'api/c2pa.dart';
 import 'api/color.dart';
 import 'api/decode.dart';
 import 'api/engine.dart';
@@ -26,6 +27,7 @@ import 'dart:ffi' as ffi;
 import 'exif.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart';
+import 'watermark.dart';
 
 abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RustLibApiImplPlatform({
@@ -54,6 +56,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_box_autoadd_bool(dynamic raw);
 
   @protected
+  C2paExportSpec dco_decode_box_autoadd_c_2_pa_export_spec(dynamic raw);
+
+  @protected
   ColorParams dco_decode_box_autoadd_color_params(dynamic raw);
 
   @protected
@@ -67,6 +72,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   EmbeddedDepthResult dco_decode_box_autoadd_embedded_depth_result(dynamic raw);
+
+  @protected
+  ExportBrandingSpec dco_decode_box_autoadd_export_branding_spec(dynamic raw);
 
   @protected
   ExportSpec dco_decode_box_autoadd_export_spec(dynamic raw);
@@ -84,6 +92,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int dco_decode_box_autoadd_u_32(dynamic raw);
 
   @protected
+  BrandedFrame dco_decode_branded_frame(dynamic raw);
+
+  @protected
+  C2paDeviceInfo dco_decode_c_2_pa_device_info(dynamic raw);
+
+  @protected
+  C2paExportSpec dco_decode_c_2_pa_export_spec(dynamic raw);
+
+  @protected
+  C2paVerifyResult dco_decode_c_2_pa_verify_result(dynamic raw);
+
+  @protected
   ColorParams dco_decode_color_params(dynamic raw);
 
   @protected
@@ -97,6 +117,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   EmbeddedDepthResult dco_decode_embedded_depth_result(dynamic raw);
+
+  @protected
+  ExportBrandingSpec dco_decode_export_branding_spec(dynamic raw);
 
   @protected
   ExportResult dco_decode_export_result(dynamic raw);
@@ -126,6 +149,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImageMetadata dco_decode_image_metadata(dynamic raw);
 
   @protected
+  List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
   List<ApiRetouchPatch> dco_decode_list_api_retouch_patch(dynamic raw);
 
   @protected
@@ -151,6 +177,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MaskLayer dco_decode_mask_layer(dynamic raw);
+
+  @protected
+  MuseumFrameTheme dco_decode_museum_frame_theme(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
@@ -182,6 +211,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Float32List? dco_decode_opt_list_prim_f_32_strict(dynamic raw);
 
   @protected
+  Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
+
+  @protected
   PreviewBaseSpec dco_decode_preview_base_spec(dynamic raw);
 
   @protected
@@ -201,6 +233,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void dco_decode_unit(dynamic raw);
+
+  @protected
+  WatermarkAnchor dco_decode_watermark_anchor(dynamic raw);
+
+  @protected
+  WatermarkSpec dco_decode_watermark_spec(dynamic raw);
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
@@ -225,6 +263,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
+  C2paExportSpec sse_decode_box_autoadd_c_2_pa_export_spec(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ColorParams sse_decode_box_autoadd_color_params(SseDeserializer deserializer);
 
   @protected
@@ -240,6 +283,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   EmbeddedDepthResult sse_decode_box_autoadd_embedded_depth_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ExportBrandingSpec sse_decode_box_autoadd_export_branding_spec(
     SseDeserializer deserializer,
   );
 
@@ -261,6 +309,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
+  BrandedFrame sse_decode_branded_frame(SseDeserializer deserializer);
+
+  @protected
+  C2paDeviceInfo sse_decode_c_2_pa_device_info(SseDeserializer deserializer);
+
+  @protected
+  C2paExportSpec sse_decode_c_2_pa_export_spec(SseDeserializer deserializer);
+
+  @protected
+  C2paVerifyResult sse_decode_c_2_pa_verify_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ColorParams sse_decode_color_params(SseDeserializer deserializer);
 
   @protected
@@ -274,6 +336,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   EmbeddedDepthResult sse_decode_embedded_depth_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ExportBrandingSpec sse_decode_export_branding_spec(
     SseDeserializer deserializer,
   );
 
@@ -305,6 +372,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImageMetadata sse_decode_image_metadata(SseDeserializer deserializer);
 
   @protected
+  List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
   List<ApiRetouchPatch> sse_decode_list_api_retouch_patch(
     SseDeserializer deserializer,
   );
@@ -332,6 +402,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MaskLayer sse_decode_mask_layer(SseDeserializer deserializer);
+
+  @protected
+  MuseumFrameTheme sse_decode_museum_frame_theme(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
@@ -369,6 +442,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
   PreviewBaseSpec sse_decode_preview_base_spec(SseDeserializer deserializer);
 
   @protected
@@ -388,6 +464,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_decode_unit(SseDeserializer deserializer);
+
+  @protected
+  WatermarkAnchor sse_decode_watermark_anchor(SseDeserializer deserializer);
+
+  @protected
+  WatermarkSpec sse_decode_watermark_spec(SseDeserializer deserializer);
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
@@ -415,6 +497,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_c_2_pa_export_spec(
+    C2paExportSpec self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_color_params(
@@ -447,6 +535,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_export_branding_spec(
+    ExportBrandingSpec self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_export_spec(
     ExportSpec self,
     SseSerializer serializer,
@@ -468,6 +562,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
   @protected
+  void sse_encode_branded_frame(BrandedFrame self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_c_2_pa_device_info(
+    C2paDeviceInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_c_2_pa_export_spec(
+    C2paExportSpec self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_c_2_pa_verify_result(
+    C2paVerifyResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_color_params(ColorParams self, SseSerializer serializer);
 
   @protected
@@ -485,6 +600,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_embedded_depth_result(
     EmbeddedDepthResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_export_branding_spec(
+    ExportBrandingSpec self,
     SseSerializer serializer,
   );
 
@@ -517,6 +638,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_image_metadata(ImageMetadata self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_api_retouch_patch(
@@ -564,6 +688,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_mask_layer(MaskLayer self, SseSerializer serializer);
 
   @protected
+  void sse_encode_museum_frame_theme(
+    MuseumFrameTheme self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
@@ -603,6 +733,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_list_prim_u_8_strict(
+    Uint8List? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_preview_base_spec(
     PreviewBaseSpec self,
     SseSerializer serializer,
@@ -625,6 +761,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_watermark_anchor(
+    WatermarkAnchor self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_watermark_spec(WatermarkSpec self, SseSerializer serializer);
 }
 
 // Section: wire_class

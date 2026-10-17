@@ -199,8 +199,10 @@ XMP sidecar writer (#77), shader warmup (#72), precision-gear slider nudge
 (#71), keyboard shortcuts (#74), batch polish + determinate progress
 (#75/#80), and the JSON catalog's replacement by SQLite/Drift (#84). The
 Edits gallery with explicit-save preview renders has shipped (#85).
-**Remaining:** the Look/QR share open standard (ADR 0009 follow-up) and
-continued parity breadth (`PARITY.md`).
+The Look/QR share open standard (`docs/LOOK_QR_STANDARD.md`, `apx://look/v1`,
+`preset_card_dialog.dart`, pure-FOSS `qr_image_decoder.dart`), Pat David film
+simulation core, and GitHub-backed Community Preset Hub have all shipped.
+**Remaining:** continued parity breadth (`PARITY.md`).
 
 **Exit criteria**
 - Edit a photo, kill the app, reopen: identical result from the sidecar.

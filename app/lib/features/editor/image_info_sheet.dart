@@ -7,7 +7,9 @@ import '../../edit/recipe.dart';
 import '../../engine/engine.dart';
 import '../../gallery/gallery_asset.dart';
 import '../../ui/common/app_sheet.dart';
+import '../c2pa/c2pa_service.dart';
 import '../lens/lens_database.dart';
+import '../../src/rust/api/c2pa.dart';
 
 /// Shows a comprehensive, professional EXIF and metadata inspector sheet (#85).
 class ImageInfoSheet extends ConsumerStatefulWidget {
@@ -44,7 +46,9 @@ class ImageInfoSheet extends ConsumerStatefulWidget {
 
 class _ImageInfoSheetState extends ConsumerState<ImageInfoSheet> {
   ImageMetadata? _metadata;
+  C2paVerifyResult? _c2paResult;
   bool _loading = true;
+  bool _verifyingC2pa = true;
 
   @override
   void initState() {
@@ -55,15 +59,26 @@ class _ImageInfoSheetState extends ConsumerState<ImageInfoSheet> {
   Future<void> _loadMetadata() async {
     try {
       final meta = await AxEngine.getImageMetadata(widget.imageBytes);
+      C2paVerifyResult? c2pa;
+      try {
+        final c2paService = ref.read(c2paServiceProvider);
+        c2pa = await c2paService.verifyImage(widget.imageBytes);
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _metadata = meta;
+          _c2paResult = c2pa;
           _loading = false;
+          _verifyingC2pa = false;
         });
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _loading = false);
+        setState(() {
+          _loading = false;
+          _verifyingC2pa = false;
+        });
       }
     }
   }
@@ -250,8 +265,142 @@ class _ImageInfoSheetState extends ConsumerState<ImageInfoSheet> {
               ],
             ),
           const SizedBox(height: Insets.sm),
+
+          // C2PA Provenance & Content Credentials
+          _buildC2paSection(theme),
+          const SizedBox(height: Insets.sm),
         ],
       ],
+    );
+  }
+
+  Widget _buildC2paSection(ThemeData theme) {
+    final report = _c2paResult;
+    final isVerified = report?.isValid == true;
+    final isTampered = report?.status == 'Tampered';
+
+    Color cardBorder;
+    Color? cardBg;
+    IconData statusIcon;
+    Color iconColor;
+    String statusTitle;
+    String statusSubtitle;
+
+    if (_verifyingC2pa) {
+      cardBorder = theme.colorScheme.outlineVariant;
+      statusIcon = Icons.hourglass_top_rounded;
+      iconColor = theme.colorScheme.onSurfaceVariant;
+      statusTitle = 'Verifying Authenticity...';
+      statusSubtitle = 'Checking offline cryptographic provenance';
+    } else if (isVerified) {
+      cardBorder = Colors.green.withAlpha(120);
+      cardBg = Colors.green.withAlpha(18);
+      statusIcon = Icons.verified_user_rounded;
+      iconColor = Colors.green;
+      statusTitle = '✓ C2PA Content Credentials Verified';
+      statusSubtitle = 'Cryptographic provenance and pixel hash confirmed authentic';
+    } else if (isTampered) {
+      cardBorder = Colors.red.withAlpha(140);
+      cardBg = Colors.red.withAlpha(20);
+      statusIcon = Icons.gpp_bad_rounded;
+      iconColor = Colors.red;
+      statusTitle = '⚠ Tampered / Signature Broken';
+      statusSubtitle = 'Pixels have been altered since export. Authenticity check failed.';
+    } else {
+      cardBorder = theme.colorScheme.outlineVariant;
+      statusIcon = Icons.shield_outlined;
+      iconColor = theme.colorScheme.onSurfaceVariant;
+      statusTitle = 'Content Credentials (C2PA)';
+      statusSubtitle = 'No cryptographic manifest found. Enable C2PA in Export to sign your photos.';
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBg ?? theme.colorScheme.surfaceContainerHighest.withAlpha(60),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cardBorder, width: isVerified || isTampered ? 1.5 : 1.0),
+      ),
+      padding: const EdgeInsets.all(Insets.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(statusIcon, color: iconColor, size: 22),
+              const SizedBox(width: Insets.xs),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      statusTitle,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isVerified
+                            ? Colors.green
+                            : isTampered
+                                ? Colors.red
+                                : theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      statusSubtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (isVerified && report != null) ...[
+            const Divider(height: Insets.md),
+            _buildDetailRow(theme, 'Signer Key ID', report.signerKeyId),
+            _buildDetailRow(theme, 'Generator', report.claimGenerator),
+            if (report.actions.isNotEmpty)
+              _buildDetailRow(theme, 'Audit Trail', report.actions.join(', ')),
+            if (report.cameraMetadata.isNotEmpty)
+              _buildDetailRow(theme, 'Origin EXIF', report.cameraMetadata),
+            if (report.pixelHash.isNotEmpty)
+              _buildDetailRow(
+                theme,
+                'Pixel SHA-256',
+                '${report.pixelHash.substring(0, 16)}...',
+              ),
+            _buildDetailRow(theme, 'Verification', '100% Offline (Local Ed25519)'),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(ThemeData theme, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

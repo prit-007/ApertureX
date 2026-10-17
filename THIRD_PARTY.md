@@ -25,6 +25,8 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 | [`rawler`](https://crates.io/crates/rawler) | ^0.8.0 | LGPL-2.1 | Pure-Rust RAW/DNG decode (ADR 0005, `rawler`-first) | ✅ |
 | [`share_plus`](https://pub.dev/packages/share_plus) | ^13.3.1 | BSD-3-Clause | System share sheet for exported JPEGs and activity logs | ✅ |
 | [`sqlite3_flutter_libs`](https://pub.dev/packages/sqlite3_flutter_libs) | ^0.6.0 | MIT | Bundles latest native SQLite binary across Android / iOS platforms | ✅ |
+| [`qr_flutter`](https://pub.dev/packages/qr_flutter) | ^4.1.0 | BSD-3-Clause | QR code generation and rendering for Look/QR open standard sharing | ✅ |
+| [`zxing2`](https://pub.dev/packages/zxing2) | ^0.2.4 | Apache-2.0 | Pure-Dart port of ZXing for offline QR code detection and decoding from image buffers | ✅ |
 | [`zune-jpeg`](https://crates.io/crates/zune-jpeg) | ^0.5.15 | MIT OR Apache-2.0 OR Zlib | Rust JPEG decode for the ROI/proxy path | ✅ |
 
 Apache-2.0 and GPL-3.0 are mutually compatible (both are modern, patent-granting

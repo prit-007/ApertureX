@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 656980342;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -529627207;
 
 // Section: executor
 
@@ -303,6 +303,109 @@ fn wire__crate__api__engine__brighten_rgba_impl(
                 transform_result_sse::<_, ()>((move || {
                     let output_ok =
                         Ok::<_, ()>(crate::api::engine::brighten_rgba(api_rgba, api_amount))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__c2pa__c2pa_generate_device_key_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "c2pa_generate_device_key",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_device_seed = <Vec<u8>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Ok::<_, ()>(crate::api::c2pa::c2pa_generate_device_key(api_device_seed))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__c2pa__c2pa_verify_image_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "c2pa_verify_image",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_image_bytes = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_device_private_key = <Option<Vec<u8>>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::c2pa::c2pa_verify_image(
+                        api_image_bytes,
+                        api_device_private_key,
+                    ))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__export__c_2_pa_export_spec_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "c_2_pa_export_spec_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::export::C2paExportSpec::default())?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -667,6 +770,72 @@ fn wire__crate__api__engine__engine_version_impl(
         },
     )
 }
+fn wire__crate__api__export__export_branding_spec_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "export_branding_spec_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::export::ExportBrandingSpec::default())?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__export__export_branding_spec_to_core_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "export_branding_spec_to_core",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <crate::api::export::ExportBrandingSpec>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Ok::<_, ()>(crate::api::export::ExportBrandingSpec::to_core(&api_that))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__export__export_cancel_drop_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -845,6 +1014,62 @@ fn wire__crate__api__export__export_full_impl(
                     let output_ok = crate::api::export::export_full(
                         api_rgba, api_width, api_height, api_spec, api_layers, api_params,
                         api_curves, api_hsl, api_exif,
+                    )?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__export__export_full_with_branding_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "export_full_with_branding",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_rgba = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_width = <u32>::sse_decode(&mut deserializer);
+            let api_height = <u32>::sse_decode(&mut deserializer);
+            let api_spec = <crate::api::export::ExportSpec>::sse_decode(&mut deserializer);
+            let api_layers = <Vec<crate::api::mask::MaskLayer>>::sse_decode(&mut deserializer);
+            let api_params = <crate::api::color::ColorParams>::sse_decode(&mut deserializer);
+            let api_curves = <crate::api::color::CurveParams>::sse_decode(&mut deserializer);
+            let api_hsl = <Vec<f32>>::sse_decode(&mut deserializer);
+            let api_exif = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_branding =
+                <crate::api::export::ExportBrandingSpec>::sse_decode(&mut deserializer);
+            let api_c2pa = <crate::api::export::C2paExportSpec>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok = crate::api::export::export_full_with_branding(
+                        api_rgba,
+                        api_width,
+                        api_height,
+                        api_spec,
+                        api_layers,
+                        api_params,
+                        api_curves,
+                        api_hsl,
+                        api_exif,
+                        api_branding,
+                        api_c2pa,
                     )?;
                     std::result::Result::Ok(output_ok)
                 })())
@@ -2130,6 +2355,48 @@ fn wire__crate__api__mask__refine_mask_impl(
         },
     )
 }
+fn wire__crate__api__export__render_branding_preview_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "render_branding_preview",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_rgba = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_width = <u32>::sse_decode(&mut deserializer);
+            let api_height = <u32>::sse_decode(&mut deserializer);
+            let api_branding =
+                <crate::api::export::ExportBrandingSpec>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok = crate::api::export::render_branding_preview(
+                        api_rgba,
+                        api_width,
+                        api_height,
+                        api_branding,
+                    )?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__retouch__retouch_apply_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2666,6 +2933,76 @@ impl SseDecode for bool {
     }
 }
 
+impl SseDecode for crate::api::export::BrandedFrame {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_rgba = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_width = <u32>::sse_decode(deserializer);
+        let mut var_height = <u32>::sse_decode(deserializer);
+        return crate::api::export::BrandedFrame {
+            rgba: var_rgba,
+            width: var_width,
+            height: var_height,
+        };
+    }
+}
+
+impl SseDecode for crate::api::c2pa::C2paDeviceInfo {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_privateKey = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_keyId = <String>::sse_decode(deserializer);
+        return crate::api::c2pa::C2paDeviceInfo {
+            private_key: var_privateKey,
+            key_id: var_keyId,
+        };
+    }
+}
+
+impl SseDecode for crate::api::export::C2paExportSpec {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_enableC2Pa = <bool>::sse_decode(deserializer);
+        let mut var_devicePrivateKey = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_recipeJson = <String>::sse_decode(deserializer);
+        let mut var_exifSummary = <String>::sse_decode(deserializer);
+        return crate::api::export::C2paExportSpec {
+            enable_c2pa: var_enableC2Pa,
+            device_private_key: var_devicePrivateKey,
+            recipe_json: var_recipeJson,
+            exif_summary: var_exifSummary,
+        };
+    }
+}
+
+impl SseDecode for crate::api::c2pa::C2paVerifyResult {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_status = <String>::sse_decode(deserializer);
+        let mut var_isValid = <bool>::sse_decode(deserializer);
+        let mut var_title = <String>::sse_decode(deserializer);
+        let mut var_claimGenerator = <String>::sse_decode(deserializer);
+        let mut var_signerKeyId = <String>::sse_decode(deserializer);
+        let mut var_actions = <Vec<String>>::sse_decode(deserializer);
+        let mut var_cameraMetadata = <String>::sse_decode(deserializer);
+        let mut var_recipeHash = <String>::sse_decode(deserializer);
+        let mut var_pixelHash = <String>::sse_decode(deserializer);
+        let mut var_statusMessage = <String>::sse_decode(deserializer);
+        return crate::api::c2pa::C2paVerifyResult {
+            status: var_status,
+            is_valid: var_isValid,
+            title: var_title,
+            claim_generator: var_claimGenerator,
+            signer_key_id: var_signerKeyId,
+            actions: var_actions,
+            camera_metadata: var_cameraMetadata,
+            recipe_hash: var_recipeHash,
+            pixel_hash: var_pixelHash,
+            status_message: var_statusMessage,
+        };
+    }
+}
+
 impl SseDecode for crate::api::color::ColorParams {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2774,6 +3111,44 @@ impl SseDecode for crate::api::exif::EmbeddedDepthResult {
             width: var_width,
             height: var_height,
             depth: var_depth,
+        };
+    }
+}
+
+impl SseDecode for crate::api::export::ExportBrandingSpec {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_enableMuseumFrame = <bool>::sse_decode(deserializer);
+        let mut var_frameTheme = <u8>::sse_decode(deserializer);
+        let mut var_exifLine1 = <String>::sse_decode(deserializer);
+        let mut var_exifLine2 = <String>::sse_decode(deserializer);
+        let mut var_enableSignature = <bool>::sse_decode(deserializer);
+        let mut var_signatureText = <String>::sse_decode(deserializer);
+        let mut var_signatureAnchor = <u8>::sse_decode(deserializer);
+        let mut var_signatureOpacity = <f32>::sse_decode(deserializer);
+        let mut var_signatureSizePct = <f32>::sse_decode(deserializer);
+        let mut var_enableLogo = <bool>::sse_decode(deserializer);
+        let mut var_logoBytes = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_logoAnchor = <u8>::sse_decode(deserializer);
+        let mut var_logoOpacity = <f32>::sse_decode(deserializer);
+        let mut var_logoScalePct = <f32>::sse_decode(deserializer);
+        let mut var_enableFossBadge = <bool>::sse_decode(deserializer);
+        return crate::api::export::ExportBrandingSpec {
+            enable_museum_frame: var_enableMuseumFrame,
+            frame_theme: var_frameTheme,
+            exif_line1: var_exifLine1,
+            exif_line2: var_exifLine2,
+            enable_signature: var_enableSignature,
+            signature_text: var_signatureText,
+            signature_anchor: var_signatureAnchor,
+            signature_opacity: var_signatureOpacity,
+            signature_size_pct: var_signatureSizePct,
+            enable_logo: var_enableLogo,
+            logo_bytes: var_logoBytes,
+            logo_anchor: var_logoAnchor,
+            logo_opacity: var_logoOpacity,
+            logo_scale_pct: var_logoScalePct,
+            enable_foss_badge: var_enableFossBadge,
         };
     }
 }
@@ -2995,6 +3370,18 @@ impl SseDecode for crate::exif::ImageMetadata {
     }
 }
 
+impl SseDecode for Vec<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<String>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::api::retouch::ApiRetouchPatch> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3099,6 +3486,19 @@ impl SseDecode for crate::api::mask::MaskLayer {
     }
 }
 
+impl SseDecode for crate::watermark::MuseumFrameTheme {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::watermark::MuseumFrameTheme::StudioWhite,
+            1 => crate::watermark::MuseumFrameTheme::MatteDark,
+            2 => crate::watermark::MuseumFrameTheme::WarmGallery,
+            _ => unreachable!("Invalid variant for MuseumFrameTheme: {}", inner),
+        };
+    }
+}
+
 impl SseDecode for Option<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3196,6 +3596,17 @@ impl SseDecode for Option<Vec<f32>> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<Vec<f32>>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<Vec<u8>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<Vec<u8>>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -3328,6 +3739,63 @@ impl SseDecode for () {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {}
 }
 
+impl SseDecode for crate::watermark::WatermarkAnchor {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::watermark::WatermarkAnchor::TopLeft,
+            1 => crate::watermark::WatermarkAnchor::TopCenter,
+            2 => crate::watermark::WatermarkAnchor::TopRight,
+            3 => crate::watermark::WatermarkAnchor::CenterLeft,
+            4 => crate::watermark::WatermarkAnchor::Center,
+            5 => crate::watermark::WatermarkAnchor::CenterRight,
+            6 => crate::watermark::WatermarkAnchor::BottomLeft,
+            7 => crate::watermark::WatermarkAnchor::BottomCenter,
+            8 => crate::watermark::WatermarkAnchor::BottomRight,
+            _ => unreachable!("Invalid variant for WatermarkAnchor: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::watermark::WatermarkSpec {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_enableMuseumFrame = <bool>::sse_decode(deserializer);
+        let mut var_frameTheme = <crate::watermark::MuseumFrameTheme>::sse_decode(deserializer);
+        let mut var_exifLine1 = <String>::sse_decode(deserializer);
+        let mut var_exifLine2 = <String>::sse_decode(deserializer);
+        let mut var_enableSignature = <bool>::sse_decode(deserializer);
+        let mut var_signatureText = <String>::sse_decode(deserializer);
+        let mut var_signatureAnchor = <crate::watermark::WatermarkAnchor>::sse_decode(deserializer);
+        let mut var_signatureOpacity = <f32>::sse_decode(deserializer);
+        let mut var_signatureSizePct = <f32>::sse_decode(deserializer);
+        let mut var_enableLogo = <bool>::sse_decode(deserializer);
+        let mut var_logoBytes = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_logoAnchor = <crate::watermark::WatermarkAnchor>::sse_decode(deserializer);
+        let mut var_logoOpacity = <f32>::sse_decode(deserializer);
+        let mut var_logoScalePct = <f32>::sse_decode(deserializer);
+        let mut var_enableFossBadge = <bool>::sse_decode(deserializer);
+        return crate::watermark::WatermarkSpec {
+            enable_museum_frame: var_enableMuseumFrame,
+            frame_theme: var_frameTheme,
+            exif_line1: var_exifLine1,
+            exif_line2: var_exifLine2,
+            enable_signature: var_enableSignature,
+            signature_text: var_signatureText,
+            signature_anchor: var_signatureAnchor,
+            signature_opacity: var_signatureOpacity,
+            signature_size_pct: var_signatureSizePct,
+            enable_logo: var_enableLogo,
+            logo_bytes: var_logoBytes,
+            logo_anchor: var_logoAnchor,
+            logo_opacity: var_logoOpacity,
+            logo_scale_pct: var_logoScalePct,
+            enable_foss_badge: var_enableFossBadge,
+        };
+    }
+}
+
 fn pde_ffi_dispatcher_primary_impl(
     func_id: i32,
     port: flutter_rust_bridge::for_generated::MessagePort,
@@ -3343,90 +3811,124 @@ fn pde_ffi_dispatcher_primary_impl(
         4 => wire__crate__api__roi__bake_roi_rect_impl(port, ptr, rust_vec_len, data_len),
         5 => wire__crate__api__blur__blur_apply_impl(port, ptr, rust_vec_len, data_len),
         6 => wire__crate__api__engine__brighten_rgba_impl(port, ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__color__color_params_default_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__decode__decode_jpeg_rgba_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__decode__decode_jpeg_roi_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__raw__decode_raw_rgba_impl(port, ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__raw__decode_raw_roi_impl(port, ptr, rust_vec_len, data_len),
-        12 => wire__crate__api__icc__detect_colorspace_impl(port, ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__mask__detect_sky_impl(port, ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__mask__detect_subject_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__export__encode_jpeg_rgba_impl(port, ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__engine__engine_version_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__export__export_cancel_drop_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__export__export_cancel_new_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__export__export_cancel_set_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__color__export_cube_lut_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__export__export_full_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__export__export_progress_get_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__export__export_raw_dng_impl(port, ptr, rust_vec_len, data_len),
-        24 => {
+        7 => {
+            wire__crate__api__c2pa__c2pa_generate_device_key_impl(port, ptr, rust_vec_len, data_len)
+        }
+        8 => wire__crate__api__c2pa__c2pa_verify_image_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__export__c_2_pa_export_spec_default_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        10 => wire__crate__api__color__color_params_default_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__decode__decode_jpeg_rgba_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__decode__decode_jpeg_roi_impl(port, ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__raw__decode_raw_rgba_impl(port, ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__raw__decode_raw_roi_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__icc__detect_colorspace_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__mask__detect_sky_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__mask__detect_subject_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__export__encode_jpeg_rgba_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__engine__engine_version_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__export__export_branding_spec_default_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        21 => wire__crate__api__export__export_branding_spec_to_core_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        22 => wire__crate__api__export__export_cancel_drop_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__export__export_cancel_new_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__export__export_cancel_set_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__color__export_cube_lut_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__export__export_full_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__export__export_full_with_branding_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        28 => wire__crate__api__export__export_progress_get_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__export__export_raw_dng_impl(port, ptr, rust_vec_len, data_len),
+        30 => {
             wire__crate__api__exif__extract_embedded_depth_impl(port, ptr, rust_vec_len, data_len)
         }
-        25 => wire__crate__api__exif__extract_exif_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__geometry__geometry_apply_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__geometry__geometry_crop_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__geometry__geometry_detect_straighten_angle_impl(
+        31 => wire__crate__api__exif__extract_exif_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__geometry__geometry_apply_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__geometry__geometry_crop_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__geometry__geometry_detect_straighten_angle_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        29 => {
+        35 => {
             wire__crate__api__geometry__geometry_downscale_impl(port, ptr, rust_vec_len, data_len)
         }
-        30 => wire__crate__api__geometry__geometry_flip_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__geometry__geometry_perspective_rgba_impl(
+        36 => wire__crate__api__geometry__geometry_flip_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__geometry__geometry_perspective_rgba_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        32 => wire__crate__api__geometry__geometry_rotate_impl(port, ptr, rust_vec_len, data_len),
-        33 => {
+        38 => wire__crate__api__geometry__geometry_rotate_impl(port, ptr, rust_vec_len, data_len),
+        39 => {
             wire__crate__api__geometry__geometry_straighten_impl(port, ptr, rust_vec_len, data_len)
         }
-        34 => wire__crate__api__exif__get_image_metadata_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__color__grade_rgba_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__histogram__histogram_graded_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__engine__init_app_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__logging__init_panic_hook_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__mask__mask_layer_default_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__optics__optics_apply_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__optics__optics_defringe_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__optics__optics_lateral_ca_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__optics__optics_lens_profile_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__icc__p3_to_srgb_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__preview__preview_base_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__mask__refine_mask_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__retouch__retouch_apply_impl(port, ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__mask__segment_subject_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
+        40 => wire__crate__api__exif__get_image_metadata_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__color__grade_rgba_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__histogram__histogram_graded_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__engine__init_app_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__logging__init_panic_hook_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__decode__jpeg_dimensions_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__mask__mask_layer_default_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__optics__optics_apply_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__optics__optics_defringe_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__optics__optics_lateral_ca_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__optics__optics_lens_profile_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__icc__p3_to_srgb_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__preview__preview_base_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__mask__refine_mask_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__export__render_branding_preview_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        61 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__spatial__spatial_sharpen_edge_mask_impl(
+        61 => wire__crate__api__retouch__retouch_apply_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__mask__segment_subject_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        63 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__spatial__spatial_sharpen_edge_mask_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        70 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -3494,6 +3996,101 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::retouch::ApiRetouchPatch>
     for crate::api::retouch::ApiRetouchPatch
 {
     fn into_into_dart(self) -> crate::api::retouch::ApiRetouchPatch {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::export::BrandedFrame {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.rgba.into_into_dart().into_dart(),
+            self.width.into_into_dart().into_dart(),
+            self.height.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::export::BrandedFrame
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::export::BrandedFrame>
+    for crate::api::export::BrandedFrame
+{
+    fn into_into_dart(self) -> crate::api::export::BrandedFrame {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::c2pa::C2paDeviceInfo {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.private_key.into_into_dart().into_dart(),
+            self.key_id.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::c2pa::C2paDeviceInfo
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::c2pa::C2paDeviceInfo>
+    for crate::api::c2pa::C2paDeviceInfo
+{
+    fn into_into_dart(self) -> crate::api::c2pa::C2paDeviceInfo {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::export::C2paExportSpec {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.enable_c2pa.into_into_dart().into_dart(),
+            self.device_private_key.into_into_dart().into_dart(),
+            self.recipe_json.into_into_dart().into_dart(),
+            self.exif_summary.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::export::C2paExportSpec
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::export::C2paExportSpec>
+    for crate::api::export::C2paExportSpec
+{
+    fn into_into_dart(self) -> crate::api::export::C2paExportSpec {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::c2pa::C2paVerifyResult {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.status.into_into_dart().into_dart(),
+            self.is_valid.into_into_dart().into_dart(),
+            self.title.into_into_dart().into_dart(),
+            self.claim_generator.into_into_dart().into_dart(),
+            self.signer_key_id.into_into_dart().into_dart(),
+            self.actions.into_into_dart().into_dart(),
+            self.camera_metadata.into_into_dart().into_dart(),
+            self.recipe_hash.into_into_dart().into_dart(),
+            self.pixel_hash.into_into_dart().into_dart(),
+            self.status_message.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::c2pa::C2paVerifyResult
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::c2pa::C2paVerifyResult>
+    for crate::api::c2pa::C2paVerifyResult
+{
+    fn into_into_dart(self) -> crate::api::c2pa::C2paVerifyResult {
         self
     }
 }
@@ -3622,6 +4219,40 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::exif::EmbeddedDepthResult>
     for crate::api::exif::EmbeddedDepthResult
 {
     fn into_into_dart(self) -> crate::api::exif::EmbeddedDepthResult {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::export::ExportBrandingSpec {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.enable_museum_frame.into_into_dart().into_dart(),
+            self.frame_theme.into_into_dart().into_dart(),
+            self.exif_line1.into_into_dart().into_dart(),
+            self.exif_line2.into_into_dart().into_dart(),
+            self.enable_signature.into_into_dart().into_dart(),
+            self.signature_text.into_into_dart().into_dart(),
+            self.signature_anchor.into_into_dart().into_dart(),
+            self.signature_opacity.into_into_dart().into_dart(),
+            self.signature_size_pct.into_into_dart().into_dart(),
+            self.enable_logo.into_into_dart().into_dart(),
+            self.logo_bytes.into_into_dart().into_dart(),
+            self.logo_anchor.into_into_dart().into_dart(),
+            self.logo_opacity.into_into_dart().into_dart(),
+            self.logo_scale_pct.into_into_dart().into_dart(),
+            self.enable_foss_badge.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::export::ExportBrandingSpec
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::export::ExportBrandingSpec>
+    for crate::api::export::ExportBrandingSpec
+{
+    fn into_into_dart(self) -> crate::api::export::ExportBrandingSpec {
         self
     }
 }
@@ -3851,6 +4482,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::mask::MaskLayer>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::watermark::MuseumFrameTheme {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::StudioWhite => 0.into_dart(),
+            Self::MatteDark => 1.into_dart(),
+            Self::WarmGallery => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::watermark::MuseumFrameTheme
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::watermark::MuseumFrameTheme>
+    for crate::watermark::MuseumFrameTheme
+{
+    fn into_into_dart(self) -> crate::watermark::MuseumFrameTheme {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::preview::PreviewBaseSpec {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -3944,6 +4597,68 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::decode::RgbaImage>
         self
     }
 }
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::watermark::WatermarkAnchor {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::TopLeft => 0.into_dart(),
+            Self::TopCenter => 1.into_dart(),
+            Self::TopRight => 2.into_dart(),
+            Self::CenterLeft => 3.into_dart(),
+            Self::Center => 4.into_dart(),
+            Self::CenterRight => 5.into_dart(),
+            Self::BottomLeft => 6.into_dart(),
+            Self::BottomCenter => 7.into_dart(),
+            Self::BottomRight => 8.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::watermark::WatermarkAnchor
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::watermark::WatermarkAnchor>
+    for crate::watermark::WatermarkAnchor
+{
+    fn into_into_dart(self) -> crate::watermark::WatermarkAnchor {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::watermark::WatermarkSpec {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.enable_museum_frame.into_into_dart().into_dart(),
+            self.frame_theme.into_into_dart().into_dart(),
+            self.exif_line1.into_into_dart().into_dart(),
+            self.exif_line2.into_into_dart().into_dart(),
+            self.enable_signature.into_into_dart().into_dart(),
+            self.signature_text.into_into_dart().into_dart(),
+            self.signature_anchor.into_into_dart().into_dart(),
+            self.signature_opacity.into_into_dart().into_dart(),
+            self.signature_size_pct.into_into_dart().into_dart(),
+            self.enable_logo.into_into_dart().into_dart(),
+            self.logo_bytes.into_into_dart().into_dart(),
+            self.logo_anchor.into_into_dart().into_dart(),
+            self.logo_opacity.into_into_dart().into_dart(),
+            self.logo_scale_pct.into_into_dart().into_dart(),
+            self.enable_foss_badge.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::watermark::WatermarkSpec
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::watermark::WatermarkSpec>
+    for crate::watermark::WatermarkSpec
+{
+    fn into_into_dart(self) -> crate::watermark::WatermarkSpec {
+        self
+    }
+}
 
 impl SseEncode for String {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -3982,6 +4697,49 @@ impl SseEncode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_u8(self as _).unwrap();
+    }
+}
+
+impl SseEncode for crate::api::export::BrandedFrame {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<u8>>::sse_encode(self.rgba, serializer);
+        <u32>::sse_encode(self.width, serializer);
+        <u32>::sse_encode(self.height, serializer);
+    }
+}
+
+impl SseEncode for crate::api::c2pa::C2paDeviceInfo {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<u8>>::sse_encode(self.private_key, serializer);
+        <String>::sse_encode(self.key_id, serializer);
+    }
+}
+
+impl SseEncode for crate::api::export::C2paExportSpec {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.enable_c2pa, serializer);
+        <Vec<u8>>::sse_encode(self.device_private_key, serializer);
+        <String>::sse_encode(self.recipe_json, serializer);
+        <String>::sse_encode(self.exif_summary, serializer);
+    }
+}
+
+impl SseEncode for crate::api::c2pa::C2paVerifyResult {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.status, serializer);
+        <bool>::sse_encode(self.is_valid, serializer);
+        <String>::sse_encode(self.title, serializer);
+        <String>::sse_encode(self.claim_generator, serializer);
+        <String>::sse_encode(self.signer_key_id, serializer);
+        <Vec<String>>::sse_encode(self.actions, serializer);
+        <String>::sse_encode(self.camera_metadata, serializer);
+        <String>::sse_encode(self.recipe_hash, serializer);
+        <String>::sse_encode(self.pixel_hash, serializer);
+        <String>::sse_encode(self.status_message, serializer);
     }
 }
 
@@ -4048,6 +4806,27 @@ impl SseEncode for crate::api::exif::EmbeddedDepthResult {
         <u32>::sse_encode(self.width, serializer);
         <u32>::sse_encode(self.height, serializer);
         <Vec<u8>>::sse_encode(self.depth, serializer);
+    }
+}
+
+impl SseEncode for crate::api::export::ExportBrandingSpec {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.enable_museum_frame, serializer);
+        <u8>::sse_encode(self.frame_theme, serializer);
+        <String>::sse_encode(self.exif_line1, serializer);
+        <String>::sse_encode(self.exif_line2, serializer);
+        <bool>::sse_encode(self.enable_signature, serializer);
+        <String>::sse_encode(self.signature_text, serializer);
+        <u8>::sse_encode(self.signature_anchor, serializer);
+        <f32>::sse_encode(self.signature_opacity, serializer);
+        <f32>::sse_encode(self.signature_size_pct, serializer);
+        <bool>::sse_encode(self.enable_logo, serializer);
+        <Vec<u8>>::sse_encode(self.logo_bytes, serializer);
+        <u8>::sse_encode(self.logo_anchor, serializer);
+        <f32>::sse_encode(self.logo_opacity, serializer);
+        <f32>::sse_encode(self.logo_scale_pct, serializer);
+        <bool>::sse_encode(self.enable_foss_badge, serializer);
     }
 }
 
@@ -4182,6 +4961,16 @@ impl SseEncode for crate::exif::ImageMetadata {
     }
 }
 
+impl SseEncode for Vec<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <String>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::api::retouch::ApiRetouchPatch> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4254,6 +5043,23 @@ impl SseEncode for crate::api::mask::MaskLayer {
         <u32>::sse_encode(self.join_op, serializer);
         <bool>::sse_encode(self.group_inverted, serializer);
         <f32>::sse_encode(self.group_amount, serializer);
+    }
+}
+
+impl SseEncode for crate::watermark::MuseumFrameTheme {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::watermark::MuseumFrameTheme::StudioWhite => 0,
+                crate::watermark::MuseumFrameTheme::MatteDark => 1,
+                crate::watermark::MuseumFrameTheme::WarmGallery => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
     }
 }
 
@@ -4347,6 +5153,16 @@ impl SseEncode for Option<Vec<f32>> {
     }
 }
 
+impl SseEncode for Option<Vec<u8>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <Vec<u8>>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for crate::api::preview::PreviewBaseSpec {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4427,6 +5243,50 @@ impl SseEncode for u8 {
 impl SseEncode for () {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {}
+}
+
+impl SseEncode for crate::watermark::WatermarkAnchor {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::watermark::WatermarkAnchor::TopLeft => 0,
+                crate::watermark::WatermarkAnchor::TopCenter => 1,
+                crate::watermark::WatermarkAnchor::TopRight => 2,
+                crate::watermark::WatermarkAnchor::CenterLeft => 3,
+                crate::watermark::WatermarkAnchor::Center => 4,
+                crate::watermark::WatermarkAnchor::CenterRight => 5,
+                crate::watermark::WatermarkAnchor::BottomLeft => 6,
+                crate::watermark::WatermarkAnchor::BottomCenter => 7,
+                crate::watermark::WatermarkAnchor::BottomRight => 8,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::watermark::WatermarkSpec {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.enable_museum_frame, serializer);
+        <crate::watermark::MuseumFrameTheme>::sse_encode(self.frame_theme, serializer);
+        <String>::sse_encode(self.exif_line1, serializer);
+        <String>::sse_encode(self.exif_line2, serializer);
+        <bool>::sse_encode(self.enable_signature, serializer);
+        <String>::sse_encode(self.signature_text, serializer);
+        <crate::watermark::WatermarkAnchor>::sse_encode(self.signature_anchor, serializer);
+        <f32>::sse_encode(self.signature_opacity, serializer);
+        <f32>::sse_encode(self.signature_size_pct, serializer);
+        <bool>::sse_encode(self.enable_logo, serializer);
+        <Vec<u8>>::sse_encode(self.logo_bytes, serializer);
+        <crate::watermark::WatermarkAnchor>::sse_encode(self.logo_anchor, serializer);
+        <f32>::sse_encode(self.logo_opacity, serializer);
+        <f32>::sse_encode(self.logo_scale_pct, serializer);
+        <bool>::sse_encode(self.enable_foss_badge, serializer);
+    }
 }
 
 #[cfg(not(target_family = "wasm"))]

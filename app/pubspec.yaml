@@ -50,10 +50,13 @@ dependencies:
   file_picker: ^13.1.0
   drift: ^2.35.2
   sqlite3_flutter_libs: ^0.6.0+eol
+  qr_flutter: ^4.1.0
+  zxing2: ^0.2.4
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  qr: ^3.0.2
 
   # Test-only: drives ExportProgressPoller's Timer deterministically without
   # real waits (kept explicit so depend_on_referenced_packages stays clean).

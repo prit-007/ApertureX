@@ -1,4 +1,5 @@
 pub mod blur;
+pub mod c2pa;
 pub mod color;
 pub mod decode;
 pub mod engine;

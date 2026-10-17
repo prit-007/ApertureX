@@ -73,7 +73,9 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Lightroom `.lrtemplate` import | ✅ (#62) | P2 |
 | Golden-image tolerance tests for preset fidelity | ✅ (7 automated golden fixture tests in CI #60) | P2 |
 | ApertureX Look (recipe JSON) save/apply | ✅ | P2 |
-| Look share via QR (open standard) | 🚧 | P2 |
+| Look share via QR (open standard) | ✅ (`docs/LOOK_QR_STANDARD.md`, `apx://look/v1`, creator cards, zxing2 decoder) | P2 |
+| Pre-installed FOSS film simulation core | ✅ (Pat David profiles: Portra 160/400, Fuji Pro 400H, HP5, CineStill 800T, Tri-X) | P2 |
+| Community Preset Hub | ✅ (GitHub-backed plugin repository, category filtering, one-tap preview & save) | P2 |
 | Snapseed Look import | ❌ (no portable format) | — |
 
 ## Workflow & Library (Lightroom shell)

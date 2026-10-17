@@ -8,6 +8,7 @@ enum ExportAction {
   saveToPhotos,
   saveDngWithXmp,
   share,
+  sharePresetCard,
 }
 
 /// Action sheet shown when the user taps "Export" in the editor (#85, #79).
@@ -72,6 +73,12 @@ class ExportOptionsSheet extends StatelessWidget {
                 title: const Text('Share…'),
                 subtitle: const Text('Share image and XMP sidecar with other apps'),
                 onTap: () => Navigator.of(context).pop(ExportAction.share),
+              ),
+              ListTile(
+                leading: const Icon(Icons.qr_code_2),
+                title: const Text('Export as Preset Card (QR)'),
+                subtitle: const Text('Share color grade as a watermarked QR card for Instagram & Reddit'),
+                onTap: () => Navigator.of(context).pop(ExportAction.sharePresetCard),
               ),
               const SizedBox(height: Insets.sm),
             ],
