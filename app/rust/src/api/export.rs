@@ -262,6 +262,7 @@ pub fn export_full(
                     params: l.mask.clone(),
                 },
                 params: l.params.to_core(),
+                inverted: l.inverted,
             })
             .collect(),
         grade: params.to_core(),

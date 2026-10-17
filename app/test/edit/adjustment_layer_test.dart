@@ -290,6 +290,51 @@ void main() {
       expect(a == c, isFalse);
     });
   });
+
+  group('inverted property', () {
+    test('defaults to false', () {
+      const layer = AdjustmentLayer();
+      expect(layer.inverted, isFalse);
+    });
+
+    test('round-trips through JSON', () {
+      const invertedLayer = AdjustmentLayer(
+        maskKind: MaskKind.linear,
+        maskParams: [0, 0, 0, 1],
+        inverted: true,
+        exposure: 0.5,
+      );
+      final json = invertedLayer.toJson();
+      expect(json['inverted'], isTrue);
+      final restored = AdjustmentLayer.fromJson(json);
+      expect(restored.inverted, isTrue);
+      expect(restored, equals(invertedLayer));
+    });
+
+    test('missing inverted key in JSON defaults to false', () {
+      final json = const AdjustmentLayer(exposure: 1).toJson()..remove('inverted');
+      final restored = AdjustmentLayer.fromJson(json);
+      expect(restored.inverted, isFalse);
+    });
+
+    test('copyWith can toggle inverted flag', () {
+      const layer = AdjustmentLayer(inverted: false);
+      final toggled = layer.copyWith(inverted: true);
+      expect(toggled.inverted, isTrue);
+      final reverted = toggled.copyWith(inverted: false);
+      expect(reverted.inverted, isFalse);
+    });
+
+    test('bitmap constructor accepts inverted flag', () {
+      final layer = AdjustmentLayer.bitmap(
+        width: 2,
+        height: 2,
+        alphas: const [0, 1, 0, 1],
+        inverted: true,
+      );
+      expect(layer.inverted, isTrue);
+    });
+  });
 }
 
 

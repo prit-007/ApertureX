@@ -61,21 +61,34 @@ class DetectedSky {
 
 /// One adjustment layer: a parametric mask + a point-wise sub-grade.
 class MaskLayer {
-  /// 0 linear, 1 radial, 2 luminance.
+  /// Mask kind:
+  /// 0 linear, 1 radial, 2 luminance, 3 brush, 4 subject, 5 sky, 6 bitmap.
   final int kind;
 
-  /// linear `[x0,y0,x1,y1]`, radial `[cx,cy,rx,ry]`, luminance `[lo,hi]`.
+  /// Parameter payload:
+  /// - linear: `[x0, y0, x1, y1]`
+  /// - radial: `[cx, cy, rx, ry, feather]`
+  /// - luminance: `[lo, hi]`
+  /// - brush: `[radius, feather, count, ...stroke_points_with_sentinels]`
+  /// - subject: `[cx, cy, rx, ry, feather]`
+  /// - sky: `[horizon_y, feather, blue_weight]`
+  /// - bitmap: `[w, h, ...unpacked_alphas]`
   final Float32List mask;
   final ColorParams params;
+
+  /// When true, inverts the mask coverage (`1.0 - coverage`).
+  final bool inverted;
 
   const MaskLayer({
     required this.kind,
     required this.mask,
     required this.params,
+    required this.inverted,
   });
 
   @override
-  int get hashCode => kind.hashCode ^ mask.hashCode ^ params.hashCode;
+  int get hashCode =>
+      kind.hashCode ^ mask.hashCode ^ params.hashCode ^ inverted.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -84,5 +97,6 @@ class MaskLayer {
           runtimeType == other.runtimeType &&
           kind == other.kind &&
           mask == other.mask &&
-          params == other.params;
+          params == other.params &&
+          inverted == other.inverted;
 }

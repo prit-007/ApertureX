@@ -15,7 +15,7 @@ pub const MASK_SKY: u32 = 5;
 pub const MASK_BITMAP: u32 = 6;
 
 /// A parametric or bitmap mask.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct MaskSpec {
     pub kind: u32,
     /// linear `[x0,y0,x1,y1]`, radial `[cx,cy,rx,ry]`, luminance `[lo,hi]`,
@@ -63,9 +63,11 @@ impl MaskSpec {
 }
 
 /// A stack entry: where ([`MaskSpec`]) and what ([`GradeParams`]) to adjust.
+#[derive(Clone, Debug, PartialEq)]
 pub struct LocalAdjustment {
     pub mask: MaskSpec,
     pub params: GradeParams,
+    pub inverted: bool,
 }
 
 fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
@@ -482,6 +484,7 @@ fn apply_local_rows(
                 ];
                 let luma = 0.2126 * base[0] + 0.7152 * base[1] + 0.0722 * base[2];
                 let cov = coverage(layer.mask.kind, &layer.mask.params, u, v, luma);
+                let cov = if layer.inverted { 1.0 - cov } else { cov };
                 if cov <= 0.0 {
                     continue;
                 }
@@ -529,6 +532,7 @@ mod tests {
                 params: vec![0.5, 0.5, 0.3, 0.3, 0.3],
             },
             params: brighten(),
+            inverted: false,
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         let centre = out[(16 * 32 + 16) * 4];
@@ -546,6 +550,7 @@ mod tests {
                 params: vec![0.0, 0.0, 0.0, 1.0],
             },
             params: brighten(),
+            inverted: false,
         };
         let out = apply_local(&src, 16, 16, &[layer]);
         let top = out[(16 + 8) * 4];
@@ -571,6 +576,7 @@ mod tests {
                 params: vec![0.0, 0.5],
             },
             params: brighten(),
+            inverted: false,
         };
         let out = apply_local(&img, 16, 8, &[layer]);
         let dark = out[(4 * 16 + 2) * 4];
@@ -602,6 +608,7 @@ mod tests {
                     params: vec![0.5, 0.5, 0.4, 0.35, 0.3],
                 },
                 params: brighten(),
+                inverted: false,
             },
             LocalAdjustment {
                 mask: MaskSpec {
@@ -612,6 +619,7 @@ mod tests {
                     saturation: 0.5,
                     ..Default::default()
                 },
+                inverted: false,
             },
             LocalAdjustment {
                 mask: MaskSpec {
@@ -622,6 +630,7 @@ mod tests {
                     contrast: 0.4,
                     ..Default::default()
                 },
+                inverted: false,
             },
         ]
     }
@@ -673,6 +682,7 @@ mod tests {
                 ],
             },
             params: brighten(),
+            inverted: false,
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         let center = out[(16 * 32 + 16) * 4];
@@ -702,6 +712,7 @@ mod tests {
                 ],
             },
             params: brighten(),
+            inverted: false,
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         // Pixel along stroke 1
@@ -728,6 +739,7 @@ mod tests {
                 params: vec![0.5, 0.5, 0.25, 0.35, 0.2],
             },
             params: brighten(),
+            inverted: false,
         };
         let out = apply_local(&src, 32, 32, &[layer]);
         let center = out[(16 * 32 + 16) * 4];
@@ -755,6 +767,7 @@ mod tests {
                 params: vec![0.5, 0.1, 0.6],
             },
             params: brighten(),
+            inverted: false,
         };
         let out = apply_local(&img, 32, 32, &[layer]);
         let sky_pixel = out[(4 * 32 + 16) * 4 + 2]; // Blue channel in sky
@@ -772,6 +785,7 @@ mod tests {
         let layer = LocalAdjustment {
             mask: MaskSpec::bitmap(2, 2, &bitmap_alphas),
             params: brighten(),
+            inverted: false,
         };
         let src = grey(32, 32, 100);
         let out = apply_local(&src, 32, 32, &[layer]);
@@ -800,6 +814,7 @@ mod tests {
             &[LocalAdjustment {
                 mask: MaskSpec::bitmap(4, 4, &bitmap_alphas),
                 params: brighten(),
+                inverted: false,
             }],
         );
 
@@ -812,6 +827,7 @@ mod tests {
             &[LocalAdjustment {
                 mask: MaskSpec::bitmap(4, 4, &bitmap_alphas),
                 params: brighten(),
+                inverted: false,
             }],
         );
         let band1 = apply_local_band(
@@ -822,6 +838,7 @@ mod tests {
             &[LocalAdjustment {
                 mask: MaskSpec::bitmap(4, 4, &bitmap_alphas),
                 params: brighten(),
+                inverted: false,
             }],
         );
 
@@ -904,6 +921,105 @@ mod tests {
             detected.is_none(),
             "indoor fixture should return None, got {:?}",
             detected
+        );
+    }
+
+    #[test]
+    fn inverted_linear_mask_brightens_opposite_side() {
+        let src = grey(16, 16, 100);
+        let normal_layer = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_LINEAR,
+                params: vec![0.0, 0.0, 0.0, 1.0],
+            },
+            params: brighten(),
+            inverted: false,
+        };
+        let inverted_layer = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_LINEAR,
+                params: vec![0.0, 0.0, 0.0, 1.0],
+            },
+            params: brighten(),
+            inverted: true,
+        };
+        let out_normal = apply_local(&src, 16, 16, &[normal_layer]);
+        let out_inverted = apply_local(&src, 16, 16, &[inverted_layer]);
+
+        let normal_top = out_normal[(16 + 8) * 4];
+        let normal_bottom = out_normal[(15 * 16 + 8) * 4];
+        assert!(normal_bottom > normal_top);
+
+        let inverted_top = out_inverted[(16 + 8) * 4];
+        let inverted_bottom = out_inverted[(15 * 16 + 8) * 4];
+        assert!(
+            inverted_top > inverted_bottom,
+            "inverted linear mask brightens top instead of bottom: top={inverted_top}, bottom={inverted_bottom}"
+        );
+        assert!(inverted_top > 120);
+        assert_eq!(inverted_bottom, 100);
+    }
+
+    #[test]
+    fn inverted_mask_coverage_is_complement() {
+        let src = grey(16, 16, 100);
+        let normal_layer = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_RADIAL,
+                params: vec![0.5, 0.5, 0.3, 0.3, 0.0],
+            },
+            params: brighten(),
+            inverted: false,
+        };
+        let inverted_layer = LocalAdjustment {
+            mask: MaskSpec {
+                kind: MASK_RADIAL,
+                params: vec![0.5, 0.5, 0.3, 0.3, 0.0],
+            },
+            params: brighten(),
+            inverted: true,
+        };
+        let out_normal = apply_local(&src, 16, 16, &[normal_layer]);
+        let out_inverted = apply_local(&src, 16, 16, &[inverted_layer]);
+
+        // Inside center: normal is brightened, inverted is untouched
+        let center_idx = (8 * 16 + 8) * 4;
+        assert!(out_normal[center_idx] > 120);
+        assert_eq!(out_inverted[center_idx], 100);
+
+        // Outside corner: normal is untouched, inverted is brightened
+        let corner_idx = 0;
+        assert_eq!(out_normal[corner_idx], 100);
+        assert!(out_inverted[corner_idx] > 120);
+    }
+
+    #[test]
+    fn inverted_bitmap_mask_flips_coverage() {
+        // 4x4 bitmap mask:
+        // [0, 0, 255, 255]
+        let bitmap_alphas = vec![
+            0u8, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255,
+        ];
+        let inverted_layer = LocalAdjustment {
+            mask: MaskSpec::bitmap(4, 4, &bitmap_alphas),
+            params: brighten(),
+            inverted: true,
+        };
+        let src = grey(32, 32, 100);
+        let out = apply_local(&src, 32, 32, &[inverted_layer]);
+
+        // Left column (alpha=0, so inverted cov=1.0) is brightened (> 130)
+        let left_px = out[(16 * 32) * 4];
+        // Right column (alpha=255, so inverted cov=0.0) is untouched (== 100)
+        let right_px = out[(16 * 32 + 31) * 4];
+
+        assert!(
+            left_px > 130,
+            "inverted bitmap: left pixel with 0 alpha should brighten: {left_px}"
+        );
+        assert_eq!(
+            right_px, 100,
+            "inverted bitmap: right pixel with 255 alpha should be untouched: {right_px}"
         );
     }
 }

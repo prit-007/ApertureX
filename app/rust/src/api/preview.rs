@@ -309,6 +309,7 @@ mod tests {
                 exposure: 2.0,
                 ..Default::default()
             },
+            inverted: false,
         }];
         let mut spec = identity_spec();
         spec.shadows = 0.25; // engage spatial so all three stages are covered

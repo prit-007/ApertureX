@@ -399,6 +399,14 @@ class AxEngine {
         gradeBalance: 0,
       );
 
+  static rust_mask.MaskLayer _maskLayer(AdjustmentLayer l) =>
+      rust_mask.MaskLayer(
+        kind: l.maskKind.index,
+        mask: l.toBridgeMaskParams(),
+        params: _localParams(l),
+        inverted: l.inverted,
+      );
+
   /// Composites local adjustment [layers] over [rgba] (masks + sub-grades).
   static Future<Uint8List> applyMasks(
     Uint8List rgba, {
@@ -411,14 +419,7 @@ class AxEngine {
       rgba: rgba,
       width: width,
       height: height,
-      layers: [
-        for (final l in layers)
-          rust_mask.MaskLayer(
-            kind: l.maskKind.index,
-            mask: l.toBridgeMaskParams(),
-            params: _localParams(l),
-          ),
-      ],
+      layers: layers.map(_maskLayer).toList(),
     );
   }
 
@@ -456,14 +457,7 @@ class AxEngine {
   }) => rust_preview.previewBase(
     handle: BigInt.from(handle),
     spec: spec,
-    layers: [
-      for (final l in layers)
-        rust_mask.MaskLayer(
-          kind: l.maskKind.index,
-          mask: l.toBridgeMaskParams(),
-          params: _localParams(l),
-        ),
-    ],
+    layers: layers.map(_maskLayer).toList(),
   );
 
   /// Halo rows of context ([spatial margin]) the high-zoom ROI overlay (#55)
@@ -504,14 +498,7 @@ class AxEngine {
     fullWidth: fullWidth,
     fullHeight: fullHeight,
     spec: spec,
-    layers: [
-      for (final l in layers)
-        rust_mask.MaskLayer(
-          kind: l.maskKind.index,
-          mask: l.toBridgeMaskParams(),
-          params: _localParams(l),
-        ),
-    ],
+    layers: layers.map(_maskLayer).toList(),
   );
 
   /// Bakes the spatial + mask chain of [previewBase] onto a decoded **rect
@@ -549,14 +536,7 @@ class AxEngine {
     fullWidth: fullWidth,
     fullHeight: fullHeight,
     spec: spec,
-    layers: [
-      for (final l in layers)
-        rust_mask.MaskLayer(
-          kind: l.maskKind.index,
-          mask: l.toBridgeMaskParams(),
-          params: _localParams(l),
-        ),
-    ],
+    layers: layers.map(_maskLayer).toList(),
   );
 
   /// Histogram binned from the **cached** base inside Rust — zero pixels
@@ -587,14 +567,7 @@ class AxEngine {
   }) => rust_preview.previewRender(
     handle: BigInt.from(handle),
     spec: spec,
-    layers: [
-      for (final l in layers)
-        rust_mask.MaskLayer(
-          kind: l.maskKind.index,
-          mask: l.toBridgeMaskParams(),
-          params: _localParams(l),
-        ),
-    ],
+    layers: layers.map(_maskLayer).toList(),
     params: _colorParams(grade),
     curves: _curveParams(grade),
     hsl: grade.hsl,
@@ -694,14 +667,7 @@ class AxEngine {
         bandRows: 256,
         cancelToken: BigInt.from(cancelToken),
       ),
-      layers: [
-        for (final l in layers)
-          rust_mask.MaskLayer(
-            kind: l.maskKind.index,
-            mask: l.toBridgeMaskParams(),
-            params: _localParams(l),
-          ),
-      ],
+      layers: layers.map(_maskLayer).toList(),
       params: _colorParams(spec),
       curves: _curveParams(spec),
       hsl: spec.hsl,

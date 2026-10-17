@@ -244,6 +244,7 @@ mod tests {
                     saturation: 0.3,
                     ..Default::default()
                 },
+                inverted: false,
             }],
             grade: GradeParams {
                 exposure: 0.4,

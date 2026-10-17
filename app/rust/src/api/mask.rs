@@ -5,11 +5,21 @@ use crate::mask::{self, LocalAdjustment, MaskSpec};
 
 /// One adjustment layer: a parametric mask + a point-wise sub-grade.
 pub struct MaskLayer {
-    /// 0 linear, 1 radial, 2 luminance.
+    /// Mask kind:
+    /// 0 linear, 1 radial, 2 luminance, 3 brush, 4 subject, 5 sky, 6 bitmap.
     pub kind: u32,
-    /// linear `[x0,y0,x1,y1]`, radial `[cx,cy,rx,ry]`, luminance `[lo,hi]`.
+    /// Parameter payload:
+    /// - linear: `[x0, y0, x1, y1]`
+    /// - radial: `[cx, cy, rx, ry, feather]`
+    /// - luminance: `[lo, hi]`
+    /// - brush: `[radius, feather, count, ...stroke_points_with_sentinels]`
+    /// - subject: `[cx, cy, rx, ry, feather]`
+    /// - sky: `[horizon_y, feather, blue_weight]`
+    /// - bitmap: `[w, h, ...unpacked_alphas]`
     pub mask: Vec<f32>,
     pub params: ColorParams,
+    /// When true, inverts the mask coverage (`1.0 - coverage`).
+    pub inverted: bool,
 }
 
 /// Composites [layers] over [rgba] (RGBA8, `width*height*4`), in order.
@@ -22,6 +32,7 @@ pub fn apply_masks(rgba: Vec<u8>, width: u32, height: u32, layers: Vec<MaskLayer
                 params: l.mask,
             },
             params: l.params.to_core(),
+            inverted: l.inverted,
         })
         .collect();
     mask::apply_local(&rgba, width as usize, height as usize, &core)
