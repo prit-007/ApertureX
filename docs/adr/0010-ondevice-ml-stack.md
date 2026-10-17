@@ -45,6 +45,32 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
    detection (Hough) is free, deterministic, and low-risk; learned auto-framing
    waits for the model module.
 
+## Implementation status (2026-10-17)
+
+**Shipped**
+- `Segmenter` trait + tensor pre/post-processing pipeline in
+  `app/rust/src/ml.rs` (#87), behind the `ai` cargo feature — the base APK
+  builds without any ML code.
+- **One-tap subject/background masks** via the in-tree `SaliencySegmenter`
+  (no bundled weights, no runtime download), with inverted-background
+  selection (#83/#89).
+- **Classical Select Sky** (horizon + chromaticity, no model) as the free,
+  deterministic sky path (#88).
+- **Intent-based AI masks + smart paste** (`AiMaskResolver`, FNV-1a result
+  cache across photos, #96) and an `aiConsentProvider` with a Settings toggle
+  / first-use dialog for F-Droid compliance.
+- `THIRD_PARTY.md` ML table with the U²-NetP row (Apache-2.0 code *and*
+  weights, #87).
+
+**Pending**
+- The `ort` runtime crate and the U²-NetP **weights themselves are not yet a
+  dependency** — the `ai` feature is currently an empty gate, so no model file
+  ships. Runtime adoption is the next step behind the licensing ledger.
+- Lens/background blur (in progress), YuNet face detection, learned
+  auto-frame.
+- The `THIRD_PARTY.md` table header still reads "planned / No model ships
+  yet" — accurate today, and it must flip the moment weights are bundled.
+
 ## Consequences
 
 **Positive**
@@ -63,8 +89,9 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
 - Model quality on low-tier NPUs is uncertain until measured on-device.
 
 **Follow-ups**
-- P3.5 (optional module): subject/sky/background masks, lens blur, face detect,
-  auto-frame — gated on verified per-model licenses.
+- P3.5 (optional module): subject/sky/background masks **✅ shipped
+  (classical/saliency paths, #83/#87/#88/#89/#96)**; lens blur (in progress),
+  face detect, auto-frame remain — each gated on verified per-model licenses.
 - Auto-straighten (classical) can land earlier, in the geometry work.
-- Seed `THIRD_PARTY.md` with the ML-models table (stub added; rows filled as each
-  model is adopted).
+- Seed `THIRD_PARTY.md` with the ML-models table (stub added; **U²-NetP row
+  adopted via #87** — the rest fill as each model is adopted).

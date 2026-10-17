@@ -14,20 +14,27 @@
   <img src="app/icons/app_icon.png" alt="ApertureX app icon — a camera-aperture shutter mark on a dark field" width="192">
 </p>
 
-> **Status: v0.1.0 (first public pre-release; P1–P2 in progress).** Both UI
-> shells (Lightroom panels + Snapseed gestures) and the bulk of the edit
-> engine are built: a Rust
-> color/spatial/geometry/mask pipeline, a 60fps preview (proxy-resolution + split
-> bakes), crop, batch gallery, presets/LUT import, and on-device offline activity
-> logs. The **banded full-res export** is now wired end-to-end (single Rust call
-> with cancel), and the **high-zoom ROI overlay** (native region decode on
-> Android) swaps in a full-res band when zoom crosses the proxy ceiling.
-> Several other parts are **built but not yet wired end-to-end** —
-> the multi-level tile pyramid for >100 MP and RAW lens corrections —
-> each tracked by a
-> GitHub issue. See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)
-> for the current status and gaps, [`docs/ROADMAP.md`](docs/ROADMAP.md) for phase
-> gates, and the [`docs/PARITY.md`](docs/PARITY.md) ledger.
+> **Status: v0.1.0 (public pre-release; P1–P2 essentially complete, P2.5
+> masking feature-complete).** Both UI shells (Lightroom panels + Snapseed
+> gestures) run over one recipe; the Rust engine carries the full color/
+> spatial/geometry pipeline plus the **complete local-adjustment stack**:
+> 7 mask kinds (linear/radial/luminance/brush/bitmap + AI subject/sky),
+> **mask group algebra** (Add/Subtract/Intersect, ADR 0013), Amount 0–200%,
+> Zone-System luminosity masks, per-mask 3-way color wheels + Highlights/
+> Shadows, and a guided-filter **Refine Edge brush**. The library layer is on
+> **SQLite/Drift with an in-app Edits gallery** (explicit-save preview
+> renders). RAW is rawler-first end-to-end (demosaic, DCP profiles, lens
+> corrections, EXIF passthrough, highlight reconstruction) with a Git-LFS
+> golden fixture corpus. On-device AI one-tap subject/background and classical
+> sky masks ship with intent-based smart paste (the ONNX runtime + U²-NetP
+> weights adoption is still gated behind the empty `ai` cargo feature).
+> Banded full-res export is cancellable single-call Rust with determinate
+> progress; CI runs analyze/tests + Android APKs + a green unsigned iOS build
+> on every push. Remaining work (color-range mask, DNG/Ultra HDR export,
+> F-Droid submission, lens blur/face AI, HEIC) is tracked by the open GitHub
+> issues — see [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md),
+> [`docs/ROADMAP.md`](docs/ROADMAP.md) and the [`docs/PARITY.md`](docs/PARITY.md)
+> ledger.
 
 > **Naming:** the product is **ApertureX** and every identifier is canonical:
 > Dart package `aperturex`, applicationId/bundle id `com.devparadise.aperturex`,
@@ -81,11 +88,12 @@ Four technical walls explain why nobody has built it. ApertureX is architected t
 │   tile compositor · zoom/pan · fragment-shader chain · cache │
 ├─────────────────────────────────────────────────────────────┤
 │ Edit core (Dart)                                             │
-│   non-destructive recipe · undo/redo · presets · sidecars    │
+│   non-destructive recipe · undo/redo · mask groups · presets  │
+│   · sidecars (project + XMP)                                  │
 ├─────────────────────────────────────────────────────────────┤
 │ Engine (Rust via flutter_rust_bridge v2)                     │
-│   decode (RAW/JPEG/HEIC) · ROI tiles · demosaic · color ·    │
-│   lens correction · full-res export                          │
+│   decode (RAW/JPEG) · ROI tiles · demosaic · colour ·        │
+│   lens correction · masks/local adj · retouch · export       │
 ├─────────────────────────────────────────────────────────────┤
 │ Platform glue                                                │
 │   scoped storage · camera · share · F-Droid metadata         │
@@ -105,8 +113,9 @@ Full detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 | [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Current status audit, file-by-file workstreams, perf tiers, and the issue carrying each remaining task |
 | [`docs/PARITY.md`](docs/PARITY.md) | Feature parity matrix (Snapseed/Lightroom × status × phase) |
 | [`docs/RISKS.md`](docs/RISKS.md) | The four walls, each risk, and its mitigation |
+| [`docs/GOLDEN.md`](docs/GOLDEN.md) | Golden-image corpus, delta E tolerance gates, update workflow |
 | [`docs/FORK-STRATEGY.md`](docs/FORK-STRATEGY.md) | How we fork and maintain `pro_image_editor` |
-| [`docs/adr/`](docs/adr/) | Architecture Decision Records 0001–0011 |
+| [`docs/adr/`](docs/adr/) | Architecture Decision Records 0001–0014 |
 | [`THIRD_PARTY.md`](THIRD_PARTY.md) | Third-party components, licenses, ML-model ledger, notices |
 
 ---
@@ -122,7 +131,12 @@ flutter run                # on a connected device/emulator
 flutter test               # Dart unit tests
 (cd rust && cargo test)    # Rust unit tests
 flutter build apk          # Android APK (cargokit cross-compiles the Rust crate)
+flutter build ios --no-codesign   # unsigned iOS build (Xcode required)
 ```
+
+The golden-image RAW fixtures in `app/rust/tests/golden_fixtures/` are tracked
+with **Git LFS** — a fresh clone needs `git lfs install` once (CI's `actions/checkout`
+does it automatically).
 
 The Dart↔Rust bridge is generated by `flutter_rust_bridge_codegen`. After changing `rust/src/api/*`, regenerate the bindings with `flutter_rust_bridge_codegen generate`.
 
@@ -150,7 +164,9 @@ modelled on [`nook`](https://github.com/prit-007/nook)):
 - **Every push/PR** — `flutter analyze` + Dart tests, `cargo fmt/clippy/test`,
   then signed per-ABI + universal release APKs built inside the **F-Droid
   buildserver container** (GitHub artifacts and F-Droid builds share one recipe
-  and the same `tool/ci/*` scripts).
+  and the same `tool/ci/*` scripts), plus an **unsigned `flutter build ios` on
+  macOS** (deployment target 14.0; the job auto-retries with `xcodebuild -v`
+  so hidden failures surface instead of Flutter's canned Xcode diagnosis).
 - **Tags** — push `vX.Y.Z` (must match `app/pubspec.yaml` and a
   `## [X.Y.Z]` section in [`app/CHANGELOG.md`](app/CHANGELOG.md)) and CI
   publishes a GitHub Release with the APKs and the changelog notes.

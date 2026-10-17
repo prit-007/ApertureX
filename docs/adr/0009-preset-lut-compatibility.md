@@ -61,6 +61,9 @@ Two hard truths constrain any promise here:
   inherent to Adobe's closed math and must be communicated in-product and in docs.
 
 **Follow-ups**
-- P2: LUT import + `.xmp`/`.lrtemplate` parser + compatibility report.
-- Establish the golden-image corpus and tolerance thresholds in P2.
-- Document the Look/QR open standard in-repo when it ships.
+- [x] P2: LUT import + `.xmp`/`.lrtemplate` parser + compatibility report.
+      *(`.cube` 1D/3D, `.3dl`, HALD, `.xmp` with report shipped; `.lrtemplate`
+      landed with #62.)*
+- [x] Establish the golden-image tolerance corpus and thresholds in P2.
+      *(#60 — `docs/GOLDEN.md`, delta E gates, fixtures in Git LFS.)*
+- [ ] Document the Look/QR open standard in-repo when it ships. *(Pending.)*

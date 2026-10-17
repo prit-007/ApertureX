@@ -1,7 +1,11 @@
 # ADR 0005 — RAW decoder: LibRaw vs pure-Rust
 
 - **Status:** **Accepted — rawler-first** (Phase C spike complete; rawler is the
-  default shipped decoder. Real-corpus/perf evidence still being gathered in P3.)
+  default shipped decoder. P3 wiring is complete — lens corrections + EXIF
+  passthrough (#66), DCP profiles (#64), highlight reconstruction (#65) — and
+  the golden fixture corpus (CR2/DNG/RW2/ARW + synthetic breaker) has landed
+  under Git LFS in `app/rust/tests/golden_fixtures/`; the corpus test run and
+  perf measurement are the remaining evidence.)
 - **Date:** 2026-10-13
 - **Deciders:** Developer's Paradise
 
@@ -60,10 +64,13 @@ highlight reconstruction.
 
 ## Follow-ups (P3)
 
-1. Stand up the RAW corpus (DNG, CR2, NEF, ARW, RAF, ORF). *(Pending.)*
-2. Prototype ROI decode in each option. *(rawler ROI = decode-full-then-crop;
-   native tiles pending.)*
+1. Stand up the RAW corpus (DNG, CR2, NEF, ARW, RAF, ORF). *(Fixtures landed —
+   CR2, DNG, RW2, ARW ×2 + synthetic breaker in `app/rust/tests/golden_fixtures/`
+   via Git LFS; the corpus test harness needs its green run. NEF/RAF/ORF still
+   to add.)*
+2. Prototype ROI decode in each option. *(Done for rawler — decode-full-then-crop
+   shipped; native tiles pending under #16.)*
 3. Measure frame time, peak RSS, build time, binary size, F-Droid build-from-source
-   feasibility.
+   feasibility. *(Pending — the device-tier probe / corpus run covers most of this.)*
 4. **Done:** status set to Accepted; keep [`THIRD_PARTY.md`](../THIRD_PARTY.md)
    current (LibRaw/lensfun rows added only when the optional feature is enabled).

@@ -5,7 +5,50 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status:** P-1 ✅ · P0 ✅ (foundations + JPEG proxy folded into P1) · P1 🚧 (viewport + tile compositor + zero-copy preview *partly* wired + **high-zoom ROI overlay wired on Android+iOS** + **tile pyramid wired + >100 MP corpus/seam harness written (device run pending)** + EditRecipe v1 + basic JPEG export done; iOS texture registration + on-device corpus run + SIMD spatial remain (#16/#54/#56)) · **P2 🚧** (recipe superset + Riverpod controller + shared ParameterControl + dual-shell skeleton + full point-wise colour pipeline (LUT, WB/exposure/contrast/vibrance/saturation/split-tone/curves) + **spatial passes** + **geometry** + **presets/LUT/.xmp import** + preview==export + live histogram done; whites/blacks + Adobe vibrance (#59), sidecar persistence (#61), `.lrtemplate` (#62), guided-filter/quality refinements remain) · P2.5 🚧 (linear/radial/luminance masks + **brush mask with stylus pressure, palm rejection, and `invertedStylus` eraser wired preview+export** + layer model landed (#63 closed); color range mask remains) · P3 🚧 (rawler RAW decode/demosaic/matrices/orientation/ROI/export landed; corpus, EXIF passthrough, lens-correction wiring (#66), DCP profiles (#64), highlight reconstruction (#65) remain).
+**Current status (2026-10-17):**
+
+- **P-1 ✅ · P0 ✅** — spike folded into `app/`; foundations green (repo, CI,
+  Material 3 shell, bridge typed + byte-buffer round-trip).
+- **P1 🚧** — viewport + tile compositor + zero-copy preview (Android) +
+  high-zoom ROI overlay + tile pyramid + EditRecipe v1 + JPEG export + SIMD
+  spatial (#56) done; >100 MP corpus/harness written. **Remaining:** on-device
+  corpus run, iOS texture registration, device-tier probe (#16).
+- **P2 🚧 → near-complete** — recipe superset, dual-shell skeleton, full
+  point-wise colour pipeline + spatial + geometry, preset/LUT/`.xmp` import,
+  live histogram, preview==export. Every prior gap is now closed: whites/
+  blacks + Adobe vibrance (#59), sidecar persistence (#61), `.lrtemplate`
+  (#62), guided filter (#57), dehaze (#58), SIMD (#56), golden corpus (#60),
+  XMP sidecar writer (#77), shader warmup (#72), slider nudge (#71),
+  keyboard shortcuts (#74), batch polish + determinate progress (#75/#80),
+  JSON catalog → SQLite/Drift (#84). **Remaining:** Look/QR share standard
+  (ADR 0009 follow-up), parity breadth (`PARITY.md`).
+- **P2.5 🚧 → feature-complete except color range** — 7 mask kinds
+  (`linear/radial/luminance/brush/bitmap/subject/sky`), stylus brush (#63),
+  compact blob encoding (#86), invert (#90), Amount 0–200% (#91), **mask
+  group algebra** (ADR 0013, #92), Zone-System luminosity masks (#93),
+  per-mask 3-way color wheels + Highlights/Shadows (#94), Refine Edge brush
+  (#95), classical Select Sky (#88). **Remaining:** the color-range mask.
+- **P3 🚧** — rawler pipeline complete: demosaic/matrices/orientation/ROI/
+  export + lens corrections & EXIF passthrough (#66), DCP profiles (#64),
+  highlight reconstruction (#65) all closed; 5 RAW fixtures + synthetic
+  breaker landed under Git LFS (`app/rust/tests/golden_fixtures/`).
+  **Remaining:** green corpus test run, embedded-preview fast path, DNG
+  16-bit export (#79).
+- **P3.5 🚧** — AI masks shipped: `Segmenter` architecture (#87), one-tap
+  subject/background via the in-tree saliency segmenter + intent-based smart
+  paste + AI consent/settings (#83/#89/#96); base APK builds without AI.
+  **Remaining:** `ort` runtime + U²-NetP weights (the `ai` cargo feature is
+  currently an empty gate), lens/background blur (in progress), YuNet face
+  detect, auto-frame.
+- **P4 🚧 → mostly done** — banded single-call export + cancel + hard memory
+  cap + determinate progress + batch polish (#68/#80/#75). **Remaining:**
+  background export surviving backgrounding, PNG encoder.
+- **P5 🚧** — release automation (tag-driven releases, F-Droid-container
+  APKs) + green unsigned iOS build on macOS (#70). **Remaining:** F-Droid
+  submission (#69), HEIC, a11y, i18n.
+- **P6 ⬜ → partial** — healing/spot removal landed (retouch engine + overlay
+  UI). **Open:** DNG export (#79), Ultra HDR (#20), color-range mask, the
+  Snapseed filter long tail.
 
 > **Forward plan.** The consolidated, file-by-file plan — including the exact
 > gaps found by the latest audit and the GitHub issue carrying each — is
@@ -45,7 +88,7 @@ exist yet.*
 
 ---
 
-## P0 — Foundations 🚧
+## P0 — Foundations ✅
 
 **Scope**
 - Repo, GPL-3 LICENSE, CI skeleton (analyze, format, Dart tests, Rust tests).
@@ -60,7 +103,7 @@ exist yet.*
 - Green CI on a fresh clone; app opens and shows a JPEG proxy on Android + iOS.
 - Rust↔Dart boundary proven with a typed call and a non-trivial byte buffer.
 
-**Status — mostly met.** Repo + LICENSE, CI, the Material 3 shell with
+**Status — met.** Repo + LICENSE, CI, the Material 3 shell with
 `dynamic_color`, and the bridge typed + byte-buffer round-trip (via cargokit, all
 Android ABIs) are done and green. The "JPEG proxy on screen" half is folded into
 **P1**.
@@ -106,9 +149,9 @@ ceiling, and the **multi-level tile pyramid** is wired end-to-end
 coarse-ancestor instant paint, byte-budgeted footprints, seam-exact box
 downsample) with a generated >100 MP corpus + on-device seam/memory harness
 (`integration_test/tile_corpus_test.dart`, report-only until first device
-run). **Remaining:** an on-device run of the corpus harness + iOS build
-verification of the new channel, iOS texture registration, device-tier probe,
-and SIMD spatial kernels for the 60 fps gate (#56).
+run), and the **SIMD spatial kernels** (#56) have landed for the 60 fps gate.
+**Remaining:** an on-device run of the corpus harness, iOS texture
+registration, and the device-tier probe (#16).
 
 ---
 
@@ -148,11 +191,16 @@ a live interactive histogram, the **spatial passes** (texture/clarity/sharpen/
 denoise/edge-aware shadows-highlights/vignette/grain/dehaze) wired to the
 recipe, **geometry** (crop/rotate/flip/straighten/perspective/skew) with a GPU
 live warp, and **preset/LUT import** (`.cube` 1D/3D, `.3dl`, HALD, `.xmp` with a
-compatibility report). **Remaining:** render `whites`/`blacks` and make vibrance
-Adobe-skintone-accurate (#59), **sidecar persistence** — the encoder exists and
-is tested but is never saved/loaded in the app (#61), `.lrtemplate` import (#62),
+compatibility report). The former gaps are all closed: whites/blacks +
+Adobe-skintone vibrance (#59), sidecar persistence (#61), `.lrtemplate` (#62),
 halo-free guided-filter shadows/highlights + clarity (#57), dark-channel dehaze
-(#58), SIMD spatial (#56), and the golden-image tolerance corpus (#60).
+(#58), SIMD spatial (#56), the golden-image tolerance corpus (#60), plus the
+XMP sidecar writer (#77), shader warmup (#72), precision-gear slider nudge
+(#71), keyboard shortcuts (#74), batch polish + determinate progress
+(#75/#80), and the JSON catalog's replacement by SQLite/Drift (#84). The
+Edits gallery with explicit-save preview renders has shipped (#85).
+**Remaining:** the Look/QR share open standard (ADR 0009 follow-up) and
+continued parity breadth (`PARITY.md`).
 
 **Exit criteria**
 - Edit a photo, kill the app, reopen: identical result from the sidecar.
@@ -175,15 +223,21 @@ halo-free guided-filter shadows/highlights + clarity (#57), dark-channel dehaze
 - Mask edits feed the same recipe and the same shader chain (masked regions
   route through per-mask uniform sets / blend).
 
-**Status — in progress.** The layer model, analytic masks, and the brush mask
-landed: `MaskKind {linear, radial, luminance, brush}` in
-`edit/adjustment_layer.dart`, layer add/update/remove in `RecipeController`,
-`apply_masks` in Rust (`mask.rs`: `coverage`/`apply_local`/`apply_local_band`,
-brush composited per stroke point with pressure), node editing UI/overlay,
-stylus-only palm rejection + `invertedStylus` eraser
-(`ui/common/node_overlay.dart`), and preview+export both carry
-`recipe.layers` — all tested (#63 closed). **Remaining:** the color range
-mask.
+**Status — feature-complete except the color-range mask.** The layer model,
+all analytic masks, and the brush mask landed: `MaskKind {linear, radial,
+luminance, brush, bitmap, subject, sky}` in `edit/adjustment_layer.dart`,
+layer add/update/remove in `RecipeController`, `apply_masks` in Rust
+(`mask.rs`: `coverage`/`apply_local`/`apply_local_band`, brush composited per
+stroke point with pressure), node editing UI/overlay, stylus-only palm
+rejection + `invertedStylus` eraser (`ui/common/node_overlay.dart`), and
+preview+export both carry `recipe.layers` (#63). Since then the full
+Lightroom-grade stack shipped: compact base64-u8 bitmap blobs (#86), the
+previously cosmetic invert flag wired end-to-end (#90), the global Amount
+0–200% slider (#91), **mask group architecture with Add/Subtract/Intersect
+algebra** (ADR 0013, #92), Zone-System luminosity masks (#93), per-mask 3-way
+color wheels + Highlights/Shadows wiring (#94), the Refine Edge brush
+(#95), and classical Select Sky (#88). **Remaining:** the color-range
+(hue/saturation) mask.
 
 **Exit criteria**
 - A linear + radial + brush mask stack edits only its masked region, non-
@@ -208,13 +262,15 @@ mask.
 - [x] ROI (decode-full-then-crop) and FFI (`api/raw.rs`) + Dart viewport/crop wiring.
 - [x] RAW → JPEG export (editor + gallery), reusing the graded export path.
 - [x] Lens-correction *primitives* (`raw::lens`: Brown–Conrady distortion + radial vignette), unit-tested.
-- [ ] **Wire** lens corrections into the decode path (currently implemented but never called) ([#66](https://github.com/prit-007/ApertureX/issues/66)).
-- [ ] **RAW EXIF passthrough on export** (currently empty EXIF for RAF/RAW exports) ([#66](https://github.com/prit-007/ApertureX/issues/66)).
-- [ ] DCP camera profile `HueSatMap`/`LookTable` parse + apply (Adobe Standard parity) ([#64](https://github.com/prit-007/ApertureX/issues/64)).
-- [ ] Highlight reconstruction for clipped RAW highlights ([#65](https://github.com/prit-007/ApertureX/issues/65)).
-- [ ] RAW corpus across real CR2/NEF/ARW/RAF (colour + orientation).
+- [x] **Wire** lens corrections into the decode path + **RAW EXIF passthrough
+      on export** ([#66](https://github.com/prit-007/ApertureX/issues/66) closed).
+- [x] DCP camera profile `HueSatMap`/`LookTable` parse + apply (Adobe Standard parity) ([#64](https://github.com/prit-007/ApertureX/issues/64) closed).
+- [x] Highlight reconstruction for clipped RAW highlights ([#65](https://github.com/prit-007/ApertureX/issues/65) closed).
+- [ ] RAW corpus **fixtures landed** — CR2/DNG/RW2/ARW + synthetic math breaker
+      in `app/rust/tests/golden_fixtures/` (Git LFS); the corpus test harness
+      needs a green run.
 - [ ] Embedded-preview fast path (needs parity-safe progressive swap).
-- [ ] DNG 16-bit export / re-encode.
+- [ ] DNG 16-bit export / re-encode (#79).
 
 **Exit criteria**
 - RAW opens at correct orientation/color across the corpus.
@@ -233,6 +289,19 @@ mask.
   straighten (which lands in P2).
 - Bundled small models in a **strippable module**; `THIRD_PARTY.md` ledger row
   per model.
+
+**Status — first slice shipped, runtime adoption pending.** Landed: the
+`Segmenter` trait + tensor pre/post-processing pipeline (ADR 0010, #87), an
+in-tree **SaliencySegmenter** powering one-tap subject/background masks with
+inverted-background selection (#83/#89), the intent-based AI mask resolver +
+smart paste with FNV-1a caching across photos (#96), a Settings consent
+provider / first-use dialog for F-Droid compliance, and the classical
+Select Sky fallback (#88) — all behind the `ai` cargo feature flag, with the
+base APK building without it. `THIRD_PARTY.md` carries the U²-NetP row
+(Apache-2.0, adopted via #87). **Remaining:** the `ort` runtime crate and the
+U²-NetP weights themselves (the `ai` feature is currently an empty gate —
+no model file ships yet), lens/background blur (in progress), YuNet face
+detection, and learned auto-frame.
 
 **Exit criteria**
 - Subject/sky masks usable in the Lightroom shell's Masking panel.
@@ -260,13 +329,14 @@ an opaque cancel-token registry (`exportCancelNew/Set/Drop`). Dart's
 banded spatial → masks → grade → optional downscale → JPEG — in **one** bridge
 crossing instead of five; `exportJpeg` now delegates to it, so the legacy
 multi-round-trip chain is retired. The editor drives a Cancel button off the
-token (returns `null` on abort). Verified: 142 Rust tests (spatial/mask band
-parity, tiled-vs-single parity, FFI cancel), `cargo fmt`/`clippy` clean, and the
-crate cross-compiles for all four Android targets. **Remaining:** a hard
-peak-memory cap via streamed encode (the `jpeg_encoder` crate has no streaming
-API, so the graded frame is still held for the final encode), a progress
-indicator, batch/preset export, and background export
-([#68](https://github.com/prit-007/ApertureX/issues/68)).
+token (returns `null` on abort). The hard peak-memory cap via streamed/
+banded encode, the determinate progress indicator (editor export, batch, share),
+and memory-bounded parallel **batch export** with copy/paste-in-selection-bar
+are all wired (#68/#80/#75). Verified: 142 Rust tests (spatial/mask band
+parity, tiled-vs-single parity, FFI cancel), `cargo fmt`/`clippy` clean, and
+the crate cross-compiles for all four Android targets. **Remaining:**
+background export surviving app backgrounding, and a PNG encoder (PNG is
+decode-only today).
 
 **Exit criteria**
 - Export a 200 MP image without exceeding the memory budget; output pixel-
@@ -291,9 +361,11 @@ F-Droid build are the same build, from the same `tool/ci/*` scripts); `vX.Y.Z`
 tags are checked against `app/pubspec.yaml` and publish a GitHub Release with
 APKs + CHANGELOG notes. Signing is provisioned (`tool/ci/make_release_keystore.sh`,
 secrets on the `ci` environment). F-Droid prep: metadata draft
-(`fdroid-metadata.yml`) + store listing/changelogs (`metadata/`). **Remaining:**
-offline vendored crates + fdroiddata MR (#69), iOS CI build (#70), HEIC, a11y,
-i18n.
+(`fdroid-metadata.yml`) + store listing/changelogs (`metadata/`). The **iOS CI
+build** (#70) is green: an unsigned `flutter build ios` runs on every push
+(deployment target 14.0, with an automatic `xcodebuild -v` retry so real
+errors surface instead of Flutter's canned Xcode diagnosis). **Remaining:**
+offline vendored crates + fdroiddata MR (#69), HEIC, a11y, i18n.
 
 **Exit criteria**
 - Signed Android release + F-Droid build; iOS TestFlight build.
@@ -301,12 +373,15 @@ i18n.
 
 ---
 
-## P6 — Advanced / long tail (post-v1) ⬜
+## P6 — Advanced / long tail (post-v1) ⬜ *(selective items already landed)*
 
-- Healing / spot removal.
+- Healing / spot removal. **✅ Landed** — retouch engine (`rust/src/retouch.rs`)
+  + recipe spot patches + retouch overlay/toolbar controls.
 - Advanced color grading (parametric curves, full color mixer, split-tone depth).
-- Range masks (full), masks refine.
-- DNG/TIFF 16-bit export; HDR merge; `flutter_gpu` compute experiments.
+- Range masks (full) — luminance zones/amount landed in P2.5; **color-range
+  mask remains**.
+- DNG/TIFF 16-bit export (#79); HDR merge / Ultra HDR (#20); `flutter_gpu`
+  compute experiments.
 - The long tail of Snapseed filters (Glamour, Drama, Vintage, Retrolux, …) as
   recipe-defined looks.
 
@@ -321,7 +396,8 @@ A deliberately small, releasable slice that proves the product end-to-end:
 - LUT + basic `.xmp` import with compatibility report.
 - F-Droid-clean, no AI module required.
 - Code/package identifiers renamed to ApertureX (pubspec, Android applicationId,
-  Rust crate) — mechanical, scheduled so it never lands mid-phase.
+  Rust crate) — **✅ done** (`#33` migration; "tessera" survives only in git
+  history and `docs/adr/*`).
 
 ---
 
