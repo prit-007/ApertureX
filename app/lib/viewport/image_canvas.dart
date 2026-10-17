@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
+
+import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -926,6 +927,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       }
       _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
     });
+    // Haptic Zone Masking: switch to shader path during 2-finger zone targeting
+    ref.listen(zoneMaskProvider, (previous, next) {
+      if (previous?.isTargeting != next.isTargeting) {
+        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+      }
+    });
 
     // Multi-touch pan & pinch-to-zoom forwarded by overlays (Retouch, NodeOverlay)
     ref.listen(canvasGestureProvider, (previous, next) {
@@ -1068,7 +1075,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                               // writing into; the shader paint is the fallback
                               // (imported LUTs, iOS/tests, compare/peek fades,
                               // tile overlay, geometry edits).
-                              textureId: zeroCopy ? _textureId : null,
+                              textureId: zeroCopy && !zoneMask.isTargeting ? _textureId : null,
                               fallback: (_) => CustomPaint(
                                 size: fitted,
                                 painter: _CanvasPainter(
@@ -1160,7 +1167,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _startFocal = d.localFocalPoint;
     _multi = d.pointerCount >= 2;
     _editing = false;
-    if (_multi) return;
+    _zoneTargeting = false;
+    if (_multi) {
+      if (widget.editInterpreter != null && d.pointerCount == 2) {
+        _zoneTargeting = true;
+        ref.read(zoneMaskProvider.notifier).beginTargeting();
+        HapticFeedback.selectionClick();
+      }
+      return;
+    }
     if (tat) {
       _tatTouch(d.localFocalPoint, fitted);
     } else if (widget.editInterpreter != null) {
@@ -1190,6 +1205,26 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _startScale = _scale;
         _startOffset = _offset;
         _startFocal = d.localFocalPoint;
+        if (widget.editInterpreter != null && d.pointerCount == 2) {
+          _zoneTargeting = true;
+          ref.read(zoneMaskProvider.notifier).beginTargeting();
+          HapticFeedback.selectionClick();
+          return;
+        }
+      }
+      if (_zoneTargeting) {
+        if ((d.scale - 1.0).abs() > 0.15) {
+          ref.read(zoneMaskProvider.notifier).endTargeting();
+          _zoneTargeting = false;
+        } else {
+          final tick = ref
+              .read(zoneMaskProvider.notifier)
+              .updateDelta(d.focalPointDelta.dy);
+          if (tick != null) {
+            fireHaptic(tick);
+          }
+          return;
+        }
       }
       final scale = (_startScale * d.scale).clamp(_minScale, _maxScale);
       final scene = (_startFocal - _startOffset) / _startScale;
@@ -1221,6 +1256,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (_editing) widget.editInterpreter?.onPanEnd();
     _editing = false;
     _multi = false;
+    if (_zoneTargeting) {
+      ref.read(zoneMaskProvider.notifier).lockMask();
+      HapticFeedback.mediumImpact();
+      _zoneTargeting = false;
+    }
     // Releasing the photo ends the gesture-shell mask peek (#27).
     ref.read(maskPeekProvider.notifier).set(false);
     // The viewport settled → maybe a sharp band replaces the upscaled proxy.

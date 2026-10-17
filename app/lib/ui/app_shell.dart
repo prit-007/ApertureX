@@ -15,8 +15,11 @@ import '../edit/active_image.dart';
 import '../edit/node_editor.dart';
 import '../edit/recipe_controller.dart';
 import '../edit/recipe_mapping.dart';
+import '../edit/settings_clipboard.dart';
 import '../gesture/gesture_interpreter.dart';
+import '../gesture/speed_editor.dart';
 import '../gesture/zone_mask.dart';
+import 'snapseed/macro_action_hud.dart';
 import '../settings/shell_preference.dart';
 import '../settings/app_settings.dart';
 import '../settings/onboarding.dart';
@@ -43,7 +46,13 @@ import 'snapseed/snapseed_shell.dart';
 ///
 /// Switching shells never touches the canvas or the recipe (ADR 0008).
 class AppShell extends ConsumerStatefulWidget {
-  const AppShell({super.key, this.imageBytes, this.topHud});
+  const AppShell({
+    super.key,
+    this.imageBytes,
+    this.topHud,
+    this.onNextPhoto,
+    this.onPreviousPhoto,
+  });
 
   final Uint8List? imageBytes;
 
@@ -51,6 +60,10 @@ class AppShell extends ConsumerStatefulWidget {
   /// shell's "top gradient HUD"). Null in the Lightroom shell, whose chrome
   /// lives in the app bar and panel instead.
   final Widget? topHud;
+
+  /// Optional callbacks for Three-Finger Speed Editor navigation.
+  final VoidCallback? onNextPhoto;
+  final VoidCallback? onPreviousPhoto;
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
@@ -66,6 +79,40 @@ class _AppShellState extends ConsumerState<AppShell> {
   late final GestureInterpreter _fsm;
   final HapticGradientPacer _gradient = HapticGradientPacer();
   final Stopwatch _gestureSw = Stopwatch()..start();
+  final SpeedEditorTracker _speedTracker = SpeedEditorTracker();
+
+  void _handleMacroAction(SpeedMacroAction action) {
+    switch (action) {
+      case SpeedMacroAction.copy:
+        final recipe = ref.read(recipeControllerProvider).recipe;
+        ref.read(settingsClipboardProvider.notifier).copy(recipe);
+        HapticFeedback.mediumImpact();
+        ref.read(macroHudProvider.notifier).show('Recipe Copied', Icons.copy);
+        break;
+      case SpeedMacroAction.paste:
+        final recipe = ref.read(settingsClipboardProvider);
+        if (recipe != null) {
+          ref.read(recipeControllerProvider.notifier).loadRecipe(recipe, label: 'Pasted');
+          HapticFeedback.mediumImpact();
+          ref.read(macroHudProvider.notifier).show('Recipe Pasted', Icons.paste);
+        }
+        break;
+      case SpeedMacroAction.nextPhoto:
+        if (widget.onNextPhoto != null) {
+          widget.onNextPhoto!();
+          HapticFeedback.lightImpact();
+          ref.read(macroHudProvider.notifier).show('Next Photo', Icons.skip_next);
+        }
+        break;
+      case SpeedMacroAction.previousPhoto:
+        if (widget.onPreviousPhoto != null) {
+          widget.onPreviousPhoto!();
+          HapticFeedback.lightImpact();
+          ref.read(macroHudProvider.notifier).show('Previous Photo', Icons.skip_previous);
+        }
+        break;
+    }
+  }
 
   @override
   void initState() {
@@ -225,9 +272,24 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget _canvas({GestureInterpreter? interpreter}) {
     return Listener(
       behavior: HitTestBehavior.deferToChild,
-      onPointerDown: (_) => ref.read(editActivityProvider.notifier).begin(),
-      onPointerUp: (_) => ref.read(editActivityProvider.notifier).end(),
-      onPointerCancel: (_) => ref.read(editActivityProvider.notifier).end(),
+      onPointerDown: (e) {
+        ref.read(editActivityProvider.notifier).begin();
+        _speedTracker.onPointerDown(e.pointer, e.position);
+      },
+      onPointerMove: (e) {
+        final action = _speedTracker.onPointerMove(e.pointer, e.position);
+        if (action != null) {
+          _handleMacroAction(action);
+        }
+      },
+      onPointerUp: (e) {
+        ref.read(editActivityProvider.notifier).end();
+        _speedTracker.onPointerUp(e.pointer);
+      },
+      onPointerCancel: (e) {
+        ref.read(editActivityProvider.notifier).end();
+        _speedTracker.onPointerCancel(e.pointer);
+      },
       child: ImageCanvas(
         imageBytes: widget.imageBytes,
         editInterpreter: interpreter,
@@ -424,6 +486,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     ),
                   ),
                 ),
+              const Positioned.fill(child: MacroActionHud()),
             ],
           ),
         ),
@@ -432,7 +495,9 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     // Adaptive layout (issue #34): landscape or tablet widths split into a
     // canvas + fixed sidebar; portrait phones keep the stacked panel.
-    return LayoutBuilder(
+    return Stack(
+      children: [
+        LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth > constraints.maxHeight ||
             constraints.maxWidth >= 600;
@@ -561,7 +626,10 @@ class _AppShellState extends ConsumerState<AppShell> {
           ),
         );
       },
-    );
+    ),
+    const Positioned.fill(child: MacroActionHud()),
+  ],
+);
   }
 }
 

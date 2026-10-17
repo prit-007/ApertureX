@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -11,6 +12,7 @@ import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/recipe_mapping.dart';
 import '../../gesture/gesture_interpreter.dart';
+import '../../gesture/zone_mask.dart';
 import '../common/precision_rotation_dial.dart';
 import 'edit_hud.dart';
 import 'snapseed_tools_sheet.dart';
@@ -126,7 +128,23 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
     final recipe = ref.watch(recipeControllerProvider).recipe;
     final parameter = snapseedToolParameters[widget.tool]!.first;
     final spec = specOf(parameter);
-    final value = valueOf(recipe, parameter);
+    final zoneMask = ref.watch(zoneMaskProvider);
+    final lockedLayer = (zoneMask.lockedLayerIndex != null &&
+            zoneMask.lockedLayerIndex! < recipe.layers.length)
+        ? recipe.layers[zoneMask.lockedLayerIndex!]
+        : null;
+    final value = lockedLayer != null
+        ? switch (parameter) {
+            Parameter.exposure => lockedLayer.exposure,
+            Parameter.contrast => lockedLayer.contrast,
+            Parameter.highlights => lockedLayer.highlights,
+            Parameter.shadows => lockedLayer.shadows,
+            Parameter.saturation => lockedLayer.saturation,
+            Parameter.temperature => lockedLayer.temperature,
+            Parameter.tint => lockedLayer.tint,
+            _ => valueOf(recipe, parameter),
+          }
+        : valueOf(recipe, parameter);
     final scheme = Theme.of(context).colorScheme;
     // Node mode swaps the bottom chrome for the node adjust bar, so the
     // tool pill (and its Selective entry) steps aside until Done.
@@ -141,6 +159,96 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           right: 0,
           child: const SafeArea(left: false, bottom: false, child: EditHud()),
         ),
+
+        // Ansel Adams Haptic Zone Masking targeting overlay
+        if (zoneMask.isTargeting)
+          Positioned(
+            top: 72,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.redAccent.withValues(alpha: 0.8),
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.blur_circular, color: Colors.redAccent, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Zone ${zoneMask.activeZone} (${(zoneMask.activeZone / 10.0 * 100).round()}%) · Luminosity Mask',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+        // Ansel Adams Haptic Zone Masking locked pill
+        if (zoneMask.lockedLayerIndex != null && !nodeMode)
+          Positioned(
+            bottom: 64,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.only(left: 12, right: 4, top: 4, bottom: 4),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.6),
+                    width: 1.0,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock, color: scheme.primary, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Zone ${zoneMask.activeZone} Mask Locked · ${spec.label}',
+                      style: themeStyle(context, FontWeight.w600).copyWith(
+                        color: scheme.onSurface,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                      icon: const Icon(Icons.close, size: 15),
+                      tooltip: 'Remove Zone Mask',
+                      onPressed: () {
+                        ref.read(zoneMaskProvider.notifier).removeLockedMask();
+                        HapticFeedback.lightImpact();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
 
         // Unified Material 3 bottom dock (zero-overlap, integrated actions).
         if (!nodeMode)

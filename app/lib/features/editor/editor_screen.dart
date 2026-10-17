@@ -69,6 +69,8 @@ class EditorScreen extends ConsumerStatefulWidget {
 
 class _EditorScreenState extends ConsumerState<EditorScreen> {
   Uint8List? _bytes;
+  GalleryAsset? _currentAsset;
+  String? _currentEntryId;
   bool _loading = true;
   String? _error;
   bool _exporting = false;
@@ -84,6 +86,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   @override
   void initState() {
     super.initState();
+    _currentAsset = widget.asset;
+    _currentEntryId = widget._entryId;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _resolve();
   }
@@ -94,19 +98,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _error = null;
     });
     try {
+      final asset = _currentAsset;
       final bytes = widget.imageBytes ??
-          (widget.asset != null
+          (asset != null
               ? await ref
                     .read(gallerySourceProvider)
-                    .loadPreview(widget.asset!.id)
+                    .loadPreview(asset.id)
               : await AxEngine.syntheticJpeg(width: 1024, height: 1024));
       if (bytes.isEmpty) throw StateError('The image could not be read.');
       if (!mounted) return;
-      axLog(LogDomain.editor, 'Opened ${widget.asset?.id ?? 'sample image'}');
+      axLog(LogDomain.editor, 'Opened ${asset?.id ?? 'sample image'}');
 
       // Restore this entry's saved (non-destructive) recipe, or start neutral.
       final notifier = ref.read(recipeControllerProvider.notifier);
-      final entryId = widget._entryId;
+      final entryId = _currentEntryId;
       if (entryId != null) {
         final saved = ref.read(recipeStoreProvider)[entryId];
         notifier.loadRecipe(saved ?? EditRecipe.neutral, label: 'Opened');
@@ -125,6 +130,63 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _error = '$e';
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _switchToAsset(GalleryAsset nextAsset) async {
+    final entryId = _currentEntryId;
+    if (entryId != null) {
+      ref.read(recipeStoreProvider.notifier).put(
+            entryId,
+            ref.read(recipeControllerProvider).recipe,
+          );
+    }
+    setState(() {
+      _currentAsset = nextAsset;
+      _currentEntryId = originalEntryId(nextAsset.id);
+      _loading = true;
+    });
+    try {
+      final bytes = await ref.read(gallerySourceProvider).loadPreview(nextAsset.id);
+      if (!mounted) return;
+      final newEntryId = _currentEntryId;
+      final saved = newEntryId != null ? ref.read(recipeStoreProvider)[newEntryId] : null;
+      ref.read(recipeControllerProvider.notifier).loadRecipe(
+            saved ?? EditRecipe.neutral,
+            label: 'Opened',
+          );
+      setState(() {
+        _bytes = bytes;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = '$e';
+        _loading = false;
+      });
+    }
+  }
+
+  void _navigateToNext() {
+    final assets = ref.read(galleryControllerProvider).assets;
+    if (assets.isEmpty) return;
+    final currentId = _currentAsset?.id;
+    if (currentId == null) return;
+    final idx = assets.indexWhere((a) => a.id == currentId);
+    if (idx >= 0 && idx + 1 < assets.length) {
+      _switchToAsset(assets[idx + 1]);
+    }
+  }
+
+  void _navigateToPrevious() {
+    final assets = ref.read(galleryControllerProvider).assets;
+    if (assets.isEmpty) return;
+    final currentId = _currentAsset?.id;
+    if (currentId == null) return;
+    final idx = assets.indexWhere((a) => a.id == currentId);
+    if (idx > 0) {
+      _switchToAsset(assets[idx - 1]);
     }
   }
 
@@ -603,7 +665,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     // Persist every edit back to this photo's recipe (non-destructive editing:
     // the recipe survives leaving and re-opening the photo).
     ref.listen(recipeControllerProvider, (previous, next) {
-      final entryId = widget._entryId;
+      final entryId = _currentEntryId;
       if (entryId != null) {
         ref.read(recipeStoreProvider.notifier).put(entryId, next.recipe);
       }
@@ -798,7 +860,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         ),
       );
     }
-    return AppShell(imageBytes: _bytes, topHud: gestureShell ? hud : null);
+    return AppShell(
+      imageBytes: _bytes,
+      topHud: gestureShell ? hud : null,
+      onNextPhoto: _navigateToNext,
+      onPreviousPhoto: _navigateToPrevious,
+    );
   }
 
   void _openSettings(BuildContext context) {
