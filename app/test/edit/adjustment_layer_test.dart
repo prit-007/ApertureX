@@ -549,6 +549,113 @@ void main() {
       expect(z10.lumaZone, 10);
     });
   });
+
+  group('Color wheels & pointwise highlights/shadows (Issue #94)', () {
+    test('AdjustmentLayer serializes and deserializes color wheels and highlights/shadows', () {
+      const layer = AdjustmentLayer(
+        highlights: 0.35,
+        shadows: -0.25,
+        gradeShadowHue: 210,
+        gradeShadowSat: 0.6,
+        gradeShadowLum: -0.1,
+        gradeMidHue: 45,
+        gradeMidSat: 0.3,
+        gradeMidLum: 0.1,
+        gradeHighlightHue: 30,
+        gradeHighlightSat: 0.5,
+        gradeHighlightLum: 0.2,
+        gradeBlending: 0.7,
+        gradeBalance: -0.15,
+      );
+
+      final restored = AdjustmentLayer.fromJson(layer.toJson());
+      expect(restored, layer);
+      expect(restored.highlights, 0.35);
+      expect(restored.shadows, -0.25);
+      expect(restored.gradeShadowHue, 210);
+      expect(restored.gradeShadowSat, 0.6);
+      expect(restored.gradeShadowLum, -0.1);
+      expect(restored.gradeMidHue, 45);
+      expect(restored.gradeMidSat, 0.3);
+      expect(restored.gradeMidLum, 0.1);
+      expect(restored.gradeHighlightHue, 30);
+      expect(restored.gradeHighlightSat, 0.5);
+      expect(restored.gradeHighlightLum, 0.2);
+      expect(restored.gradeBlending, 0.7);
+      expect(restored.gradeBalance, -0.15);
+    });
+
+    test('MaskGroup serializes and deserializes color wheels and highlights/shadows', () {
+      const group = MaskGroup(
+        id: 'group_test_94',
+        name: 'Sky Grade',
+        highlights: -0.4,
+        shadows: 0.3,
+        gradeShadowHue: 240,
+        gradeShadowSat: 0.5,
+        gradeShadowLum: -0.2,
+        gradeMidHue: 60,
+        gradeMidSat: 0.2,
+        gradeMidLum: 0.05,
+        gradeHighlightHue: 40,
+        gradeHighlightSat: 0.4,
+        gradeHighlightLum: 0.15,
+        gradeBlending: 0.65,
+        gradeBalance: 0.2,
+      );
+
+      final restored = MaskGroup.fromJson(group.toJson());
+      expect(restored, group);
+      expect(restored.highlights, -0.4);
+      expect(restored.shadows, 0.3);
+      expect(restored.gradeShadowHue, 240);
+      expect(restored.gradeShadowSat, 0.5);
+      expect(restored.gradeShadowLum, -0.2);
+      expect(restored.gradeMidHue, 60);
+      expect(restored.gradeMidSat, 0.2);
+      expect(restored.gradeMidLum, 0.05);
+      expect(restored.gradeHighlightHue, 40);
+      expect(restored.gradeHighlightSat, 0.4);
+      expect(restored.gradeHighlightLum, 0.15);
+      expect(restored.gradeBlending, 0.65);
+      expect(restored.gradeBalance, 0.2);
+    });
+
+    test('backward compatibility: missing color wheel fields decode to defaults', () {
+      final legacyLayerJson = <String, Object?>{
+        'maskKind': MaskKind.radial.index,
+        'maskParams': [0.5, 0.5, 0.3, 0.3, 0.3],
+        'exposure': 0.5,
+      };
+      final layer = AdjustmentLayer.fromJson(legacyLayerJson);
+      expect(layer.highlights, 0.0);
+      expect(layer.shadows, 0.0);
+      expect(layer.gradeShadowHue, 0.0);
+      expect(layer.gradeShadowSat, 0.0);
+      expect(layer.gradeShadowLum, 0.0);
+      expect(layer.gradeMidHue, 0.0);
+      expect(layer.gradeMidSat, 0.0);
+      expect(layer.gradeMidLum, 0.0);
+      expect(layer.gradeHighlightHue, 0.0);
+      expect(layer.gradeHighlightSat, 0.0);
+      expect(layer.gradeHighlightLum, 0.0);
+      expect(layer.gradeBlending, 0.5);
+      expect(layer.gradeBalance, 0.0);
+
+      final legacyGroupJson = <String, Object?>{
+        'id': 'legacy_group',
+        'name': 'Old Group',
+      };
+      final group = MaskGroup.fromJson(legacyGroupJson);
+      expect(group.highlights, 0.0);
+      expect(group.shadows, 0.0);
+      expect(group.gradeShadowHue, 0.0);
+      expect(group.gradeShadowSat, 0.0);
+      expect(group.gradeShadowLum, 0.0);
+      expect(group.gradeBlending, 0.5);
+      expect(group.gradeBalance, 0.0);
+    });
+  });
 }
 
 

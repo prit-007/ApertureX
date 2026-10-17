@@ -309,11 +309,15 @@ void main() {
     expect(intChip, findsOneWidget);
 
     // Switch joinOp to Subtract
+    await tester.scrollUntilVisible(subChip, 100);
+    await tester.pumpAndSettle();
     await tester.tap(subChip);
     await tester.pumpAndSettle();
     expect(container.read(recipeControllerProvider).recipe.layers.first.joinOp, MaskJoinOp.subtract);
 
     // Switch joinOp to Intersect
+    await tester.scrollUntilVisible(intChip, 100);
+    await tester.pumpAndSettle();
     await tester.tap(intChip);
     await tester.pumpAndSettle();
     expect(container.read(recipeControllerProvider).recipe.layers.first.joinOp, MaskJoinOp.intersect);
@@ -321,6 +325,8 @@ void main() {
     // Group Delete removes group and member layer
     final delBtn = find.byKey(const Key('group-delete-g_test'));
     expect(delBtn, findsOneWidget);
+    await tester.scrollUntilVisible(delBtn, 100);
+    await tester.pumpAndSettle();
     await tester.tap(delBtn);
     await tester.pumpAndSettle();
 
@@ -364,6 +370,74 @@ void main() {
     expect(updated.lumaZone, 5);
     expect((updated.lumaMin - 0.45).abs(), lessThan(1e-3));
     expect((updated.lumaMax - 0.55).abs(), lessThan(1e-3));
+  });
+
+  testWidgets('renders per-mask color wheels and highlights/shadows on layer', (tester) async {
+    final notifier = container.read(recipeControllerProvider.notifier);
+    notifier.addLayer(
+      const AdjustmentLayer(
+        maskKind: MaskKind.radial,
+        highlights: 0.2,
+        shadows: -0.1,
+      ),
+    );
+    container.read(nodeEditorProvider.notifier).enable();
+    container.read(nodeEditorProvider.notifier).select(0);
+
+    await pumpMaskControls(tester);
+
+    // Highlights and Shadows sliders exist
+    expect(find.byKey(const Key('mask-inline-highlights-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-inline-shadows-slider')), findsOneWidget);
+
+    // Color wheels controls exist
+    expect(find.byKey(const Key('mask-grade-zone-segmented')), findsOneWidget);
+    expect(find.byKey(const Key('mask-inline-grade-hue-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-inline-grade-sat-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-inline-grade-lum-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-inline-grade-blending-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-inline-grade-balance-slider')), findsOneWidget);
+
+    // Adjust Highlights slider
+    await tester.drag(find.byKey(const Key('mask-inline-highlights-slider')), const Offset(50, 0));
+    await tester.pumpAndSettle();
+    expect(container.read(recipeControllerProvider).recipe.layers.first.highlights, isNonZero);
+
+    // Switch zone to Highlights on segmented button and adjust Hue
+    final hiSegment = find.descendant(
+      of: find.byKey(const Key('mask-grade-zone-segmented')),
+      matching: find.text('Highlights'),
+    );
+    await tester.ensureVisible(hiSegment);
+    await tester.tap(hiSegment);
+    await tester.pumpAndSettle();
+    final hueSlider = find.byKey(const Key('mask-inline-grade-hue-slider'));
+    await tester.ensureVisible(hueSlider);
+    await tester.drag(hueSlider, const Offset(60, 0));
+    await tester.pumpAndSettle();
+    expect(container.read(recipeControllerProvider).recipe.layers.first.gradeHighlightHue, greaterThan(0));
+  });
+
+  testWidgets('renders mask group color wheels and highlights/shadows', (tester) async {
+    final notifier = container.read(recipeControllerProvider.notifier);
+    const gid = 'group_ui_test';
+    notifier.addMaskGroup(const MaskGroup(id: gid, name: 'Subject Group'));
+
+    await pumpMaskControls(tester);
+
+    // Group Highlights and Shadows sliders exist
+    expect(find.byKey(const Key('group-highlights-group_ui_test')), findsOneWidget);
+    expect(find.byKey(const Key('group-shadows-group_ui_test')), findsOneWidget);
+
+    // Group Color Wheels controls exist
+    expect(find.byKey(const Key('group-grade-zone-segmented-group_ui_test')), findsOneWidget);
+    expect(find.byKey(const Key('group-grade-hue-group_ui_test')), findsOneWidget);
+    expect(find.byKey(const Key('group-grade-blending-group_ui_test')), findsOneWidget);
+
+    // Adjust group Highlights slider
+    await tester.drag(find.byKey(const Key('group-highlights-group_ui_test')), const Offset(50, 0));
+    await tester.pumpAndSettle();
+    expect(container.read(recipeControllerProvider).recipe.maskGroups.first.highlights, isNonZero);
   });
 }
 

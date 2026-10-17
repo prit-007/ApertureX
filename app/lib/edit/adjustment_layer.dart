@@ -28,6 +28,17 @@ class MaskGroup {
     this.tint = 0,
     this.highlights = 0,
     this.shadows = 0,
+    this.gradeShadowHue = 0,
+    this.gradeShadowSat = 0,
+    this.gradeShadowLum = 0,
+    this.gradeMidHue = 0,
+    this.gradeMidSat = 0,
+    this.gradeMidLum = 0,
+    this.gradeHighlightHue = 0,
+    this.gradeHighlightSat = 0,
+    this.gradeHighlightLum = 0,
+    this.gradeBlending = 0.5,
+    this.gradeBalance = 0,
   });
 
   final String id;
@@ -41,6 +52,17 @@ class MaskGroup {
   final double tint;
   final double highlights;
   final double shadows;
+  final double gradeShadowHue;
+  final double gradeShadowSat;
+  final double gradeShadowLum;
+  final double gradeMidHue;
+  final double gradeMidSat;
+  final double gradeMidLum;
+  final double gradeHighlightHue;
+  final double gradeHighlightSat;
+  final double gradeHighlightLum;
+  final double gradeBlending;
+  final double gradeBalance;
 
   MaskGroup copyWith({
     String? id,
@@ -54,6 +76,17 @@ class MaskGroup {
     double? tint,
     double? highlights,
     double? shadows,
+    double? gradeShadowHue,
+    double? gradeShadowSat,
+    double? gradeShadowLum,
+    double? gradeMidHue,
+    double? gradeMidSat,
+    double? gradeMidLum,
+    double? gradeHighlightHue,
+    double? gradeHighlightSat,
+    double? gradeHighlightLum,
+    double? gradeBlending,
+    double? gradeBalance,
   }) => MaskGroup(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -66,6 +99,17 @@ class MaskGroup {
     tint: tint ?? this.tint,
     highlights: highlights ?? this.highlights,
     shadows: shadows ?? this.shadows,
+    gradeShadowHue: gradeShadowHue ?? this.gradeShadowHue,
+    gradeShadowSat: gradeShadowSat ?? this.gradeShadowSat,
+    gradeShadowLum: gradeShadowLum ?? this.gradeShadowLum,
+    gradeMidHue: gradeMidHue ?? this.gradeMidHue,
+    gradeMidSat: gradeMidSat ?? this.gradeMidSat,
+    gradeMidLum: gradeMidLum ?? this.gradeMidLum,
+    gradeHighlightHue: gradeHighlightHue ?? this.gradeHighlightHue,
+    gradeHighlightSat: gradeHighlightSat ?? this.gradeHighlightSat,
+    gradeHighlightLum: gradeHighlightLum ?? this.gradeHighlightLum,
+    gradeBlending: gradeBlending ?? this.gradeBlending,
+    gradeBalance: gradeBalance ?? this.gradeBalance,
   );
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -80,6 +124,17 @@ class MaskGroup {
     'tint': tint,
     'highlights': highlights,
     'shadows': shadows,
+    'gradeShadowHue': gradeShadowHue,
+    'gradeShadowSat': gradeShadowSat,
+    'gradeShadowLum': gradeShadowLum,
+    'gradeMidHue': gradeMidHue,
+    'gradeMidSat': gradeMidSat,
+    'gradeMidLum': gradeMidLum,
+    'gradeHighlightHue': gradeHighlightHue,
+    'gradeHighlightSat': gradeHighlightSat,
+    'gradeHighlightLum': gradeHighlightLum,
+    'gradeBlending': gradeBlending,
+    'gradeBalance': gradeBalance,
   };
 
   factory MaskGroup.fromJson(Map<String, Object?> json) {
@@ -96,6 +151,17 @@ class MaskGroup {
       tint: d('tint'),
       highlights: d('highlights'),
       shadows: d('shadows'),
+      gradeShadowHue: d('gradeShadowHue'),
+      gradeShadowSat: d('gradeShadowSat'),
+      gradeShadowLum: d('gradeShadowLum'),
+      gradeMidHue: d('gradeMidHue'),
+      gradeMidSat: d('gradeMidSat'),
+      gradeMidLum: d('gradeMidLum'),
+      gradeHighlightHue: d('gradeHighlightHue'),
+      gradeHighlightSat: d('gradeHighlightSat'),
+      gradeHighlightLum: d('gradeHighlightLum'),
+      gradeBlending: json.containsKey('gradeBlending') ? d('gradeBlending') : 0.5,
+      gradeBalance: d('gradeBalance'),
     );
   }
 
@@ -112,7 +178,18 @@ class MaskGroup {
       other.temperature == temperature &&
       other.tint == tint &&
       other.highlights == highlights &&
-      other.shadows == shadows;
+      other.shadows == shadows &&
+      other.gradeShadowHue == gradeShadowHue &&
+      other.gradeShadowSat == gradeShadowSat &&
+      other.gradeShadowLum == gradeShadowLum &&
+      other.gradeMidHue == gradeMidHue &&
+      other.gradeMidSat == gradeMidSat &&
+      other.gradeMidLum == gradeMidLum &&
+      other.gradeHighlightHue == gradeHighlightHue &&
+      other.gradeHighlightSat == gradeHighlightSat &&
+      other.gradeHighlightLum == gradeHighlightLum &&
+      other.gradeBlending == gradeBlending &&
+      other.gradeBalance == gradeBalance;
 
   @override
   int get hashCode => Object.hash(
@@ -127,6 +204,19 @@ class MaskGroup {
     tint,
     highlights,
     shadows,
+    Object.hash(
+      gradeShadowHue,
+      gradeShadowSat,
+      gradeShadowLum,
+      gradeMidHue,
+      gradeMidSat,
+      gradeMidLum,
+      gradeHighlightHue,
+      gradeHighlightSat,
+      gradeHighlightLum,
+      gradeBlending,
+      gradeBalance,
+    ),
   );
 }
 
@@ -220,6 +310,17 @@ class AdjustmentLayer {
     this.tint = 0,
     this.highlights = 0,
     this.shadows = 0,
+    this.gradeShadowHue = 0,
+    this.gradeShadowSat = 0,
+    this.gradeShadowLum = 0,
+    this.gradeMidHue = 0,
+    this.gradeMidSat = 0,
+    this.gradeMidLum = 0,
+    this.gradeHighlightHue = 0,
+    this.gradeHighlightSat = 0,
+    this.gradeHighlightLum = 0,
+    this.gradeBlending = 0.5,
+    this.gradeBalance = 0,
   });
 
   /// Creates a local adjustment layer backed by an 8-bit alpha probability tensor / bitmap.
@@ -244,6 +345,17 @@ class AdjustmentLayer {
     double tint = 0,
     double highlights = 0,
     double shadows = 0,
+    double gradeShadowHue = 0,
+    double gradeShadowSat = 0,
+    double gradeShadowLum = 0,
+    double gradeMidHue = 0,
+    double gradeMidSat = 0,
+    double gradeMidLum = 0,
+    double gradeHighlightHue = 0,
+    double gradeHighlightSat = 0,
+    double gradeHighlightLum = 0,
+    double gradeBlending = 0.5,
+    double gradeBalance = 0,
   }) {
     if (width <= 0 || height <= 0 || alphas.length != width * height) {
       throw ArgumentError(
@@ -270,6 +382,17 @@ class AdjustmentLayer {
       tint: tint,
       highlights: highlights,
       shadows: shadows,
+      gradeShadowHue: gradeShadowHue,
+      gradeShadowSat: gradeShadowSat,
+      gradeShadowLum: gradeShadowLum,
+      gradeMidHue: gradeMidHue,
+      gradeMidSat: gradeMidSat,
+      gradeMidLum: gradeMidLum,
+      gradeHighlightHue: gradeHighlightHue,
+      gradeHighlightSat: gradeHighlightSat,
+      gradeHighlightLum: gradeHighlightLum,
+      gradeBlending: gradeBlending,
+      gradeBalance: gradeBalance,
     );
   }
 
@@ -306,6 +429,17 @@ class AdjustmentLayer {
   final double tint;
   final double highlights;
   final double shadows;
+  final double gradeShadowHue;
+  final double gradeShadowSat;
+  final double gradeShadowLum;
+  final double gradeMidHue;
+  final double gradeMidSat;
+  final double gradeMidLum;
+  final double gradeHighlightHue;
+  final double gradeHighlightSat;
+  final double gradeHighlightLum;
+  final double gradeBlending;
+  final double gradeBalance;
 
   AdjustmentLayer copyWith({
     MaskKind? maskKind,
@@ -323,6 +457,17 @@ class AdjustmentLayer {
     double? tint,
     double? highlights,
     double? shadows,
+    double? gradeShadowHue,
+    double? gradeShadowSat,
+    double? gradeShadowLum,
+    double? gradeMidHue,
+    double? gradeMidSat,
+    double? gradeMidLum,
+    double? gradeHighlightHue,
+    double? gradeHighlightSat,
+    double? gradeHighlightLum,
+    double? gradeBlending,
+    double? gradeBalance,
   }) => AdjustmentLayer(
     maskKind: maskKind ?? this.maskKind,
     maskParams: maskParams ?? this.maskParams,
@@ -338,6 +483,17 @@ class AdjustmentLayer {
     tint: tint ?? this.tint,
     highlights: highlights ?? this.highlights,
     shadows: shadows ?? this.shadows,
+    gradeShadowHue: gradeShadowHue ?? this.gradeShadowHue,
+    gradeShadowSat: gradeShadowSat ?? this.gradeShadowSat,
+    gradeShadowLum: gradeShadowLum ?? this.gradeShadowLum,
+    gradeMidHue: gradeMidHue ?? this.gradeMidHue,
+    gradeMidSat: gradeMidSat ?? this.gradeMidSat,
+    gradeMidLum: gradeMidLum ?? this.gradeMidLum,
+    gradeHighlightHue: gradeHighlightHue ?? this.gradeHighlightHue,
+    gradeHighlightSat: gradeHighlightSat ?? this.gradeHighlightSat,
+    gradeHighlightLum: gradeHighlightLum ?? this.gradeHighlightLum,
+    gradeBlending: gradeBlending ?? this.gradeBlending,
+    gradeBalance: gradeBalance ?? this.gradeBalance,
   );
 
   /// For brush masks: base radius (default 0.06).
@@ -613,6 +769,17 @@ class AdjustmentLayer {
     'tint': tint,
     'highlights': highlights,
     'shadows': shadows,
+    'gradeShadowHue': gradeShadowHue,
+    'gradeShadowSat': gradeShadowSat,
+    'gradeShadowLum': gradeShadowLum,
+    'gradeMidHue': gradeMidHue,
+    'gradeMidSat': gradeMidSat,
+    'gradeMidLum': gradeMidLum,
+    'gradeHighlightHue': gradeHighlightHue,
+    'gradeHighlightSat': gradeHighlightSat,
+    'gradeHighlightLum': gradeHighlightLum,
+    'gradeBlending': gradeBlending,
+    'gradeBalance': gradeBalance,
   };
 
   factory AdjustmentLayer.fromJson(Map<String, Object?> json) {
@@ -655,6 +822,17 @@ class AdjustmentLayer {
       tint: d('tint'),
       highlights: d('highlights'),
       shadows: d('shadows'),
+      gradeShadowHue: d('gradeShadowHue'),
+      gradeShadowSat: d('gradeShadowSat'),
+      gradeShadowLum: d('gradeShadowLum'),
+      gradeMidHue: d('gradeMidHue'),
+      gradeMidSat: d('gradeMidSat'),
+      gradeMidLum: d('gradeMidLum'),
+      gradeHighlightHue: d('gradeHighlightHue'),
+      gradeHighlightSat: d('gradeHighlightSat'),
+      gradeHighlightLum: d('gradeHighlightLum'),
+      gradeBlending: json.containsKey('gradeBlending') ? d('gradeBlending') : 0.5,
+      gradeBalance: d('gradeBalance'),
     );
   }
 
@@ -674,7 +852,18 @@ class AdjustmentLayer {
       other.temperature == temperature &&
       other.tint == tint &&
       other.highlights == highlights &&
-      other.shadows == shadows;
+      other.shadows == shadows &&
+      other.gradeShadowHue == gradeShadowHue &&
+      other.gradeShadowSat == gradeShadowSat &&
+      other.gradeShadowLum == gradeShadowLum &&
+      other.gradeMidHue == gradeMidHue &&
+      other.gradeMidSat == gradeMidSat &&
+      other.gradeMidLum == gradeMidLum &&
+      other.gradeHighlightHue == gradeHighlightHue &&
+      other.gradeHighlightSat == gradeHighlightSat &&
+      other.gradeHighlightLum == gradeHighlightLum &&
+      other.gradeBlending == gradeBlending &&
+      other.gradeBalance == gradeBalance;
 
   @override
   int get hashCode => Object.hash(
@@ -692,5 +881,18 @@ class AdjustmentLayer {
     tint,
     highlights,
     shadows,
+    Object.hash(
+      gradeShadowHue,
+      gradeShadowSat,
+      gradeShadowLum,
+      gradeMidHue,
+      gradeMidSat,
+      gradeMidLum,
+      gradeHighlightHue,
+      gradeHighlightSat,
+      gradeHighlightLum,
+      gradeBlending,
+      gradeBalance,
+    ),
   );
 }

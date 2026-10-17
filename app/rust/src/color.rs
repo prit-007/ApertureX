@@ -22,6 +22,10 @@ pub struct GradeParams {
     pub exposure: f32,
     /// Contrast, unitless around 0.
     pub contrast: f32,
+    /// Highlights trim (point-wise tonal recovery or boost, issue #94).
+    pub highlights: f32,
+    /// Shadows trim (point-wise tonal lift or crush, issue #94).
+    pub shadows: f32,
     /// Whites trim (linear white point trim, anchored at midtone ~0.18).
     pub whites: f32,
     /// Blacks trim (linear black point trim, anchored at midtone ~0.18).
@@ -55,6 +59,8 @@ impl Default for GradeParams {
         Self {
             exposure: 0.0,
             contrast: 0.0,
+            highlights: 0.0,
+            shadows: 0.0,
             whites: 0.0,
             blacks: 0.0,
             saturation: 0.0,
@@ -570,6 +576,20 @@ pub fn grade_pixel_c(
     // 4. contrast S-curve (perceptual).
     for v in &mut c {
         *v = contrast_curve(*v, p.contrast);
+    }
+
+    // 4b. Pointwise highlights and shadows (perceptual/luma, issue #94).
+    if p.highlights != 0.0 || p.shadows != 0.0 {
+        let luma = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+        let shadow_delta = p.shadows * (1.0 - 2.0 * luma).clamp(0.0, 1.0) * 0.5;
+        let highlight_delta = p.highlights * (2.0 * luma - 1.0).clamp(0.0, 1.0) * 0.5;
+        let target = (luma + shadow_delta + highlight_delta).clamp(0.0, 1.0);
+        let scale = if luma > 1e-3 { target / luma } else { 1.0 };
+        c = [
+            (c[0] * scale).clamp(0.0, 1.0),
+            (c[1] * scale).clamp(0.0, 1.0),
+            (c[2] * scale).clamp(0.0, 1.0),
+        ];
     }
 
     // 5. vibrance, then saturation — saturation in Oklab (hue-preserving).
@@ -1699,5 +1719,62 @@ pub mod golden {
             max_byte_diff,
             pixel_count: num_pixels,
         }
+    }
+
+    #[test]
+    fn pointwise_highlights_and_shadows_modify_tones() {
+        // Dark pixel (sRGB ~0.2)
+        let dark = [0.2, 0.2, 0.2];
+        let p_shadow_lift = GradeParams {
+            shadows: 0.5,
+            ..Default::default()
+        };
+        let lifted = grade_pointwise(dark, p_shadow_lift);
+        assert!(lifted[0] > 0.2, "shadows lift darks: {:?}", lifted);
+
+        let p_shadow_crush = GradeParams {
+            shadows: -0.5,
+            ..Default::default()
+        };
+        let crushed = grade_pointwise(dark, p_shadow_crush);
+        assert!(crushed[0] < 0.2, "shadows crush darks: {:?}", crushed);
+
+        // Bright pixel (sRGB ~0.8)
+        let bright = [0.8, 0.8, 0.8];
+        let p_hi_boost = GradeParams {
+            highlights: 0.5,
+            ..Default::default()
+        };
+        let boosted = grade_pointwise(bright, p_hi_boost);
+        assert!(
+            boosted[0] > 0.8,
+            "positive highlights boost brights: {:?}",
+            boosted
+        );
+
+        let p_hi_pull = GradeParams {
+            highlights: -0.5,
+            ..Default::default()
+        };
+        let pulled = grade_pointwise(bright, p_hi_pull);
+        assert!(
+            pulled[0] < 0.8,
+            "negative highlights pull down brights: {:?}",
+            pulled
+        );
+
+        // Neutral midtone (sRGB ~0.5) is unaffected
+        let mid = [0.5, 0.5, 0.5];
+        let p_both = GradeParams {
+            highlights: 0.8,
+            shadows: 0.8,
+            ..Default::default()
+        };
+        let mid_graded = grade_pointwise(mid, p_both);
+        assert!(
+            (mid_graded[0] - 0.5).abs() < 1e-4,
+            "midtones unaffected: {:?}",
+            mid_graded
+        );
     }
 }

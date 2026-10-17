@@ -12,6 +12,7 @@ import '../../engine/engine.dart';
 import '../../engine/image_format.dart';
 import '../../viewport/canvas_transform.dart';
 import '../../viewport/mask_peek.dart';
+import 'color_grading_editor.dart';
 
 /// Function signature for sky detection from photo bytes.
 typedef SkyDetectorFn = Future<DetectedSky?> Function(Uint8List imageBytes);
@@ -377,6 +378,54 @@ class MaskControls extends ConsumerWidget {
               min: -1.0,
               max: 1.0,
               onChanged: (val) => notifier.updateMaskGroup(group.copyWith(saturation: val)),
+            ),
+
+            _MaskColorGradingSection(
+              segmentedKey: Key('group-grade-zone-segmented-${group.id}'),
+              hueKey: Key('group-grade-hue-${group.id}'),
+              satKey: Key('group-grade-sat-${group.id}'),
+              lumKey: Key('group-grade-lum-${group.id}'),
+              blendingKey: Key('group-grade-blending-${group.id}'),
+              balanceKey: Key('group-grade-balance-${group.id}'),
+              shadowHue: group.gradeShadowHue,
+              shadowSat: group.gradeShadowSat,
+              shadowLum: group.gradeShadowLum,
+              midHue: group.gradeMidHue,
+              midSat: group.gradeMidSat,
+              midLum: group.gradeMidLum,
+              highlightHue: group.gradeHighlightHue,
+              highlightSat: group.gradeHighlightSat,
+              highlightLum: group.gradeHighlightLum,
+              blending: group.gradeBlending,
+              balance: group.gradeBalance,
+              onZoneChanged: (zone, {hue, sat, lum}) {
+                final updated = switch (zone) {
+                  GradeWheelZone.shadows => group.copyWith(
+                    gradeShadowHue: hue ?? group.gradeShadowHue,
+                    gradeShadowSat: sat ?? group.gradeShadowSat,
+                    gradeShadowLum: lum ?? group.gradeShadowLum,
+                  ),
+                  GradeWheelZone.midtones => group.copyWith(
+                    gradeMidHue: hue ?? group.gradeMidHue,
+                    gradeMidSat: sat ?? group.gradeMidSat,
+                    gradeMidLum: lum ?? group.gradeMidLum,
+                  ),
+                  GradeWheelZone.highlights => group.copyWith(
+                    gradeHighlightHue: hue ?? group.gradeHighlightHue,
+                    gradeHighlightSat: sat ?? group.gradeHighlightSat,
+                    gradeHighlightLum: lum ?? group.gradeHighlightLum,
+                  ),
+                };
+                notifier.updateMaskGroup(updated);
+              },
+              onGlobalChanged: ({blending, balance}) {
+                notifier.updateMaskGroup(
+                  group.copyWith(
+                    gradeBlending: blending ?? group.gradeBlending,
+                    gradeBalance: balance ?? group.gradeBalance,
+                  ),
+                );
+              },
             ),
 
             const Divider(height: 16),
@@ -896,6 +945,54 @@ class MaskControls extends ConsumerWidget {
                 max: 1.0,
                 onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(saturation: val)),
               ),
+              _MaskColorGradingSection(
+                segmentedKey: const Key('mask-grade-zone-segmented'),
+                hueKey: const Key('mask-inline-grade-hue-slider'),
+                satKey: const Key('mask-inline-grade-sat-slider'),
+                lumKey: const Key('mask-inline-grade-lum-slider'),
+                blendingKey: const Key('mask-inline-grade-blending-slider'),
+                balanceKey: const Key('mask-inline-grade-balance-slider'),
+                shadowHue: layer.gradeShadowHue,
+                shadowSat: layer.gradeShadowSat,
+                shadowLum: layer.gradeShadowLum,
+                midHue: layer.gradeMidHue,
+                midSat: layer.gradeMidSat,
+                midLum: layer.gradeMidLum,
+                highlightHue: layer.gradeHighlightHue,
+                highlightSat: layer.gradeHighlightSat,
+                highlightLum: layer.gradeHighlightLum,
+                blending: layer.gradeBlending,
+                balance: layer.gradeBalance,
+                onZoneChanged: (zone, {hue, sat, lum}) {
+                  final updated = switch (zone) {
+                    GradeWheelZone.shadows => layer.copyWith(
+                      gradeShadowHue: hue ?? layer.gradeShadowHue,
+                      gradeShadowSat: sat ?? layer.gradeShadowSat,
+                      gradeShadowLum: lum ?? layer.gradeShadowLum,
+                    ),
+                    GradeWheelZone.midtones => layer.copyWith(
+                      gradeMidHue: hue ?? layer.gradeMidHue,
+                      gradeMidSat: sat ?? layer.gradeMidSat,
+                      gradeMidLum: lum ?? layer.gradeMidLum,
+                    ),
+                    GradeWheelZone.highlights => layer.copyWith(
+                      gradeHighlightHue: hue ?? layer.gradeHighlightHue,
+                      gradeHighlightSat: sat ?? layer.gradeHighlightSat,
+                      gradeHighlightLum: lum ?? layer.gradeHighlightLum,
+                    ),
+                  };
+                  notifier.updateLayerAt(i, updated);
+                },
+                onGlobalChanged: ({blending, balance}) {
+                  notifier.updateLayerAt(
+                    i,
+                    layer.copyWith(
+                      gradeBlending: blending ?? layer.gradeBlending,
+                      gradeBalance: balance ?? layer.gradeBalance,
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         ),
@@ -1073,6 +1170,166 @@ class _MaskSlider extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MaskColorGradingSection extends StatefulWidget {
+  const _MaskColorGradingSection({
+    required this.segmentedKey,
+    required this.hueKey,
+    required this.satKey,
+    required this.lumKey,
+    required this.blendingKey,
+    required this.balanceKey,
+    required this.shadowHue,
+    required this.shadowSat,
+    required this.shadowLum,
+    required this.midHue,
+    required this.midSat,
+    required this.midLum,
+    required this.highlightHue,
+    required this.highlightSat,
+    required this.highlightLum,
+    required this.blending,
+    required this.balance,
+    required this.onZoneChanged,
+    required this.onGlobalChanged,
+  });
+
+  final Key segmentedKey;
+  final Key hueKey;
+  final Key satKey;
+  final Key lumKey;
+  final Key blendingKey;
+  final Key balanceKey;
+  final double shadowHue;
+  final double shadowSat;
+  final double shadowLum;
+  final double midHue;
+  final double midSat;
+  final double midLum;
+  final double highlightHue;
+  final double highlightSat;
+  final double highlightLum;
+  final double blending;
+  final double balance;
+  final void Function(GradeWheelZone zone, {double? hue, double? sat, double? lum}) onZoneChanged;
+  final void Function({double? blending, double? balance}) onGlobalChanged;
+
+  @override
+  State<_MaskColorGradingSection> createState() => _MaskColorGradingSectionState();
+}
+
+class _MaskColorGradingSectionState extends State<_MaskColorGradingSection> {
+  GradeWheelZone _zone = GradeWheelZone.shadows;
+
+  (double hue, double sat, double lum) get _currentZoneValues => switch (_zone) {
+        GradeWheelZone.shadows => (widget.shadowHue, widget.shadowSat, widget.shadowLum),
+        GradeWheelZone.midtones => (widget.midHue, widget.midSat, widget.midLum),
+        GradeWheelZone.highlights => (widget.highlightHue, widget.highlightSat, widget.highlightLum),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final (hue, sat, lum) = _currentZoneValues;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 8),
+        Text(
+          'COLOR GRADING',
+          style: TextStyle(
+            fontSize: 10,
+            letterSpacing: 1.0,
+            fontWeight: FontWeight.w700,
+            color: scheme.primary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        SegmentedButton<GradeWheelZone>(
+          key: widget.segmentedKey,
+          segments: const [
+            ButtonSegment(
+              value: GradeWheelZone.shadows,
+              label: Text('Shadows'),
+            ),
+            ButtonSegment(
+              value: GradeWheelZone.midtones,
+              label: Text('Midtones'),
+            ),
+            ButtonSegment(
+              value: GradeWheelZone.highlights,
+              label: Text('Highlights'),
+            ),
+          ],
+          selected: {_zone},
+          onSelectionChanged: (selected) {
+            setState(() => _zone = selected.first);
+          },
+        ),
+        const SizedBox(height: 6),
+        Center(
+          child: ColorGradingWheel(
+            hue: hue,
+            saturation: sat,
+            size: 140,
+            onChanged: (newHue, newSat) {
+              widget.onZoneChanged(_zone, hue: newHue, sat: newSat);
+            },
+            onChangeEnd: () {},
+            onReset: () {
+              widget.onZoneChanged(_zone, hue: 0.0, sat: 0.0);
+            },
+          ),
+        ),
+        _MaskSlider(
+          label: 'Hue',
+          sliderKey: widget.hueKey,
+          value: hue,
+          min: 0.0,
+          max: 360.0,
+          displayValue: '${hue.round()}°',
+          onChanged: (val) => widget.onZoneChanged(_zone, hue: val),
+        ),
+        _MaskSlider(
+          label: 'Sat',
+          sliderKey: widget.satKey,
+          value: sat,
+          min: 0.0,
+          max: 1.0,
+          displayValue: '${(sat * 100).round()}%',
+          onChanged: (val) => widget.onZoneChanged(_zone, sat: val),
+        ),
+        _MaskSlider(
+          label: 'Luminance',
+          sliderKey: widget.lumKey,
+          value: lum,
+          min: -1.0,
+          max: 1.0,
+          onChanged: (val) => widget.onZoneChanged(_zone, lum: val),
+        ),
+        _MaskSlider(
+          label: 'Blending',
+          sliderKey: widget.blendingKey,
+          value: widget.blending,
+          min: 0.0,
+          max: 1.0,
+          displayValue: '${(widget.blending * 100).round()}%',
+          onChanged: (val) => widget.onGlobalChanged(blending: val),
+        ),
+        _MaskSlider(
+          label: 'Balance',
+          sliderKey: widget.balanceKey,
+          value: widget.balance,
+          min: -1.0,
+          max: 1.0,
+          onChanged: (val) => widget.onGlobalChanged(balance: val),
+        ),
+      ],
     );
   }
 }

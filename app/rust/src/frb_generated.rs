@@ -2473,6 +2473,8 @@ impl SseDecode for crate::api::color::ColorParams {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_exposure = <f32>::sse_decode(deserializer);
         let mut var_contrast = <f32>::sse_decode(deserializer);
+        let mut var_highlights = <f32>::sse_decode(deserializer);
+        let mut var_shadows = <f32>::sse_decode(deserializer);
         let mut var_whites = <f32>::sse_decode(deserializer);
         let mut var_blacks = <f32>::sse_decode(deserializer);
         let mut var_saturation = <f32>::sse_decode(deserializer);
@@ -2493,6 +2495,8 @@ impl SseDecode for crate::api::color::ColorParams {
         return crate::api::color::ColorParams {
             exposure: var_exposure,
             contrast: var_contrast,
+            highlights: var_highlights,
+            shadows: var_shadows,
             whites: var_whites,
             blacks: var_blacks,
             saturation: var_saturation,
@@ -3164,6 +3168,8 @@ impl flutter_rust_bridge::IntoDart for crate::api::color::ColorParams {
         [
             self.exposure.into_into_dart().into_dart(),
             self.contrast.into_into_dart().into_dart(),
+            self.highlights.into_into_dart().into_dart(),
+            self.shadows.into_into_dart().into_dart(),
             self.whites.into_into_dart().into_dart(),
             self.blacks.into_into_dart().into_dart(),
             self.saturation.into_into_dart().into_dart(),
@@ -3590,6 +3596,8 @@ impl SseEncode for crate::api::color::ColorParams {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <f32>::sse_encode(self.exposure, serializer);
         <f32>::sse_encode(self.contrast, serializer);
+        <f32>::sse_encode(self.highlights, serializer);
+        <f32>::sse_encode(self.shadows, serializer);
         <f32>::sse_encode(self.whites, serializer);
         <f32>::sse_encode(self.blacks, serializer);
         <f32>::sse_encode(self.saturation, serializer);

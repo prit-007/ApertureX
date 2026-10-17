@@ -137,8 +137,9 @@ class EditRecipe {
   /// v19: adds photochemical film physics (halation, bloom, dust/scratches) and shader lab.
   /// v20: adds global Amount slider (0–200%) to adjustment layers.
   /// v21: adds mask group architecture (ADR 0013) with boolean coverage algebra.
+  /// v22: adds per-mask 3-way color wheels and pointwise highlights/shadows (#94).
   /// `fromJson` always migrates to this.
-  static const int currentSchemaVersion = 21;
+  static const int currentSchemaVersion = 22;
 
   /// All-neutral recipe: applying it is an identity transform.
   static const EditRecipe neutral = EditRecipe();
