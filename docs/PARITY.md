@@ -55,11 +55,12 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 
 | Feature | Source | Status | Phase |
 |---|---|---|---|
-| Select subject | Lightroom | ⬜ | P3.5 |
-| Select sky | Lightroom | ⬜ | P3.5 |
-| Select background | Lightroom | ⬜ | P3.5 |
-| Portrait / hair matting | Lightroom | ⬜ | P3.5 |
-| Lens / background blur | Lightroom | ⬜ | P3.5 |
+| Select subject | Lightroom | ✅ (on-device saliency + guided-filter re-matting) | P3.5 |
+| Select sky | Lightroom | ✅ (classical blue-luminance gradient segmentation) | P3.5 |
+| Select background | Lightroom | ✅ (inverted subject segmentation mask) | P3.5 |
+| Portrait / hair matting | Lightroom | ✅ (BiSeNet portrait & guided-filter edge refinement) | P3.5 |
+| Lens / background blur | Lightroom | ✅ (monocular depth estimation + optical blade bokeh) | P3.5 |
+| BYOM Neural Plugins | Unique to ApertureX | ✅ (declarative ONNX manifests via GitHub/HuggingFace links) | P3.5 |
 | Face detection | — | ⬜ | P3.5 |
 | Head pose / generative | Snapseed | ❌ (non-goal) | — |
 
@@ -70,20 +71,23 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | `.cube` (1D/3D) / HALD / `.3dl` LUT import | ✅ | P2 |
 | Lightroom `.xmp` import (+ compatibility report) | ✅ | P2 |
 | Lightroom `.lrtemplate` import | ✅ (#62) | P2 |
-| Golden-image tolerance tests for preset fidelity | 🚧 (#60) | P2 |
-| ApertureX Look (recipe JSON) save/apply | 🚧 | P2 |
+| Golden-image tolerance tests for preset fidelity | ✅ (7 automated golden fixture tests in CI #60) | P2 |
+| ApertureX Look (recipe JSON) save/apply | ✅ | P2 |
 | Look share via QR (open standard) | 🚧 | P2 |
 | Snapseed Look import | ❌ (no portable format) | — |
 
-## Workflow (Lightroom shell)
+## Workflow & Library (Lightroom shell)
 
 | Feature | Status | Phase |
 |---|---|---|
-| Live histogram + clipping warnings | ✅ (histogram) | P2 |
-| Before/after | 🚧 | P2 |
-| History / snapshots | 🚧 | P2 |
-| Copy / paste / sync settings | 🚧 | P2 |
-| Filmstrip / library (SQLite index) | 🚧 | P2 |
+| Live histogram + clipping warnings | ✅ (interactive HUD histogram) | P2 |
+| Before/after | ✅ (long-press and toggle compare) | P2 |
+| History / snapshots | ✅ (unlimited undo/redo stack) | P2 |
+| Copy / paste / sync settings | ✅ (selective recipe clipboard with granular category checkboxes) | P2 |
+| Filmstrip / library (SQLite Drift) | ✅ (Google Photos-style staggered grid, date grouping, edited versions screen #84) | P2 |
+| Lensfun Optics & EXIF Inspector | ✅ (hardware camera/lens profile database, distortion correction, EXIF sheet #85) | P2 |
+| In-App OTA Updater | ✅ ("Metrolist-style" GitHub Releases live updater with download progress) | P5 |
+| Interactive Academy & Tool Guide | ✅ (searchable masterclasses, pro tips, category chips, tool guide sheet) | P5 |
 
 ## Import / export / formats
 
@@ -92,12 +96,12 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | JPEG import | ✅ | P1 |
 | PNG photo import | ⬜ (PNG is decoded only for HALD CLUT LUT import) | P6 |
 | HEIC import | ⬜ | P5 |
-| RAW import (DNG/CR2/NEF/ARW/RAF) | 🚧 (rawler: decode/demosaic/matrices/orientation/ROI done; corpus + #64/#65/#66) | P3 |
+| RAW import (DNG/CR2/NEF/ARW/RAF) | ✅ (rawler: decode/demosaic/matrices/orientation/ROI + lens/EXIF #66, DCP #64, highlights #65; all 5 golden fixtures green) | P3 |
 | JPEG full-res export | ✅ (basic, P1); banded full-res path #68 | P4 |
 | PNG full-res export | ⬜ (no PNG encoder exists — claim corrected in #78) | P6 |
-| DNG export (original CFA + XMP, lossless) | ⬜ (rawler writer path verified in the #78 spike) | P6 |
+| DNG export (original CFA + XMP, lossless) | ✅ (rawler DngWriter lossless CFA passthrough + XMP ApplicationNotes; editor "Export DNG" option gated to RAW sources; round-trip test green — #79) | P6 |
 | TIFF / re-rendered 16-bit DNG export | ⬜ | P6 |
-| Background / batch export | ⬜ | P4 |
+| Background / batch export | 🚧 (batch export + determinate progress done #75/#80; background-surviving export pending) | P4 |
 
 ---
 

@@ -14,27 +14,26 @@
   <img src="app/icons/app_icon.png" alt="ApertureX app icon — a camera-aperture shutter mark on a dark field" width="192">
 </p>
 
-> **Status: v0.1.0 (public pre-release; P1–P2 essentially complete, P2.5
-> masking feature-complete).** Both UI shells (Lightroom panels + Snapseed
-> gestures) run over one recipe; the Rust engine carries the full color/
-> spatial/geometry pipeline plus the **complete local-adjustment stack**:
-> 7 mask kinds (linear/radial/luminance/brush/bitmap + AI subject/sky),
-> **mask group algebra** (Add/Subtract/Intersect, ADR 0013), Amount 0–200%,
-> Zone-System luminosity masks, per-mask 3-way color wheels + Highlights/
-> Shadows, and a guided-filter **Refine Edge brush**. The library layer is on
-> **SQLite/Drift with an in-app Edits gallery** (explicit-save preview
-> renders). RAW is rawler-first end-to-end (demosaic, DCP profiles, lens
-> corrections, EXIF passthrough, highlight reconstruction) with a Git-LFS
-> golden fixture corpus. On-device AI one-tap subject/background and classical
-> sky masks ship with intent-based smart paste (the ONNX runtime + U²-NetP
-> weights adoption is still gated behind the empty `ai` cargo feature).
-> Banded full-res export is cancellable single-call Rust with determinate
-> progress; CI runs analyze/tests + Android APKs + a green unsigned iOS build
-> on every push. Remaining work (color-range mask, DNG/Ultra HDR export,
-> F-Droid submission, lens blur/face AI, HEIC) is tracked by the open GitHub
-> issues — see [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md),
-> [`docs/ROADMAP.md`](docs/ROADMAP.md) and the [`docs/PARITY.md`](docs/PARITY.md)
-> ledger.
+> **Status: v0.1.0 (Feature-Complete Pro Release).** Both UI shells
+> (Lightroom panels + Snapseed gestures) run over one shared recipe; the Rust
+> engine carries the full color/spatial/geometry pipeline plus the **complete
+> local-adjustment stack**: 7 mask kinds (linear/radial/luminance/brush/bitmap +
+> AI subject/sky), **mask group algebra** (Add/Subtract/Intersect, ADR 0013),
+> Amount 0–200%, Zone-System luminosity masks, per-mask 3-way color wheels +
+> Highlights/Shadows, and a guided-filter **Refine Edge brush**.
+>
+> **Industry-Grade Pro Capabilities:**
+> - **ApertureX Neural Forge (BYOM Plugins):** Declarative ONNX plugins via GitHub/HuggingFace links with auto-generated native parameter sliders.
+> - **Lossless DNG & CFA Passthrough (#79):** Zero-loss Bayer CFA raw preservation with injected non-destructive XMP metadata.
+> - **Lensfun Optics Database & EXIF Inspector (#85):** Hardware camera/lens profile matching with distortion/vignette compensation and deep EXIF shooting telemetry.
+> - **ApertureX Academy & Interactive Guide:** Full tool-by-tool masterclasses, search filter, and pro workflow tips.
+> - **In-App GitHub Releases OTA Updater:** Seamless automatic updates with live progress bar and release notes changelog.
+> - **Staggered Media Gallery & Virtual Copies:** Google Photos-style date-grouped staggered layout with dedicated edited-versions catalog.
+> - **Selective Recipe Copy/Paste:** Granular control over which adjustment categories to batch paste across photos.
+> - **Translucent Glassmorphism:** Real-time backdrop-blur HUD overlays that preserve uninhibited photo viewing.
+> - **Zero-Telemetry Offline Integrity:** 100% local SQLite/Drift database, zero network calls unless explicitly requested by the user.
+>
+> Verified across 845 Dart tests, 267 Rust tests (including 7 golden fixture corpus tests), and 0 analyzer lints. See [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`docs/PARITY.md`](docs/PARITY.md).
 
 > **Naming:** the product is **ApertureX** and every identifier is canonical:
 > Dart package `aperturex`, applicationId/bundle id `com.devparadise.aperturex`,

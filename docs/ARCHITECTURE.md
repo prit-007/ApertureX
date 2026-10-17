@@ -539,3 +539,95 @@ A **separable** module for intelligent masking; the base app never depends on it
   before shipping.
 - **Sequencing:** classical **auto-straighten** (Hough) ships in P2 geometry,
   before any learned auto-frame.
+
+## 20. ApertureX Neural Forge (Declarative ONNX BYOM Architecture)
+
+ApertureX is the first mobile photo editor allowing users to bring their own AI models
+without requiring app store updates or recompilation.
+
+```
+Community Hub / GitHub Link (.zip or manifest.json)
+                     │
+                     ▼
+             Manifest Parser (Dart)
+       ┌─────────────┴─────────────┐
+       ▼                           ▼
+Dynamic Parameter UI        Tensor Pipeline (Rust/ONNX)
+(Native Sliders in App)      (Zero-Copy Input RGBA -> Model)
+                                   │
+                                   ▼
+                          Alpha Mask / Depth Map
+                                   │
+                                   ▼
+                     Impeller GPU Fragment Shader
+```
+
+- **Manifest Contract (`manifest.json`):** Defines `plugin_id`, `input_shape` `[N, C, H, W]`,
+  `task` (`depthEstimation`, `subjectSegmentation`, `portraitHair`, `superResolution`),
+  and a list of dynamic `controls` (`id`, `label`, `min`, `max`, `default`).
+- **Dynamic Flutter UI:** Generates standard `ParameterControl` sliders dynamically on the
+  fly, mapping slider changes directly to plugin parameters.
+- **Store & F-Droid Compliance:** Neither Android nor iOS permit dynamic executable code
+  (`.so`, `.dylib`). ONNX weight graphs are strictly non-executable mathematical weight tensors
+  evaluated inside the pre-compiled, sandboxed on-device runner.
+
+## 21. Optics & Hardware Telemetry (Lensfun + Zero-Allocation EXIF)
+
+- **Rust EXIF Engine (`app/rust/src/exif.rs`):** Zero-allocation TIFF IFD scanner supporting
+  big-endian and little-endian headers. Extracts camera make, model, lens model, shutter speed
+  rational, aperture f-number, ISO rating, focal length (plus 35mm equivalent), and GPS coordinates.
+- **Lens Database (`app/lib/features/lens/lens_database.dart`):** Curated database of Sony,
+  Canon, Nikon, Fujifilm, Sigma, Apple, and Google Pixel optics.
+- **Optics Rectification:** Identifies camera/lens pairs to recommend polynomial distortion
+  coefficients (`k1`, `k2`), chromatic aberration correction, and corner vignetting compensation.
+- **Image Info Inspector (`ImageInfoSheet`):** Displays hardware shooting parameters, exposure
+  stat pill badges, GPS coordinates, and recipe session history with 1-tap clipboard copying.
+
+## 22. Lossless DNG CFA Passthrough & XMP Export (#79)
+
+When editing camera RAW files, standard editors destructively demosaic and compress to 8-bit JPEG.
+ApertureX provides pure archival DNG export:
+
+```
+RAW File (CR2, ARW, NEF, RW2, DNG)
+                │
+                ▼
+        Rawler CFA Reader
+    (Extracts Raw Bayer CFA Matrix)
+                │
+                ▼
+      XMP Sidecar Generator
+    (Encodes Non-Destructive Recipe)
+                │
+                ▼
+        DngWriter Pipeline
+   (Writes Lossless DNG with Tag 0x02BC)
+```
+
+- **Lossless CFA Bayer Stream:** Passes raw sensor samples directly into `rawler::dng::writer::DngWriter`
+  without demosaicing or lossy compression.
+- **Injected XMP Tag `0x02BC`:** Injects the full non-destructive editing recipe into TIFF tag
+  `0x02BC` (ApplicationNotes), allowing desktop darkroom software (Adobe Lightroom, Photoshop,
+  Darktable) to read and respect the edits.
+
+## 23. In-App OTA Updater Subsystem ("Metrolist-style")
+
+For open-source distribution outside Google Play (e.g., GitHub Releases, direct APKs):
+
+- **Release Discovery:** Queries GitHub API `/repos/prit-007/ApertureX/releases/latest`
+  using standard library `HttpClient`.
+- **Semantic Version Engine (`AppUpdater.isNewerVersion`):** Compares remote semver against
+  current version (`v0.1.0`), stripping metadata.
+- **Download & Progress:** Streams the release `.apk` directly into the app's cache directory,
+  emitting real-time byte counts and download percentages.
+- **Release Notes Modal (`UpdateDialog`):** Presents markdown changelog and initiates installation.
+
+## 24. ApertureX Academy & Interactive Guide Engine
+
+- **Catalog Registry (`ToolGuideRegistry`):** Exhaustive model registry documenting all
+  editing categories (`light`, `color`, `effects`, `detail`, `optics`, `geometry`, `masking`, `workflow`).
+- **Interactive UI (`AppGuideScreen`):** Search bar with live query filtering across titles, summaries,
+  and pro tips; category chips; expandable masterclass cards with "Best Used For" highlights and pro tips.
+- **Contextual Help:** Every tool header and sheet provides direct 1-tap access to the specific
+  tool's masterclass.
+

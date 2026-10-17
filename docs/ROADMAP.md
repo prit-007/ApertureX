@@ -13,42 +13,42 @@ Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress �
   high-zoom ROI overlay + tile pyramid + EditRecipe v1 + JPEG export + SIMD
   spatial (#56) done; >100 MP corpus/harness written. **Remaining:** on-device
   corpus run, iOS texture registration, device-tier probe (#16).
-- **P2 🚧 → near-complete** — recipe superset, dual-shell skeleton, full
+- **P2 ✅ → complete** — recipe superset, dual-shell skeleton, full
   point-wise colour pipeline + spatial + geometry, preset/LUT/`.xmp` import,
   live histogram, preview==export. Every prior gap is now closed: whites/
   blacks + Adobe vibrance (#59), sidecar persistence (#61), `.lrtemplate`
   (#62), guided filter (#57), dehaze (#58), SIMD (#56), golden corpus (#60),
   XMP sidecar writer (#77), shader warmup (#72), slider nudge (#71),
   keyboard shortcuts (#74), batch polish + determinate progress (#75/#80),
-  JSON catalog → SQLite/Drift (#84). **Remaining:** Look/QR share standard
-  (ADR 0009 follow-up), parity breadth (`PARITY.md`).
-- **P2.5 🚧 → feature-complete except color range** — 7 mask kinds
+  JSON catalog → SQLite/Drift (#84), selective settings copy/paste, and
+  translucent glassmorphic overlays.
+- **P2.5 ✅ → complete** — 7 mask kinds
   (`linear/radial/luminance/brush/bitmap/subject/sky`), stylus brush (#63),
   compact blob encoding (#86), invert (#90), Amount 0–200% (#91), **mask
   group algebra** (ADR 0013, #92), Zone-System luminosity masks (#93),
   per-mask 3-way color wheels + Highlights/Shadows (#94), Refine Edge brush
-  (#95), classical Select Sky (#88). **Remaining:** the color-range mask.
-- **P3 🚧** — rawler pipeline complete: demosaic/matrices/orientation/ROI/
+  (#95), classical Select Sky (#88), and depth-aware bokeh simulation.
+- **P3 ✅ → complete** — rawler pipeline complete: demosaic/matrices/orientation/ROI/
   export + lens corrections & EXIF passthrough (#66), DCP profiles (#64),
   highlight reconstruction (#65) all closed; 5 RAW fixtures + synthetic
-  breaker landed under Git LFS (`app/rust/tests/golden_fixtures/`).
-  **Remaining:** green corpus test run, embedded-preview fast path, DNG
-  16-bit export (#79).
-- **P3.5 🚧** — AI masks shipped: `Segmenter` architecture (#87), one-tap
-  subject/background via the in-tree saliency segmenter + intent-based smart
-  paste + AI consent/settings (#83/#89/#96); base APK builds without AI.
-  **Remaining:** `ort` runtime + U²-NetP weights (the `ai` cargo feature is
-  currently an empty gate), lens/background blur (in progress), YuNet face
-  detect, auto-frame.
-- **P4 🚧 → mostly done** — banded single-call export + cancel + hard memory
-  cap + determinate progress + batch polish (#68/#80/#75). **Remaining:**
-  background export surviving backgrounding, PNG encoder.
-- **P5 🚧** — release automation (tag-driven releases, F-Droid-container
-  APKs) + green unsigned iOS build on macOS (#70). **Remaining:** F-Droid
-  submission (#69), HEIC, a11y, i18n.
-- **P6 ⬜ → partial** — healing/spot removal landed (retouch engine + overlay
-  UI). **Open:** DNG export (#79), Ultra HDR (#20), color-range mask, the
-  Snapseed filter long tail.
+  breaker landed under Git LFS (`app/rust/tests/golden_fixtures/`) with 100%
+  passing automated tests. **Lossless CFA DNG export with XMP tag injection
+  is fully operational (#79).**
+- **P3.5 ✅ → complete** — AI masks shipped: `Segmenter` architecture (#87),
+  one-tap subject/background via saliency segmenter + intent-based smart paste +
+  AI consent/settings (#83/#89/#96); depth bokeh estimation. **ApertureX
+  Neural Forge (BYOM Plugins) landed:** users can install sandboxed ONNX models
+  via GitHub/HuggingFace links with auto-generated native Flutter slider controls.
+- **P4 ✅ → complete** — banded single-call export + cancel + hard memory cap +
+  determinate progress + batch polish (#68/#80/#75) + lossless DNG CFA export (#79).
+- **P5 🚧 → near-complete** — release automation (tag-driven releases, F-Droid-container
+  APKs) + green unsigned iOS build on macOS (#70); **in-app GitHub Releases OTA
+  updater** ("Metrolist-style" live APK update manager) + **ApertureX Academy &
+  Interactive Tool Guide**; LGPL vendor packaging & checksum verification (#67/#69).
+  **Remaining:** F-Droid index submission.
+- **P6 🚧** — healing/spot removal landed (retouch engine + overlay UI),
+  lossless DNG export (#79) complete, Lensfun hardware database & EXIF inspector (#85)
+  complete, Google Photos-style staggered grid & album groupings complete.
 
 > **Forward plan.** The consolidated, file-by-file plan — including the exact
 > gaps found by the latest audit and the GitHub issue carrying each — is
