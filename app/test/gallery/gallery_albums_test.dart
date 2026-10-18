@@ -36,9 +36,11 @@ void main() {
 
   test('load populates albums and the recent stream', () async {
     await controller().load();
+    await Future.delayed(const Duration(milliseconds: 50));
     expect(state().assets.map((a) => a.id), ['r1', 'r2']);
     expect(state().albums.single.name, 'Camera');
     expect(state().title, 'Recent');
+    expect(state().albumsLoading, isFalse);
   });
 
   test('selectAlbum loads that album and clears selection', () async {

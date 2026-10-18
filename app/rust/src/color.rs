@@ -757,12 +757,15 @@ mod neon_impl {
             (vgetq_lane_f32(x, 2) + 0.055) * gamma_scale,
             (vgetq_lane_f32(x, 3) + 0.055) * gamma_scale,
         ];
-        let gamma = vld1q_f32([
-            g[0].powf(2.4),
-            g[1].powf(2.4),
-            g[2].powf(2.4),
-            g[3].powf(2.4),
-        ].as_ptr());
+        let gamma = vld1q_f32(
+            [
+                g[0].powf(2.4),
+                g[1].powf(2.4),
+                g[2].powf(2.4),
+                g[3].powf(2.4),
+            ]
+            .as_ptr(),
+        );
         vbslq_f32(mask, linear, gamma)
     }
 
@@ -785,12 +788,15 @@ mod neon_impl {
             vgetq_lane_f32(x, 2),
             vgetq_lane_f32(x, 3),
         ];
-        let gamma = vld1q_f32([
-            gamma_scale * g[0].powf(inv_24_val) - gamma_offset,
-            gamma_scale * g[1].powf(inv_24_val) - gamma_offset,
-            gamma_scale * g[2].powf(inv_24_val) - gamma_offset,
-            gamma_scale * g[3].powf(inv_24_val) - gamma_offset,
-        ].as_ptr());
+        let gamma = vld1q_f32(
+            [
+                gamma_scale * g[0].powf(inv_24_val) - gamma_offset,
+                gamma_scale * g[1].powf(inv_24_val) - gamma_offset,
+                gamma_scale * g[2].powf(inv_24_val) - gamma_offset,
+                gamma_scale * g[3].powf(inv_24_val) - gamma_offset,
+            ]
+            .as_ptr(),
+        );
         vbslq_f32(mask, linear, gamma)
     }
 
@@ -1919,10 +1925,7 @@ mod neon_tests {
             let linear = unsafe { neon_impl::neon_srgb_to_linear4(v) };
             let back = unsafe { neon_impl::neon_linear_to_srgb4(linear) };
             let got = vgetq_lane_f32(back, 0);
-            assert!(
-                (got - c).abs() < 1e-4,
-                "c={c}: round trip got {got}"
-            );
+            assert!((got - c).abs() < 1e-4, "c={c}: round trip got {got}");
         }
     }
 }

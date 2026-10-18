@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/log/activity_log.dart';
@@ -13,6 +15,7 @@ class GalleryState {
     this.albums = const [],
     this.selected = const {},
     this.loading = false,
+    this.albumsLoading = false,
     this.selectionMode = false,
     this.selectedAlbumId,
     this.permission,
@@ -23,6 +26,9 @@ class GalleryState {
   final List<GalleryAlbum> albums;
   final Set<String> selected;
   final bool loading;
+  /// True while album metadata is being fetched in the background after the
+  /// fast initial photo load (cold-launch optimization).
+  final bool albumsLoading;
   final bool selectionMode;
 
   /// null = the default "Recent / all" stream.
@@ -52,6 +58,7 @@ class GalleryState {
     List<GalleryAlbum>? albums,
     Set<String>? selected,
     bool? loading,
+    bool? albumsLoading,
     bool? selectionMode,
     Object? selectedAlbumId = _unset,
     GalleryPermission? permission,
@@ -61,6 +68,7 @@ class GalleryState {
     albums: albums ?? this.albums,
     selected: selected ?? this.selected,
     loading: loading ?? this.loading,
+    albumsLoading: albumsLoading ?? this.albumsLoading,
     selectionMode: selectionMode ?? this.selectionMode,
     selectedAlbumId: identical(selectedAlbumId, _unset)
         ? this.selectedAlbumId
@@ -83,31 +91,46 @@ class GalleryController extends Notifier<GalleryState> {
   GalleryState build() => const GalleryState();
 
   Future<void> load() async {
-    state = state.copyWith(loading: true, error: null);
+    state = state.copyWith(loading: true, error: null, albumsLoading: true);
     final source = ref.read(gallerySourceProvider);
     try {
       final permission = await source.requestPermission();
       if (!permission.canRead) {
         axLog(LogDomain.permission, 'Photo access denied', level: LogLevel.warning);
-        state = state.copyWith(loading: false, permission: permission);
+        state = state.copyWith(loading: false, albumsLoading: false, permission: permission);
         return;
       }
-      final results = await Future.wait([
-        source.listImages(albumId: state.selectedAlbumId),
-        source.listAlbums(),
-      ]);
-      final assets = results[0] as List<GalleryAsset>;
-      final albums = results[1] as List<GalleryAlbum>;
+
+      // Fast path: load page 0 of images first so the first photo appears
+      // in < 250 ms even on large libraries.
+      final assets = await source.listImages(albumId: state.selectedAlbumId);
       axLog(LogDomain.gallery, 'Loaded ${assets.length} photo(s)');
       state = state.copyWith(
         assets: assets,
-        albums: albums,
         loading: false,
-        permission: permission,
       );
+
+      // Background: load album metadata without blocking the first frame.
+      unawaited(_loadAlbums(permission));
     } catch (e) {
       axLog(LogDomain.gallery, 'Gallery load failed: $e', level: LogLevel.error);
-      state = state.copyWith(loading: false, error: '$e');
+      state = state.copyWith(loading: false, albumsLoading: false, error: '$e');
+    }
+  }
+
+  /// Loads album metadata in the background after the fast initial photo load.
+  /// Errors here don't clear already-loaded assets.
+  Future<void> _loadAlbums(GalleryPermission permission) async {
+    try {
+      final source = ref.read(gallerySourceProvider);
+      final albums = await source.listAlbums();
+      state = state.copyWith(albums: albums, albumsLoading: false);
+    } catch (e) {
+      axLog(LogDomain.gallery, 'Album load failed: $e', level: LogLevel.error);
+      state = state.copyWith(
+        albumsLoading: false,
+        error: state.error ?? '$e',
+      );
     }
   }
 
