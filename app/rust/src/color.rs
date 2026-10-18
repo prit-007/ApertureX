@@ -85,9 +85,11 @@ impl Default for GradeParams {
 /// sRGB EOTF: encoded `[0,1]` → linear `[0,1]`.
 pub fn srgb_to_linear(c: f32) -> f32 {
     #[cfg(target_arch = "aarch64")]
+    use std::arch::is_aarch64_feature_detected;
+    #[cfg(target_arch = "aarch64")]
     {
         if is_aarch64_feature_detected!("neon") {
-            return unsafe { neon_srgb_to_linear1(c) };
+            return unsafe { neon_impl::neon_srgb_to_linear1(c) };
         }
     }
     if c <= 0.04045 {
@@ -100,9 +102,11 @@ pub fn srgb_to_linear(c: f32) -> f32 {
 /// sRGB OETF: linear `[0,1]` → encoded `[0,1]`.
 pub fn linear_to_srgb(c: f32) -> f32 {
     #[cfg(target_arch = "aarch64")]
+    use std::arch::is_aarch64_feature_detected;
+    #[cfg(target_arch = "aarch64")]
     {
         if is_aarch64_feature_detected!("neon") {
-            return unsafe { neon_linear_to_srgb1(c) };
+            return unsafe { neon_impl::neon_linear_to_srgb1(c) };
         }
     }
     if c <= 0.0031308 {
@@ -733,7 +737,7 @@ pub fn export_cube_lut(
 
 /// NEON-optimized color math (aarch64 only).
 ///
-/// Processes 4 lanes at once using `f32x4` registers. Scalar callers
+/// Processes 4 lanes at once using `float32x4_t` registers. Scalar callers
 /// (`srgb_to_linear`, `linear_to_srgb`) dispatch to these on aarch64 when
 /// the `neon` target feature is detected.
 #[cfg(target_arch = "aarch64")]
@@ -741,11 +745,10 @@ mod neon_impl {
     use std::arch::aarch64::*;
 
     #[target_feature(enable = "neon")]
-    pub(crate) unsafe fn neon_srgb_to_linear4(x: f32x4) -> f32x4 {
+    pub(crate) unsafe fn neon_srgb_to_linear4(x: float32x4_t) -> float32x4_t {
         let threshold = vdupq_n_f32(0.04045);
         let linear_scale = vdupq_n_f32(1.0 / 12.92);
-        let gamma_offset = vdupq_n_f32(0.055 / 1.055);
-        let gamma_scale = vdupq_n_f32(1.0 / 1.055);
+        let gamma_scale = 1.0f32 / 1.055;
         let mask = vcleq_f32(x, threshold);
         // Linear branch: NEON multiply.
         let linear = vmulq_f32(x, linear_scale);
@@ -769,13 +772,12 @@ mod neon_impl {
     }
 
     #[target_feature(enable = "neon")]
-    pub(crate) unsafe fn neon_linear_to_srgb4(x: f32x4) -> f32x4 {
+    pub(crate) unsafe fn neon_linear_to_srgb4(x: float32x4_t) -> float32x4_t {
         let threshold = vdupq_n_f32(0.0031308);
         let linear_scale = vdupq_n_f32(12.92);
-        let gamma_scale = vdupq_n_f32(1.055);
-        let gamma_offset = vdupq_n_f32(0.055);
-        let inv_24 = vdupq_n_f32(1.0 / 2.4);
-        let inv_24_val = vgetq_lane_f32(inv_24, 0);
+        let gamma_scale = 1.055f32;
+        let gamma_offset = 0.055f32;
+        let inv_24_val = 1.0f32 / 2.4;
         let mask = vcleq_f32(x, threshold);
         // Linear branch: NEON multiply.
         let linear = vmulq_f32(x, linear_scale);
