@@ -738,9 +738,8 @@ pub fn export_cube_lut(
 /// the `neon` target feature is detected.
 #[cfg(target_arch = "aarch64")]
 mod neon_impl {
-    use super::*;
+    use std::arch::aarch64::*;
 
-    #[inline(always)]
     #[target_feature(enable = "neon")]
     pub(crate) unsafe fn neon_srgb_to_linear4(x: f32x4) -> f32x4 {
         let threshold = vdupq_n_f32(0.04045);
@@ -769,7 +768,6 @@ mod neon_impl {
         vbslq_f32(mask, linear, gamma)
     }
 
-    #[inline(always)]
     #[target_feature(enable = "neon")]
     pub(crate) unsafe fn neon_linear_to_srgb4(x: f32x4) -> f32x4 {
         let threshold = vdupq_n_f32(0.0031308);
@@ -801,12 +799,12 @@ mod neon_impl {
     }
 
     /// Scalar-lane entry points (called from public functions).
-    #[inline(always)]
+    #[target_feature(enable = "neon")]
     pub(crate) unsafe fn neon_srgb_to_linear1(c: f32) -> f32 {
         vgetq_lane_f32(neon_srgb_to_linear4(vdupq_n_f32(c)), 0)
     }
 
-    #[inline(always)]
+    #[target_feature(enable = "neon")]
     pub(crate) unsafe fn neon_linear_to_srgb1(c: f32) -> f32 {
         vgetq_lane_f32(neon_linear_to_srgb4(vdupq_n_f32(c)), 0)
     }
