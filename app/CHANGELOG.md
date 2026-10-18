@@ -4,6 +4,36 @@ All notable changes to ApertureX are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.2] - 2026-10-18
+
+Film simulation, lens corrections, depth-aware lens blur, retouch preview, and
+SIMD color math.
+
+### Added
+- **Film emulation physics**: halation, bloom, dust flecks, and scratches baked
+  into the CPU preview base (`filmHalation`, `filmBloom`, `filmDust`,
+  `filmScratches`) with radius/threshold controls; neutral-at-zero defaults.
+- **Shader Lab**: selectable film presets (`shaderLabPreset`) plus three
+  freeform user parameters (`shaderParam1..3`) and optional custom GLSL code.
+- **Lens profile corrections**: distortion and vignetting
+  (`profileCorrections`, `profileDistortion`, `profileVignetting`) in preview
+  base + export.
+- **Depth-aware lens blur**: bokeh shape, focal plane/range, and specular
+  highlight boost (`blurAmount`, `blurFocalPoint`, `blurFocalRange`,
+  `blurBokehShape`, `blurBokehBoost`).
+- **Retouch patches**: healing brush & clone stamp applied in the CPU preview
+  base (`retouchPatches`).
+- **zune-jpeg SIMD direct decode**: `preview_open_jpeg` decodes JPEG straight
+  into the resident store, eliminating the GPU readback stall and FFI copy;
+  `preview_get_source_rgba` retrieves the source buffer.
+- **NEON color math**: aarch64 `f32x4` SIMD kernels for sRGB↔linear conversion
+  on Android.
+
+### Fixed
+- Gallery: photos load immediately; album metadata deferred to background.
+- Gallery grid/export layout and batch-export determinate progress.
+- Rust `blur.rs` / `preview.rs` formatting (rustfmt).
+
 ## [0.2.0] - 2026-10-17
 
 Major milestone release: Look QR Open Standard, Pat David film emulation core,
