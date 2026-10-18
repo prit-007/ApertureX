@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aperturex/edit/adjustment_layer.dart';
 import 'package:aperturex/edit/library_catalog.dart';
 import 'package:aperturex/edit/recipe.dart';
@@ -14,6 +15,7 @@ import 'package:aperturex/gallery/gallery_controller.dart';
 import 'package:aperturex/gallery/gallery_export.dart';
 import 'package:aperturex/gallery/gallery_screen.dart';
 import 'package:aperturex/gallery/gallery_source.dart';
+import 'package:aperturex/settings/export_settings.dart';
 
 /// A valid 1×1 PNG so `Image.memory` decodes in tests.
 final Uint8List _png = Uint8List.fromList(const [
@@ -120,6 +122,65 @@ void main() {
 
       expect(result.exported, 3);
       expect(result.failed, const ['c']);
+    });
+  });
+
+  group('export settings', () {
+    test('fullExportOptions maps ExportSettings onto engine options', () {
+      const settings = ExportSettings(
+        quality: 71,
+        maxDim: 0,
+        colorSpace: 1,
+        ultraHdr: true,
+        hdrHeadroom: 3.0,
+      );
+
+      final opts = fullExportOptions(settings);
+
+      expect(opts.quality, 71);
+      expect(opts.maxDim, isNull, reason: 'maxDim 0 = original resolution');
+      expect(opts.colorSpace, 1);
+      expect(opts.ultraHdr, isTrue);
+      expect(opts.hdrHeadroom, 3.0);
+    });
+
+    test('fullExportOptions passes a non-zero maxDim through', () {
+      final opts = fullExportOptions(
+        const ExportSettings(quality: 85, maxDim: 2048),
+      );
+
+      expect(opts.quality, 85);
+      expect(opts.maxDim, 2048);
+    });
+
+    test('a bare GalleryExporter carries the default settings', () {
+      final exporter = GalleryExporter(FakeGallerySource());
+
+      expect(exporter.settings, const ExportSettings());
+    });
+
+    test('galleryExporterProvider restores persisted settings', () async {
+      SharedPreferences.setMockInitialValues({
+        'export_quality': 71,
+        'export_max_dim': 2048,
+        'export_color_space': 1,
+        'export_ultra_hdr': true,
+        'export_hdr_headroom': 3.5,
+      });
+      final container = ProviderContainer(
+        overrides: [gallerySourceProvider.overrideWithValue(_twoPhotos())],
+      );
+      addTearDown(container.dispose);
+
+      container.read(galleryExporterProvider);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      final settings = container.read(galleryExporterProvider).settings;
+      expect(settings.quality, 71);
+      expect(settings.maxDim, 2048);
+      expect(settings.colorSpace, 1);
+      expect(settings.ultraHdr, isTrue);
+      expect(settings.hdrHeadroom, 3.5);
     });
   });
 

@@ -12,43 +12,43 @@ class StaggeredPhotoGrid extends StatelessWidget {
     required this.itemCount,
     required this.itemBuilder,
     this.crossAxisCount,
+    this.childAspectRatio = 1.0,
     this.spacing = 2.0,
   });
 
   final int itemCount;
   final Widget Function(BuildContext context, int index) itemBuilder;
   final int? crossAxisCount;
+  final double childAspectRatio;
   final double spacing;
 
   @override
   Widget build(BuildContext context) {
     if (itemCount == 0) return const SliverFillRemaining(child: SizedBox.shrink());
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final cols = crossAxisCount ??
-            (constraints.maxWidth >= 900
-                ? 5
-                : constraints.maxWidth >= 600
-                    ? 4
-                    : 3);
+    final cols = crossAxisCount ?? _defaultCrossAxisCount(context);
 
-        return SliverGrid(
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: cols,
-            crossAxisSpacing: spacing,
-            mainAxisSpacing: spacing,
-            childAspectRatio: 1.0,
-          ),
-          delegate: SliverChildBuilderDelegate(
-            itemBuilder,
-            childCount: itemCount,
-            addAutomaticKeepAlives: true,
-            addRepaintBoundaries: true,
-            addSemanticIndexes: true,
-          ),
-        );
-      },
+    return SliverGrid(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: cols,
+        crossAxisSpacing: spacing,
+        mainAxisSpacing: spacing,
+        childAspectRatio: childAspectRatio,
+      ),
+      delegate: SliverChildBuilderDelegate(
+        itemBuilder,
+        childCount: itemCount,
+        addAutomaticKeepAlives: true,
+        addRepaintBoundaries: true,
+        addSemanticIndexes: true,
+      ),
     );
+  }
+
+  static int _defaultCrossAxisCount(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width >= 900) return 5;
+    if (width >= 600) return 4;
+    return 3;
   }
 }

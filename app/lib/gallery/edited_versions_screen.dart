@@ -167,6 +167,7 @@ class _EditedVersionsScreenState extends ConsumerState<EditedVersionsScreen> {
                           ),
                           sliver: StaggeredPhotoGrid(
                             crossAxisCount: 2,
+                            childAspectRatio: 0.35,
                             spacing: Insets.sm,
                             itemCount: entry.value.length,
                             itemBuilder: (context, index) {
