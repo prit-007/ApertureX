@@ -13,8 +13,10 @@ import '../../settings/app_settings.dart';
 import '../../settings/export_settings.dart';
 import '../../settings/settings_screen.dart';
 import '../../settings/shell_preference.dart';
-import '../../edit/active_image.dart';
+import '../../edit/active_image.dart'
+    show activeImageBytesProvider, currentEditingAssetProvider;
 import '../../edit/ai_mask_resolver.dart';
+import '../../gallery/gallery_controller.dart' show gallerySourceProvider;
 import 'app_sheet.dart';
 import 'copy_settings_sheet.dart';
 import 'looks_sheet.dart';
@@ -68,15 +70,25 @@ class SettingsSheet extends ConsumerWidget {
             const SizedBox(width: Insets.sm),
             Expanded(
               child: FilledButton.tonalIcon(
-                onPressed: () {
-                  final bytes = ref.read(activeImageBytesProvider);
+                onPressed: () async {
+                  final asset = ref.read(currentEditingAssetProvider);
+                  if (!context.mounted) return;
                   Navigator.of(context).maybePop();
-                  if (bytes != null) {
-                    ImageInfoSheet.show(
-                      context,
-                      imageBytes: bytes,
-                      recipe: ref.read(recipeControllerProvider).recipe,
-                    );
+                  if (!context.mounted) return;
+                  if (asset != null) {
+                    // Load the ORIGINAL image bytes (with EXIF), not the preview.
+                    final bytes = await ref
+                        .read(gallerySourceProvider)
+                        .loadImage(asset.id);
+                    if (!context.mounted) return;
+                    if (bytes.isNotEmpty) {
+                      ImageInfoSheet.show(
+                        context,
+                        imageBytes: bytes,
+                        recipe: ref.read(recipeControllerProvider).recipe,
+                        asset: asset,
+                      );
+                    }
                   }
                 },
                 icon: const Icon(Icons.info_outline, size: 18),

@@ -848,6 +848,7 @@ class AxEngine {
       blurFocalRange: blur.focalRange,
       blurBokehShape: blur.bokehShape.index,
       blurBokehBoost: blur.bokehBoost,
+      blurBackgroundBlur: blur.blurBackgroundBlur,
       quality: quality,
       maxDim: maxDim ?? 0,
       bandRows: 256,

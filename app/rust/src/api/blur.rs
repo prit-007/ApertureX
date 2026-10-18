@@ -11,6 +11,7 @@ pub struct ApiLensBlurParams {
     pub focal_range: f32,
     pub bokeh_shape_index: u32,
     pub bokeh_boost: f32,
+    pub background_blur: bool,
 }
 
 /// Applies depth-guided lens blur with synthetic bokeh.
@@ -36,6 +37,7 @@ pub fn blur_apply(
         focal_range: params.focal_range,
         bokeh_shape: shape,
         bokeh_boost: params.bokeh_boost,
+        background_blur: params.background_blur,
     };
 
     blur::apply_lens_blur(

@@ -63,6 +63,7 @@ enum Parameter {
   blurFocalPoint,
   blurFocalRange,
   blurBokehBoost,
+  blurBackgroundBlur,
   // Film Emulation
   filmHalation,
   filmHalationRadius,
@@ -464,6 +465,14 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     min: 0,
     max: 1,
   ),
+  Parameter.blurBackgroundBlur: ParameterSpec(
+    id: Parameter.blurBackgroundBlur,
+    section: RecipeSection.blur,
+    label: 'Background Blur (AI)',
+    min: 0,
+    max: 1,
+    neutral: 0,
+  ),
   // Film Emulation
   Parameter.filmHalation: ParameterSpec(
     id: Parameter.filmHalation,
@@ -606,6 +615,7 @@ double valueOf(EditRecipe recipe, Parameter p) => switch (p) {
   Parameter.blurFocalPoint => recipe.blurFocalPoint,
   Parameter.blurFocalRange => recipe.blurFocalRange,
   Parameter.blurBokehBoost => recipe.blurBokehBoost,
+  Parameter.blurBackgroundBlur => recipe.blurBackgroundBlur ? 1.0 : 0.0,
   Parameter.filmHalation => recipe.filmHalation,
   Parameter.filmHalationRadius => recipe.filmHalationRadius,
   Parameter.filmHalationThreshold => recipe.filmHalationThreshold,
@@ -670,6 +680,8 @@ EditRecipe withValue(EditRecipe recipe, Parameter p, double value) {
     Parameter.blurFocalPoint => recipe.copyWith(blurFocalPoint: v),
     Parameter.blurFocalRange => recipe.copyWith(blurFocalRange: v),
     Parameter.blurBokehBoost => recipe.copyWith(blurBokehBoost: v),
+    Parameter.blurBackgroundBlur =>
+      recipe.copyWith(blurBackgroundBlur: v > 0.5),
     Parameter.filmHalation => recipe.copyWith(filmHalation: v),
     Parameter.filmHalationRadius => recipe.copyWith(filmHalationRadius: v),
     Parameter.filmHalationThreshold => recipe.copyWith(filmHalationThreshold: v),
@@ -732,7 +744,7 @@ bool isSectionModified(EditRecipe recipe, RecipeSection section) {
           !recipe.greenCurve.isIdentity ||
           !recipe.blueCurve.isIdentity,
     RecipeSection.retouch => recipe.retouchPatches.isNotEmpty,
-    RecipeSection.blur => recipe.blurEnabled || recipe.blurAmount != 0,
+    RecipeSection.blur => recipe.blurEnabled || recipe.blurAmount != 0 || recipe.blurBackgroundBlur,
     RecipeSection.effects =>
       recipe.clarity != 0 ||
           recipe.texture != 0 ||

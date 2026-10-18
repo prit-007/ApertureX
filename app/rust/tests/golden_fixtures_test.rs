@@ -198,6 +198,7 @@ fn test_golden_fixture_image_2_2_rw2() {
         focal_range: 0.2,
         bokeh_shape: BokehShape::Hexagon,
         bokeh_boost: 0.2,
+        background_blur: false,
     };
     let blurred = apply_lens_blur(&roi.rgba, 128, 128, blur_params, Some(&depth_map), 36);
     assert_eq!(blurred.len(), 128 * 128 * 4);

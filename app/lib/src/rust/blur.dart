@@ -28,6 +28,10 @@ class LensBlurParams {
   /// Specular highlight boost (`0..1`).
   final double bokehBoost;
 
+  /// When true, applies background-only blur using AI subject segmentation:
+  /// the subject stays sharp while the background is blurred.
+  final bool backgroundBlur;
+
   const LensBlurParams({
     required this.enabled,
     required this.amount,
@@ -35,6 +39,7 @@ class LensBlurParams {
     required this.focalRange,
     required this.bokehShape,
     required this.bokehBoost,
+    required this.backgroundBlur,
   });
 
   @override
@@ -44,7 +49,8 @@ class LensBlurParams {
       focalPoint.hashCode ^
       focalRange.hashCode ^
       bokehShape.hashCode ^
-      bokehBoost.hashCode;
+      bokehBoost.hashCode ^
+      backgroundBlur.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -56,5 +62,6 @@ class LensBlurParams {
           focalPoint == other.focalPoint &&
           focalRange == other.focalRange &&
           bokehShape == other.bokehShape &&
-          bokehBoost == other.bokehBoost;
+          bokehBoost == other.bokehBoost &&
+          backgroundBlur == other.backgroundBlur;
 }

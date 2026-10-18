@@ -385,6 +385,9 @@ class ExportSpec {
 
   /// Specular highlight boost `0..1`.
   final double blurBokehBoost;
+
+  /// When true, applies background-only blur (subject stays sharp).
+  final bool blurBackgroundBlur;
   final int quality;
 
   /// Longest-side cap for the export (0 = full resolution).
@@ -465,6 +468,7 @@ class ExportSpec {
     required this.blurFocalRange,
     required this.blurBokehShape,
     required this.blurBokehBoost,
+    required this.blurBackgroundBlur,
     required this.quality,
     required this.maxDim,
     required this.bandRows,
@@ -539,6 +543,7 @@ class ExportSpec {
       blurFocalRange.hashCode ^
       blurBokehShape.hashCode ^
       blurBokehBoost.hashCode ^
+      blurBackgroundBlur.hashCode ^
       quality.hashCode ^
       maxDim.hashCode ^
       bandRows.hashCode ^
@@ -611,6 +616,7 @@ class ExportSpec {
           blurFocalRange == other.blurFocalRange &&
           blurBokehShape == other.blurBokehShape &&
           blurBokehBoost == other.blurBokehBoost &&
+          blurBackgroundBlur == other.blurBackgroundBlur &&
           quality == other.quality &&
           maxDim == other.maxDim &&
           bandRows == other.bandRows &&

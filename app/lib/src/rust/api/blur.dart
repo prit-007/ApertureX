@@ -31,6 +31,7 @@ class ApiLensBlurParams {
   final double focalRange;
   final int bokehShapeIndex;
   final double bokehBoost;
+  final bool backgroundBlur;
 
   const ApiLensBlurParams({
     required this.enabled,
@@ -39,6 +40,7 @@ class ApiLensBlurParams {
     required this.focalRange,
     required this.bokehShapeIndex,
     required this.bokehBoost,
+    required this.backgroundBlur,
   });
 
   @override
@@ -48,7 +50,8 @@ class ApiLensBlurParams {
       focalPoint.hashCode ^
       focalRange.hashCode ^
       bokehShapeIndex.hashCode ^
-      bokehBoost.hashCode;
+      bokehBoost.hashCode ^
+      backgroundBlur.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -60,5 +63,6 @@ class ApiLensBlurParams {
           focalPoint == other.focalPoint &&
           focalRange == other.focalRange &&
           bokehShapeIndex == other.bokehShapeIndex &&
-          bokehBoost == other.bokehBoost;
+          bokehBoost == other.bokehBoost &&
+          backgroundBlur == other.backgroundBlur;
 }

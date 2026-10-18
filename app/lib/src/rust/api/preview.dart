@@ -185,6 +185,9 @@ class PreviewBaseSpec {
   /// Specular highlight boost `0..1`.
   final double blurBokehBoost;
 
+  /// When true, applies background-only blur (subject stays sharp).
+  final bool blurBackgroundBlur;
+
   const PreviewBaseSpec({
     required this.flipH,
     required this.flipV,
@@ -240,6 +243,7 @@ class PreviewBaseSpec {
     required this.blurFocalRange,
     required this.blurBokehShape,
     required this.blurBokehBoost,
+    required this.blurBackgroundBlur,
   });
 
   /// Maps the flat blur fields onto the engine's [`crate::blur::LensBlurParams`].
@@ -301,7 +305,8 @@ class PreviewBaseSpec {
       blurFocalPoint.hashCode ^
       blurFocalRange.hashCode ^
       blurBokehShape.hashCode ^
-      blurBokehBoost.hashCode;
+      blurBokehBoost.hashCode ^
+      blurBackgroundBlur.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -361,7 +366,8 @@ class PreviewBaseSpec {
           blurFocalPoint == other.blurFocalPoint &&
           blurFocalRange == other.blurFocalRange &&
           blurBokehShape == other.blurBokehShape &&
-          blurBokehBoost == other.blurBokehBoost;
+          blurBokehBoost == other.blurBokehBoost &&
+          blurBackgroundBlur == other.blurBackgroundBlur;
 }
 
 /// Dimensions of the frame a [`preview_render`] just wrote into the bound

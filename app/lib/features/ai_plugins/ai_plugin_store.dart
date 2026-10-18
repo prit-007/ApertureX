@@ -77,12 +77,15 @@ class AiPluginState {
     required this.communityPlugins,
     this.downloadingId,
     this.downloadProgress = 0.0,
+    this.activePluginPerTask = const {},
   });
 
   final List<AiPluginModel> installedPlugins;
   final List<AiPluginModel> communityPlugins;
   final String? downloadingId;
   final double downloadProgress;
+  /// Maps [AiTask] to the active plugin id for that task.
+  final Map<AiTask, String> activePluginPerTask;
 
   AiPluginState copyWith({
     List<AiPluginModel>? installedPlugins,
@@ -90,12 +93,14 @@ class AiPluginState {
     String? downloadingId,
     double? downloadProgress,
     bool clearDownloading = false,
+    Map<AiTask, String>? activePluginPerTask,
   }) {
     return AiPluginState(
       installedPlugins: installedPlugins ?? this.installedPlugins,
       communityPlugins: communityPlugins ?? this.communityPlugins,
       downloadingId: clearDownloading ? null : (downloadingId ?? this.downloadingId),
       downloadProgress: downloadProgress ?? this.downloadProgress,
+      activePluginPerTask: activePluginPerTask ?? this.activePluginPerTask,
     );
   }
 }
@@ -104,24 +109,25 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
   @override
   AiPluginState build() {
     _loadFromPrefs();
-    return const AiPluginState(
-      installedPlugins: [
-        // Built-in default Saliency Segmenter
-        AiPluginModel(
-          id: 'builtin-saliency',
-          name: 'ApertureX On-Device Saliency',
-          description: 'Default zero-allocation local saliency segmenter for subject masking.',
-          author: 'ApertureX Core',
-          task: AiTask.subjectSegmentation,
-          sourceUrl: 'https://github.com/prit-007/ApertureX',
-          inputWidth: 512,
-          inputHeight: 512,
-          isBuiltIn: true,
-          isInstalled: true,
-          isEnabled: true,
-        ),
-      ],
+    final builtin = AiPluginModel(
+      id: 'builtin-saliency',
+      name: 'ApertureX On-Device Saliency',
+      description: 'Default zero-allocation local saliency segmenter for subject masking.',
+      author: 'ApertureX Core',
+      task: AiTask.subjectSegmentation,
+      sourceUrl: 'https://github.com/prit-007/ApertureX',
+      inputWidth: 512,
+      inputHeight: 512,
+      isBuiltIn: true,
+      isInstalled: true,
+      isEnabled: true,
+    );
+    final activeMap = <AiTask, String>{};
+    activeMap[AiTask.subjectSegmentation] = 'builtin-saliency';
+    return AiPluginState(
+      installedPlugins: [builtin],
       communityPlugins: kCommunityAiPlugins,
+      activePluginPerTask: activeMap,
     );
   }
 
@@ -139,7 +145,30 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
           list.insert(0, state.installedPlugins.first);
         }
 
-        state = state.copyWith(installedPlugins: list);
+        // Load active plugin per task from prefs
+        final activeStr = prefs.getString('aperturex_active_ai_plugin_per_task');
+        final activeMap = <AiTask, String>{};
+        if (activeStr != null && activeStr.isNotEmpty) {
+          for (final entry in activeStr.split(',')) {
+            final parts = entry.split(':');
+            if (parts.length == 2) {
+              final taskIndex = int.tryParse(parts[0]);
+              final pluginId = parts[1];
+              if (taskIndex != null) {
+                final task = AiTask.values.firstWhere(
+                  (t) => t.index == taskIndex,
+                  orElse: () => AiTask.subjectSegmentation,
+                );
+                activeMap[task] = pluginId;
+              }
+            }
+          }
+        }
+
+        state = state.copyWith(
+          installedPlugins: list,
+          activePluginPerTask: activeMap,
+        );
       }
     } catch (_) {}
   }
@@ -149,6 +178,10 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
       final prefs = await SharedPreferences.getInstance();
       final list = state.installedPlugins.map((p) => p.toJson()).toList();
       await prefs.setString(_kPrefsAiPluginsKey, jsonEncode(list));
+      final activeMap = state.activePluginPerTask.entries
+          .map((e) => '${e.key.index}:${e.value}')
+          .join(',');
+      await prefs.setString('aperturex_active_ai_plugin_per_task', activeMap);
     } catch (_) {}
   }
 
@@ -226,7 +259,38 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
 
   /// Retrieves the active plugin for a given task.
   AiPluginModel? getActivePluginForTask(AiTask task) {
-    return state.installedPlugins.where((p) => p.task == task && p.isEnabled && p.isInstalled).firstOrNull;
+    final activeId = state.activePluginPerTask[task];
+    if (activeId != null) {
+      return state.installedPlugins.firstWhere(
+        (p) => p.id == activeId && p.isEnabled && p.isInstalled,
+        orElse: () => state.installedPlugins.firstWhere(
+          (p) => p.task == task && p.isEnabled && p.isInstalled,
+          orElse: () => state.installedPlugins.first,
+        ),
+      );
+    }
+    // Fallback: first enabled+installed plugin for this task.
+    try {
+      return state.installedPlugins.firstWhere(
+        (p) => p.task == task && p.isEnabled && p.isInstalled,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Sets [pluginId] as the active plugin for [task]. Returns false if no
+  /// installed+enabled plugin with [pluginId] exists for [task].
+  Future<bool> setActivePluginForTask(AiTask task, String pluginId) async {
+    final exists = state.installedPlugins.any(
+      (p) => p.id == pluginId && p.task == task && p.isEnabled && p.isInstalled,
+    );
+    if (!exists) return false;
+    final next = Map<AiTask, String>.from(state.activePluginPerTask);
+    next[task] = pluginId;
+    state = state.copyWith(activePluginPerTask: next);
+    await _saveToPrefs();
+    return true;
   }
 }
 

@@ -3740,8 +3740,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ApiLensBlurParams dco_decode_api_lens_blur_params(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
     return ApiLensBlurParams(
       enabled: dco_decode_bool(arr[0]),
       amount: dco_decode_f_32(arr[1]),
@@ -3749,6 +3749,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       focalRange: dco_decode_f_32(arr[3]),
       bokehShapeIndex: dco_decode_u_32(arr[4]),
       bokehBoost: dco_decode_f_32(arr[5]),
+      backgroundBlur: dco_decode_bool(arr[6]),
     );
   }
 
@@ -4054,8 +4055,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ExportSpec dco_decode_export_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 66)
-      throw Exception('unexpected arr length: expect 66 but see ${arr.length}');
+    if (arr.length != 67)
+      throw Exception('unexpected arr length: expect 67 but see ${arr.length}');
     return ExportSpec(
       flipH: dco_decode_bool(arr[0]),
       flipV: dco_decode_bool(arr[1]),
@@ -4116,13 +4117,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       blurFocalRange: dco_decode_f_32(arr[56]),
       blurBokehShape: dco_decode_u_8(arr[57]),
       blurBokehBoost: dco_decode_f_32(arr[58]),
-      quality: dco_decode_u_8(arr[59]),
-      maxDim: dco_decode_u_32(arr[60]),
-      bandRows: dco_decode_u_32(arr[61]),
-      cancelToken: dco_decode_u_64(arr[62]),
-      colorSpace: dco_decode_u_32(arr[63]),
-      ultraHdr: dco_decode_bool(arr[64]),
-      hdrHeadroom: dco_decode_f_32(arr[65]),
+      blurBackgroundBlur: dco_decode_bool(arr[59]),
+      quality: dco_decode_u_8(arr[60]),
+      maxDim: dco_decode_u_32(arr[61]),
+      bandRows: dco_decode_u_32(arr[62]),
+      cancelToken: dco_decode_u_64(arr[63]),
+      colorSpace: dco_decode_u_32(arr[64]),
+      ultraHdr: dco_decode_bool(arr[65]),
+      hdrHeadroom: dco_decode_f_32(arr[66]),
     );
   }
 
@@ -4218,8 +4220,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   LensBlurParams dco_decode_lens_blur_params(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
     return LensBlurParams(
       enabled: dco_decode_bool(arr[0]),
       amount: dco_decode_f_32(arr[1]),
@@ -4227,6 +4229,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       focalRange: dco_decode_f_32(arr[3]),
       bokehShape: dco_decode_bokeh_shape(arr[4]),
       bokehBoost: dco_decode_f_32(arr[5]),
+      backgroundBlur: dco_decode_bool(arr[6]),
     );
   }
 
@@ -4385,8 +4388,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PreviewBaseSpec dco_decode_preview_base_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 54)
-      throw Exception('unexpected arr length: expect 54 but see ${arr.length}');
+    if (arr.length != 55)
+      throw Exception('unexpected arr length: expect 55 but see ${arr.length}');
     return PreviewBaseSpec(
       flipH: dco_decode_bool(arr[0]),
       flipV: dco_decode_bool(arr[1]),
@@ -4442,6 +4445,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       blurFocalRange: dco_decode_f_32(arr[51]),
       blurBokehShape: dco_decode_u_8(arr[52]),
       blurBokehBoost: dco_decode_f_32(arr[53]),
+      blurBackgroundBlur: dco_decode_bool(arr[54]),
     );
   }
 
@@ -4543,6 +4547,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_focalRange = sse_decode_f_32(deserializer);
     var var_bokehShapeIndex = sse_decode_u_32(deserializer);
     var var_bokehBoost = sse_decode_f_32(deserializer);
+    var var_backgroundBlur = sse_decode_bool(deserializer);
     return ApiLensBlurParams(
       enabled: var_enabled,
       amount: var_amount,
@@ -4550,6 +4555,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       focalRange: var_focalRange,
       bokehShapeIndex: var_bokehShapeIndex,
       bokehBoost: var_bokehBoost,
+      backgroundBlur: var_backgroundBlur,
     );
   }
 
@@ -4970,6 +4976,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_blurFocalRange = sse_decode_f_32(deserializer);
     var var_blurBokehShape = sse_decode_u_8(deserializer);
     var var_blurBokehBoost = sse_decode_f_32(deserializer);
+    var var_blurBackgroundBlur = sse_decode_bool(deserializer);
     var var_quality = sse_decode_u_8(deserializer);
     var var_maxDim = sse_decode_u_32(deserializer);
     var var_bandRows = sse_decode_u_32(deserializer);
@@ -5037,6 +5044,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       blurFocalRange: var_blurFocalRange,
       blurBokehShape: var_blurBokehShape,
       blurBokehBoost: var_blurBokehBoost,
+      blurBackgroundBlur: var_blurBackgroundBlur,
       quality: var_quality,
       maxDim: var_maxDim,
       bandRows: var_bandRows,
@@ -5150,6 +5158,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_focalRange = sse_decode_f_32(deserializer);
     var var_bokehShape = sse_decode_bokeh_shape(deserializer);
     var var_bokehBoost = sse_decode_f_32(deserializer);
+    var var_backgroundBlur = sse_decode_bool(deserializer);
     return LensBlurParams(
       enabled: var_enabled,
       amount: var_amount,
@@ -5157,6 +5166,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       focalRange: var_focalRange,
       bokehShape: var_bokehShape,
       bokehBoost: var_bokehBoost,
+      backgroundBlur: var_backgroundBlur,
     );
   }
 
@@ -5455,6 +5465,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_blurFocalRange = sse_decode_f_32(deserializer);
     var var_blurBokehShape = sse_decode_u_8(deserializer);
     var var_blurBokehBoost = sse_decode_f_32(deserializer);
+    var var_blurBackgroundBlur = sse_decode_bool(deserializer);
     return PreviewBaseSpec(
       flipH: var_flipH,
       flipV: var_flipV,
@@ -5510,6 +5521,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       blurFocalRange: var_blurFocalRange,
       blurBokehShape: var_blurBokehShape,
       blurBokehBoost: var_blurBokehBoost,
+      blurBackgroundBlur: var_blurBackgroundBlur,
     );
   }
 
@@ -5615,6 +5627,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.focalRange, serializer);
     sse_encode_u_32(self.bokehShapeIndex, serializer);
     sse_encode_f_32(self.bokehBoost, serializer);
+    sse_encode_bool(self.backgroundBlur, serializer);
   }
 
   @protected
@@ -5966,6 +5979,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.blurFocalRange, serializer);
     sse_encode_u_8(self.blurBokehShape, serializer);
     sse_encode_f_32(self.blurBokehBoost, serializer);
+    sse_encode_bool(self.blurBackgroundBlur, serializer);
     sse_encode_u_8(self.quality, serializer);
     sse_encode_u_32(self.maxDim, serializer);
     sse_encode_u_32(self.bandRows, serializer);
@@ -6058,6 +6072,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.focalRange, serializer);
     sse_encode_bokeh_shape(self.bokehShape, serializer);
     sse_encode_f_32(self.bokehBoost, serializer);
+    sse_encode_bool(self.backgroundBlur, serializer);
   }
 
   @protected
@@ -6354,6 +6369,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.blurFocalRange, serializer);
     sse_encode_u_8(self.blurBokehShape, serializer);
     sse_encode_f_32(self.blurBokehBoost, serializer);
+    sse_encode_bool(self.blurBackgroundBlur, serializer);
   }
 
   @protected

@@ -308,6 +308,7 @@ mod tests {
             blur_focal_range: 0.2,
             blur_bokeh_shape: 0,
             blur_bokeh_boost: 0.0,
+            blur_background_blur: false,
         }
     }
 

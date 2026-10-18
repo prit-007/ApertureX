@@ -24,6 +24,15 @@ class SpatialSpec {
     this.sharpenMasking = 0,
     this.denoiseLuma = 0,
     this.denoiseChroma = 0,
+    // Film emulation parameters (halation, bloom, dust, scratches).
+    this.filmHalation = 0,
+    this.filmHalationRadius = 0.5,
+    this.filmHalationThreshold = 0.8,
+    this.filmBloom = 0,
+    this.filmBloomRadius = 0.5,
+    this.filmBloomThreshold = 0.75,
+    this.filmDust = 0,
+    this.filmScratches = 0,
   });
 
   final double shadows;
@@ -45,6 +54,15 @@ class SpatialSpec {
   final double sharpenMasking;
   final double denoiseLuma;
   final double denoiseChroma;
+  // Film emulation parameters.
+  final double filmHalation;
+  final double filmHalationRadius;
+  final double filmHalationThreshold;
+  final double filmBloom;
+  final double filmBloomRadius;
+  final double filmBloomThreshold;
+  final double filmDust;
+  final double filmScratches;
 
   bool get isNeutral =>
       shadows == 0 &&
@@ -56,7 +74,11 @@ class SpatialSpec {
       grain == 0 &&
       sharpen == 0 &&
       denoiseLuma == 0 &&
-      denoiseChroma == 0;
+      denoiseChroma == 0 &&
+      filmHalation == 0 &&
+      filmBloom == 0 &&
+      filmDust == 0 &&
+      filmScratches == 0;
 
   factory SpatialSpec.fromRecipe(EditRecipe recipe) => SpatialSpec(
     shadows: recipe.shadows,
@@ -78,5 +100,13 @@ class SpatialSpec {
     sharpenMasking: recipe.sharpenMasking,
     denoiseLuma: recipe.denoiseLuma,
     denoiseChroma: recipe.denoiseChroma,
+    filmHalation: recipe.filmHalation,
+    filmHalationRadius: recipe.filmHalationRadius,
+    filmHalationThreshold: recipe.filmHalationThreshold,
+    filmBloom: recipe.filmBloom,
+    filmBloomRadius: recipe.filmBloomRadius,
+    filmBloomThreshold: recipe.filmBloomThreshold,
+    filmDust: recipe.filmDust,
+    filmScratches: recipe.filmScratches,
   );
 }

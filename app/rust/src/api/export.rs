@@ -117,6 +117,8 @@ pub struct ExportSpec {
     pub blur_bokeh_shape: u8,
     /// Specular highlight boost `0..1`.
     pub blur_bokeh_boost: f32,
+    /// When true, applies background-only blur (subject stays sharp).
+    pub blur_background_blur: bool,
     // encode
     pub quality: u8,
     /// Longest-side cap for the export (0 = full resolution).
@@ -143,6 +145,7 @@ impl ExportSpec {
             self.blur_focal_range,
             self.blur_bokeh_shape,
             self.blur_bokeh_boost,
+            self.blur_background_blur,
         )
     }
 
@@ -665,6 +668,7 @@ mod tests {
             blur_focal_range: 0.2,
             blur_bokeh_shape: 0,
             blur_bokeh_boost: 0.0,
+            blur_background_blur: false,
             quality: 90,
             max_dim: 0,
             band_rows: 16,
@@ -699,6 +703,7 @@ mod tests {
                 focal_range: 0.25,
                 bokeh_shape: crate::blur::BokehShape::Hexagon,
                 bokeh_boost: 0.4,
+                background_blur: false,
             }
         );
     }

@@ -90,6 +90,8 @@ pub struct PreviewBaseSpec {
     pub blur_bokeh_shape: u8,
     /// Specular highlight boost `0..1`.
     pub blur_bokeh_boost: f32,
+    /// When true, applies background-only blur (subject stays sharp).
+    pub blur_background_blur: bool,
 }
 
 impl PreviewBaseSpec {
@@ -102,6 +104,7 @@ impl PreviewBaseSpec {
             self.blur_focal_range,
             self.blur_bokeh_shape,
             self.blur_bokeh_boost,
+            self.blur_background_blur,
         )
     }
 }
@@ -285,6 +288,7 @@ mod tests {
             blur_focal_range: 0.2,
             blur_bokeh_shape: 0,
             blur_bokeh_boost: 0.0,
+            blur_background_blur: false,
         }
     }
 
@@ -415,6 +419,7 @@ mod tests {
             blur_focal_range: 0.2,
             blur_bokeh_shape: 0,
             blur_bokeh_boost: 0.0,
+            blur_background_blur: false,
         };
         let h = preview_open(src, 8, 6);
         let fused = preview_base(h, spec, Vec::new(), patches).unwrap();

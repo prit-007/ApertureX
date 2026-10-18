@@ -107,6 +107,7 @@ class EditRecipe {
     this.blurFocalRange = 0.2,
     this.blurBokehShape = 0,
     this.blurBokehBoost = 0,
+    this.blurBackgroundBlur = false,
     // Film emulation physics.
     this.filmHalation = 0,
     this.filmHalationRadius = 0.5,
@@ -236,6 +237,7 @@ class EditRecipe {
   final double blurFocalRange;
   final int blurBokehShape;
   final double blurBokehBoost;
+  final bool blurBackgroundBlur;
   // Film emulation physics.
   final double filmHalation;
   final double filmHalationRadius;
@@ -334,6 +336,7 @@ class EditRecipe {
     double? blurFocalRange,
     int? blurBokehShape,
     double? blurBokehBoost,
+    bool? blurBackgroundBlur,
     double? filmHalation,
     double? filmHalationRadius,
     double? filmHalationThreshold,
@@ -422,6 +425,7 @@ class EditRecipe {
       blurFocalRange: blurFocalRange ?? this.blurFocalRange,
       blurBokehShape: blurBokehShape ?? this.blurBokehShape,
       blurBokehBoost: blurBokehBoost ?? this.blurBokehBoost,
+      blurBackgroundBlur: blurBackgroundBlur ?? this.blurBackgroundBlur,
       filmHalation: filmHalation ?? this.filmHalation,
       filmHalationRadius: filmHalationRadius ?? this.filmHalationRadius,
       filmHalationThreshold: filmHalationThreshold ?? this.filmHalationThreshold,
@@ -512,6 +516,7 @@ class EditRecipe {
     'blurFocalRange': blurFocalRange,
     'blurBokehShape': blurBokehShape,
     'blurBokehBoost': blurBokehBoost,
+    'blurBackgroundBlur': blurBackgroundBlur,
     'filmHalation': filmHalation,
     'filmHalationRadius': filmHalationRadius,
     'filmHalationThreshold': filmHalationThreshold,
@@ -634,6 +639,7 @@ class EditRecipe {
       blurFocalRange: (json['blurFocalRange'] as num?)?.toDouble() ?? 0.2,
       blurBokehShape: (json['blurBokehShape'] as num?)?.toInt() ?? 0,
       blurBokehBoost: asDouble('blurBokehBoost'),
+      blurBackgroundBlur: json['blurBackgroundBlur'] as bool? ?? false,
       filmHalation: asDouble('filmHalation'),
       filmHalationRadius:
           (json['filmHalationRadius'] as num?)?.toDouble() ?? 0.5,
@@ -728,6 +734,7 @@ class EditRecipe {
       other.blurFocalRange == blurFocalRange &&
       other.blurBokehShape == blurBokehShape &&
       other.blurBokehBoost == blurBokehBoost &&
+      other.blurBackgroundBlur == blurBackgroundBlur &&
       other.filmHalation == filmHalation &&
       other.filmHalationRadius == filmHalationRadius &&
       other.filmHalationThreshold == filmHalationThreshold &&
@@ -814,6 +821,7 @@ class EditRecipe {
       blurFocalRange,
       blurBokehShape,
       blurBokehBoost,
+      blurBackgroundBlur,
     ),
     Object.hash(
       filmHalation,

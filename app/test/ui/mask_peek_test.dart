@@ -5,7 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:aperturex/edit/parameter.dart';
 import 'package:aperturex/ui/common/parameter_control.dart';
-import 'package:aperturex/viewport/mask_peek.dart';
+import 'package:aperturex/viewport/mask_peek.dart'
+    show maskPeekParameters, maskPeekProvider, rubyPeeksEnabledProvider;
 
 Widget _harness(ProviderContainer container, Parameter parameter) =>
     UncontrolledProviderScope(
@@ -60,6 +61,25 @@ void main() {
   testWidgets('dragging a detail slider peeks the mask and releases it', (
     tester,
   ) async {
+    // Ruby peeks default off → dragging does NOT peek.
+    await tester.pumpWidget(_harness(container, Parameter.sharpen));
+    expect(container.read(maskPeekProvider), isFalse);
+
+    final rect = tester.getRect(find.byKey(const Key('param-track-sharpen')));
+    final gesture = await tester.startGesture(rect.center);
+    await tester.pump();
+    await gesture.moveBy(const Offset(40, 0));
+    await tester.pump();
+    expect(container.read(maskPeekProvider), isFalse);
+
+    await gesture.up();
+    await tester.pump();
+    expect(container.read(maskPeekProvider), isFalse);
+    await tester.pump(const Duration(milliseconds: 400));
+  });
+
+  testWidgets('dragging peeks when ruby peeks enabled', (tester) async {
+    container.read(rubyPeeksEnabledProvider.notifier).set(true);
     await tester.pumpWidget(_harness(container, Parameter.sharpen));
     expect(container.read(maskPeekProvider), isFalse);
 

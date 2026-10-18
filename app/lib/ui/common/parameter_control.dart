@@ -420,8 +420,10 @@ class _TrackState extends ConsumerState<_Track> {
                 ..reset()
                 ..start();
               ref.read(editActivityProvider.notifier).begin();
-              // Detail sliders auto-peek their mask view while held (#27).
-              if (maskPeekParameters.contains(widget.parameter)) {
+              // Detail sliders auto-peek their mask view while held (#27),
+              // but only when Ruby Peeks is enabled.
+              if (maskPeekParameters.contains(widget.parameter) &&
+                  ref.read(rubyPeeksEnabledProvider)) {
                 ref.read(maskPeekProvider.notifier).set(true);
               }
             },

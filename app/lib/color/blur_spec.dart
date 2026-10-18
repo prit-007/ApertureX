@@ -21,6 +21,7 @@ class LensBlurSpec {
     this.focalRange = 0.2,
     this.bokehShape = BokehShape.circle,
     this.bokehBoost = 0.0,
+    this.blurBackgroundBlur = false,
   });
 
   /// Whether lens blur is engaged.
@@ -41,8 +42,12 @@ class LensBlurSpec {
   /// Specular highlight boost `0..1`.
   final double bokehBoost;
 
+  /// When true, applies background-only blur (subject stays sharp).
+  final bool blurBackgroundBlur;
+
   /// True when blur is disabled or zero.
-  bool get isNeutral => !enabled || amount <= 1e-4;
+  bool get isNeutral =>
+      !enabled || (amount <= 1e-4 && !blurBackgroundBlur);
 
   /// Derives [LensBlurSpec] from [EditRecipe].
   factory LensBlurSpec.fromRecipe(EditRecipe recipe) {
@@ -55,6 +60,7 @@ class LensBlurSpec {
       focalRange: recipe.blurFocalRange,
       bokehShape: BokehShape.values[shapeIdx],
       bokehBoost: recipe.blurBokehBoost,
+      blurBackgroundBlur: recipe.blurBackgroundBlur,
     );
   }
 
@@ -67,7 +73,8 @@ class LensBlurSpec {
           other.focalPoint == focalPoint &&
           other.focalRange == focalRange &&
           other.bokehShape == bokehShape &&
-          other.bokehBoost == bokehBoost;
+          other.bokehBoost == bokehBoost &&
+          other.blurBackgroundBlur == blurBackgroundBlur;
 
   @override
   int get hashCode => Object.hash(
@@ -77,5 +84,6 @@ class LensBlurSpec {
         focalRange,
         bokehShape,
         bokehBoost,
+        blurBackgroundBlur,
       );
 }

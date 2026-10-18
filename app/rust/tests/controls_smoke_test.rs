@@ -639,6 +639,7 @@ fn every_control_moves_a_real_photo_in_the_direction_the_slider_promises() {
             focal_range: 0.15,
             bokeh_shape: BokehShape::Hexagon,
             bokeh_boost: 0.2,
+            background_blur: false,
         },
         None,
         36,

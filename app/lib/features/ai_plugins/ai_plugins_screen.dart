@@ -86,6 +86,17 @@ class _InstalledTab extends StatelessWidget {
           icon: Icons.offline_bolt_rounded,
         ),
         const SizedBox(height: Insets.md),
+        // ─── Active model per task ───────────────────────────────────────
+        _TaskRouterCard(
+          theme: theme,
+          notifier: notifier,
+        ),
+        const SizedBox(height: Insets.md),
+        const Text(
+          'Installed Models',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: Insets.sm),
         for (final plugin in installed)
           Card.outlined(
             margin: const EdgeInsets.only(bottom: Insets.sm),
@@ -505,6 +516,139 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Card showing which model is active for each AI task, with ability to
+/// switch when multiple enabled+installed plugins exist for the same task.
+class _TaskRouterCard extends ConsumerWidget {
+  const _TaskRouterCard({
+    required this.theme,
+    required this.notifier,
+  });
+
+  final ThemeData theme;
+  final AiPluginNotifier notifier;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Card.outlined(
+      margin: const EdgeInsets.only(bottom: Insets.md),
+      child: Padding(
+        padding: const EdgeInsets.all(Insets.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.settings,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: Insets.xs),
+                Text(
+                  'Active Model per Task',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: Insets.md),
+            for (final task in AiTask.values)
+              _TaskRow(
+                theme: theme,
+                task: task,
+                notifier: notifier,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One row: task name, active model, and dropdown to switch active model.
+class _TaskRow extends ConsumerWidget {
+  const _TaskRow({
+    required this.theme,
+    required this.task,
+    required this.notifier,
+  });
+
+  final ThemeData theme;
+  final AiTask task;
+  final AiPluginNotifier notifier;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(aiPluginProvider);
+    final active = notifier.getActivePluginForTask(task);
+    final candidates = state.installedPlugins.where(
+      (p) => p.task == task && p.isEnabled && p.isInstalled,
+    ).toList();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Insets.xs),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 150,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  task.label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  active?.name ?? 'None assigned',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: Insets.md),
+          if (candidates.length > 1)
+            Expanded(
+              child: DropdownButton<String>(
+                value: active?.id,
+                isExpanded: true,
+                items: [
+                  for (final p in candidates)
+                    DropdownMenuItem(
+                      value: p.id,
+                      child: Text(
+                        p.name,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (id) {
+                  if (id != null) {
+                    notifier.setActivePluginForTask(task, id);
+                  }
+                },
+              ),
+            )
+          else
+            Text(
+              candidates.isEmpty ? 'No model installed' : 'Only option',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+        ],
       ),
     );
   }

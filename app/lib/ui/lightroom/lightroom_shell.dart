@@ -13,6 +13,7 @@ import '../../features/ai_plugins/ai_plugin_store.dart';
 import '../../features/ai_plugins/ai_plugins_screen.dart';
 import '../../viewport/compare_hold.dart';
 import '../../viewport/exposure_assist.dart';
+import '../../viewport/mask_peek.dart' show rubyPeeksEnabledProvider;
 import '../../viewport/wiper_compare.dart';
 import '../common/blur_controls.dart';
 import '../common/color_grading_editor.dart';
@@ -26,12 +27,17 @@ import '../common/optics_controls.dart';
 import '../common/parameter_panel.dart';
 import '../common/retouch_controls.dart';
 import '../common/tone_curve_editor.dart';
+import '../common/looks_sheet.dart';
+import '../common/app_primitives.dart';
+import '../common/app_sheet.dart' show showAppSheet;
+import '../../edit/tool_definition.dart';
 
 enum MasterTab {
   lightColor,
   effectsDetail,
   cropGeometry,
   proTools,
+  looksPresets,
   masks,
   plugins,
 }
@@ -41,6 +47,7 @@ String _masterTabLabel(MasterTab tab) => switch (tab) {
   MasterTab.effectsDetail => 'Effects & Detail',
   MasterTab.cropGeometry => 'Crop & Geometry',
   MasterTab.proTools => 'Pro Tools',
+  MasterTab.looksPresets => 'Looks & Presets',
   MasterTab.masks => 'Masks',
   MasterTab.plugins => 'Plugins',
 };
@@ -78,6 +85,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     MasterTab.effectsDetail,
     MasterTab.cropGeometry,
     MasterTab.proTools,
+    MasterTab.looksPresets,
     MasterTab.masks,
     MasterTab.plugins,
   ];
@@ -123,6 +131,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
       _isProToolsSubTabModified(recipe, _ProToolsSubTab.retouch) ||
       _isProToolsSubTabModified(recipe, _ProToolsSubTab.optics) ||
       _isProToolsSubTabModified(recipe, _ProToolsSubTab.shaderLab),
+    MasterTab.looksPresets =>
+        isSectionModified(recipe, RecipeSection.color) ||
+        isSectionModified(recipe, RecipeSection.effects) ||
+        isSectionModified(recipe, RecipeSection.detail),
     MasterTab.masks => isSectionModified(recipe, RecipeSection.masking),
     MasterTab.plugins => false,
   };
@@ -299,6 +311,11 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                                   : _proToolsTab == _ProToolsSubTab.optics
                                       ? RecipeSection.optics
                                       : RecipeSection.lab,
+                            );
+                            break;
+                          case MasterTab.looksPresets:
+                            ref.read(activeSectionProvider.notifier).select(
+                              RecipeSection.color,
                             );
                             break;
                           case MasterTab.masks:
@@ -592,6 +609,24 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 }
               },
             ),
+            // Ruby Peeks toggle: when enabled, dragging detail/peek parameters
+            // crossfades to a high-contrast detail view. Default off.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.visibility_off_outlined, size: 16),
+                  const SizedBox(width: 8),
+                  const Text('Ruby Peeks', style: TextStyle(fontSize: 12)),
+                  const Spacer(),
+                  Switch(
+                    value: ref.watch(rubyPeeksEnabledProvider),
+                    onChanged: (v) =>
+                        ref.read(rubyPeeksEnabledProvider.notifier).set(v),
+                  ),
+                ],
+              ),
+            ),
             Expanded(
               child: switch (_effectsDetailTab) {
                 _EffectsDetailSubTab.effects => ParameterPanel(section: RecipeSection.effects),
@@ -692,6 +727,9 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             ),
           ],
         );
+
+      case MasterTab.looksPresets:
+        return const LooksPresetsPanel();
 
       case MasterTab.masks:
         return const MaskControls();
@@ -897,5 +935,134 @@ class _PluginsPanelView extends ConsumerWidget {
           ),
       ],
     );
+  }
+}
+
+/// Panel for applying built-in looks and presets to the current image.
+class LooksPresetsPanel extends ConsumerWidget {
+  const LooksPresetsPanel({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final recipe = ref.watch(recipeControllerProvider).recipe;
+    final notifier = ref.read(recipeControllerProvider.notifier);
+
+    return ListView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      padding: const EdgeInsets.all(Insets.md),
+      children: [
+        const SectionHeader('Built-in Looks'),
+        const Text(
+          'Tap a look to apply it to the current image. '
+          'Applied looks create a new history entry so you can undo.',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        const SizedBox(height: Insets.md),
+        ...ToolLibrary.builtins.map((tool) {
+          final isApplied = _looksMatch(tool, recipe);
+          return Card(
+            margin: const EdgeInsets.only(bottom: Insets.xs),
+            child: ListTile(
+              leading: Icon(
+                Icons.style,
+                color: isApplied ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              title: Text(
+                tool.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: isApplied ? scheme.primary : null,
+                ),
+              ),
+              subtitle: Text(
+                tool.description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11),
+              ),
+              trailing: isApplied
+                  ? Icon(Icons.check_circle, color: scheme.primary, size: 20)
+                  : Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+              onTap: () {
+                HapticFeedback.lightImpact();
+                notifier.applyTool(tool);
+                notifier.commit(label: 'Applied ${tool.name}');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Applied look: ${tool.name}'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              },
+            ),
+          );
+        }),
+        const SizedBox(height: Insets.lg),
+        const SectionHeader('Import Look'),
+        const Text(
+          'Paste a look JSON or apx:// QR code to import a custom preset.',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        const SizedBox(height: Insets.sm),
+        TextField(
+          decoration: const InputDecoration(
+            hintText: 'Paste look JSON or apx:// URL',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 3,
+          onSubmitted: (json) {
+            try {
+              final tool = ToolDefinition.decode(json);
+              HapticFeedback.lightImpact();
+              notifier.applyTool(tool);
+              notifier.commit(label: 'Imported ${tool.name}');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Imported look: ${tool.name}'),
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Invalid look format'),
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            }
+          },
+        ),
+        const SizedBox(height: Insets.md),
+        Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: () {
+                showAppSheet(context, const LooksSheet());
+              },
+              icon: const Icon(Icons.qr_code_scanner, size: 18),
+              label: const Text('Scan QR Look'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  bool _looksMatch(ToolDefinition tool, EditRecipe recipe) {
+    for (final entry in tool.params.entries) {
+      final param = _parameterByName(entry.key);
+      if (param == null) continue;
+      final current = valueOf(recipe, param);
+      if ((current - entry.value).abs() > 0.01) return false;
+    }
+    return true;
+  }
+
+  Parameter? _parameterByName(String name) {
+    for (final p in Parameter.values) {
+      if (p.name == name) return p;
+    }
+    return null;
   }
 }

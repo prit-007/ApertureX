@@ -3083,6 +3083,7 @@ impl SseDecode for crate::api::blur::ApiLensBlurParams {
         let mut var_focalRange = <f32>::sse_decode(deserializer);
         let mut var_bokehShapeIndex = <u32>::sse_decode(deserializer);
         let mut var_bokehBoost = <f32>::sse_decode(deserializer);
+        let mut var_backgroundBlur = <bool>::sse_decode(deserializer);
         return crate::api::blur::ApiLensBlurParams {
             enabled: var_enabled,
             amount: var_amount,
@@ -3090,6 +3091,7 @@ impl SseDecode for crate::api::blur::ApiLensBlurParams {
             focal_range: var_focalRange,
             bokeh_shape_index: var_bokehShapeIndex,
             bokeh_boost: var_bokehBoost,
+            background_blur: var_backgroundBlur,
         };
     }
 }
@@ -3434,6 +3436,7 @@ impl SseDecode for crate::api::export::ExportSpec {
         let mut var_blurFocalRange = <f32>::sse_decode(deserializer);
         let mut var_blurBokehShape = <u8>::sse_decode(deserializer);
         let mut var_blurBokehBoost = <f32>::sse_decode(deserializer);
+        let mut var_blurBackgroundBlur = <bool>::sse_decode(deserializer);
         let mut var_quality = <u8>::sse_decode(deserializer);
         let mut var_maxDim = <u32>::sse_decode(deserializer);
         let mut var_bandRows = <u32>::sse_decode(deserializer);
@@ -3501,6 +3504,7 @@ impl SseDecode for crate::api::export::ExportSpec {
             blur_focal_range: var_blurFocalRange,
             blur_bokeh_shape: var_blurBokehShape,
             blur_bokeh_boost: var_blurBokehBoost,
+            blur_background_blur: var_blurBackgroundBlur,
             quality: var_quality,
             max_dim: var_maxDim,
             band_rows: var_bandRows,
@@ -3634,6 +3638,7 @@ impl SseDecode for crate::blur::LensBlurParams {
         let mut var_focalRange = <f32>::sse_decode(deserializer);
         let mut var_bokehShape = <crate::blur::BokehShape>::sse_decode(deserializer);
         let mut var_bokehBoost = <f32>::sse_decode(deserializer);
+        let mut var_backgroundBlur = <bool>::sse_decode(deserializer);
         return crate::blur::LensBlurParams {
             enabled: var_enabled,
             amount: var_amount,
@@ -3641,6 +3646,7 @@ impl SseDecode for crate::blur::LensBlurParams {
             focal_range: var_focalRange,
             bokeh_shape: var_bokehShape,
             bokeh_boost: var_bokehBoost,
+            background_blur: var_backgroundBlur,
         };
     }
 }
@@ -3945,6 +3951,7 @@ impl SseDecode for crate::api::preview::PreviewBaseSpec {
         let mut var_blurFocalRange = <f32>::sse_decode(deserializer);
         let mut var_blurBokehShape = <u8>::sse_decode(deserializer);
         let mut var_blurBokehBoost = <f32>::sse_decode(deserializer);
+        let mut var_blurBackgroundBlur = <bool>::sse_decode(deserializer);
         return crate::api::preview::PreviewBaseSpec {
             flip_h: var_flipH,
             flip_v: var_flipV,
@@ -4000,6 +4007,7 @@ impl SseDecode for crate::api::preview::PreviewBaseSpec {
             blur_focal_range: var_blurFocalRange,
             blur_bokeh_shape: var_blurBokehShape,
             blur_bokeh_boost: var_blurBokehBoost,
+            blur_background_blur: var_blurBackgroundBlur,
         };
     }
 }
@@ -4296,6 +4304,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::blur::ApiLensBlurParams {
             self.focal_range.into_into_dart().into_dart(),
             self.bokeh_shape_index.into_into_dart().into_dart(),
             self.bokeh_boost.into_into_dart().into_dart(),
+            self.background_blur.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4700,6 +4709,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::export::ExportSpec {
             self.blur_focal_range.into_into_dart().into_dart(),
             self.blur_bokeh_shape.into_into_dart().into_dart(),
             self.blur_bokeh_boost.into_into_dart().into_dart(),
+            self.blur_background_blur.into_into_dart().into_dart(),
             self.quality.into_into_dart().into_dart(),
             self.max_dim.into_into_dart().into_dart(),
             self.band_rows.into_into_dart().into_dart(),
@@ -4830,6 +4840,7 @@ impl flutter_rust_bridge::IntoDart for crate::blur::LensBlurParams {
             self.focal_range.into_into_dart().into_dart(),
             self.bokeh_shape.into_into_dart().into_dart(),
             self.bokeh_boost.into_into_dart().into_dart(),
+            self.background_blur.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4967,6 +4978,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::preview::PreviewBaseSpec {
             self.blur_focal_range.into_into_dart().into_dart(),
             self.blur_bokeh_shape.into_into_dart().into_dart(),
             self.blur_bokeh_boost.into_into_dart().into_dart(),
+            self.blur_background_blur.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -5101,6 +5113,7 @@ impl SseEncode for crate::api::blur::ApiLensBlurParams {
         <f32>::sse_encode(self.focal_range, serializer);
         <u32>::sse_encode(self.bokeh_shape_index, serializer);
         <f32>::sse_encode(self.bokeh_boost, serializer);
+        <bool>::sse_encode(self.background_blur, serializer);
     }
 }
 
@@ -5344,6 +5357,7 @@ impl SseEncode for crate::api::export::ExportSpec {
         <f32>::sse_encode(self.blur_focal_range, serializer);
         <u8>::sse_encode(self.blur_bokeh_shape, serializer);
         <f32>::sse_encode(self.blur_bokeh_boost, serializer);
+        <bool>::sse_encode(self.blur_background_blur, serializer);
         <u8>::sse_encode(self.quality, serializer);
         <u32>::sse_encode(self.max_dim, serializer);
         <u32>::sse_encode(self.band_rows, serializer);
@@ -5438,6 +5452,7 @@ impl SseEncode for crate::blur::LensBlurParams {
         <f32>::sse_encode(self.focal_range, serializer);
         <crate::blur::BokehShape>::sse_encode(self.bokeh_shape, serializer);
         <f32>::sse_encode(self.bokeh_boost, serializer);
+        <bool>::sse_encode(self.background_blur, serializer);
     }
 }
 
@@ -5700,6 +5715,7 @@ impl SseEncode for crate::api::preview::PreviewBaseSpec {
         <f32>::sse_encode(self.blur_focal_range, serializer);
         <u8>::sse_encode(self.blur_bokeh_shape, serializer);
         <f32>::sse_encode(self.blur_bokeh_boost, serializer);
+        <bool>::sse_encode(self.blur_background_blur, serializer);
     }
 }
 

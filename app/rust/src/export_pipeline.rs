@@ -253,6 +253,7 @@ mod tests {
                 focal_range: 0.2,
                 bokeh_shape: blur::BokehShape::Pentagon,
                 bokeh_boost: 0.3,
+                background_blur: false,
             },
             spatial: SpatialParams {
                 shadows: 0.3,

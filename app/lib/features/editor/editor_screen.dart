@@ -47,6 +47,7 @@ import '../../ui/common/app_sheet.dart';
 import '../../ui/common/history_tree_sheet.dart';
 import '../../ui/common/settings_sheet.dart';
 import '../../ui/edit_activity.dart';
+import '../../edit/active_image.dart' show currentEditingAssetProvider;
 
 /// The full-screen editor: a top app bar (back · undo · redo · export ·
 /// overflow) over the shared [AppShell] (canvas + active shell toolbar). One
@@ -134,6 +135,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _bytes = bytes;
         _loading = false;
       });
+      ref.read(currentEditingAssetProvider.notifier).setAsset(_currentAsset);
     } catch (e) {
       axLog(LogDomain.editor, 'Open failed: $e', level: LogLevel.error);
       if (!mounted) return;

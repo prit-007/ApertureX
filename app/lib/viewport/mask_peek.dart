@@ -32,6 +32,22 @@ class MaskPeek extends Notifier<bool> {
 
 final maskPeekProvider = NotifierProvider<MaskPeek, bool>(MaskPeek.new);
 
+/// Whether the Ruby Peeks (mask peek) overlay is enabled at all. Defaults to
+/// **off** so the user sees the normal image during slider scrub; when enabled,
+/// dragging a detail/peek parameter crossfades to the high-contrast detail view.
+class RubyPeeksEnabled extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) {
+    if (state == value) return;
+    state = value;
+  }
+}
+
+final rubyPeeksEnabledProvider =
+    NotifierProvider<RubyPeeksEnabled, bool>(RubyPeeksEnabled.new);
+
 /// True when "Stylus-only mode" is active — touch input is routed to zoom/pan
 /// while only the stylus drives painting/eraser mask strokes.
 class StylusOnlyMode extends Notifier<bool> {

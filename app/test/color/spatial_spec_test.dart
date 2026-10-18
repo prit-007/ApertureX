@@ -30,5 +30,56 @@ void main() {
       expect(spec.denoiseChroma, 0.7);
       expect(spec.isNeutral, isFalse);
     });
+
+    test('fromRecipe maps film halation params', () {
+      final recipe = EditRecipe.neutral.copyWith(
+        filmHalation: 0.6,
+        filmHalationRadius: 0.5,
+        filmHalationThreshold: 0.7,
+      );
+      final spec = SpatialSpec.fromRecipe(recipe);
+
+      expect(spec.filmHalation, 0.6);
+      expect(spec.filmHalationRadius, 0.5);
+      expect(spec.filmHalationThreshold, 0.7);
+      expect(spec.isNeutral, isFalse);
+    });
+
+    test('fromRecipe maps film bloom params', () {
+      final recipe = EditRecipe.neutral.copyWith(
+        filmBloom: 0.5,
+        filmBloomRadius: 0.4,
+        filmBloomThreshold: 0.65,
+      );
+      final spec = SpatialSpec.fromRecipe(recipe);
+
+      expect(spec.filmBloom, 0.5);
+      expect(spec.filmBloomRadius, 0.4);
+      expect(spec.filmBloomThreshold, 0.65);
+      expect(spec.isNeutral, isFalse);
+    });
+
+    test('fromRecipe maps film dust and scratches params', () {
+      final recipe = EditRecipe.neutral.copyWith(
+        filmDust: 0.3,
+        filmScratches: 0.2,
+      );
+      final spec = SpatialSpec.fromRecipe(recipe);
+
+      expect(spec.filmDust, 0.3);
+      expect(spec.filmScratches, 0.2);
+      expect(spec.isNeutral, isFalse);
+    });
+
+    test('isNeutral returns true when all film params are neutral', () {
+      final recipe = EditRecipe.neutral.copyWith(
+        filmHalation: 0.0,
+        filmBloom: 0.0,
+        filmDust: 0.0,
+        filmScratches: 0.0,
+      );
+      final spec = SpatialSpec.fromRecipe(recipe);
+      expect(spec.isNeutral, isTrue);
+    });
   });
 }

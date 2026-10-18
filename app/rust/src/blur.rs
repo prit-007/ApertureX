@@ -43,6 +43,9 @@ pub struct LensBlurParams {
     pub bokeh_shape: BokehShape,
     /// Specular highlight boost (`0..1`).
     pub bokeh_boost: f32,
+    /// When true, applies background-only blur using AI subject segmentation:
+    /// the subject stays sharp while the background is blurred.
+    pub background_blur: bool,
 }
 
 impl Default for LensBlurParams {
@@ -54,13 +57,14 @@ impl Default for LensBlurParams {
             focal_range: 0.2,
             bokeh_shape: BokehShape::Circle,
             bokeh_boost: 0.0,
+            background_blur: false,
         }
     }
 }
 
 impl LensBlurParams {
     pub fn is_neutral(&self) -> bool {
-        !self.enabled || self.amount <= 1e-4
+        !self.enabled || (self.amount <= 1e-4 && !self.background_blur)
     }
 
     /// Builds params from the flat bridge fields shared by
@@ -72,6 +76,7 @@ impl LensBlurParams {
         focal_range: f32,
         bokeh_shape: u8,
         bokeh_boost: f32,
+        background_blur: bool,
     ) -> Self {
         Self {
             enabled,
@@ -80,6 +85,7 @@ impl LensBlurParams {
             focal_range,
             bokeh_shape: BokehShape::from_index(bokeh_shape),
             bokeh_boost,
+            background_blur,
         }
     }
 }
@@ -211,11 +217,25 @@ pub fn apply_lens_blur(
     }
 
     let min_dim = w.min(h) as f32;
-    let max_radius = (params.amount * min_dim * 0.08).clamp(1.0, 24.0);
+    // Power curve: low amounts stay subtle, 100% gives a creamy DSLR blur.
+    // Max radius raised from 24 to 60 for a true shallow-depth-of-field look.
+    let max_radius = (params.amount.powf(2.0) * min_dim * 0.12).clamp(1.0, 60.0);
     let mut out = vec![0u8; w * h * 4];
 
     // Precalculate depth buffer (either from provided map or optical perspective gradient)
-    let depth_buffer: Vec<f32> = if let Some(dm) = depth_map {
+    let depth_buffer: Vec<f32> = if params.background_blur {
+        // Background blur: subject stays sharp (depth 0), background blurs (depth 1).
+        // Invert any provided subject mask; fall back to synthetic gradient.
+        if let Some(dm) = depth_map {
+            if dm.len() == w * h {
+                dm.iter().map(|d| 1.0 - d.clamp(0.0, 1.0)).collect()
+            } else {
+                generate_synthetic_depth_map(w, h)
+            }
+        } else {
+            generate_synthetic_depth_map(w, h)
+        }
+    } else if let Some(dm) = depth_map {
         if dm.len() == w * h {
             dm.iter().map(|d| d.clamp(0.0, 1.0)).collect()
         } else {
@@ -358,6 +378,7 @@ mod tests {
             focal_range: 0.1,
             bokeh_shape: BokehShape::Circle,
             bokeh_boost: 0.0,
+            background_blur: false,
         };
 
         let out = apply_lens_blur(&src, w, h, params, Some(&depth_map), 36);
@@ -396,6 +417,7 @@ mod tests {
             focal_range: 0.1,
             bokeh_shape: BokehShape::Circle,
             bokeh_boost: 0.0,
+            background_blur: false,
         };
         let out_normal = apply_lens_blur(&src, w, h, base_params, Some(&depth_map), 36);
 
@@ -435,9 +457,10 @@ mod tests {
             enabled: true,
             amount: 0.8,
             focal_point: 0.5,
-            focal_range: 0.15,
+            focal_range: 0.1,
             bokeh_shape: BokehShape::Circle,
             bokeh_boost: 0.0,
+            background_blur: false,
         };
 
         // None passed for depth_map -> uses optical synthetic perspective
@@ -515,6 +538,7 @@ mod tests {
             focal_range: 0.1,
             bokeh_shape: BokehShape::Circle,
             bokeh_boost: 0.0,
+            background_blur: false,
         };
 
         let seq = apply_lens_blur(&src, w, h, params, Some(&depth_map), 36);

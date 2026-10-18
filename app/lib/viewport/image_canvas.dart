@@ -928,7 +928,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
     final program = _program;
     final shader = _shader;
-    final source = _baseImage ?? _source;
+    final baseImage = _baseImage;
+    final uneditedSource = _source;
     final lut = _lut;
     final zeroCopy = _useTexture && _textureId != null;
     // Texture delivery never bakes `lut`/`base` images, so requiring them
@@ -937,7 +938,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       failed: _failed,
       hasProgram: program != null,
       hasShader: shader != null,
-      hasSource: source != null,
+      hasSource: baseImage != null || uneditedSource != null,
       hasLut: lut != null,
       useTexture: zeroCopy,
     )) {
@@ -946,7 +947,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     // The gate above proved the shader-path inputs (it only passes texture
     // mode without a LUT); the `!`s feed definite-assignment analysis.
     final fragShader = shader!;
-    final proxySource = source!;
+    // The shader grades the edited base image when available; falls back to
+    // the unedited proxy. The compare "before" side always uses the unedited
+    // source so the user sees the true original.
+    final proxySource = baseImage ?? uneditedSource!;
+    final compareSource = uneditedSource!;
 
     final tat = ref.watch(tatModeProvider);
     final tatComponent = ref.watch(tatComponentProvider);
@@ -970,7 +975,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     // fall back to the proxy source until the first render reports them.
     final content = zeroCopy && _baseW > 0 && _baseH > 0
         ? Size(_baseW.toDouble(), _baseH.toDouble())
-        : Size(source.width.toDouble(), source.height.toDouble());
+        : Size(proxySource.width.toDouble(), proxySource.height.toDouble());
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1071,6 +1076,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                                 painter: _CanvasPainter(
                                   shader: fragShader,
                                   source: proxySource,
+                                  compareSource: compareSource,
                                   // Only ever built when `!zeroCopy`, where the
                                   // placeholder gate proved the LUT exists.
                                   lut: lut!,
@@ -1530,6 +1536,7 @@ class _CanvasPainter extends CustomPainter {
   _CanvasPainter({
     required this.shader,
     required this.source,
+    required this.compareSource,
     required this.lut,
     required this.lutSize,
     required this.dst,
@@ -1549,6 +1556,7 @@ class _CanvasPainter extends CustomPainter {
 
   final ui.FragmentShader shader;
   final ui.Image source;
+  final ui.Image compareSource;
   final ui.Image lut;
   final double lutSize;
   final Rect dst;
@@ -1601,8 +1609,8 @@ class _CanvasPainter extends CustomPainter {
         canvas.save();
         canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, splitX, dst.bottom));
         canvas.drawImageRect(
-          source,
-          Rect.fromLTWH(0, 0, source.width.toDouble(), source.height.toDouble()),
+          compareSource,
+          Rect.fromLTWH(0, 0, compareSource.width.toDouble(), compareSource.height.toDouble()),
           dst,
           Paint(),
         );
@@ -1684,8 +1692,8 @@ class _CanvasPainter extends CustomPainter {
         canvas.save();
         canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, dst.right, splitY));
         canvas.drawImageRect(
-          source,
-          Rect.fromLTWH(0, 0, source.width.toDouble(), source.height.toDouble()),
+          compareSource,
+          Rect.fromLTWH(0, 0, compareSource.width.toDouble(), compareSource.height.toDouble()),
           dst,
           Paint(),
         );
@@ -1769,8 +1777,8 @@ class _CanvasPainter extends CustomPainter {
 
     if (blend > 0) {
       canvas.drawImageRect(
-        source,
-        Rect.fromLTWH(0, 0, source.width.toDouble(), source.height.toDouble()),
+        compareSource,
+        Rect.fromLTWH(0, 0, compareSource.width.toDouble(), compareSource.height.toDouble()),
         dst,
         Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: blend),
       );
@@ -1815,6 +1823,7 @@ class _CanvasPainter extends CustomPainter {
   @override
   bool shouldRepaint(_CanvasPainter old) =>
       old.source != source ||
+      old.compareSource != compareSource ||
       old.lut != lut ||
       old.blend != blend ||
       old.maskBlend != maskBlend ||
