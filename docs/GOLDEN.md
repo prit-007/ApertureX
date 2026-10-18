@@ -40,6 +40,12 @@ The golden suite covers the six core Lightroom-aligned operations:
 5. **Clarity:** Guided-filter edge-aware high-frequency boost (+0.30) without edge overshoot or ringing halos.
 6. **Dehaze:** Dark-channel prior transmission recovery (+0.25) boosting atmospheric contrast and saturation.
 
+The Rust engine's `preview.rs` unit tests additionally assert that film emulation
+(halation/bloom/dust/scratches), lens profile corrections (distortion/vignetting),
+depth-aware lens blur, and retouch patches each change the baked base while
+neutral specs stay byte-identical — guarding these newer ops against regressions
+alongside the golden-image suite.
+
 ---
 
 ## Running the Golden Tests

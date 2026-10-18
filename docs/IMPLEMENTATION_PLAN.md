@@ -32,6 +32,12 @@ Verified against the tree with the P4 export wiring present (`export_pipeline.rs
 | Live histogram from the Rust base | `app/rust/src/histogram.rs`, `app/lib/color/histogram_view.dart` |
 | RAW/DNG via **rawler** (decode, Bayer demosaic, DNG matrices, EXIF orientation, ROI, RAW→JPEG export) + FFI + Dart wiring | `app/rust/src/raw.rs`, `app/rust/src/api/raw.rs` |
 | P3 ICC detect (sRGB / Display-P3) + P3→sRGB on gallery batch export | `app/rust/src/icc.rs` |
+| Film emulation physics — halation, bloom, dust flecks, scratches — baked into CPU preview base + export | `app/rust/src/optics.rs` (`film_*` pipeline), `app/rust/src/preview.rs` (`PreviewBaseSpec` film fields), `app/shaders/grade.frag` |
+| Lens profile corrections — distortion + vignetting — in preview base + export | `app/rust/src/optics.rs` (`profile_corrections`), `app/rust/src/preview.rs` (`profileDistortion`, `profileVignetting`) |
+| Depth-aware lens blur — bokeh shape, focal plane/range, specular boost — in preview base + export | `app/rust/src/blur.rs` (`apply_lens_blur`), `app/rust/src/preview.rs` (`blur_*` fields) |
+| Retouch patches (healing brush & clone stamp) applied in CPU preview base | `app/rust/src/retouch.rs` (`retouch_apply`, `to_engine_patches`), `app/rust/src/preview.rs` (`retouch_patches` arg) |
+| Shader Lab — `shaderLabPreset` + `shaderParam1..3` + `customGlslCode` | `app/lib/edit/recipe.dart` (`shaderLabPreset`/params), `app/rust/src/optics.rs` |
+| zune-jpeg SIMD direct decode into resident store (`preview_open_jpeg`) + `get_source_rgba` | `app/rust/src/api/preview.rs`, `app/rust/src/preview.rs` |
 | Perf harness (60 fps scrub gate + 512 MB RSS budget) | `app/integration_test/perf_harness_test.dart`, `app/test/perf/scrub_perf_test.dart` |
 | Full-res banded export, single-call FRB + cancel (#68 wiring) | `app/rust/src/export_pipeline.rs` (`run_export_tiled`/`run_export_single` parity oracle, `ExportOutcome::Cancelled`), `app/rust/src/api/export.rs` (`exportFull`, cancel-token registry), `AxEngine.exportJpegFull` + editor Cancel button; band-parity tests for spatial + masks |
 | Zero-copy preview delivery, Android (#54) | `PreviewSurface` mounts the bound `Texture` with shader fallback; `previewNeedsPlaceholder`/`useTextureDelivery` gate delivery; 10 widget/unit tests |
@@ -121,6 +127,8 @@ mirror in the preview base (`app/rust/src/preview.rs`). See `ARCHITECTURE.md` §
    → split-tone / colour grading
    → detail (SIMD spatial, halo-free)  <-- #56, #57, #58
    → HALD / 3D LUT (applied LAST among edits)
+   → film emulation (halation, bloom, dust flecks, scratches)
+   → shader lab (presets + 3 user params + optional custom GLSL)
    → geometry (already GPU-warped live; final Matrix4 resampled here)
    → output transform (sRGB / P3 / wide-gamut)
 ```
@@ -128,7 +136,8 @@ mirror in the preview base (`app/rust/src/preview.rs`). See `ARCHITECTURE.md` §
 **Rules:**
 1. `HueSatMap` (profile CLUT) runs **after** the matrices, **before** the parametric sliders — like Lightroom's profile → Basic order.
 2. User 3D/HALD LUTs run **last** among edits, after all parametric sliders.
-3. Spatial filters run in a well-defined working space with overlap padding so bands/tiles blend seamlessly.
+3. Film emulation (halation, bloom, dust, scratches) runs after the LUT and before the Shader Lab.
+4. Spatial filters run in a well-defined working space with overlap padding so bands/tiles blend seamlessly.
 
 ---
 

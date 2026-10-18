@@ -59,6 +59,10 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
 - **Intent-based AI masks + smart paste** (`AiMaskResolver`, FNV-1a result
   cache across photos, #96) and an `aiConsentProvider` with a Settings toggle
   / first-use dialog for F-Droid compliance.
+- **Classical depth-aware lens blur** (bokeh shape, focal plane/range, specular
+  boost) baked into the CPU preview base + export pipeline
+  (`app/rust/src/blur.rs`, `app/rust/src/preview.rs`), shipping in P2 as a
+  classical (non-ML) feature — **no model weights required**.
 - `THIRD_PARTY.md` ML table with the U²-NetP row (Apache-2.0 code *and*
   weights, #87).
 
@@ -66,8 +70,8 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
 - The `ort` runtime crate and the U²-NetP **weights themselves are not yet a
   dependency** — the `ai` feature is currently an empty gate, so no model file
   ships. Runtime adoption is the next step behind the licensing ledger.
-- Lens/background blur (in progress), YuNet face detection, learned
-  auto-frame.
+- ML-based depth for lens blur (Depth Anything V2 small), YuNet face detection,
+  learned auto-frame — each gated on verified per-model licenses.
 - The `THIRD_PARTY.md` table header still reads "planned / No model ships
   yet" — accurate today, and it must flip the moment weights are bundled.
 
@@ -90,8 +94,9 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
 
 **Follow-ups**
 - P3.5 (optional module): subject/sky/background masks **✅ shipped
-  (classical/saliency paths, #83/#87/#88/#89/#96)**; lens blur (in progress),
-  face detect, auto-frame remain — each gated on verified per-model licenses.
+  (classical/saliency paths, #83/#87/#88/#89/#96)**; **classical lens blur
+  shipped (P2)**; ML-based depth (Depth Anything V2), face detect, auto-frame
+  remain — each gated on verified per-model licenses.
 - Auto-straighten (classical) can land earlier, in the geometry work.
 - Seed `THIRD_PARTY.md` with the ML-models table (stub added; **U²-NetP row
   adopted via #87** — the rest fill as each model is adopted).

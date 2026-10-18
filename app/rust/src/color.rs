@@ -731,6 +731,81 @@ pub fn export_cube_lut(
     out_str
 }
 
+/// NEON-optimized color math (aarch64 only).
+///
+/// Processes 4 lanes at once using `f32x4` registers. Scalar callers
+/// (`srgb_to_linear`, `linear_to_srgb`) dispatch to these on aarch64 when
+/// the `neon` target feature is detected.
+#[cfg(target_arch = "aarch64")]
+mod neon_impl {
+    use super::*;
+
+    #[inline(always)]
+    #[target_feature(enable = "neon")]
+    pub(crate) unsafe fn neon_srgb_to_linear4(x: f32x4) -> f32x4 {
+        let threshold = vdupq_n_f32(0.04045);
+        let linear_scale = vdupq_n_f32(1.0 / 12.92);
+        let gamma_offset = vdupq_n_f32(0.055 / 1.055);
+        let gamma_scale = vdupq_n_f32(1.0 / 1.055);
+        let mask = vcleq_f32(x, threshold);
+        // Linear branch: NEON multiply.
+        let linear = vmulq_f32(x, linear_scale);
+        // Gamma branch: scalar powf per lane (NEON has no f32x4 pow).
+        let g = [
+            (vgetq_lane_f32(x, 0) + 0.055) * gamma_scale,
+            (vgetq_lane_f32(x, 1) + 0.055) * gamma_scale,
+            (vgetq_lane_f32(x, 2) + 0.055) * gamma_scale,
+            (vgetq_lane_f32(x, 3) + 0.055) * gamma_scale,
+        ];
+        let gamma = vld1q_f32([
+            g[0].powf(2.4),
+            g[1].powf(2.4),
+            g[2].powf(2.4),
+            g[3].powf(2.4),
+        ].as_ptr());
+        vbslq_f32(mask, linear, gamma)
+    }
+
+    #[inline(always)]
+    #[target_feature(enable = "neon")]
+    pub(crate) unsafe fn neon_linear_to_srgb4(x: f32x4) -> f32x4 {
+        let threshold = vdupq_n_f32(0.0031308);
+        let linear_scale = vdupq_n_f32(12.92);
+        let gamma_scale = vdupq_n_f32(1.055);
+        let gamma_offset = vdupq_n_f32(0.055);
+        let inv_24 = vdupq_n_f32(1.0 / 2.4);
+        let inv_24_val = vgetq_lane_f32(inv_24, 0);
+        let mask = vcleq_f32(x, threshold);
+        // Linear branch: NEON multiply.
+        let linear = vmulq_f32(x, linear_scale);
+        // Gamma branch: scalar powf per lane.
+        let g = [
+            vgetq_lane_f32(x, 0),
+            vgetq_lane_f32(x, 1),
+            vgetq_lane_f32(x, 2),
+            vgetq_lane_f32(x, 3),
+        ];
+        let gamma = vld1q_f32([
+            gamma_scale * g[0].powf(inv_24_val) - gamma_offset,
+            gamma_scale * g[1].powf(inv_24_val) - gamma_offset,
+            gamma_scale * g[2].powf(inv_24_val) - gamma_offset,
+            gamma_scale * g[3].powf(inv_24_val) - gamma_offset,
+        ].as_ptr());
+        vbslq_f32(mask, linear, gamma)
+    }
+
+    /// Scalar-lane entry points (called from public functions).
+    #[inline(always)]
+    pub(crate) unsafe fn neon_srgb_to_linear1(c: f32) -> f32 {
+        vgetq_lane_f32(neon_srgb_to_linear4(vdupq_n_f32(c)), 0)
+    }
+
+    #[inline(always)]
+    pub(crate) unsafe fn neon_linear_to_srgb1(c: f32) -> f32 {
+        vgetq_lane_f32(neon_linear_to_srgb4(vdupq_n_f32(c)), 0)
+    }
+}
+
 /// Trilinear lookup into a `bake_lut3d` atlas — the CPU twin of `lut.frag`.
 pub fn sample_lut(atlas: &[u8], size: u32, r: f32, g: f32, b: f32) -> [f32; 3] {
     let n = size as usize;
@@ -1806,40 +1881,13 @@ mod neon_tests {
     use super::*;
     use std::arch::aarch64::*;
 
-    /// NEON: sRGB→linear for 4 lanes at once.
-    #[target_feature(enable = "neon")]
-    unsafe fn neon_srgb_to_linear4(x: f32x4) -> f32x4 {
-        let threshold = vdupq_n_f32(0.04045);
-        let linear_scale = vdupq_n_f32(1.0 / 12.92);
-        let gamma_scale = vdupq_n_f32(1.0 / 1.055);
-        let gamma_offset = vdupq_n_f32(0.055 / 1.055);
-        let mask = vcleq_f32(x, threshold);
-        let linear = vmulq_f32(x, linear_scale);
-        let gamma = vpowq_f32(vaddq_f32(x, gamma_offset), vdupq_n_f32(2.4));
-        vbslq_f32(mask, linear, gamma)
-    }
-
-    /// NEON: linear→sRGB for 4 lanes at once.
-    #[target_feature(enable = "neon")]
-    unsafe fn neon_linear_to_srgb4(x: f32x4) -> f32x4 {
-        let threshold = vdupq_n_f32(0.0031308);
-        let linear_scale = vdupq_n_f32(12.92);
-        let gamma_scale = vdupq_n_f32(1.055);
-        let gamma_offset = vdupq_n_f32(0.055);
-        let inv_24 = vdupq_n_f32(1.0 / 2.4);
-        let mask = vcleq_f32(x, threshold);
-        let linear = vmulq_f32(x, linear_scale);
-        let gamma = vsubq_f32(vmulq_f32(gamma_scale, vpowq_f32(x, inv_24)), gamma_offset);
-        vbslq_f32(mask, linear, gamma)
-    }
-
     #[test]
     fn neon_srgb_to_linear_matches_scalar() {
         for i in 0..=255 {
             let c = i as f32 / 255.0;
             let expected = srgb_to_linear(c);
             let v = vdupq_n_f32(c);
-            let result = unsafe { neon_srgb_to_linear4(v) };
+            let result = unsafe { neon_impl::neon_srgb_to_linear4(v) };
             let got = vgetq_lane_f32(result, 0);
             assert!(
                 (got - expected).abs() < 1e-5,
@@ -1854,7 +1902,7 @@ mod neon_tests {
             let c = i as f32 / 255.0;
             let expected = linear_to_srgb(c);
             let v = vdupq_n_f32(c);
-            let result = unsafe { neon_linear_to_srgb4(v) };
+            let result = unsafe { neon_impl::neon_linear_to_srgb4(v) };
             let got = vgetq_lane_f32(result, 0);
             assert!(
                 (got - expected).abs() < 1e-5,
@@ -1868,8 +1916,8 @@ mod neon_tests {
         for i in 0..=255 {
             let c = i as f32 / 255.0;
             let v = vdupq_n_f32(c);
-            let linear = unsafe { neon_srgb_to_linear4(v) };
-            let back = unsafe { neon_linear_to_srgb4(linear) };
+            let linear = unsafe { neon_impl::neon_srgb_to_linear4(v) };
+            let back = unsafe { neon_impl::neon_linear_to_srgb4(linear) };
             let got = vgetq_lane_f32(back, 0);
             assert!(
                 (got - c).abs() < 1e-4,

@@ -201,7 +201,12 @@ XMP sidecar writer (#77), shader warmup (#72), precision-gear slider nudge
 Edits gallery with explicit-save preview renders has shipped (#85).
 The Look/QR share open standard (`docs/LOOK_QR_STANDARD.md`, `apx://look/v1`,
 `preset_card_dialog.dart`, pure-FOSS `qr_image_decoder.dart`), Pat David film
-simulation core, and GitHub-backed Community Preset Hub have all shipped.
+simulation core, **film emulation physics** (halation, bloom, dust flecks,
+scratches), **lens profile corrections** (distortion + vignetting),
+**depth-aware lens blur** (bokeh shape, focal plane/range, specular boost),
+**retouch patches** (healing brush & clone stamp, applied in the CPU preview
+base), **Shader Lab** (`shaderLabPreset` + `shaderParam1..3` + `customGlslCode`),
+and GitHub-backed Community Preset Hub have all shipped.
 **Remaining:** continued parity breadth (`PARITY.md`).
 
 **Exit criteria**
@@ -321,6 +326,8 @@ detection, and learned auto-frame.
   progress; metadata pass-through.
 - Batch export; preset apply at export.
 - Background export surviving app backgrounding on both platforms.
+- **C2PA Content Credentials + FOSS watermark + museum frame branding** on
+  export (progressive disclosure export UI).
 
 **Status — wired end-to-end (single-call + cancel).** The banded, overlap-padded,
 cancellable full-res export lives in `app/rust/src/export_pipeline.rs`
