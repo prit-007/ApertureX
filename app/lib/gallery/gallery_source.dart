@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'gallery_album.dart';
 import 'gallery_asset.dart';
+import 'thumbnail_memory_cache.dart';
 
 /// Result of requesting photo-library access.
 enum GalleryPermission {
@@ -16,6 +17,9 @@ enum GalleryPermission {
 /// Read access to the device gallery, behind an interface so the app and tests
 /// never depend on a platform plugin directly.
 abstract class GallerySource {
+  /// In-memory LRU thumbnail cache scoped to this source.
+  ThumbnailMemoryCache get thumbnailCache;
+
   /// Requests (or re-requests) photo access, returning the resulting status.
   Future<GalleryPermission> requestPermission();
 
@@ -56,6 +60,9 @@ class FakeGallerySource implements GallerySource {
        albums = albums ?? const [],
        _assetsByAlbum = assetsByAlbum ?? const {},
        _sequence = permissionSequence ?? [permission];
+
+  @override
+  final ThumbnailMemoryCache thumbnailCache = ThumbnailMemoryCache();
 
   final List<GalleryAsset> assets;
   final Map<String, Uint8List> _images;

@@ -45,6 +45,14 @@ void main() {
         return const EditRecipe().copyWith(defringePurpleAmount: value);
       case 'blurAmount':
         return const EditRecipe().copyWith(blurAmount: value);
+      case 'sharpenRadius':
+        return const EditRecipe().copyWith(sharpenRadius: value);
+      case 'vignetteMidpoint':
+        return const EditRecipe().copyWith(vignetteMidpoint: value);
+      case 'grainSize':
+        return const EditRecipe().copyWith(grainSize: value);
+      case 'filmHalation':
+        return const EditRecipe().copyWith(filmHalation: value);
       default:
         throw ArgumentError('unknown field $field');
     }
@@ -89,6 +97,10 @@ void main() {
       'clarity',
       'defringePurpleAmount',
       'blurAmount',
+      'sharpenRadius',
+      'vignetteMidpoint',
+      'grainSize',
+      'filmHalation',
     ]) {
       test('$field perturbs the base key (rebake trigger)', () {
         final base = baseKeyOf(const EditRecipe());

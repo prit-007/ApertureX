@@ -5,9 +5,15 @@ import 'package:photo_manager/photo_manager.dart';
 import 'gallery_album.dart';
 import 'gallery_asset.dart';
 import 'gallery_source.dart';
+import 'thumbnail_memory_cache.dart';
 
 /// Real [GallerySource] backed by `photo_manager` (scoped storage safe).
 class PhotoGallerySource implements GallerySource {
+  @override
+  final ThumbnailMemoryCache thumbnailCache = ThumbnailMemoryCache();
+
+  final Map<String, AssetEntity> _entityCache = {};
+
   /// Requests photo access. Re-calling after a denial re-prompts on Android
   /// (where the OS allows it); when it is permanently denied the app should
   /// send the user to settings instead ([openAppSettings]).
@@ -28,17 +34,17 @@ class PhotoGallerySource implements GallerySource {
   @override
   Future<List<GalleryAlbum>> listAlbums() async {
     final paths = await PhotoManager.getAssetPathList(type: RequestType.image);
-    final albums = <GalleryAlbum>[];
-    for (final p in paths) {
-      albums.add(
-        GalleryAlbum(
+    // Resolve album asset counts concurrently in parallel rather than sequentially
+    return await Future.wait(
+      paths.map((p) async {
+        final count = await p.assetCountAsync;
+        return GalleryAlbum(
           id: p.id,
           name: p.name,
-          count: await p.assetCountAsync,
-        ),
-      );
-    }
-    return albums;
+          count: count,
+        );
+      }),
+    );
   }
 
   @override
@@ -49,6 +55,9 @@ class PhotoGallerySource implements GallerySource {
     final path = await _pathFor(albumId);
     if (path == null) return const [];
     final entities = await path.getAssetListPaged(page: 0, size: limit);
+    for (final e in entities) {
+      _entityCache[e.id] = e;
+    }
     return [
       for (final e in entities)
         GalleryAsset(
@@ -76,15 +85,25 @@ class PhotoGallerySource implements GallerySource {
     return null;
   }
 
+  Future<AssetEntity?> _resolveEntity(String id) async {
+    final cached = _entityCache[id];
+    if (cached != null) return cached;
+    final fetched = await AssetEntity.fromId(id);
+    if (fetched != null) {
+      _entityCache[id] = fetched;
+    }
+    return fetched;
+  }
+
   @override
   Future<Uint8List> loadImage(String id) async {
-    final entity = await AssetEntity.fromId(id);
+    final entity = await _resolveEntity(id);
     return await entity?.originBytes ?? Uint8List(0);
   }
 
   @override
   Future<Uint8List> loadPreview(String id, {int maxDim = 1600}) async {
-    final entity = await AssetEntity.fromId(id);
+    final entity = await _resolveEntity(id);
     if (entity == null) return Uint8List(0);
     // Never touch the full original for preview: the platform media store
     // returns a bounded, already-downscaled JPEG (fast, low-memory).
@@ -96,8 +115,8 @@ class PhotoGallerySource implements GallerySource {
   }
 
   @override
-  Future<Uint8List> loadThumbnail(String id, {int size = 256}) async {
-    final entity = await AssetEntity.fromId(id);
+  Future<Uint8List> loadThumbnail(String id, {int size = 200}) async {
+    final entity = await _resolveEntity(id);
     return await entity?.thumbnailDataWithSize(ThumbnailSize(size, size)) ??
         Uint8List(0);
   }

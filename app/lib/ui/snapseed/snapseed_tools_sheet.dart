@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -145,6 +146,7 @@ class SnapseedToolsSheet extends ConsumerWidget {
   final VoidCallback? onOpenCrop;
 
   void _handleToolTap(BuildContext context, WidgetRef ref, SnapseedToolDef tool) {
+    HapticFeedback.selectionClick();
     Navigator.of(context).pop();
 
     switch (tool.id) {

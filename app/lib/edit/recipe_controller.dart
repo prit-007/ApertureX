@@ -205,8 +205,12 @@ class RecipeController extends Notifier<RecipeState> {
   }
 
   void setBlurEnabled(bool value) {
+    final nextAmount = (value && state.recipe.blurAmount <= 0.0) ? 0.45 : state.recipe.blurAmount;
     state = state.copyWith(
-      recipe: state.recipe.copyWith(blurEnabled: value),
+      recipe: state.recipe.copyWith(
+        blurEnabled: value,
+        blurAmount: nextAmount,
+      ),
     );
     commit(label: 'Lens Blur');
   }

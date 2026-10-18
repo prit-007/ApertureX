@@ -30,24 +30,20 @@ import '../../edit/tool_definition.dart';
 import '../presets/preset_card_dialog.dart';
 import '../../edit/xmp_sidecar.dart';
 import '../../edit/xmp_writer.dart';
-import '../../features/crop/crop_screen.dart';
 import '../../gallery/edit_preview_store.dart';
 import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
 import 'export_options_sheet.dart';
-import 'image_info_sheet.dart';
 import '../../engine/engine.dart';
 import '../../engine/image_format.dart';
 import '../../settings/app_settings.dart';
 import '../../settings/export_branding_settings.dart';
 import '../../settings/export_settings.dart';
-import '../../settings/shell_preference.dart';
 import '../../src/rust/api/export.dart' as rust_export;
 import '../c2pa/c2pa_service.dart';
 import '../../ui/app_shell.dart';
 import '../../ui/common/app_primitives.dart';
 import '../../ui/common/app_sheet.dart';
-import '../../ui/common/editor_guide_sheet.dart';
 import '../../ui/common/history_tree_sheet.dart';
 import '../../ui/common/settings_sheet.dart';
 import '../../ui/edit_activity.dart';
@@ -816,8 +812,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final notifier = ref.read(recipeControllerProvider.notifier);
     final canUndo = state.index > 0;
     final canRedo = state.index < state.history.length - 1;
-    final gestureShell = ref.watch(shellPreferenceProvider) ==
-        AppShellKind.snapseed;
     final active = ref.watch(editActivityProvider);
     final glassmorphic = ref.watch(glassmorphicUiProvider);
 
@@ -830,17 +824,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       );
     });
 
-    final crop = IconButton(
-      tooltip: 'Crop & rotate',
-      onPressed: _bytes == null
-          ? null
-          : () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => CropScreen(imageBytes: _bytes!),
-              ),
-            ),
-      icon: const Icon(Icons.crop),
-    );
     final undo = Tooltip(
       message: 'Undo',
       triggerMode: TooltipTriggerMode.manual,
@@ -861,28 +844,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       tooltip: 'Redo',
       onPressed: canRedo ? notifier.redo : null,
       icon: const Icon(Icons.redo),
-    );
-    final history = IconButton(
-      tooltip: 'History & Branches (Git-style)',
-      onPressed: () => HistoryTreeSheet.show(context),
-      icon: const Icon(Icons.alt_route),
-    );
-    final guide = IconButton(
-      tooltip: 'Editor Guide',
-      onPressed: () => EditorGuideSheet.show(context),
-      icon: const Icon(Icons.help_outline),
-    );
-    final info = IconButton(
-      tooltip: 'Image Info',
-      onPressed: _bytes == null
-          ? null
-          : () => ImageInfoSheet.show(
-                context,
-                imageBytes: _bytes!,
-                recipe: state.recipe,
-                asset: _currentAsset ?? widget.asset,
-              ),
-      icon: const Icon(Icons.info_outline),
     );
     final more = IconButton(
       tooltip: 'More',
@@ -915,24 +876,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               child: AppBar(
                 leading: const BackButton(),
                 centerTitle: true,
-                title: gestureShell
-                    ? null
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          undo,
-                          const SizedBox(width: 4),
-                          redo,
-                        ],
-                      ),
-                actions: gestureShell
-                    ? null
-                    : [
-                        export,
-                        const SizedBox(width: 4),
-                        more,
-                        const SizedBox(width: Insets.xs),
-                      ],
+                title: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    undo,
+                    const SizedBox(width: 4),
+                    redo,
+                  ],
+                ),
+                actions: [
+                  export,
+                  const SizedBox(width: 4),
+                  more,
+                  const SizedBox(width: Insets.xs),
+                ],
                 backgroundColor: glassmorphic
                     ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.70)
                     : null,
@@ -967,38 +924,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             Expanded(
               child: Stack(
                 children: [
-                  _body(
-                    gestureShell: gestureShell,
-                    hud: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final wide = constraints.maxWidth.isFinite && constraints.maxWidth >= 500;
-                        return SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: SizedBox(
-                            width: wide ? constraints.maxWidth : null,
-                            child: Row(
-                              children: [
-                                crop,
-                                undo,
-                                redo,
-                                history,
-                                info,
-                                guide,
-                                more,
-                                if (wide) const Spacer() else const SizedBox(width: Insets.md),
-                                Padding(
-                                  padding: const EdgeInsets.only(right: Insets.sm),
-                                  child: export,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-
-
-                  ),
+                  _body(),
                   // Modal barrier while the share sheet's temp files are
                   // being written. It dismisses itself right before the system
                   // share UI opens, so the user only ever sees it for the
@@ -1042,7 +968,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     );
   }
 
-  Widget _body({required bool gestureShell, Widget? hud}) {
+  Widget _body() {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -1059,7 +985,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
     return AppShell(
       imageBytes: _bytes,
-      topHud: gestureShell ? hud : null,
       onNextPhoto: _navigateToNext,
       onPreviousPhoto: _navigateToPrevious,
     );

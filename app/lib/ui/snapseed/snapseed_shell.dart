@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
@@ -15,6 +16,7 @@ import '../../gesture/gesture_interpreter.dart';
 import '../../gesture/zone_mask.dart';
 import '../common/precision_rotation_dial.dart';
 import 'edit_hud.dart';
+import 'snapseed_gesture_hud.dart';
 import 'snapseed_tools_sheet.dart';
 
 /// Index of the radial-menu item nearest [pointer], for a menu centred at
@@ -52,6 +54,7 @@ class SnapseedShell extends ConsumerStatefulWidget {
     this.histogramOpen = false,
     this.hasHistogram = false,
     this.onToggleHistogram,
+    this.gesturePhase = GesturePhase.idle,
   });
 
   final GradeTool tool;
@@ -63,6 +66,7 @@ class SnapseedShell extends ConsumerStatefulWidget {
   final bool histogramOpen;
   final bool hasHistogram;
   final VoidCallback? onToggleHistogram;
+  final GesturePhase gesturePhase;
 
   @override
   ConsumerState<SnapseedShell> createState() => _SnapseedShellState();
@@ -78,6 +82,39 @@ String _categoryLabel(ToolCategory c) => switch (c) {
 class _SnapseedShellState extends ConsumerState<SnapseedShell> {
   bool _radialOpen = false;
   bool _straightenOpen = false;
+  Timer? _scrubFadeTimer;
+  bool _scrubVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.gesturePhase == GesturePhase.scrubbing) {
+      _scrubVisible = true;
+    }
+  }
+
+  @override
+  void didUpdateWidget(SnapseedShell old) {
+    super.didUpdateWidget(old);
+    if (widget.gesturePhase == GesturePhase.scrubbing) {
+      _scrubFadeTimer?.cancel();
+      if (!_scrubVisible) {
+        setState(() => _scrubVisible = true);
+      }
+    } else if (old.gesturePhase == GesturePhase.scrubbing &&
+        widget.gesturePhase != GesturePhase.scrubbing) {
+      _scrubFadeTimer?.cancel();
+      _scrubFadeTimer = Timer(const Duration(milliseconds: 600), () {
+        if (mounted) setState(() => _scrubVisible = false);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrubFadeTimer?.cancel();
+    super.dispose();
+  }
 
   static IconData _icon(GradeTool tool) => switch (tool) {
     GradeTool.exposure => Icons.exposure,
@@ -101,6 +138,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
   };
 
   void _openToolsSheet(BuildContext context) {
+    HapticFeedback.lightImpact();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -250,6 +288,55 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
             ),
           ),
 
+        // Live Snapseed-style top scrubbing HUD pill
+        if ((widget.gesturePhase == GesturePhase.scrubbing || _scrubVisible) && !nodeMode)
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 16,
+            left: 16,
+            right: 16,
+            child: IgnorePointer(
+              child: SnapseedScrubHud(
+                tool: widget.tool,
+                value: value,
+                hue: widget.tool.is2D
+                    ? switch (widget.tool) {
+                        GradeTool.shadowsGrade => recipe.gradeShadowHue,
+                        GradeTool.midtonesGrade => recipe.gradeMidHue,
+                        GradeTool.highlightsGrade => recipe.gradeHighlightHue,
+                        _ => null,
+                      }
+                    : null,
+                sat: widget.tool.is2D
+                    ? switch (widget.tool) {
+                        GradeTool.shadowsGrade => recipe.gradeShadowSat,
+                        GradeTool.midtonesGrade => recipe.gradeMidSat,
+                        GradeTool.highlightsGrade => recipe.gradeHighlightSat,
+                        _ => null,
+                      }
+                    : null,
+                visible: true,
+              ),
+            ),
+          ),
+
+        // Live Snapseed-style vertical parameter selection carousel
+        if (widget.gesturePhase == GesturePhase.cycling && !nodeMode)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: SnapseedParameterCarousel(
+                category: widget.category,
+                tools: widget.tools,
+                activeTool: widget.tool,
+                values: {
+                  for (final t in widget.tools)
+                    if (!t.is2D && snapseedToolParameters[t] != null)
+                      t: valueOf(recipe, snapseedToolParameters[t]!.first),
+                },
+                visible: true,
+              ),
+            ),
+          ),
+
         // Unified Material 3 bottom dock (zero-overlap, integrated actions).
         if (!nodeMode)
           Align(
@@ -258,180 +345,202 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(Insets.sm, 0, Insets.sm, Insets.sm),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest.withValues(alpha: 0.94),
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(
-                      color: scheme.outlineVariant.withValues(alpha: 0.5),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.16),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest.withValues(alpha: 0.88),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.5),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.16),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          key: const Key('snapseed-tools-sheet-toggle'),
-                          tooltip: 'All Tools',
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                          onPressed: () => _openToolsSheet(context),
-                          icon: const Icon(Icons.grid_view, size: 17),
-                        ),
-                        IconButton(
-                          key: const Key('snapseed-straighten-toggle'),
-                          tooltip: 'Straighten & Rotate',
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                          isSelected: _straightenOpen,
-                          onPressed: () =>
-                              setState(() => _straightenOpen = !_straightenOpen),
-                          icon: const Icon(Icons.crop_rotate, size: 17),
-                          selectedIcon: Icon(Icons.crop_rotate, size: 17, color: scheme.primary),
-                        ),
-                        IconButton(
-                          tooltip: 'Tools',
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                          onPressed: () => setState(() => _radialOpen = true),
-                          icon: const Icon(Icons.radio_button_checked, size: 17),
-                        ),
-                        Container(
-                          width: 1,
-                          height: 18,
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          color: scheme.outlineVariant,
-                        ),
-                        InkWell(
-                          onTap: widget.onCycleCategory,
-                          borderRadius: Radii.smAll,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _categoryLabel(widget.category),
-                                  style: themeStyle(context, FontWeight.w600)
-                                      .copyWith(color: scheme.onSurfaceVariant, fontSize: 11),
-                                ),
-                                const Icon(Icons.unfold_more, size: 12),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            widget.tool.is2D
-                                ? switch (widget.tool) {
-                                    GradeTool.shadowsGrade => 'Shadows Grade',
-                                    GradeTool.midtonesGrade => 'Midtones Grade',
-                                    GradeTool.highlightsGrade => 'Highlights Grade',
-                                    _ => spec.label,
-                                  }
-                                : spec.label,
-                            overflow: TextOverflow.ellipsis,
-                            style: themeStyle(context, FontWeight.w600).copyWith(fontSize: 11),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        if (widget.tool.is2D) ...[
-                          Builder(builder: (_) {
-                            final (h, s) = switch (widget.tool) {
-                              GradeTool.shadowsGrade => (recipe.gradeShadowHue, recipe.gradeShadowSat),
-                              GradeTool.midtonesGrade => (recipe.gradeMidHue, recipe.gradeMidSat),
-                              GradeTool.highlightsGrade => (recipe.gradeHighlightHue, recipe.gradeHighlightSat),
-                              _ => (0.0, 0.0),
-                            };
-                            final swatch = HSVColor.fromAHSV(1.0, h, s, 0.85).toColor();
-                            return Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: s > 0.01 ? swatch : scheme.outline,
-                                    border: Border.all(color: Colors.white24, width: 0.5),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                key: const Key('snapseed-tools-sheet-toggle'),
+                                tooltip: 'All Tools',
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                onPressed: () => _openToolsSheet(context),
+                                icon: const Icon(Icons.grid_view, size: 17),
+                              ),
+                              IconButton(
+                                key: const Key('snapseed-straighten-toggle'),
+                                tooltip: 'Straighten & Rotate',
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                isSelected: _straightenOpen,
+                                onPressed: () {
+                                  HapticFeedback.lightImpact();
+                                  setState(() => _straightenOpen = !_straightenOpen);
+                                },
+                                icon: const Icon(Icons.crop_rotate, size: 17),
+                                selectedIcon: Icon(Icons.crop_rotate, size: 17, color: scheme.primary),
+                              ),
+                              IconButton(
+                                tooltip: 'Tools',
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                onPressed: () {
+                                  HapticFeedback.lightImpact();
+                                  setState(() => _radialOpen = true);
+                                },
+                                icon: const Icon(Icons.radio_button_checked, size: 17),
+                              ),
+                              Container(
+                                width: 1,
+                                height: 18,
+                                margin: const EdgeInsets.symmetric(horizontal: 3),
+                                color: scheme.outlineVariant,
+                              ),
+                              InkWell(
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  widget.onCycleCategory();
+                                },
+                                borderRadius: Radii.smAll,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        _categoryLabel(widget.category),
+                                        style: themeStyle(context, FontWeight.w600)
+                                            .copyWith(color: scheme.onSurfaceVariant, fontSize: 11),
+                                      ),
+                                      const Icon(Icons.unfold_more, size: 12),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(width: 4),
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  widget.tool.is2D
+                                      ? switch (widget.tool) {
+                                          GradeTool.shadowsGrade => 'Shadows Grade',
+                                          GradeTool.midtonesGrade => 'Midtones Grade',
+                                          GradeTool.highlightsGrade => 'Highlights Grade',
+                                          _ => spec.label,
+                                        }
+                                      : spec.label,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: themeStyle(context, FontWeight.w600).copyWith(fontSize: 11),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              if (widget.tool.is2D) ...[
+                                Builder(builder: (_) {
+                                  final (h, s) = switch (widget.tool) {
+                                    GradeTool.shadowsGrade => (recipe.gradeShadowHue, recipe.gradeShadowSat),
+                                    GradeTool.midtonesGrade => (recipe.gradeMidHue, recipe.gradeMidSat),
+                                    GradeTool.highlightsGrade => (recipe.gradeHighlightHue, recipe.gradeHighlightSat),
+                                    _ => (0.0, 0.0),
+                                  };
+                                  final swatch = HSVColor.fromAHSV(1.0, h, s, 0.85).toColor();
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: s > 0.01 ? swatch : scheme.outline,
+                                          border: Border.all(color: Colors.white24, width: 0.5),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'H:${h.round()}° S:${(s * 100).round()}%',
+                                        style: themeStyle(context, FontWeight.w700).copyWith(
+                                          color: scheme.primary,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }),
+                              ] else
                                 Text(
-                                  'H:${h.round()}° S:${(s * 100).round()}%',
+                                  '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
                                   style: themeStyle(context, FontWeight.w700).copyWith(
                                     color: scheme.primary,
                                     fontSize: 11,
                                   ),
                                 ),
-                              ],
-                            );
-                          }),
-                        ] else
-                          Text(
-                            '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
-                            style: themeStyle(context, FontWeight.w700).copyWith(
-                              color: scheme.primary,
-                              fontSize: 11,
-                            ),
+                              Container(
+                                width: 1,
+                                height: 18,
+                                margin: const EdgeInsets.symmetric(horizontal: 3),
+                                color: scheme.outlineVariant,
+                              ),
+                              IconButton(
+                                tooltip: 'HSL target: tap a colour in the photo, then '
+                                    'drag to adjust it',
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                isSelected: ref.watch(tatModeProvider),
+                                onPressed: () {
+                                  HapticFeedback.lightImpact();
+                                  ref.read(tatModeProvider.notifier).toggle();
+                                },
+                                icon: const Icon(Icons.colorize, size: 17),
+                                selectedIcon: Icon(Icons.colorize, size: 17, color: scheme.primary),
+                              ),
+                              IconButton(
+                                key: const Key('selective-toggle'),
+                                tooltip: 'Selective',
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                onPressed: () {
+                                  HapticFeedback.lightImpact();
+                                  ref.read(nodeEditorProvider.notifier).enable();
+                                },
+                                icon: const Icon(Icons.add_location_alt, size: 17),
+                              ),
+                              if (widget.hasHistogram)
+                                IconButton(
+                                  key: const Key('histogram-toggle'),
+                                  tooltip: widget.histogramOpen ? 'Hide histogram' : 'Show histogram',
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                  isSelected: widget.histogramOpen,
+                                  onPressed: () {
+                                    HapticFeedback.selectionClick();
+                                    widget.onToggleHistogram?.call();
+                                  },
+                                  icon: const Icon(Icons.bar_chart, size: 17),
+                                  selectedIcon: Icon(Icons.bar_chart, size: 17, color: scheme.primary),
+                                ),
+                            ],
                           ),
-                        Container(
-                          width: 1,
-                          height: 18,
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          color: scheme.outlineVariant,
                         ),
-                        IconButton(
-                          tooltip: 'HSL target: tap a colour in the photo, then '
-                              'drag to adjust it',
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                          isSelected: ref.watch(tatModeProvider),
-                          onPressed: () =>
-                              ref.read(tatModeProvider.notifier).toggle(),
-                          icon: const Icon(Icons.colorize, size: 17),
-                          selectedIcon: Icon(Icons.colorize, size: 17, color: scheme.primary),
-                        ),
-                        IconButton(
-                          key: const Key('selective-toggle'),
-                          tooltip: 'Selective',
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                          onPressed: () => ref.read(nodeEditorProvider.notifier).enable(),
-                          icon: const Icon(Icons.add_location_alt, size: 17),
-                        ),
-                        if (widget.hasHistogram)
-                          IconButton(
-                            key: const Key('histogram-toggle'),
-                            tooltip: widget.histogramOpen ? 'Hide histogram' : 'Show histogram',
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                            isSelected: widget.histogramOpen,
-                            onPressed: widget.onToggleHistogram,
-                            icon: const Icon(Icons.bar_chart, size: 17),
-                            selectedIcon: Icon(Icons.bar_chart, size: 17, color: scheme.primary),
-                          ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
                 ),
               ),
             ),
@@ -544,7 +653,10 @@ class _RadialMenu extends StatelessWidget {
       children: [
         Positioned.fill(
           child: GestureDetector(
-            onTap: onDismiss,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onDismiss();
+            },
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
               child: ColoredBox(color: scheme.surface.withValues(alpha: 0.5)),
@@ -572,7 +684,10 @@ class _RadialMenu extends StatelessWidget {
                           hitH / 2,
                       child: GestureDetector(
                         key: Key('radial-${tools[i].name}'),
-                        onTap: () => onPick(tools[i]),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          onPick(tools[i]);
+                        },
                         child: Container(
                           width: hitW,
                           height: hitH,

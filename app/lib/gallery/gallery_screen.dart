@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:material_ui/material_ui.dart';
@@ -792,8 +793,14 @@ class _Cell extends StatelessWidget {
       selected: selected,
       onTap: onTap,
       child: GestureDetector(
-        onTap: onTap,
-        onLongPress: onLongPress,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        onLongPress: () {
+          HapticFeedback.mediumImpact();
+          onLongPress();
+        },
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -920,8 +927,14 @@ class _VirtualCell extends StatelessWidget {
       selected: selected,
       onTap: onTap,
       child: GestureDetector(
-        onTap: onTap,
-        onLongPressStart: onLongPressStart,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        onLongPressStart: (d) {
+          HapticFeedback.mediumImpact();
+          onLongPressStart(d);
+        },
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -1000,7 +1013,7 @@ class GalleryThumbnail extends StatefulWidget {
     super.key,
     required this.source,
     required this.assetId,
-    this.size = 512,
+    this.size = 200,
   });
 
   final GallerySource source;
@@ -1012,49 +1025,85 @@ class GalleryThumbnail extends StatefulWidget {
 }
 
 class _GalleryThumbnailState extends State<GalleryThumbnail> {
-  late Future<Uint8List> _future = _load();
+  Uint8List? _cached;
+  Future<Uint8List>? _future;
 
-  Future<Uint8List> _load() =>
-      widget.source.loadThumbnail(widget.assetId, size: widget.size);
+  @override
+  void initState() {
+    super.initState();
+    _initLoad();
+  }
+
+  void _initLoad() {
+    final cached = widget.source.thumbnailCache.get(widget.assetId);
+    if (cached != null) {
+      _cached = cached;
+      _future = null;
+    } else {
+      _cached = null;
+      _future = widget.source.loadThumbnail(widget.assetId, size: widget.size).then((bytes) {
+        widget.source.thumbnailCache.put(widget.assetId, bytes);
+        if (mounted) {
+          setState(() {
+            _cached = bytes;
+          });
+        }
+        return bytes;
+      });
+    }
+  }
 
   @override
   void didUpdateWidget(GalleryThumbnail old) {
     super.didUpdateWidget(old);
     if (old.assetId != widget.assetId || old.source != widget.source) {
-      _future = _load();
+      _initLoad();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final dpr = MediaQuery.devicePixelRatioOf(context);
-        final w = constraints.maxWidth;
-        final cacheWidth = w.isFinite && w > 0 ? (w * dpr).round() : null;
-        return FutureBuilder<Uint8List>(
-          future: _future,
-          builder: (context, snapshot) {
-            final bytes = snapshot.data;
-            if (bytes == null || bytes.isEmpty) {
-              return ColoredBox(
-                color: scheme.surfaceContainerHigh,
-                child: Icon(
-                  Icons.image_outlined,
-                  color: scheme.onSurfaceVariant,
-                ),
-              );
-            }
+    return RepaintBoundary(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final dpr = MediaQuery.devicePixelRatioOf(context);
+          final w = constraints.maxWidth;
+          final cacheWidth = w.isFinite && w > 0 ? (w * dpr).round() : null;
+
+          final bytes = _cached;
+          if (bytes != null && bytes.isNotEmpty) {
             return Image.memory(
               bytes,
               fit: BoxFit.cover,
               gaplessPlayback: true,
               cacheWidth: cacheWidth,
             );
-          },
-        );
-      },
+          }
+
+          return FutureBuilder<Uint8List>(
+            future: _future,
+            builder: (context, snapshot) {
+              final data = snapshot.data;
+              if (data == null || data.isEmpty) {
+                return ColoredBox(
+                  color: scheme.surfaceContainerHigh,
+                  child: Icon(
+                    Icons.image_outlined,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                );
+              }
+              return Image.memory(
+                data,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                cacheWidth: cacheWidth,
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

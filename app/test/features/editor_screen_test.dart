@@ -190,7 +190,7 @@ void main() {
       expect(modeCalls[2].arguments.toString(), contains('edgeToEdge'));
     });
 
-    testWidgets('the gesture shell moves the actions onto a floating HUD', (
+    testWidgets('the gesture shell retains the pro upper HUD matching lightroom', (
       tester,
     ) async {
       final container = containerWith(images: {'a': _png});
@@ -214,18 +214,29 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
 
-      // AppBar is bare (back + title only) ...
+      // In Snapseed mode, the AppBar retains the pro upper HUD with Undo, Redo, Export matching Lightroom
+      final appBar = find.byType(AppBar);
       expect(
         find.descendant(
-          of: find.byType(AppBar),
+          of: appBar,
           matching: find.byTooltip('Undo'),
         ),
-        findsNothing,
+        findsOneWidget,
       );
-      // ... the actions float over the photo instead.
-      expect(find.byTooltip('Undo'), findsOneWidget);
-      expect(find.byTooltip('Redo'), findsOneWidget);
-      expect(find.text('Export'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: appBar,
+          matching: find.byTooltip('Redo'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: appBar,
+          matching: find.text('Export'),
+        ),
+        findsOneWidget,
+      );
     });
   });
 

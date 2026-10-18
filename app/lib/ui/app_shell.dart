@@ -78,6 +78,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   _SheetSnap _sheetSnap = _SheetSnap.half;
   GradeTool _active = GradeTool.exposure;
   ToolCategory _category = ToolCategory.light;
+  GesturePhase _gesturePhase = GesturePhase.idle;
   late final GestureInterpreter _fsm;
   final HapticGradientPacer _gradient = HapticGradientPacer();
   final Stopwatch _gestureSw = Stopwatch()..start();
@@ -121,6 +122,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     super.initState();
     _fsm = GestureInterpreter(
       tools: gestureCategories[_category]!,
+      onPhaseChanged: (phase) {
+        if (mounted) setState(() => _gesturePhase = phase);
+      },
       onToolChanged: (tool) {
         HapticFeedback.selectionClick();
         _gradient.reset();
@@ -356,6 +360,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 tool: _active,
                 category: _category,
                 tools: gestureCategories[_category]!,
+                gesturePhase: _gesturePhase,
                 onCycleCategory: _cycleCategory,
                 hasHistogram: hasHistogram,
                 histogramOpen: _showHistogram && hasHistogram,

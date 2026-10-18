@@ -131,6 +131,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   int? _tatBand;
   Timer? _debounce;
   Timer? _histogramDebounce;
+  bool _baking = false;
+  EditRecipe? _pendingRecipe;
+  bool _pendingBaseChanged = false;
+  bool _pendingGradeChanged = false;
 
   // --- high-zoom tiles (#16) ----------------------------------------------
   // Level-0 tiles of the ORIGINAL frame, decoded natively (never the full
@@ -625,6 +629,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _gradeKey(recipe) != _lastGradeKey ||
         imported != _importedKey;
     if (!baseChanged && !gradeChanged) return;
+
+    if (_baking) {
+      _pendingRecipe = recipe;
+      _pendingBaseChanged |= baseChanged;
+      _pendingGradeChanged |= gradeChanged;
+      return;
+    }
+
     _debounce?.cancel();
     _debounce = Timer(
       const Duration(milliseconds: 16),
@@ -638,6 +650,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     required bool gradeChanged,
   }) async {
     if (_program == null || _previewHandle == null) return;
+    _baking = true;
     final token = ++_bakeToken;
     try {
       if (_useTexture) {
@@ -659,7 +672,21 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       if (token != _bakeToken) return;
       _scheduleHistogram(recipe, token);
     } finally {
+      _baking = false;
       if (token == _bakeToken) _setBusy(false);
+      if (_pendingRecipe != null && mounted && !_disposed) {
+        final nextRecipe = _pendingRecipe!;
+        final nextBase = _pendingBaseChanged;
+        final nextGrade = _pendingGradeChanged;
+        _pendingRecipe = null;
+        _pendingBaseChanged = false;
+        _pendingGradeChanged = false;
+        scheduleMicrotask(() {
+          if (mounted && !_disposed) {
+            _rebake(nextRecipe, baseChanged: nextBase, gradeChanged: nextGrade);
+          }
+        });
+      }
     }
   }
 

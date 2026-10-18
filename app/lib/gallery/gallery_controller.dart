@@ -92,8 +92,12 @@ class GalleryController extends Notifier<GalleryState> {
         state = state.copyWith(loading: false, permission: permission);
         return;
       }
-      final albums = await source.listAlbums();
-      final assets = await source.listImages(albumId: state.selectedAlbumId);
+      final results = await Future.wait([
+        source.listImages(albumId: state.selectedAlbumId),
+        source.listAlbums(),
+      ]);
+      final assets = results[0] as List<GalleryAsset>;
+      final albums = results[1] as List<GalleryAlbum>;
       axLog(LogDomain.gallery, 'Loaded ${assets.length} photo(s)');
       state = state.copyWith(
         assets: assets,
