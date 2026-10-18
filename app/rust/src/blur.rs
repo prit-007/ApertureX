@@ -4,6 +4,8 @@
 //! focal plane isolation, specular highlight boost, and polygonal aperture blade shapes
 //! (circle, 5-blade pentagon, 6-blade hexagon, swirl).
 
+use rayon::prelude::*;
+
 /// Bokeh aperture blade shape.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BokehShape {
@@ -133,9 +135,9 @@ struct BokehSample {
     weight: f32,
 }
 
-fn build_bokeh_kernel(shape: BokehShape) -> Vec<BokehSample> {
-    const N: usize = 36;
-    let mut samples = Vec::with_capacity(N + 1);
+fn build_bokeh_kernel(shape: BokehShape, sample_count: usize) -> Vec<BokehSample> {
+    let n = sample_count;
+    let mut samples = Vec::with_capacity(n + 1);
     // Center sample
     samples.push(BokehSample {
         dx: 0.0,
@@ -143,9 +145,9 @@ fn build_bokeh_kernel(shape: BokehShape) -> Vec<BokehSample> {
         weight: 1.0,
     });
     // Golden angle spiral distribution
-    for i in 0..N {
+    for i in 0..n {
         let theta = i as f32 * 2.399_963_1; // tau * (1 - 1/phi)
-        let r = ((i as f32 + 0.5) / N as f32).sqrt();
+        let r = ((i as f32 + 0.5) / n as f32).sqrt();
         let limit = aperture_radius_limit(theta, shape);
         if r <= limit {
             let norm_r = r / limit;
@@ -190,6 +192,10 @@ fn generate_synthetic_depth_map(w: usize, h: usize) -> Vec<f32> {
 
 /// Applies depth-guided lens blur with synthetic bokeh.
 ///
+/// `sample_count` controls the bokeh kernel size: use 12 during interactive
+/// scrub (fast, ~8-12ms on 512p proxy) and 36 on pointer-release settle
+/// (full quality).
+///
 /// If `depth_map` is empty, generates an optical distance gradient from optical center
 /// and vertical portrait perspective.
 pub fn apply_lens_blur(
@@ -198,6 +204,7 @@ pub fn apply_lens_blur(
     h: usize,
     params: LensBlurParams,
     depth_map: Option<&[f32]>,
+    sample_count: usize,
 ) -> Vec<u8> {
     if params.is_neutral() || w <= 1 || h <= 1 {
         return rgba.to_vec();
@@ -218,7 +225,7 @@ pub fn apply_lens_blur(
         generate_synthetic_depth_map(w, h)
     };
 
-    let kernel = build_bokeh_kernel(params.bokeh_shape);
+    let kernel = build_bokeh_kernel(params.bokeh_shape, sample_count);
 
     let num_threads = std::thread::available_parallelism()
         .map(|n| n.get())
@@ -226,92 +233,87 @@ pub fn apply_lens_blur(
         .clamp(1, 8);
     let rows_per_chunk = h.div_ceil(num_threads);
 
-    std::thread::scope(|s| {
-        for (chunk_idx, out_chunk) in out.chunks_mut(rows_per_chunk * w * 4).enumerate() {
+    out.par_chunks_mut(rows_per_chunk * w * 4)
+        .enumerate()
+        .for_each(|(chunk_idx, out_chunk)| {
             let start_y = chunk_idx * rows_per_chunk;
             let end_y = (start_y + rows_per_chunk).min(h);
-            let depth_slice = &depth_buffer;
-            let kernel_ref = &kernel;
+            for y in start_y..end_y {
+                let chunk_y = y - start_y;
+                for x in 0..w {
+                    let idx = (chunk_y * w + x) * 4;
+                    let src_idx = (y * w + x) * 4;
+                    let pixel_depth = depth_buffer[y * w + x];
+                    let coc = circle_of_confusion(
+                        pixel_depth,
+                        params.focal_point,
+                        params.focal_range,
+                        params.amount,
+                    );
 
-            s.spawn(move || {
-                for y in start_y..end_y {
-                    let chunk_y = y - start_y;
-                    for x in 0..w {
-                        let idx = (chunk_y * w + x) * 4;
-                        let src_idx = (y * w + x) * 4;
-                        let pixel_depth = depth_slice[y * w + x];
-                        let coc = circle_of_confusion(
-                            pixel_depth,
-                            params.focal_point,
-                            params.focal_range,
-                            params.amount,
-                        );
+                    // In sharp focal plane: copy pixel intact
+                    if coc <= 1e-3 {
+                        out_chunk[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
+                        continue;
+                    }
 
-                        // In sharp focal plane: copy pixel intact
-                        if coc <= 1e-3 {
-                            out_chunk[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
+                    let kernel_r = (coc * max_radius).max(1.0);
+                    let mut r_acc = 0.0f32;
+                    let mut g_acc = 0.0f32;
+                    let mut b_acc = 0.0f32;
+                    let mut weight_acc = 0.0f32;
+
+                    for sample in &kernel {
+                        let nx = (x as f32 + sample.dx * kernel_r).round() as isize;
+                        let ny = (y as f32 + sample.dy * kernel_r).round() as isize;
+                        if nx < 0 || nx >= w as isize || ny < 0 || ny >= h as isize {
                             continue;
                         }
-
-                        let kernel_r = (coc * max_radius).max(1.0);
-                        let mut r_acc = 0.0f32;
-                        let mut g_acc = 0.0f32;
-                        let mut b_acc = 0.0f32;
-                        let mut weight_acc = 0.0f32;
-
-                        for sample in kernel_ref {
-                            let nx = (x as f32 + sample.dx * kernel_r).round() as isize;
-                            let ny = (y as f32 + sample.dy * kernel_r).round() as isize;
-                            if nx < 0 || nx >= w as isize || ny < 0 || ny >= h as isize {
-                                continue;
-                            }
-                            let s_x = nx as usize;
-                            let s_y = ny as usize;
-                            let sample_depth = depth_slice[s_y * w + s_x];
-                            let depth_weight = if sample_depth < pixel_depth - 0.15 {
-                                0.1 // de-weight foreground bleeding onto background
-                            } else {
-                                1.0
-                            };
-
-                            let s_idx = (s_y * w + s_x) * 4;
-                            let mut sr = rgba[s_idx] as f32;
-                            let mut sg = rgba[s_idx + 1] as f32;
-                            let mut sb = rgba[s_idx + 2] as f32;
-
-                            // Specular highlight boost: amplify bright out-of-focus spots
-                            if params.bokeh_boost > 0.0 {
-                                let luma = 0.2126 * sr + 0.7152 * sg + 0.0722 * sb;
-                                if luma > 180.0 {
-                                    let boost = 1.0 + params.bokeh_boost * ((luma - 180.0) / 75.0);
-                                    sr *= boost;
-                                    sg *= boost;
-                                    sb *= boost;
-                                }
-                            }
-
-                            let w_val = depth_weight * sample.weight;
-                            r_acc += sr * w_val;
-                            g_acc += sg * w_val;
-                            b_acc += sb * w_val;
-                            weight_acc += w_val;
-                        }
-
-                        if weight_acc > 0.0 {
-                            out_chunk[idx] = (r_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
-                            out_chunk[idx + 1] =
-                                (g_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
-                            out_chunk[idx + 2] =
-                                (b_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
-                            out_chunk[idx + 3] = rgba[src_idx + 3];
+                        let s_x = nx as usize;
+                        let s_y = ny as usize;
+                        let sample_depth = depth_buffer[s_y * w + s_x];
+                        let depth_weight = if sample_depth < pixel_depth - 0.15 {
+                            0.1 // de-weight foreground bleeding onto background
                         } else {
-                            out_chunk[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
+                            1.0
+                        };
+
+                        let s_idx = (s_y * w + s_x) * 4;
+                        let mut sr = rgba[s_idx] as f32;
+                        let mut sg = rgba[s_idx + 1] as f32;
+                        let mut sb = rgba[s_idx + 2] as f32;
+
+                        // Specular highlight boost: amplify bright out-of-focus spots
+                        if params.bokeh_boost > 0.0 {
+                            let luma = 0.2126 * sr + 0.7152 * sg + 0.0722 * sb;
+                            if luma > 180.0 {
+                                let boost = 1.0 + params.bokeh_boost * ((luma - 180.0) / 75.0);
+                                sr *= boost;
+                                sg *= boost;
+                                sb *= boost;
+                            }
                         }
+
+                        let w_val = depth_weight * sample.weight;
+                        r_acc += sr * w_val;
+                        g_acc += sg * w_val;
+                        b_acc += sb * w_val;
+                        weight_acc += w_val;
+                    }
+
+                    if weight_acc > 0.0 {
+                        out_chunk[idx] = (r_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
+                        out_chunk[idx + 1] =
+                            (g_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
+                        out_chunk[idx + 2] =
+                            (b_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
+                        out_chunk[idx + 3] = rgba[src_idx + 3];
+                    } else {
+                        out_chunk[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
                     }
                 }
-            });
-        }
-    });
+            }
+        });
 
     out
 }
@@ -323,7 +325,7 @@ mod tests {
     #[test]
     fn neutral_lens_blur_is_noop() {
         let src = vec![128u8; 16 * 16 * 4];
-        let out = apply_lens_blur(&src, 16, 16, LensBlurParams::default(), None);
+        let out = apply_lens_blur(&src, 16, 16, LensBlurParams::default(), None, 36);
         assert_eq!(out, src);
     }
 
@@ -360,7 +362,7 @@ mod tests {
             bokeh_boost: 0.0,
         };
 
-        let out = apply_lens_blur(&src, w, h, params, Some(&depth_map));
+        let out = apply_lens_blur(&src, w, h, params, Some(&depth_map), 36);
 
         // In-focus left side (x=2, y=2): should retain high contrast checkerboard
         let in_focus_idx = (2 * w + 2) * 4;
@@ -397,13 +399,13 @@ mod tests {
             bokeh_shape: BokehShape::Circle,
             bokeh_boost: 0.0,
         };
-        let out_normal = apply_lens_blur(&src, w, h, base_params, Some(&depth_map));
+        let out_normal = apply_lens_blur(&src, w, h, base_params, Some(&depth_map), 36);
 
         let boosted_params = LensBlurParams {
             bokeh_boost: 1.0,
             ..base_params
         };
-        let out_boosted = apply_lens_blur(&src, w, h, boosted_params, Some(&depth_map));
+        let out_boosted = apply_lens_blur(&src, w, h, boosted_params, Some(&depth_map), 36);
 
         // Surrounding bokeh disc around (12, 12) should be brighter with bokeh_boost
         let sample_idx = (12 * w + 11) * 4;
@@ -441,7 +443,7 @@ mod tests {
         };
 
         // None passed for depth_map -> uses optical synthetic perspective
-        let out = apply_lens_blur(&src, w, h, params, None);
+        let out = apply_lens_blur(&src, w, h, params, None, 36);
 
         // Subject center near (16, 14): should be in sharp focus (coc <= 1e-3, identical to src)
         let subject_idx = (14 * w + 16) * 4;
@@ -458,5 +460,150 @@ mod tests {
             "Background must be blurred: expected > 50, got {}",
             out[bg_idx]
         );
+    }
+
+    #[test]
+    fn adaptive_kernel_12_samples_has_fewer_entries_than_36() {
+        let kernel_12 = build_bokeh_kernel(BokehShape::Circle, 12);
+        let kernel_36 = build_bokeh_kernel(BokehShape::Circle, 36);
+        // 12 samples + center = 13 max; 36 samples + center = 37 max
+        assert!(kernel_12.len() <= 13, "12-sample kernel too large: {}", kernel_12.len());
+        assert!(kernel_36.len() <= 37, "36-sample kernel too large: {}", kernel_36.len());
+        assert!(
+            kernel_12.len() < kernel_36.len(),
+            "12-sample kernel ({}) must be smaller than 36-sample ({})",
+            kernel_12.len(),
+            kernel_36.len()
+        );
+    }
+
+    #[test]
+    fn neutral_blur_ignores_sample_count() {
+        let src = vec![128u8; 16 * 16 * 4];
+        let out_12 = apply_lens_blur(&src, 16, 16, LensBlurParams::default(), None, 12);
+        let out_36 = apply_lens_blur(&src, 16, 16, LensBlurParams::default(), None, 36);
+        assert_eq!(out_12, src);
+        assert_eq!(out_36, src);
+        assert_eq!(out_12, out_36);
+    }
+
+    #[test]
+    fn rayon_parallel_blur_matches_sequential() {
+        let (w, h) = (32, 32);
+        let mut src = vec![0u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                let v = if (x + y) % 2 == 0 { 255 } else { 0 };
+                src[idx] = v;
+                src[idx + 1] = v;
+                src[idx + 2] = v;
+                src[idx + 3] = 255;
+            }
+        }
+        let depth_map = vec![1.0f32; w * h];
+        let params = LensBlurParams {
+            enabled: true,
+            amount: 0.8,
+            focal_point: 0.5,
+            focal_range: 0.1,
+            bokeh_shape: BokehShape::Circle,
+            bokeh_boost: 0.0,
+        };
+
+        let seq = apply_lens_blur(&src, w, h, params, Some(&depth_map), 36);
+
+        // Parallel version: split rows into chunks and process each in parallel
+        let mut out = vec![0u8; w * h * 4];
+        let depth_buffer = depth_map;
+        let kernel = build_bokeh_kernel(params.bokeh_shape, 36);
+        let num_threads = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+            .clamp(1, 8);
+        let rows_per_chunk = h.div_ceil(num_threads);
+
+        out.par_chunks_mut(rows_per_chunk * w * 4).enumerate().for_each(
+            |(chunk_idx, out_chunk)| {
+                let start_y = chunk_idx * rows_per_chunk;
+                let end_y = (start_y + rows_per_chunk).min(h);
+                for y in start_y..end_y {
+                    let chunk_y = y - start_y;
+                    for x in 0..w {
+                        let idx = (chunk_y * w + x) * 4;
+                        let src_idx = (y * w + x) * 4;
+                        let pixel_depth = depth_buffer[y * w + x];
+                        let coc = circle_of_confusion(
+                            pixel_depth,
+                            params.focal_point,
+                            params.focal_range,
+                            params.amount,
+                        );
+
+                        if coc <= 1e-3 {
+                            out_chunk[idx..idx + 4].copy_from_slice(&src[src_idx..src_idx + 4]);
+                            continue;
+                        }
+
+                        let kernel_r = (coc * (params.amount * w.min(h) as f32 * 0.08).clamp(1.0, 24.0)).max(1.0);
+                        let mut r_acc = 0.0f32;
+                        let mut g_acc = 0.0f32;
+                        let mut b_acc = 0.0f32;
+                        let mut weight_acc = 0.0f32;
+
+                        for sample in &kernel {
+                            let nx = (x as f32 + sample.dx * kernel_r).round() as isize;
+                            let ny = (y as f32 + sample.dy * kernel_r).round() as isize;
+                            if nx < 0 || nx >= w as isize || ny < 0 || ny >= h as isize {
+                                continue;
+                            }
+                            let s_x = nx as usize;
+                            let s_y = ny as usize;
+                            let sample_depth = depth_buffer[s_y * w + s_x];
+                            let depth_weight = if sample_depth < pixel_depth - 0.15 {
+                                0.1
+                            } else {
+                                1.0
+                            };
+
+                            let s_idx = (s_y * w + s_x) * 4;
+                            let mut sr = src[s_idx] as f32;
+                            let mut sg = src[s_idx + 1] as f32;
+                            let mut sb = src[s_idx + 2] as f32;
+
+                            if params.bokeh_boost > 0.0 {
+                                let luma = 0.2126 * sr + 0.7152 * sg + 0.0722 * sb;
+                                if luma > 180.0 {
+                                    let boost =
+                                        1.0 + params.bokeh_boost * ((luma - 180.0) / 75.0);
+                                    sr *= boost;
+                                    sg *= boost;
+                                    sb *= boost;
+                                }
+                            }
+
+                            let w_val = depth_weight * sample.weight;
+                            r_acc += sr * w_val;
+                            g_acc += sg * w_val;
+                            b_acc += sb * w_val;
+                            weight_acc += w_val;
+                        }
+
+                        if weight_acc > 0.0 {
+                            out_chunk[idx] = (r_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
+                            out_chunk[idx + 1] =
+                                (g_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
+                            out_chunk[idx + 2] =
+                                (b_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
+                            out_chunk[idx + 3] = src[src_idx + 3];
+                        } else {
+                            out_chunk[idx..idx + 4].copy_from_slice(&src[src_idx..src_idx + 4]);
+                        }
+                    }
+                }
+            },
+        );
+
+        assert_eq!(out, seq, "parallel blur must match sequential blur");
     }
 }

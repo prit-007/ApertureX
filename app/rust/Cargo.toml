@@ -17,6 +17,7 @@ rawler = "0.8.0"
 libraw = { version = "0.1.1", optional = true }
 num-bigint = "0.4.8"
 num-traits = "0.2.19"
+rayon = "1.10"
 
 [features]
 # Optional LibRaw fallback for camera coverage. Off by default: the default

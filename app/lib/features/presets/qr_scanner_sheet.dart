@@ -238,21 +238,29 @@ class _QrScannerSheetState extends ConsumerState<QrScannerSheet> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        _decodedPayload!.name,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: scheme.onSurface,
+                      Expanded(
+                        child: Text(
+                          _decodedPayload!.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onSurface,
+                          ),
                         ),
                       ),
                       if (_decodedPayload!.author != null)
-                        Text(
-                          'by ${_decodedPayload!.author!}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: scheme.primary,
+                        Flexible(
+                          child: Text(
+                            'by ${_decodedPayload!.author!}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: scheme.primary,
+                            ),
                           ),
                         ),
                     ],

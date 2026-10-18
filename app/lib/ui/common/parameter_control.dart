@@ -33,7 +33,9 @@ class ParameterControl extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final spec = specOf(parameter);
-    final value = valueOf(ref.watch(recipeControllerProvider).recipe, parameter);
+    final value = ref.watch(
+      recipeControllerProvider.select((s) => valueOf(s.recipe, parameter)),
+    );
     final notifier = ref.read(recipeControllerProvider.notifier);
     final math = SliderMath(spec);
     final isNeutral = value == spec.neutral;

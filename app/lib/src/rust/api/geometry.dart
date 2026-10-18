@@ -32,7 +32,7 @@ Future<GeometryResult> geometryRotate({
   turns: turns,
 );
 
-/// Crops to `(x, y, cw, ch)`.
+/// Crops to `(x, y, cw, ch)`. Returns clamped output and true post-clamp dimensions.
 Future<GeometryResult> geometryCrop({
   required List<int> rgba,
   required int width,

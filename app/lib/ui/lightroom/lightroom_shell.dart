@@ -89,7 +89,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   _ProToolsSubTab _proToolsTab = _ProToolsSubTab.retouch;
 
   late final ScrollController _tabScrollController;
-  EditRecipe? _sessionStartRecipe;
+  EditRecipe? _tabEntryRecipe;
 
   @override
   void initState() {
@@ -181,8 +181,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final currentRecipe = ref.watch(recipeControllerProvider).recipe;
-    _sessionStartRecipe ??= currentRecipe;
-    final hasChanges = currentRecipe != _sessionStartRecipe;
+    // Capture the tab-entry baseline when switching into a tab. This is the
+    // reference point for dirty detection and modal apply/discard.
+    _tabEntryRecipe ??= currentRecipe;
+    final hasTabChanges = _tabEntryRecipe != null && currentRecipe != _tabEntryRecipe;
 
     final canUndo = ref.watch(
       recipeControllerProvider.select((s) => s.index > 0),
@@ -257,12 +259,19 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                       _isMasterTabModified(currentRecipe, tab),
                       () {
                         HapticFeedback.selectionClick();
-                        if (hasChanges) {
+                        // Modal guard: block switching tabs while the current
+                        // tab has uncommitted changes (Lightroom parity).
+                        if (hasTabChanges && tab != _activeTab) {
+                          HapticFeedback.heavyImpact();
+                          return;
+                        }
+                        // Commit any changes in the current tab before leaving.
+                        if (hasTabChanges) {
                           controller.commit(label: 'Applied ${_masterTabLabel(_activeTab)}');
                         }
                         setState(() {
                           _activeTab = tab;
-                          _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
+                          _tabEntryRecipe = ref.read(recipeControllerProvider).recipe;
                         });
                         // Update activeSectionProvider for canvas overlays
                         switch (tab) {
@@ -331,11 +340,11 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     key: const Key('tray-cancel'),
                     tooltip: 'Discard changes',
                     visualDensity: VisualDensity.compact,
-                    onPressed: hasChanges
+                    onPressed: hasTabChanges
                         ? () {
                             HapticFeedback.lightImpact();
                             controller.loadRecipe(
-                              _sessionStartRecipe!,
+                              _tabEntryRecipe!,
                               label: 'Discarded ${_masterTabLabel(_activeTab)} changes',
                             );
                             setState(() {});
@@ -344,7 +353,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     icon: Icon(
                       Icons.close,
                       size: 20,
-                      color: hasChanges
+                      color: hasTabChanges
                           ? scheme.error
                           : scheme.onSurfaceVariant.withValues(alpha: 0.38),
                     ),
@@ -436,19 +445,19 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     key: const Key('tray-apply'),
                     tooltip: 'Apply changes',
                     visualDensity: VisualDensity.compact,
-                    onPressed: hasChanges
+                    onPressed: hasTabChanges
                         ? () {
                             HapticFeedback.lightImpact();
                             controller.commit(label: 'Applied ${_masterTabLabel(_activeTab)}');
                             setState(() {
-                              _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
+                              _tabEntryRecipe = ref.read(recipeControllerProvider).recipe;
                             });
                           }
                         : null,
                     icon: Icon(
                       Icons.check,
                       size: 20,
-                      color: hasChanges
+                      color: hasTabChanges
                           ? scheme.primary
                           : scheme.onSurfaceVariant.withValues(alpha: 0.38),
                     ),
@@ -463,7 +472,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             Expanded(
               child: SafeArea(
                 bottom: false,
-                child: _sectionBody(currentRecipe, hasChanges, controller),
+                child: _sectionBody(currentRecipe, hasTabChanges, controller),
               ),
             ),
           ],
@@ -488,7 +497,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   /// The body for the active Master Tab.
   Widget _sectionBody(
     EditRecipe currentRecipe,
-    bool hasChanges,
+    bool hasTabChanges,
     RecipeController controller,
   ) {
     switch (_activeTab) {
@@ -504,11 +513,11 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 ('Grade', _LightColorSubTab.grade, 'grade', _isLightColorSubTabModified(currentRecipe, _LightColorSubTab.grade)),
               ],
               current: _lightColorTab,
-              hasChanges: hasChanges,
+              hasTabChanges: hasTabChanges,
               onCancel: () {
                 HapticFeedback.lightImpact();
                 controller.loadRecipe(
-                  _sessionStartRecipe!,
+                  _tabEntryRecipe!,
                   label: 'Discarded Light & Color changes',
                 );
                 setState(() {});
@@ -517,7 +526,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 HapticFeedback.lightImpact();
                 controller.commit(label: 'Applied Light & Color');
                 setState(() {
-                  _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
+                  _tabEntryRecipe = ref.read(recipeControllerProvider).recipe;
                 });
               },
               onSelect: (val) {
@@ -558,11 +567,11 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 ('Film', _EffectsDetailSubTab.film, 'film', _isEffectsDetailSubTabModified(currentRecipe, _EffectsDetailSubTab.film)),
               ],
               current: _effectsDetailTab,
-              hasChanges: hasChanges,
+              hasTabChanges: hasTabChanges,
               onCancel: () {
                 HapticFeedback.lightImpact();
                 controller.loadRecipe(
-                  _sessionStartRecipe!,
+                  _tabEntryRecipe!,
                   label: 'Discarded Effects & Detail changes',
                 );
                 setState(() {});
@@ -571,7 +580,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 HapticFeedback.lightImpact();
                 controller.commit(label: 'Applied Effects & Detail');
                 setState(() {
-                  _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
+                  _tabEntryRecipe = ref.read(recipeControllerProvider).recipe;
                 });
               },
               onSelect: (val) {
@@ -604,11 +613,11 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 ('Perspective', _CropGeometrySubTab.perspective, 'perspective', _isCropGeometrySubTabModified(currentRecipe, _CropGeometrySubTab.perspective)),
               ],
               current: _cropGeometryTab,
-              hasChanges: hasChanges,
+              hasTabChanges: hasTabChanges,
               onCancel: () {
                 HapticFeedback.lightImpact();
                 controller.loadRecipe(
-                  _sessionStartRecipe!,
+                  _tabEntryRecipe!,
                   label: 'Discarded Crop & Geometry changes',
                 );
                 setState(() {});
@@ -617,7 +626,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 HapticFeedback.lightImpact();
                 controller.commit(label: 'Applied Crop & Geometry');
                 setState(() {
-                  _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
+                  _tabEntryRecipe = ref.read(recipeControllerProvider).recipe;
                 });
               },
               onSelect: (val) => setState(() => _cropGeometryTab = val),
@@ -647,11 +656,11 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 ('Shader Lab', _ProToolsSubTab.shaderLab, 'shaderLab', _isProToolsSubTabModified(currentRecipe, _ProToolsSubTab.shaderLab)),
               ],
               current: _proToolsTab,
-              hasChanges: hasChanges,
+              hasTabChanges: hasTabChanges,
               onCancel: () {
                 HapticFeedback.lightImpact();
                 controller.loadRecipe(
-                  _sessionStartRecipe!,
+                  _tabEntryRecipe!,
                   label: 'Discarded Pro Tools changes',
                 );
                 setState(() {});
@@ -660,7 +669,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 HapticFeedback.lightImpact();
                 controller.commit(label: 'Applied Pro Tools');
                 setState(() {
-                  _sessionStartRecipe = ref.read(recipeControllerProvider).recipe;
+                  _tabEntryRecipe = ref.read(recipeControllerProvider).recipe;
                 });
               },
               onSelect: (val) {
@@ -696,7 +705,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     required List<(String label, T value, String keyName, bool isModified)> tabs,
     required T current,
     required ValueChanged<T> onSelect,
-    required bool hasChanges,
+    required bool hasTabChanges,
     required VoidCallback onCancel,
     required VoidCallback onApply,
   }) {
@@ -730,7 +739,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
           selected: selected,
           onSelected: (_) {
             HapticFeedback.selectionClick();
-            if (hasChanges) {
+            if (hasTabChanges) {
               onApply();
             }
             onSelect(value);
@@ -775,7 +784,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
               ),
             ),
           ),
-          if (hasChanges) ...[
+          if (hasTabChanges) ...[
             VerticalDivider(
               width: 1,
               indent: 8,

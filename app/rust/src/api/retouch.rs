@@ -15,18 +15,11 @@ pub struct ApiRetouchPatch {
     pub is_clone: bool,
 }
 
-/// Applies a list of retouch patches onto the RGBA pixel buffer.
-pub fn retouch_apply(
-    rgba: Vec<u8>,
-    width: u32,
-    height: u32,
-    patches: Vec<ApiRetouchPatch>,
-) -> Vec<u8> {
-    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
-        return rgba;
-    }
-    let internal_patches: Vec<RetouchPatch> = patches
-        .into_iter()
+/// Maps bridge patches onto the engine's [`RetouchPatch`]s — the conversion
+/// shared by `retouch_apply`, the preview bake and the export recipe.
+pub(crate) fn to_engine_patches(patches: &[ApiRetouchPatch]) -> Vec<RetouchPatch> {
+    patches
+        .iter()
         .map(|p| RetouchPatch {
             target_x: p.target_x,
             target_y: p.target_y,
@@ -41,7 +34,20 @@ pub fn retouch_apply(
                 RetouchMode::Heal
             },
         })
-        .collect();
+        .collect()
+}
+
+/// Applies a list of retouch patches onto the RGBA pixel buffer.
+pub fn retouch_apply(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    patches: Vec<ApiRetouchPatch>,
+) -> Vec<u8> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return rgba;
+    }
+    let internal_patches = to_engine_patches(&patches);
 
     retouch::apply_retouch(&rgba, width as usize, height as usize, &internal_patches)
 }

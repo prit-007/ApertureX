@@ -1,6 +1,10 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:aperturex/features/editor/export_options_sheet.dart';
+import 'package:aperturex/settings/export_settings.dart';
+
+import '../helpers/viewport_harness.dart';
 
 void main() {
   testWidgets('ExportOptionsSheet hides DNG option for non-raw image', (
@@ -209,5 +213,59 @@ void main() {
     // Headroom slider should now be visible
     expect(find.textContaining('Peak Headroom:'), findsOneWidget);
   });
+
+  testWidgets(
+    'gamut row wraps without overflow at phone viewports and text scales',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      for (final viewport in const [Size(360, 800), Size(320, 640)]) {
+        for (final textScale in const [1.0, 1.3]) {
+          setViewport(tester, viewport, textScale);
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                home: Scaffold(
+                  body: Builder(
+                    builder: (context) => ElevatedButton(
+                      onPressed: () =>
+                          ExportOptionsSheet.show(context, isRaw: false),
+                      child: const Text('Open'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.tap(find.text('Open'));
+          await tester.pumpAndSettle();
+
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'overflow at $viewport / textScale $textScale',
+          );
+
+          final srgbChip = find.byKey(const Key('color_space_srgb_chip'));
+          final p3Chip = find.byKey(const Key('color_space_p3_chip'));
+          expect(srgbChip, findsOneWidget);
+          expect(p3Chip, findsOneWidget);
+          await tester.ensureVisible(p3Chip);
+          await tester.pumpAndSettle();
+          expect(p3Chip.hitTestable(), findsOneWidget);
+
+          await tester.tap(p3Chip);
+          await tester.pumpAndSettle();
+          expect(container.read(exportSettingsProvider).colorSpace, 1);
+
+          // Dismiss the sheet before the next viewport iteration.
+          Navigator.of(tester.element(p3Chip)).pop();
+          await tester.pumpAndSettle();
+        }
+      }
+    },
+  );
 }
 

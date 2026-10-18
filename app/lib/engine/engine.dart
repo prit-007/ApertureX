@@ -582,6 +582,17 @@ class AxEngine {
         )
       ).toInt();
 
+  static Future<int> previewOpenJpeg({
+    required Uint8List jpegBytes,
+    int maxDim = 1440,
+  }) async =>
+      (
+        await rust_preview.previewOpenJpeg(
+          jpegBytes: jpegBytes,
+          maxDim: maxDim,
+        )
+      ).toInt();
+
   /// Drops the resident image for [handle]. Unknown and double closes are
   /// safe, so widget teardown can call it unconditionally.
   static Future<void> previewClose(int handle) =>
@@ -600,6 +611,7 @@ class AxEngine {
     handle: BigInt.from(handle),
     spec: spec,
     layers: _mapLayers(layers, maskGroups),
+    retouchPatches: [],
   );
 
   /// Halo rows of context ([spatial margin]) the high-zoom ROI overlay (#55)
@@ -713,6 +725,7 @@ class AxEngine {
     handle: BigInt.from(handle),
     spec: spec,
     layers: _mapLayers(layers, maskGroups),
+    retouchPatches: [],
     params: _colorParams(grade),
     curves: _curveParams(grade),
     hsl: grade.hsl,
@@ -814,6 +827,21 @@ class AxEngine {
       defringeGreenAmount: optics.defringeGreenAmount,
       defringeGreenHueMin: optics.defringeGreenHueMin,
       defringeGreenHueMax: optics.defringeGreenHueMax,
+      profileCorrections: optics.profileCorrections,
+      profileDistortion: optics.profileDistortion,
+      profileVignetting: optics.profileVignetting,
+      filmBloom: 0.0,
+      filmBloomRadius: 0.0,
+      filmBloomThreshold: 0.0,
+      filmDust: 0.0,
+      filmHalation: 0.0,
+      filmHalationRadius: 0.0,
+      filmHalationThreshold: 0.0,
+      filmScratches: 0.0,
+      shaderLabPreset: 0,
+      shaderParam1: 0.0,
+      shaderParam2: 0.0,
+      shaderParam3: 0.0,
       blurEnabled: blur.enabled,
       blurAmount: blur.amount,
       blurFocalPoint: blur.focalPoint,
@@ -828,6 +856,7 @@ class AxEngine {
       ultraHdr: ultraHdr,
       hdrHeadroom: hdrHeadroom,
     );
+
 
     final mappedLayers = _mapLayers(layers, maskGroups);
     final colorP = _colorParams(spec);
@@ -869,6 +898,7 @@ class AxEngine {
                   recipeJson: '',
                   exifSummary: '',
                 ),
+            retouchPatches: [],
           )
         : await rust_export.exportFull(
             rgba: rgba,
@@ -880,6 +910,7 @@ class AxEngine {
             curves: curveP,
             hsl: spec.hsl,
             exif: exif,
+            retouchPatches: [],
           );
     return result.cancelled ? null : result.jpeg;
   }

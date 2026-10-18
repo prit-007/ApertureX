@@ -65,8 +65,10 @@ class _CopySettingsSheetState extends ConsumerState<CopySettingsSheet> {
       child: AppSheet(
         title: 'Copy Settings',
         children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
           children: [
             TextButton(
               onPressed: _selectAll,

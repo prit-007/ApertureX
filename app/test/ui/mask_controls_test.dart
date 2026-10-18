@@ -10,6 +10,8 @@ import 'package:aperturex/edit/node_editor.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
 import 'package:aperturex/ui/common/mask_controls.dart';
 
+import '../helpers/viewport_harness.dart';
+
 void main() {
   late ProviderContainer container;
 
@@ -21,10 +23,12 @@ void main() {
     container.dispose();
   });
 
-  Future<void> pumpMaskControls(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1000, 1200);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+  Future<void> pumpMaskControls(
+    WidgetTester tester, {
+    Size viewport = const Size(1000, 1200),
+    double textScale = 1.0,
+  }) async {
+    setViewport(tester, viewport, textScale);
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -601,4 +605,70 @@ void main() {
     expect(find.text('Graded on the group card above'), findsNothing);
     expect(find.textContaining('EV +0.40'), findsAtLeastNWidgets(1));
   });
+
+  testWidgets(
+    'very long group names ellipsize without overflow at phone viewports and text scales',
+    (tester) async {
+      final notifier = container.read(recipeControllerProvider.notifier);
+      notifier.addMaskGroup(const MaskGroup(
+        id: 'g_long',
+        name: 'An Extremely Long Mask Group Name That Overflows Narrow Sidebars',
+      ));
+
+      for (final viewport in const [Size(360, 800), Size(320, 640)]) {
+        for (final textScale in const [1.0, 1.3]) {
+          await pumpMaskControls(tester, viewport: viewport, textScale: textScale);
+
+          final title = find.byKey(const Key('group-title-g_long'));
+          expect(title, findsOneWidget);
+          await tester.ensureVisible(title);
+          await tester.pumpAndSettle();
+
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'overflow at $viewport / textScale $textScale',
+          );
+
+          final deleteBtn = find.byKey(const Key('group-delete-g_long'));
+          expect(deleteBtn, findsOneWidget);
+          expect(deleteBtn.hitTestable(), findsOneWidget);
+        }
+      }
+    },
+  );
+
+  testWidgets(
+    'mask slider labels fit the fixed 75dp column at 320x640 / 1.3 and stay aligned at 1.0',
+    (tester) async {
+      final notifier = container.read(recipeControllerProvider.notifier);
+      notifier.addMaskGroup(const MaskGroup(id: 'g_label', name: 'Mask 1'));
+
+      // Height case: scaled-down labels stay within the 38px row.
+      await pumpMaskControls(tester, viewport: const Size(320, 640), textScale: 1.3);
+      final groupAmt = find.text('Group Amt');
+      expect(groupAmt, findsOneWidget);
+      await tester.ensureVisible(groupAmt);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getSize(groupAmt).height,
+        lessThanOrEqualTo(38),
+        reason: 'scaled label must still fit the 38px slider row',
+      );
+
+      // Alignment case: two different labels share the same left edge.
+      await pumpMaskControls(tester, viewport: const Size(360, 800), textScale: 1.0);
+      final exposure = find.text('Exposure');
+      expect(groupAmt, findsOneWidget);
+      expect(exposure, findsOneWidget);
+      await tester.ensureVisible(groupAmt);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(groupAmt).dx,
+        closeTo(tester.getTopLeft(exposure).dx, 0.01),
+        reason: 'column labels must keep a shared left edge',
+      );
+    },
+  );
 }

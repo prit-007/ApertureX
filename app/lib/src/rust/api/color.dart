@@ -101,6 +101,9 @@ class ColorParams {
   static Future<ColorParams> default_() =>
       RustLib.instance.api.crateApiColorColorParamsDefault();
 
+  Future<bool> isNeutral() =>
+      RustLib.instance.api.crateApiColorColorParamsIsNeutral(that: this);
+
   @override
   int get hashCode =>
       exposure.hashCode ^

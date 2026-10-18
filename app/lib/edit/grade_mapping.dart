@@ -6,27 +6,53 @@ import 'recipe.dart';
 /// can never disagree on the *input* values (ARCHITECTURE §16, §8).
 ///
 /// Uniform contract (must match `shaders/grade.frag`):
-///   floats 0,1 = surface size; 2 = exposure; 3 = contrast; 4 = saturation.
+///   floats 0,1 = surface size; 2 = exposure; 3 = contrast; 4 = saturation;
+///   5 = temperature; 6 = tint; 7 = vibrance; 8 = highlights; 9 = shadows.
 class GradeUniforms {
   const GradeUniforms({
     required this.exposure,
     required this.contrast,
     required this.saturation,
+    required this.temperature,
+    required this.tint,
+    required this.vibrance,
+    required this.highlights,
+    required this.shadows,
   });
 
   final double exposure;
   final double contrast;
   final double saturation;
+  final double temperature;
+  final double tint;
+  final double vibrance;
+  final double highlights;
+  final double shadows;
 
   /// Recipe → uniforms for the currently-renderable subset.
-  ///
-  /// Highlights/shadows/temperature/etc. are not yet in the shader; they are
-  /// intentionally dropped here until the shader grows.
   factory GradeUniforms.fromRecipe(EditRecipe recipe) => GradeUniforms(
     exposure: recipe.exposure,
     contrast: recipe.contrast,
     saturation: recipe.saturation,
+    temperature: recipe.temperature,
+    tint: recipe.tint,
+    vibrance: recipe.vibrance,
+    highlights: recipe.highlights,
+    shadows: recipe.shadows,
   );
+
+  /// Flat list of floats in shader uniform-slot order (slots 2..9),
+  /// ready for `shader.setFloat(i, value)`.
+  List<double> toFloats() => [
+    exposure,
+    contrast,
+    saturation,
+    temperature,
+    tint,
+    vibrance,
+    highlights,
+    shadows,
+  ];
 }
 
 /// Sensitivity and clamp range applied when a gesture delta lands on a tool.

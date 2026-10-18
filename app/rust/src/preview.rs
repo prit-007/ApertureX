@@ -38,6 +38,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::sync::{Arc, LazyLock, Mutex, PoisonError};
+use zune_jpeg::JpegDecoder;
 
 use crate::api::color::{to_hsl24, ColorParams, CurveParams};
 use crate::api::decode::RgbaImage;
@@ -48,6 +49,7 @@ use crate::geometry;
 use crate::histogram;
 use crate::mask::{self, LocalAdjustment, MaskSpec};
 use crate::optics::{self, OpticsParams};
+use crate::retouch::RetouchPatch;
 use crate::spatial::{self, SpatialParams};
 
 /// Preview images resident in Rust, keyed by the handle handed to Dart.
@@ -97,6 +99,59 @@ pub fn open(rgba: Vec<u8>, width: u32, height: u32) -> u64 {
         },
     );
     id
+}
+
+pub fn get_source_rgba(handle: u64) -> Result<RgbaImage, String> {
+    let store = lock_store();
+    let resident = store
+        .images
+        .get(&handle)
+        .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+    
+    Ok(RgbaImage {
+        width: resident.width,
+        height: resident.height,
+        rgba: resident.source.to_vec(),
+    })
+}
+
+/// Decodes a JPEG into a resident proxy.
+pub fn open_jpeg(jpeg_bytes: Vec<u8>, max_dim: u32) -> Result<u64, String> {
+    let mut decoder = JpegDecoder::new(std::io::Cursor::new(jpeg_bytes));
+    decoder
+        .decode_headers()
+        .map_err(|e| format!("JPEG headers failed: {e}"))?;
+    
+    let (width, height) = decoder.dimensions()
+        .ok_or_else(|| "JPEG dimensions failed".to_string())?;
+    
+    let scale = (max_dim as f32 / width.max(height) as f32).min(1.0);
+    let target_w = (width as f32 * scale) as u32;
+    let target_h = (height as f32 * scale) as u32;
+    
+    let rgba = decoder.decode()
+        .map_err(|e| format!("JPEG decode failed: {e}"))?;
+    
+    let mut rgba_buffer = Vec::with_capacity(target_w as usize * target_h as usize * 4);
+    
+    for y in 0..target_h {
+        let src_y = (y as f32 / scale) as usize;
+        if src_y >= height { break; }
+        for x in 0..target_w {
+            let src_x = (x as f32 / scale) as usize;
+            if src_x >= width { continue; }
+            
+            let idx = (src_y * width + src_x) * 3;
+            if idx + 2 >= rgba.len() { continue; }
+            
+            rgba_buffer.push(rgba[idx]);     // R
+            rgba_buffer.push(rgba[idx + 1]); // G
+            rgba_buffer.push(rgba[idx + 2]); // B
+            rgba_buffer.push(255);          // A
+        }
+    }
+    
+    Ok(open(rgba_buffer, target_w, target_h))
 }
 
 /// Drops the resident image for [handle]. Unknown handles are ignored so
@@ -149,6 +204,7 @@ pub fn render(
     handle: u64,
     spec: &PreviewBaseSpec,
     layers: &[MaskLayer],
+    patches: &[RetouchPatch],
     params: &ColorParams,
     curves: &CurveParams,
     hsl: &[f32],
@@ -196,7 +252,7 @@ pub fn render(
     let mut frame = match cached {
         Some(base) => (*base).clone(),
         None => {
-            let fb = bake_base(&source, src_w, src_h, spec, layers);
+            let fb = bake_base(&source, src_w, src_h, spec, layers, patches);
             cache_base(handle, &fb);
             fb
         }
@@ -253,6 +309,7 @@ pub fn run_base(
     handle: u64,
     spec: &PreviewBaseSpec,
     layers: &[MaskLayer],
+    patches: &[RetouchPatch],
 ) -> Result<RgbaImage, String> {
     // 1. Borrow the source under the lock; drop the lock before any math.
     let (source, src_w, src_h) = {
@@ -269,7 +326,7 @@ pub fn run_base(
     };
 
     // 2. Heavy math with no lock held.
-    let frame = bake_base(&source, src_w, src_h, spec, layers);
+    let frame = bake_base(&source, src_w, src_h, spec, layers, patches);
 
     // 3. Re-lock only to cache an Arc of the result for the histogram.
     cache_base(handle, &frame);
@@ -287,6 +344,7 @@ fn bake_base(
     src_h: u32,
     spec: &PreviewBaseSpec,
     layers: &[MaskLayer],
+    patches: &[RetouchPatch],
 ) -> RgbaImage {
     let (mut buf, mut w, mut h): (Cow<'_, [u8]>, u32, u32) = (Cow::Borrowed(source), src_w, src_h);
 
@@ -336,7 +394,18 @@ fn bake_base(
         grain: spec.grain,
         grain_size: spec.grain_size,
         grain_roughness: spec.grain_roughness,
-        ..Default::default()
+        film_halation: spec.film_halation,
+        film_halation_radius: spec.film_halation_radius,
+        film_halation_threshold: spec.film_halation_threshold,
+        film_bloom: spec.film_bloom,
+        film_bloom_radius: spec.film_bloom_radius,
+        film_bloom_threshold: spec.film_bloom_threshold,
+        film_dust: spec.film_dust,
+        film_scratches: spec.film_scratches,
+        shader_lab_preset: spec.shader_lab_preset,
+        shader_param1: spec.shader_param1,
+        shader_param2: spec.shader_param2,
+        shader_param3: spec.shader_param3,
     };
     let optics_params = OpticsParams {
         remove_chromatic_aberration: spec.remove_chromatic_aberration,
@@ -346,7 +415,9 @@ fn bake_base(
         defringe_green_amount: spec.defringe_green_amount,
         defringe_green_hue_min: spec.defringe_green_hue_min,
         defringe_green_hue_max: spec.defringe_green_hue_max,
-        ..Default::default()
+        profile_corrections: spec.profile_corrections,
+        profile_distortion: spec.profile_distortion,
+        profile_vignetting: spec.profile_vignetting,
     };
     if !optics_params.is_neutral() {
         buf = Cow::Owned(optics::apply_optics(
@@ -355,6 +426,12 @@ fn bake_base(
             h as usize,
             optics_params,
         ));
+    }
+    if !patches.is_empty() {
+        let buf = buf.to_mut();
+        for patch in patches {
+            crate::retouch::apply_patch(buf, w as usize, h as usize, patch);
+        }
     }
     // Depth-aware lens blur sits at the same stage as the export pipeline
     // (geometry → optics → blur → spatial → masks) so preview == export.
@@ -366,6 +443,7 @@ fn bake_base(
             h as usize,
             blur_params,
             None,
+            36,
         ));
     }
     // apply_spatial clones on the neutral path — skip it entirely.
@@ -514,6 +592,61 @@ mod anative_window_buffer_layout {
         assert_eq!(offset_of!(ANativeWindowBuffer, stride), 8);
         assert_eq!(offset_of!(ANativeWindowBuffer, format), 12);
         assert_eq!(offset_of!(ANativeWindowBuffer, bits), 16);
+    }
+}
+
+#[cfg(test)]
+mod open_jpeg_tests {
+    use super::*;
+    use jpeg_encoder::Encoder;
+
+    /// Encodes a solid-color RGB image to JPEG bytes.
+    fn encode_jpeg_rgb(w: u16, h: u16, rgb: [u8; 3]) -> Vec<u8> {
+        let mut pixels = Vec::with_capacity((w * h * 3) as usize);
+        for _ in 0..(w as usize * h as usize) {
+            pixels.extend_from_slice(&rgb);
+        }
+        let mut buf = Vec::new();
+        let encoder = Encoder::new(&mut buf, 90);
+        encoder.encode(&pixels, w, h, jpeg_encoder::ColorType::Rgb).unwrap();
+        buf
+    }
+
+    #[test]
+    fn open_jpeg_decodes_into_resident_proxy() {
+        let jpeg = encode_jpeg_rgb(2, 2, [128, 64, 32]);
+        let h = open_jpeg(jpeg.clone(), 1440).unwrap();
+        let src = get_source_rgba(h).unwrap();
+        assert_eq!((src.width, src.height), (2, 2));
+        assert_eq!(src.rgba.len(), 16);
+        for (i, chunk) in src.rgba.as_chunks::<4>().0.iter().enumerate() {
+            assert!(
+                chunk[0].abs_diff(128) <= 4 && chunk[1].abs_diff(64) <= 4 && chunk[2].abs_diff(32) <= 4,
+                "pixel {i} must approximate encoded RGB: {:?}",
+                chunk
+            );
+            assert_eq!(chunk[3], 255, "pixel {i} alpha must be opaque");
+        }
+        close(h);
+    }
+
+    #[test]
+    fn open_jpeg_respects_max_dim_downscale() {
+        let jpeg = encode_jpeg_rgb(8, 8, [200, 100, 50]);
+        let h = open_jpeg(jpeg, 2).unwrap();
+        let src = get_source_rgba(h).unwrap();
+        assert_eq!((src.width, src.height), (2, 2));
+        close(h);
+    }
+
+    #[test]
+    fn open_jpeg_invalid_bytes_returns_error() {
+        let result = open_jpeg(vec![0x00, 0x01, 0x02], 1440);
+        assert!(
+            result.is_err(),
+            "invalid JPEG bytes must error, got {:?}",
+            result
+        );
     }
 }
 

@@ -75,9 +75,10 @@ class ShaderWarmup {
       await _rasterize(
         grade,
         pixel,
-        // uSize(0,1), uExposure(2), uContrast(3), uSaturation(4) — matches
-        // `shaders/grade.frag` (see `edit/grade_mapping.dart`).
-        floats: const [1, 1, 0, 0, 0],
+        // uSize(0,1), uExposure(2), uContrast(3), uSaturation(4),
+        // uTemperature(5), uTint(6), uVibrance(7), uHighlights(8), uShadows(9) —
+        // matches `shaders/grade.frag` (see `edit/grade_mapping.dart`).
+        floats: const [1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
         samplerCount: 1,
       );
     } finally {

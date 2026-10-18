@@ -58,6 +58,11 @@ class TileViewport extends StatefulWidget {
     this.exposure = 0,
     this.contrast = 0,
     this.saturation = 0,
+    this.temperature = 0,
+    this.tint = 0,
+    this.vibrance = 0,
+    this.highlights = 0,
+    this.shadows = 0,
     this.tileSize = 512,
     this.maxCacheBytes = 96 * 1024 * 1024,
     this.maxZoomFactor = 8,
@@ -79,6 +84,11 @@ class TileViewport extends StatefulWidget {
   final double exposure;
   final double contrast;
   final double saturation;
+  final double temperature;
+  final double tint;
+  final double vibrance;
+  final double highlights;
+  final double shadows;
   final int tileSize;
   final int maxCacheBytes;
   final double maxZoomFactor;
@@ -310,10 +320,15 @@ class _TileViewportState extends State<TileViewport> {
                 resolve: source == null
                     ? null
                     : (col, row) => _imageForLevelTile(level, col, row),
-                shader: _shader,
-                exposure: widget.exposure,
-                contrast: widget.contrast,
-                saturation: widget.saturation,
+              shader: _shader,
+              exposure: widget.exposure,
+              contrast: widget.contrast,
+              saturation: widget.saturation,
+              temperature: widget.temperature,
+              tint: widget.tint,
+              vibrance: widget.vibrance,
+              highlights: widget.highlights,
+              shadows: widget.shadows,
               ),
               size: _viewportSize,
             ),
@@ -327,7 +342,8 @@ class _TileViewportState extends State<TileViewport> {
 /// Paints the visible tiles, each through the shared grading shader.
 ///
 /// Uniform contract (must match `shaders/grade.frag`): floats 0,1 = drawn rect
-/// size; 2 = exposure; 3 = contrast; 4 = saturation; sampler 0 = tile texture.
+/// size; 2 = exposure; 3 = contrast; 4 = saturation; 5 = temperature; 6 = tint;
+/// 7 = vibrance; 8 = highlights; 9 = shadows; sampler 0 = tile texture.
 class _TilePainter extends CustomPainter {
   _TilePainter({
     required this.tiles,
@@ -339,6 +355,11 @@ class _TilePainter extends CustomPainter {
     required this.exposure,
     required this.contrast,
     required this.saturation,
+    required this.temperature,
+    required this.tint,
+    required this.vibrance,
+    required this.highlights,
+    required this.shadows,
   });
 
   final List<VisibleTile> tiles;
@@ -353,6 +374,11 @@ class _TilePainter extends CustomPainter {
   final double exposure;
   final double contrast;
   final double saturation;
+  final double temperature;
+  final double tint;
+  final double vibrance;
+  final double highlights;
+  final double shadows;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -381,6 +407,11 @@ class _TilePainter extends CustomPainter {
         ..setFloat(2, exposure)
         ..setFloat(3, contrast)
         ..setFloat(4, saturation)
+        ..setFloat(5, temperature)
+        ..setFloat(6, tint)
+        ..setFloat(7, vibrance)
+        ..setFloat(8, highlights)
+        ..setFloat(9, shadows)
         ..setImageSampler(0, img);
       canvas.drawRect(rect, Paint()..shader = shader);
     }
@@ -394,5 +425,10 @@ class _TilePainter extends CustomPainter {
       old.level != level ||
       old.exposure != exposure ||
       old.contrast != contrast ||
-      old.saturation != saturation;
+      old.saturation != saturation ||
+      old.temperature != temperature ||
+      old.tint != tint ||
+      old.vibrance != vibrance ||
+      old.highlights != highlights ||
+      old.shadows != shadows;
 }

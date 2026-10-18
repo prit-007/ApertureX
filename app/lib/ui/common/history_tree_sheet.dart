@@ -251,7 +251,10 @@ class HistoryTreeSheet extends ConsumerWidget {
                                   ],
                                 ),
                                 const SizedBox(height: 4),
-                                Row(
+                                Wrap(
+                                  spacing: 4,
+                                  runSpacing: 2,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.symmetric(
@@ -272,7 +275,6 @@ class HistoryTreeSheet extends ConsumerWidget {
                                       ),
                                     ),
                                     if (branchHead) ...[
-                                      const SizedBox(width: 4),
                                       Text(
                                         '· branch head',
                                         style: TextStyle(
@@ -282,7 +284,6 @@ class HistoryTreeSheet extends ConsumerWidget {
                                       ),
                                     ],
                                     if (isRoot) ...[
-                                      const SizedBox(width: 4),
                                       Text(
                                         '· original unedited',
                                         style: TextStyle(

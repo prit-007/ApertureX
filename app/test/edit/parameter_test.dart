@@ -47,6 +47,19 @@ void main() {
     test('the catalog covers exactly the renderable fields today', () {
       expect(Parameter.values.length, 57);
     });
+
+    test('grade hue specs are degrees (0..360), not 0..1', () {
+      for (final p in [
+        Parameter.gradeShadowHue,
+        Parameter.gradeMidHue,
+        Parameter.gradeHighlightHue,
+      ]) {
+        final s = specOf(p);
+        expect(s.max, 360, reason: '$p');
+        expect(s.scale, 360, reason: '$p');
+        expect(s.neutral, 0, reason: '$p');
+      }
+    });
   });
 
   group('valueOf', () {
@@ -145,6 +158,25 @@ void main() {
     test('exposure range is wide enough for the EV slider', () {
       expect(clampParameter(Parameter.exposure, 2), 2);
       expect(clampParameter(Parameter.exposure, -2), -2);
+    });
+
+    test('grade hues store degrees and clamp at 360', () {
+      for (final p in [
+        Parameter.gradeShadowHue,
+        Parameter.gradeMidHue,
+        Parameter.gradeHighlightHue,
+      ]) {
+        expect(
+          valueOf(withValue(EditRecipe.neutral, p, 210.0), p),
+          210.0,
+          reason: '$p',
+        );
+        expect(
+          valueOf(withValue(EditRecipe.neutral, p, 400.0), p),
+          360.0,
+          reason: '$p',
+        );
+      }
     });
 
     test('is pure — the receiver is never mutated', () {

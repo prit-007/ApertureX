@@ -219,6 +219,79 @@ mod tests {
         assert_eq!(out[target_idx + 2], 0);
     }
 
+    /// The patch radius is normalized against the **shorter** side — on a
+    /// landscape frame a radius of 4/32 spans 4px, not 8px, so a pixel 6px
+    /// from the target must stay untouched.
+    #[test]
+    fn radius_scales_from_the_shorter_side_on_a_landscape_frame() {
+        let (w, h) = (64, 32);
+        let mut src = vec![40u8; w * h * 4];
+        for y in 12..=20 {
+            for x in 6..=20 {
+                let idx = (y * w + x) * 4;
+                src[idx] = 255;
+                src[idx + 1] = 255;
+                src[idx + 2] = 255;
+            }
+        }
+
+        let patch = RetouchPatch {
+            target_x: 44.0 / (w - 1) as f32,
+            target_y: 16.0 / (h - 1) as f32,
+            source_x: 10.0 / (w - 1) as f32,
+            source_y: 16.0 / (h - 1) as f32,
+            radius: 4.0 / 32.0,
+            feather: 0.0,
+            opacity: 1.0,
+            mode: RetouchMode::Clone,
+        };
+
+        let out = apply_retouch(&src, w, h, &[patch]);
+
+        // d = 3 < 4: inside the disc, cloned from the white source area.
+        let inside = (16 * w + 47) * 4;
+        assert_eq!(out[inside], 255, "inside-disc pixel must be cloned");
+        // d = 6 > 4: outside (a width-derived radius of 8 would reach it and
+        // sample the white source area, flipping this pixel).
+        let outside = (16 * w + 50) * 4;
+        assert_eq!(out[outside], 40, "outside-disc pixel must stay untouched");
+    }
+
+    /// Source and target offsets are per-axis: the horizontal delta shifts
+    /// only the x sample, the vertical delta only y.
+    #[test]
+    fn clone_offsets_the_source_by_each_axis_independently() {
+        let (w, h) = (48, 48);
+        let mut src = vec![0u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                src[idx] = (x * 5) as u8;
+                src[idx + 1] = (y * 5) as u8;
+                src[idx + 2] = 128;
+            }
+        }
+
+        let patch = RetouchPatch {
+            target_x: 30.0 / (w - 1) as f32,
+            target_y: 34.0 / (h - 1) as f32,
+            source_x: 12.0 / (w - 1) as f32,
+            source_y: 18.0 / (h - 1) as f32,
+            radius: 4.0 / 48.0,
+            feather: 0.0,
+            opacity: 1.0,
+            mode: RetouchMode::Clone,
+        };
+
+        let out = apply_retouch(&src, w, h, &[patch]);
+
+        // Target (30, 34) samples source (12, 18): dx = -18, dy = -16.
+        let idx = (34 * w + 30) * 4;
+        assert_eq!(out[idx], 12 * 5, "x delta must reach the x sample");
+        assert_eq!(out[idx + 1], 18 * 5, "y delta must reach the y sample");
+        assert_eq!(out[idx + 2], 128);
+    }
+
     #[test]
     fn heal_mode_blends_texture_with_target_boundary_illumination() {
         let (w, h) = (32, 32);

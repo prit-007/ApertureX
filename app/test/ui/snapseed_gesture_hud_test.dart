@@ -6,6 +6,8 @@ import 'package:aperturex/gesture/gesture_interpreter.dart';
 import 'package:aperturex/ui/snapseed/snapseed_gesture_hud.dart';
 import 'package:aperturex/ui/snapseed/snapseed_shell.dart';
 
+import '../helpers/viewport_harness.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -54,6 +56,51 @@ void main() {
       expect(find.text('Shadows Grade'), findsOneWidget);
       expect(find.text('H:120° S:45%'), findsOneWidget);
     });
+
+    testWidgets(
+      'scrub HUD stays within narrow viewports with the longest 2D label',
+      (tester) async {
+        final cases = <(Size, double)>[
+          (const Size(360, 640), 1.3),
+          (const Size(320, 640), 1.0),
+        ];
+        for (final (viewport, textScale) in cases) {
+          setViewport(tester, viewport, textScale);
+          await tester.pumpWidget(
+            const MaterialApp(
+              home: Scaffold(
+                body: SnapseedScrubHud(
+                  tool: GradeTool.highlightsGrade,
+                  value: 0.25,
+                  hue: 210.0,
+                  sat: 0.55,
+                  visible: true,
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'overflow at $viewport / textScale $textScale',
+          );
+
+          final hud = find.byKey(const Key('snapseed-scrub-hud'));
+          expect(hud, findsOneWidget);
+          expect(
+            tester.getSize(hud).width,
+            lessThanOrEqualTo(viewport.width - 32),
+            reason: 'HUD pill exceeds viewport at $viewport / textScale $textScale',
+          );
+
+          // The 2D readout stays visible next to the longest label.
+          expect(find.text('Highlights Grade'), findsOneWidget);
+          expect(find.text('H:210° S:55%'), findsOneWidget);
+        }
+      },
+    );
   });
 
   group('SnapseedParameterCarousel', () {

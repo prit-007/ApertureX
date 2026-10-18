@@ -190,72 +190,88 @@ class SnapseedScrubHud extends StatelessWidget {
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeInOut,
       child: Center(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-            child: Container(
-              key: const Key('snapseed-scrub-hud'),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.90),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.5),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.22),
-                    blurRadius: 12,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    gradeToolIcon(tool),
-                    size: 18,
-                    color: scheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    gradeToolLabel(tool),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.onSurface,
+        // Keep a 16px screen margin so the pill never spans edge-to-edge;
+        // the inner Flexible children shrink first on narrow viewports.
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  key: const Key('snapseed-scrub-hud'),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest.withValues(alpha: 0.90),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                      width: 1,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  if (!is2D) ...[
-                    CustomPaint(
-                      size: const Size(110, 6),
-                      painter: _DualProgressBarPainter(
-                        progress: progress,
-                        isBipolar: isBipolar,
-                        trackColor: scheme.surfaceContainerHigh.withValues(alpha: 0.8),
-                        activeColor: scheme.primary,
-                        tickColor: scheme.outline.withValues(alpha: 0.8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.22),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                  ],
-                  Text(
-                    readout,
-                    style: TextStyle(
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: scheme.primary,
-                    ),
+                    ],
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        gradeToolIcon(tool),
+                        size: 18,
+                        color: scheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          gradeToolLabel(tool),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      if (!is2D) ...[
+                        Flexible(
+                          child: SizedBox(
+                            width: 110,
+                            height: 6,
+                            child: CustomPaint(
+                              size: const Size(110, 6),
+                              painter: _DualProgressBarPainter(
+                                progress: progress,
+                                isBipolar: isBipolar,
+                                trackColor: scheme.surfaceContainerHigh.withValues(alpha: 0.8),
+                                activeColor: scheme.primary,
+                                tickColor: scheme.outline.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      Text(
+                        readout,
+                        style: TextStyle(
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: scheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
+
         ),
       ),
     );
@@ -349,7 +365,6 @@ class SnapseedParameterCarousel extends StatelessWidget {
                             : (t == GradeTool.exposure
                                 ? '${val >= 0 ? '+' : ''}${val.toStringAsFixed(2)}'
                                 : '${val >= 0 ? '+' : ''}${(val * 100).round()}');
-
                         return Container(
                           key: Key('carousel-tool-${t.name}'),
                           margin: const EdgeInsets.symmetric(vertical: 2),
@@ -409,3 +424,6 @@ class SnapseedParameterCarousel extends StatelessWidget {
     );
   }
 }
+
+
+

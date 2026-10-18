@@ -14,6 +14,7 @@ use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
 use crate::api::color::{to_hsl24, ColorParams, CurveParams};
 use crate::api::mask::MaskLayer;
+use crate::api::retouch::{to_engine_patches, ApiRetouchPatch};
 use crate::export;
 use crate::export_pipeline::{self, ExportOutcome, ExportRecipe};
 use crate::geometry::{self, GeometrySpec};
@@ -80,6 +81,18 @@ pub struct ExportSpec {
     pub grain: f32,
     pub grain_size: f32,
     pub grain_roughness: f32,
+    pub film_halation: f32,
+    pub film_halation_radius: f32,
+    pub film_halation_threshold: f32,
+    pub film_bloom: f32,
+    pub film_bloom_radius: f32,
+    pub film_bloom_threshold: f32,
+    pub film_dust: f32,
+    pub film_scratches: f32,
+    pub shader_lab_preset: u32,
+    pub shader_param1: f32,
+    pub shader_param2: f32,
+    pub shader_param3: f32,
     // optics
     pub remove_chromatic_aberration: bool,
     pub defringe_purple_amount: f32,
@@ -88,6 +101,9 @@ pub struct ExportSpec {
     pub defringe_green_amount: f32,
     pub defringe_green_hue_min: f32,
     pub defringe_green_hue_max: f32,
+    pub profile_corrections: bool,
+    pub profile_distortion: f32,
+    pub profile_vignetting: f32,
     // depth-aware lens blur (applies after optics, before spatial — the same
     // stage position as the preview bake, so preview == export)
     pub blur_enabled: bool,
@@ -128,6 +144,23 @@ impl ExportSpec {
             self.blur_bokeh_shape,
             self.blur_bokeh_boost,
         )
+    }
+
+    /// Maps the flat optics fields onto the engine's [`OpticsParams`], with the
+    /// profile scales forwarded verbatim (1.0 = authored-profile neutral).
+    pub(crate) fn optics_params(&self) -> OpticsParams {
+        OpticsParams {
+            remove_chromatic_aberration: self.remove_chromatic_aberration,
+            defringe_purple_amount: self.defringe_purple_amount,
+            defringe_purple_hue_min: self.defringe_purple_hue_min,
+            defringe_purple_hue_max: self.defringe_purple_hue_max,
+            defringe_green_amount: self.defringe_green_amount,
+            defringe_green_hue_min: self.defringe_green_hue_min,
+            defringe_green_hue_max: self.defringe_green_hue_max,
+            profile_corrections: self.profile_corrections,
+            profile_distortion: self.profile_distortion,
+            profile_vignetting: self.profile_vignetting,
+        }
     }
 }
 
@@ -327,6 +360,7 @@ pub fn export_full_with_branding(
     height: u32,
     spec: ExportSpec,
     layers: Vec<MaskLayer>,
+    retouch_patches: Vec<ApiRetouchPatch>,
     params: ColorParams,
     curves: CurveParams,
     hsl: Vec<f32>,
@@ -352,18 +386,8 @@ pub fn export_full_with_branding(
             skew_x: spec.skew_x,
             skew_y: spec.skew_y,
         },
-        optics: OpticsParams {
-            remove_chromatic_aberration: spec.remove_chromatic_aberration,
-            defringe_purple_amount: spec.defringe_purple_amount,
-            defringe_purple_hue_min: spec.defringe_purple_hue_min,
-            defringe_purple_hue_max: spec.defringe_purple_hue_max,
-            defringe_green_amount: spec.defringe_green_amount,
-            defringe_green_hue_min: spec.defringe_green_hue_min,
-            defringe_green_hue_max: spec.defringe_green_hue_max,
-            profile_corrections: false,
-            profile_distortion: 1.0,
-            profile_vignetting: 1.0,
-        },
+        optics: spec.optics_params(),
+        retouch: to_engine_patches(&retouch_patches),
         blur: spec.blur_params(),
         spatial: SpatialParams {
             shadows: spec.shadows,
@@ -385,7 +409,18 @@ pub fn export_full_with_branding(
             grain: spec.grain,
             grain_size: spec.grain_size,
             grain_roughness: spec.grain_roughness,
-            ..Default::default()
+            film_halation: spec.film_halation,
+            film_halation_radius: spec.film_halation_radius,
+            film_halation_threshold: spec.film_halation_threshold,
+            film_bloom: spec.film_bloom,
+            film_bloom_radius: spec.film_bloom_radius,
+            film_bloom_threshold: spec.film_bloom_threshold,
+            film_dust: spec.film_dust,
+            film_scratches: spec.film_scratches,
+            shader_lab_preset: spec.shader_lab_preset,
+            shader_param1: spec.shader_param1,
+            shader_param2: spec.shader_param2,
+            shader_param3: spec.shader_param3,
         },
         layers: layers
             .iter()
@@ -533,6 +568,7 @@ pub fn export_full(
     height: u32,
     spec: ExportSpec,
     layers: Vec<MaskLayer>,
+    retouch_patches: Vec<ApiRetouchPatch>,
     params: ColorParams,
     curves: CurveParams,
     hsl: Vec<f32>,
@@ -544,6 +580,7 @@ pub fn export_full(
         height,
         spec,
         layers,
+        retouch_patches,
         params,
         curves,
         hsl,
@@ -600,6 +637,18 @@ mod tests {
             grain: 0.0,
             grain_size: 0.25,
             grain_roughness: 0.5,
+            film_halation: 0.0,
+            film_halation_radius: 0.5,
+            film_halation_threshold: 0.8,
+            film_bloom: 0.0,
+            film_bloom_radius: 0.5,
+            film_bloom_threshold: 0.75,
+            film_dust: 0.0,
+            film_scratches: 0.0,
+            shader_lab_preset: 0,
+            shader_param1: 0.0,
+            shader_param2: 0.0,
+            shader_param3: 0.0,
             remove_chromatic_aberration: false,
             defringe_purple_amount: 0.0,
             defringe_purple_hue_min: 0.70,
@@ -607,6 +656,9 @@ mod tests {
             defringe_green_amount: 0.0,
             defringe_green_hue_min: 0.17,
             defringe_green_hue_max: 0.50,
+            profile_corrections: false,
+            profile_distortion: 1.0,
+            profile_vignetting: 1.0,
             blur_enabled: false,
             blur_amount: 0.0,
             blur_focal_point: 0.5,
@@ -651,6 +703,32 @@ mod tests {
         );
     }
 
+    /// The export bridge struct's profile fields must land in the engine
+    /// params — the previous wiring hardcoded the gate off and neutral scales.
+    #[test]
+    fn export_spec_profile_fields_map_to_engine_params() {
+        let mut s = spec();
+        assert_eq!(
+            s.optics_params(),
+            OpticsParams::default(),
+            "default profile must stay off"
+        );
+
+        s.profile_corrections = true;
+        s.profile_distortion = 1.4;
+        s.profile_vignetting = 0.6;
+        assert_eq!(
+            s.optics_params(),
+            OpticsParams {
+                profile_corrections: true,
+                profile_distortion: 1.4,
+                profile_vignetting: 0.6,
+                ..Default::default()
+            },
+            "profile fields must forward verbatim (1.0 = authored-profile neutral)"
+        );
+    }
+
     fn neutral_curves() -> CurveParams {
         CurveParams {
             master: vec![],
@@ -669,6 +747,7 @@ mod tests {
             24,
             spec(),
             Vec::new(),
+            Vec::new(),
             ColorParams::default(),
             neutral_curves(),
             vec![0.0; 24],
@@ -677,6 +756,72 @@ mod tests {
         .unwrap();
         assert!(!out.cancelled);
         assert_eq!(decode::dimensions(&out.jpeg).unwrap(), (32, 24));
+    }
+
+    /// A clone patch must reach the exported pixels: the dark target region
+    /// takes the bright source colour, the untouched baseline does not.
+    #[test]
+    fn retouch_patches_reach_the_exported_pixels() {
+        let (w, h) = (48u32, 32u32);
+        let mut src = solid(w, h, 40, 40, 40);
+        for y in 10..=22 {
+            for x in 6..=18 {
+                let i = ((y * w + x) * 4) as usize;
+                src[i] = 0;
+                src[i + 1] = 200;
+                src[i + 2] = 0;
+            }
+        }
+        let patch = ApiRetouchPatch {
+            target_x: 36.0 / (w - 1) as f32,
+            target_y: 16.0 / (h - 1) as f32,
+            source_x: 12.0 / (w - 1) as f32,
+            source_y: 16.0 / (h - 1) as f32,
+            radius: 6.0 / 32.0,
+            feather: 0.0,
+            opacity: 1.0,
+            is_clone: true,
+        };
+
+        let run = |patches: Vec<ApiRetouchPatch>| {
+            export_full(
+                src.clone(),
+                w,
+                h,
+                spec(),
+                Vec::new(),
+                patches,
+                ColorParams::default(),
+                neutral_curves(),
+                vec![0.0; 24],
+                Vec::new(),
+            )
+            .unwrap()
+        };
+        let patched = decode::decode_rgba(&run(vec![patch]).jpeg).unwrap();
+        let baseline = decode::decode_rgba(&run(Vec::new()).jpeg).unwrap();
+
+        fn mean_green(img: &decode::DecodedImage, cx: usize, cy: usize) -> f32 {
+            let (mut sum, mut n) = (0u32, 0u32);
+            for y in cy - 4..=cy + 4 {
+                for x in cx - 4..=cx + 4 {
+                    sum += img.rgba[(y * img.width + x) * 4 + 1] as u32;
+                    n += 1;
+                }
+            }
+            sum as f32 / n as f32
+        }
+
+        let patched_g = mean_green(&patched, 36, 16);
+        let baseline_g = mean_green(&baseline, 36, 16);
+        assert!(
+            patched_g > 150.0,
+            "the target region must carry the cloned source colour: {patched_g}"
+        );
+        assert!(
+            baseline_g < 80.0,
+            "without patches the target region stays dark: {baseline_g}"
+        );
     }
 
     #[test]
@@ -689,6 +834,7 @@ mod tests {
             64,
             48,
             s,
+            Vec::new(),
             Vec::new(),
             ColorParams::default(),
             neutral_curves(),
@@ -712,6 +858,7 @@ mod tests {
             32,
             32,
             s,
+            Vec::new(),
             Vec::new(),
             ColorParams::default(),
             neutral_curves(),
@@ -749,6 +896,7 @@ mod tests {
             128,
             s,
             Vec::new(),
+            Vec::new(),
             ColorParams::default(),
             neutral_curves(),
             vec![0.0; 24],
@@ -784,6 +932,7 @@ mod tests {
             4,
             spec(),
             Vec::new(),
+            Vec::new(),
             ColorParams::default(),
             neutral_curves(),
             vec![0.0; 24],
@@ -802,6 +951,7 @@ mod tests {
             8,
             8,
             s,
+            Vec::new(),
             Vec::new(),
             ColorParams::default(),
             neutral_curves(),
@@ -827,6 +977,7 @@ mod tests {
             16,
             16,
             s,
+            Vec::new(),
             Vec::new(),
             ColorParams::default(),
             neutral_curves(),

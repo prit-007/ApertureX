@@ -44,5 +44,6 @@ pub fn blur_apply(
         height as usize,
         p,
         depth_map.as_deref(),
+        36,
     )
 }

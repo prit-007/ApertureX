@@ -8,6 +8,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../helpers/viewport_harness.dart';
+
 void main() {
   testWidgets('CopySettingsSheet displays sections and copies selection', (tester) async {
     activityLog.clear();
@@ -54,4 +56,56 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets(
+    'action buttons wrap without overflow at phone viewports and text scales',
+    (tester) async {
+      for (final viewport in const [Size(360, 800), Size(320, 640)]) {
+        for (final textScale in const [1.0, 1.3]) {
+          setViewport(tester, viewport, textScale);
+          activityLog.clear();
+          final container = ProviderContainer();
+          addTearDown(container.dispose);
+          final controller = container.read(recipeControllerProvider.notifier);
+          controller.update(Parameter.exposure, 1.5);
+          controller.commit(label: 'Exposure set');
+
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: const MaterialApp(
+                home: Scaffold(body: CopySettingsSheet()),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(tester.takeException(), isNull,
+              reason: 'overflow at $viewport / textScale $textScale');
+
+          final selectAll = find.widgetWithText(TextButton, 'Select All');
+          final modifiedOnly = find.widgetWithText(TextButton, 'Modified Only');
+          final deselectAll = find.widgetWithText(TextButton, 'Deselect All');
+          expect(selectAll, findsOneWidget);
+          expect(modifiedOnly, findsOneWidget);
+          expect(deselectAll, findsOneWidget);
+          expect(selectAll.hitTestable(), findsOneWidget);
+          expect(modifiedOnly.hitTestable(), findsOneWidget);
+          expect(deselectAll.hitTestable(), findsOneWidget);
+
+          // Behavioural guard: Modified Only still narrows the selection.
+          await tester.tap(modifiedOnly);
+          await tester.pumpAndSettle();
+          final tile = tester.widget<CheckboxListTile>(
+            find.ancestor(
+              of: find.text('Light / Basic Tone'),
+              matching: find.byType(CheckboxListTile),
+            ),
+          );
+          expect(tile.value, isTrue,
+              reason: 'Modified Only must still select the light section');
+        }
+      }
+    },
+  );
 }

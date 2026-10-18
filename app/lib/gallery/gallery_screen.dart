@@ -398,11 +398,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
           slivers.add(SliverToBoxAdapter(child: _DateHeader(label: entry.key)));
           final items = entry.value;
           slivers.add(
-            SliverToBoxAdapter(
-              child: StaggeredPhotoGrid(
-                spacing: 2,
-                itemCount: items.length,
-                itemBuilder: (context, idx) {
+            StaggeredPhotoGrid(
+              spacing: 2,
+              itemCount: items.length,
+              itemBuilder: (context, idx) {
                   final preview = items[idx];
                   final catalogEntry = catalog[preview.entryId];
                   final matchingAsset = state.assets.cast<GalleryAsset?>().firstWhere(
@@ -435,8 +434,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                   );
                 },
               ),
-            ),
-          );
+            );
         }
         slivers.add(const SliverToBoxAdapter(child: SizedBox(height: Insets.lg)));
         return CustomScrollView(slivers: slivers);
@@ -628,12 +626,11 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
           ],
         ];
         slivers.add(
-          SliverToBoxAdapter(
-            child: StaggeredPhotoGrid(
-              spacing: 2,
-              itemCount: items.length,
-              itemBuilder: (context, j) => switch (items[j]) {
-                _OriginalItem(:final asset) => AspectRatio(
+          StaggeredPhotoGrid(
+            spacing: 2,
+            itemCount: items.length,
+            itemBuilder: (context, j) => switch (items[j]) {
+              _OriginalItem(:final asset) => AspectRatio(
                   aspectRatio: (asset.width > 0 && asset.height > 0)
                       ? (asset.width / asset.height).clamp(0.65, 1.8)
                       : 1.0,
@@ -672,7 +669,6 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                   ),
                 ),
               },
-            ),
           ),
         );
       } else {

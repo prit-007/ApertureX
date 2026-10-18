@@ -233,7 +233,10 @@ class _ExportOptionsSheetContentState
                     horizontal: Insets.md,
                     vertical: Insets.xs,
                   ),
-                  child: Row(
+                  child: Wrap(
+                    spacing: Insets.sm,
+                    runSpacing: Insets.xs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Icon(Icons.palette_outlined, size: 18),
                       const SizedBox(width: Insets.sm),

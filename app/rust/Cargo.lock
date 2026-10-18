@@ -1287,6 +1287,7 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "rawler",
+ "rayon",
  "zune-jpeg",
 ]
 

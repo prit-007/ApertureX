@@ -255,10 +255,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _source = proxy.$1;
       // Upload once into the Rust-resident store (#37 spike A); the pixels
       // never need to come back — every bake addresses the handle.
-      final handle = await AxEngine.previewOpen(
-        rgba: proxy.$2,
-        width: proxy.$3,
-        height: proxy.$4,
+      final handle = await AxEngine.previewOpenJpeg(
+        jpegBytes: jpeg,
+        maxDim: _maxPreviewDim,
       );
       if (!mounted) {
         unawaited(AxEngine.previewClose(handle));
@@ -531,29 +530,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       codec.dispose();
       descriptor.dispose();
       final image = frame.image;
-      final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-      // Copy into a tightly-packed buffer with an explicit offset+length — never
-      // rely on the ByteData's backing buffer being exactly w*h*4 at offset 0.
-      var pixels = Uint8List.fromList(
-        data!.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-      );
-      var finalImage = image;
 
-      // Wide-gamut handling (#15): convert Display-P3 JPEG to sRGB so preview
-      // matches export 1:1.
-      if (detectImageFormat(bytes) == ImageFormat.jpeg) {
-        final cs = await AxEngine.detectColorspace(bytes);
-        if (cs == 2) {
-          pixels = await AxEngine.p3ToSrgb(
-            pixels,
-            width: image.width,
-            height: image.height,
-          );
-          finalImage = await _imageFrom(pixels, image.width, image.height);
-        }
-      }
-
-      return (finalImage, pixels, finalImage.width, finalImage.height);
+      // Zero-copy: Rust already owns the source JPEG via previewOpenJpeg
+      // (called from _load). Dart never calls image.toByteData(), avoiding
+      // the synchronous GPU readback stall and 6 MB VRAM→RAM copy. The
+      // shader path handles color space; P3→sRGB is applied at export time.
+      return (image, Uint8List(0), image.width, image.height);
     } catch (_) {
       // If standard codec fails (e.g. uncommon raw or tiff variant), try Rust raw decoder
       return await _decodeRaw(bytes, maxDim: maxDim);

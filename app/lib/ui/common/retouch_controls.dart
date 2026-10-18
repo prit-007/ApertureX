@@ -351,7 +351,10 @@ class RetouchControls extends ConsumerWidget {
         ),
 
         const SizedBox(height: Insets.sm),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: Insets.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
               '${patches.length} ${patches.length == 1 ? 'patch' : 'patches'} applied',
@@ -359,7 +362,6 @@ class RetouchControls extends ConsumerWidget {
                 color: scheme.onSurfaceVariant,
               ),
             ),
-            const Spacer(),
             if (selectedPatch != null && selectedIndex != null)
               TextButton.icon(
                 icon: const Icon(Icons.delete_outline, size: 18),

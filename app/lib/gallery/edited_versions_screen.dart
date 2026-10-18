@@ -165,12 +165,11 @@ class _EditedVersionsScreenState extends ConsumerState<EditedVersionsScreen> {
                             horizontal: Insets.sm,
                             vertical: Insets.xs,
                           ),
-                          sliver: SliverToBoxAdapter(
-                            child: StaggeredPhotoGrid(
-                              crossAxisCount: 2,
-                              spacing: Insets.sm,
-                              itemCount: entry.value.length,
-                              itemBuilder: (context, index) {
+                          sliver: StaggeredPhotoGrid(
+                            crossAxisCount: 2,
+                            spacing: Insets.sm,
+                            itemCount: entry.value.length,
+                            itemBuilder: (context, index) {
                                 final item = entry.value[index];
                                 final catEntry = catalog[item.entryId];
                                 final recipe = recipeStore[item.entryId] ??
@@ -194,10 +193,9 @@ class _EditedVersionsScreenState extends ConsumerState<EditedVersionsScreen> {
                               },
                             ),
                           ),
-                        ),
+                        ],
+                        const SliverToBoxAdapter(child: SizedBox(height: Insets.lg)),
                       ],
-                      const SliverToBoxAdapter(child: SizedBox(height: Insets.lg)),
-                    ],
                   );
                 }(),
               ),

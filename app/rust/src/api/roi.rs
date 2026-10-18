@@ -216,7 +216,18 @@ fn spatial_params(spec: &PreviewBaseSpec) -> SpatialParams {
         grain: spec.grain,
         grain_size: spec.grain_size,
         grain_roughness: spec.grain_roughness,
-        ..Default::default()
+        film_halation: spec.film_halation,
+        film_halation_radius: spec.film_halation_radius,
+        film_halation_threshold: spec.film_halation_threshold,
+        film_bloom: spec.film_bloom,
+        film_bloom_radius: spec.film_bloom_radius,
+        film_bloom_threshold: spec.film_bloom_threshold,
+        film_dust: spec.film_dust,
+        film_scratches: spec.film_scratches,
+        shader_lab_preset: spec.shader_lab_preset,
+        shader_param1: spec.shader_param1,
+        shader_param2: spec.shader_param2,
+        shader_param3: spec.shader_param3,
     }
 }
 
@@ -269,6 +280,18 @@ mod tests {
             grain: 0.0,
             grain_size: 0.25,
             grain_roughness: 0.5,
+            film_halation: 0.0,
+            film_halation_radius: 0.5,
+            film_halation_threshold: 0.8,
+            film_bloom: 0.0,
+            film_bloom_radius: 0.5,
+            film_bloom_threshold: 0.75,
+            film_dust: 0.0,
+            film_scratches: 0.0,
+            shader_lab_preset: 0,
+            shader_param1: 0.0,
+            shader_param2: 0.0,
+            shader_param3: 0.0,
             remove_chromatic_aberration: false,
             defringe_purple_amount: 0.0,
             defringe_purple_hue_min: 0.70,
@@ -276,6 +299,9 @@ mod tests {
             defringe_green_amount: 0.0,
             defringe_green_hue_min: 0.17,
             defringe_green_hue_max: 0.50,
+            profile_corrections: false,
+            profile_distortion: 1.0,
+            profile_vignetting: 1.0,
             blur_enabled: false,
             blur_amount: 0.0,
             blur_focal_point: 0.5,
@@ -330,7 +356,8 @@ mod tests {
 
         // Oracle: the actual preview chain over the full frame.
         let handle = preview_open(src.clone(), w as u32, h as u32);
-        let full = preview_base(handle, engaged_spec(), vec![layer()]).expect("preview base");
+        let full =
+            preview_base(handle, engaged_spec(), vec![layer()], Vec::new()).expect("preview base");
         preview_close(handle);
 
         let decode_top = out_top - halo;
@@ -450,7 +477,7 @@ mod tests {
         assert!(halo > 0, "engaged ops must demand context");
 
         let handle = preview_open(src.clone(), w as u32, h as u32);
-        let full = preview_base(handle, spec, vec![layer()]).expect("preview base");
+        let full = preview_base(handle, spec, vec![layer()], Vec::new()).expect("preview base");
         preview_close(handle);
 
         let mut stitched = vec![0u8; w * h * 4];

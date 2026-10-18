@@ -496,4 +496,127 @@ mod tests {
         assert_eq!(out[center_idx + 1], 150);
         assert_eq!(out[center_idx + 2], 80);
     }
+
+    /// The gate decides whether the scale fields matter at all — the wiring
+    /// the preview/export specs feed in.
+    #[test]
+    fn profile_gate_truth_table() {
+        assert!(
+            OpticsParams::default().is_neutral(),
+            "gate off with the authored neutral scales must be neutral"
+        );
+
+        let gate_off_scales_engaged = OpticsParams {
+            profile_corrections: false,
+            profile_distortion: 1.4,
+            profile_vignetting: 0.6,
+            ..Default::default()
+        };
+        assert!(
+            gate_off_scales_engaged.is_neutral(),
+            "gate off must ignore the scale fields"
+        );
+
+        let gate_on_zero_scales = OpticsParams {
+            profile_corrections: true,
+            profile_distortion: 0.0,
+            profile_vignetting: 0.0,
+            ..Default::default()
+        };
+        assert!(
+            gate_on_zero_scales.is_neutral(),
+            "gate on with both scales at zero contributes nothing"
+        );
+
+        let distortion_only = OpticsParams {
+            profile_corrections: true,
+            profile_distortion: 1.0,
+            profile_vignetting: 0.0,
+            ..Default::default()
+        };
+        assert!(
+            !distortion_only.is_neutral(),
+            "an engaged distortion scale must run optics"
+        );
+
+        let vignetting_only = OpticsParams {
+            profile_corrections: true,
+            profile_distortion: 0.0,
+            profile_vignetting: 1.0,
+            ..Default::default()
+        };
+        assert!(
+            !vignetting_only.is_neutral(),
+            "an engaged vignetting scale must run optics"
+        );
+
+        let defringe_engaged = OpticsParams {
+            defringe_purple_amount: 0.5,
+            ..Default::default()
+        };
+        assert!(
+            !defringe_engaged.is_neutral(),
+            "defringe engages optics regardless of the profile gate"
+        );
+    }
+
+    /// Gate on + zero scales is indistinguishable from the gate being off —
+    /// the lens profile stage is skipped, never a mangled frame.
+    #[test]
+    fn zero_scale_profile_matches_the_gate_off_path() {
+        let (w, h) = (21, 17);
+        let mut src = vec![0u8; w * h * 4];
+        for (i, px) in src.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+            px[0] = (i % 251) as u8;
+            px[1] = ((i * 7) % 233) as u8;
+            px[2] = ((i * 13) % 199) as u8;
+            px[3] = 255;
+        }
+
+        let gate_on_zero = OpticsParams {
+            profile_corrections: true,
+            profile_distortion: 0.0,
+            profile_vignetting: 0.0,
+            ..Default::default()
+        };
+        assert_eq!(
+            apply_optics(&src, w, h, gate_on_zero),
+            apply_optics(&src, w, h, OpticsParams::default()),
+            "zero scales must equal the gate being off"
+        );
+
+        let defringe_on_zero = OpticsParams {
+            profile_corrections: true,
+            profile_distortion: 0.0,
+            profile_vignetting: 0.0,
+            defringe_purple_amount: 0.6,
+            ..Default::default()
+        };
+        let defringe_off = OpticsParams {
+            defringe_purple_amount: 0.6,
+            ..Default::default()
+        };
+        assert_eq!(
+            apply_optics(&src, w, h, defringe_on_zero),
+            apply_optics(&src, w, h, defringe_off),
+            "zero scales must not perturb another engaged optics stage"
+        );
+    }
+
+    /// Gate on with the authored scales must actually reach the frame — the
+    /// previous wiring hardcoded the gate off, so this could never differ.
+    #[test]
+    fn gate_on_with_engaged_scales_changes_the_output() {
+        let (w, h) = (33, 33);
+        let src = vec![100u8; w * h * 4];
+        let gate_on = OpticsParams {
+            profile_corrections: true,
+            ..Default::default()
+        };
+        assert_ne!(
+            apply_optics(&src, w, h, gate_on),
+            apply_optics(&src, w, h, OpticsParams::default()),
+            "engaged profile scales must change the pixels"
+        );
+    }
 }

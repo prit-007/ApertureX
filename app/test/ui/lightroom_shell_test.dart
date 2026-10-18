@@ -16,6 +16,8 @@ import 'package:aperturex/ui/common/retouch_controls.dart';
 import 'package:aperturex/ui/common/tone_curve_editor.dart';
 import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
 
+import '../helpers/viewport_harness.dart';
+
 /// Issue #44: the top chip row is derived solely from the `RecipeSection`
 /// catalog, and Curve/Mix are secondary tabs inside the colour panels.
 ///
@@ -196,6 +198,50 @@ void main() {
   );
 
   testWidgets(
+    'LightroomShell renders safely in a 240dp sidebar and the Curve tab stays tappable',
+    (tester) async {
+      for (final viewport in const [Size(360, 800), Size(320, 640)]) {
+        for (final textScale in const [1.0, 1.3]) {
+          setViewport(tester, viewport, textScale);
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: const MaterialApp(
+                home: Scaffold(
+                  body: SizedBox(
+                    width: 240,
+                    height: 520,
+                    child: LightroomShell(),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final curveTab = find.text('Curve');
+          expect(
+            curveTab,
+            findsOneWidget,
+            reason: 'Curve tab missing at $viewport / textScale $textScale',
+          );
+          // The sub-tab chip bar is a horizontal scroll view; reveal the chip
+          // in the 240dp sidebar before tapping.
+          await tester.ensureVisible(curveTab);
+          await tester.pumpAndSettle();
+          await tester.tap(curveTab);
+          await tester.pumpAndSettle();
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'overflow at $viewport / textScale $textScale',
+          );
+        }
+      }
+    },
+  );
+
+  testWidgets(
     'applied dot indicator appears when section has adjustments and disappears when neutral',
     (tester) async {
       await pump(tester);
@@ -325,6 +371,100 @@ void main() {
       expect(container.read(recipeControllerProvider).recipe.temperature, 0.5);
       expect(find.byKey(const Key('subtab-apply')), findsNothing);
       expect(find.byKey(const Key('applied-dot-lightColor')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'master tab switch is blocked while the active tab has uncommitted changes',
+    (tester) async {
+      await pump(tester);
+
+      // Switch to Effects & Detail first
+      await tester.tap(find.text('Effects & Detail'));
+      await tester.pumpAndSettle();
+
+      // Modify exposure in Light & Color sub-tab (while on Effects tab)
+      container.read(recipeControllerProvider.notifier).update(
+            Parameter.exposure,
+            1.5,
+          );
+      await tester.pumpAndSettle();
+
+      // Light & Color chip should show modified dot and switching back should be blocked
+      final lightColorChip = find.text('Light & Color');
+      expect(lightColorChip, findsOneWidget);
+
+      // Tap Light & Color while changes are uncommitted -> blocked, no tab switch
+      await tester.tap(lightColorChip);
+      await tester.pumpAndSettle();
+
+      // Still on Effects & Detail (no switch)
+      expect(find.byType(BlurControls), findsNothing);
+      expect(container.read(recipeControllerProvider).recipe.exposure, 1.5);
+    },
+  );
+
+  testWidgets(
+    'apply commits and unlocks master tab navigation after blocked switch',
+    (tester) async {
+      await pump(tester);
+
+      // Switch to Effects & Detail first
+      await tester.tap(find.text('Effects & Detail'));
+      await tester.pumpAndSettle();
+
+      // Modify temperature in Color sub-tab
+      await tester.tap(find.text('Light & Color'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Color'));
+      await tester.pumpAndSettle();
+      container.read(recipeControllerProvider.notifier).update(
+            Parameter.temperature,
+            0.5,
+          );
+      await tester.pumpAndSettle();
+
+      // Try to switch to Effects & Detail while uncommitted -> blocked
+      await tester.tap(find.text('Effects & Detail'));
+      await tester.pumpAndSettle();
+      expect(container.read(recipeControllerProvider).recipe.temperature, 0.5);
+
+      // Apply commits
+      await tester.tap(find.byKey(const Key('tray-apply')));
+      await tester.pumpAndSettle();
+      expect(container.read(recipeControllerProvider).recipe.temperature, 0.5);
+
+      // Now switching tabs is allowed
+      await tester.tap(find.text('Effects & Detail'));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'discard reverts and unlocks master tab navigation after blocked switch',
+    (tester) async {
+      await pump(tester);
+
+      // Modify exposure in Light & Color
+      container.read(recipeControllerProvider.notifier).update(
+            Parameter.exposure,
+            1.5,
+          );
+      await tester.pumpAndSettle();
+
+      // Try to switch to Effects & Detail while uncommitted -> blocked
+      await tester.tap(find.text('Effects & Detail'));
+      await tester.pumpAndSettle();
+      expect(container.read(recipeControllerProvider).recipe.exposure, 1.5);
+
+      // Discard reverts
+      await tester.tap(find.byKey(const Key('tray-cancel')));
+      await tester.pumpAndSettle();
+      expect(container.read(recipeControllerProvider).recipe.exposure, 0.0);
+
+      // Now switching tabs is allowed
+      await tester.tap(find.text('Effects & Detail'));
+      await tester.pumpAndSettle();
     },
   );
 }

@@ -21,6 +21,7 @@ use crate::api::color::{ColorParams, CurveParams};
 use crate::api::decode::RgbaImage;
 use crate::api::histogram::Histogram;
 use crate::api::mask::MaskLayer;
+use crate::api::retouch::{to_engine_patches, ApiRetouchPatch};
 
 /// Everything `preview_base` bakes on the CPU. Perspective/skew/straighten
 /// are absent on purpose — they are GPU-warped live (see module docs).
@@ -54,6 +55,18 @@ pub struct PreviewBaseSpec {
     pub grain: f32,
     pub grain_size: f32,
     pub grain_roughness: f32,
+    pub film_halation: f32,
+    pub film_halation_radius: f32,
+    pub film_halation_threshold: f32,
+    pub film_bloom: f32,
+    pub film_bloom_radius: f32,
+    pub film_bloom_threshold: f32,
+    pub film_dust: f32,
+    pub film_scratches: f32,
+    pub shader_lab_preset: u32,
+    pub shader_param1: f32,
+    pub shader_param2: f32,
+    pub shader_param3: f32,
     pub remove_chromatic_aberration: bool,
     pub defringe_purple_amount: f32,
     pub defringe_purple_hue_min: f32,
@@ -61,6 +74,9 @@ pub struct PreviewBaseSpec {
     pub defringe_green_amount: f32,
     pub defringe_green_hue_min: f32,
     pub defringe_green_hue_max: f32,
+    pub profile_corrections: bool,
+    pub profile_distortion: f32,
+    pub profile_vignetting: f32,
     /// Depth-aware lens blur (stage position mirrors the export pipeline:
     /// geometry → optics → blur → spatial → masks).
     pub blur_enabled: bool,
@@ -102,6 +118,19 @@ pub fn preview_open(rgba: Vec<u8>, width: u32, height: u32) -> u64 {
     crate::preview::open(rgba, width, height)
 }
 
+/// Decodes a JPEG directly into the resident store; returns a handle.
+///
+/// Uses `zune-jpeg` SIMD decoding to eliminate the synchronous GPU readback
+/// stall and FFI copy of a pre-decoded RGBA buffer.
+pub fn preview_open_jpeg(jpeg_bytes: Vec<u8>, max_dim: u32) -> Result<u64, String> {
+    crate::preview::open_jpeg(jpeg_bytes, max_dim)
+}
+
+/// Retrieves the original decoded source RGBA buffer for a handle.
+pub fn preview_get_source_rgba(handle: u64) -> Result<RgbaImage, String> {
+    crate::preview::get_source_rgba(handle)
+}
+
 /// Drops the resident image for [handle]. Unknown handles are ignored so
 /// double-close from Dart teardown is safe.
 pub fn preview_close(handle: u64) {
@@ -115,8 +144,10 @@ pub fn preview_base(
     handle: u64,
     spec: PreviewBaseSpec,
     layers: Vec<MaskLayer>,
+    retouch_patches: Vec<ApiRetouchPatch>,
 ) -> Result<RgbaImage, String> {
-    crate::preview::run_base(handle, &spec, &layers)
+    let patches = to_engine_patches(&retouch_patches);
+    crate::preview::run_base(handle, &spec, &layers, &patches)
 }
 
 /// Bins the **cached base** (after geometry/spatial/masks) through the
@@ -154,17 +185,28 @@ pub struct RenderedSize {
 /// The grade is baked in Rust (the `FragmentShader` cannot sample a `Texture`
 /// widget). Errors when no texture is bound — Dart catches that and falls
 /// back to [`preview_base`] (spike A, return-frame + shader).
+#[allow(clippy::too_many_arguments)]
 pub fn preview_render(
     handle: u64,
     spec: PreviewBaseSpec,
     layers: Vec<MaskLayer>,
+    retouch_patches: Vec<ApiRetouchPatch>,
     params: ColorParams,
     curves: CurveParams,
     hsl: Vec<f32>,
     base_changed: bool,
 ) -> Result<RenderedSize, String> {
-    let (width, height) =
-        crate::preview::render(handle, &spec, &layers, &params, &curves, &hsl, base_changed)?;
+    let patches = to_engine_patches(&retouch_patches);
+    let (width, height) = crate::preview::render(
+        handle,
+        &spec,
+        &layers,
+        &patches,
+        &params,
+        &curves,
+        &hsl,
+        base_changed,
+    )?;
     Ok(RenderedSize { width, height })
 }
 
@@ -172,6 +214,8 @@ pub fn preview_render(
 mod tests {
     use super::*;
     use crate::api::geometry::geometry_apply;
+    use crate::api::optics::optics_apply;
+    use crate::api::retouch::retouch_apply;
     use crate::api::spatial::spatial_apply;
 
     /// Encodes x in R and y in G so positions are checkable.
@@ -213,6 +257,18 @@ mod tests {
             grain: 0.0,
             grain_size: 0.25,
             grain_roughness: 0.5,
+            film_halation: 0.0,
+            film_halation_radius: 0.5,
+            film_halation_threshold: 0.8,
+            film_bloom: 0.0,
+            film_bloom_radius: 0.5,
+            film_bloom_threshold: 0.75,
+            film_dust: 0.0,
+            film_scratches: 0.0,
+            shader_lab_preset: 0,
+            shader_param1: 0.0,
+            shader_param2: 0.0,
+            shader_param3: 0.0,
             remove_chromatic_aberration: false,
             defringe_purple_amount: 0.0,
             defringe_purple_hue_min: 0.70,
@@ -220,6 +276,9 @@ mod tests {
             defringe_green_amount: 0.0,
             defringe_green_hue_min: 0.17,
             defringe_green_hue_max: 0.50,
+            profile_corrections: false,
+            profile_distortion: 1.0,
+            profile_vignetting: 1.0,
             blur_enabled: false,
             blur_amount: 0.0,
             blur_focal_point: 0.5,
@@ -249,7 +308,7 @@ mod tests {
     fn open_then_identity_base_returns_the_source() {
         let src = grid(4, 3);
         let h = preview_open(src.clone(), 4, 3);
-        let frame = preview_base(h, identity_spec(), Vec::new()).unwrap();
+        let frame = preview_base(h, identity_spec(), Vec::new(), Vec::new()).unwrap();
         assert_eq!((frame.width, frame.height), (4, 3));
         assert_eq!(frame.rgba, src);
         preview_close(h);
@@ -258,11 +317,21 @@ mod tests {
     #[test]
     fn fused_base_matches_the_sequential_bridge_chain() {
         // The invariant that keeps preview == export: one fused call must
-        // equal geometry_apply → spatial_apply (with warp params neutral,
-        // since the GPU owns those live).
+        // equal geometry_apply → optics_apply → retouch_apply → spatial_apply
+        // (with warp params neutral, since the GPU owns those live).
         let src = grid(8, 6);
         let (sh, hi, cl, tx, shn, dl, dc, dh, vg, gr) =
             (0.2, -0.1, 0.3, 0.0, 0.4, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let patches = vec![ApiRetouchPatch {
+            target_x: 0.7,
+            target_y: 0.6,
+            source_x: 0.2,
+            source_y: 0.3,
+            radius: 0.2,
+            feather: 0.5,
+            opacity: 1.0,
+            is_clone: false,
+        }];
 
         let geo = geometry_apply(
             src.clone(),
@@ -281,9 +350,14 @@ mod tests {
             0.0,
             0.0,
         );
+        let opt = optics_apply(
+            geo.rgba, geo.width, geo.height, false, 0.0, 0.70, 0.95, 0.0, 0.17, 0.50, true, 1.0,
+            1.0,
+        );
+        let ret = retouch_apply(opt, geo.width, geo.height, patches.clone());
         let seq = spatial_apply(
-            geo.rgba, geo.width, geo.height, sh, hi, cl, tx, shn, 1.0, 0.25, 0.0, dl, dc, dh, vg,
-            0.5, 0.5, 0.0, 0.0, gr, 0.25, 0.5,
+            ret, geo.width, geo.height, sh, hi, cl, tx, shn, 1.0, 0.25, 0.0, dl, dc, dh, vg, 0.5,
+            0.5, 0.0, 0.0, gr, 0.25, 0.5,
         );
 
         let spec = PreviewBaseSpec {
@@ -313,6 +387,18 @@ mod tests {
             grain: gr,
             grain_size: 0.25,
             grain_roughness: 0.5,
+            film_halation: 0.0,
+            film_halation_radius: 0.5,
+            film_halation_threshold: 0.8,
+            film_bloom: 0.0,
+            film_bloom_radius: 0.5,
+            film_bloom_threshold: 0.75,
+            film_dust: 0.0,
+            film_scratches: 0.0,
+            shader_lab_preset: 0,
+            shader_param1: 0.0,
+            shader_param2: 0.0,
+            shader_param3: 0.0,
             remove_chromatic_aberration: false,
             defringe_purple_amount: 0.0,
             defringe_purple_hue_min: 0.70,
@@ -320,6 +406,9 @@ mod tests {
             defringe_green_amount: 0.0,
             defringe_green_hue_min: 0.17,
             defringe_green_hue_max: 0.50,
+            profile_corrections: true,
+            profile_distortion: 1.0,
+            profile_vignetting: 1.0,
             blur_enabled: false,
             blur_amount: 0.0,
             blur_focal_point: 0.5,
@@ -328,7 +417,7 @@ mod tests {
             blur_bokeh_boost: 0.0,
         };
         let h = preview_open(src, 8, 6);
-        let fused = preview_base(h, spec, Vec::new()).unwrap();
+        let fused = preview_base(h, spec, Vec::new(), patches).unwrap();
         assert_eq!((fused.width, fused.height), (geo.width, geo.height));
         assert_eq!(fused.rgba, seq);
         preview_close(h);
@@ -357,7 +446,7 @@ mod tests {
         }];
         let mut spec = identity_spec();
         spec.shadows = 0.25; // engage spatial so all three stages are covered
-        preview_base(h, spec, layers).unwrap();
+        preview_base(h, spec, layers, Vec::new()).unwrap();
 
         let hist = preview_histogram(h, neutral_params(), 32, no_curves(), vec![0.0; 24]).unwrap();
         assert_eq!(hist.r.len(), 256);
@@ -389,7 +478,7 @@ mod tests {
         spec.blur_focal_range = 0.2;
 
         let h_handle = preview_open(src.clone(), w as u32, h as u32);
-        let frame = preview_base(h_handle, spec, Vec::new()).unwrap();
+        let frame = preview_base(h_handle, spec, Vec::new(), Vec::new()).unwrap();
         preview_close(h_handle);
 
         assert_ne!(
@@ -407,14 +496,107 @@ mod tests {
         // Neutral blur stays byte-identical.
         let neutral = identity_spec();
         let h2 = preview_open(src.clone(), w as u32, h as u32);
-        let unchanged = preview_base(h2, neutral, Vec::new()).unwrap();
+        let unchanged = preview_base(h2, neutral, Vec::new(), Vec::new()).unwrap();
+        preview_close(h2);
+        assert_eq!(unchanged.rgba, src);
+    }
+
+    /// The retouch patches must reach the baked base: a clone patch carries
+    /// the source strip's colour onto its target while the rest stays put.
+    #[test]
+    fn retouch_engaged_spec_changes_the_baked_base() {
+        let (w, h) = (32, 32);
+        let mut src = vec![20u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                src[(y * w + x) * 4 + 3] = 255;
+            }
+        }
+        for y in 0..h {
+            for x in 4..=12 {
+                let i = (y * w + x) * 4;
+                src[i] = 0;
+                src[i + 1] = 255;
+                src[i + 2] = 0;
+            }
+        }
+
+        let patch = ApiRetouchPatch {
+            target_x: 24.0 / (w - 1) as f32,
+            target_y: 16.0 / (h - 1) as f32,
+            source_x: 8.0 / (w - 1) as f32,
+            source_y: 8.0 / (h - 1) as f32,
+            radius: 5.0 / 32.0,
+            feather: 0.0,
+            opacity: 1.0,
+            is_clone: true,
+        };
+
+        let handle = preview_open(src.clone(), w as u32, h as u32);
+        let frame = preview_base(handle, identity_spec(), Vec::new(), vec![patch]).unwrap();
+        preview_close(handle);
+
+        assert_ne!(frame.rgba, src, "clone patch must change the baked base");
+        let target = ((16 * w) + 24) * 4;
+        assert_eq!(
+            &frame.rgba[target..target + 3],
+            &[0, 255, 0],
+            "the target must take the cloned source colour"
+        );
+        let far = ((4 * w) + 28) * 4;
+        assert_eq!(
+            &frame.rgba[far..far + 3],
+            &src[far..far + 3],
+            "pixels outside the patch must stay untouched"
+        );
+    }
+
+    /// The lens-profile gates must reach the baked base: with the gate on, a
+    /// flat frame's corners brighten while the centre holds.
+    #[test]
+    fn profile_corrections_engaged_changes_the_baked_base() {
+        let (w, h) = (33, 33);
+        let mut src = vec![100u8; w * h * 4];
+        for px in src.as_chunks_mut::<4>().0 {
+            px[3] = 255;
+        }
+
+        let mut spec = identity_spec();
+        spec.profile_corrections = true;
+        spec.profile_distortion = 1.0;
+        spec.profile_vignetting = 1.0;
+
+        let handle = preview_open(src.clone(), w as u32, h as u32);
+        let frame = preview_base(handle, spec, Vec::new(), Vec::new()).unwrap();
+        preview_close(handle);
+
+        assert_ne!(
+            frame.rgba, src,
+            "profile-engaged spec must change the baked base"
+        );
+        assert!(
+            frame.rgba[0] > src[0],
+            "the corner must brighten: {} vs {}",
+            frame.rgba[0],
+            src[0]
+        );
+        let center = ((h / 2) * w + w / 2) * 4;
+        assert_eq!(
+            &frame.rgba[center..center + 3],
+            &src[center..center + 3],
+            "the optical centre must hold"
+        );
+
+        let neutral = identity_spec();
+        let h2 = preview_open(src.clone(), w as u32, h as u32);
+        let unchanged = preview_base(h2, neutral, Vec::new(), Vec::new()).unwrap();
         preview_close(h2);
         assert_eq!(unchanged.rgba, src);
     }
 
     #[test]
     fn unknown_and_closed_handles_error_instead_of_panicking() {
-        assert!(preview_base(9_999, identity_spec(), Vec::new()).is_err());
+        assert!(preview_base(9_999, identity_spec(), Vec::new(), Vec::new()).is_err());
 
         let h = preview_open(grid(2, 2), 2, 2);
         preview_close(h);
@@ -427,13 +609,13 @@ mod tests {
         let a = preview_open(grid(4, 4), 4, 4);
         let b = preview_open(grid(6, 2), 6, 2);
         assert_ne!(a, b);
-        let fa = preview_base(a, identity_spec(), Vec::new()).unwrap();
-        let fb = preview_base(b, identity_spec(), Vec::new()).unwrap();
+        let fa = preview_base(a, identity_spec(), Vec::new(), Vec::new()).unwrap();
+        let fb = preview_base(b, identity_spec(), Vec::new(), Vec::new()).unwrap();
         assert_eq!((fa.width, fa.height), (4, 4));
         assert_eq!((fb.width, fb.height), (6, 2));
         preview_close(a);
         // b survives a's close
-        assert!(preview_base(b, identity_spec(), Vec::new()).is_ok());
+        assert!(preview_base(b, identity_spec(), Vec::new(), Vec::new()).is_ok());
         preview_close(b);
     }
 
@@ -455,7 +637,7 @@ mod tests {
             for i in 0..50 {
                 let mut spec = identity_spec();
                 spec.shadows = (i % 7) as f32 * 0.1;
-                preview_base(b_handle, spec, Vec::new()).unwrap();
+                preview_base(b_handle, spec, Vec::new(), Vec::new()).unwrap();
             }
         });
 

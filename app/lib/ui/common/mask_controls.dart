@@ -470,10 +470,14 @@ class MaskControls extends ConsumerWidget {
               children: [
                 Icon(Icons.layers, size: 20, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
-                Text(
-                  group.name,
-                  key: Key('group-title-${group.id}'),
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                Flexible(
+                  child: Text(
+                    group.name,
+                    key: Key('group-title-${group.id}'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
                 ),
                 if (group.inverted) ...[
                   const SizedBox(width: 8),
@@ -1571,7 +1575,11 @@ class _MaskSlider extends StatelessWidget {
         children: [
           SizedBox(
             width: 75,
-            child: Text(label, style: const TextStyle(fontSize: 12)),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(label, style: const TextStyle(fontSize: 12)),
+            ),
           ),
           Expanded(
             child: SliderTheme(

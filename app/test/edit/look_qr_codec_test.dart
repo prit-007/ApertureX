@@ -119,6 +119,21 @@ void main() {
       expect(updated.grain, closeTo(0.25, 1e-4));
     });
 
+    test('applies a degree-valued grade hue without clamping to 1.0', () {
+      const hueJson = '''
+      {
+        "v": 1,
+        "name": "Split Tone 210",
+        "p": { "gsh": 210.0 }
+      }
+      ''';
+
+      final payload = LookQrCodec.decode(hueJson);
+      final updated = payload.applyTo(const EditRecipe());
+
+      expect(updated.gradeShadowHue, 210.0);
+    });
+
     test('throws FormatException on malformed or invalid QR payloads', () {
       expect(() => LookQrCodec.decode('not a valid look or json'), throwsFormatException);
       expect(() => LookQrCodec.decode('apx://look/v1?data=invalid_base64!!!'), throwsFormatException);

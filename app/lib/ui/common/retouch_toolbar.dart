@@ -79,9 +79,12 @@ class RetouchToolbar extends ConsumerWidget {
           border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // Mode toggle: Heal
             ChoiceChip(
               key: const Key('retouch-toolbar-heal'),
@@ -200,7 +203,8 @@ class RetouchToolbar extends ConsumerWidget {
                 },
               ),
             ],
-          ],
+            ],
+          ),
         ),
       ),
     );

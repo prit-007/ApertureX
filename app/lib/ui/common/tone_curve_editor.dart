@@ -120,22 +120,31 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
         Row(
           children: [
             for (final channel in ToneCurveChannel.values)
-              TextButton(
-                onPressed: () => setState(() {
-                  _channel = channel;
-                  _active = null;
-                }),
-                child: Text(
-                  channel.name.toUpperCase(),
-                  style: TextStyle(
-                    color: channel == _channel
-                        ? scheme.onSurface
-                        : scheme.onSurfaceVariant,
-                    fontSize: 12,
-                    letterSpacing: 1.0,
-                    fontWeight: channel == _channel
-                        ? FontWeight.w700
-                        : FontWeight.w400,
+              Expanded(
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+                  onPressed: () => setState(() {
+                    _channel = channel;
+                    _active = null;
+                  }),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      channel.name.toUpperCase(),
+                      style: TextStyle(
+                        color: channel == _channel
+                            ? scheme.onSurface
+                            : scheme.onSurfaceVariant,
+                        fontSize: 12,
+                        letterSpacing: 1.0,
+                        fontWeight: channel == _channel
+                            ? FontWeight.w700
+                            : FontWeight.w400,
+                      ),
+                    ),
                   ),
                 ),
               ),

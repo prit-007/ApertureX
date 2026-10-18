@@ -641,6 +641,7 @@ fn every_control_moves_a_real_photo_in_the_direction_the_slider_promises() {
             bokeh_boost: 0.2,
         },
         None,
+        36,
     );
     assert!(
         hf_energy(&blurred, w) < base_hf - 1e-3,

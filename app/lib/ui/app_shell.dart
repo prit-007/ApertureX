@@ -744,12 +744,19 @@ enum _SheetSnap { hidden, peek, half, full }
 // slider between the grab bar and the tabs (bug: "bottom-sheet height, only 1
 // slider visible"). Half now fits ~3 sliders; full ~6. Tap the canvas /
 // grab bar still collapses the tray for the full-height photo.
+// Peek raised 0.20 → 0.28 plus a hard 236px floor (see _minPeekHeight) so
+// short viewports still show ~2 content rows (issue: peek sheet buries the
+// Lightroom panel).
 const Map<_SheetSnap, double> _sheetFractions = {
   _SheetSnap.hidden: 0.0,
-  _SheetSnap.peek: 0.20,
+  _SheetSnap.peek: 0.28,
   _SheetSnap.half: 0.36,
   _SheetSnap.full: 0.62,
 };
+
+/// Minimum peek body height: grab bar handle (~30) + panel chrome (~114) +
+/// ~2 content rows. Keeps controls usable on short devices.
+const double _minPeekHeight = 236.0;
 
 /// A draggable, floating bottom sheet holding the Lightroom tools over the
 /// edge-to-edge photo. Drag the grab bar to move between snap points, or tap it
@@ -781,7 +788,11 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
   bool _dragging = false;
 
   double get _height {
-    final raw = _sheetFractions[widget.snap]! * widget.availableHeight + _dragDy;
+    var base = _sheetFractions[widget.snap]! * widget.availableHeight;
+    if (widget.snap == _SheetSnap.peek && base < _minPeekHeight) {
+      base = _minPeekHeight;
+    }
+    final raw = base + _dragDy;
     return raw.clamp(0.0, widget.availableHeight).toDouble();
   }
 

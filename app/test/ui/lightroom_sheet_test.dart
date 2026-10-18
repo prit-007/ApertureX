@@ -56,9 +56,72 @@ void main() {
     // Push down toward the peek snap point. The gap half→peek is now wide
     // (raised snap fractions), so the drag must cross the midpoint, not just
     // nudge — test drags report zero velocity, so snapping is nearest-position.
+    // Peek is floored at 236px (raised from 0.20; 844*0.28=236.32).
     await tester.drag(find.text('Hide tools'), const Offset(0, 110));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(844 * 0.20, 2));
+    expect(bodyHeight(tester), closeTo(236, 2));
+  });
+
+  testWidgets('at peek the first parameter track is fully inside the sheet body', (
+    tester,
+  ) async {
+    await pumpPortrait(tester);
+
+    // Navigate to the peek snap: half -> peek.
+    await tester.drag(find.text('Hide tools'), const Offset(0, 150));
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('Hide tools'), const Offset(0, 110));
+    await tester.pumpAndSettle();
+    expect(bodyHeight(tester), closeTo(236, 2));
+
+    final track = find.byKey(const Key('param-track-exposure'));
+    expect(track, findsOneWidget);
+    expect(track.hitTestable(), findsOneWidget);
+
+    final bodyRect = tester.getRect(body);
+    final trackRect = tester.getRect(track);
+    expect(
+      bodyRect.contains(trackRect.topLeft) &&
+          bodyRect.contains(trackRect.bottomRight),
+      isTrue,
+      reason: 'exposure track $trackRect is not fully within peek body $bodyRect',
+    );
+  });
+
+  testWidgets('short device (360x640) peek is floored so controls stay visible', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: AppShell())),
+      ),
+    );
+    await tester.pump();
+
+    // Docked at half; drag down toward peek. Before the 236px floor this
+    // yielded 0.20*640=128px (zero content rows).
+    expect(bodyHeight(tester), closeTo(640 * 0.36, 2));
+    await tester.drag(find.text('Hide tools'), const Offset(0, 100));
+    await tester.pumpAndSettle();
+    expect(bodyHeight(tester), closeTo(236, 2));
+    expect(tester.takeException(), isNull);
+
+    final track = find.byKey(const Key('param-track-exposure'));
+    expect(track, findsOneWidget);
+    expect(track.hitTestable(), findsOneWidget);
+
+    final bodyRect = tester.getRect(body);
+    final trackRect = tester.getRect(track);
+    expect(
+      bodyRect.contains(trackRect.topLeft) &&
+          bodyRect.contains(trackRect.bottomRight),
+      isTrue,
+      reason: 'exposure track $trackRect is not fully within peek body $bodyRect',
+    );
   });
 
   testWidgets('the grab bar collapses the sheet for a clean canvas', (

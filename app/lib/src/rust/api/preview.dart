@@ -10,6 +10,7 @@ import 'decode.dart';
 import 'histogram.dart';
 import 'mask.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'retouch.dart';
 
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`
 
@@ -28,6 +29,22 @@ Future<BigInt> previewOpen({
   height: height,
 );
 
+/// Decodes a JPEG directly into the resident store; returns a handle.
+///
+/// Uses `zune-jpeg` SIMD decoding to eliminate the synchronous GPU readback
+/// stall and FFI copy of a pre-decoded RGBA buffer.
+Future<BigInt> previewOpenJpeg({
+  required List<int> jpegBytes,
+  required int maxDim,
+}) => RustLib.instance.api.crateApiPreviewPreviewOpenJpeg(
+  jpegBytes: jpegBytes,
+  maxDim: maxDim,
+);
+
+/// Retrieves the original decoded source RGBA buffer for a handle.
+Future<RgbaImage> previewGetSourceRgba({required BigInt handle}) =>
+    RustLib.instance.api.crateApiPreviewPreviewGetSourceRgba(handle: handle);
+
 /// Drops the resident image for [handle]. Unknown handles are ignored so
 /// double-close from Dart teardown is safe.
 Future<void> previewClose({required BigInt handle}) =>
@@ -40,10 +57,12 @@ Future<RgbaImage> previewBase({
   required BigInt handle,
   required PreviewBaseSpec spec,
   required List<MaskLayer> layers,
+  required List<ApiRetouchPatch> retouchPatches,
 }) => RustLib.instance.api.crateApiPreviewPreviewBase(
   handle: handle,
   spec: spec,
   layers: layers,
+  retouchPatches: retouchPatches,
 );
 
 /// Bins the **cached base** (after geometry/spatial/masks) through the
@@ -75,6 +94,7 @@ Future<RenderedSize> previewRender({
   required BigInt handle,
   required PreviewBaseSpec spec,
   required List<MaskLayer> layers,
+  required List<ApiRetouchPatch> retouchPatches,
   required ColorParams params,
   required CurveParams curves,
   required List<double> hsl,
@@ -83,6 +103,7 @@ Future<RenderedSize> previewRender({
   handle: handle,
   spec: spec,
   layers: layers,
+  retouchPatches: retouchPatches,
   params: params,
   curves: curves,
   hsl: hsl,
@@ -122,6 +143,18 @@ class PreviewBaseSpec {
   final double grain;
   final double grainSize;
   final double grainRoughness;
+  final double filmHalation;
+  final double filmHalationRadius;
+  final double filmHalationThreshold;
+  final double filmBloom;
+  final double filmBloomRadius;
+  final double filmBloomThreshold;
+  final double filmDust;
+  final double filmScratches;
+  final int shaderLabPreset;
+  final double shaderParam1;
+  final double shaderParam2;
+  final double shaderParam3;
   final bool removeChromaticAberration;
   final double defringePurpleAmount;
   final double defringePurpleHueMin;
@@ -129,6 +162,9 @@ class PreviewBaseSpec {
   final double defringeGreenAmount;
   final double defringeGreenHueMin;
   final double defringeGreenHueMax;
+  final bool profileCorrections;
+  final double profileDistortion;
+  final double profileVignetting;
 
   /// Depth-aware lens blur (stage position mirrors the export pipeline:
   /// geometry → optics → blur → spatial → masks).
@@ -176,6 +212,18 @@ class PreviewBaseSpec {
     required this.grain,
     required this.grainSize,
     required this.grainRoughness,
+    required this.filmHalation,
+    required this.filmHalationRadius,
+    required this.filmHalationThreshold,
+    required this.filmBloom,
+    required this.filmBloomRadius,
+    required this.filmBloomThreshold,
+    required this.filmDust,
+    required this.filmScratches,
+    required this.shaderLabPreset,
+    required this.shaderParam1,
+    required this.shaderParam2,
+    required this.shaderParam3,
     required this.removeChromaticAberration,
     required this.defringePurpleAmount,
     required this.defringePurpleHueMin,
@@ -183,6 +231,9 @@ class PreviewBaseSpec {
     required this.defringeGreenAmount,
     required this.defringeGreenHueMin,
     required this.defringeGreenHueMax,
+    required this.profileCorrections,
+    required this.profileDistortion,
+    required this.profileVignetting,
     required this.blurEnabled,
     required this.blurAmount,
     required this.blurFocalPoint,
@@ -223,6 +274,18 @@ class PreviewBaseSpec {
       grain.hashCode ^
       grainSize.hashCode ^
       grainRoughness.hashCode ^
+      filmHalation.hashCode ^
+      filmHalationRadius.hashCode ^
+      filmHalationThreshold.hashCode ^
+      filmBloom.hashCode ^
+      filmBloomRadius.hashCode ^
+      filmBloomThreshold.hashCode ^
+      filmDust.hashCode ^
+      filmScratches.hashCode ^
+      shaderLabPreset.hashCode ^
+      shaderParam1.hashCode ^
+      shaderParam2.hashCode ^
+      shaderParam3.hashCode ^
       removeChromaticAberration.hashCode ^
       defringePurpleAmount.hashCode ^
       defringePurpleHueMin.hashCode ^
@@ -230,6 +293,9 @@ class PreviewBaseSpec {
       defringeGreenAmount.hashCode ^
       defringeGreenHueMin.hashCode ^
       defringeGreenHueMax.hashCode ^
+      profileCorrections.hashCode ^
+      profileDistortion.hashCode ^
+      profileVignetting.hashCode ^
       blurEnabled.hashCode ^
       blurAmount.hashCode ^
       blurFocalPoint.hashCode ^
@@ -268,6 +334,18 @@ class PreviewBaseSpec {
           grain == other.grain &&
           grainSize == other.grainSize &&
           grainRoughness == other.grainRoughness &&
+          filmHalation == other.filmHalation &&
+          filmHalationRadius == other.filmHalationRadius &&
+          filmHalationThreshold == other.filmHalationThreshold &&
+          filmBloom == other.filmBloom &&
+          filmBloomRadius == other.filmBloomRadius &&
+          filmBloomThreshold == other.filmBloomThreshold &&
+          filmDust == other.filmDust &&
+          filmScratches == other.filmScratches &&
+          shaderLabPreset == other.shaderLabPreset &&
+          shaderParam1 == other.shaderParam1 &&
+          shaderParam2 == other.shaderParam2 &&
+          shaderParam3 == other.shaderParam3 &&
           removeChromaticAberration == other.removeChromaticAberration &&
           defringePurpleAmount == other.defringePurpleAmount &&
           defringePurpleHueMin == other.defringePurpleHueMin &&
@@ -275,6 +353,9 @@ class PreviewBaseSpec {
           defringeGreenAmount == other.defringeGreenAmount &&
           defringeGreenHueMin == other.defringeGreenHueMin &&
           defringeGreenHueMax == other.defringeGreenHueMax &&
+          profileCorrections == other.profileCorrections &&
+          profileDistortion == other.profileDistortion &&
+          profileVignetting == other.profileVignetting &&
           blurEnabled == other.blurEnabled &&
           blurAmount == other.blurAmount &&
           blurFocalPoint == other.blurFocalPoint &&

@@ -15,6 +15,10 @@
 //! the grade is point-wise. Only the geometry stage runs full-frame — it is a
 //! remap, not a neighbourhood op, and holds exactly one buffer.
 //!
+//! Retouch patch coordinates are normalized in the post-geometry displayed
+//! frame (same convention as masks; pre perspective-warp on the export path,
+//! matching the existing mask behavior).
+//!
 //! **Memory.** Peak is the geometry output (`gw*gh*4`) plus the graded output
 //! plus one band + halo, instead of the old path's per-stage frame pairs.
 //!
@@ -29,12 +33,14 @@ use crate::color::{self, CurveSet, GradeParams};
 use crate::geometry::{self, GeometrySpec};
 use crate::mask::{self, LocalAdjustment};
 use crate::optics::{self, OpticsParams};
+use crate::retouch::RetouchPatch;
 use crate::spatial::{self, SpatialParams};
 
 /// Everything the export chain needs, in engine types.
 pub struct ExportRecipe {
     pub geometry: GeometrySpec,
     pub optics: OpticsParams,
+    pub retouch: Vec<RetouchPatch>,
     pub blur: LensBlurParams,
     pub spatial: SpatialParams,
     pub layers: Vec<LocalAdjustment>,
@@ -75,8 +81,13 @@ pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) 
     if !recipe.optics.is_neutral() {
         buf = optics::apply_optics(&buf, gw, gh, recipe.optics);
     }
+    if !recipe.retouch.is_empty() {
+        for patch in &recipe.retouch {
+            crate::retouch::apply_patch(&mut buf, gw, gh, patch);
+        }
+    }
     if !recipe.blur.is_neutral() {
-        buf = blur::apply_lens_blur(&buf, gw, gh, recipe.blur, None);
+        buf = blur::apply_lens_blur(&buf, gw, gh, recipe.blur, None, 36);
     }
     if !recipe.spatial.is_neutral() {
         buf = spatial::apply_spatial(&buf, gw, gh, recipe.spatial);
@@ -121,8 +132,21 @@ pub fn run_export_tiled(
     if !recipe.optics.is_neutral() {
         frame = optics::apply_optics(&frame, gw, gh, recipe.optics);
     }
+    if !recipe.retouch.is_empty() {
+        for patch in &recipe.retouch {
+            crate::retouch::apply_patch(&mut frame, gw, gh, patch);
+        }
+    }
     if !recipe.blur.is_neutral() {
-        frame = blur::apply_lens_blur(&frame, gw, gh, recipe.blur, None);
+        frame = blur::apply_lens_blur(&frame, gw, gh, recipe.blur, None, 36);
+    }
+    let film_shader_engaged = recipe.spatial.film_halation != 0.0
+        || recipe.spatial.film_bloom != 0.0
+        || recipe.spatial.film_dust != 0.0
+        || recipe.spatial.film_scratches != 0.0
+        || recipe.spatial.shader_lab_preset != 0;
+    if film_shader_engaged {
+        frame = spatial::apply_spatial(&frame, gw, gh, recipe.spatial);
     }
     let band_rows = band_rows.min(gh.max(1));
     let mut out = vec![0u8; gw * gh * 4];
@@ -133,7 +157,7 @@ pub fn run_export_tiled(
             return Ok(ExportOutcome::Cancelled);
         }
         let bh = band_rows.min(gh - y0);
-        let mut band = if recipe.spatial.is_neutral() {
+        let mut band = if recipe.spatial.is_neutral() || film_shader_engaged {
             frame[y0 * gw * 4..(y0 + bh) * gw * 4].to_vec()
         } else {
             spatial::apply_spatial_band(&frame, gw, gh, y0, bh, recipe.spatial)
@@ -197,8 +221,9 @@ mod tests {
         v
     }
 
-    /// A recipe that engages every stage: geometry, all spatial ops, a mask,
-    /// and a non-trivial grade.
+    /// A recipe that engages every stage: geometry, retouch, all spatial ops
+    /// (including film emulation and Shader Lab), a mask, and a non-trivial
+    /// grade.
     fn fully_engaged() -> ExportRecipe {
         ExportRecipe {
             geometry: GeometrySpec {
@@ -211,6 +236,16 @@ mod tests {
                 ..Default::default()
             },
             optics: OpticsParams::default(),
+            retouch: vec![crate::retouch::RetouchPatch {
+                target_x: 0.7,
+                target_y: 0.6,
+                source_x: 0.25,
+                source_y: 0.35,
+                radius: 0.08,
+                feather: 0.4,
+                opacity: 1.0,
+                mode: crate::retouch::RetouchMode::Clone,
+            }],
             blur: LensBlurParams {
                 enabled: true,
                 amount: 0.6,
@@ -239,6 +274,12 @@ mod tests {
                 grain: 0.1,
                 grain_size: 0.25,
                 grain_roughness: 0.5,
+                film_halation: 0.5,
+                film_bloom: 0.4,
+                film_dust: 0.2,
+                film_scratches: 0.2,
+                shader_lab_preset: 1,
+                shader_param1: 0.5,
                 ..Default::default()
             },
             layers: vec![LocalAdjustment {
@@ -272,6 +313,7 @@ mod tests {
         ExportRecipe {
             geometry: GeometrySpec::default(),
             optics: OpticsParams::default(),
+            retouch: Vec::new(),
             blur: LensBlurParams::default(),
             spatial: SpatialParams::default(),
             layers: Vec::new(),
@@ -285,19 +327,34 @@ mod tests {
     fn tiled_matches_single_for_a_fully_engaged_recipe() {
         let (w, h) = (64, 48);
         let src = noise(w, h);
-        let recipe = fully_engaged();
-        let single = run_export_single(&recipe, &src, w, h);
-        for band_rows in [1, 7, 16, 48, 100] {
-            let tiled = run_export_tiled(&recipe, &src, w, h, band_rows, None, None)
-                .unwrap()
-                .into_frame()
-                .expect("not cancelled");
-            assert_eq!(
-                (tiled.width, tiled.height),
-                (single.width, single.height),
-                "band_rows={band_rows} dimensions diverged"
-            );
-            assert_eq!(tiled.rgba, single.rgba, "band_rows={band_rows} diverged");
+        // Both spatial routes: film/Shader Lab force one full-frame pass, the
+        // neutral-film twin keeps the per-band spatial path in the parity net.
+        let mut per_band = fully_engaged();
+        per_band.spatial.film_halation = 0.0;
+        per_band.spatial.film_bloom = 0.0;
+        per_band.spatial.film_dust = 0.0;
+        per_band.spatial.film_scratches = 0.0;
+        per_band.spatial.shader_lab_preset = 0;
+        for (label, recipe) in [
+            ("film engaged", fully_engaged()),
+            ("film neutral", per_band),
+        ] {
+            let single = run_export_single(&recipe, &src, w, h);
+            for band_rows in [1, 7, 16, 48, 100] {
+                let tiled = run_export_tiled(&recipe, &src, w, h, band_rows, None, None)
+                    .unwrap()
+                    .into_frame()
+                    .expect("not cancelled");
+                assert_eq!(
+                    (tiled.width, tiled.height),
+                    (single.width, single.height),
+                    "{label} band_rows={band_rows} dimensions diverged"
+                );
+                assert_eq!(
+                    tiled.rgba, single.rgba,
+                    "{label} band_rows={band_rows} diverged"
+                );
+            }
         }
     }
 
@@ -314,6 +371,22 @@ mod tests {
         assert_ne!(
             with_blur.rgba, without_blur.rgba,
             "blur must perturb the export pixels"
+        );
+    }
+
+    /// The retouch recipe field must actually reach the pipeline: dropping the
+    /// engaged patch for an empty list changes the output.
+    #[test]
+    fn engaged_retouch_changes_the_export_output() {
+        let (w, h) = (48, 40);
+        let src = noise(w, h);
+        let mut recipe = fully_engaged();
+        let with_retouch = run_export_single(&recipe, &src, w, h);
+        recipe.retouch = Vec::new();
+        let without_retouch = run_export_single(&recipe, &src, w, h);
+        assert_ne!(
+            with_retouch.rgba, without_retouch.rgba,
+            "retouch must perturb the export pixels"
         );
     }
 

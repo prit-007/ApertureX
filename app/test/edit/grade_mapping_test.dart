@@ -6,12 +6,45 @@ import 'package:aperturex/gesture/gesture_interpreter.dart' show GradeTool;
 void main() {
   group('GradeUniforms.fromRecipe', () {
     test('maps the renderable fields onto the shader uniform contract', () {
-      const recipe = EditRecipe(exposure: 1.5, contrast: -0.25, saturation: 0.4);
+      const recipe = EditRecipe(
+        exposure: 1.5,
+        contrast: -0.25,
+        saturation: 0.4,
+        temperature: 0.3,
+        tint: -0.1,
+        vibrance: 0.2,
+        highlights: 0.5,
+        shadows: -0.3,
+      );
       final uniforms = GradeUniforms.fromRecipe(recipe);
 
       expect(uniforms.exposure, 1.5);
       expect(uniforms.contrast, -0.25);
       expect(uniforms.saturation, 0.4);
+      expect(uniforms.temperature, 0.3);
+      expect(uniforms.tint, -0.1);
+      expect(uniforms.vibrance, 0.2);
+      expect(uniforms.highlights, 0.5);
+      expect(uniforms.shadows, -0.3);
+    });
+
+    test('toFloats returns uniforms in shader slot order', () {
+      const recipe = EditRecipe(
+        exposure: 1.0,
+        contrast: 0.5,
+        saturation: -0.2,
+        temperature: 0.3,
+        tint: -0.1,
+        vibrance: 0.4,
+        highlights: 0.5,
+        shadows: -0.3,
+      );
+      final uniforms = GradeUniforms.fromRecipe(recipe);
+
+      expect(
+        uniforms.toFloats(),
+        [1.0, 0.5, -0.2, 0.3, -0.1, 0.4, 0.5, -0.3],
+      );
     });
 
     test('a neutral recipe yields zeroed uniforms (identity transform)', () {
@@ -20,6 +53,11 @@ void main() {
       expect(uniforms.exposure, 0);
       expect(uniforms.contrast, 0);
       expect(uniforms.saturation, 0);
+      expect(uniforms.temperature, 0);
+      expect(uniforms.tint, 0);
+      expect(uniforms.vibrance, 0);
+      expect(uniforms.highlights, 0);
+      expect(uniforms.shadows, 0);
     });
   });
 

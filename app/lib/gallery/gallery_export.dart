@@ -14,6 +14,7 @@ import '../edit/xmp_sidecar.dart';
 import '../engine/engine.dart';
 import '../engine/image_format.dart';
 import '../features/editor/export_progress.dart';
+import '../settings/export_settings.dart';
 import 'gallery_controller.dart' show gallerySourceProvider;
 import 'gallery_source.dart';
 
@@ -150,6 +151,18 @@ class ExportSpecs {
   final List<MaskGroup> maskGroups;
 }
 
+/// Maps the user's [ExportSettings] onto the engine's full-res JPEG options,
+/// mirroring the editor path exactly: `maxDim == 0` means "original
+/// resolution" (engine `null`).
+({int quality, int? maxDim, int colorSpace, bool ultraHdr, double hdrHeadroom})
+fullExportOptions(ExportSettings s) => (
+  quality: s.quality,
+  maxDim: s.maxDim == 0 ? null : s.maxDim,
+  colorSpace: s.colorSpace,
+  ultraHdr: s.ultraHdr,
+  hdrHeadroom: s.hdrHeadroom,
+);
+
 ExportSpecs specsFor(EditRecipe recipe) => ExportSpecs(
   grade: GradeSpec.fromRecipe(recipe),
   spatial: SpatialSpec.fromRecipe(recipe),
@@ -169,6 +182,7 @@ class GalleryExporter {
     this.maxConcurrent = 2,
     this.item,
     this.sidecar,
+    this.settings = const ExportSettings(),
   });
 
   final GallerySource source;
@@ -185,6 +199,11 @@ class GalleryExporter {
   /// (#77); `null` skips the write (tests, or a caller that wants raw
   /// images only).
   final XmpSidecarSink? sidecar;
+
+  /// User export preferences (quality / max size / color space / HDR);
+  /// defaults to [ExportSettings] defaults so bare constructions (tests)
+  /// keep their meaning.
+  final ExportSettings settings;
 
   /// Grades and saves one asset with [recipe]; returns true when the bytes
   /// reached the gallery (false = failed or cancelled). [onFraction], when
@@ -240,6 +259,7 @@ class GalleryExporter {
     }
     try {
       final specs = specsFor(recipe);
+      final opts = fullExportOptions(settings);
       final out = await AxEngine.exportJpegFull(
         rgba: rgba,
         width: width,
@@ -253,6 +273,11 @@ class GalleryExporter {
         maskGroups: specs.maskGroups,
         exif: exif,
         cancelToken: token,
+        quality: opts.quality,
+        maxDim: opts.maxDim,
+        colorSpace: opts.colorSpace,
+        ultraHdr: opts.ultraHdr,
+        hdrHeadroom: opts.hdrHeadroom,
       );
       if (out == null) return false; // cancelled at a band boundary
       await Gal.putImageBytes(out, name: 'aperturex_$assetId');
@@ -344,5 +369,6 @@ final galleryExporterProvider = Provider<GalleryExporter>(
   (ref) => GalleryExporter(
     ref.watch(gallerySourceProvider),
     sidecar: ref.watch(exportSidecarSinkProvider),
+    settings: ref.watch(exportSettingsProvider),
   ),
 );

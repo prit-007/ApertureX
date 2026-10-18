@@ -328,7 +328,8 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     section: RecipeSection.color,
     label: 'Shadow Hue',
     min: 0,
-    max: 1,
+    max: 360,
+    scale: 360,
   ),
   Parameter.gradeShadowSat: ParameterSpec(
     id: Parameter.gradeShadowSat,
@@ -349,7 +350,8 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     section: RecipeSection.color,
     label: 'Midtone Hue',
     min: 0,
-    max: 1,
+    max: 360,
+    scale: 360,
   ),
   Parameter.gradeMidSat: ParameterSpec(
     id: Parameter.gradeMidSat,
@@ -370,7 +372,8 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     section: RecipeSection.color,
     label: 'Highlight Hue',
     min: 0,
-    max: 1,
+    max: 360,
+    scale: 360,
   ),
   Parameter.gradeHighlightSat: ParameterSpec(
     id: Parameter.gradeHighlightSat,
