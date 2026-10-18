@@ -211,7 +211,14 @@ mod tests {
                 ..Default::default()
             },
             optics: OpticsParams::default(),
-            blur: LensBlurParams::default(),
+            blur: LensBlurParams {
+                enabled: true,
+                amount: 0.6,
+                focal_point: 0.4,
+                focal_range: 0.2,
+                bokeh_shape: blur::BokehShape::Pentagon,
+                bokeh_boost: 0.3,
+            },
             spatial: SpatialParams {
                 shadows: 0.3,
                 highlights: -0.2,
@@ -292,6 +299,22 @@ mod tests {
             );
             assert_eq!(tiled.rgba, single.rgba, "band_rows={band_rows} diverged");
         }
+    }
+
+    /// The blur recipe field must actually reach the pipeline: swapping the
+    /// engaged blur for the default (disabled) one changes the output.
+    #[test]
+    fn engaged_blur_changes_the_export_output() {
+        let (w, h) = (48, 40);
+        let src = noise(w, h);
+        let mut recipe = fully_engaged();
+        let with_blur = run_export_single(&recipe, &src, w, h);
+        recipe.blur = LensBlurParams::default();
+        let without_blur = run_export_single(&recipe, &src, w, h);
+        assert_ne!(
+            with_blur.rgba, without_blur.rgba,
+            "blur must perturb the export pixels"
+        );
     }
 
     #[test]

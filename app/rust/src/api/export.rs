@@ -31,6 +31,7 @@ pub fn encode_jpeg_rgba(
     quality: u8,
     exif: Vec<u8>,
 ) -> Result<Vec<u8>, String> {
+    crate::validate::validate_rgba(&rgba, width, height)?;
     export::encode_jpeg(&rgba, width, height, quality, &exif)
 }
 
@@ -87,6 +88,19 @@ pub struct ExportSpec {
     pub defringe_green_amount: f32,
     pub defringe_green_hue_min: f32,
     pub defringe_green_hue_max: f32,
+    // depth-aware lens blur (applies after optics, before spatial — the same
+    // stage position as the preview bake, so preview == export)
+    pub blur_enabled: bool,
+    /// Aperture blur amount `0..1`.
+    pub blur_amount: f32,
+    /// Focal depth plane in sharp focus `0..1`.
+    pub blur_focal_point: f32,
+    /// Depth-of-field range in sharp focus `0..1`.
+    pub blur_focal_range: f32,
+    /// Bokeh blade shape index (matches Dart `BokehShape.values`).
+    pub blur_bokeh_shape: u8,
+    /// Specular highlight boost `0..1`.
+    pub blur_bokeh_boost: f32,
     // encode
     pub quality: u8,
     /// Longest-side cap for the export (0 = full resolution).
@@ -101,6 +115,20 @@ pub struct ExportSpec {
     pub ultra_hdr: bool,
     /// HDR headroom in EV stops (e.g. 2.0 = 400% brightness boost).
     pub hdr_headroom: f32,
+}
+
+impl ExportSpec {
+    /// Maps the flat blur fields onto the engine's [`crate::blur::LensBlurParams`].
+    pub fn blur_params(&self) -> crate::blur::LensBlurParams {
+        crate::blur::LensBlurParams::from_fields(
+            self.blur_enabled,
+            self.blur_amount,
+            self.blur_focal_point,
+            self.blur_focal_range,
+            self.blur_bokeh_shape,
+            self.blur_bokeh_boost,
+        )
+    }
 }
 
 /// The result of [`export_full`]: JPEG bytes, or a flag when the export was
@@ -306,14 +334,8 @@ pub fn export_full_with_branding(
     branding: ExportBrandingSpec,
     c2pa: C2paExportSpec,
 ) -> Result<ExportResult, String> {
+    crate::validate::validate_rgba(&rgba, width, height)?;
     let (w, h) = (width as usize, height as usize);
-    let expected = w * h * 4;
-    if rgba.len() != expected {
-        return Err(format!(
-            "rgba buffer has {} bytes, expected {expected} for {width}x{height}",
-            rgba.len()
-        ));
-    }
 
     let recipe = ExportRecipe {
         geometry: GeometrySpec {
@@ -342,7 +364,7 @@ pub fn export_full_with_branding(
             profile_distortion: 1.0,
             profile_vignetting: 1.0,
         },
-        blur: crate::blur::LensBlurParams::default(),
+        blur: spec.blur_params(),
         spatial: SpatialParams {
             shadows: spec.shadows,
             highlights: spec.highlights,
@@ -468,12 +490,10 @@ pub fn export_full_with_branding(
 
     // If C2PA is requested, sign claims and inject JUMBF APP11
     if c2pa.enable_c2pa && !c2pa.device_private_key.is_empty() {
-        let pixel_hash = crate::sha256::sha256(&branded_rgba);
-        let pixel_hash_hex = crate::sha256::sha256_hex(&pixel_hash);
-        let recipe_hash =
-            crate::sha256::sha256_hex(&crate::sha256::sha256(c2pa.recipe_json.as_bytes()));
-        let key_pub = crate::sha256::sha256(&c2pa.device_private_key);
-        let key_id = format!("c2pa:apx:{}", &crate::sha256::sha256_hex(&key_pub)[..16]);
+        let pixel_hash_hex = crate::sha256::sha256_hex(&branded_rgba);
+        let recipe_hash = crate::sha256::sha256_hex(c2pa.recipe_json.as_bytes());
+        let (priv_key, key_id) = crate::c2pa::generate_device_key(&c2pa.device_private_key);
+        let pk_hex = crate::c2pa::public_key_hex_from_seed(&priv_key);
 
         let actions = ["c2pa.opened", "c2pa.color_adjustments"];
         let claim = crate::c2pa::build_c2pa_claim(
@@ -483,9 +503,10 @@ pub fn export_full_with_branding(
             &c2pa.exif_summary,
             &recipe_hash,
             &key_id,
+            &pk_hex,
         );
-        let sig_hex = crate::c2pa::sign_c2pa_claim(&claim, &c2pa.device_private_key);
-        let manifest = crate::c2pa::create_c2pa_manifest(&claim, &sig_hex, &key_id);
+        let sig_hex = crate::c2pa::sign_c2pa_claim(&claim, &priv_key);
+        let manifest = crate::c2pa::create_c2pa_manifest(&claim, &sig_hex, &key_id, &pk_hex);
         jpeg = crate::c2pa::inject_c2pa_app11(jpeg, &manifest);
     }
 
@@ -586,6 +607,12 @@ mod tests {
             defringe_green_amount: 0.0,
             defringe_green_hue_min: 0.17,
             defringe_green_hue_max: 0.50,
+            blur_enabled: false,
+            blur_amount: 0.0,
+            blur_focal_point: 0.5,
+            blur_focal_range: 0.2,
+            blur_bokeh_shape: 0,
+            blur_bokeh_boost: 0.0,
             quality: 90,
             max_dim: 0,
             band_rows: 16,
@@ -594,6 +621,34 @@ mod tests {
             ultra_hdr: false,
             hdr_headroom: 2.0,
         }
+    }
+
+    /// The export bridge struct's blur fields must land in the engine
+    /// params — the previous wiring hardcoded `LensBlurParams::default()`,
+    /// so the blur slider never reached the exported JPEG.
+    #[test]
+    fn export_spec_blur_fields_map_to_engine_params() {
+        let mut s = spec();
+        assert!(s.blur_params().is_neutral(), "default blur must stay off");
+
+        s.blur_enabled = true;
+        s.blur_amount = 0.5;
+        s.blur_focal_point = 0.3;
+        s.blur_focal_range = 0.25;
+        s.blur_bokeh_shape = 2; // hexagon
+        s.blur_bokeh_boost = 0.4;
+        let p = s.blur_params();
+        assert_eq!(
+            p,
+            crate::blur::LensBlurParams {
+                enabled: true,
+                amount: 0.5,
+                focal_point: 0.3,
+                focal_range: 0.25,
+                bokeh_shape: crate::blur::BokehShape::Hexagon,
+                bokeh_boost: 0.4,
+            }
+        );
     }
 
     fn neutral_curves() -> CurveParams {

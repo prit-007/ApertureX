@@ -139,17 +139,24 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
         Center(
           child: Padding(
             padding: const EdgeInsets.all(8.0),
-            child: ColorGradingWheel(
-              hue: hue,
-              saturation: sat,
-              size: 180,
-              onChanged: (newHue, newSat) {
-                notifier.setGradeWheel(_zone, hue: newHue, sat: newSat);
-              },
-              onChangeEnd: () => notifier.commit(label: 'Color Grading'),
-              onReset: () {
-                notifier.setGradeWheel(_zone, hue: 0.0, sat: 0.0);
-                notifier.commit(label: 'Reset Color Grade');
+            // Adaptive wheel: 180px wherever it fits, shrinking in tight panes
+            // (narrow sidebar, small split views) so it never overflows.
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final available = math.min(constraints.maxWidth, constraints.maxHeight);
+                return ColorGradingWheel(
+                  hue: hue,
+                  saturation: sat,
+                  size: (available - 16).clamp(120.0, 180.0),
+                  onChanged: (newHue, newSat) {
+                    notifier.setGradeWheel(_zone, hue: newHue, sat: newSat);
+                  },
+                  onChangeEnd: () => notifier.commit(label: 'Color Grading'),
+                  onReset: () {
+                    notifier.setGradeWheel(_zone, hue: 0.0, sat: 0.0);
+                    notifier.commit(label: 'Reset Color Grade');
+                  },
+                );
               },
             ),
           ),

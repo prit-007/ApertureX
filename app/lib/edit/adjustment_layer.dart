@@ -112,6 +112,53 @@ class MaskGroup {
     gradeBalance: gradeBalance ?? this.gradeBalance,
   );
 
+  /// True while every grade field still equals its constructor default — the
+  /// user has never graded this group, so it is safe to seed from a member's
+  /// stamped defaults (ADR 0013 §2.2: the group owns the grade, members own
+  /// coverage only).
+  bool get isGradeNeutral =>
+      exposure == 0 &&
+      contrast == 0 &&
+      saturation == 0 &&
+      temperature == 0 &&
+      tint == 0 &&
+      highlights == 0 &&
+      shadows == 0 &&
+      gradeShadowHue == 0 &&
+      gradeShadowSat == 0 &&
+      gradeShadowLum == 0 &&
+      gradeMidHue == 0 &&
+      gradeMidSat == 0 &&
+      gradeMidLum == 0 &&
+      gradeHighlightHue == 0 &&
+      gradeHighlightSat == 0 &&
+      gradeHighlightLum == 0 &&
+      gradeBalance == 0 &&
+      gradeBlending == 0.5;
+
+  /// Copies [layer]'s grade fields onto this group — used to seed a fresh
+  /// group from the defaults of the first member added to it.
+  MaskGroup withGradeOf(AdjustmentLayer layer) => copyWith(
+    exposure: layer.exposure,
+    contrast: layer.contrast,
+    saturation: layer.saturation,
+    temperature: layer.temperature,
+    tint: layer.tint,
+    highlights: layer.highlights,
+    shadows: layer.shadows,
+    gradeShadowHue: layer.gradeShadowHue,
+    gradeShadowSat: layer.gradeShadowSat,
+    gradeShadowLum: layer.gradeShadowLum,
+    gradeMidHue: layer.gradeMidHue,
+    gradeMidSat: layer.gradeMidSat,
+    gradeMidLum: layer.gradeMidLum,
+    gradeHighlightHue: layer.gradeHighlightHue,
+    gradeHighlightSat: layer.gradeHighlightSat,
+    gradeHighlightLum: layer.gradeHighlightLum,
+    gradeBlending: layer.gradeBlending,
+    gradeBalance: layer.gradeBalance,
+  );
+
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
     'name': name,
@@ -510,6 +557,30 @@ class AdjustmentLayer {
     gradeBalance: gradeBalance ?? this.gradeBalance,
     aiIntent: aiIntent ?? this.aiIntent,
     originAssetId: originAssetId ?? this.originAssetId,
+  );
+
+  /// Grade fields reset to neutral. A grouped member hands its grade to the
+  /// [MaskGroup] it joins (ADR 0013 §2.2) and keeps only coverage, so there
+  /// is exactly one source of truth for what gets rendered.
+  AdjustmentLayer get withoutGrade => copyWith(
+    exposure: 0,
+    contrast: 0,
+    saturation: 0,
+    temperature: 0,
+    tint: 0,
+    highlights: 0,
+    shadows: 0,
+    gradeShadowHue: 0,
+    gradeShadowSat: 0,
+    gradeShadowLum: 0,
+    gradeMidHue: 0,
+    gradeMidSat: 0,
+    gradeMidLum: 0,
+    gradeHighlightHue: 0,
+    gradeHighlightSat: 0,
+    gradeHighlightLum: 0,
+    gradeBlending: 0.5,
+    gradeBalance: 0,
   );
 
   /// For brush masks: base radius (default 0.06).
@@ -918,8 +989,14 @@ class AdjustmentLayer {
       other.aiIntent == aiIntent &&
       other.originAssetId == originAssetId;
 
+  /// Cached hash: [maskBlob] is up to tens of kilobytes and `hashCode` is
+  /// consulted on every recipe tick (lists in `baseKeyOf`/`gradeKeyOf`).
+  /// The layer is immutable, so the hash is computed once per instance.
+  /// An [Expando] (not a field) keeps the class const-constructible.
+  static final Expando<int> _hashCache = Expando<int>('AdjustmentLayer.hash');
+
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => _hashCache[this] ??= Object.hash(
     maskKind,
     Object.hashAll(maskParams),
     maskBlob == null ? 0 : Object.hashAll(maskBlob!),

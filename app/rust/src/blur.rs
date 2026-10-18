@@ -14,6 +14,19 @@ pub enum BokehShape {
     Swirl,
 }
 
+impl BokehShape {
+    /// Bridge-facing index (`0..4`, matching the Dart `BokehShape` enum order).
+    pub fn from_index(index: u8) -> Self {
+        match index {
+            0 => BokehShape::Circle,
+            1 => BokehShape::Pentagon,
+            2 => BokehShape::Hexagon,
+            3 => BokehShape::Septagon,
+            _ => BokehShape::Swirl,
+        }
+    }
+}
+
 /// Parameters for depth-guided optical lens blur.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LensBlurParams {
@@ -46,6 +59,26 @@ impl Default for LensBlurParams {
 impl LensBlurParams {
     pub fn is_neutral(&self) -> bool {
         !self.enabled || self.amount <= 1e-4
+    }
+
+    /// Builds params from the flat bridge fields shared by
+    /// `PreviewBaseSpec` (preview bake) and `ExportSpec` (export pipeline).
+    pub fn from_fields(
+        enabled: bool,
+        amount: f32,
+        focal_point: f32,
+        focal_range: f32,
+        bokeh_shape: u8,
+        bokeh_boost: f32,
+    ) -> Self {
+        Self {
+            enabled,
+            amount,
+            focal_point,
+            focal_range,
+            bokeh_shape: BokehShape::from_index(bokeh_shape),
+            bokeh_boost,
+        }
     }
 }
 

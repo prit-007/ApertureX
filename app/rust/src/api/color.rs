@@ -58,6 +58,25 @@ impl ColorParams {
             grade_balance: self.grade_balance,
         }
     }
+    pub fn is_neutral(&self) -> bool {
+        self.exposure == 0.0
+            && self.contrast == 0.0
+            && self.highlights == 0.0
+            && self.shadows == 0.0
+            && self.whites == 0.0
+            && self.blacks == 0.0
+            && self.saturation == 0.0
+            && self.temperature == 0.0
+            && self.tint == 0.0
+            && self.vibrance == 0.0
+            && self.grade_shadow_sat == 0.0
+            && self.grade_shadow_lum == 0.0
+            && self.grade_mid_sat == 0.0
+            && self.grade_mid_lum == 0.0
+            && self.grade_highlight_sat == 0.0
+            && self.grade_highlight_lum == 0.0
+            && self.grade_balance == 0.0
+    }
 }
 
 /// Tone-curve control points, flat `[x0,y0,x1,y1,...]` per curve. An empty list
@@ -94,12 +113,14 @@ pub struct LutData {
 
 /// Bakes the grade (tone curves + HSL mix) into a 3D LUT atlas.
 pub fn bake_lut3d(size: u32, params: ColorParams, curves: CurveParams, hsl: Vec<f32>) -> LutData {
+    let clamped_size = size.clamp(2, 256);
     let set = curves.to_set();
-    let rgba = color::bake_lut3d_curves(size, params.to_core(), Some(&set), &to_hsl24(&hsl));
+    let rgba =
+        color::bake_lut3d_curves(clamped_size, params.to_core(), Some(&set), &to_hsl24(&hsl));
     LutData {
-        size,
-        width: size * size,
-        height: size,
+        size: clamped_size,
+        width: clamped_size * clamped_size,
+        height: clamped_size,
         rgba,
     }
 }

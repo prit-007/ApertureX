@@ -3,6 +3,7 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
+import '../blur.dart';
 import '../frb_generated.dart';
 import 'color.dart';
 import 'decode.dart';
@@ -129,6 +130,25 @@ class PreviewBaseSpec {
   final double defringeGreenHueMin;
   final double defringeGreenHueMax;
 
+  /// Depth-aware lens blur (stage position mirrors the export pipeline:
+  /// geometry → optics → blur → spatial → masks).
+  final bool blurEnabled;
+
+  /// Aperture blur amount `0..1`.
+  final double blurAmount;
+
+  /// Focal depth plane in sharp focus `0..1`.
+  final double blurFocalPoint;
+
+  /// Depth-of-field range in sharp focus `0..1`.
+  final double blurFocalRange;
+
+  /// Bokeh blade shape index (matches Dart `BokehShape.values`).
+  final int blurBokehShape;
+
+  /// Specular highlight boost `0..1`.
+  final double blurBokehBoost;
+
   const PreviewBaseSpec({
     required this.flipH,
     required this.flipV,
@@ -163,7 +183,17 @@ class PreviewBaseSpec {
     required this.defringeGreenAmount,
     required this.defringeGreenHueMin,
     required this.defringeGreenHueMax,
+    required this.blurEnabled,
+    required this.blurAmount,
+    required this.blurFocalPoint,
+    required this.blurFocalRange,
+    required this.blurBokehShape,
+    required this.blurBokehBoost,
   });
+
+  /// Maps the flat blur fields onto the engine's [`crate::blur::LensBlurParams`].
+  Future<LensBlurParams> blurParams() =>
+      RustLib.instance.api.crateApiPreviewPreviewBaseSpecBlurParams(that: this);
 
   @override
   int get hashCode =>
@@ -199,7 +229,13 @@ class PreviewBaseSpec {
       defringePurpleHueMax.hashCode ^
       defringeGreenAmount.hashCode ^
       defringeGreenHueMin.hashCode ^
-      defringeGreenHueMax.hashCode;
+      defringeGreenHueMax.hashCode ^
+      blurEnabled.hashCode ^
+      blurAmount.hashCode ^
+      blurFocalPoint.hashCode ^
+      blurFocalRange.hashCode ^
+      blurBokehShape.hashCode ^
+      blurBokehBoost.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -238,7 +274,13 @@ class PreviewBaseSpec {
           defringePurpleHueMax == other.defringePurpleHueMax &&
           defringeGreenAmount == other.defringeGreenAmount &&
           defringeGreenHueMin == other.defringeGreenHueMin &&
-          defringeGreenHueMax == other.defringeGreenHueMax;
+          defringeGreenHueMax == other.defringeGreenHueMax &&
+          blurEnabled == other.blurEnabled &&
+          blurAmount == other.blurAmount &&
+          blurFocalPoint == other.blurFocalPoint &&
+          blurFocalRange == other.blurFocalRange &&
+          blurBokehShape == other.blurBokehShape &&
+          blurBokehBoost == other.blurBokehBoost;
 }
 
 /// Dimensions of the frame a [`preview_render`] just wrote into the bound

@@ -236,5 +236,54 @@ void main() {
       // Resolved recipe points to target B
       expect(resolvedRecipe.layers.first.originAssetId, 'B');
     });
+    test('cache hit restores the full bitmap form (kind + params), not just the blob', () async {
+      var callCount = 0;
+      Future<Float32List?> fakeSegmenter(
+        Uint8List bytes, {
+        int targetWidth = 256,
+        int targetHeight = 256,
+      }) async {
+        callCount++;
+        return Float32List.fromList(List.filled(targetWidth * targetHeight, 0.7));
+      }
+
+      final resolver = AiMaskResolver();
+      final dummyBytes = Uint8List.fromList([1, 2, 3, 4]);
+
+      AdjustmentLayer parametric() => const AdjustmentLayer(
+        maskKind: MaskKind.subject,
+        maskParams: [0.5, 0.4, 0.28, 0.38, 0.25],
+        aiIntent: 'subject',
+        originAssetId: 'origin',
+      );
+
+      // First resolve on a new asset: inference runs, bitmap result cached.
+      final first = await resolver.resolveLayer(
+        parametric(),
+        targetAssetId: 'asset_C',
+        targetProxyBytes: dummyBytes,
+        segmenter: fakeSegmenter,
+      );
+      expect(callCount, 1);
+      expect(first.maskKind, MaskKind.bitmap);
+      expect(first.maskParams, [256.0, 256.0]);
+
+      // Second resolve, same asset: cache hit — no inference, and the
+      // restored layer must be a complete bitmap. Bolting the blob onto a
+      // parametric layer (old bug) leaves maskKind/params on the analytic
+      // contract, so the renderer never sees the mask.
+      final hit = await resolver.resolveLayer(
+        parametric(),
+        targetAssetId: 'asset_C',
+        targetProxyBytes: dummyBytes,
+        segmenter: fakeSegmenter,
+      );
+      expect(callCount, 1);
+      expect(hit.maskKind, MaskKind.bitmap);
+      expect(hit.maskParams, [256.0, 256.0]);
+      expect(hit.maskBlob, equals(first.maskBlob));
+      expect(hit.originAssetId, 'asset_C');
+      expect(hit.toBridgeMaskParams().length, 2 + 256 * 256);
+    });
   });
 }

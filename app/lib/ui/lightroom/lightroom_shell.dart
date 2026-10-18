@@ -702,46 +702,60 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   }) {
     final scheme = Theme.of(context).colorScheme;
 
-    Widget tab(String label, T value, String keyName, bool isModified) => TextButton(
-      onPressed: () {
-        HapticFeedback.selectionClick();
-        if (hasChanges) {
-          onApply();
-        }
-        onSelect(value);
-      },
-      style: TextButton.styleFrom(
-        visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        foregroundColor: current == value
-            ? scheme.primary
-            : null,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: current == value ? FontWeight.w700 : FontWeight.w500,
-            ),
+    // Same pill styling as the master tab chips above, so sub-tabs read as a
+    // family instead of a row of boxy text buttons.
+    Widget tab(String label, T value, String keyName, bool isModified) {
+      final selected = current == value;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: ChoiceChip(
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label),
+              if (isModified) ...[
+                const SizedBox(width: 4),
+                Container(
+                  key: Key('applied-dot-$keyName'),
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? scheme.primary : scheme.primary.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ],
           ),
-          if (isModified) ...[
-            const SizedBox(width: 4),
-            Container(
-              key: Key('applied-dot-$keyName'),
-              width: 5,
-              height: 5,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: current == value ? scheme.primary : scheme.primary.withValues(alpha: 0.85),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
+          selected: selected,
+          onSelected: (_) {
+            HapticFeedback.selectionClick();
+            if (hasChanges) {
+              onApply();
+            }
+            onSelect(value);
+          },
+          showCheckmark: false,
+          visualDensity: VisualDensity.compact,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          side: BorderSide(
+            color: selected
+                ? scheme.primary
+                : isModified
+                    ? scheme.primary.withValues(alpha: 0.45)
+                    : scheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+          selectedColor: scheme.primaryContainer,
+          backgroundColor: scheme.surfaceContainerHigh,
+          labelStyle: TextStyle(
+            fontSize: 12,
+            letterSpacing: 0.4,
+            color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      );
+    }
 
     return SizedBox(
       height: 34,

@@ -12,7 +12,6 @@ import '../color/histogram_view.dart';
 import '../color/imported_lut.dart';
 import '../color/lut_atlas.dart';
 import '../color/lut_texture.dart';
-import '../color/spatial_spec.dart';
 import '../color/tat.dart';
 import '../edit/muted_parameters.dart';
 import '../edit/parameter.dart';
@@ -25,6 +24,8 @@ import '../core/haptics.dart';
 import '../gesture/gesture_interpreter.dart';
 import '../gesture/zone_mask.dart';
 import 'compare_hold.dart';
+import 'base_spec.dart';
+import 'change_keys.dart';
 import 'wiper_compare.dart';
 import 'exposure_assist.dart';
 import 'canvas_transform.dart';
@@ -129,6 +130,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   int _importedKey = 0;
   int? _tatBand;
   Timer? _debounce;
+  Timer? _histogramDebounce;
 
   // --- high-zoom tiles (#16) ----------------------------------------------
   // Level-0 tiles of the ORIGINAL frame, decoded natively (never the full
@@ -597,44 +599,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// Straighten/perspective/skew are GPU-warped during editing (issue #36),
   /// so they are excluded here — a slider tick must not re-run `applyGeometry`.
   /// Export bakes the full GeometrySpec independently.
-  int _baseKey(EditRecipe r) => Object.hash(
-    r.rotation,
-    r.flipH,
-    r.flipV,
-    r.shadows,
-    r.highlights,
-    r.clarity,
-    r.texture,
-    r.dehaze,
-    r.vignette,
-    r.grain,
-    r.sharpen,
-    r.denoiseLuma,
-    r.denoiseChroma,
-    Object.hashAll(r.crop),
-    Object.hashAll(r.layers),
-    Object.hashAll(r.maskGroups),
-  );
+  int _baseKey(EditRecipe r) => baseKeyOf(r);
 
-  int _gradeKey(EditRecipe r) => Object.hash(
-    r.exposure,
-    r.contrast,
-    r.saturation,
-    r.temperature,
-    r.tint,
-    r.vibrance,
-    r.gradeShadowHue,
-    r.gradeShadowSat,
-    r.gradeMidHue,
-    r.gradeMidSat,
-    r.gradeHighlightHue,
-    r.gradeHighlightSat,
-    r.masterCurve,
-    r.redCurve,
-    r.greenCurve,
-    r.blueCurve,
-    Object.hashAll(r.hsl),
-  );
+  int _gradeKey(EditRecipe r) => gradeKeyOf(r);
 
   /// The recipe as it should be **rendered**: muted parameters neutralised
   /// (tap-to-mute, issue #31). The stored recipe keeps its values.
@@ -690,7 +657,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         if (gradeChanged) await _rebuildLut(recipe, token);
       }
       if (token != _bakeToken) return;
-      await _rebuildHistogram(recipe, token);
+      _scheduleHistogram(recipe, token);
     } finally {
       if (token == _bakeToken) _setBusy(false);
     }
@@ -699,44 +666,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// Spike B: one Rust round trip (params in, size out) bakes base + grade
   /// straight into the platform texture. On any failure the texture is dropped
   /// and we rebuild through the return-frame path so the preview never stalls.
-  PreviewBaseSpec _baseSpec(EditRecipe recipe) {
-    final spatial = SpatialSpec.fromRecipe(recipe);
-    return PreviewBaseSpec(
-      flipH: recipe.flipH,
-      flipV: recipe.flipV,
-      turns: recipe.rotation,
-      cropL: recipe.crop[0],
-      cropT: recipe.crop[1],
-      cropR: recipe.crop[2],
-      cropB: recipe.crop[3],
-      shadows: spatial.shadows,
-      highlights: spatial.highlights,
-      clarity: spatial.clarity,
-      texture: spatial.texture,
-      sharpen: spatial.sharpen,
-      sharpenRadius: spatial.sharpenRadius,
-      sharpenDetail: spatial.sharpenDetail,
-      sharpenMasking: spatial.sharpenMasking,
-      denoiseLuma: spatial.denoiseLuma,
-      denoiseChroma: spatial.denoiseChroma,
-      dehaze: spatial.dehaze,
-      vignette: spatial.vignette,
-      vignetteMidpoint: spatial.vignetteMidpoint,
-      vignetteFeather: spatial.vignetteFeather,
-      vignetteRoundness: spatial.vignetteRoundness,
-      vignetteHighlights: spatial.vignetteHighlights,
-      grain: spatial.grain,
-      grainSize: spatial.grainSize,
-      grainRoughness: spatial.grainRoughness,
-      removeChromaticAberration: recipe.removeChromaticAberration,
-      defringePurpleAmount: recipe.defringePurpleAmount,
-      defringePurpleHueMin: recipe.defringePurpleHueMin,
-      defringePurpleHueMax: recipe.defringePurpleHueMax,
-      defringeGreenAmount: recipe.defringeGreenAmount,
-      defringeGreenHueMin: recipe.defringeGreenHueMin,
-      defringeGreenHueMax: recipe.defringeGreenHueMax,
-    );
-  }
+  PreviewBaseSpec _baseSpec(EditRecipe recipe) => baseSpecFromRecipe(recipe);
   void _setBusy(bool value) {
     if (!_disposed) _busy.value = value;
   }
@@ -822,6 +752,18 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     });
   }
 
+  /// The histogram is a non-interactive readout; recomputing it inside every
+  /// 16ms scrub tick burns a Rust round trip per frame. Trailing-debounce it
+  /// so it lands shortly after the recipe stops moving (and never later than
+  /// ~one settle window after the last tick).
+  void _scheduleHistogram(EditRecipe recipe, int token) {
+    _histogramDebounce?.cancel();
+    _histogramDebounce = Timer(const Duration(milliseconds: 280), () {
+      if (_disposed || token != _bakeToken) return;
+      _rebuildHistogram(recipe, token);
+    });
+  }
+
   Future<void> _rebuildHistogram(EditRecipe recipe, int token) async {
     final handle = _previewHandle;
     if (handle == null) return;
@@ -886,6 +828,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   void dispose() {
     _disposed = true;
     _debounce?.cancel();
+    _histogramDebounce?.cancel();
     _compare.dispose();
     _maskPeek.dispose();
     _zebraTicker.dispose();

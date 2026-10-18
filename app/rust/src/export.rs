@@ -42,7 +42,14 @@ pub fn encode_jpeg(
     Encoder::new(&mut out, quality)
         .encode(&rgb, width as u16, height as u16, ColorType::Rgb)
         .map_err(|e| format!("jpeg encode failed: {e}"))?;
-    Ok(crate::exif::inject_app1(out, exif))
+    let final_exif = if !exif.is_empty() {
+        let mut exif_buf = exif.to_vec();
+        crate::exif::rewrite_orientation_to_normal(&mut exif_buf);
+        exif_buf
+    } else {
+        Vec::new()
+    };
+    Ok(crate::exif::inject_app1(out, &final_exif))
 }
 
 #[cfg(test)]
@@ -106,5 +113,27 @@ mod tests {
             .sum::<f64>()
             / (img.rgba.len() / 4) as f64;
         assert!((mean - 128.0).abs() < 4.0, "mean {mean}");
+    }
+
+    #[test]
+    fn rewrites_exif_orientation_to_normal_on_export() {
+        let tiff = vec![
+            b'I', b'I', 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x12, 0x01, 0x03, 0x00,
+            0x01, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        let payload_len = 6 + tiff.len();
+        let mut app1 = vec![
+            0xFF,
+            0xE1,
+            ((payload_len + 2) >> 8) as u8,
+            ((payload_len + 2) & 0xFF) as u8,
+        ];
+        app1.extend_from_slice(b"Exif\0\0");
+        app1.extend_from_slice(&tiff);
+
+        assert_eq!(crate::exif::parse_orientation(&app1), Some(6));
+
+        let jpeg = encode_jpeg(&solid_rgba(8, 8, 100, 100, 100), 8, 8, 90, &app1).unwrap();
+        assert_eq!(crate::exif::parse_orientation(&jpeg), Some(1));
     }
 }

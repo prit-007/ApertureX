@@ -22,6 +22,9 @@ pub fn retouch_apply(
     height: u32,
     patches: Vec<ApiRetouchPatch>,
 ) -> Vec<u8> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return rgba;
+    }
     let internal_patches: Vec<RetouchPatch> = patches
         .into_iter()
         .map(|p| RetouchPatch {

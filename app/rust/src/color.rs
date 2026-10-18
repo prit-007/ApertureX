@@ -644,7 +644,7 @@ pub fn bake_lut3d_curves(
     curves: Option<&CurveSet>,
     hsl: &[f32; 24],
 ) -> Vec<u8> {
-    let n = size as usize;
+    let n = size.clamp(2, 256) as usize;
     let (w, h) = (n * n, n);
     let inv = 1.0 / (n - 1) as f32;
     let mut rgba = vec![0u8; w * h * 4];
@@ -1776,5 +1776,15 @@ pub mod golden {
             "midtones unaffected: {:?}",
             mid_graded
         );
+    }
+
+    #[test]
+    fn test_bake_lut3d_size_bounds_does_not_panic() {
+        // Size 0 and 1 clamp to 2 without underflow or NaN panic
+        let lut0 = bake_lut3d(0, GradeParams::default());
+        assert_eq!(lut0.len(), 2 * 2 * 2 * 4);
+
+        let lut1 = bake_lut3d(1, GradeParams::default());
+        assert_eq!(lut1.len(), 2 * 2 * 2 * 4);
     }
 }

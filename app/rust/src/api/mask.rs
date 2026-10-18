@@ -54,6 +54,9 @@ impl Default for MaskLayer {
 
 /// Composites [layers] over [rgba] (RGBA8, `width*height*4`), in order.
 pub fn apply_masks(rgba: Vec<u8>, width: u32, height: u32, layers: Vec<MaskLayer>) -> Vec<u8> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return rgba;
+    }
     let core: Vec<LocalAdjustment> = layers
         .into_iter()
         .map(|l| LocalAdjustment {
@@ -83,6 +86,9 @@ pub struct DetectedSky {
 
 /// Automatically detects sky horizon, transition feather, and blue chromaticity weight.
 pub fn detect_sky(rgba: Vec<u8>, width: u32, height: u32) -> Option<DetectedSky> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return None;
+    }
     mask::detect_sky(&rgba, width as usize, height as usize).map(|d| DetectedSky {
         horizon_y: d.horizon_y,
         feather: d.feather,
@@ -102,6 +108,9 @@ pub struct DetectedSubject {
 
 /// Automatically detects dominant subject center, radii, and feather.
 pub fn detect_subject(rgba: Vec<u8>, width: u32, height: u32) -> Option<DetectedSubject> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return None;
+    }
     mask::detect_subject(&rgba, width as usize, height as usize).map(|d| DetectedSubject {
         cx: d.cx,
         cy: d.cy,
@@ -121,6 +130,7 @@ pub fn segment_subject(
     target_width: u32,
     target_height: u32,
 ) -> Result<Vec<f32>, String> {
+    crate::validate::validate_rgba(&rgba, width, height)?;
     use crate::ml::Segmenter;
     let segmenter = crate::ml::SaliencySegmenter {};
     segmenter.segment(
@@ -147,10 +157,15 @@ pub fn refine_mask(
     filter_radius: u32,
     eps: f32,
 ) -> Vec<f32> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return Vec::new();
+    }
     let w = width as usize;
     let h = height as usize;
-    let initial_alphas = if kind == mask::MASK_BITMAP && params.len() == 2 + w * h {
-        params[2..2 + w * h].to_vec()
+    let expected_bitmap_len = w.checked_mul(h).and_then(|px| 2usize.checked_add(px));
+    let initial_alphas = if kind == mask::MASK_BITMAP && expected_bitmap_len == Some(params.len()) {
+        let end = expected_bitmap_len.unwrap();
+        params[2..end].to_vec()
     } else {
         mask::rasterize_mask(kind, &params, w, h, Some(&rgba))
     };

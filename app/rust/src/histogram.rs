@@ -46,7 +46,7 @@ pub fn histogram_graded(
     hsl: &[f32; 24],
 ) -> Histogram {
     let mut h = Histogram::empty();
-    if width == 0 || height == 0 || rgba.len() < (width as usize * height as usize * 4) {
+    if crate::validate::validate_rgba(rgba, width, height).is_err() {
         return h;
     }
     let dim = sample_dim.max(1);

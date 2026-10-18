@@ -4,7 +4,7 @@
 //! exported JPEG APP11 segments. Proves image authenticity, original sensor source,
 //! and non-destructive editing history without requiring external cloud servers.
 
-use crate::sha256::{hmac_sha256, sha256, sha256_hex};
+use crate::sha256::{sha256, sha256_hex};
 
 /// Represents the status of a C2PA verification check.
 #[derive(Debug, Clone, PartialEq)]
@@ -32,12 +32,61 @@ pub struct C2paReport {
     pub pixel_hash: String,
 }
 
-/// Generates a local device keypair seed and public key identifier.
+fn hex_decode_32(s: &str) -> Option<[u8; 32]> {
+    if s.len() != 64 {
+        return None;
+    }
+    let mut out = [0u8; 32];
+    for i in 0..32 {
+        out[i] = u8::from_str_radix(&s[i * 2..i * 2 + 2], 16).ok()?;
+    }
+    Some(out)
+}
+
+fn hex_decode_64(s: &str) -> Option<[u8; 64]> {
+    if s.len() != 128 {
+        return None;
+    }
+    let mut out = [0u8; 64];
+    for i in 0..64 {
+        out[i] = u8::from_str_radix(&s[i * 2..i * 2 + 2], 16).ok()?;
+    }
+    Some(out)
+}
+
+/// Generates a local device Ed25519 keypair seed and public key identifier.
 pub fn generate_device_key(device_seed: &[u8]) -> (Vec<u8>, String) {
-    let private_key = sha256(device_seed);
-    let public_key = sha256(&private_key);
-    let key_id = format!("c2pa:apx:{}", &sha256_hex(&public_key)[..16]);
-    (private_key.to_vec(), key_id)
+    let mut seed = [0u8; 32];
+    if device_seed.len() == 32 {
+        seed.copy_from_slice(device_seed);
+    } else {
+        seed = sha256(device_seed);
+    }
+    let public_key = crate::ed25519::public_key_from_seed(&seed);
+    let mut pk_hex = String::with_capacity(64);
+    for b in public_key {
+        use std::fmt::Write;
+        let _ = write!(pk_hex, "{:02x}", b);
+    }
+    let key_id = format!("c2pa:apx:{}", &pk_hex[..16]);
+    (seed.to_vec(), key_id)
+}
+
+/// Computes the 64-character lowercase hex Ed25519 public key corresponding to a seed.
+pub fn public_key_hex_from_seed(device_seed: &[u8]) -> String {
+    let mut seed = [0u8; 32];
+    if device_seed.len() == 32 {
+        seed.copy_from_slice(device_seed);
+    } else {
+        seed = sha256(device_seed);
+    }
+    let public_key = crate::ed25519::public_key_from_seed(&seed);
+    let mut pk_hex = String::with_capacity(64);
+    for b in public_key {
+        use std::fmt::Write;
+        let _ = write!(pk_hex, "{:02x}", b);
+    }
+    pk_hex
 }
 
 /// Builds a canonical C2PA claim JSON containing edit actions, pixel hash, and EXIF summary.
@@ -48,6 +97,7 @@ pub fn build_c2pa_claim(
     camera_metadata: &str,
     recipe_hash: &str,
     key_id: &str,
+    public_key_hex: &str,
 ) -> String {
     let mut actions_json = String::new();
     for (i, act) in actions.iter().enumerate() {
@@ -63,15 +113,21 @@ pub fn build_c2pa_claim(
     };
 
     format!(
-        "{{\"title\": \"ApertureX Content Credential\", \"claim_generator\": \"ApertureX/0.2.0 (True FOSS)\", \"signer\": \"{}\", \"{}\"pixel_hash\": \"{}\", \"recipe_hash\": \"{}\", \"metadata\": \"{}\", \"actions\": [{}]}}",
-        key_id, parent_entry, pixel_hash_hex, recipe_hash, camera_metadata, actions_json
+        "{{\"title\": \"ApertureX Content Credential\", \"claim_generator\": \"ApertureX/0.2.0 (True FOSS)\", \"signer\": \"{}\", \"public_key\": \"{}\", \"{}pixel_hash\": \"{}\", \"recipe_hash\": \"{}\", \"metadata\": \"{}\", \"actions\": [{}]}}",
+        key_id, public_key_hex, parent_entry, pixel_hash_hex, recipe_hash, camera_metadata, actions_json
     )
 }
 
-/// Signs a canonical C2PA claim string with the local device private key.
+/// Signs a canonical C2PA claim string with the local device private key using real Ed25519.
 pub fn sign_c2pa_claim(claim_json: &str, private_key: &[u8]) -> String {
-    let sig_bytes = hmac_sha256(private_key, claim_json.as_bytes());
-    let mut s = String::with_capacity(64);
+    let mut seed = [0u8; 32];
+    if private_key.len() == 32 {
+        seed.copy_from_slice(private_key);
+    } else {
+        seed = sha256(private_key);
+    }
+    let sig_bytes = crate::ed25519::sign_ed25519(&seed, claim_json.as_bytes());
+    let mut s = String::with_capacity(128);
     for b in sig_bytes {
         use std::fmt::Write;
         let _ = write!(s, "{:02x}", b);
@@ -83,10 +139,15 @@ pub fn sign_c2pa_claim(claim_json: &str, private_key: &[u8]) -> String {
 pub static APERTUREX_ICON_PNG: &[u8] = include_bytes!("../../icons/app_icon_monochrome.png");
 
 /// Packages a claim and its signature into a serializable C2PA manifest container with generator icon metadata.
-pub fn create_c2pa_manifest(claim_json: &str, signature_hex: &str, key_id: &str) -> Vec<u8> {
+pub fn create_c2pa_manifest(
+    claim_json: &str,
+    signature_hex: &str,
+    key_id: &str,
+    public_key_hex: &str,
+) -> Vec<u8> {
     let container = format!(
-        "{{\"c2pa_manifest\": {{\"claim\": {}, \"sig\": \"{}\", \"key_id\": \"{}\", \"generator_icon\": \"icons/app_icon_monochrome.png\"}}}}",
-        claim_json, signature_hex, key_id
+        "{{\"c2pa_manifest\": {{\"claim\": {}, \"sig\": \"{}\", \"key_id\": \"{}\", \"public_key\": \"{}\", \"generator_icon\": \"icons/app_icon_monochrome.png\"}}}}",
+        claim_json, signature_hex, key_id, public_key_hex
     );
     container.into_bytes()
 }
@@ -113,7 +174,7 @@ pub fn inject_c2pa_app11(jpeg_bytes: Vec<u8>, manifest_bytes: &[u8]) -> Vec<u8> 
     marker.extend_from_slice(manifest_bytes);
 
     // Find insertion point: directly after SOI (0xFF, 0xD8), or after existing APP0/APP1
-    let mut insert_pos = 2;
+    let mut insert_pos = 2usize.min(jpeg_bytes.len());
     let mut pos = 2;
     while pos + 4 <= jpeg_bytes.len() {
         if jpeg_bytes[pos] != 0xFF {
@@ -127,12 +188,21 @@ pub fn inject_c2pa_app11(jpeg_bytes: Vec<u8>, manifest_bytes: &[u8]) -> Vec<u8> 
         // Skip APP0 (0xE0) or APP1 (0xE1) to keep them first
         if marker_type == 0xE0 || marker_type == 0xE1 {
             let len = ((jpeg_bytes[pos + 2] as usize) << 8) | (jpeg_bytes[pos + 3] as usize);
-            pos += 2 + len;
-            insert_pos = pos;
+            if len < 2 {
+                break;
+            }
+            match pos.checked_add(2 + len) {
+                Some(next) if next <= jpeg_bytes.len() => {
+                    pos = next;
+                    insert_pos = pos;
+                }
+                _ => break,
+            }
         } else {
             break;
         }
     }
+    insert_pos = insert_pos.min(jpeg_bytes.len());
 
     let mut out = Vec::with_capacity(jpeg_bytes.len() + marker.len());
     out.extend_from_slice(&jpeg_bytes[..insert_pos]);
@@ -198,18 +268,7 @@ pub fn verify_c2pa(
 
     let manifest_str = match std::str::from_utf8(&manifest_bytes) {
         Ok(s) => s,
-        Err(_) => {
-            return C2paReport {
-                status: C2paStatus::InvalidSignature,
-                title: String::new(),
-                claim_generator: String::new(),
-                signer_key_id: String::new(),
-                actions: Vec::new(),
-                camera_metadata: String::new(),
-                recipe_hash: String::new(),
-                pixel_hash: String::new(),
-            };
-        }
+        Err(_) => return report_invalid(),
     };
 
     // Parse claim JSON fields (lightweight, zero-dep extractor)
@@ -232,10 +291,10 @@ pub fn verify_c2pa(
         .unwrap_or_else(|| "Content Credential".to_string());
     let generator = extract_json_string(&claim_str, "\"claim_generator\":").unwrap_or_default();
 
-    // Verify cryptographic signature if device key supplied
-    if let Some(priv_key) = device_private_key {
-        let computed_sig = sign_c2pa_claim(&claim_str, priv_key);
-        if computed_sig != expected_sig {
+    // Decode 64-byte Ed25519 signature
+    let sig_bytes = match hex_decode_64(&expected_sig) {
+        Some(b) => b,
+        None => {
             return C2paReport {
                 status: C2paStatus::InvalidSignature,
                 title,
@@ -247,6 +306,68 @@ pub fn verify_c2pa(
                 pixel_hash: recorded_pixel_hash,
             };
         }
+    };
+
+    // Extract embedded public key from claim or manifest
+    let pk_hex_opt = extract_json_string(&claim_str, "\"public_key\":")
+        .or_else(|| extract_json_string(manifest_str, "\"public_key\":"));
+
+    let pk_bytes = match device_private_key {
+        Some(priv_key) => {
+            let mut seed = [0u8; 32];
+            if priv_key.len() == 32 {
+                seed.copy_from_slice(priv_key);
+            } else {
+                seed = sha256(priv_key);
+            }
+            let dev_pk = crate::ed25519::public_key_from_seed(&seed);
+            if let Some(ref pk_hex) = pk_hex_opt {
+                if let Some(embedded_pk) = hex_decode_32(pk_hex) {
+                    if embedded_pk != dev_pk {
+                        return C2paReport {
+                            status: C2paStatus::InvalidSignature,
+                            title,
+                            claim_generator: generator,
+                            signer_key_id: key_id,
+                            actions: parse_actions(&claim_str),
+                            camera_metadata: camera_meta,
+                            recipe_hash,
+                            pixel_hash: recorded_pixel_hash,
+                        };
+                    }
+                }
+            }
+            dev_pk
+        }
+        None => match pk_hex_opt.and_then(|h| hex_decode_32(&h)) {
+            Some(pk) => pk,
+            None => {
+                return C2paReport {
+                    status: C2paStatus::InvalidSignature,
+                    title,
+                    claim_generator: generator,
+                    signer_key_id: key_id,
+                    actions: parse_actions(&claim_str),
+                    camera_metadata: camera_meta,
+                    recipe_hash,
+                    pixel_hash: recorded_pixel_hash,
+                };
+            }
+        },
+    };
+
+    // Mathematically verify Ed25519 signature over canonical claim string
+    if !crate::ed25519::verify_ed25519(&pk_bytes, claim_str.as_bytes(), &sig_bytes) {
+        return C2paReport {
+            status: C2paStatus::InvalidSignature,
+            title,
+            claim_generator: generator,
+            signer_key_id: key_id,
+            actions: parse_actions(&claim_str),
+            camera_metadata: camera_meta,
+            recipe_hash,
+            pixel_hash: recorded_pixel_hash,
+        };
     }
 
     // Verify pixel hash
@@ -345,6 +466,7 @@ mod tests {
     fn test_claim_signing_and_verification() {
         let seed = b"test-device-key";
         let (priv_key, key_id) = generate_device_key(seed);
+        let pk_hex = public_key_hex_from_seed(&priv_key);
 
         let pixels = vec![128u8; 100 * 100 * 4];
         let pixel_hash = sha256_hex(&pixels);
@@ -356,10 +478,11 @@ mod tests {
             "Sony A7III • 35mm",
             "recipe_hash_abc",
             &key_id,
+            &pk_hex,
         );
 
         let sig = sign_c2pa_claim(&claim, &priv_key);
-        let manifest = create_c2pa_manifest(&claim, &sig, &key_id);
+        let manifest = create_c2pa_manifest(&claim, &sig, &key_id, &pk_hex);
 
         let dummy_jpeg = vec![
             0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1, 0, 1, 0,
@@ -367,12 +490,17 @@ mod tests {
         ];
         let injected = inject_c2pa_app11(dummy_jpeg, &manifest);
 
-        // Verification should succeed
+        // Verification with author private key should succeed
         let report = verify_c2pa(&injected, &pixels, Some(&priv_key));
         assert_eq!(report.status, C2paStatus::Verified);
         assert_eq!(report.signer_key_id, key_id);
         assert_eq!(report.actions.len(), 2);
         assert_eq!(report.camera_metadata, "Sony A7III • 35mm");
+
+        // Verification without any private key (true offline public-key C2PA verification) must also succeed!
+        let pub_report = verify_c2pa(&injected, &pixels, None);
+        assert_eq!(pub_report.status, C2paStatus::Verified);
+        assert_eq!(pub_report.signer_key_id, key_id);
 
         // Tampering with pixels must yield Tampered
         let mut tampered_pixels = pixels.clone();
@@ -380,9 +508,17 @@ mod tests {
         let tampered_report = verify_c2pa(&injected, &tampered_pixels, Some(&priv_key));
         assert_eq!(tampered_report.status, C2paStatus::Tampered);
 
-        // Tampering with key must yield InvalidSignature
+        // Tampering with device key must yield InvalidSignature
         let wrong_key = vec![0u8; 32];
         let invalid_sig_report = verify_c2pa(&injected, &pixels, Some(&wrong_key));
         assert_eq!(invalid_sig_report.status, C2paStatus::InvalidSignature);
+
+        // Tampering with claim text must fail signature verification even with None
+        let mut tampered_jpeg = injected.clone();
+        if let Some(pos) = tampered_jpeg.windows(7).position(|w| w == b"Apertur") {
+            tampered_jpeg[pos] = b'X';
+            let tampered_claim_report = verify_c2pa(&tampered_jpeg, &pixels, None);
+            assert_eq!(tampered_claim_report.status, C2paStatus::InvalidSignature);
+        }
     }
 }

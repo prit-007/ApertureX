@@ -24,6 +24,7 @@ import 'api/raw.dart';
 import 'api/retouch.dart';
 import 'api/roi.dart';
 import 'api/spatial.dart';
+import 'blur.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'exif.dart';
@@ -47,6 +48,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ApiRetouchPatch dco_decode_api_retouch_patch(dynamic raw);
+
+  @protected
+  BokehShape dco_decode_bokeh_shape(dynamic raw);
 
   @protected
   bool dco_decode_bool(dynamic raw);
@@ -151,6 +155,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImageMetadata dco_decode_image_metadata(dynamic raw);
 
   @protected
+  LensBlurParams dco_decode_lens_blur_params(dynamic raw);
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
@@ -252,6 +259,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ApiRetouchPatch sse_decode_api_retouch_patch(SseDeserializer deserializer);
+
+  @protected
+  BokehShape sse_decode_bokeh_shape(SseDeserializer deserializer);
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
@@ -374,6 +384,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImageMetadata sse_decode_image_metadata(SseDeserializer deserializer);
 
   @protected
+  LensBlurParams sse_decode_lens_blur_params(SseDeserializer deserializer);
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
@@ -487,6 +500,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     ApiRetouchPatch self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_bokeh_shape(BokehShape self, SseSerializer serializer);
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
@@ -640,6 +656,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_image_metadata(ImageMetadata self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_lens_blur_params(
+    LensBlurParams self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);

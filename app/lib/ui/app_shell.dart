@@ -735,11 +735,15 @@ class _PanelHandle extends ConsumerWidget {
 /// the available height: fully hidden, a small peek, half, and near-full.
 enum _SheetSnap { hidden, peek, half, full }
 
+// Raised from {0.20, 0.24, 0.38}: at 0.24 the docked tray only fit a single
+// slider between the grab bar and the tabs (bug: "bottom-sheet height, only 1
+// slider visible"). Half now fits ~3 sliders; full ~6. Tap the canvas /
+// grab bar still collapses the tray for the full-height photo.
 const Map<_SheetSnap, double> _sheetFractions = {
   _SheetSnap.hidden: 0.0,
   _SheetSnap.peek: 0.20,
-  _SheetSnap.half: 0.24,
-  _SheetSnap.full: 0.38,
+  _SheetSnap.half: 0.36,
+  _SheetSnap.full: 0.62,
 };
 
 /// A draggable, floating bottom sheet holding the Lightroom tools over the

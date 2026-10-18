@@ -117,7 +117,9 @@ final maskRefinerProvider = Provider<MaskRefinerFn>((ref) {
       width: decoded.width,
       height: decoded.height,
       maskKind: layer.maskKind.index,
-      maskParams: layer.maskParams,
+      // Bitmap layers store only [w, h] in maskParams; the Rust contract
+      // wants [w, h, alpha…] (2 + w*h floats) — expand via the bridge form.
+      maskParams: layer.toBridgeMaskParams(),
       strokePoints: strokePoints,
       brushRadius: brushRadius,
     );
@@ -705,12 +707,22 @@ class MaskControls extends ConsumerWidget {
                 isSelected: i == selectedIndex,
                 notifier: notifier,
                 showJoinOp: true,
+                // Grouped members carry no grade of their own (ADR 0013) —
+                // show the group's EV, which is what actually renders.
+                evOverride: group.exposure,
               ),
               if (i == selectedIndex)
                 AnimatedSize(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeOutCubic,
-                  child: _buildInlineCard(context, ref, i: i, layer: layers[i], notifier: notifier),
+                  child: _buildInlineCard(
+                    context,
+                    ref,
+                    i: i,
+                    layer: layers[i],
+                    notifier: notifier,
+                    showGradeControls: false,
+                  ),
                 ),
             ],
           ],
@@ -727,7 +739,9 @@ class MaskControls extends ConsumerWidget {
     required bool isSelected,
     required RecipeController notifier,
     required bool showJoinOp,
+    double? evOverride,
   }) {
+    final ev = evOverride ?? layer.exposure;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
@@ -748,7 +762,7 @@ class MaskControls extends ConsumerWidget {
               Expanded(
                 child: Text(
                   '${layer.maskKind.name.toUpperCase()} layer ${i + 1}  '
-                  'EV ${layer.exposure >= 0 ? '+' : ''}${layer.exposure.toStringAsFixed(2)}',
+                  'EV ${ev >= 0 ? '+' : ''}${ev.toStringAsFixed(2)}',
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -890,6 +904,7 @@ class MaskControls extends ConsumerWidget {
     required int i,
     required AdjustmentLayer layer,
     required RecipeController notifier,
+    bool showGradeControls = true,
   }) {
     final isInferring = ref.watch(aiMaskInferringProvider);
     return Padding(
@@ -1178,129 +1193,140 @@ class MaskControls extends ConsumerWidget {
                 onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(amount: val)),
               ),
               const SizedBox(height: 6),
-              Text(
-                'LIGHT CONTROLS',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 1.0,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.primary,
+              if (showGradeControls) ...[
+                Text(
+                  'LIGHT CONTROLS',
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 1.0,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
-              ),
-              _MaskSlider(
-                label: 'Exposure',
-                sliderKey: const Key('mask-inline-exposure-slider'),
-                value: layer.exposure,
-                min: -2.0,
-                max: 2.0,
-                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(exposure: val)),
-              ),
-              _MaskSlider(
-                label: 'Contrast',
-                sliderKey: const Key('mask-inline-contrast-slider'),
-                value: layer.contrast,
-                min: -1.0,
-                max: 1.0,
-                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(contrast: val)),
-              ),
-              _MaskSlider(
-                label: 'Highlights',
-                sliderKey: const Key('mask-inline-highlights-slider'),
-                value: layer.highlights,
-                min: -1.0,
-                max: 1.0,
-                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(highlights: val)),
-              ),
-              _MaskSlider(
-                label: 'Shadows',
-                sliderKey: const Key('mask-inline-shadows-slider'),
-                value: layer.shadows,
-                min: -1.0,
-                max: 1.0,
-                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(shadows: val)),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'COLOR CONTROLS',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 1.0,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.primary,
+                _MaskSlider(
+                  label: 'Exposure',
+                  sliderKey: const Key('mask-inline-exposure-slider'),
+                  value: layer.exposure,
+                  min: -2.0,
+                  max: 2.0,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(exposure: val)),
                 ),
-              ),
-              _MaskSlider(
-                label: 'Temp',
-                sliderKey: const Key('mask-inline-temp-slider'),
-                value: layer.temperature,
-                min: -1.0,
-                max: 1.0,
-                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(temperature: val)),
-              ),
-              _MaskSlider(
-                label: 'Tint',
-                sliderKey: const Key('mask-inline-tint-slider'),
-                value: layer.tint,
-                min: -1.0,
-                max: 1.0,
-                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(tint: val)),
-              ),
-              _MaskSlider(
-                label: 'Saturation',
-                sliderKey: const Key('mask-inline-saturation-slider'),
-                value: layer.saturation,
-                min: -1.0,
-                max: 1.0,
-                onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(saturation: val)),
-              ),
-              _MaskColorGradingSection(
-                segmentedKey: const Key('mask-grade-zone-segmented'),
-                hueKey: const Key('mask-inline-grade-hue-slider'),
-                satKey: const Key('mask-inline-grade-sat-slider'),
-                lumKey: const Key('mask-inline-grade-lum-slider'),
-                blendingKey: const Key('mask-inline-grade-blending-slider'),
-                balanceKey: const Key('mask-inline-grade-balance-slider'),
-                shadowHue: layer.gradeShadowHue,
-                shadowSat: layer.gradeShadowSat,
-                shadowLum: layer.gradeShadowLum,
-                midHue: layer.gradeMidHue,
-                midSat: layer.gradeMidSat,
-                midLum: layer.gradeMidLum,
-                highlightHue: layer.gradeHighlightHue,
-                highlightSat: layer.gradeHighlightSat,
-                highlightLum: layer.gradeHighlightLum,
-                blending: layer.gradeBlending,
-                balance: layer.gradeBalance,
-                onZoneChanged: (zone, {hue, sat, lum}) {
-                  final updated = switch (zone) {
-                    GradeWheelZone.shadows => layer.copyWith(
-                      gradeShadowHue: hue ?? layer.gradeShadowHue,
-                      gradeShadowSat: sat ?? layer.gradeShadowSat,
-                      gradeShadowLum: lum ?? layer.gradeShadowLum,
-                    ),
-                    GradeWheelZone.midtones => layer.copyWith(
-                      gradeMidHue: hue ?? layer.gradeMidHue,
-                      gradeMidSat: sat ?? layer.gradeMidSat,
-                      gradeMidLum: lum ?? layer.gradeMidLum,
-                    ),
-                    GradeWheelZone.highlights => layer.copyWith(
-                      gradeHighlightHue: hue ?? layer.gradeHighlightHue,
-                      gradeHighlightSat: sat ?? layer.gradeHighlightSat,
-                      gradeHighlightLum: lum ?? layer.gradeHighlightLum,
-                    ),
-                  };
-                  notifier.updateLayerAt(i, updated);
-                },
-                onGlobalChanged: ({blending, balance}) {
-                  notifier.updateLayerAt(
-                    i,
-                    layer.copyWith(
-                      gradeBlending: blending ?? layer.gradeBlending,
-                      gradeBalance: balance ?? layer.gradeBalance,
-                    ),
-                  );
-                },
-              ),
+                _MaskSlider(
+                  label: 'Contrast',
+                  sliderKey: const Key('mask-inline-contrast-slider'),
+                  value: layer.contrast,
+                  min: -1.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(contrast: val)),
+                ),
+                _MaskSlider(
+                  label: 'Highlights',
+                  sliderKey: const Key('mask-inline-highlights-slider'),
+                  value: layer.highlights,
+                  min: -1.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(highlights: val)),
+                ),
+                _MaskSlider(
+                  label: 'Shadows',
+                  sliderKey: const Key('mask-inline-shadows-slider'),
+                  value: layer.shadows,
+                  min: -1.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(shadows: val)),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'COLOR CONTROLS',
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 1.0,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                _MaskSlider(
+                  label: 'Temp',
+                  sliderKey: const Key('mask-inline-temp-slider'),
+                  value: layer.temperature,
+                  min: -1.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(temperature: val)),
+                ),
+                _MaskSlider(
+                  label: 'Tint',
+                  sliderKey: const Key('mask-inline-tint-slider'),
+                  value: layer.tint,
+                  min: -1.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(tint: val)),
+                ),
+                _MaskSlider(
+                  label: 'Saturation',
+                  sliderKey: const Key('mask-inline-saturation-slider'),
+                  value: layer.saturation,
+                  min: -1.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(saturation: val)),
+                ),
+                _MaskColorGradingSection(
+                  segmentedKey: const Key('mask-grade-zone-segmented'),
+                  hueKey: const Key('mask-inline-grade-hue-slider'),
+                  satKey: const Key('mask-inline-grade-sat-slider'),
+                  lumKey: const Key('mask-inline-grade-lum-slider'),
+                  blendingKey: const Key('mask-inline-grade-blending-slider'),
+                  balanceKey: const Key('mask-inline-grade-balance-slider'),
+                  shadowHue: layer.gradeShadowHue,
+                  shadowSat: layer.gradeShadowSat,
+                  shadowLum: layer.gradeShadowLum,
+                  midHue: layer.gradeMidHue,
+                  midSat: layer.gradeMidSat,
+                  midLum: layer.gradeMidLum,
+                  highlightHue: layer.gradeHighlightHue,
+                  highlightSat: layer.gradeHighlightSat,
+                  highlightLum: layer.gradeHighlightLum,
+                  blending: layer.gradeBlending,
+                  balance: layer.gradeBalance,
+                  onZoneChanged: (zone, {hue, sat, lum}) {
+                    final updated = switch (zone) {
+                      GradeWheelZone.shadows => layer.copyWith(
+                        gradeShadowHue: hue ?? layer.gradeShadowHue,
+                        gradeShadowSat: sat ?? layer.gradeShadowSat,
+                        gradeShadowLum: lum ?? layer.gradeShadowLum,
+                      ),
+                      GradeWheelZone.midtones => layer.copyWith(
+                        gradeMidHue: hue ?? layer.gradeMidHue,
+                        gradeMidSat: sat ?? layer.gradeMidSat,
+                        gradeMidLum: lum ?? layer.gradeMidLum,
+                      ),
+                      GradeWheelZone.highlights => layer.copyWith(
+                        gradeHighlightHue: hue ?? layer.gradeHighlightHue,
+                        gradeHighlightSat: sat ?? layer.gradeHighlightSat,
+                        gradeHighlightLum: lum ?? layer.gradeHighlightLum,
+                      ),
+                    };
+                    notifier.updateLayerAt(i, updated);
+                  },
+                  onGlobalChanged: ({blending, balance}) {
+                    notifier.updateLayerAt(
+                      i,
+                      layer.copyWith(
+                        gradeBlending: blending ?? layer.gradeBlending,
+                        gradeBalance: balance ?? layer.gradeBalance,
+                      ),
+                    );
+                  },
+                ),
+              ] else ...[
+                Text(
+                  'Graded on the group card above',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1474,7 +1500,21 @@ class MaskControls extends ConsumerWidget {
 
     final idx = ref.read(recipeControllerProvider).recipe.layers.length;
     if (groupId != null) {
-      notifier.addLayerToGroup(groupId: groupId, layer: layer, joinOp: joinOp);
+      // ADR 0013 §2.2: the group owns the grade, members own coverage only.
+      // A fresh group takes over the member's stamped defaults (e.g. the
+      // exposure every add-chip ships with) so the chip visibly does
+      // something; the member's copy is dropped either way, so the group
+      // card's sliders are the single source of truth.
+      final groups = ref.read(recipeControllerProvider).recipe.maskGroups;
+      final gi = groups.indexWhere((g) => g.id == groupId);
+      if (gi != -1 && groups[gi].isGradeNeutral) {
+        notifier.updateMaskGroup(groups[gi].withGradeOf(layer));
+      }
+      notifier.addLayerToGroup(
+        groupId: groupId,
+        layer: layer.withoutGrade,
+        joinOp: joinOp,
+      );
     } else {
       notifier.addLayer(layer);
     }

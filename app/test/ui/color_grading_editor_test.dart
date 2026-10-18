@@ -128,4 +128,33 @@ void main() {
       lessThan(0),
     );
   });
+
+  testWidgets('the grading wheel adapts its size to the available pane', (
+    tester,
+  ) async {
+    // Wide pane: the wheel keeps its full 180px size.
+    await pump(tester);
+    final wide = tester.getSize(find.byType(ColorGradingWheel));
+    expect(wide.width, 180);
+
+    // Tight pane (200px, the narrowest in-app sidebar): the wheel shrinks
+    // to fit instead of staying at its full size — LayoutBuilder clamps it
+    // into [120, 180].
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SizedBox(width: 200, child: ColorGradingEditor()),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final narrow = tester.getSize(find.byType(ColorGradingWheel));
+    expect(narrow.width, lessThan(180));
+    expect(narrow.width, greaterThanOrEqualTo(120));
+    expect(narrow.width, lessThanOrEqualTo(200));
+  });
 }

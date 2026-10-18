@@ -1284,6 +1284,8 @@ dependencies = [
  "jpeg-encoder",
  "libraw",
  "miniz_oxide",
+ "num-bigint",
+ "num-traits",
  "rawler",
  "zune-jpeg",
 ]

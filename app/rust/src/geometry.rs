@@ -290,13 +290,15 @@ pub fn crop_normalized(
     if cl == 0.0 && ct == 0.0 && cr == 1.0 && cb == 1.0 {
         return None;
     }
-    if cr <= cl || cb <= ct {
+    if cr <= cl || cb <= ct || w == 0 || h == 0 {
         return None;
     }
-    let x = (cl * w as f32).round() as usize;
-    let y = (ct * h as f32).round() as usize;
-    let cw = (((cr - cl) * w as f32).round() as usize).clamp(1, w - x);
-    let ch = (((cb - ct) * h as f32).round() as usize).clamp(1, h - y);
+    let x = ((cl * w as f32).round() as usize).min(w.saturating_sub(1));
+    let y = ((ct * h as f32).round() as usize).min(h.saturating_sub(1));
+    let max_w = (w - x).max(1);
+    let max_h = (h - y).max(1);
+    let cw = (((cr - cl) * w as f32).round() as usize).clamp(1, max_w);
+    let ch = (((cb - ct) * h as f32).round() as usize).clamp(1, max_h);
     Some((crop(buf, w, h, x, y, cw, ch), cw, ch))
 }
 
@@ -651,5 +653,18 @@ mod tests {
             target_tilt_deg,
             correction
         );
+    }
+
+    #[test]
+    fn crop_normalized_does_not_panic_on_boundary_rounding() {
+        let buf = vec![0u8; 100 * 100 * 4];
+        // Test near right/bottom edges where round() could hit w or h
+        let res = crop_normalized(&buf, 100, 100, 0.999, 0.999, 1.0, 1.0);
+        assert!(res.is_some());
+        let (cropped, cw, ch) = res.unwrap();
+        assert_eq!(cropped.len(), cw * ch * 4);
+
+        // Zero dimensions
+        assert!(crop_normalized(&buf, 0, 0, 0.1, 0.1, 0.9, 0.9).is_none());
     }
 }

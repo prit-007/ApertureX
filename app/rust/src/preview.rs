@@ -230,18 +230,7 @@ pub fn render(
 
 /// True when the grade contributes nothing, so [`render`] can skip it.
 fn grade_is_neutral(params: &ColorParams, curves: &CurveParams, hsl: &[f32]) -> bool {
-    params.exposure == 0.0
-        && params.contrast == 0.0
-        && params.saturation == 0.0
-        && params.temperature == 0.0
-        && params.tint == 0.0
-        && params.vibrance == 0.0
-        && params.grade_shadow_hue == 0.0
-        && params.grade_shadow_sat == 0.0
-        && params.grade_mid_hue == 0.0
-        && params.grade_mid_sat == 0.0
-        && params.grade_highlight_hue == 0.0
-        && params.grade_highlight_sat == 0.0
+    params.is_neutral()
         && curves.master.is_empty()
         && curves.red.is_empty()
         && curves.green.is_empty()
@@ -365,6 +354,18 @@ fn bake_base(
             w as usize,
             h as usize,
             optics_params,
+        ));
+    }
+    // Depth-aware lens blur sits at the same stage as the export pipeline
+    // (geometry → optics → blur → spatial → masks) so preview == export.
+    let blur_params = spec.blur_params();
+    if !blur_params.is_neutral() {
+        buf = Cow::Owned(crate::blur::apply_lens_blur(
+            &buf,
+            w as usize,
+            h as usize,
+            blur_params,
+            None,
         ));
     }
     // apply_spatial clones on the neutral path — skip it entirely.

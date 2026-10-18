@@ -5,11 +5,17 @@ use crate::spatial;
 
 /// Texture (fine-detail) boost.
 pub fn spatial_texture(rgba: Vec<u8>, width: u32, height: u32, amount: f32) -> Vec<u8> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return rgba;
+    }
     spatial::apply_texture(&rgba, width as usize, height as usize, amount)
 }
 
 /// Clarity (mid-frequency local contrast).
 pub fn spatial_clarity(rgba: Vec<u8>, width: u32, height: u32, amount: f32) -> Vec<u8> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return rgba;
+    }
     spatial::apply_clarity(&rgba, width as usize, height as usize, amount)
 }
 
@@ -21,6 +27,9 @@ pub fn spatial_sharpen(
     amount: f32,
     radius: u32,
 ) -> Vec<u8> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return rgba;
+    }
     spatial::apply_sharpen(
         &rgba,
         width as usize,
@@ -38,11 +47,17 @@ pub fn spatial_shadow_highlight(
     shadows: f32,
     highlights: f32,
 ) -> Vec<u8> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return rgba;
+    }
     spatial::apply_shadow_highlight(&rgba, width as usize, height as usize, shadows, highlights)
 }
 
 /// Luma/chroma noise reduction.
 pub fn spatial_denoise(rgba: Vec<u8>, width: u32, height: u32, luma: f32, chroma: f32) -> Vec<u8> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return rgba;
+    }
     spatial::denoise(&rgba, width as usize, height as usize, luma, chroma)
 }
 
@@ -76,6 +91,9 @@ pub fn spatial_apply(
     grain_size: f32,
     grain_roughness: f32,
 ) -> Vec<u8> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return rgba;
+    }
     spatial::apply_spatial(
         &rgba,
         width as usize,
@@ -107,6 +125,9 @@ pub fn spatial_apply(
 
 /// Generates a black-and-white preview of the edge mask (for Alt/Option hold on Masking slider).
 pub fn spatial_sharpen_edge_mask(rgba: Vec<u8>, width: u32, height: u32, masking: f32) -> Vec<u8> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return Vec::new();
+    }
     let mask = spatial::sharpen_edge_mask(&rgba, width as usize, height as usize, masking);
     let mut out = vec![255u8; mask.len() * 4];
     for (i, &m) in mask.iter().enumerate() {

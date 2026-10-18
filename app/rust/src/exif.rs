@@ -51,6 +51,264 @@ pub fn inject_app1(jpeg: Vec<u8>, app1: &[u8]) -> Vec<u8> {
     out
 }
 
+fn is_tiff_header(data: &[u8]) -> bool {
+    if data.len() < 4 {
+        return false;
+    }
+    (&data[..2] == b"II" && (data[2] == 0x2A || data[2] == 0x55 || data[2] == 0x00))
+        || (&data[..2] == b"MM" && (data[3] == 0x2A || data[3] == 0x55 || data[2] == 0x4F))
+}
+
+/// Finds the starting byte offset of the TIFF header (`II` or `MM`) within `data`.
+/// Handles raw TIFF data, JPEG APP1 segments, and complete JPEG byte streams.
+pub fn find_tiff_offset(data: &[u8]) -> Option<usize> {
+    if data.len() < 8 {
+        return None;
+    }
+    // Direct TIFF header (II* or MM*)
+    if is_tiff_header(data) {
+        return Some(0);
+    }
+    // Starts with Exif\0\0
+    if data.len() >= 14 && &data[..6] == b"Exif\0\0" {
+        let t = 6;
+        if is_tiff_header(&data[t..]) {
+            return Some(t);
+        }
+    }
+    // Starts with APP1 marker FF E1
+    if data.len() >= 18 && data[0] == 0xFF && data[1] == 0xE1 && &data[4..10] == b"Exif\0\0" {
+        let t = 10;
+        if is_tiff_header(&data[t..]) {
+            return Some(t);
+        }
+    }
+    // Full JPEG SOI
+    if data.len() >= 4 && data[0] == 0xFF && data[1] == 0xD8 {
+        let mut i = 2usize;
+        while i + 4 <= data.len() {
+            if data[i] != 0xFF {
+                break;
+            }
+            let marker = data[i + 1];
+            if marker == 0xD8 || marker == 0x01 || (0xD0..=0xD9).contains(&marker) {
+                i += 2;
+                continue;
+            }
+            let len = ((data[i + 2] as usize) << 8) | (data[i + 3] as usize);
+            let seg_end = i + 2 + len;
+            if seg_end > data.len() || len < 2 {
+                break;
+            }
+            if marker == 0xE1 {
+                let payload = &data[i + 4..seg_end];
+                if payload.len() >= 14 && &payload[..6] == b"Exif\0\0" {
+                    let t = i + 4 + 6;
+                    if is_tiff_header(&data[t..]) {
+                        return Some(t);
+                    }
+                }
+            }
+            if marker == 0xDA {
+                break;
+            }
+            i = seg_end;
+        }
+    }
+    // General search for Exif\0\0 followed by TIFF header
+    if let Some(pos) = data
+        .windows(10)
+        .position(|w| &w[..6] == b"Exif\0\0" && is_tiff_header(&w[6..]))
+    {
+        return Some(pos + 6);
+    }
+    None
+}
+
+/// Reads the EXIF orientation tag (0x0112, value 1..=8) from [data].
+/// [data] can be raw TIFF, an APP1 segment, or a complete JPEG.
+pub fn parse_orientation(data: &[u8]) -> Option<u16> {
+    let tiff_offset = find_tiff_offset(data)?;
+    let tiff = &data[tiff_offset..];
+    if tiff.len() < 8 {
+        return None;
+    }
+    let is_le = if &tiff[0..2] == b"II" {
+        true
+    } else if &tiff[0..2] == b"MM" {
+        false
+    } else {
+        return None;
+    };
+    let ifd0_offset = if is_le {
+        u32::from_le_bytes([tiff[4], tiff[5], tiff[6], tiff[7]]) as usize
+    } else {
+        u32::from_be_bytes([tiff[4], tiff[5], tiff[6], tiff[7]]) as usize
+    };
+    if ifd0_offset + 2 > tiff.len() {
+        return None;
+    }
+    let num_entries = if is_le {
+        u16::from_le_bytes([tiff[ifd0_offset], tiff[ifd0_offset + 1]]) as usize
+    } else {
+        u16::from_be_bytes([tiff[ifd0_offset], tiff[ifd0_offset + 1]]) as usize
+    };
+    for i in 0..num_entries {
+        let entry = ifd0_offset + 2 + i * 12;
+        if entry + 12 > tiff.len() {
+            break;
+        }
+        let tag = if is_le {
+            u16::from_le_bytes([tiff[entry], tiff[entry + 1]])
+        } else {
+            u16::from_be_bytes([tiff[entry], tiff[entry + 1]])
+        };
+        if tag == 0x0112 {
+            let dtype = if is_le {
+                u16::from_le_bytes([tiff[entry + 2], tiff[entry + 3]])
+            } else {
+                u16::from_be_bytes([tiff[entry + 2], tiff[entry + 3]])
+            };
+            let val = if dtype == 3 {
+                // SHORT
+                if is_le {
+                    u16::from_le_bytes([tiff[entry + 8], tiff[entry + 9]])
+                } else {
+                    u16::from_be_bytes([tiff[entry + 8], tiff[entry + 9]])
+                }
+            } else if dtype == 4 {
+                // LONG
+                if is_le {
+                    u32::from_le_bytes([
+                        tiff[entry + 8],
+                        tiff[entry + 9],
+                        tiff[entry + 10],
+                        tiff[entry + 11],
+                    ]) as u16
+                } else {
+                    u32::from_be_bytes([
+                        tiff[entry + 8],
+                        tiff[entry + 9],
+                        tiff[entry + 10],
+                        tiff[entry + 11],
+                    ]) as u16
+                }
+            } else {
+                return None;
+            };
+            return Some(val);
+        }
+    }
+    None
+}
+
+/// Rewrites all EXIF orientation tags (0x0112) in [data] to 1 (Normal) in-place.
+/// Preserves endianness (Little-Endian `II` or Big-Endian `MM`).
+/// Returns true if at least one tag was found and rewritten, false otherwise.
+pub fn rewrite_orientation_to_normal(data: &mut [u8]) -> bool {
+    let tiff_offset = match find_tiff_offset(data) {
+        Some(off) => off,
+        None => return false,
+    };
+    let tiff = &mut data[tiff_offset..];
+    if tiff.len() < 8 {
+        return false;
+    }
+    let is_le = if &tiff[0..2] == b"II" {
+        true
+    } else if &tiff[0..2] == b"MM" {
+        false
+    } else {
+        return false;
+    };
+    let mut ifd_offset = if is_le {
+        u32::from_le_bytes([tiff[4], tiff[5], tiff[6], tiff[7]]) as usize
+    } else {
+        u32::from_be_bytes([tiff[4], tiff[5], tiff[6], tiff[7]]) as usize
+    };
+
+    let mut rewritten = false;
+    let mut depth = 0;
+    while ifd_offset + 2 <= tiff.len() && depth < 2 {
+        depth += 1;
+        let num_entries = if is_le {
+            u16::from_le_bytes([tiff[ifd_offset], tiff[ifd_offset + 1]]) as usize
+        } else {
+            u16::from_be_bytes([tiff[ifd_offset], tiff[ifd_offset + 1]]) as usize
+        };
+        for i in 0..num_entries {
+            let entry = ifd_offset + 2 + i * 12;
+            if entry + 12 > tiff.len() {
+                break;
+            }
+            let tag = if is_le {
+                u16::from_le_bytes([tiff[entry], tiff[entry + 1]])
+            } else {
+                u16::from_be_bytes([tiff[entry], tiff[entry + 1]])
+            };
+            if tag == 0x0112 {
+                let dtype = if is_le {
+                    u16::from_le_bytes([tiff[entry + 2], tiff[entry + 3]])
+                } else {
+                    u16::from_be_bytes([tiff[entry + 2], tiff[entry + 3]])
+                };
+                if dtype == 3 {
+                    // SHORT
+                    if is_le {
+                        tiff[entry + 8] = 1;
+                        tiff[entry + 9] = 0;
+                    } else {
+                        tiff[entry + 8] = 0;
+                        tiff[entry + 9] = 1;
+                    }
+                    rewritten = true;
+                } else if dtype == 4 {
+                    // LONG
+                    if is_le {
+                        tiff[entry + 8] = 1;
+                        tiff[entry + 9] = 0;
+                        tiff[entry + 10] = 0;
+                        tiff[entry + 11] = 0;
+                    } else {
+                        tiff[entry + 8] = 0;
+                        tiff[entry + 9] = 0;
+                        tiff[entry + 10] = 0;
+                        tiff[entry + 11] = 1;
+                    }
+                    rewritten = true;
+                }
+            }
+        }
+        // Offset to next IFD
+        let next_ifd_ptr = ifd_offset + 2 + num_entries * 12;
+        if next_ifd_ptr + 4 <= tiff.len() {
+            let next_offset = if is_le {
+                u32::from_le_bytes([
+                    tiff[next_ifd_ptr],
+                    tiff[next_ifd_ptr + 1],
+                    tiff[next_ifd_ptr + 2],
+                    tiff[next_ifd_ptr + 3],
+                ]) as usize
+            } else {
+                u32::from_be_bytes([
+                    tiff[next_ifd_ptr],
+                    tiff[next_ifd_ptr + 1],
+                    tiff[next_ifd_ptr + 2],
+                    tiff[next_ifd_ptr + 3],
+                ]) as usize
+            };
+            if next_offset > 0 && next_offset < tiff.len() {
+                ifd_offset = next_offset;
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    rewritten
+}
+
 /// Decodes standard RFC 4648 base64 data, ignoring whitespace and newlines.
 pub fn base64_decode(input: &[u8]) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity(input.len() * 3 / 4);
@@ -878,5 +1136,48 @@ mod tests {
             assert!(meta.width.is_some());
             assert!(meta.height.is_some());
         }
+    }
+
+    #[test]
+    fn test_orientation_parse_and_rewrite_le() {
+        let mut tiff = vec![
+            b'I', b'I', 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x12, 0x01, 0x03, 0x00,
+            0x01, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        assert_eq!(parse_orientation(&tiff), Some(6));
+        assert!(rewrite_orientation_to_normal(&mut tiff));
+        assert_eq!(parse_orientation(&tiff), Some(1));
+    }
+
+    #[test]
+    fn test_orientation_parse_and_rewrite_be() {
+        let mut tiff = vec![
+            b'M', b'M', 0x00, 0x2A, 0x00, 0x00, 0x00, 0x08, 0x00, 0x01, 0x01, 0x12, 0x00, 0x03,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        assert_eq!(parse_orientation(&tiff), Some(8));
+        assert!(rewrite_orientation_to_normal(&mut tiff));
+        assert_eq!(parse_orientation(&tiff), Some(1));
+    }
+
+    #[test]
+    fn test_orientation_parse_and_rewrite_in_app1() {
+        let tiff = vec![
+            b'I', b'I', 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x12, 0x01, 0x03, 0x00,
+            0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        let payload_len = 6 + tiff.len();
+        let mut app1 = vec![
+            0xFF,
+            0xE1,
+            ((payload_len + 2) >> 8) as u8,
+            ((payload_len + 2) & 0xFF) as u8,
+        ];
+        app1.extend_from_slice(b"Exif\0\0");
+        app1.extend_from_slice(&tiff);
+
+        assert_eq!(parse_orientation(&app1), Some(3));
+        assert!(rewrite_orientation_to_normal(&mut app1));
+        assert_eq!(parse_orientation(&app1), Some(1));
     }
 }

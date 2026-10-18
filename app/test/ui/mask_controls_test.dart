@@ -493,6 +493,112 @@ void main() {
     await tester.pumpAndSettle();
     expect(container.read(nodeEditorProvider).refineBrushMode, isTrue);
   });
+
+  testWidgets(
+    'adding a chip into a fresh group seeds the group grade from the chip defaults (ADR 0013)',
+    (tester) async {
+      final notifier = container.read(recipeControllerProvider.notifier);
+      notifier.addMaskGroup(const MaskGroup(id: 'g_seed', name: 'Mask 1'));
+
+      await pumpMaskControls(tester);
+
+      final addBtn = find.byKey(const Key('group-add-g_seed'));
+      await tester.scrollUntilVisible(addBtn, 200);
+      await tester.pumpAndSettle();
+      await tester.tap(addBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Radial Gradient'));
+      await tester.pumpAndSettle();
+
+      final recipe = container.read(recipeControllerProvider).recipe;
+      expect(recipe.layers, hasLength(1));
+      final group = recipe.maskGroups.single;
+      final layer = recipe.layers.single;
+
+      // The radial chip ships exposure 0.7 — the fresh group takes it over so
+      // the chip actually renders something...
+      expect(group.exposure, 0.7);
+      // ...and the member keeps coverage only: the group owns the grade.
+      expect(layer.groupId, 'g_seed');
+      expect(layer.exposure, 0);
+      // The group's own grade sliders now carry the seeded value, and the
+      // member tile reads the group's EV (what actually renders).
+      expect(find.byKey(const Key('group-exposure-g_seed')), findsOneWidget);
+      expect(find.textContaining('EV +0.70'), findsAtLeastNWidgets(1));
+    },
+  );
+
+  testWidgets('an already-graded group is never clobbered by a new chip', (tester) async {
+    final notifier = container.read(recipeControllerProvider.notifier);
+    notifier.addMaskGroup(const MaskGroup(id: 'g_guard', name: 'Mask 1', exposure: 0.25));
+
+    await pumpMaskControls(tester);
+
+    final addBtn = find.byKey(const Key('group-add-g_guard'));
+    await tester.scrollUntilVisible(addBtn, 200);
+    await tester.pumpAndSettle();
+    await tester.tap(addBtn);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sky'));
+    await tester.pumpAndSettle();
+
+    final recipe = container.read(recipeControllerProvider).recipe;
+    final group = recipe.maskGroups.single;
+    final layer = recipe.layers.single;
+
+    // The user's grade wins: no partial seed, no overwrite.
+    expect(group.exposure, 0.25);
+    expect(group.highlights, 0);
+    // The member's stamped defaults (sky: highlights -0.6) are dropped —
+    // a grouped member owns coverage only.
+    expect(layer.maskKind, MaskKind.sky);
+    expect(layer.groupId, 'g_guard');
+    expect(layer.exposure, 0);
+    expect(layer.highlights, 0);
+    expect(layer.saturation, 0);
+  });
+
+  testWidgets(
+    'grouped member card keeps coverage but hides dead grade sliders; the group card owns grade',
+    (tester) async {
+      final notifier = container.read(recipeControllerProvider.notifier);
+      notifier.addMaskGroup(const MaskGroup(id: 'g_ui', name: 'Mask 1', exposure: 0.6));
+      notifier.addLayerToGroup(
+        groupId: 'g_ui',
+        layer: const AdjustmentLayer(maskKind: MaskKind.radial),
+        joinOp: MaskJoinOp.add,
+      );
+      container.read(nodeEditorProvider.notifier).enable();
+      container.read(nodeEditorProvider.notifier).select(0);
+
+      await pumpMaskControls(tester);
+
+      // Coverage and geometry stay on the member...
+      expect(find.byKey(const Key('mask-inline-amount-slider')), findsOneWidget);
+      expect(find.byKey(const Key('mask-inline-invert')), findsOneWidget);
+      // ...the grade controls are gone (member grade never rendered anyway)...
+      expect(find.byKey(const Key('mask-inline-exposure-slider')), findsNothing);
+      expect(find.byKey(const Key('mask-inline-grade-hue-slider')), findsNothing);
+      expect(find.byKey(const Key('mask-grade-zone-segmented')), findsNothing);
+      expect(find.text('Graded on the group card above'), findsOneWidget);
+      // ...and the group card keeps the live grade sliders.
+      expect(find.byKey(const Key('group-exposure-g_ui')), findsOneWidget);
+      // Tile shows the group's EV, not a dead member value.
+      expect(find.textContaining('EV +0.60'), findsAtLeastNWidgets(1));
+    },
+  );
+
+  testWidgets('top-level (ungrouped) inline card still shows grade sliders', (tester) async {
+    final notifier = container.read(recipeControllerProvider.notifier);
+    notifier.addLayer(const AdjustmentLayer(maskKind: MaskKind.radial, exposure: 0.4));
+    container.read(nodeEditorProvider.notifier).enable();
+    container.read(nodeEditorProvider.notifier).select(0);
+
+    await pumpMaskControls(tester);
+
+    expect(find.byKey(const Key('mask-inline-exposure-slider')), findsOneWidget);
+    expect(find.byKey(const Key('mask-grade-zone-segmented')), findsOneWidget);
+    expect(find.text('Graded on the group card above'), findsNothing);
+    expect(find.textContaining('EV +0.40'), findsAtLeastNWidgets(1));
+  });
 }
-
-

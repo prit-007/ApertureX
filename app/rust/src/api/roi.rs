@@ -276,6 +276,12 @@ mod tests {
             defringe_green_amount: 0.0,
             defringe_green_hue_min: 0.17,
             defringe_green_hue_max: 0.50,
+            blur_enabled: false,
+            blur_amount: 0.0,
+            blur_focal_point: 0.5,
+            blur_focal_range: 0.2,
+            blur_bokeh_shape: 0,
+            blur_bokeh_boost: 0.0,
         }
     }
 

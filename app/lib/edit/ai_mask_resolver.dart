@@ -31,7 +31,11 @@ String computeFnv1a(String input) {
 /// Recipes remain shared references in the store; per-asset mask resolutions
 /// are cached independently keyed by `FNV-1a(assetId|intent|modelVersion)`.
 class AiMaskResolver {
-  final Map<String, Uint8List> _cache = {};
+  /// `key -> (blob, params)`: a bitmap layer needs its `[w, h]` params as
+  /// well as the blob, so a cache hit can restore the complete bitmap form
+  /// instead of bolting a blob onto a parametric layer (#D: kind/params used
+  /// to be dropped, so the renderer kept the old analytic contract).
+  final Map<String, ({Uint8List blob, List<double> params})> _cache = {};
 
   /// Checks if a mask blob for [assetId] and [intent] is present in cache.
   bool hasCached(
@@ -60,10 +64,12 @@ class AiMaskResolver {
     if (layer.originAssetId == targetAssetId) return layer;
 
     final key = computeFnv1a('$targetAssetId|$intent|$modelVersion');
-    final cachedBlob = _cache[key];
-    if (cachedBlob != null) {
+    final cached = _cache[key];
+    if (cached != null) {
       return layer.copyWith(
-        maskBlob: cachedBlob,
+        maskKind: MaskKind.bitmap,
+        maskParams: cached.params,
+        maskBlob: cached.blob,
         originAssetId: targetAssetId,
       );
     }
@@ -84,7 +90,10 @@ class AiMaskResolver {
               inverted: layer.inverted,
             );
             if (tempLayer.maskBlob != null) {
-              _cache[key] = tempLayer.maskBlob!;
+              _cache[key] = (
+                blob: tempLayer.maskBlob!,
+                params: List<double>.from(tempLayer.maskParams),
+              );
               return layer.copyWith(
                 maskKind: MaskKind.bitmap,
                 maskParams: tempLayer.maskParams,

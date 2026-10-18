@@ -714,8 +714,10 @@ pub fn decode_png_rgba(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
         pos = chunk_data_end + 4; // skip CRC
     }
 
-    if width == 0 || height == 0 {
-        return Err("Invalid PNG dimensions in IHDR".to_string());
+    if width == 0 || height == 0 || width > 4096 || height > 4096 {
+        return Err(format!(
+            "Invalid or unsupported PNG dimensions: {width}x{height} (max 4096)"
+        ));
     }
     if bit_depth != 8 {
         return Err(format!("Unsupported PNG bit depth: {bit_depth}"));
@@ -727,12 +729,19 @@ pub fn decode_png_rgba(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
         _ => return Err(format!("Unsupported PNG color type: {color_type}")),
     };
 
-    // Decompress IDAT stream with miniz_oxide
-    let decompressed = miniz_oxide::inflate::decompress_to_vec_zlib(&idat_data)
-        .map_err(|e| format!("PNG zlib decompression failed: {e:?}"))?;
+    let stride = (width as usize)
+        .checked_mul(bytes_per_pixel)
+        .ok_or_else(|| "PNG stride overflow".to_string())?;
+    let expected_len = (stride + 1)
+        .checked_mul(height as usize)
+        .ok_or_else(|| "PNG expected length overflow".to_string())?;
 
-    let stride = width as usize * bytes_per_pixel;
-    let expected_len = (stride + 1) * height as usize;
+    // Decompress IDAT stream with miniz_oxide with bounded size to prevent zip bombs
+    let max_decompress_limit = expected_len.max(68 * 1024 * 1024);
+    let decompressed =
+        miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(&idat_data, max_decompress_limit)
+            .map_err(|e| format!("PNG zlib decompression failed: {e:?}"))?;
+
     if decompressed.len() < expected_len {
         return Err(format!(
             "Decompressed PNG data truncated: {} < {}",
@@ -742,7 +751,11 @@ pub fn decode_png_rgba(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
     }
 
     // Unfilter scanlines
-    let mut raw_scanlines = vec![0u8; width as usize * height as usize * bytes_per_pixel];
+    let raw_len = (width as usize)
+        .checked_mul(height as usize)
+        .and_then(|px| px.checked_mul(bytes_per_pixel))
+        .ok_or_else(|| "Raw scanlines allocation overflow".to_string())?;
+    let mut raw_scanlines = vec![0u8; raw_len];
     let mut in_pos = 0;
     for y in 0..height as usize {
         let filter = decompressed[in_pos];

@@ -11,7 +11,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../color/blur_spec.dart';
 import '../../color/grade_spec.dart';
+import '../../color/optics_spec.dart';
 import '../../color/spatial_spec.dart';
 import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
@@ -302,6 +304,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         spec: GradeSpec.fromRecipe(recipe),
         spatial: SpatialSpec.fromRecipe(recipe),
         geometry: GeometrySpec.fromRecipe(recipe),
+        optics: OpticsSpec.fromRecipe(recipe),
+        blur: LensBlurSpec.fromRecipe(recipe),
         layers: recipe.layers,
         maskGroups: recipe.maskGroups,
         exif: exif,
@@ -504,6 +508,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         spec: GradeSpec.fromRecipe(recipe),
         spatial: SpatialSpec.fromRecipe(recipe),
         geometry: GeometrySpec.fromRecipe(recipe),
+        optics: OpticsSpec.fromRecipe(recipe),
+        blur: LensBlurSpec.fromRecipe(recipe),
         layers: recipe.layers,
         maskGroups: recipe.maskGroups,
         exif: exif,
@@ -698,6 +704,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         spec: GradeSpec.fromRecipe(recipe),
         spatial: SpatialSpec.fromRecipe(recipe),
         geometry: GeometrySpec.fromRecipe(recipe),
+        optics: OpticsSpec.fromRecipe(recipe),
+        blur: LensBlurSpec.fromRecipe(recipe),
         layers: recipe.layers,
         maskGroups: recipe.maskGroups,
         exif: exif,

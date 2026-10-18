@@ -171,16 +171,20 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
         }
         MASK_BRUSH => {
             // [radius, feather, count, x0, y0, p0, x1, y1, p1, ...]
-            if p.len() < 3 {
+            if p.len() < 3 || p[2] < 0.0 {
                 return 0.0;
             }
             let radius = p[0].max(1e-4);
             let feather = p[1].clamp(1e-3, 1.0);
             let count = p[2] as usize;
-            if count == 0 || p.len() < 3 + count * 3 {
+            let required_len = match count.checked_mul(3).and_then(|c| 3usize.checked_add(c)) {
+                Some(len) => len,
+                None => return 0.0,
+            };
+            if count == 0 || p.len() < required_len {
                 return 0.0;
             }
-            let points = &p[3..3 + count * 3];
+            let points = &p[3..required_len];
 
             // Fast bounding box check (filtering out stroke-break sentinels < 0.0)
             let mut min_x = f32::MAX;
@@ -270,15 +274,19 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
         }
         MASK_BITMAP => {
             // [width, height, alpha_0, alpha_1, ...]
-            if p.len() < 2 {
+            if p.len() < 2 || p[0] <= 0.0 || p[1] <= 0.0 {
                 return 0.0;
             }
             let bw = p[0].round() as usize;
             let bh = p[1].round() as usize;
-            if bw == 0 || bh == 0 || p.len() < 2 + bw * bh {
+            let required_len = match bw.checked_mul(bh).and_then(|px| 2usize.checked_add(px)) {
+                Some(len) => len,
+                None => return 0.0,
+            };
+            if bw == 0 || bh == 0 || p.len() < required_len {
                 return 0.0;
             }
-            let data = &p[2..2 + bw * bh];
+            let data = &p[2..required_len];
             let uf = (u.clamp(0.0, 1.0) * (bw.saturating_sub(1) as f32)).max(0.0);
             let vf = (v.clamp(0.0, 1.0) * (bh.saturating_sub(1) as f32)).max(0.0);
             let x0 = uf.floor() as usize;

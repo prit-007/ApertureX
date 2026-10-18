@@ -33,7 +33,7 @@ ApertureX synthesizes the best UX patterns from Adobe Lightroom Mobile and Googl
 ### 2.4 Ergonomics & Responsive Form Factors
 * **Thumb Zone Architecture**:
   - All critical adjustment tools live within the bottom 25–40% thumb reach zone in portrait mode.
-  - Multi-snap bottom sheet: Collapsed (0%), Peek (20%), Half (24%), and Full (38%) with swipe-velocity snap physics.
+  - Multi-snap bottom sheet: Collapsed (0%), Peek (20%), Half (36%), and Full (62%) with swipe-velocity snap physics.
 * **Universal Tablet/Desktop Layout**:
   - Automatically transitions to a split layout on wide screens (>=600dp or landscape): 70% viewport on the left, 30% responsive instrument sidebar on the right (clamped to 320–480dp) with notch/punch-hole safety insets.
 * **Stylus Precision & Palm Rejection**:

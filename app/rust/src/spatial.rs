@@ -327,7 +327,9 @@ pub fn apply_shadow_highlight_r(
         let l = 0.2126 * br + 0.7152 * bg + 0.0722 * bb;
         let lift = shadows * (1.0 - 2.0 * l).clamp(0.0, 1.0) * 0.5;
         let pull = highlights * (2.0 * l - 1.0).clamp(0.0, 1.0) * 0.5;
-        let target = (l + lift - pull).clamp(0.0, 1.0);
+        // Sign must match the pointwise twin (`color.rs::grade_pixel_c`):
+        // positive highlights ADD to brights, negative recovers them.
+        let target = (l + lift + pull).clamp(0.0, 1.0);
         let scale = if l > 1e-3 { target / l } else { 1.0 };
         for c in 0..3 {
             let detail = rgba[i * 4 + c] as f32 - base[i * 4 + c] as f32;
@@ -1991,6 +1993,35 @@ mod tests {
         let mean =
             |b: &[u8]| b.iter().step_by(4).map(|&v| v as u64).sum::<u64>() / (b.len() / 4) as u64;
         assert!(mean(&out) > mean(&src), "shadows should lift");
+    }
+
+    #[test]
+    fn positive_highlights_brighten_brights_and_negative_recovers_them() {
+        // Sign convention pinned by the pointwise twin (`color.rs`
+        // `grade_pixel_c`), the tool guide ("pull highlights to -30 to
+        // recover skies") and every bundled preset: positive = brighter
+        // brights, negative = recovery (darker brights).
+        let src: Vec<u8> = std::iter::repeat_n([210u8, 210, 210, 255], 16 * 16)
+            .flatten()
+            .collect();
+        let mean =
+            |b: &[u8]| b.iter().step_by(4).map(|&v| v as u64).sum::<u64>() / (b.len() / 4) as u64;
+
+        let lifted = apply_shadow_highlight(&src, 16, 16, 0.0, 0.5);
+        assert!(
+            mean(&lifted) > mean(&src),
+            "positive highlights must brighten bright regions, got {} vs {}",
+            mean(&lifted),
+            mean(&src)
+        );
+
+        let recovered = apply_shadow_highlight(&src, 16, 16, 0.0, -0.5);
+        assert!(
+            mean(&recovered) < mean(&src),
+            "negative highlights must darken bright regions (recovery), got {} vs {}",
+            mean(&recovered),
+            mean(&src)
+        );
     }
 
     #[test]

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'image_format.dart';
+import '../color/blur_spec.dart';
 import '../color/grade_spec.dart';
 import '../color/optics_spec.dart';
 import '../color/spatial_spec.dart';
@@ -761,6 +762,7 @@ class AxEngine {
     SpatialSpec spatial = const SpatialSpec(),
     OpticsSpec optics = const OpticsSpec(),
     GeometrySpec geometry = const GeometrySpec(),
+    LensBlurSpec blur = const LensBlurSpec(),
     List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
     List<MaskGroup> maskGroups = const <MaskGroup>[],
     List<int> exif = const <int>[],
@@ -812,6 +814,12 @@ class AxEngine {
       defringeGreenAmount: optics.defringeGreenAmount,
       defringeGreenHueMin: optics.defringeGreenHueMin,
       defringeGreenHueMax: optics.defringeGreenHueMax,
+      blurEnabled: blur.enabled,
+      blurAmount: blur.amount,
+      blurFocalPoint: blur.focalPoint,
+      blurFocalRange: blur.focalRange,
+      blurBokehShape: blur.bokehShape.index,
+      blurBokehBoost: blur.bokehBoost,
       quality: quality,
       maxDim: maxDim ?? 0,
       bandRows: 256,
@@ -887,6 +895,7 @@ class AxEngine {
     SpatialSpec spatial = const SpatialSpec(),
     OpticsSpec optics = const OpticsSpec(),
     GeometrySpec geometry = const GeometrySpec(),
+    LensBlurSpec blur = const LensBlurSpec(),
     List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
     List<MaskGroup> maskGroups = const <MaskGroup>[],
     List<int> exif = const <int>[],
@@ -904,6 +913,7 @@ class AxEngine {
       spatial: spatial,
       optics: optics,
       geometry: geometry,
+      blur: blur,
       layers: layers,
       maskGroups: maskGroups,
       exif: exif,

@@ -3,6 +3,7 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
+import '../blur.dart';
 import '../frb_generated.dart';
 import '../watermark.dart';
 import 'color.dart';
@@ -348,6 +349,22 @@ class ExportSpec {
   final double defringeGreenAmount;
   final double defringeGreenHueMin;
   final double defringeGreenHueMax;
+  final bool blurEnabled;
+
+  /// Aperture blur amount `0..1`.
+  final double blurAmount;
+
+  /// Focal depth plane in sharp focus `0..1`.
+  final double blurFocalPoint;
+
+  /// Depth-of-field range in sharp focus `0..1`.
+  final double blurFocalRange;
+
+  /// Bokeh blade shape index (matches Dart `BokehShape.values`).
+  final int blurBokehShape;
+
+  /// Specular highlight boost `0..1`.
+  final double blurBokehBoost;
   final int quality;
 
   /// Longest-side cap for the export (0 = full resolution).
@@ -407,6 +424,12 @@ class ExportSpec {
     required this.defringeGreenAmount,
     required this.defringeGreenHueMin,
     required this.defringeGreenHueMax,
+    required this.blurEnabled,
+    required this.blurAmount,
+    required this.blurFocalPoint,
+    required this.blurFocalRange,
+    required this.blurBokehShape,
+    required this.blurBokehBoost,
     required this.quality,
     required this.maxDim,
     required this.bandRows,
@@ -415,6 +438,10 @@ class ExportSpec {
     required this.ultraHdr,
     required this.hdrHeadroom,
   });
+
+  /// Maps the flat blur fields onto the engine's [`crate::blur::LensBlurParams`].
+  Future<LensBlurParams> blurParams() =>
+      RustLib.instance.api.crateApiExportExportSpecBlurParams(that: this);
 
   @override
   int get hashCode =>
@@ -456,6 +483,12 @@ class ExportSpec {
       defringeGreenAmount.hashCode ^
       defringeGreenHueMin.hashCode ^
       defringeGreenHueMax.hashCode ^
+      blurEnabled.hashCode ^
+      blurAmount.hashCode ^
+      blurFocalPoint.hashCode ^
+      blurFocalRange.hashCode ^
+      blurBokehShape.hashCode ^
+      blurBokehBoost.hashCode ^
       quality.hashCode ^
       maxDim.hashCode ^
       bandRows.hashCode ^
@@ -507,6 +540,12 @@ class ExportSpec {
           defringeGreenAmount == other.defringeGreenAmount &&
           defringeGreenHueMin == other.defringeGreenHueMin &&
           defringeGreenHueMax == other.defringeGreenHueMax &&
+          blurEnabled == other.blurEnabled &&
+          blurAmount == other.blurAmount &&
+          blurFocalPoint == other.blurFocalPoint &&
+          blurFocalRange == other.blurFocalRange &&
+          blurBokehShape == other.blurBokehShape &&
+          blurBokehBoost == other.blurBokehBoost &&
           quality == other.quality &&
           maxDim == other.maxDim &&
           bandRows == other.bandRows &&

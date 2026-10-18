@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
 
+import '../color/blur_spec.dart';
 import '../color/grade_spec.dart';
 import '../color/optics_spec.dart';
 import '../color/spatial_spec.dart';
@@ -135,6 +136,7 @@ class ExportSpecs {
     required this.spatial,
     required this.optics,
     required this.geometry,
+    required this.blur,
     required this.layers,
     this.maskGroups = const [],
   });
@@ -143,6 +145,7 @@ class ExportSpecs {
   final SpatialSpec spatial;
   final OpticsSpec optics;
   final GeometrySpec geometry;
+  final LensBlurSpec blur;
   final List<AdjustmentLayer> layers;
   final List<MaskGroup> maskGroups;
 }
@@ -152,6 +155,7 @@ ExportSpecs specsFor(EditRecipe recipe) => ExportSpecs(
   spatial: SpatialSpec.fromRecipe(recipe),
   optics: OpticsSpec.fromRecipe(recipe),
   geometry: GeometrySpec.fromRecipe(recipe),
+  blur: LensBlurSpec.fromRecipe(recipe),
   layers: recipe.layers,
   maskGroups: recipe.maskGroups,
 );
@@ -244,6 +248,7 @@ class GalleryExporter {
         spatial: specs.spatial,
         optics: specs.optics,
         geometry: specs.geometry,
+        blur: specs.blur,
         layers: specs.layers,
         maskGroups: specs.maskGroups,
         exif: exif,

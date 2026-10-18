@@ -61,6 +61,33 @@ pub struct PreviewBaseSpec {
     pub defringe_green_amount: f32,
     pub defringe_green_hue_min: f32,
     pub defringe_green_hue_max: f32,
+    /// Depth-aware lens blur (stage position mirrors the export pipeline:
+    /// geometry → optics → blur → spatial → masks).
+    pub blur_enabled: bool,
+    /// Aperture blur amount `0..1`.
+    pub blur_amount: f32,
+    /// Focal depth plane in sharp focus `0..1`.
+    pub blur_focal_point: f32,
+    /// Depth-of-field range in sharp focus `0..1`.
+    pub blur_focal_range: f32,
+    /// Bokeh blade shape index (matches Dart `BokehShape.values`).
+    pub blur_bokeh_shape: u8,
+    /// Specular highlight boost `0..1`.
+    pub blur_bokeh_boost: f32,
+}
+
+impl PreviewBaseSpec {
+    /// Maps the flat blur fields onto the engine's [`crate::blur::LensBlurParams`].
+    pub fn blur_params(&self) -> crate::blur::LensBlurParams {
+        crate::blur::LensBlurParams::from_fields(
+            self.blur_enabled,
+            self.blur_amount,
+            self.blur_focal_point,
+            self.blur_focal_range,
+            self.blur_bokeh_shape,
+            self.blur_bokeh_boost,
+        )
+    }
 }
 
 /// Uploads a decoded RGBA proxy into the resident store; returns a handle.
@@ -69,6 +96,9 @@ pub struct PreviewBaseSpec {
 /// later bake references the handle instead. `Arc::from(Vec)` reuses the
 /// FFI-delivered allocation, so this is O(1).
 pub fn preview_open(rgba: Vec<u8>, width: u32, height: u32) -> u64 {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return 0;
+    }
     crate::preview::open(rgba, width, height)
 }
 
@@ -190,6 +220,12 @@ mod tests {
             defringe_green_amount: 0.0,
             defringe_green_hue_min: 0.17,
             defringe_green_hue_max: 0.50,
+            blur_enabled: false,
+            blur_amount: 0.0,
+            blur_focal_point: 0.5,
+            blur_focal_range: 0.2,
+            blur_bokeh_shape: 0,
+            blur_bokeh_boost: 0.0,
         }
     }
 
@@ -284,6 +320,12 @@ mod tests {
             defringe_green_amount: 0.0,
             defringe_green_hue_min: 0.17,
             defringe_green_hue_max: 0.50,
+            blur_enabled: false,
+            blur_amount: 0.0,
+            blur_focal_point: 0.5,
+            blur_focal_range: 0.2,
+            blur_bokeh_shape: 0,
+            blur_bokeh_boost: 0.0,
         };
         let h = preview_open(src, 8, 6);
         let fused = preview_base(h, spec, Vec::new()).unwrap();
@@ -321,6 +363,53 @@ mod tests {
         assert_eq!(hist.r.len(), 256);
         assert!(hist.r.iter().sum::<u32>() > 0);
         preview_close(h);
+    }
+
+    /// The blur slider must reach the baked base: a blur-engaged spec
+    /// changes out-of-focus pixels while the sharp focal plane is preserved.
+    #[test]
+    fn blur_engaged_spec_changes_the_baked_base() {
+        let (w, h) = (32, 32);
+        let mut src = vec![0u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let i = (y * w + x) * 4;
+                let v = if (x + y) % 2 == 0 { 255 } else { 0 };
+                src[i] = v;
+                src[i + 1] = v;
+                src[i + 2] = v;
+                src[i + 3] = 255;
+            }
+        }
+
+        let mut spec = identity_spec();
+        spec.blur_enabled = true;
+        spec.blur_amount = 1.0;
+        spec.blur_focal_point = 0.5;
+        spec.blur_focal_range = 0.2;
+
+        let h_handle = preview_open(src.clone(), w as u32, h as u32);
+        let frame = preview_base(h_handle, spec, Vec::new()).unwrap();
+        preview_close(h_handle);
+
+        assert_ne!(
+            frame.rgba, src,
+            "blur-engaged spec must change out-of-focus pixels"
+        );
+        // Synthetic depth puts the image centre inside the focal plane.
+        let center = ((h / 2) * w + w / 2) * 4;
+        assert_eq!(
+            &frame.rgba[center..center + 4],
+            &src[center..center + 4],
+            "pixels inside the focal plane must stay sharp"
+        );
+
+        // Neutral blur stays byte-identical.
+        let neutral = identity_spec();
+        let h2 = preview_open(src.clone(), w as u32, h as u32);
+        let unchanged = preview_base(h2, neutral, Vec::new()).unwrap();
+        preview_close(h2);
+        assert_eq!(unchanged.rgba, src);
     }
 
     #[test]

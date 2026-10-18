@@ -69,13 +69,28 @@ pub fn preprocess_image_chw(
     mean: &[f32; 3],
     std: &[f32; 3],
 ) -> Vec<f32> {
-    if src_w == 0 || src_h == 0 || target_w == 0 || target_h == 0 || rgba.len() < src_w * src_h * 4
+    if src_w == 0
+        || src_h == 0
+        || target_w == 0
+        || target_h == 0
+        || target_w > 2048
+        || target_h > 2048
     {
         return Vec::new();
     }
+    if crate::validate::validate_rgba(rgba, src_w as u32, src_h as u32).is_err() {
+        return Vec::new();
+    }
 
-    let plane_size = target_w * target_h;
-    let mut tensor = vec![0.0f32; 3 * plane_size];
+    let plane_size = match target_w.checked_mul(target_h) {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+    let tensor_size = match plane_size.checked_mul(3) {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+    let mut tensor = vec![0.0f32; tensor_size];
 
     let inv_w = if target_w > 1 {
         1.0 / (target_w - 1) as f32
@@ -176,9 +191,18 @@ impl Segmenter for SaliencySegmenter {
         target_w: usize,
         target_h: usize,
     ) -> Result<Vec<f32>, String> {
-        if src_w < 4 || src_h < 4 || rgba.len() < src_w * src_h * 4 {
-            return Err("Image dimensions too small for segmentation".into());
+        if src_w < 4
+            || src_h < 4
+            || target_w == 0
+            || target_h == 0
+            || target_w > 2048
+            || target_h > 2048
+        {
+            return Err(
+                "Invalid segmentation dimensions (min src 4x4, max target 2048x2048)".into(),
+            );
         }
+        crate::validate::validate_rgba(rgba, src_w as u32, src_h as u32)?;
 
         // 1. Compute background prior from frame boundaries
         let mut bg_r = 0.0f32;
@@ -295,9 +319,18 @@ pub fn estimate_depth_map(
     target_w: usize,
     target_h: usize,
 ) -> Result<Vec<f32>, String> {
-    if src_w < 4 || src_h < 4 || rgba.len() < src_w * src_h * 4 {
-        return Err("Image dimensions too small for depth estimation".into());
+    if src_w < 4
+        || src_h < 4
+        || target_w == 0
+        || target_h == 0
+        || target_w > 2048
+        || target_h > 2048
+    {
+        return Err(
+            "Invalid depth estimation dimensions (min src 4x4, max target 2048x2048)".into(),
+        );
     }
+    crate::validate::validate_rgba(rgba, src_w as u32, src_h as u32)?;
 
     // 1. Compute saliency subject segmentation
     let segmenter = SaliencySegmenter {};
