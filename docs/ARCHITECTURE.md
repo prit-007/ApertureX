@@ -305,21 +305,23 @@ Implementations:
 - **Working space:** linear light for all math; sRGB/Display-P3 output.
 - **Precision:** 16-bit float intermediates where available; 8-bit only at the
   final encode.
-- **Op order (fixed):**
-  1. Decode → linear
-  2. Lens corrections (distortion, vignette, CA)
-  3. Camera white balance (RAW) / as-shot (JPEG)
-  4. Camera-profile matrices — DNG `ColorMatrix`, temperature-interpolated
-  5. Camera profile CLUT — DCP `HueSatMap` / `LookTable` (Adobe-standard parity)
-  6. Exposure
-  7. Tone (highlights/shadows, whites/blacks, contrast, curve)
-  8. Color (temperature/tint, vibrance/saturation, HSL)
-  9. Split-tone / colour grading
-  10. Detail (clarity, texture, sharpen, dehaze, noise reduction) — spatial
-  11. **User HALD / 3D LUT — applied last among edits**
-  12. Geometry (crop, rotate, flip, perspective) — warped live on the GPU, baked
-      into the final `Matrix4` resample at export
-  13. Output transform (color space, gamma) → encode
+ - **Op order (fixed):**
+   1. Decode → linear
+   2. Lens corrections (distortion, vignette, CA)
+   3. Camera white balance (RAW) / as-shot (JPEG)
+   4. Camera-profile matrices — DNG `ColorMatrix`, temperature-interpolated
+   5. Camera profile CLUT — DCP `HueSatMap` / `LookTable` (Adobe-standard parity)
+   6. Exposure
+   7. Tone (highlights/shadows, whites/blacks, contrast, curve)
+   8. Color (temperature/tint, vibrance/saturation, HSL)
+   9. Split-tone / colour grading
+   10. Detail (clarity, texture, sharpen, dehaze, noise reduction) — spatial
+   11. **User HALD / 3D LUT — applied last among edits**
+   12. **Film emulation physics** — halation, bloom, dust flecks, scratches (baked in CPU preview base)
+   13. **Shader Lab** — custom presets + 3 user params + optional custom GLSL
+   14. Geometry (crop, rotate, flip, perspective) — warped live on the GPU, baked
+       into the final `Matrix4` resample at export
+   15. Output transform (color space, gamma) → encode
 - Op order is versioned inside the recipe so future reordering does not silently
   change existing edits.
 
@@ -481,6 +483,8 @@ never the schema's definition. Groups:
 - **Geometry:** crop, rotate, skew, perspective (non-destructive transforms).
 - **Masking:** a list of adjustment layers, each = mask (brush/linear/radial/
   range/AI) + a sub-recipe of the above params.
+- **Film:** halation, bloom, dust flecks, scratches (photochemical emulation).
+- **Lab:** shader presets + 3 user parameters + optional custom GLSL code.
 
 The schema is **versioned**; op order is pinned (ARCHITECTURE §8) so future
 reordering does not silently change existing edits. Recipes are tiny (KB), which

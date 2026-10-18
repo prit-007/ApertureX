@@ -39,3 +39,8 @@ ApertureX synthesizes the best UX patterns from Adobe Lightroom Mobile and Googl
 * **Stylus Precision & Palm Rejection**:
   - Filters touch events during brush masking to reject accidental palm contacts.
   - Detects `invertedStylus` to switch automatically between brush paint and eraser modes.
+
+### 2.5 Film Simulation & Shader Lab (Lightroom Effects parity)
+* **Photochemical film physics** baked into the CPU preview base: halation (red highlight fringe with radius/threshold), bloom (glow with radius/threshold), dust flecks, and scratches — each 0–1 with neutral-at-zero defaults.
+* **Shader Lab**: selectable film presets (`shaderLabPreset`) plus three freeform parameters (`shaderParam1..3`, `customGlslCode`) for creative, non-destructive looks.
+* Film parameters live in their own `RecipeSection.film` / `RecipeSection.lab` groups in the versioned recipe schema, so they round-trip through QR shares, presets, and DNG XMP sidecars unchanged.

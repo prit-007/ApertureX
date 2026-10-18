@@ -26,10 +26,12 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | HSL / color mix | Selective | HSL/Color | ✅ | P2 |
 | Color grading (shadow/mid/high) | — | Color Grading | ✅ (split-tone) | P2 |
 | Texture / clarity / dehaze | Details/Structure | Effects panel | ✅ (halo-free guided refine in #57, dark-channel dehaze in #58) | P2 |
-| Vignette / grain | Vignette / Grain | Effects panel | ✅ | P2 |
+| Film emulation: halation, bloom, dust flecks, scratches | — | Effects / Film panel | ✅ (photochemical physics in Rust preview base + grade.frag) | P2 |
+| Shader Lab: custom presets + 3 user params + custom GLSL | — | Effects / Lab panel | ✅ (`shaderLabPreset`, `shaderParam1..3`, `customGlslCode`) | P2 |
 | Sharpening (radius/detail/masking) | Details | Detail panel | ✅ | P2 |
 | Noise reduction | Details | Detail panel | ✅ | P2 |
 | Crop / rotate / skew / perspective | Crop | Geometry | ✅ | P2 |
+| Retouch: healing brush & clone stamp (patches) | Healing / Clone | Spot Healing | ✅ (`retouchPatches`, applied in CPU preview base) | P2 |
 
 ## Geometry & framing
 
@@ -39,6 +41,15 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Auto-straighten (classical horizon) | Lightroom | 🚧 | P2 |
 | Auto-frame (face + saliency) | — | ⬜ (AI) | P3.5 |
 | Expand (generative fill) | Snapseed Expand | ❌ (non-goal; generative) | — |
+| Lens profile corrections (distortion + vignetting) | Lightroom Optics | ✅ (`profileCorrections`, `profileDistortion`, `profileVignetting`) | P2 |
+| Chromatic aberration defringe (purple/green) | Lightroom Optics | ✅ (`removeChromaticAberration`, defringe fields) | P2 |
+
+## Depth & optical effects
+
+| Feature | Source | Status | Phase |
+|---|---|---|---|
+| Depth-aware lens blur (bokeh, focal plane, focal range) | Lightroom Lens Blur | ✅ (monocular depth + optical blade bokeh, baked in CPU base) | P2 |
+| Bokeh shapes / boost | Lens blur tools | ✅ (`blurBokehShape`, `blurBokehBoost`) | P2 |
 
 ## Masking & local adjustments
 
@@ -95,11 +106,12 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 
 | Feature | Status | Phase |
 |---|---|---|
-| JPEG import | ✅ | P1 |
+| JPEG import | ✅ (zune-jpeg SIMD direct decode into resident store via `preview_open_jpeg`) | P1 |
 | PNG photo import | ⬜ (PNG is decoded only for HALD CLUT LUT import) | P6 |
 | HEIC import | ⬜ | P5 |
 | RAW import (DNG/CR2/NEF/ARW/RAF) | ✅ (rawler: decode/demosaic/matrices/orientation/ROI + lens/EXIF #66, DCP #64, highlights #65; all 5 golden fixtures green) | P3 |
 | JPEG full-res export | ✅ (basic, P1); banded full-res path #68 | P4 |
+| C2PA Content Credentials + FOSS watermark + museum frame branding on export | ✅ (progressive disclosure export UI) | P4 |
 | PNG full-res export | ⬜ (no PNG encoder exists — claim corrected in #78) | P6 |
 | DNG export (original CFA + XMP, lossless) | ✅ (rawler DngWriter lossless CFA passthrough + XMP ApplicationNotes; editor "Export DNG" option gated to RAW sources; round-trip test green — #79) | P6 |
 | TIFF / re-rendered 16-bit DNG export | ⬜ | P6 |
