@@ -107,7 +107,7 @@ pub fn get_source_rgba(handle: u64) -> Result<RgbaImage, String> {
         .images
         .get(&handle)
         .ok_or_else(|| format!("unknown preview handle {handle}"))?;
-    
+
     Ok(RgbaImage {
         width: resident.width,
         height: resident.height,
@@ -121,36 +121,44 @@ pub fn open_jpeg(jpeg_bytes: Vec<u8>, max_dim: u32) -> Result<u64, String> {
     decoder
         .decode_headers()
         .map_err(|e| format!("JPEG headers failed: {e}"))?;
-    
-    let (width, height) = decoder.dimensions()
+
+    let (width, height) = decoder
+        .dimensions()
         .ok_or_else(|| "JPEG dimensions failed".to_string())?;
-    
+
     let scale = (max_dim as f32 / width.max(height) as f32).min(1.0);
     let target_w = (width as f32 * scale) as u32;
     let target_h = (height as f32 * scale) as u32;
-    
-    let rgba = decoder.decode()
+
+    let rgba = decoder
+        .decode()
         .map_err(|e| format!("JPEG decode failed: {e}"))?;
-    
+
     let mut rgba_buffer = Vec::with_capacity(target_w as usize * target_h as usize * 4);
-    
+
     for y in 0..target_h {
         let src_y = (y as f32 / scale) as usize;
-        if src_y >= height { break; }
+        if src_y >= height {
+            break;
+        }
         for x in 0..target_w {
             let src_x = (x as f32 / scale) as usize;
-            if src_x >= width { continue; }
-            
+            if src_x >= width {
+                continue;
+            }
+
             let idx = (src_y * width + src_x) * 3;
-            if idx + 2 >= rgba.len() { continue; }
-            
-            rgba_buffer.push(rgba[idx]);     // R
+            if idx + 2 >= rgba.len() {
+                continue;
+            }
+
+            rgba_buffer.push(rgba[idx]); // R
             rgba_buffer.push(rgba[idx + 1]); // G
             rgba_buffer.push(rgba[idx + 2]); // B
-            rgba_buffer.push(255);          // A
+            rgba_buffer.push(255); // A
         }
     }
-    
+
     Ok(open(rgba_buffer, target_w, target_h))
 }
 
@@ -608,7 +616,9 @@ mod open_jpeg_tests {
         }
         let mut buf = Vec::new();
         let encoder = Encoder::new(&mut buf, 90);
-        encoder.encode(&pixels, w, h, jpeg_encoder::ColorType::Rgb).unwrap();
+        encoder
+            .encode(&pixels, w, h, jpeg_encoder::ColorType::Rgb)
+            .unwrap();
         buf
     }
 
@@ -621,7 +631,9 @@ mod open_jpeg_tests {
         assert_eq!(src.rgba.len(), 16);
         for (i, chunk) in src.rgba.as_chunks::<4>().0.iter().enumerate() {
             assert!(
-                chunk[0].abs_diff(128) <= 4 && chunk[1].abs_diff(64) <= 4 && chunk[2].abs_diff(32) <= 4,
+                chunk[0].abs_diff(128) <= 4
+                    && chunk[1].abs_diff(64) <= 4
+                    && chunk[2].abs_diff(32) <= 4,
                 "pixel {i} must approximate encoded RGB: {:?}",
                 chunk
             );

@@ -303,10 +303,8 @@ pub fn apply_lens_blur(
 
                     if weight_acc > 0.0 {
                         out_chunk[idx] = (r_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
-                        out_chunk[idx + 1] =
-                            (g_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
-                        out_chunk[idx + 2] =
-                            (b_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
+                        out_chunk[idx + 1] = (g_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
+                        out_chunk[idx + 2] = (b_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
                         out_chunk[idx + 3] = rgba[src_idx + 3];
                     } else {
                         out_chunk[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
@@ -467,8 +465,16 @@ mod tests {
         let kernel_12 = build_bokeh_kernel(BokehShape::Circle, 12);
         let kernel_36 = build_bokeh_kernel(BokehShape::Circle, 36);
         // 12 samples + center = 13 max; 36 samples + center = 37 max
-        assert!(kernel_12.len() <= 13, "12-sample kernel too large: {}", kernel_12.len());
-        assert!(kernel_36.len() <= 37, "36-sample kernel too large: {}", kernel_36.len());
+        assert!(
+            kernel_12.len() <= 13,
+            "12-sample kernel too large: {}",
+            kernel_12.len()
+        );
+        assert!(
+            kernel_36.len() <= 37,
+            "36-sample kernel too large: {}",
+            kernel_36.len()
+        );
         assert!(
             kernel_12.len() < kernel_36.len(),
             "12-sample kernel ({}) must be smaller than 36-sample ({})",
@@ -523,8 +529,9 @@ mod tests {
             .clamp(1, 8);
         let rows_per_chunk = h.div_ceil(num_threads);
 
-        out.par_chunks_mut(rows_per_chunk * w * 4).enumerate().for_each(
-            |(chunk_idx, out_chunk)| {
+        out.par_chunks_mut(rows_per_chunk * w * 4)
+            .enumerate()
+            .for_each(|(chunk_idx, out_chunk)| {
                 let start_y = chunk_idx * rows_per_chunk;
                 let end_y = (start_y + rows_per_chunk).min(h);
                 for y in start_y..end_y {
@@ -545,7 +552,9 @@ mod tests {
                             continue;
                         }
 
-                        let kernel_r = (coc * (params.amount * w.min(h) as f32 * 0.08).clamp(1.0, 24.0)).max(1.0);
+                        let kernel_r = (coc
+                            * (params.amount * w.min(h) as f32 * 0.08).clamp(1.0, 24.0))
+                        .max(1.0);
                         let mut r_acc = 0.0f32;
                         let mut g_acc = 0.0f32;
                         let mut b_acc = 0.0f32;
@@ -574,8 +583,7 @@ mod tests {
                             if params.bokeh_boost > 0.0 {
                                 let luma = 0.2126 * sr + 0.7152 * sg + 0.0722 * sb;
                                 if luma > 180.0 {
-                                    let boost =
-                                        1.0 + params.bokeh_boost * ((luma - 180.0) / 75.0);
+                                    let boost = 1.0 + params.bokeh_boost * ((luma - 180.0) / 75.0);
                                     sr *= boost;
                                     sg *= boost;
                                     sb *= boost;
@@ -601,8 +609,7 @@ mod tests {
                         }
                     }
                 }
-            },
-        );
+            });
 
         assert_eq!(out, seq, "parallel blur must match sequential blur");
     }
