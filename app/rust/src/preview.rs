@@ -704,16 +704,23 @@ fn bake_base(
         // Use the model-supplied depth if present, otherwise estimate it from
         // the resident source. The map is transformed through the same
         // flip/rotate/crop chain as the pixels, so it stays aligned.
-        let depth_map = ensure_depth_map(handle).ok().map(|depth| {
-            transform_depth_map(
+        let depth_map = match ensure_depth_map(handle) {
+            Ok(depth) => Some(transform_depth_map(
                 &depth,
                 spec,
                 src_w as usize,
                 src_h as usize,
                 w as usize,
                 h as usize,
-            )
-        });
+            )),
+            Err(err) => {
+                crate::api::logging::record_engine_error(
+                    "Depth estimation failed; using synthetic depth",
+                    &err,
+                );
+                None
+            }
+        };
         buf = Cow::Owned(crate::blur::apply_lens_blur(
             &buf,
             w as usize,
