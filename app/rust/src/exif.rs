@@ -379,10 +379,87 @@ pub fn extract_xmp(jpeg: &[u8]) -> Vec<Vec<u8>> {
     xmp_packets
 }
 
+/// Google depth-map encoding declared in `GDepth:Format`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GDepthFormat {
+    /// `0` is far and `255` is near.
+    RangeInverse,
+    /// `0` is near and `255` is far.
+    RangeLinear,
+}
+
+impl GDepthFormat {
+    fn parse(raw: &[u8]) -> Option<Self> {
+        match raw {
+            b"RangeLinear" => Some(Self::RangeLinear),
+            b"RangeInverse" => Some(Self::RangeInverse),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::RangeInverse => "RangeInverse",
+            Self::RangeLinear => "RangeLinear",
+        }
+    }
+}
+
+/// Parsed embedded depth map plus its `GDepth` metadata.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EmbeddedDepth {
+    pub format: GDepthFormat,
+    pub near: f32,
+    pub far: f32,
+    /// Normalized grayscale plane where `255` is nearest and `0` is farthest.
+    pub depth: Vec<u8>,
+    pub width: usize,
+    pub height: usize,
+}
+
+/// Reads an `xml:attr="value"` / `xml:attr='value'` attribute from an XMP packet.
+fn xmp_attr<'a>(xmp: &'a [u8], name: &[u8]) -> Option<&'a [u8]> {
+    let pos = xmp.windows(name.len()).position(|w| w == name)?;
+    let mut i = pos + name.len();
+    while i < xmp.len() && xmp[i].is_ascii_whitespace() {
+        i += 1;
+    }
+    if xmp.get(i) != Some(&b'=') {
+        return None;
+    }
+    i += 1;
+    while i < xmp.len() && xmp[i].is_ascii_whitespace() {
+        i += 1;
+    }
+    let quote = *xmp.get(i)?;
+    if quote != b'"' && quote != b'\'' {
+        return None;
+    }
+    i += 1;
+    let end = xmp[i..].iter().position(|&b| b == quote)? + i;
+    Some(&xmp[i..end])
+}
+
+fn xmp_f32(xmp: &[u8], name: &[u8]) -> Option<f32> {
+    std::str::from_utf8(xmp_attr(xmp, name)?)
+        .ok()?
+        .trim()
+        .parse()
+        .ok()
+}
+
 /// Attempts to extract an embedded depth map from JPEG container metadata
 /// (Google GDepth XMP namespace or MPF secondary streams).
 /// Returns `Some((depth_grayscale_pixels, width, height))` on success, or `None`.
+///
+/// The returned plane is normalized so `255` is nearest and `0` is farthest,
+/// regardless of the container's `GDepth:Format`.
 pub fn extract_embedded_depth(jpeg: &[u8]) -> Option<(Vec<u8>, usize, usize)> {
+    extract_embedded_depth_meta(jpeg).map(|d| (d.depth, d.width, d.height))
+}
+
+/// Extracts an embedded depth map together with its `GDepth` format and range.
+pub fn extract_embedded_depth_meta(jpeg: &[u8]) -> Option<EmbeddedDepth> {
     let xmp_list = extract_xmp(jpeg);
     for xmp in xmp_list {
         // Look for GDepth:Data attribute or tag
@@ -432,7 +509,22 @@ pub fn extract_embedded_depth(jpeg: &[u8]) -> Option<(Vec<u8>, usize, usize)> {
                                 .round() as u8;
                             gray.push(luma);
                         }
-                        return Some((gray, img.width, img.height));
+                        let format = xmp_attr(&xmp, b"GDepth:Format")
+                            .and_then(GDepthFormat::parse)
+                            .unwrap_or(GDepthFormat::RangeInverse);
+                        if format == GDepthFormat::RangeLinear {
+                            for value in &mut gray {
+                                *value = 255 - *value;
+                            }
+                        }
+                        return Some(EmbeddedDepth {
+                            format,
+                            near: xmp_f32(&xmp, b"GDepth:Near").unwrap_or(0.0),
+                            far: xmp_f32(&xmp, b"GDepth:Far").unwrap_or(1.0),
+                            depth: gray,
+                            width: img.width,
+                            height: img.height,
+                        });
                     }
                 }
             }
@@ -1103,6 +1195,80 @@ mod tests {
         assert_eq!(depth_pixels.len(), 64);
         // Intensity is approx 180 (within lossy JPEG margin)
         assert!((depth_pixels[0] as i16 - 180).abs() <= 5);
+    }
+
+    /// Builds a JPEG carrying an inline Google depth-map XMP packet whose
+    /// depth image is a solid [gray] patch.
+    fn gdepth_xmp_jpeg(format: &str, near: &str, far: &str, gray: u8) -> Vec<u8> {
+        let depth_rgba: Vec<u8> = std::iter::repeat_n([gray, gray, gray, 255], 8 * 8)
+            .flatten()
+            .collect();
+        let depth_jpeg = crate::export::encode_jpeg(&depth_rgba, 8, 8, 80, &[]).unwrap();
+
+        const TABLE: &[u8; 64] =
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut b64_depth = String::new();
+        for chunk in depth_jpeg.chunks(3) {
+            let b0 = chunk[0] as u32;
+            let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
+            let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
+            let triple = (b0 << 16) | (b1 << 8) | b2;
+            b64_depth.push(TABLE[((triple >> 18) & 0x3F) as usize] as char);
+            b64_depth.push(TABLE[((triple >> 12) & 0x3F) as usize] as char);
+            if chunk.len() > 1 {
+                b64_depth.push(TABLE[((triple >> 6) & 0x3F) as usize] as char);
+            } else {
+                b64_depth.push('=');
+            }
+            if chunk.len() > 2 {
+                b64_depth.push(TABLE[(triple & 0x3F) as usize] as char);
+            } else {
+                b64_depth.push('=');
+            }
+        }
+
+        let xmp_xml = format!(
+            "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description xmlns:GDepth=\"http://ns.google.com/photos/1.0/depthmap/\" GDepth:Format=\"{format}\" GDepth:Near=\"{near}\" GDepth:Far=\"{far}\" GDepth:Mime=\"image/jpeg\" GDepth:Data=\"{b64_depth}\"/></rdf:RDF></x:xmpmeta>"
+        );
+
+        let mut app1_payload = Vec::new();
+        app1_payload.extend_from_slice(b"http://ns.adobe.com/xap/1.0/\0");
+        app1_payload.extend_from_slice(xmp_xml.as_bytes());
+
+        let len = (app1_payload.len() + 2) as u16;
+        let mut seg = vec![0xFF, 0xE1, (len >> 8) as u8, (len & 0xFF) as u8];
+        seg.extend_from_slice(&app1_payload);
+        inject_app1(sample_jpeg(), &seg)
+    }
+
+    #[test]
+    fn embedded_gdepth_range_linear_is_inverted_for_near_high_mask() {
+        let jpeg = gdepth_xmp_jpeg("RangeLinear", "0.1", "4.0", 180);
+        let (depth, w, h) = extract_embedded_depth(&jpeg).expect("embedded depth");
+        assert_eq!((w, h), (8, 8));
+        assert_eq!(depth.len(), 64);
+        assert!(
+            (depth[0] as i16 - 75).abs() <= 6,
+            "RangeLinear must invert to near=high, got {}",
+            depth[0]
+        );
+    }
+
+    #[test]
+    fn embedded_gdepth_metadata_reports_format_and_range() {
+        let jpeg = gdepth_xmp_jpeg("RangeLinear", "0.1", "4.0", 180);
+        let depth = extract_embedded_depth_meta(&jpeg).expect("embedded depth");
+        assert_eq!(depth.format, GDepthFormat::RangeLinear);
+        assert!((depth.near - 0.1).abs() < 1e-6);
+        assert!((depth.far - 4.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn embedded_gdepth_missing_format_defaults_to_range_inverse() {
+        let jpeg = gdepth_xmp_jpeg("", "0.5", "2.0", 180);
+        let depth = extract_embedded_depth_meta(&jpeg).expect("embedded depth");
+        assert_eq!(depth.format, GDepthFormat::RangeInverse);
+        assert!((depth.depth[0] as i16 - 180).abs() <= 6);
     }
 
     #[test]

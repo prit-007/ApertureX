@@ -59,6 +59,15 @@ struct Store {
     images: HashMap<u64, Resident>,
 }
 
+/// A depth plane stored alongside a resident preview. Values are `[0,1]`
+/// with lower = closer, matching [`crate::blur`].
+#[derive(Clone, Debug)]
+pub(crate) struct DepthMap {
+    pub(crate) data: Arc<[f32]>,
+    pub(crate) width: usize,
+    pub(crate) height: usize,
+}
+
 struct Resident {
     /// Shared so [`run_base`] can borrow the pixels after dropping the
     /// store lock (cloning the `Arc` is a pointer copy, not an 8 MB memcpy).
@@ -68,10 +77,11 @@ struct Resident {
     /// Last `run_base` output — the histogram bins from this, never from
     /// the raw source, so the drawer reflects geometry + spatial + masks.
     base: Option<Arc<RgbaImage>>,
-    /// Cached AI depth map for lens blur subject protection (width*height
-    /// f32 plane in [0.0, 1.0], lower = closer). Set via
-    /// [`crate::api::preview::preview_set_depth_map`].
-    depth_map: Option<Vec<f32>>,
+    /// Cached depth map for lens blur subject protection. Values are in
+    /// `[0.0, 1.0]` and lower = closer. Set via
+    /// [`crate::api::preview::preview_set_depth_map`] or lazily estimated
+    /// from the source by [`ensure_depth_map`].
+    depth_map: Option<Arc<DepthMap>>,
     /// Spike B: platform window backing a Flutter `Texture` (an
     /// `ANativeWindow*` on Android, as `usize`). 0 = unbound; unbound
     /// handles use the return-frame path instead.
@@ -180,17 +190,190 @@ pub fn close(handle: u64) {
     }
 }
 
-/// Stores an AI-computed depth map for [handle]. The depth map is a
-/// `width * height` plane of `f32` values in `[0.0, 1.0]` where lower =
-/// closer (more in focus). Used by the lens blur stage to protect subjects.
+/// Stores a depth map for [handle]. The map must contain one `f32` per
+/// source pixel (width * height) in `[0.0, 1.0]` where lower = closer.
+/// Used by the lens blur stage to protect subjects.
 pub fn set_depth_map(handle: u64, depth_map: Vec<f32>) -> Result<(), String> {
+    let (width, height) = {
+        let store = lock_store();
+        let resident = store
+            .images
+            .get(&handle)
+            .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+        (resident.width as usize, resident.height as usize)
+    };
+    let expected = width * height;
+    if depth_map.len() != expected {
+        return Err(format!(
+            "depth map has {} values, expected {expected} for {width}x{height}",
+            depth_map.len()
+        ));
+    }
+    if depth_map.iter().any(|v| !v.is_finite()) {
+        return Err("depth map contains non-finite values".into());
+    }
+
     let mut store = lock_store();
     let resident = store
         .images
         .get_mut(&handle)
         .ok_or_else(|| format!("unknown preview handle {handle}"))?;
-    resident.depth_map = Some(depth_map);
+    resident.depth_map = Some(Arc::new(DepthMap {
+        data: depth_map.into(),
+        width,
+        height,
+    }));
     Ok(())
+}
+
+/// Returns the stored depth map, lazily computing the in-tree heuristic depth
+/// from the resident source when no model-supplied map has been set.
+pub(crate) fn ensure_depth_map(handle: u64) -> Result<Arc<DepthMap>, String> {
+    {
+        let store = lock_store();
+        let resident = store
+            .images
+            .get(&handle)
+            .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+        if let Some(depth) = &resident.depth_map {
+            return Ok(Arc::clone(depth));
+        }
+    }
+
+    let (source, width, height) = {
+        let store = lock_store();
+        let resident = store
+            .images
+            .get(&handle)
+            .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+        (
+            Arc::clone(&resident.source),
+            resident.width as usize,
+            resident.height as usize,
+        )
+    };
+
+    let (target_w, target_h) = depth_target_dims(width, height);
+    let data = crate::ml::estimate_depth_map(&source, width, height, target_w, target_h)?;
+    let computed = Arc::new(DepthMap {
+        data: data.into(),
+        width: target_w,
+        height: target_h,
+    });
+
+    let mut store = lock_store();
+    let resident = store
+        .images
+        .get_mut(&handle)
+        .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+    if let Some(existing) = &resident.depth_map {
+        return Ok(Arc::clone(existing));
+    }
+    resident.depth_map = Some(Arc::clone(&computed));
+    Ok(computed)
+}
+
+fn depth_target_dims(width: usize, height: usize) -> (usize, usize) {
+    const MAX_DEPTH_DIM: usize = 1024;
+    let longest = width.max(height);
+    if longest <= MAX_DEPTH_DIM || longest == 0 {
+        return (width.max(1), height.max(1));
+    }
+    let scale = MAX_DEPTH_DIM as f32 / longest as f32;
+    (
+        ((width as f32 * scale).round() as usize).max(1),
+        ((height as f32 * scale).round() as usize).max(1),
+    )
+}
+
+fn flip_h_depth(src: &[f32], w: usize, h: usize) -> Vec<f32> {
+    let mut out = vec![0.0; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            out[y * w + x] = src[y * w + (w - 1 - x)];
+        }
+    }
+    out
+}
+
+fn flip_v_depth(src: &[f32], w: usize, h: usize) -> Vec<f32> {
+    let mut out = vec![0.0; w * h];
+    for y in 0..h {
+        let src_row = (h - 1 - y) * w;
+        out[y * w..(y + 1) * w].copy_from_slice(&src[src_row..src_row + w]);
+    }
+    out
+}
+
+fn rotate_depth_quarter(src: &[f32], w: usize, h: usize, turns: u32) -> (Vec<f32>, usize, usize) {
+    let mut data = src.to_vec();
+    let (mut w, mut h) = (w, h);
+    for _ in 0..(turns % 4) {
+        let (nw, nh) = (h, w);
+        let mut out = vec![0.0; nw * nh];
+        for y in 0..h {
+            for x in 0..w {
+                let nx = h - 1 - y;
+                let ny = x;
+                out[ny * nw + nx] = data[y * w + x];
+            }
+        }
+        data = out;
+        w = nw;
+        h = nh;
+    }
+    (data, w, h)
+}
+
+fn crop_depth(
+    src: &[f32],
+    w: usize,
+    _h: usize,
+    x: usize,
+    y: usize,
+    cw: usize,
+    ch: usize,
+) -> Vec<f32> {
+    let mut out = Vec::with_capacity(cw * ch);
+    for row in 0..ch {
+        let start = (y + row) * w + x;
+        out.extend_from_slice(&src[start..start + cw]);
+    }
+    out
+}
+
+/// Maps a source-frame depth map through the same flip → rotate → crop chain
+/// as [`bake_base`], resampling to the baked frame size.
+fn transform_depth_map(
+    depth: &DepthMap,
+    spec: &PreviewBaseSpec,
+    src_w: usize,
+    src_h: usize,
+    out_w: usize,
+    out_h: usize,
+) -> Vec<f32> {
+    let mut data = crate::ml::resize_mask(&depth.data, depth.width, depth.height, src_w, src_h);
+    let (mut w, mut h) = (src_w, src_h);
+    if spec.flip_h {
+        data = flip_h_depth(&data, w, h);
+    }
+    if spec.flip_v {
+        data = flip_v_depth(&data, w, h);
+    }
+    if !spec.turns.is_multiple_of(4) {
+        (data, w, h) = rotate_depth_quarter(&data, w, h, spec.turns);
+    }
+    if let Some((x, y, cw, ch)) =
+        geometry::crop_rect(w, h, spec.crop_l, spec.crop_t, spec.crop_r, spec.crop_b)
+    {
+        data = crop_depth(&data, w, h, x, y, cw, ch);
+        w = cw;
+        h = ch;
+    }
+    if w != out_w || h != out_h {
+        data = crate::ml::resize_mask(&data, w, h, out_w, out_h);
+    }
+    data
 }
 
 /// Binds a platform window (spike B) to [handle]: `render` will write its
@@ -463,16 +646,19 @@ fn bake_base(
     // (geometry → optics → blur → spatial → masks) so preview == export.
     let blur_params = spec.blur_params();
     if !blur_params.is_neutral() {
-        // Retrieve cached AI depth map (if any) so subjects stay sharp while
-        // background blurs. Falls back to None → synthetic depth gradient.
-        let depth_map = {
-            let store = lock_store();
-            store
-                .images
-                .get(&handle)
-                .and_then(|r| r.depth_map.as_ref())
-                .cloned()
-        };
+        // Use the model-supplied depth if present, otherwise estimate it from
+        // the resident source. The map is transformed through the same
+        // flip/rotate/crop chain as the pixels, so it stays aligned.
+        let depth_map = ensure_depth_map(handle).ok().map(|depth| {
+            transform_depth_map(
+                &depth,
+                spec,
+                src_w as usize,
+                src_h as usize,
+                w as usize,
+                h as usize,
+            )
+        });
         buf = Cow::Owned(crate::blur::apply_lens_blur(
             &buf,
             w as usize,
@@ -842,5 +1028,124 @@ pub extern "system" fn Java_com_devparadise_aperturex_MainActivity_bindPreviewSu
             anative_window::release(window);
             0
         }
+    }
+}
+
+#[cfg(test)]
+mod depth_tests {
+    use super::*;
+    use crate::api::preview::PreviewBaseSpec;
+
+    fn checkerboard(w: usize, h: usize) -> Vec<u8> {
+        let mut rgba = vec![0u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let i = (y * w + x) * 4;
+                let v = if (x + y) % 2 == 0 { 255 } else { 0 };
+                rgba[i..i + 4].copy_from_slice(&[v, v, v, 255]);
+            }
+        }
+        rgba
+    }
+
+    fn depth_map(data: Vec<f32>, width: usize, height: usize) -> DepthMap {
+        DepthMap {
+            data: data.into(),
+            width,
+            height,
+        }
+    }
+
+    #[test]
+    fn depth_map_is_estimated_and_cached() {
+        let handle = open(vec![128u8; 8 * 8 * 4], 8, 8);
+        let first = ensure_depth_map(handle).expect("heuristic depth");
+        assert_eq!((first.width, first.height), (8, 8));
+        assert_eq!(first.data.len(), 64);
+
+        let second = ensure_depth_map(handle).expect("cached depth");
+        assert!(
+            Arc::ptr_eq(&first, &second),
+            "second call must reuse the cached depth map"
+        );
+        close(handle);
+    }
+
+    #[test]
+    fn transform_depth_map_honors_flip() {
+        let map = depth_map(vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0], 3, 2);
+        let spec = PreviewBaseSpec {
+            flip_h: true,
+            ..Default::default()
+        };
+        let out = transform_depth_map(&map, &spec, 3, 2, 3, 2);
+        assert_eq!(out, vec![2.0, 1.0, 0.0, 5.0, 4.0, 3.0]);
+    }
+
+    #[test]
+    fn transform_depth_map_honors_quarter_turn() {
+        let map = depth_map(vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0], 3, 2);
+        let spec = PreviewBaseSpec {
+            turns: 1,
+            ..Default::default()
+        };
+        let out = transform_depth_map(&map, &spec, 3, 2, 2, 3);
+        assert_eq!(out, vec![3.0, 0.0, 4.0, 1.0, 5.0, 2.0]);
+    }
+
+    #[test]
+    fn transform_depth_map_honors_crop() {
+        let map = depth_map((0..8).map(|v| v as f32).collect(), 4, 2);
+        let spec = PreviewBaseSpec {
+            crop_l: 0.5,
+            crop_t: 0.0,
+            crop_r: 1.0,
+            crop_b: 1.0,
+            ..Default::default()
+        };
+        let out = transform_depth_map(&map, &spec, 4, 2, 2, 2);
+        assert_eq!(out, vec![2.0, 3.0, 6.0, 7.0]);
+    }
+
+    #[test]
+    fn transform_depth_map_resizes_low_resolution_model_output() {
+        let map = depth_map(vec![0.0, 0.5, 0.5, 1.0], 2, 2);
+        let spec = PreviewBaseSpec::default();
+        let out = transform_depth_map(&map, &spec, 4, 4, 4, 4);
+        assert_eq!(out.len(), 16);
+        assert!((out[0] - 0.0).abs() < 1e-3);
+        assert!((out[3] - 0.5).abs() < 1e-3);
+        assert!((out[12] - 0.5).abs() < 1e-3);
+        assert!((out[15] - 1.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn preview_bake_uses_stored_depth_map_not_synthetic() {
+        let (w, h) = (16, 16);
+        let src = checkerboard(w, h);
+        let handle = open(src.clone(), w as u32, h as u32);
+        set_depth_map(handle, vec![0.5; w * h]).expect("valid depth map");
+
+        let spec = PreviewBaseSpec {
+            blur_enabled: true,
+            blur_amount: 0.8,
+            blur_focal_point: 0.5,
+            blur_focal_range: 0.2,
+            ..Default::default()
+        };
+        let out = run_base(handle, &spec, &[], &[]).expect("bake");
+        assert_eq!(
+            out.rgba, src,
+            "a uniform in-focus depth map must leave the frame untouched"
+        );
+        close(handle);
+    }
+
+    #[test]
+    fn set_depth_map_rejects_wrong_size() {
+        let handle = open(vec![128u8; 8 * 8 * 4], 8, 8);
+        let err = set_depth_map(handle, vec![0.5; 63]).unwrap_err();
+        assert!(err.contains("expected 64"), "unexpected error: {err}");
+        close(handle);
     }
 }

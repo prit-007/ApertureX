@@ -261,6 +261,9 @@ class PreviewBaseSpec {
   Future<LensBlurParams> blurParams() =>
       RustLib.instance.api.crateApiPreviewPreviewBaseSpecBlurParams(that: this);
 
+  static Future<PreviewBaseSpec> default_() =>
+      RustLib.instance.api.crateApiPreviewPreviewBaseSpecDefault();
+
   @override
   int get hashCode =>
       flipH.hashCode ^
