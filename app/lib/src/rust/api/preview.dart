@@ -50,6 +50,17 @@ Future<RgbaImage> previewGetSourceRgba({required BigInt handle}) =>
 Future<void> previewClose({required BigInt handle}) =>
     RustLib.instance.api.crateApiPreviewPreviewClose(handle: handle);
 
+/// Stores an AI-computed depth map (width*height f32 plane in [0.0, 1.0],
+/// lower = closer) for [handle], used by the lens blur stage to protect
+/// subjects from being blurred.
+Future<void> previewSetDepthMap({
+  required BigInt handle,
+  required List<double> depthMap,
+}) => RustLib.instance.api.crateApiPreviewPreviewSetDepthMap(
+  handle: handle,
+  depthMap: depthMap,
+);
+
 /// Fused base pipeline on the resident source: flip → rotate → normalized
 /// crop → spatial pass → mask layers, in one round trip. See
 /// [`crate::preview::run_base`] for the locking/Cow details.

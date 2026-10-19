@@ -217,6 +217,13 @@ class AxEngine {
     title: title,
   );
 
+  /// Analyzes image bytes and returns suggested auto-tone parameter values.
+  ///
+  /// Returns `Map<String, double>` with keys: `exposure`, `contrast`,
+  /// `highlights`, `shadows`, `whites`, `blacks`, `temperature`, `tint`.
+  static Future<Map<String, double>?> autoTone(Uint8List bytes) =>
+      rust_color.autoTone(jpeg: bytes);
+
   // --- histogram (P2) -------------------------------------------------------
 
   /// Downsamples + grades + bins [rgba] into a 256-bin RGB/luma histogram.

@@ -68,6 +68,10 @@ struct Resident {
     /// Last `run_base` output — the histogram bins from this, never from
     /// the raw source, so the drawer reflects geometry + spatial + masks.
     base: Option<Arc<RgbaImage>>,
+    /// Cached AI depth map for lens blur subject protection (width*height
+    /// f32 plane in [0.0, 1.0], lower = closer). Set via
+    /// [`crate::api::preview::preview_set_depth_map`].
+    depth_map: Option<Vec<f32>>,
     /// Spike B: platform window backing a Flutter `Texture` (an
     /// `ANativeWindow*` on Android, as `usize`). 0 = unbound; unbound
     /// handles use the return-frame path instead.
@@ -95,6 +99,7 @@ pub fn open(rgba: Vec<u8>, width: u32, height: u32) -> u64 {
             width,
             height,
             base: None,
+            depth_map: None,
             window: 0,
         },
     );
@@ -169,11 +174,23 @@ pub fn close(handle: u64) {
         let mut store = lock_store();
         store.images.remove(&handle).map(|r| r.window)
     };
-    // Release outside the lock — ANativeWindow_release may block on the
-    // compositor.
+    // Release outside the lock — ANativeWindow_release may block on the compositor.
     if let Some(w) = window.filter(|w| *w != 0) {
         anative_window::release(w);
     }
+}
+
+/// Stores an AI-computed depth map for [handle]. The depth map is a
+/// `width * height` plane of `f32` values in `[0.0, 1.0]` where lower =
+/// closer (more in focus). Used by the lens blur stage to protect subjects.
+pub fn set_depth_map(handle: u64, depth_map: Vec<f32>) -> Result<(), String> {
+    let mut store = lock_store();
+    let resident = store
+        .images
+        .get_mut(&handle)
+        .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+    resident.depth_map = Some(depth_map);
+    Ok(())
 }
 
 /// Binds a platform window (spike B) to [handle]: `render` will write its
@@ -260,7 +277,7 @@ pub fn render(
     let mut frame = match cached {
         Some(base) => (*base).clone(),
         None => {
-            let fb = bake_base(&source, src_w, src_h, spec, layers, patches);
+            let fb = bake_base(handle, &source, src_w, src_h, spec, layers, patches);
             cache_base(handle, &fb);
             fb
         }
@@ -334,7 +351,7 @@ pub fn run_base(
     };
 
     // 2. Heavy math with no lock held.
-    let frame = bake_base(&source, src_w, src_h, spec, layers, patches);
+    let frame = bake_base(handle, &source, src_w, src_h, spec, layers, patches);
 
     // 3. Re-lock only to cache an Arc of the result for the histogram.
     cache_base(handle, &frame);
@@ -347,6 +364,7 @@ pub fn run_base(
 /// neutral path never copies the source). Shared by [`run_base`] and
 /// [`render`] so the texture and return-frame paths cannot drift.
 fn bake_base(
+    handle: u64,
     source: &[u8],
     src_w: u32,
     src_h: u32,
@@ -445,12 +463,22 @@ fn bake_base(
     // (geometry → optics → blur → spatial → masks) so preview == export.
     let blur_params = spec.blur_params();
     if !blur_params.is_neutral() {
+        // Retrieve cached AI depth map (if any) so subjects stay sharp while
+        // background blurs. Falls back to None → synthetic depth gradient.
+        let depth_map = {
+            let store = lock_store();
+            store
+                .images
+                .get(&handle)
+                .and_then(|r| r.depth_map.as_ref())
+                .cloned()
+        };
         buf = Cow::Owned(crate::blur::apply_lens_blur(
             &buf,
             w as usize,
             h as usize,
             blur_params,
-            None,
+            depth_map.as_deref(),
             36,
         ));
     }

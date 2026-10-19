@@ -87,7 +87,11 @@ pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) 
         }
     }
     if !recipe.blur.is_neutral() {
-        buf = blur::apply_lens_blur(&buf, gw, gh, recipe.blur, None, 36);
+        // Compute an on-device depth map so subjects stay sharp while
+        // background blurs (mirrors the preview pipeline's cached depth map).
+        let depth_map =
+            crate::api::blur::estimate_depth_map(buf.clone(), gw as u32, gh as u32).ok();
+        buf = blur::apply_lens_blur(&buf, gw, gh, recipe.blur, depth_map.as_deref(), 36);
     }
     if !recipe.spatial.is_neutral() {
         buf = spatial::apply_spatial(&buf, gw, gh, recipe.spatial);
@@ -138,7 +142,11 @@ pub fn run_export_tiled(
         }
     }
     if !recipe.blur.is_neutral() {
-        frame = blur::apply_lens_blur(&frame, gw, gh, recipe.blur, None, 36);
+        // Compute an on-device depth map so subjects stay sharp while
+        // background blurs (mirrors the preview pipeline's cached depth map).
+        let depth_map =
+            crate::api::blur::estimate_depth_map(frame.clone(), gw as u32, gh as u32).ok();
+        frame = blur::apply_lens_blur(&frame, gw, gh, recipe.blur, depth_map.as_deref(), 36);
     }
     let film_shader_engaged = recipe.spatial.film_halation != 0.0
         || recipe.spatial.film_bloom != 0.0

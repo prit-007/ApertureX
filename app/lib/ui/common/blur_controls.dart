@@ -63,42 +63,6 @@ class BlurControls extends ConsumerWidget {
               runSpacing: 8,
               children: [
                 ActionChip(
-                  key: const Key('blur-detect-depth'),
-                  avatar: const Icon(Icons.auto_awesome, size: 16),
-                  label: const Text('Calibrate Embedded Depth'),
-                  onPressed: () async {
-                    final bytes = ref.read(activeImageBytesProvider);
-                    if (bytes == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('No photo loaded to read depth metadata')),
-                      );
-                      return;
-                    }
-                    final depthResult = await AxEngine.extractEmbeddedDepth(bytes);
-                    if (depthResult != null) {
-                      HapticFeedback.selectionClick();
-                      notifier.update(Parameter.blurFocalPoint, 0.35);
-                      notifier.update(Parameter.blurFocalRange, 0.25);
-                      notifier.commit(label: 'Calibrate Depth');
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Calibrated depth: ${depthResult.width}×${depthResult.height} embedded map',
-                            ),
-                          ),
-                        );
-                      }
-                    } else if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('No embedded depth map found; using synthetic plane'),
-                        ),
-                      );
-                    }
-                  },
-                ),
-                ActionChip(
                   key: const Key('blur-ai-depth'),
                   avatar: const Icon(Icons.psychology, size: 16),
                   label: const Text('AI Depth Estimation'),

@@ -50,6 +50,26 @@ Future<String> exportCubeLut({
   title: title,
 );
 
+/// Analyzes image luminance/color and returns suggested auto-tone adjustments.
+///
+/// Returns a map of parameter name → suggested value:
+/// - `exposure`: EV to bring mean luminance to mid-gray (~0.18)
+/// - `contrast`: based on luminance standard deviation
+/// - `highlights`/`shadows`: based on histogram clipping
+/// - `whites`/`blacks`: based on 99th/1st luminance percentiles
+/// - `temperature`/`tint`: based on white balance analysis
+/// Analyzes image luminance/color and returns suggested auto-tone adjustments.
+///
+/// Accepts JPEG bytes (decodes internally). Returns a map of parameter name →
+/// suggested value:
+/// - `exposure`: EV to bring mean luminance to mid-gray (~0.18)
+/// - `contrast`: based on luminance standard deviation
+/// - `highlights`/`shadows`: based on histogram clipping
+/// - `whites`/`blacks`: based on 99th/1st luminance percentiles
+/// - `temperature`/`tint`: based on white balance analysis
+Future<Map<String, double>?> autoTone({required List<int> jpeg}) =>
+    RustLib.instance.api.crateApiColorAutoTone(jpeg: jpeg);
+
 /// Point-wise grade parameters (all neutral at 0).
 class ColorParams {
   final double exposure;

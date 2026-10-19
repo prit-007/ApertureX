@@ -71,19 +71,6 @@ void main() {
     );
   });
 
-  testWidgets('Calibrate Embedded Depth chip is present when blur is enabled', (tester) async {
-    container.read(recipeControllerProvider.notifier).setBlurEnabled(true);
-    await pumpBlurControls(tester);
-
-    final depthChip = find.byKey(const Key('blur-detect-depth'));
-    expect(depthChip, findsOneWidget);
-
-    await tester.tap(depthChip);
-    await tester.pumpAndSettle();
-
-    expect(find.text('No photo loaded to read depth metadata'), findsOneWidget);
-  });
-
   testWidgets('AI Depth Estimation chip is present and handles empty photo and active calibration', (tester) async {
     container.read(recipeControllerProvider.notifier).setBlurEnabled(true);
     await pumpBlurControls(tester);

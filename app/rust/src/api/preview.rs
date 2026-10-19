@@ -140,6 +140,13 @@ pub fn preview_close(handle: u64) {
     crate::preview::close(handle);
 }
 
+/// Stores an AI-computed depth map (width*height f32 plane in [0.0, 1.0],
+/// lower = closer) for [handle], used by the lens blur stage to protect
+/// subjects from being blurred.
+pub fn preview_set_depth_map(handle: u64, depth_map: Vec<f32>) -> Result<(), String> {
+    crate::preview::set_depth_map(handle, depth_map)
+}
+
 /// Fused base pipeline on the resident source: flip → rotate → normalized
 /// crop → spatial pass → mask layers, in one round trip. See
 /// [`crate::preview::run_base`] for the locking/Cow details.

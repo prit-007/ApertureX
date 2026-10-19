@@ -41,6 +41,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   });
 
   @protected
+  Map<String, double> dco_decode_Map_String_f_64_None(dynamic raw);
+
+  @protected
   String dco_decode_String(dynamic raw);
 
   @protected
@@ -182,6 +185,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<(String, double)> dco_decode_list_record_string_f_64(dynamic raw);
+
+  @protected
   LutData dco_decode_lut_data(dynamic raw);
 
   @protected
@@ -189,6 +195,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MuseumFrameTheme dco_decode_museum_frame_theme(dynamic raw);
+
+  @protected
+  Map<String, double>? dco_decode_opt_Map_String_f_64_None(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
@@ -226,6 +235,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PreviewBaseSpec dco_decode_preview_base_spec(dynamic raw);
 
   @protected
+  (String, double) dco_decode_record_string_f_64(dynamic raw);
+
+  @protected
   RenderedSize dco_decode_rendered_size(dynamic raw);
 
   @protected
@@ -248,6 +260,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   WatermarkSpec dco_decode_watermark_spec(dynamic raw);
+
+  @protected
+  Map<String, double> sse_decode_Map_String_f_64_None(
+    SseDeserializer deserializer,
+  );
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
@@ -413,6 +430,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<(String, double)> sse_decode_list_record_string_f_64(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   LutData sse_decode_lut_data(SseDeserializer deserializer);
 
   @protected
@@ -420,6 +442,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MuseumFrameTheme sse_decode_museum_frame_theme(SseDeserializer deserializer);
+
+  @protected
+  Map<String, double>? sse_decode_opt_Map_String_f_64_None(
+    SseDeserializer deserializer,
+  );
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
@@ -463,6 +490,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PreviewBaseSpec sse_decode_preview_base_spec(SseDeserializer deserializer);
 
   @protected
+  (String, double) sse_decode_record_string_f_64(SseDeserializer deserializer);
+
+  @protected
   RenderedSize sse_decode_rendered_size(SseDeserializer deserializer);
 
   @protected
@@ -485,6 +515,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   WatermarkSpec sse_decode_watermark_spec(SseDeserializer deserializer);
+
+  @protected
+  void sse_encode_Map_String_f_64_None(
+    Map<String, double> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
@@ -706,6 +742,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_record_string_f_64(
+    List<(String, double)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_lut_data(LutData self, SseSerializer serializer);
 
   @protected
@@ -714,6 +756,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_museum_frame_theme(
     MuseumFrameTheme self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_Map_String_f_64_None(
+    Map<String, double>? self,
     SseSerializer serializer,
   );
 
@@ -765,6 +813,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_preview_base_spec(
     PreviewBaseSpec self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_record_string_f_64(
+    (String, double) self,
     SseSerializer serializer,
   );
 
