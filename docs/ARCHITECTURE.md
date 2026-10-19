@@ -526,8 +526,11 @@ Lightroom's "local adjustments" and Snapseed's "stack" are the same model:
 
 A **separable** module for intelligent masking; the base app never depends on it.
 
-- **Runtime:** ONNX Runtime Mobile (MIT) or ncnn (BSD-3) via Rust. No ML Kit, no
-  Play Services. OpenCV (Apache-2.0) for classical CV (horizon/edge/saliency).
+- **Runtime:** ONNX Runtime Mobile (MIT) via Rust, with optional NNAPI/CoreML
+  providers; ncnn (BSD-3) remains an alternative. No ML Kit, no Play Services.
+  OpenCV (Apache-2.0) for classical CV (horizon/edge/saliency).
+- **First bundled model:** Apache-2.0 U²-NetP (4.5 MB ONNX), compiled only into
+  the optional `ai` build; the default app links neither ORT nor weights.
 - **Models** (each license verified before adoption; prefer Apache-2.0/MIT):
   MobileSAM/SAM2-small (tap-select), U²-Net-style salient (auto subject), sky
   segmentation (or a classical fallback), MODNet-class matting (hair), Depth

@@ -14,6 +14,8 @@ pub mod icc;
 pub mod mask;
 pub mod ml;
 pub mod optics;
+#[cfg(feature = "ai")]
+pub mod ort_runtime;
 pub mod preview;
 pub mod raw;
 pub mod retouch;
@@ -21,6 +23,8 @@ pub mod sha256;
 pub mod sha512;
 pub mod simd;
 pub mod spatial;
+#[cfg(feature = "ai")]
+pub mod u2netp;
 pub mod ultrahdr;
 pub mod validate;
 pub mod watermark;

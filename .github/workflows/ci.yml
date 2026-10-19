@@ -86,6 +86,12 @@ jobs:
         working-directory: app/rust
         run: cargo test
 
+      - name: Rust AI feature lint and tests
+        working-directory: app/rust
+        run: |
+          cargo clippy --features ai --all-targets -- -D warnings
+          cargo test --features ai
+
   build-android:
     name: Release APKs (F-Droid buildserver container)
     needs: analyze-and-test

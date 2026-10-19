@@ -131,9 +131,7 @@ pub fn segment_subject(
     target_height: u32,
 ) -> Result<Vec<f32>, String> {
     crate::validate::validate_rgba(&rgba, width, height)?;
-    use crate::ml::Segmenter;
-    let segmenter = crate::ml::SaliencySegmenter {};
-    segmenter.segment(
+    crate::ml::segment_subject_mask(
         &rgba,
         width as usize,
         height as usize,

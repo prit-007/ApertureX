@@ -18,13 +18,19 @@ libraw = { version = "0.1.1", optional = true }
 num-bigint = "0.4.8"
 num-traits = "0.2.19"
 rayon = "1.10"
+# Optional ONNX Runtime Mobile backend (ADR 0010, #87). Off by default so the
+# base APK stays free of native ML libraries and model weights.
+ort = { version = "=2.0.0-rc.15", optional = true, default-features = false, features = ["std", "download-binaries", "tls-rustls", "api-22"] }
 
 [features]
 # Optional LibRaw fallback for camera coverage. Off by default: the default
 # build is pure-Rust (ADR 0005, see docs/spikes/raw-engine-spike.md).
 raw-libraw = ["dep:libraw"]
 # Optional AI inference runtime feature (ADR 0010, #87).
-ai = []
+ai = ["dep:ort"]
+# Android NNAPI / iOS CoreML execution providers, enabled per platform build.
+ai-nnapi = ["ai", "ort/nnapi"]
+ai-coreml = ["ai", "ort/coreml"]
 
 # The Flutter debug build maps to Cargo's `dev` profile. Without optimization
 # the colour/spatial math runs 10-50x slower — the cause of multi-second slider

@@ -28,6 +28,8 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 | [`qr_flutter`](https://pub.dev/packages/qr_flutter) | ^4.1.0 | BSD-3-Clause | QR code generation and rendering for Look/QR open standard sharing | ✅ |
 | [`zxing2`](https://pub.dev/packages/zxing2) | ^0.2.4 | Apache-2.0 | Pure-Dart port of ZXing for offline QR code detection and decoding from image buffers | ✅ |
 | [`miniz_oxide`](https://crates.io/crates/miniz_oxide) | ^0.8.9 | MIT OR Zlib OR Apache-2.0 | Pure-Rust DEFLATE decompression for watermark PNG decoding & C2PA payload decompression | ✅ |
+| [`ort`](https://crates.io/crates/ort) | =2.0.0-rc.15 | MIT OR Apache-2.0 | Safe Rust bindings for ONNX Runtime Mobile (`ai` feature; not in the default build) | ✅ |
+| [`ort-sys`](https://crates.io/crates/ort-sys) | =2.0.0-rc.15 | MIT OR Apache-2.0 | Low-level ONNX Runtime bindings and native runtime (`ai` feature; not in the default build) | ✅ |
 | [`zune-jpeg`](https://crates.io/crates/zune-jpeg) | ^0.5.15 | MIT OR Apache-2.0 OR Zlib | Rust JPEG decode for the ROI/proxy path | ✅ |
 
 Apache-2.0 and GPL-3.0 are mutually compatible (both are modern, patent-granting
@@ -42,6 +44,15 @@ preserving rawler's notice.
 (Independent JPEG Group) JPEG reference implementation, whose permissive license
 permits use in free and proprietary software provided the IJG notice is carried.
 The IJG notice must be included in the app's license bundle.
+
+### Optional ONNX Runtime Mobile — not in the default build
+
+The `ai` cargo feature links [`ort`](https://crates.io/crates/ort) against
+ONNX Runtime (MIT). The `ort` crate's `download-binaries` convenience is for
+development only: release and F-Droid builds must vendor the native ORT
+libraries and build without network access. The optional `ai` build also
+compiles in the U²-NetP weights listed below; the default build contains
+neither the runtime nor the model.
 
 ### Optional native fallback (LibRaw / lensfun) — not in the default build
 
@@ -91,15 +102,24 @@ above with their notices.
 
 ---
 
-## Machine-learning models (planned — ADR 0010)
+## Machine-learning models (optional AI module — ADR 0010)
 
-No model ships yet. Every model added to the optional AI module **must** get a
-row here — with its **weights** license verified (not just the code) — before it
-is adopted. This is a hard gate (ADR 0010).
+Every model added to the optional AI module **must** get a row here — with its
+**weights** license verified (not just the code) — before it is adopted. This is
+a hard gate (ADR 0010). Bundled weights are compiled only with `--features ai`;
+the default APK ships none.
 
 | Model | Purpose | Runtime | Code license | Weights license | Source | Status |
 |---|---|---|---|---|---|---|
-| U²-NetP | Salient object / subject mask | ONNX RT / in-tree | Apache-2.0 | Apache-2.0 | xuebinqin/U-2-Net | Adopted (#87) |
+| U²-NetP | Salient object / subject mask | ONNX RT / in-tree | Apache-2.0 | Apache-2.0 | [xuebinqin/U-2-Net](https://github.com/xuebinqin/U-2-Net) | Bundled behind `ai` (#87) |
+
+Bundled file: `app/rust/assets/models/u2netp.onnx` (4,574,861 bytes,
+SHA-256 `309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8`).
+The ONNX export is the original U²-NetP weights republished in the
+[`danielgatis/rembg` v0.0.0 release](https://github.com/danielgatis/rembg/releases/tag/v0.0.0)
+(MIT build tooling; weights remain Apache-2.0). Input is RGB
+`[1,3,320,320]` with ImageNet normalization; the first of the seven outputs is
+the fused saliency map.
 
 Candidate models (verify each model's weights license before adoption):
 MobileSAM / SAM 2 small (tap-select), U²-Net-style salient (auto subject), sky

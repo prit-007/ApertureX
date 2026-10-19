@@ -45,15 +45,24 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
    detection (Hough) is free, deterministic, and low-risk; learned auto-framing
    waits for the model module.
 
-## Implementation status (2026-10-17)
+## Implementation status (2026-10-19)
 
 **Shipped**
 - `Segmenter` trait + tensor pre/post-processing pipeline in
-  `app/rust/src/ml.rs` (#87), behind the `ai` cargo feature — the base APK
-  builds without any ML code.
-- **One-tap subject/background masks** via the in-tree `SaliencySegmenter`
-  (no bundled weights, no runtime download), with inverted-background
-  selection (#83/#89).
+  `app/rust/src/ml.rs` (#87). The trait and deterministic fallback always
+  build; ORT, native ML libraries, and weights only build with `ai`.
+- **ONNX Runtime Mobile backend** (`app/rust/src/ort_runtime.rs`, #87): the
+  `ort` crate (MIT OR Apache-2.0) sits behind the optional `ai` feature. It
+  loads models from memory, runs a single f32 input, and passes a host
+  Add-one ONNX fixture. `ai-nnapi` and `ai-coreml` gate the Android/iOS
+  execution providers.
+- **U²-NetP subject segmenter** (`app/rust/src/u2netp.rs`, #87): the
+  Apache-2.0 4.5 MB `u2netp.onnx` weights are compiled into the `ai` build,
+  run through ORT, and post-processed into a target-sized alpha mask.
+  `ai` builds prefer U²-NetP and fall back to the saliency segmenter if
+  inference is unavailable; default builds use saliency only.
+- **One-tap subject/background masks** with inverted-background selection
+  (#83/#89), now model-backed when `ai` is enabled.
 - **Classical Select Sky** (horizon + chromaticity, no model) as the free,
   deterministic sky path (#88).
 - **Intent-based AI masks + smart paste** (`AiMaskResolver`, FNV-1a result
@@ -67,13 +76,13 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
   weights, #87).
 
 **Pending**
-- The `ort` runtime crate and the U²-NetP **weights themselves are not yet a
-  dependency** — the `ai` feature is currently an empty gate, so no model file
-  ships. Runtime adoption is the next step behind the licensing ledger.
+- U²-NetP ships only in the optional `ai` build. Validate mask quality on real
+  photos and measure APK growth, cold-start, and NNAPI/CoreML latency before
+  any platform enables `ai` by default.
+- ORT mobile packaging: replace the development `download-binaries` path with
+  vendored native libraries for release/`ai` builds.
 - ML-based depth for lens blur (Depth Anything V2 small), YuNet face detection,
   learned auto-frame — each gated on verified per-model licenses.
-- The `THIRD_PARTY.md` table header still reads "planned / No model ships
-  yet" — accurate today, and it must flip the moment weights are bundled.
 
 ## Consequences
 
@@ -99,4 +108,4 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
   remain — each gated on verified per-model licenses.
 - Auto-straighten (classical) can land earlier, in the geometry work.
 - Seed `THIRD_PARTY.md` with the ML-models table (stub added; **U²-NetP row
-  adopted via #87** — the rest fill as each model is adopted).
+  bundled via #87** — the rest fill as each model is adopted).
