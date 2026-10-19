@@ -235,6 +235,119 @@ pub fn export_dng(raw_bytes: &[u8], xmp: &str) -> Result<Vec<u8>, String> {
     Ok(buf.into_inner())
 }
 
+/// Exports RGBA8 pixels as an uncompressed 16-bit-per-channel TIFF.
+///
+/// Each 8-bit channel is promoted to 16-bit by left-shifting (v << 8),
+/// preserving the full 16-bit container for downstream tools that expect
+/// 16-bit TIFF even when the source pipeline is 8-bit.
+pub fn export_tiff16(rgba: &[u8], width: u32, height: u32, _xmp: &str) -> Result<Vec<u8>, String> {
+    if width == 0 || height == 0 {
+        return Err("TIFF export requires non-zero dimensions".into());
+    }
+    let w = width as usize;
+    let h = height as usize;
+    if rgba.len() < w * h * 4 {
+        return Err("RGBA buffer too small for dimensions".into());
+    }
+
+    let row_bytes = w * 3 * 2; // 3 channels * 2 bytes (16-bit)
+    let image_bytes = row_bytes * h;
+
+    let header_size = 8u32;
+    let ifd0_offset = header_size;
+    let num_entries = 12u16;
+    let ifd_entry_size = 12u16;
+    let next_ifd_offset = 0u32;
+    let ifd0_size = 2 + num_entries as usize * ifd_entry_size as usize + 4;
+    let data_offset = ifd0_offset + ifd0_size as u32;
+
+    let bits_per_sample_data = [16u16, 16u16, 16u16]; // 6 bytes
+
+    let bps_offset = data_offset;
+    let x_res_offset = bps_offset + bits_per_sample_data.len() as u32 * 2;
+    let y_res_offset = x_res_offset + 8;
+    let strip_offset = y_res_offset + 8;
+
+    // Build IFD0 entries
+    let mut ifd = Vec::with_capacity(num_entries as usize * ifd_entry_size as usize);
+
+    macro_rules! ifd_entry {
+        ($tag:expr, $type:expr, $count:expr, $val_or_offset:expr) => {
+            ifd.extend_from_slice(&($tag as u16).to_le_bytes());
+            ifd.extend_from_slice(&($type as u16).to_le_bytes());
+            ifd.extend_from_slice(&($count as u32).to_le_bytes());
+            ifd.extend_from_slice(&($val_or_offset as u32).to_le_bytes());
+        };
+    }
+
+    // 256 ImageWidth (SHORT, 1)
+    ifd_entry!(256, 3, 1, width);
+    // 257 ImageLength (SHORT, 1)
+    ifd_entry!(257, 3, 1, height);
+    // 258 BitsPerSample (SHORT, 3) -> offset to data
+    ifd_entry!(258, 3, 3, bps_offset);
+    // 259 Compression (SHORT, 1) = 1 (uncompressed)
+    ifd_entry!(259, 3, 1, 1u32);
+    // 262 PhotometricInterpretation (SHORT, 1) = 2 (RGB)
+    ifd_entry!(262, 3, 1, 2u32);
+    // 273 StripOffsets (LONG, 1)
+    ifd_entry!(273, 4, 1, strip_offset);
+    // 277 SamplesPerPixel (SHORT, 1) = 3
+    ifd_entry!(277, 3, 1, 3u32);
+    // 278 RowsPerStrip (LONG, 1)
+    ifd_entry!(278, 4, 1, h as u32);
+    // 279 StripByteCounts (LONG, 1)
+    ifd_entry!(279, 4, 1, image_bytes as u32);
+    // 282 XResolution (RATIONAL, 1) -> offset to data
+    ifd_entry!(282, 5, 1, x_res_offset);
+    // 283 YResolution (RATIONAL, 1) -> offset to data
+    ifd_entry!(283, 5, 1, y_res_offset);
+    // 296 ResolutionUnit (SHORT, 1) = 2 (inches)
+    ifd_entry!(296, 3, 1, 2u32);
+
+    if ifd.len() != num_entries as usize * ifd_entry_size as usize {
+        return Err("IFD entry count mismatch".into());
+    }
+
+    // Build the output buffer
+    let mut buf = Vec::with_capacity(strip_offset as usize + image_bytes);
+
+    // TIFF header
+    buf.extend_from_slice(b"II\x2a\x00"); // Little endian, magic 42
+    buf.extend_from_slice(&ifd0_offset.to_le_bytes()); // Offset to IFD0
+
+    // IFD0
+    buf.extend_from_slice(&num_entries.to_le_bytes());
+    buf.extend_from_slice(&ifd);
+    buf.extend_from_slice(&next_ifd_offset.to_le_bytes());
+
+    // Variable data: BitsPerSample
+    for &v in &bits_per_sample_data {
+        buf.extend_from_slice(&v.to_le_bytes());
+    }
+    // XResolution (72/1)
+    buf.extend_from_slice(&72u32.to_le_bytes());
+    buf.extend_from_slice(&1u32.to_le_bytes());
+    // YResolution (72/1)
+    buf.extend_from_slice(&72u32.to_le_bytes());
+    buf.extend_from_slice(&1u32.to_le_bytes());
+
+    // Image data: convert RGBA8 -> 16-bit RGB (drop alpha, v << 8)
+    for y in 0..h {
+        for x in 0..w {
+            let idx = (y * w + x) * 4;
+            let r = rgba[idx] as u16;
+            let g = rgba[idx + 1] as u16;
+            let b = rgba[idx + 2] as u16;
+            buf.extend_from_slice(&(r << 8).to_le_bytes());
+            buf.extend_from_slice(&(g << 8).to_le_bytes());
+            buf.extend_from_slice(&(b << 8).to_le_bytes());
+        }
+    }
+
+    Ok(buf)
+}
+
 fn flat_to_mat3(flat: &[f32]) -> Option<Mat3> {
     if flat.len() != 9 {
         return None;
@@ -2105,5 +2218,92 @@ pub(crate) mod tests {
         // Re-decode exported DNG and verify dimensions match
         let re_meta = metadata(&exported).expect("re-decoding exported DNG should succeed");
         assert_eq!((re_meta.width, re_meta.height), (8, 8));
+    }
+
+    #[test]
+    fn export_tiff16_produces_valid_16bit_tiff() {
+        // 4x4 image with known RGBA values
+        let mut rgba = Vec::new();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                rgba.push((x * 64) as u8);
+                rgba.push((y * 64) as u8);
+                rgba.push(128u8);
+                rgba.push(255u8);
+            }
+        }
+
+        let tiff = export_tiff16(&rgba, 4, 4, "").expect("export_tiff16 should succeed");
+
+        // Verify TIFF magic (little endian)
+        assert_eq!(&tiff[0..2], b"II");
+        assert_eq!(&tiff[2..4], &[42, 0]);
+
+        // Verify IFD0 offset points to IFD0
+        let ifd_offset = u32::from_le_bytes([tiff[4], tiff[5], tiff[6], tiff[7]]);
+        assert_eq!(ifd_offset, 8);
+
+        // Verify number of IFD entries
+        let num_entries = u16::from_le_bytes([tiff[8], tiff[9]]);
+        assert_eq!(num_entries, 12);
+
+        // Verify ImageWidth tag (256) = 4
+        // IFD entries start at byte 10
+        let entry0_tag = u16::from_le_bytes([tiff[10], tiff[11]]);
+        assert_eq!(entry0_tag, 256);
+        let entry0_val = u16::from_le_bytes([tiff[18], tiff[19]]);
+        assert_eq!(entry0_val, 4);
+
+        // Verify ImageLength tag (257) = 4
+        let entry1_tag = u16::from_le_bytes([tiff[22], tiff[23]]);
+        assert_eq!(entry1_tag, 257);
+        let entry1_val = u16::from_le_bytes([tiff[30], tiff[31]]);
+        assert_eq!(entry1_val, 4);
+
+        // Verify BitsPerSample tag (258) type SHORT(3), count 3
+        let entry2_tag = u16::from_le_bytes([tiff[34], tiff[35]]);
+        assert_eq!(entry2_tag, 258);
+        let entry2_type = u16::from_le_bytes([tiff[36], tiff[37]]);
+        assert_eq!(entry2_type, 3);
+        let entry2_count = u32::from_le_bytes([tiff[38], tiff[39], tiff[40], tiff[41]]);
+        assert_eq!(entry2_count, 3);
+
+        // Verify PhotometricInterpretation tag (262) = 2 (RGB)
+        for i in 0..num_entries as usize {
+            let off = 10 + i * 12;
+            let tag = u16::from_le_bytes([tiff[off], tiff[off + 1]]);
+            if tag == 262 {
+                let val = u16::from_le_bytes([tiff[off + 8], tiff[off + 9]]);
+                assert_eq!(val, 2, "PhotometricInterpretation must be RGB(2)");
+            }
+        }
+
+        // Verify strip byte counts = 4*4*3*2 = 96
+        for i in 0..num_entries as usize {
+            let off = 10 + i * 12;
+            let tag = u16::from_le_bytes([tiff[off], tiff[off + 1]]);
+            if tag == 279 {
+                let count = u32::from_le_bytes([
+                    tiff[off + 8],
+                    tiff[off + 9],
+                    tiff[off + 10],
+                    tiff[off + 11],
+                ]);
+                assert_eq!(count, 96, "StripByteCounts must be 96 bytes for 4x4 RGB16");
+            }
+        }
+
+        // Verify first pixel 16-bit data: R=0<<8=0, G=0<<8=0, B=128<<8=32768
+        let pixel0_start = 8 + 2 + 12 * 12 + 4 + 6 + 8 + 8; // header + count + entries + next_ifd + bps + xres + yres
+        let p0_r = u16::from_le_bytes([tiff[pixel0_start], tiff[pixel0_start + 1]]) as u32;
+        let p0_g = u16::from_le_bytes([tiff[pixel0_start + 2], tiff[pixel0_start + 3]]) as u32;
+        let p0_b = u16::from_le_bytes([tiff[pixel0_start + 4], tiff[pixel0_start + 5]]) as u32;
+        assert_eq!(p0_r, 0, "pixel0 R should be 0");
+        assert_eq!(p0_g, 0, "pixel0 G should be 0");
+        assert_eq!(p0_b, 32768, "pixel0 B should be 32768 (128 << 8)");
+
+        // Verify total length: header(8) + num_entries(2) + entries(144) + next_ifd(4) + bps(6) + xres(8) + yres(8) + image(96)
+        let expected_len = 8 + 2 + 12 * 12 + 4 + 6 + 8 + 8 + 4 * 4 * 3 * 2;
+        assert_eq!(tiff.len(), expected_len, "TIFF length mismatch");
     }
 }
