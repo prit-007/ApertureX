@@ -198,24 +198,28 @@ Each workstream lists its goal, the exact files, and its issue(s).
 - `whites`/`blacks` schema fields exist but are not rendered; vibrance is generic, not Adobe skin-tone-weighted.
 - Files: `app/rust/src/color.rs`, `app/lib/edit/recipe.dart`, `app/lib/color/grade_spec.dart`.
 
-### W8 — Golden-image tolerance corpus (#60) — ⬜ NOT STARTED
-- `docs/GOLDEN.md` specification written; `app/test/color/golden_corpus_test.dart` scaffold exists; no checked-in reference images or CI gate.
-- Files: `app/test/color/`, `docs/GOLDEN.md`.
+### W8 — Golden-image tolerance corpus (#60) — ✅ DONE
+- `docs/GOLDEN.md` specification + `app/test/color/golden_corpus_test.dart` (Dart) + `golden` module in `app/rust/src/color.rs` with `generate_test_chart()` and `compare_golden()`.
+- Tolerance gates: mean ΔE₇₆ ≤ 1.0, max ΔE₇₆ ≤ 2.0, MAE ≤ 1/255, max byte diff ≤ 2.
+- Fixed recipe suite: Basic Panel, Tone Curves, HSL Mixer, Color Wheels/Split-Tone, Clarity, Dehaze.
+- Files: `app/test/color/golden_corpus_test.dart`, `app/rust/src/color.rs`, `docs/GOLDEN.md`.
 
 ### W9 — Persistence & preset breadth (#61, #62) — ✅ DONE (#62), ⬜ NOT STARTED (#61)
 - `.lrtemplate` parser + compatibility report done (#62).
 - Recipe sidecar persistence (#61) not implemented — `app/lib/edit/sidecar.dart` referenced but doesn't exist.
 - Files: `app/lib/edit/lrtemplate_preset.dart`, `app/lib/edit/xmp_preset.dart`.
 
-### W10 — RAW colour science (#64, #65, #66) — ⚠️ PARTIAL
-- `HueSatMap` struct + `sample`/`apply_to_rgb`/`interpolate` implemented + tested but **not parsed from DNG files** (#64).
+### W10 — RAW colour science (#64, #65, #66) — ✅ DONE (#64, #65), ⚠️ PARTIAL (#66)
+- `HueSatMap` struct + `sample`/`apply_to_rgb`/`interpolate` implemented + tested; **DNG HueSatMap parsing (tag 0xC74E) wired into `decode_from_raw`** and applied in both 3-component and Bayer decode paths (#64).
 - `reconstruct_highlights` implemented + tested (#65).
-- Lens correction primitives implemented at decode time but **not wired as user sliders**; EXIF passthrough on export not implemented (#66).
-- Files: `app/rust/src/raw.rs`, `app/rust/src/color.rs`, `app/rust/src/optics.rs`.
+- Lens correction primitives implemented at decode time; **wired as user sliders** in `OpticsControls` UI (defringe purple/green, profile distortion/vignetting) with full Dart→Rust pipeline (#66).
+- Files: `app/rust/src/raw.rs`, `app/rust/src/color.rs`, `app/rust/src/optics.rs`, `lib/ui/common/optics_controls.dart`.
 
-### W11 — License & packaging (#67) — ⬜ NOT STARTED
-- No dynamic linking configuration; no `build.rs`; no vendored crates committed for offline F-Droid builds; no LibRaw/lensfun rows in `THIRD_PARTY.md`.
-- Files: `app/rust/Cargo.toml`, `THIRD_PARTY.md`, platform build scripts.
+### W11 — License & packaging (#67) — ✅ NOT NEEDED (closed)
+- Decided: use only pure-Rust `rawler` (LGPL-2.1, GPL-3 compatible). No LibRaw/lensfun dynamic linking required.
+- `app/rust/Cargo.toml` has `rawer = "0.8.0"` as a static dependency; `raw-libraw` feature flag not enabled.
+- `THIRD_PARTY.md` documents the LGPL-2.1 compatibility reasoning.
+- Files: `app/rust/Cargo.toml`, `THIRD_PARTY.md`.
 
 ### W13 — Crash resilience & observability (ADR 0012)
 - **Pure error boundary**: `runZonedGuarded` + `FlutterError.onError` + `PlatformDispatcher.onError` (return true → app lives) + `ErrorWidget.builder` fallback; Rust panic hook; Kotlin channel `try/catch` audit + `AxApplication` uncaught handler with crash marker.
