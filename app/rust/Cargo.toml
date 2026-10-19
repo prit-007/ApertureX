@@ -26,10 +26,10 @@ rayon = "1.10"
 # ABI (see tool/ci/vendor_ort_android.sh). Host-side tests keep using the
 # `download-binaries` convenience because there is no Android/iOS lib to load.
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
-ort = { version = "=2.0.0-rc.15", optional = true, default-features = false, features = ["std", "load-dynamic", "api-22"] }
+ort = { version = "=2.0.0-rc.15", optional = true, default-features = false, features = ["std", "load-dynamic", "api-24"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-ort = { version = "=2.0.0-rc.15", optional = true, default-features = false, features = ["std", "download-binaries", "tls-rustls", "api-22"] }
+ort = { version = "=2.0.0-rc.15", optional = true, default-features = false, features = ["std", "download-binaries", "tls-rustls", "api-24"] }
 
 [features]
 # Optional LibRaw fallback for camera coverage. Off by default: the default
