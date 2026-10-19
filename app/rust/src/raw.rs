@@ -269,11 +269,13 @@ fn parse_hue_sat_map(data: &[u8]) -> Option<color::HueSatMap> {
     let mut offset = 12;
     for _ in 0..expected {
         let d1 = f64::from_be_bytes(data[offset..offset + 8].try_into().unwrap_or_default()) as f32;
-        let d2 = f64::from_be_bytes(data[offset + 8..offset + 16].try_into().unwrap_or_default())
-            as f32;
-        let d3 =
-            f64::from_be_bytes(data[offset + 16..offset + 24].try_into().unwrap_or_default())
-                as f32;
+        let d2 =
+            f64::from_be_bytes(data[offset + 8..offset + 16].try_into().unwrap_or_default()) as f32;
+        let d3 = f64::from_be_bytes(
+            data[offset + 16..offset + 24]
+                .try_into()
+                .unwrap_or_default(),
+        ) as f32;
         deltas.push(d1);
         deltas.push(d2);
         deltas.push(d3);
