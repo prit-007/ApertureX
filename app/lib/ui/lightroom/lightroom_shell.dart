@@ -682,10 +682,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             ),
             Expanded(
               child: switch (_lightColorTab) {
-                _LightColorSubTab.light => Column(
-                  children: [
-                    Expanded(child: ParameterPanel(section: RecipeSection.light)),
-                  ],
+                _LightColorSubTab.light => ParameterPanel(
+                  section: RecipeSection.light,
                 ),
                 _LightColorSubTab.color => ParameterPanel(section: RecipeSection.color),
                 _LightColorSubTab.curve => const ToneCurveEditor(),
@@ -883,7 +881,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     Widget tab(String label, T value, String keyName, bool isModified) {
       final selected = current == value;
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        // Tighter chip padding: 8px horizontal, 0 vertical
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
         child: ChoiceChip(
           label: Row(
             mainAxisSize: MainAxisSize.min,

@@ -13,16 +13,17 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Insets.lg, Insets.md, Insets.md, Insets.xs),
+      // Tightened spacing: 12px horizontal, minimal vertical
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Row(
         children: [
           Expanded(
             child: Text(
               title.toUpperCase(),
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: theme.colorScheme.primary, // Make headers pop using primary
                 letterSpacing: 1.2,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),

@@ -54,9 +54,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(container.read(recipeControllerProvider).recipe.blurEnabled, isTrue);
-    expect(find.byType(ParameterControl), findsNWidgets(4));
+    // 3 ParameterControls visible (blurAmount, blurFocalPoint, blurFocalRange)
+    // blurBokehBoost is inside collapsed Bokeh tile
+    expect(find.byType(ParameterControl), findsNWidgets(3));
 
-    // Verify all BokehShape chips are present
+    // Expand Bokeh tile to reveal blurBokehBoost
+    await tester.tap(find.byType(ExpansionTile).last);
+    await tester.pumpAndSettle();
+    expect(find.byType(ParameterControl), findsNWidgets(4));
     for (final shape in BokehShape.values) {
       expect(find.text(shape.label), findsOneWidget);
     }
@@ -71,7 +76,24 @@ void main() {
     );
   });
 
-  testWidgets('AI Depth Estimation chip is present and handles empty photo and active calibration', (tester) async {
+  testWidgets('BlurControls uses ExpansionTile accordion grouping', (
+    tester,
+  ) async {
+    await pumpBlurControls(tester);
+
+    // At least one ExpansionTile should exist (Lens Blur section)
+    expect(find.byType(ExpansionTile), findsAtLeastNWidgets(1));
+
+    // Lens Blur tile starts expanded
+    final lensBlurTile = tester.widget<ExpansionTile>(
+      find.byType(ExpansionTile).first,
+    );
+    expect(lensBlurTile.initiallyExpanded, isTrue);
+  });
+
+  testWidgets('AI Depth Estimation chip is present and handles empty photo', (
+    tester,
+  ) async {
     container.read(recipeControllerProvider.notifier).setBlurEnabled(true);
     await pumpBlurControls(tester);
 
@@ -131,6 +153,33 @@ void main() {
     expect(recipe.blurFocalRange, closeTo(0.27, 0.01));
     expect(recipe.blurAmount, 0.45);
     expect(find.textContaining('AI Depth calibrated'), findsOneWidget);
+  });
+
+  testWidgets('BlurControls bokeh chips use VisualDensity.compact', (
+    tester,
+  ) async {
+    container.read(recipeControllerProvider.notifier).setBlurEnabled(true);
+    await pumpBlurControls(tester);
+
+    // Expand the Bokeh tile to reveal chips
+    await tester.tap(find.byType(ExpansionTile).last);
+    await tester.pumpAndSettle();
+
+    // BokehShape choice chips should be compact
+    for (final shape in BokehShape.values) {
+      final chip = tester.widget<ChoiceChip>(
+        find.byWidgetPredicate(
+          (widget) {
+            if (widget is ChoiceChip) {
+              final label = widget.label;
+              return label is Text && label.data == shape.label;
+            }
+            return false;
+          },
+        ),
+      );
+      expect(chip.visualDensity, VisualDensity.compact);
+    }
   });
 }
 

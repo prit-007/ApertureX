@@ -11,7 +11,6 @@ import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
 import '../../settings/ai_consent.dart';
 import '../../src/rust/api/mask.dart' as rust_mask;
-import 'app_primitives.dart';
 import 'mask_controls.dart';
 import 'parameter_control.dart';
 
@@ -31,6 +30,9 @@ final subjectDetectorProvider = Provider<SubjectDetectorFn>((ref) {
 });
 
 /// Blur controls: depth-aware synthetic aperture, focal point/range, bokeh blade shapes, and specular highlight boost.
+///
+/// Organized into collapsible ExpansionTile groups with compact chips so the
+/// sheet stays uncluttered even when all blur options are engaged.
 class BlurControls extends ConsumerWidget {
   const BlurControls({super.key});
 
@@ -42,119 +44,171 @@ class BlurControls extends ConsumerWidget {
     final currentShapeIndex = recipe.blurBokehShape.clamp(0, BokehShape.values.length - 1);
     final currentShape = BokehShape.values[currentShapeIndex];
 
-    return ListView(
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-      padding: const EdgeInsets.only(bottom: 16),
-      children: [
-        const SectionHeader('Lens Blur'),
-        SwitchListTile(
-          title: const Text('Depth-Aware Lens Blur'),
-          subtitle: const Text('Simulate optical depth-of-field and aperture bokeh'),
-          value: recipe.blurEnabled,
-          onChanged: (val) {
-            notifier.setBlurEnabled(val);
-          },
+    return Theme(
+      data: Theme.of(context).copyWith(
+        dividerColor: Colors.transparent,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        expansionTileTheme: const ExpansionTileThemeData(
+          shape: RoundedRectangleBorder(),
+          collapsedShape: RoundedRectangleBorder(),
+          tilePadding: EdgeInsets.symmetric(horizontal: 12, vertical: 0),
         ),
-        if (recipe.blurEnabled) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ActionChip(
-                  key: const Key('blur-ai-depth'),
-                  avatar: const Icon(Icons.psychology, size: 16),
-                  label: const Text('AI Depth Estimation'),
-                  onPressed: () async {
-                    final bytes = ref.read(activeImageBytesProvider);
-                    if (bytes == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('No photo loaded to analyze depth')),
-                      );
-                      return;
-                    }
-                    final consent = await ref
-                        .read(aiConsentProvider.notifier)
-                        .requestConsentDialog(context);
-                    if (!consent) return;
+      ),
+      child: ListView(
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        padding: const EdgeInsets.only(bottom: 12),
+        children: [
+          ExpansionTile(
+            initiallyExpanded: true,
+            title: _PanelTitle('Lens Blur'),
+            children: [
+              SwitchListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                title: const Text('Depth-Aware Lens Blur'),
+                subtitle: const Text('Simulate optical depth-of-field and aperture bokeh'),
+                visualDensity: VisualDensity.compact,
+                value: recipe.blurEnabled,
+                onChanged: (val) {
+                  notifier.setBlurEnabled(val);
+                },
+              ),
+              if (recipe.blurEnabled)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+      child: ActionChip(
+        key: const Key('blur-ai-depth'),
+        visualDensity: VisualDensity.compact,
+        avatar: const Icon(Icons.psychology, size: 14),
+        label: const Text('AI Depth Calibration', style: TextStyle(fontSize: 12)),
+                      onPressed: () async {
+                        final bytes = ref.read(activeImageBytesProvider);
+                        if (bytes == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('No photo loaded to analyze depth')),
+                          );
+                          return;
+                        }
+                        final consent = await ref
+                            .read(aiConsentProvider.notifier)
+                            .requestConsentDialog(context);
+                        if (!consent) return;
 
-                    ref.read(aiMaskInferringProvider.notifier).setInferring(true);
-                    ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
-                      'AI Depth: Analyzing depth & subject focus… Please wait a moment',
-                    );
-                    try {
-                      final detector = ref.read(subjectDetectorProvider);
-                      final subject = await detector(bytes);
-                      final focalPoint = subject != null
-                          ? (0.25 + 0.40 * subject.cy).clamp(0.20, 0.80)
-                          : 0.40;
-                      final focalRange = subject != null
-                          ? (subject.ry * 0.90).clamp(0.15, 0.40)
-                          : 0.25;
-
-                      HapticFeedback.selectionClick();
-                      if (recipe.blurAmount < 0.20) {
-                        notifier.update(Parameter.blurAmount, 0.45);
-                      }
-                      notifier.update(Parameter.blurFocalPoint, focalPoint);
-                      notifier.update(Parameter.blurFocalRange, focalRange);
-                      notifier.commit(label: 'AI Depth Calibration');
-
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'AI Depth calibrated: focal point ${(focalPoint * 100).round()}%, range ${(focalRange * 100).round()}%',
-                            ),
-                          ),
+                        ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+                        ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+                          'AI Depth: Analyzing depth & subject focus… Please wait a moment',
                         );
-                      }
-                    } catch (_) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('AI Depth analysis failed; keeping current plane'),
-                          ),
-                        );
-                      }
-                    } finally {
-                      ref.read(aiMaskInferringProvider.notifier).setInferring(false);
-                      ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SectionHeader('Focus & Depth'),
-          const ParameterControl(parameter: Parameter.blurAmount),
-          const ParameterControl(parameter: Parameter.blurFocalPoint),
-          const ParameterControl(parameter: Parameter.blurFocalRange),
-          const SectionHeader('Bokeh Shape'),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final shape in BokehShape.values)
-                  ChoiceChip(
-                    label: Text(shape.label),
-                    selected: shape == currentShape,
-                    onSelected: (selected) {
-                      if (selected) {
-                        notifier.setBlurBokehShape(shape.index);
-                      }
-                    },
+                        try {
+                          final detector = ref.read(subjectDetectorProvider);
+                          final subject = await detector(bytes);
+                          final focalPoint = subject != null
+                              ? (0.25 + 0.40 * subject.cy).clamp(0.20, 0.80)
+                              : 0.40;
+                          final focalRange = subject != null
+                              ? (subject.ry * 0.90).clamp(0.15, 0.40)
+                              : 0.25;
+
+                          HapticFeedback.selectionClick();
+                          if (recipe.blurAmount < 0.20) {
+                            notifier.update(Parameter.blurAmount, 0.45);
+                          }
+                          notifier.update(Parameter.blurFocalPoint, focalPoint);
+                          notifier.update(Parameter.blurFocalRange, focalRange);
+                          notifier.commit(label: 'AI Depth Calibration');
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'AI Depth calibrated: focal point ${(focalPoint * 100).round()}%, range ${(focalRange * 100).round()}%',
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (_) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('AI Depth analysis failed; keeping current plane'),
+                              ),
+                            );
+                          }
+                        } finally {
+                          ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+                          ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+                        }
+                      },
+                    ),
                   ),
+                ),
+              if (recipe.blurEnabled) ...[
+                const _ParamPad(Parameter.blurAmount),
+                const _ParamPad(Parameter.blurFocalPoint),
+                const _ParamPad(Parameter.blurFocalRange),
+              ],
+            ],
+          ),
+          if (recipe.blurEnabled) ...[
+            ExpansionTile(
+              initiallyExpanded: false, // Collapsed by default to save space!
+              title: _PanelTitle('Bokeh Shape & Specular'),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final shape in BokehShape.values)
+                        ChoiceChip(
+                          visualDensity: VisualDensity.compact,
+                          label: Text(shape.label, style: const TextStyle(fontSize: 11)),
+                          selected: shape == currentShape,
+                          onSelected: (selected) {
+                            if (selected) {
+                              notifier.setBlurBokehShape(shape.index);
+                            }
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+                const _ParamPad(Parameter.blurBokehBoost),
               ],
             ),
-          ),
-          const SectionHeader('Specular Highlights'),
-          const ParameterControl(parameter: Parameter.blurBokehBoost),
+          ],
         ],
-      ],
+      ),
     );
   }
+}
+
+/// Uppercase section title used inside BlurControls ExpansionTiles.
+class _PanelTitle extends StatelessWidget {
+  final String title;
+  const _PanelTitle(this.title);
+
+  @override
+  Widget build(BuildContext context) => Text(
+        title.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          letterSpacing: 1.2,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      );
+}
+
+/// Pads a ParameterControl with tight 12px horizontal, 2px vertical spacing.
+class _ParamPad extends StatelessWidget {
+  final Parameter param;
+  const _ParamPad(this.param);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        child: ParameterControl(parameter: param),
+      );
 }
