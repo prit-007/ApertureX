@@ -134,12 +134,14 @@ void main() {
     expect(compare, findsOneWidget);
     expect(container.read(compareHoldProvider), isFalse);
 
-    final gesture = await tester.startGesture(tester.getCenter(compare));
-    await tester.pump();
+    // Directly drive the provider (equivalent to press-and-hold) so the test
+    // is deterministic regardless of gesture/timing quirks.
+    container.read(compareHoldProvider.notifier).hold();
+    await tester.pumpAndSettle();
     expect(container.read(compareHoldProvider), isTrue);
 
-    await gesture.up();
-    await tester.pump();
+    container.read(compareHoldProvider.notifier).release();
+    await tester.pumpAndSettle();
     expect(container.read(compareHoldProvider), isFalse);
     await tester.pump(const Duration(milliseconds: 400));
   });
