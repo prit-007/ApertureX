@@ -1,7 +1,7 @@
 # ApertureX
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Status](https://img.shields.io/badge/status-v0.2.0-blue.svg)](docs/ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-v0.2.3-blue.svg)](docs/ROADMAP.md)
 [![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-lightgrey.svg)](#)
 [![Website](https://img.shields.io/badge/website-prit--007.github.io%2FApertureX-6BEAF7)](https://prit-007.github.io/ApertureX/)
 [![100% Offline](https://img.shields.io/badge/100%25-Offline-green.svg)](#privacy)
@@ -14,7 +14,7 @@
   <img src="app/icons/app_icon.png" alt="ApertureX app icon — a camera-aperture shutter mark on a dark field" width="192">
 </p>
 
-> **Status: v0.2.0 (Major Milestone Release).** Both UI shells
+> **Status: v0.2.3 (Release).** Both UI shells
 > (Lightroom panels + Snapseed gestures) run over one shared recipe; the Rust
 > engine carries the full color/spatial/geometry pipeline plus the **complete
 > local-adjustment stack**: 7 mask kinds (linear/radial/luminance/brush/bitmap +
@@ -33,7 +33,7 @@
 > - **Translucent Glassmorphism:** Real-time backdrop-blur HUD overlays that preserve uninhibited photo viewing.
 > - **Zero-Telemetry Offline Integrity:** 100% local SQLite/Drift database, zero network calls unless explicitly requested by the user.
 >
-> Verified across 845 Dart tests, 267 Rust tests (including 7 golden fixture corpus tests), and 0 analyzer lints. See [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`docs/PARITY.md`](docs/PARITY.md).
+> Verified across 1045 Dart tests, 320 Rust tests (including 7 golden fixture corpus tests), and 0 analyzer lints. See [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`docs/PARITY.md`](docs/PARITY.md).
 
 > **Naming:** the product is **ApertureX** and every identifier is canonical:
 > Dart package `aperturex`, applicationId/bundle id `com.devparadise.aperturex`,

@@ -5,14 +5,14 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status (2026-10-17):**
+**Current status (2026-10-19):**
 
 - **P-1 ✅ · P0 ✅** — spike folded into `app/`; foundations green (repo, CI,
   Material 3 shell, bridge typed + byte-buffer round-trip).
 - **P1 🚧** — viewport + tile compositor + zero-copy preview (Android) +
   high-zoom ROI overlay + tile pyramid + EditRecipe v1 + JPEG export + SIMD
   spatial (#56) done; >100 MP corpus/harness written. **Remaining:** on-device
-  corpus run, iOS texture registration, device-tier probe (#16).
+  corpus run (#16), iOS texture registration (#16), device-tier probe (#16).
 - **P2 ✅ → complete** — recipe superset, dual-shell skeleton, full
   point-wise colour pipeline + spatial + geometry, preset/LUT/`.xmp` import,
   live histogram, preview==export. Every prior gap is now closed: whites/
@@ -45,7 +45,7 @@ Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress �
   APKs) + green unsigned iOS build on macOS (#70); **in-app GitHub Releases OTA
   updater** ("Metrolist-style" live APK update manager) + **ApertureX Academy &
   Interactive Tool Guide**; LGPL vendor packaging & checksum verification (#67/#69).
-  **Remaining:** F-Droid index submission.
+  **Remaining:** F-Droid index submission (#69).
 - **P6 🚧** — healing/spot removal landed (retouch engine + overlay UI),
   lossless DNG export (#79) complete, Lensfun hardware database & EXIF inspector (#85)
   complete, Google Photos-style staggered grid & album groupings complete.
