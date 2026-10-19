@@ -12,13 +12,29 @@ use ort::value::Tensor;
 
 static ENVIRONMENT: OnceLock<Result<Environment, String>> = OnceLock::new();
 
+#[cfg(any(target_os = "android", target_os = "ios"))]
+fn init_environment() -> Result<Environment, String> {
+    let library = if cfg!(target_os = "android") {
+        "libonnxruntime.so"
+    } else {
+        "libonnxruntime.dylib"
+    };
+    ort::init_from(library)
+        .map_err(|e| format!("ONNX Runtime native library unavailable: {e}"))?
+        .build()
+        .map_err(|e| format!("ONNX Runtime init failed: {e}"))
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn init_environment() -> Result<Environment, String> {
+    ort::init()
+        .build()
+        .map_err(|e| format!("ONNX Runtime init failed: {e}"))
+}
+
 fn environment() -> Result<&'static Environment, String> {
     ENVIRONMENT
-        .get_or_init(|| {
-            ort::init()
-                .build()
-                .map_err(|e| format!("ONNX Runtime init failed: {e}"))
-        })
+        .get_or_init(init_environment)
         .as_ref()
         .map_err(Clone::clone)
 }
@@ -51,11 +67,7 @@ pub(crate) fn create_session(model: &[u8]) -> Result<Session, String> {
         .map_err(|e| format!("ONNX Runtime model load failed: {e}"))
 }
 
-pub(crate) fn run_session(
-    session: &mut Session,
-    input: &[f32],
-    shape: &[usize],
-) -> Result<Vec<f32>, String> {
+fn validate_input(input: &[f32], shape: &[usize]) -> Result<(), String> {
     let expected = shape
         .iter()
         .try_fold(1usize, |acc, &dim| acc.checked_mul(dim))
@@ -66,16 +78,46 @@ pub(crate) fn run_session(
             input.len()
         ));
     }
+    Ok(())
+}
+
+/// Runs a single-input f32 model and returns every output tensor by name.
+///
+/// Multi-head models (e.g. YuNet's 12 detection heads) need all outputs, not
+/// just the first one.
+pub(crate) fn run_session_all(
+    session: &mut Session,
+    input: &[f32],
+    shape: &[usize],
+) -> Result<Vec<(String, Vec<f32>)>, String> {
+    validate_input(input, shape)?;
 
     let tensor = Tensor::from_array((shape.to_vec(), input.to_vec()))
         .map_err(|e| format!("ONNX Runtime input tensor failed: {e}"))?;
     let outputs = session
         .run(ort::inputs![tensor])
         .map_err(|e| format!("ONNX Runtime inference failed: {e}"))?;
-    let (_, data) = outputs[0]
-        .try_extract_tensor::<f32>()
-        .map_err(|e| format!("ONNX Runtime output tensor failed: {e}"))?;
-    Ok(data.to_vec())
+
+    let mut result = Vec::with_capacity(outputs.len());
+    for (name, value) in outputs.iter() {
+        let (_, data) = value
+            .try_extract_tensor::<f32>()
+            .map_err(|e| format!("ONNX Runtime output '{name}' failed: {e}"))?;
+        result.push((name.to_string(), data.to_vec()));
+    }
+    if result.is_empty() {
+        return Err("ONNX Runtime model returned no outputs".into());
+    }
+    Ok(result)
+}
+
+pub(crate) fn run_session(
+    session: &mut Session,
+    input: &[f32],
+    shape: &[usize],
+) -> Result<Vec<f32>, String> {
+    let mut outputs = run_session_all(session, input, shape)?;
+    Ok(outputs.remove(0).1)
 }
 
 /// Runs a single-input, single-output f32 ONNX model and returns the first

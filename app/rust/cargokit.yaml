@@ -1,0 +1,13 @@
+cargo:
+  debug:
+    extra_flags:
+      - --features
+      - ai
+  profile:
+    extra_flags:
+      - --features
+      - ai
+  release:
+    extra_flags:
+      - --features
+      - ai

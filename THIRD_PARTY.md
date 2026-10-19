@@ -45,14 +45,15 @@ preserving rawler's notice.
 permits use in free and proprietary software provided the IJG notice is carried.
 The IJG notice must be included in the app's license bundle.
 
-### Optional ONNX Runtime Mobile — not in the default build
+### Optional ONNX Runtime Mobile — release builds
 
 The `ai` cargo feature links [`ort`](https://crates.io/crates/ort) against
-ONNX Runtime (MIT). The `ort` crate's `download-binaries` convenience is for
-development only: release and F-Droid builds must vendor the native ORT
-libraries and build without network access. The optional `ai` build also
-compiles in the U²-NetP weights listed below; the default build contains
-neither the runtime nor the model.
+ONNX Runtime (MIT). Plain `cargo` builds leave it off; Flutter builds enable it
+through `app/rust/cargokit.yaml`. Android release APKs load a vendored
+`libonnxruntime.so` at runtime (`ort/load-dynamic`) and contain the model
+weights below, so the build needs no network. Host tests use the
+`download-binaries` convenience because there is no Android/iOS library to
+load.
 
 ### Optional native fallback (LibRaw / lensfun) — not in the default build
 
@@ -106,12 +107,13 @@ above with their notices.
 
 Every model added to the optional AI module **must** get a row here — with its
 **weights** license verified (not just the code) — before it is adopted. This is
-a hard gate (ADR 0010). Bundled weights are compiled only with `--features ai`;
-the default APK ships none.
+a hard gate (ADR 0010). Bundled weights compile only with `--features ai`;
+plain Cargo builds ship none, while Flutter release builds enable `ai`.
 
 | Model | Purpose | Runtime | Code license | Weights license | Source | Status |
 |---|---|---|---|---|---|---|
-| U²-NetP | Salient object / subject mask | ONNX RT / in-tree | Apache-2.0 | Apache-2.0 | [xuebinqin/U-2-Net](https://github.com/xuebinqin/U-2-Net) | Bundled behind `ai` (#87) |
+| U²-NetP | Salient object / subject mask | ONNX RT / in-tree | Apache-2.0 | Apache-2.0 | [xuebinqin/U-2-Net](https://github.com/xuebinqin/U-2-Net) | Bundled in `ai` builds (#87) |
+| YuNet (2023mar) | Face detection for subject placement | ONNX RT / in-tree | MIT | MIT | [opencv/opencv_zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) | Bundled in `ai` builds (#87) |
 
 Bundled file: `app/rust/assets/models/u2netp.onnx` (4,574,861 bytes,
 SHA-256 `309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8`).
@@ -121,10 +123,18 @@ The ONNX export is the original U²-NetP weights republished in the
 `[1,3,320,320]` with ImageNet normalization; the first of the seven outputs is
 the fused saliency map.
 
+Bundled file: `app/rust/assets/models/face_detection_yunet_2023mar.onnx`
+(232,589 bytes, SHA-256
+`8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4`). The
+[`opencv_zoo` YuNet directory](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
+is MIT-licensed, including the 2023mar ONNX weights. Input is BGR
+`[1,3,640,640]` in `0..255`; the 12 `cls`/`obj`/`bbox`/`kps` heads are decoded
+with the upstream grid formula and greedy NMS.
+
 Candidate models (verify each model's weights license before adoption):
 MobileSAM / SAM 2 small (tap-select), U²-Net-style salient (auto subject), sky
-segmentation, MODNet-class matting, Depth Anything V2 small (depth), YuNet (face,
-MIT). Explicitly avoided: RMBG (non-commercial).
+segmentation, MODNet-class matting, Depth Anything V2 small (depth). Explicitly
+avoided: RMBG (non-commercial).
 
 ---
 

@@ -50,17 +50,26 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
 **Shipped**
 - `Segmenter` trait + tensor pre/post-processing pipeline in
   `app/rust/src/ml.rs` (#87). The trait and deterministic fallback always
-  build; ORT, native ML libraries, and weights only build with `ai`.
+  build; ORT, native ML libraries, and weights only build with `ai`, which
+  `app/rust/cargokit.yaml` enables for Flutter debug/profile/release builds.
 - **ONNX Runtime Mobile backend** (`app/rust/src/ort_runtime.rs`, #87): the
   `ort` crate (MIT OR Apache-2.0) sits behind the optional `ai` feature. It
   loads models from memory, runs a single f32 input, and passes a host
   Add-one ONNX fixture. `ai-nnapi` and `ai-coreml` gate the Android/iOS
-  execution providers.
+  execution providers. Android ships the pinned ORT 1.22 `libonnxruntime.so`
+  in `app/android/app/src/main/jniLibs/` and loads it dynamically; iOS loads a
+  dylib when packaged and otherwise falls back to saliency.
 - **U²-NetP subject segmenter** (`app/rust/src/u2netp.rs`, #87): the
   Apache-2.0 4.5 MB `u2netp.onnx` weights are compiled into the `ai` build,
   run through ORT, and post-processed into a target-sized alpha mask.
   `ai` builds prefer U²-NetP and fall back to the saliency segmenter if
   inference is unavailable; default builds use saliency only.
+- **YuNet face detector** (`app/rust/src/yunet.rs`, #87): the MIT-licensed
+  2023mar `face_detection_yunet_2023mar.onnx` model runs on the same ORT
+  session path. All 12 detection heads are decoded with the upstream grid
+  formula, filtered with greedy NMS, and the largest face seeds the auto
+  subject ellipse on portraits. If no face is found, `detect_subject` keeps
+  the deterministic saliency path.
 - **One-tap subject/background masks** with inverted-background selection
   (#83/#89), now model-backed when `ai` is enabled.
 - **Classical Select Sky** (horizon + chromaticity, no model) as the free,
@@ -72,17 +81,17 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
   boost) baked into the CPU preview base + export pipeline
   (`app/rust/src/blur.rs`, `app/rust/src/preview.rs`), shipping in P2 as a
   classical (non-ML) feature — **no model weights required**.
-- `THIRD_PARTY.md` ML table with the U²-NetP row (Apache-2.0 code *and*
-  weights, #87).
+- `THIRD_PARTY.md` ML table with the U²-NetP (Apache-2.0) and YuNet (MIT)
+  rows, covering code *and* weights (#87).
 
 **Pending**
-- U²-NetP ships only in the optional `ai` build. Validate mask quality on real
-  photos and measure APK growth, cold-start, and NNAPI/CoreML latency before
-  any platform enables `ai` by default.
-- ORT mobile packaging: replace the development `download-binaries` path with
-  vendored native libraries for release/`ai` builds.
-- ML-based depth for lens blur (Depth Anything V2 small), YuNet face detection,
-  learned auto-frame — each gated on verified per-model licenses.
+- Validate mask/face quality on real photos and measure APK growth, cold-start,
+  and NNAPI/CoreML latency on device.
+- iOS ORT packaging: the dynamic path is wired but no iOS runtime library is
+  bundled yet, so iOS currently uses the saliency fallback.
+- ML-based depth for lens blur (Depth Anything V2 small), learned auto-frame,
+  and real-photo validation of YuNet face placement — each gated on verified
+  per-model licenses.
 
 ## Consequences
 

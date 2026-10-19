@@ -28,3 +28,5 @@ pub mod u2netp;
 pub mod ultrahdr;
 pub mod validate;
 pub mod watermark;
+#[cfg(feature = "ai")]
+pub mod yunet;
