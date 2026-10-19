@@ -246,6 +246,42 @@ fn flat_to_mat3(flat: &[f32]) -> Option<Mat3> {
     ])
 }
 
+/// Parse a DCP ProfileHueSatMapData1 block (tag 0xC74E) into a HueSatMap.
+///
+/// Layout: HueDivs (u32 BE), SatDivs (u32 BE), ValDivs (u32 BE),
+/// then hue_divs * sat_divs * val_divs * 3 float64 BE values of
+/// [hue_shift_deg, sat_scale, val_scale] per cell.
+fn parse_hue_sat_map(data: &[u8]) -> Option<color::HueSatMap> {
+    if data.len() < 12 {
+        return None;
+    }
+    let hue_divs = u32::from_be_bytes(data[0..4].try_into().unwrap_or_default()) as usize;
+    let sat_divs = u32::from_be_bytes(data[4..8].try_into().unwrap_or_default()) as usize;
+    let val_divs = u32::from_be_bytes(data[8..12].try_into().unwrap_or_default()) as usize;
+    let expected = hue_divs * sat_divs * val_divs * 3;
+    if hue_divs == 0 || sat_divs == 0 || val_divs == 0 {
+        return None;
+    }
+    if data.len() < 12 + expected * 8 {
+        return None;
+    }
+    let mut deltas = Vec::with_capacity(expected);
+    let mut offset = 12;
+    for _ in 0..expected {
+        let d1 = f64::from_be_bytes(data[offset..offset + 8].try_into().unwrap_or_default()) as f32;
+        let d2 = f64::from_be_bytes(data[offset + 8..offset + 16].try_into().unwrap_or_default())
+            as f32;
+        let d3 =
+            f64::from_be_bytes(data[offset + 16..offset + 24].try_into().unwrap_or_default())
+                as f32;
+        deltas.push(d1);
+        deltas.push(d2);
+        deltas.push(d3);
+        offset += 24;
+    }
+    color::HueSatMap::new(hue_divs, sat_divs, val_divs, deltas)
+}
+
 fn parse_opcode_list(
     data: &[u8],
     lens_vignette: &mut Option<[f32; 3]>,
@@ -306,6 +342,7 @@ fn metadata_from_raw(raw: &rawler::rawimage::RawImage) -> RawMetadata {
 
     let mut lens_vignette = None;
     let mut lens_distortion = None;
+    let mut hue_sat_map = None;
 
     for tag in [0xC74Eu16, 0xC740u16, 0xC74Fu16] {
         if let Some(
@@ -313,7 +350,17 @@ fn metadata_from_raw(raw: &rawler::rawimage::RawImage) -> RawMetadata {
             | rawler::formats::tiff::value::Value::Undefined(bytes),
         ) = raw.dng_tags.get(&tag)
         {
-            parse_opcode_list(bytes, &mut lens_vignette, &mut lens_distortion);
+            match tag {
+                0xC74E => {
+                    // ProfileHueSatMapData1 — DCP HueSatMap
+                    if let Some(hsm) = parse_hue_sat_map(bytes) {
+                        hue_sat_map = Some(hsm);
+                    }
+                }
+                _ => {
+                    parse_opcode_list(bytes, &mut lens_vignette, &mut lens_distortion);
+                }
+            }
         }
     }
 
@@ -349,7 +396,7 @@ fn metadata_from_raw(raw: &rawler::rawimage::RawImage) -> RawMetadata {
         },
         wb_coeffs: raw.wb_coeffs,
         color_matrix,
-        hue_sat_map: None,
+        hue_sat_map,
         lens_vignette,
         lens_distortion,
         make,
@@ -420,6 +467,9 @@ fn decode_from_raw(raw: rawler::rawimage::RawImage) -> Result<RawLinearImage, St
             if let Some(k) = meta.lens_distortion {
                 lens::correct_distortion(&mut linear, &k);
             }
+            if let Some(hsm) = &meta.hue_sat_map {
+                hsm.apply_to_rgb(&mut linear.data);
+            }
             Ok(linear)
         }
         1 => {
@@ -452,6 +502,9 @@ fn decode_from_raw(raw: rawler::rawimage::RawImage) -> Result<RawLinearImage, St
             }
             if let Some(k) = meta.lens_distortion {
                 lens::correct_distortion(&mut linear, &k);
+            }
+            if let Some(hsm) = &meta.hue_sat_map {
+                hsm.apply_to_rgb(&mut linear.data);
             }
             Ok(linear)
         }
