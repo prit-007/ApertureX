@@ -550,30 +550,11 @@ pub struct DetectedSubject {
     pub feather: f32,
 }
 
-/// Automatically detects dominant subject center, radii, and feather.
-///
-/// With the optional `ai` feature, YuNet face detection runs first so portrait
-/// focus lands on the face; otherwise this uses spatial saliency and
-/// boundary-contrast priors.
+/// Automatically detects dominant subject center, radii, and feather using
+/// spatial saliency and boundary-contrast priors.
 pub fn detect_subject(rgba: &[u8], width: usize, height: usize) -> Option<DetectedSubject> {
     if width < 8 || height < 8 || rgba.len() < width * height * 4 {
         return None;
-    }
-
-    #[cfg(feature = "ai")]
-    if let Ok(Some(face)) = crate::yunet::detect_largest_face(rgba, width, height) {
-        let area = face.w * face.h;
-        if area > (width * height) as f32 * 0.005 {
-            let cx = ((face.x + face.w * 0.5) / width as f32).clamp(0.0, 1.0);
-            let cy = ((face.y + face.h * 0.5) / height as f32).clamp(0.0, 1.0);
-            return Some(DetectedSubject {
-                cx,
-                cy,
-                rx: (face.w / (2.0 * width as f32) * 1.8).clamp(0.12, 0.55),
-                ry: (face.h / (2.0 * height as f32) * 2.4).clamp(0.15, 0.65),
-                feather: 0.25,
-            });
-        }
     }
 
     // 1. Compute average boundary color (background prior)
