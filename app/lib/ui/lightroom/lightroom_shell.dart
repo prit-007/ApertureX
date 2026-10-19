@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -33,6 +35,12 @@ import '../common/looks_sheet.dart';
 import '../common/app_primitives.dart';
 import '../common/app_sheet.dart' show showAppSheet;
 import '../../edit/tool_definition.dart';
+
+/// Function signature for the Auto Tone analyzer, overridable in tests.
+typedef AutoToneFn = Future<Map<String, double>?> Function(Uint8List jpeg);
+
+/// Riverpod provider for Auto Tone analysis, overridable in tests.
+final autoToneProvider = Provider<AutoToneFn>((ref) => AxEngine.autoTone);
 
 enum MasterTab {
   lightColor,
@@ -494,7 +502,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                         if (bytes == null) return;
                         final notifier =
                             ref.read(recipeControllerProvider.notifier);
-                        final auto = await AxEngine.autoTone(bytes);
+                        final auto = await ref.read(autoToneProvider)(bytes);
                         if (auto == null) return;
                         notifier.update(
                             Parameter.exposure, auto['exposure'] as double);
@@ -508,6 +516,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                             Parameter.whites, auto['whites'] as double);
                         notifier.update(
                             Parameter.blacks, auto['blacks'] as double);
+                        notifier.update(
+                            Parameter.temperature, auto['temperature'] as double);
+                        notifier.update(
+                            Parameter.tint, auto['tint'] as double);
                         notifier.commit(label: 'Auto Tone');
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
