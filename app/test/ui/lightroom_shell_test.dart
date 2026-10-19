@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:aperturex/edit/active_image.dart';
 import 'package:aperturex/edit/parameter.dart';
 import 'package:aperturex/edit/recipe.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
@@ -57,6 +60,37 @@ void main() {
     ]) {
       expect(find.text(label), findsOneWidget, reason: 'missing $label Master Tab');
     }
+  });
+
+  testWidgets('Auto Tone applies white balance suggestions', (tester) async {
+    container = ProviderContainer(
+      overrides: [
+        autoToneProvider.overrideWithValue(
+          (_) async => {
+            'exposure': 0.4,
+            'contrast': 0.2,
+            'highlights': -0.3,
+            'shadows': 0.3,
+            'whites': 0.1,
+            'blacks': -0.1,
+            'temperature': 0.25,
+            'tint': -0.15,
+          },
+        ),
+      ],
+    );
+    container.read(activeImageBytesProvider.notifier).setBytes(Uint8List(1));
+    await pump(tester);
+
+    await tester.tap(
+      find.byTooltip('Auto Tone: analyze image and apply balanced adjustments'),
+    );
+    await tester.pumpAndSettle();
+
+    final recipe = container.read(recipeControllerProvider).recipe;
+    expect(recipe.exposure, closeTo(0.4, 1e-6));
+    expect(recipe.temperature, closeTo(0.25, 1e-6));
+    expect(recipe.tint, closeTo(-0.15, 1e-6));
   });
 
   testWidgets('Light & Color sub-tabs switch between Light, Color, Curve, Mix, and Grade', (
