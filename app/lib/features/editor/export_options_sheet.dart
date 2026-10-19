@@ -10,6 +10,7 @@ enum ExportAction {
   saveToApertureX,
   saveToPhotos,
   saveDngWithXmp,
+  saveTiff16,
   share,
   sharePresetCard,
 }
@@ -176,6 +177,15 @@ class _ExportOptionsSheetContentState
                     onTap: () =>
                         Navigator.of(context).pop(ExportAction.saveDngWithXmp),
                   ),
+                ListTile(
+                  leading: const Icon(Icons.image_outlined),
+                  title: const Text('Export TIFF 16-bit'),
+                  subtitle: const Text(
+                    'Uncompressed 16-bit-per-channel TIFF with full edit bake-in',
+                  ),
+                  onTap: () =>
+                      Navigator.of(context).pop(ExportAction.saveTiff16),
+                ),
                 ListTile(
                   leading: const Icon(Icons.share_outlined),
                   title: const Text('Share…'),

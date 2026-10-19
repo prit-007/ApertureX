@@ -1000,6 +1000,20 @@ class AxEngine {
   }) =>
       rust_export.exportRawDng(rawBytes: rawBytes, xmp: xmp);
 
+  /// Exports RGBA8 pixels as an uncompressed 16-bit-per-channel TIFF (#79).
+  static Future<Uint8List> exportTiff16({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    required String xmp,
+  }) =>
+      rust_export.exportTiff16(
+        rgba: rgba,
+        width: width,
+        height: height,
+        xmp: xmp,
+      );
+
   /// Creates an opaque cancel token for [exportJpegFull]. Call
   /// [exportCancelSet] to abort a running export, then [exportCancelDrop].
   static Future<int> exportCancelNew() async =>

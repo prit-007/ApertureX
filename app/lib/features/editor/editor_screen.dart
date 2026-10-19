@@ -220,6 +220,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       case ExportAction.saveDngWithXmp:
         await _exportDngToPhotos();
         break;
+      case ExportAction.saveTiff16:
+        await _exportTiff16ToPhotos();
+        break;
       case ExportAction.share:
         await _exportAndShare();
         break;
@@ -634,6 +637,109 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       axLog(LogDomain.export, 'DNG export failed: $e', level: LogLevel.error);
       messenger.showSnackBar(SnackBar(content: Text('DNG export failed: $e')));
     } finally {
+      if (mounted) {
+        setState(() {
+          _exporting = false;
+          _exportPhase = null;
+          _exportRenderFraction = 0;
+        });
+      }
+    }
+  }
+
+  Future<void> _exportTiff16ToPhotos() async {
+    final previewBytes = _bytes;
+    if (previewBytes == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+      setState(() {
+        _exporting = true;
+        _exportPhase = ExportPhase.loading;
+        _exportRenderFraction = 0;
+      });
+      var token = 0;
+      try {
+        final currentAsset = _currentAsset ?? widget.asset;
+        final bytes = currentAsset != null
+            ? await ref.read(gallerySourceProvider).loadImage(currentAsset.id)
+            : previewBytes;
+
+        if (bytes.isEmpty) throw StateError('The image could not be read.');
+
+        final recipe = ref.read(recipeControllerProvider).recipe;
+        final exif = bytes;
+        final settings = ref.read(exportSettingsProvider);
+
+      if (!mounted) return;
+      setState(() => _exportPhase = ExportPhase.rendering);
+
+      final decoded = await AxEngine.decodeJpegRgba(bytes);
+
+      // Bake all edits into a full-res JPEG, then decode back to RGBA for TIFF16 encode.
+      // (A direct RGBA export bridge can be added later to avoid the JPEG round-trip.)
+      final jpeg = await AxEngine.exportJpegFull(
+        rgba: decoded.rgba,
+        width: decoded.width,
+        height: decoded.height,
+        spec: GradeSpec.fromRecipe(recipe),
+        spatial: SpatialSpec.fromRecipe(recipe),
+        geometry: GeometrySpec.fromRecipe(recipe),
+        optics: OpticsSpec.fromRecipe(recipe),
+        blur: LensBlurSpec.fromRecipe(recipe),
+        layers: recipe.layers,
+        maskGroups: recipe.maskGroups,
+        exif: exif,
+        branding: null,
+        c2pa: null,
+        quality: settings.quality,
+        maxDim: settings.maxDim == 0 ? null : settings.maxDim,
+        cancelToken: token,
+        colorSpace: settings.colorSpace,
+        ultraHdr: false,
+        hdrHeadroom: settings.hdrHeadroom,
+      );
+      if (jpeg == null) {
+        axLog(LogDomain.export, 'TIFF16 export cancelled');
+        return;
+      }
+
+      final baked = await AxEngine.decodeJpegRgba(jpeg);
+      final xmp = writeXmp(recipe);
+      final tiff = await AxEngine.exportTiff16(
+        rgba: baked.rgba,
+        width: baked.width,
+        height: baked.height,
+        xmp: xmp,
+      );
+
+      if (!mounted) return;
+      setState(() => _exportPhase = ExportPhase.saving);
+      if (!await Gal.hasAccess()) await Gal.requestAccess();
+      final outName = 'aperturex_${DateTime.now().millisecondsSinceEpoch}';
+      final dir = await getTemporaryDirectory();
+      final tempFile = File('${dir.path}/$outName.tiff');
+      await tempFile.writeAsBytes(tiff, flush: true);
+      await Gal.putImage(tempFile.path);
+
+      await emitXmpSidecar(
+        ref.read(exportSidecarSinkProvider),
+        outName,
+        recipe,
+      );
+
+      axLog(
+        LogDomain.export,
+        'Exported TIFF 16-bit (${tiff.length} bytes)',
+      );
+      messenger.showSnackBar(
+        const SnackBar(content: Text('TIFF 16-bit saved to your photos')),
+      );
+    } catch (e) {
+      axLog(LogDomain.export, 'TIFF16 export failed: $e', level: LogLevel.error);
+      messenger.showSnackBar(SnackBar(content: Text('TIFF16 export failed: $e')));
+    } finally {
+      if (token != 0) {
+        await AxEngine.exportCancelDrop(token);
+      }
       if (mounted) {
         setState(() {
           _exporting = false;

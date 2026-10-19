@@ -13,6 +13,7 @@ pub const MASK_BRUSH: u32 = 3;
 pub const MASK_SUBJECT: u32 = 4;
 pub const MASK_SKY: u32 = 5;
 pub const MASK_BITMAP: u32 = 6;
+pub const MASK_COLOR_RANGE: u32 = 7;
 
 /// A parametric or bitmap mask.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -67,6 +68,23 @@ impl MaskSpec {
             params,
         }
     }
+
+    pub fn color_range(
+        target_hue: f32,
+        hue_width: f32,
+        sat_min: f32,
+        sat_max: f32,
+        lum_min: f32,
+        lum_max: f32,
+        softness: f32,
+    ) -> Self {
+        MaskSpec {
+            kind: MASK_COLOR_RANGE,
+            params: vec![
+                target_hue, hue_width, sat_min, sat_max, lum_min, lum_max, softness,
+            ],
+        }
+    }
 }
 
 /// Mask join operations for boolean coverage algebra (ADR 0013).
@@ -108,6 +126,40 @@ fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
     }
     let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
+}
+
+/// Converts RGB in [0, 1] to HSV (H in [0, 360), S in [0, 1], V in [0, 1]).
+fn rgb_to_hsv_local(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let delta = max - min;
+    let v = max;
+    let s = if max > 1e-6 { delta / max } else { 0.0 };
+    let h = if delta < 1e-6 {
+        0.0
+    } else if (max - r).abs() < 1e-6 {
+        60.0 * (((g - b) / delta).rem_euclid(6.0))
+    } else if (max - g).abs() < 1e-6 {
+        60.0 * (((b - r) / delta) + 2.0)
+    } else {
+        60.0 * (((r - g) / delta) + 4.0)
+    };
+    let h = if h < 0.0 { h + 360.0 } else { h };
+    (h, s, v)
+}
+
+/// Fades coverage from 1.0 to 0.0 over `softness` units outside the selected band.
+fn band_coverage(value: f32, lo: f32, hi: f32, softness: f32) -> f32 {
+    if value >= lo && value <= hi {
+        return 1.0;
+    }
+    let soft = softness.max(1e-4);
+    if value < lo {
+        let fade = (lo - value).max(0.0);
+        return (1.0 - smoothstep(0.0, soft, fade / soft)).max(0.0);
+    }
+    let fade = (value - hi).max(0.0);
+    (1.0 - smoothstep(0.0, soft, fade / soft)).max(0.0)
 }
 
 /// Computes the distance from `(u, v)` to a line segment `(x0, y0) -> (x1, y1)`
@@ -304,6 +356,34 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
             let c0 = c00 + (c10 - c00) * fx;
             let c1 = c01 + (c11 - c01) * fx;
             (c0 + (c1 - c0) * fy).clamp(0.0, 1.0)
+        }
+        // MASK_COLOR_RANGE: selects pixels whose HSV falls within target hue/sat/lum bands.
+        MASK_COLOR_RANGE => {
+            if p.len() < 7 {
+                return 0.0;
+            }
+            let target_hue = p[0].rem_euclid(360.0);
+            let hue_width = p[1].clamp(0.0, 180.0);
+            let sat_min = p[2].clamp(0.0, 1.0);
+            let sat_max = p[3].clamp(0.0, 1.0).max(sat_min);
+            let lum_min = p[4].clamp(0.0, 1.0);
+            let lum_max = p[5].clamp(0.0, 1.0).max(lum_min);
+            // Softness is expressed in hue degrees; saturation/luminance use
+            // the equivalent normalised width.
+            let softness = p[6].max(0.0);
+            let unit_softness = (softness / 360.0).clamp(1e-4, 0.5);
+
+            let (h, s, v) = rgb_to_hsv_local(rgb[0], rgb[1], rgb[2]);
+
+            // Hue coverage (circular distance from target hue).
+            let mut hue_dist = (h - target_hue).abs();
+            hue_dist = hue_dist.min(360.0 - hue_dist);
+            let hue_cov = band_coverage(hue_dist, 0.0, hue_width, softness);
+
+            let sat_cov = band_coverage(s, sat_min, sat_max, unit_softness);
+            let lum_cov = band_coverage(v, lum_min, lum_max, unit_softness);
+
+            hue_cov * sat_cov * lum_cov
         }
         // MASK_LINEAR: gradient from (x0,y0) to (x1,y1).
         MASK_LINEAR => {
@@ -1085,6 +1165,81 @@ mod tests {
         assert!((cov_half_hi - 0.5).abs() < 1e-3);
         assert_eq!(cov_outside_lo, 0.0);
         assert_eq!(cov_outside_hi, 0.0);
+    }
+
+    #[test]
+    fn color_range_mask_selects_target_hue() {
+        // Red target (hue=0, width=30) should select a pure red pixel fully.
+        let red = [1.0, 0.0, 0.0];
+        let cov_red = coverage_rgb(
+            MASK_COLOR_RANGE,
+            &[0.0, 30.0, 0.0, 1.0, 0.0, 1.0, 0.1],
+            0.0,
+            0.0,
+            0.3,
+            red,
+        );
+        assert!(
+            (cov_red - 1.0).abs() < 1e-3,
+            "red should be fully selected: {cov_red}"
+        );
+
+        // Green (hue=120) should not be selected by a red-target mask.
+        let green = [0.0, 1.0, 0.0];
+        let cov_green = coverage_rgb(
+            MASK_COLOR_RANGE,
+            &[0.0, 30.0, 0.0, 1.0, 0.0, 1.0, 0.1],
+            0.0,
+            0.0,
+            0.3,
+            green,
+        );
+        assert!(cov_green < 0.1, "green should not be selected: {cov_green}");
+
+        // Yellow (hue=60, dist=60 from red) with width=30 -> outside band.
+        let yellow = [1.0, 1.0, 0.0];
+        let cov_yellow = coverage_rgb(
+            MASK_COLOR_RANGE,
+            &[0.0, 30.0, 0.0, 1.0, 0.0, 1.0, 0.1],
+            0.0,
+            0.0,
+            0.3,
+            yellow,
+        );
+        assert!(
+            cov_yellow < 0.1,
+            "yellow should not be selected: {cov_yellow}"
+        );
+
+        // Low saturation should not be selected when sat_min > 0.
+        let pale = [0.5, 0.5, 0.5];
+        let cov_pale = coverage_rgb(
+            MASK_COLOR_RANGE,
+            &[0.0, 30.0, 0.5, 1.0, 0.0, 1.0, 0.1],
+            0.0,
+            0.0,
+            0.5,
+            pale,
+        );
+        assert!(
+            cov_pale < 0.1,
+            "pale gray should not be selected: {cov_pale}"
+        );
+    }
+
+    #[test]
+    fn color_range_mask_feathers_at_softness() {
+        // Hue 10 is 10 deg from target 0, width=5, softness=20 -> partial coverage.
+        let hue10 = [0.95, 0.3, 0.0]; // approx hue=10
+        let cov = coverage_rgb(
+            MASK_COLOR_RANGE,
+            &[0.0, 5.0, 0.0, 1.0, 0.0, 1.0, 20.0],
+            0.0,
+            0.0,
+            0.3,
+            hue10,
+        );
+        assert!(cov > 0.0 && cov < 1.0, "hue=10 should feather: {cov}");
     }
 
     /// A deterministic per-pixel ramp so mask coverage varies across the frame.

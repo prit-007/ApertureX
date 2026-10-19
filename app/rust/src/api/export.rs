@@ -41,6 +41,16 @@ pub fn export_raw_dng(raw_bytes: Vec<u8>, xmp: String) -> Result<Vec<u8>, String
     crate::raw::export_dng(&raw_bytes, &xmp)
 }
 
+/// Exports RGBA8 pixels as an uncompressed 16-bit-per-channel TIFF (#79).
+pub fn export_tiff16(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    xmp: String,
+) -> Result<Vec<u8>, String> {
+    crate::raw::export_tiff16(&rgba, width, height, &xmp)
+}
+
 /// Everything [`export_full`] bakes, in one bridge struct — geometry, spatial,
 /// and the encode knobs. Grade/curves/HSL/layers arrive as their own args so
 /// they reuse the existing bridge types.

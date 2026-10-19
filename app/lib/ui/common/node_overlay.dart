@@ -1003,6 +1003,7 @@ class _NodesPainter extends CustomPainter {
           }
 
         case MaskKind.luminance:
+        case MaskKind.colorRange:
           break;
 
         case MaskKind.bitmap:

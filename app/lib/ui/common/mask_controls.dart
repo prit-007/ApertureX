@@ -672,6 +672,7 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.subject, child: Text('Subject')),
                     PopupMenuItem(value: MaskKind.sky, child: Text('Sky')),
                     PopupMenuItem(value: MaskKind.luminance, child: Text('Luminance')),
+                    PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.add),
                   child: Chip(
@@ -691,6 +692,7 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.subject, child: Text('Subject')),
                     PopupMenuItem(value: MaskKind.sky, child: Text('Sky')),
                     PopupMenuItem(value: MaskKind.luminance, child: Text('Luminance')),
+                    PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.subtract),
                   child: Chip(
@@ -710,6 +712,7 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.subject, child: Text('Subject')),
                     PopupMenuItem(value: MaskKind.sky, child: Text('Sky')),
                     PopupMenuItem(value: MaskKind.luminance, child: Text('Luminance')),
+                    PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.intersect),
                   child: Chip(
@@ -1209,6 +1212,116 @@ class MaskControls extends ConsumerWidget {
                   ),
                 ),
               ],
+              if (layer.maskKind == MaskKind.colorRange) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'COLOR RANGE MASK',
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 1.0,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                _MaskSlider(
+                  label: 'Target Hue',
+                  sliderKey: const Key('mask-inline-color-hue-slider'),
+                  value: layer.colorRangeTargetHue,
+                  min: 0.0,
+                  max: 360.0,
+                  displayValue: '${layer.colorRangeTargetHue.round()}°',
+                  onChanged: (val) => notifier.updateLayerAt(
+                    i,
+                    layer.withColorRange(targetHue: val),
+                  ),
+                ),
+                _MaskSlider(
+                  label: 'Hue Width',
+                  sliderKey: const Key('mask-inline-color-width-slider'),
+                  value: layer.colorRangeHueWidth,
+                  min: 0.0,
+                  max: 180.0,
+                  displayValue: '${layer.colorRangeHueWidth.round()}°',
+                  onChanged: (val) => notifier.updateLayerAt(
+                    i,
+                    layer.withColorRange(hueWidth: val),
+                  ),
+                ),
+                _MaskSlider(
+                  label: 'Sat Min',
+                  sliderKey: const Key('mask-inline-color-sat-min-slider'),
+                  value: layer.colorRangeSatMin,
+                  min: 0.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(
+                    i,
+                    layer.withColorRange(satMin: val),
+                  ),
+                ),
+                _MaskSlider(
+                  label: 'Sat Max',
+                  sliderKey: const Key('mask-inline-color-sat-max-slider'),
+                  value: layer.colorRangeSatMax,
+                  min: 0.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(
+                    i,
+                    layer.withColorRange(satMax: val),
+                  ),
+                ),
+                _MaskSlider(
+                  label: 'Lum Min',
+                  sliderKey: const Key('mask-inline-color-lum-min-slider'),
+                  value: layer.colorRangeLumMin,
+                  min: 0.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(
+                    i,
+                    layer.withColorRange(lumMin: val),
+                  ),
+                ),
+                _MaskSlider(
+                  label: 'Lum Max',
+                  sliderKey: const Key('mask-inline-color-lum-max-slider'),
+                  value: layer.colorRangeLumMax,
+                  min: 0.0,
+                  max: 1.0,
+                  onChanged: (val) => notifier.updateLayerAt(
+                    i,
+                    layer.withColorRange(lumMax: val),
+                  ),
+                ),
+                _MaskSlider(
+                  label: 'Softness',
+                  sliderKey: const Key('mask-inline-color-softness-slider'),
+                  value: layer.colorRangeSoftness,
+                  min: 0.0,
+                  max: 0.5,
+                  onChanged: (val) => notifier.updateLayerAt(
+                    i,
+                    layer.withColorRange(softness: val),
+                  ),
+                ),
+                ActionChip(
+                  key: const Key('mask-inline-color-eyedropper'),
+                  avatar: const Icon(Icons.color_lens, size: 14),
+                  label: const Text('Sample Color', style: TextStyle(fontSize: 11)),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  onPressed: () {
+                    ref.read(nodeEditorProvider.notifier).enable();
+                    ref.read(nodeEditorProvider.notifier).select(i);
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Tap photo to sample target color'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              ],
               const SizedBox(height: 6),
               _MaskSlider(
                 label: 'Amount',
@@ -1523,6 +1636,14 @@ class MaskControls extends ConsumerWidget {
         joinOp: joinOp,
         exposure: exposure ?? 0.6,
       ),
+      MaskKind.colorRange => AdjustmentLayer(
+        maskKind: MaskKind.colorRange,
+        maskParams: const [0.0, 30.0, 0.0, 1.0, 0.0, 1.0, 0.1],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        saturation: 0.2,
+      ),
     };
 
     final idx = ref.read(recipeControllerProvider).recipe.layers.length;
@@ -1557,6 +1678,7 @@ class MaskControls extends ConsumerWidget {
     MaskKind.sky => Icons.cloud_outlined,
     MaskKind.luminance => Icons.dark_mode,
     MaskKind.bitmap => Icons.auto_awesome,
+    MaskKind.colorRange => Icons.color_lens,
   };
 
   static const List<String> _zoneRomans = [

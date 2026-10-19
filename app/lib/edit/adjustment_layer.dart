@@ -5,7 +5,7 @@ import 'dart:ui' show Offset;
 import 'package:flutter/foundation.dart' show listEquals;
 
 /// Mask kinds (must match the Rust `MASK_*` constants).
-enum MaskKind { linear, radial, luminance, brush, subject, sky, bitmap }
+enum MaskKind { linear, radial, luminance, brush, subject, sky, bitmap, colorRange }
 
 /// Mask boolean operations (ADR 0013, matches Rust `JOIN_*` constants).
 enum MaskJoinOp { add, subtract, intersect }
@@ -454,7 +454,8 @@ class AdjustmentLayer {
   /// linear `[x0,y0,x1,y1]`, radial `[cx,cy,rx,ry,feather]`, luminance `[lo,hi]`,
   /// brush `[radius, feather, count, x0, y0, p0, ...]`, subject `[cx,cy,rx,ry,feather]`,
   /// sky `[horizon_y, feather, blue_weight]`, bitmap `[width, height]` (the
-  /// alpha map itself lives in [maskBlob], compact per #86).
+  /// alpha map itself lives in [maskBlob], compact per #86),
+  /// colorRange `[targetHue, hueWidth, satMin, satMax, lumMin, lumMax, softness]`.
   final List<double> maskParams;
 
   /// For bitmap masks: quantized 8-bit alpha values, row-major, exactly
@@ -822,6 +823,65 @@ class AdjustmentLayer {
 
   /// For bitmap masks: pixel height of the alpha map.
   int get bitmapHeight => maskKind == MaskKind.bitmap && maskParams.length > 1 ? maskParams[1].toInt() : 0;
+
+  /// For colorRange masks: target hue in degrees [0, 360).
+  double get colorRangeTargetHue =>
+      maskKind == MaskKind.colorRange && maskParams.isNotEmpty ? maskParams[0] : 0.0;
+
+  /// For colorRange masks: hue width (half-band) in degrees [0, 180].
+  double get colorRangeHueWidth =>
+      maskKind == MaskKind.colorRange && maskParams.length > 1 ? maskParams[1] : 0.0;
+
+  /// For colorRange masks: minimum saturation [0, 1].
+  double get colorRangeSatMin =>
+      maskKind == MaskKind.colorRange && maskParams.length > 2 ? maskParams[2] : 0.0;
+
+  /// For colorRange masks: maximum saturation [0, 1].
+  double get colorRangeSatMax =>
+      maskKind == MaskKind.colorRange && maskParams.length > 3 ? maskParams[3] : 1.0;
+
+  /// For colorRange masks: minimum luminance [0, 1].
+  double get colorRangeLumMin =>
+      maskKind == MaskKind.colorRange && maskParams.length > 4 ? maskParams[4] : 0.0;
+
+  /// For colorRange masks: maximum luminance [0, 1].
+  double get colorRangeLumMax =>
+      maskKind == MaskKind.colorRange && maskParams.length > 5 ? maskParams[5] : 1.0;
+
+  /// For colorRange masks: softness falloff [0, 0.5].
+  double get colorRangeSoftness =>
+      maskKind == MaskKind.colorRange && maskParams.length > 6 ? maskParams[6] : 0.1;
+
+  /// Returns a copy with updated color range parameters.
+  AdjustmentLayer withColorRange({
+    double? targetHue,
+    double? hueWidth,
+    double? satMin,
+    double? satMax,
+    double? lumMin,
+    double? lumMax,
+    double? softness,
+  }) {
+    final newTargetHue = (targetHue ?? colorRangeTargetHue).remainder(360.0);
+    final newHueWidth = (hueWidth ?? colorRangeHueWidth).clamp(0.0, 180.0);
+    final newSatMin = (satMin ?? colorRangeSatMin).clamp(0.0, 1.0);
+    final newSatMax = math.max((satMax ?? colorRangeSatMax).clamp(0.0, 1.0), newSatMin);
+    final newLumMin = (lumMin ?? colorRangeLumMin).clamp(0.0, 1.0);
+    final newLumMax = math.max((lumMax ?? colorRangeLumMax).clamp(0.0, 1.0), newLumMin);
+    final newSoftness = (softness ?? colorRangeSoftness).clamp(0.0, 0.5);
+    return copyWith(
+      maskKind: MaskKind.colorRange,
+      maskParams: [
+        newTargetHue,
+        newHueWidth,
+        newSatMin,
+        newSatMax,
+        newLumMin,
+        newLumMax,
+        newSoftness,
+      ],
+    );
+  }
 
   /// Returns a new [MaskKind.bitmap] adjustment layer with the refined alpha plane
   /// while preserving all grading parameters, group bindings, and amount.

@@ -40,6 +40,19 @@ Future<Uint8List> exportRawDng({
   xmp: xmp,
 );
 
+/// Exports RGBA8 pixels as an uncompressed 16-bit-per-channel TIFF (#79).
+Future<Uint8List> exportTiff16({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required String xmp,
+}) => RustLib.instance.api.crateApiExportExportTiff16(
+  rgba: rgba,
+  width: width,
+  height: height,
+  xmp: xmp,
+);
+
 /// Creates a cancel token. Pass it to [`export_full`], call
 /// [`export_cancel_set`] from the UI to abort, then [`export_cancel_drop`].
 Future<BigInt> exportCancelNew() =>
