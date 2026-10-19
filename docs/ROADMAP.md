@@ -297,18 +297,19 @@ color wheels + Highlights/Shadows wiring (#94), the Refine Edge brush
 - Bundled small models in a **strippable module**; `THIRD_PARTY.md` ledger row
   per model.
 
-**Status — first slice shipped, runtime adoption pending.** Landed: the
-`Segmenter` trait + tensor pre/post-processing pipeline (ADR 0010, #87), an
-in-tree **SaliencySegmenter** powering one-tap subject/background masks with
+**Status — runtime and first model shipped.** Landed: the `Segmenter` trait +
+tensor pre/post-processing pipeline (ADR 0010, #87), an in-tree
+**SaliencySegmenter** powering one-tap subject/background masks with
 inverted-background selection (#83/#89), the intent-based AI mask resolver +
 smart paste with FNV-1a caching across photos (#96), a Settings consent
 provider / first-use dialog for F-Droid compliance, and the classical
-Select Sky fallback (#88) — all behind the `ai` cargo feature flag, with the
-base APK building without it. `THIRD_PARTY.md` carries the U²-NetP row
-(Apache-2.0, adopted via #87). **Remaining:** the `ort` runtime crate and the
-U²-NetP weights themselves (the `ai` feature is currently an empty gate —
-no model file ships yet), lens/background blur (in progress), YuNet face
-detection, and learned auto-frame.
+Select Sky fallback (#88). The optional `ai` build now adds the ONNX Runtime
+backend, NNAPI/CoreML provider hooks, and the bundled Apache-2.0 U²-NetP
+weights; subject masks and depth prefer U²-NetP and fall back to saliency.
+The default APK still ships without ORT or weights. `THIRD_PARTY.md` carries
+the U²-NetP row (Apache-2.0, bundled via #87). **Remaining:** vendor ORT
+native libraries for release/`ai` builds, device performance/quality
+validation, YuNet face detection, ML depth, and learned auto-frame.
 
 **Exit criteria**
 - Subject/sky masks usable in the Lightroom shell's Masking panel.

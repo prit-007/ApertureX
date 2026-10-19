@@ -1,8 +1,8 @@
 //! ONNX Runtime Mobile backend spike (ADR 0010, #87).
 //!
-//! This module is compiled only with the optional `ai` feature. It validates
-//! that the engine can create an ORT environment and run a model entirely
-//! in-memory — no model files, downloads, or telemetry at runtime.
+//! This module is compiled only with the optional `ai` feature. It creates an
+//! ORT environment and runs models loaded from embedded bytes — no model
+//! downloads or telemetry at runtime.
 
 use std::sync::OnceLock;
 

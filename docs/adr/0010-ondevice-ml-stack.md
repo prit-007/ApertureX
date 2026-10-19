@@ -108,4 +108,4 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
   remain — each gated on verified per-model licenses.
 - Auto-straighten (classical) can land earlier, in the geometry work.
 - Seed `THIRD_PARTY.md` with the ML-models table (stub added; **U²-NetP row
-  adopted via #87** — the rest fill as each model is adopted).
+  bundled via #87** — the rest fill as each model is adopted).
