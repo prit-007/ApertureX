@@ -1,0 +1,15 @@
+[package]
+name = "libraw"
+version = "0.1.1"
+authors = ["David Cuddeback <david.cuddeback@gmail.com>"]
+description = "Rust wrapper for libraw"
+homepage = "https://github.com/dcuddeback/libraw-rs"
+repository = "https://github.com/dcuddeback/libraw-rs"
+documentation = "http://dcuddeback.github.io/libraw-rs/libraw/"
+license = "MIT"
+readme = "README.md"
+keywords = ["libraw", "raw", "camera", "image"]
+
+[dependencies]
+libc = "0.2"
+libraw-sys = "0.1.1"
