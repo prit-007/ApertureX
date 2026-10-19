@@ -9,6 +9,7 @@ import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
+import '../../gallery/gallery_controller.dart' show gallerySourceProvider;
 import '../../settings/ai_consent.dart';
 import '../../viewport/canvas_transform.dart';
 import '../../viewport/mask_peek.dart';
@@ -67,6 +68,16 @@ final subjectDetectorProvider = Provider<SubjectDetectorFn>((ref) {
       height: decoded.height,
     );
   };
+});
+
+/// Function signature for extracting an embedded depth map from original bytes.
+typedef EmbeddedDepthExtractorFn = Future<EmbeddedDepthResult?> Function(
+  Uint8List jpeg,
+);
+
+/// Riverpod provider for embedded depth extraction, overridable in tests.
+final embeddedDepthExtractorProvider = Provider<EmbeddedDepthExtractorFn>((ref) {
+  return (Uint8List bytes) => AxEngine.extractEmbeddedDepth(bytes);
 });
 
 /// Notifier tracking in-flight AI mask inference.
@@ -272,7 +283,18 @@ class MaskControls extends ConsumerWidget {
                 onPressed: isInferring
                     ? null
                     : () async {
-                        final bytes = ref.read(activeImageBytesProvider);
+                        Uint8List? bytes = ref.read(activeImageBytesProvider);
+                        final asset = ref.read(currentEditingAssetProvider);
+                        if (asset != null) {
+                          try {
+                            final original =
+                                await ref.read(gallerySourceProvider).loadImage(asset.id);
+                            if (original.isNotEmpty) bytes = original;
+                          } catch (_) {
+                            // Fall back to the preview bytes when the original is unavailable.
+                          }
+                        }
+                        if (!context.mounted) return;
                         if (bytes == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('No photo loaded for depth extraction')),
@@ -283,7 +305,8 @@ class MaskControls extends ConsumerWidget {
                         ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
                             'Extracting portrait depth map… Please wait a moment');
                         try {
-                          final depthResult = await AxEngine.extractEmbeddedDepth(bytes);
+                          final depthResult =
+                              await ref.read(embeddedDepthExtractorProvider)(bytes);
                           if (depthResult != null) {
                             final alphas = depthResult.depth.map((b) => b / 255.0).toList();
                             final idx = layers.length;

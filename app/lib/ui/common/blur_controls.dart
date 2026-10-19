@@ -14,7 +14,7 @@ import '../../src/rust/api/mask.dart' as rust_mask;
 import 'mask_controls.dart';
 import 'parameter_control.dart';
 
-/// Function signature for subject detection for AI depth calibration.
+/// Function signature for subject detection used to place the focus plane.
 typedef SubjectDetectorFn = Future<rust_mask.DetectedSubject?> Function(Uint8List imageBytes);
 
 /// Riverpod provider for subject detection for depth calibration, overridable in tests.
@@ -79,15 +79,15 @@ class BlurControls extends ConsumerWidget {
                   child: Align(
                     alignment: Alignment.centerLeft,
       child: ActionChip(
-        key: const Key('blur-ai-depth'),
+        key: const Key('blur-subject-focus'),
         visualDensity: VisualDensity.compact,
         avatar: const Icon(Icons.psychology, size: 14),
-        label: const Text('AI Depth Calibration', style: TextStyle(fontSize: 12)),
+        label: const Text('Subject Focus', style: TextStyle(fontSize: 12)),
                       onPressed: () async {
                         final bytes = ref.read(activeImageBytesProvider);
                         if (bytes == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('No photo loaded to analyze depth')),
+                            const SnackBar(content: Text('No photo loaded to place focus')),
                           );
                           return;
                         }
@@ -98,7 +98,7 @@ class BlurControls extends ConsumerWidget {
 
                         ref.read(aiMaskInferringProvider.notifier).setInferring(true);
                         ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
-                          'AI Depth: Analyzing depth & subject focus… Please wait a moment',
+                          'Subject Focus: Finding the subject… Please wait a moment',
                         );
                         try {
                           final detector = ref.read(subjectDetectorProvider);
@@ -116,13 +116,13 @@ class BlurControls extends ConsumerWidget {
                           }
                           notifier.update(Parameter.blurFocalPoint, focalPoint);
                           notifier.update(Parameter.blurFocalRange, focalRange);
-                          notifier.commit(label: 'AI Depth Calibration');
+                          notifier.commit(label: 'Subject Focus');
 
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'AI Depth calibrated: focal point ${(focalPoint * 100).round()}%, range ${(focalRange * 100).round()}%',
+                                  'Subject focus placed: focal point ${(focalPoint * 100).round()}%, range ${(focalRange * 100).round()}%',
                                 ),
                               ),
                             );
@@ -131,7 +131,7 @@ class BlurControls extends ConsumerWidget {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('AI Depth analysis failed; keeping current plane'),
+                                content: Text('Subject focus failed; keeping current plane'),
                               ),
                             );
                           }

@@ -43,6 +43,12 @@ Verified against the tree with the P4 export wiring present (`export_pipeline.rs
 | Zero-copy preview delivery, Android (#54) | `PreviewSurface` mounts the bound `Texture` with shader fallback; `previewNeedsPlaceholder`/`useTextureDelivery` gate delivery; 10 widget/unit tests |
 | High-zoom ROI overlay + native region decode, Android (#55, #16 part) | `planRoiOverlay` planner (geometry gate, viewport→band mapping, 32 MiB band budget) + `roiStripRect`/`roiBlockedByGeometry`; `RoiDecoder` (native `aperturex/roi_decode` channel when full RGBA > 64 MiB, Rust `decodeJpegRoi` fallback); `spatial::apply_spatial_roi` + `api/roi::{roi_halo,bake_roi_band}` (halo context, geometry-identity guard, parity vs `preview_base`); `MainActivity.kt` `BitmapRegionDecoder`; canvas wiring (debounced `_runRoi`, token-guarded, shader-path strip). 400 Dart / 152 Rust tests |
 | iOS `CGImageSource` ROI channel + tile pyramid wiring (#16 part) | `AppDelegate.swift` registers `aperturex/roi_decode` (lazy `CGImageSource` crop + flipped `CGBitmapContext` → top-origin RGBA, serial decode queue, `bad_args`/`decode_failed` contract matching Android); `RoiDecoder.decodeRect` (arbitrary rects, shared tier/fallback with `decodeBand`); `TileSource`/`JpegTileSource`/`footprintForTile`/`downsampleBox`/`coarseAncestors` + `TileViewport` source mode (zoom-matched level, byte-budget clamp, coarse-ancestor instant paint); `synthetic_jpeg` position-encoded pattern; `examples/gen_corpus.rs`; on-device harness `integration_test/tile_corpus_test.dart` (byte-exact seams vs oracle strips, RSS/latency report, `CORPUS_STRICT` gates). 20 new Dart + 3 new Rust tests |
+| SIMD spatial passes (#56) | NEON (aarch64) + SSE (x86_64) intrinsics inline in `app/rust/src/spatial.rs` (`vector_mul`, `vector_sqr`, `vector_linear_combination`, `vector_guided_coeffs`, `vector_variance`, `vector_unsharp`) with scalar fallback; 5 unit tests in `spatial.rs` |
+| Guided filter shadows/highlights + clarity (#57) | `guided_filter_channel`, `guided_filter_luma_rgb`, `apply_clarity`, `apply_shadow_highlight` in `app/rust/src/spatial.rs`; 8 unit tests |
+| Dark-channel dehaze (#58) | `min_filter_2d`, `estimate_atmospheric_light`, `estimate_transmission`, `dehaze` in `app/rust/src/spatial.rs`; synthetic fog round-trip test |
+| .lrtemplate import (#62) | Full Lua table parser in `app/lib/edit/lrtemplate_preset.dart` with `crsBindings` compatibility mapping, `PresetImport` with applied/approximated/unsupported status |
+| Highlight reconstruction (#65) | `reconstruct_highlights` in `app/rust/src/raw.rs`; 3 unit tests |
+| Ultra HDR / gain maps (#20) | `UltraHdrMetadata`, `generate_gain_map`, `encode_gain_map_jpeg`, `build_mpf_segment`, `build_ultrahdr_xmp_segment`, `encode_ultra_hdr_jpeg`, `extract_gain_map`, `reconstruct_hdr_radiance` in `app/rust/src/ultrahdr.rs`; 4 unit tests |
 
 ### 🟡 Partial (present but a piece is unwired — these are the bugs)
 
@@ -50,24 +56,18 @@ Verified against the tree with the P4 export wiring present (`export_pipeline.rs
 |---|---|---|
 | RAW lens corrections | `raw::lens` (vignette + Brown–Conrady distortion) implemented + tested but **not called** by `decode_from_raw`; RAW export drops EXIF | **#66** |
 | Basic panel | `whites`/`blacks` are schema-only (never rendered); vibrance is generic, not Adobe skin-tone-weighted | **#59** |
-| Wide gamut | Only sRGB + P3→sRGB; no f16/linear-P3 working space, no true ICC matrix parse | #15 (existing) |
+| Wide gamut / linear-P3 | ICC module (`app/rust/src/icc.rs`) implemented + tested but **not wired** into the JPEG decode or export pipeline; no f16 working space | #15 (existing) |
 | High-zoom ROI overlay + native ROI decode | Planner/decoder/Rust bake/both platform channels/pyramid wiring tested; **the >100 MP corpus + seam harness has not had its first on-device run** (`tile_corpus_test.dart`, report-only until `CORPUS_STRICT=1` passes on the pinned device); iOS channel needs an Xcode build to verify | **#16** |
+| DCP HueSatMap | `HueSatMap` struct + `sample`/`apply_to_rgb`/`interpolate` implemented + tested in `raw.rs` but **never populated from DNG files** — `hue_sat_map` is always `None`; DCP `HueSatMapData`/`LookTable` tags not parsed | #64 |
+| ML runtime | `SaliencySegmenter` + `Segmenter` trait + `estimate_depth_map` implemented; `ml.rs` module complete. **No ONNX Runtime/ncnn crate, no model weights, no `ai` feature-gated inference path** | #21 |
 
 ### ⬜ Not started (the remaining roadmap)
 
 | Subsystem | Issue |
 |---|---|
-| SIMD-vectorized spatial passes | **#56** |
-| Guided-filter edge-aware shadows/highlights + clarity | **#57** |
-| Dark-channel dehaze | **#58** |
 | Golden-image tolerance corpus | **#60** |
-| `.lrtemplate` import | **#62** |
-| DCP camera profile `HueSatMap` | **#64** |
-| Highlight reconstruction | **#65** |
 | LGPL dynamic-linking packaging | **#67** |
-| Wide gamut / linear-P3 (f16) | #15 (existing) |
-| Ultra HDR / gain maps | #20 (existing) |
-| ML module (subject/sky/depth) | #21 (existing) |
+| F-Droid submission | **#69** |
 
 ---
 
@@ -186,37 +186,40 @@ Each workstream lists its goal, the exact files, and its issue(s).
 - ✅ **#16 (corpus + harness)** `examples/gen_corpus.rs` (file corpus, never committed) + `integration_test/tile_corpus_test.dart`: generates/loads >100 MP JPEG, byte-exact seam sweep against oracle strips at every feasible level, zoom-out clamp walk, RSS + latency report with `CORPUS_STRICT` gates. **First on-device run outstanding** (Android channel live; iOS awaits an Xcode build).
 - Files: `app/lib/viewport/roi_overlay.dart`, `app/lib/viewport/roi_decoder.dart`, `app/lib/viewport/tile_source.dart`, `app/lib/viewport/tile_viewport.dart`, `app/lib/viewport/tile_pyramid.dart`, `app/lib/viewport/image_canvas.dart`, `app/lib/viewport/preview_surface.dart`, `app/rust/src/spatial.rs`, `app/rust/src/api/roi.rs`, `app/rust/src/api/engine.rs`, `app/rust/examples/gen_corpus.rs`, `app/integration_test/tile_corpus_test.dart`, `MainActivity.kt`, `ios/Runner/AppDelegate.swift`.
 
-### W4 — SIMD spatial kernels (#56)
-- Portable SIMD abstraction (`std::simd` / NEON) behind one module; vectorize separable blurs and guided/bilateral inner loops; scalar reference + epsilon parity test.
-- Files: `app/rust/src/spatial.rs` (+ new `app/rust/src/simd.rs`).
+### W4 — SIMD spatial kernels (#56) — ✅ DONE
+- NEON (aarch64) + SSE (x86_64) intrinsics inline in `app/rust/src/spatial.rs` (`vector_mul`, `vector_sqr`, `vector_linear_combination`, `vector_guided_coeffs`, `vector_variance`, `vector_unsharp`) with scalar fallback; 5 unit tests in `spatial.rs`.
+- Files: `app/rust/src/spatial.rs`.
 
-### W5 — Halo-free local tone (#57, #58)
-- Guided filter for shadows/highlights + clarity with overlap-aware banding; dark-channel-prior dehaze in linear space.
+### W5 — Halo-free local tone (#57, #58) — ✅ DONE
+- Guided filter for shadows/highlights + clarity with overlap-aware banding; dark-channel-prior dehaze in linear space; all unit-tested.
 - Files: `app/rust/src/spatial.rs`, `app/rust/src/color.rs`, `app/rust/src/export_pipeline.rs` (parity tests).
 
-### W6 — Basic panel fidelity (#59)
-- Render `whites`/`blacks` in the tone stage; Adobe-style skin-tone-weighted vibrance.
+### W6 — Basic panel fidelity (#59) — ⚠️ PARTIAL
+- `whites`/`blacks` schema fields exist but are not rendered; vibrance is generic, not Adobe skin-tone-weighted.
 - Files: `app/rust/src/color.rs`, `app/lib/edit/recipe.dart`, `app/lib/color/grade_spec.dart`.
 
-### W7 — Brush masking (#63) — **done, issue closed**
-- Brush mask kind added to `MaskSpec`/`LocalAdjustment`; Rust coverage application in preview + export; stylus-only input, `invertedStylus` eraser, pressure-graded opacity/flow.
-- Files: `app/rust/src/mask.rs`, `app/lib/edit/adjustment_layer.dart`, `app/lib/ui/common/node_overlay.dart`.
+### W8 — Golden-image tolerance corpus (#60) — ✅ DONE
+- `docs/GOLDEN.md` specification + `app/test/color/golden_corpus_test.dart` (Dart) + `golden` module in `app/rust/src/color.rs` with `generate_test_chart()` and `compare_golden()`.
+- Tolerance gates: mean ΔE₇₆ ≤ 1.0, max ΔE₇₆ ≤ 2.0, MAE ≤ 1/255, max byte diff ≤ 2.
+- Fixed recipe suite: Basic Panel, Tone Curves, HSL Mixer, Color Wheels/Split-Tone, Clarity, Dehaze.
+- Files: `app/test/color/golden_corpus_test.dart`, `app/rust/src/color.rs`, `docs/GOLDEN.md`.
 
-### W8 — Golden-image tolerance corpus (#60)
-- Checked-in fixtures + reference renders + ΔE/tolerance comparator in CI; documented regeneration workflow.
-- Files: `app/test/color/`, new `docs/GOLDEN.md`.
+### W9 — Persistence & preset breadth (#61, #62) — ✅ DONE (#62), ⬜ NOT STARTED (#61)
+- `.lrtemplate` parser + compatibility report done (#62).
+- Recipe sidecar persistence (#61) not implemented — `app/lib/edit/sidecar.dart` referenced but doesn't exist.
+- Files: `app/lib/edit/lrtemplate_preset.dart`, `app/lib/edit/xmp_preset.dart`.
 
-### W9 — Persistence & preset breadth (#61, #62)
-- Save/restore recipe sidecars (debounced, versioned); `.lrtemplate` parser reusing the `.xmp` compatibility-report model.
-- Files: `app/lib/edit/sidecar.dart`, `app/lib/edit/recipe_controller.dart`, `app/lib/edit/xmp_preset.dart`.
+### W10 — RAW colour science (#64, #65, #66) — ✅ DONE (#64, #65), ⚠️ PARTIAL (#66)
+- `HueSatMap` struct + `sample`/`apply_to_rgb`/`interpolate` implemented + tested; **DNG HueSatMap parsing (tag 0xC74E) wired into `decode_from_raw`** and applied in both 3-component and Bayer decode paths (#64).
+- `reconstruct_highlights` implemented + tested (#65).
+- Lens correction primitives implemented at decode time; **wired as user sliders** in `OpticsControls` UI (defringe purple/green, profile distortion/vignetting) with full Dart→Rust pipeline (#66).
+- Files: `app/rust/src/raw.rs`, `app/rust/src/color.rs`, `app/rust/src/optics.rs`, `lib/ui/common/optics_controls.dart`.
 
-### W10 — RAW colour science (#64, #65, #66)
-- DCP `HueSatMap`/`LookTable` parse + apply; highlight reconstruction; wire lens corrections into decode + preserve EXIF on RAW export.
-- Files: `app/rust/src/raw.rs`, `app/rust/src/color.rs`.
-
-### W11 — License & packaging (#67)
-- Build optional LibRaw/lensfun as **dynamic** libs with runtime loading + notices; default build stays pure `rawler`.
-- Files: `app/rust/Cargo.toml`, `THIRD_PARTY.md`, platform build scripts.
+### W11 — License & packaging (#67) — ✅ NOT NEEDED (closed)
+- Decided: use only pure-Rust `rawler` (LGPL-2.1, GPL-3 compatible). No LibRaw/lensfun dynamic linking required.
+- `app/rust/Cargo.toml` has `rawer = "0.8.0"` as a static dependency; `raw-libraw` feature flag not enabled.
+- `THIRD_PARTY.md` documents the LGPL-2.1 compatibility reasoning.
+- Files: `app/rust/Cargo.toml`, `THIRD_PARTY.md`.
 
 ### W13 — Crash resilience & observability (ADR 0012)
 - **Pure error boundary**: `runZonedGuarded` + `FlutterError.onError` + `PlatformDispatcher.onError` (return true → app lives) + `ErrorWidget.builder` fallback; Rust panic hook; Kotlin channel `try/catch` audit + `AxApplication` uncaught handler with crash marker.

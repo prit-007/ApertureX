@@ -26,17 +26,35 @@ class EmbeddedDepthResult {
   final int width;
   final int height;
 
-  /// 8-bit grayscale depth values (0..255).
+  /// 8-bit grayscale depth values normalized so 255 is nearest.
   final Uint8List depth;
+
+  /// `GDepth:Format` value (`RangeInverse` or `RangeLinear`).
+  final String format;
+
+  /// `GDepth:Near` in the container's units.
+  final double near;
+
+  /// `GDepth:Far` in the container's units.
+  final double far;
 
   const EmbeddedDepthResult({
     required this.width,
     required this.height,
     required this.depth,
+    required this.format,
+    required this.near,
+    required this.far,
   });
 
   @override
-  int get hashCode => width.hashCode ^ height.hashCode ^ depth.hashCode;
+  int get hashCode =>
+      width.hashCode ^
+      height.hashCode ^
+      depth.hashCode ^
+      format.hashCode ^
+      near.hashCode ^
+      far.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -45,5 +63,8 @@ class EmbeddedDepthResult {
           runtimeType == other.runtimeType &&
           width == other.width &&
           height == other.height &&
-          depth == other.depth;
+          depth == other.depth &&
+          format == other.format &&
+          near == other.near &&
+          far == other.far;
 }

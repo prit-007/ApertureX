@@ -169,11 +169,11 @@ class ToolGuideRegistry {
     ),
     ToolGuideModel(
       id: 'depth_bokeh',
-      title: 'AI Depth Bokeh & Lens Blur',
+      title: 'Depth Bokeh & Lens Blur',
       category: ToolCategory.effects,
       summary: 'Cinematic optical bokeh and shallow depth-of-field simulation.',
       description:
-          'Uses neural monocular depth estimation to construct a 16-bit depth map of the scene. '
+          'Uses embedded portrait depth when available, with an on-device depth estimate as fallback. '
           'Renders realistic optical bokeh with customizable focal plane, aperture blade count, and cat-eye falloff.',
       icon: Icons.lens_blur,
       bestUsedFor: 'Turning standard smartphone photos into wide-aperture f/1.4 prime lens portraits.',
@@ -237,12 +237,12 @@ class ToolGuideRegistry {
     ),
     ToolGuideModel(
       id: 'ai_subject_mask',
-      title: 'AI One-Tap Subject & Background Mask',
+      title: 'One-Tap Subject & Background Mask',
       category: ToolCategory.masking,
       summary: 'Automatic subject segmentation and hair strand boundary matting.',
       description:
-          'ApertureX runs on-device neural segmentation models (Saliency, RMBG, MobileSAM) to isolate humans, '
-          'pets, and objects in milliseconds. The mask alpha channel is refined via guided-filter re-matting against image RGBA.',
+          'ApertureX isolates salient subjects on-device and refines the mask with guided-filter re-matting. '
+          'Optional model packs can add portrait hair and object-level edges when installed.',
       icon: Icons.person_pin_circle_outlined,
       bestUsedFor: 'Darkening backgrounds, brightening subjects, or changing sky saturation in one tap.',
       proTips: [

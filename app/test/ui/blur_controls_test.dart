@@ -91,23 +91,23 @@ void main() {
     expect(lensBlurTile.initiallyExpanded, isTrue);
   });
 
-  testWidgets('AI Depth Estimation chip is present and handles empty photo', (
+  testWidgets('Subject Focus chip is present and handles empty photo', (
     tester,
   ) async {
     container.read(recipeControllerProvider.notifier).setBlurEnabled(true);
     await pumpBlurControls(tester);
 
-    final aiDepthChip = find.byKey(const Key('blur-ai-depth'));
+    final aiDepthChip = find.byKey(const Key('blur-subject-focus'));
     expect(aiDepthChip, findsOneWidget);
 
     // Tap with no photo
     await tester.tap(aiDepthChip);
     await tester.pumpAndSettle();
 
-    expect(find.text('No photo loaded to analyze depth'), findsOneWidget);
+    expect(find.text('No photo loaded to place focus'), findsOneWidget);
   });
 
-  testWidgets('AI Depth Estimation chip calibrates focal plane when image is present and consent granted', (tester) async {
+  testWidgets('Subject Focus chip places the focal plane when image is present and consent granted', (tester) async {
     const fakeSubject = rust_mask.DetectedSubject(
       cx: 0.5,
       cy: 0.4,
@@ -140,7 +140,7 @@ void main() {
       ),
     );
 
-    final aiDepthChip = find.byKey(const Key('blur-ai-depth'));
+    final aiDepthChip = find.byKey(const Key('blur-subject-focus'));
     expect(aiDepthChip, findsOneWidget);
 
     await tester.tap(aiDepthChip);
@@ -152,7 +152,7 @@ void main() {
     // ry is 0.3, focalRange is 0.3 * 0.9 = 0.27
     expect(recipe.blurFocalRange, closeTo(0.27, 0.01));
     expect(recipe.blurAmount, 0.45);
-    expect(find.textContaining('AI Depth calibrated'), findsOneWidget);
+    expect(find.textContaining('Subject focus placed'), findsOneWidget);
   });
 
   testWidgets('BlurControls bokeh chips use VisualDensity.compact', (

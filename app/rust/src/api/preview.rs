@@ -94,6 +94,68 @@ pub struct PreviewBaseSpec {
     pub blur_background_blur: bool,
 }
 
+impl Default for PreviewBaseSpec {
+    fn default() -> Self {
+        Self {
+            flip_h: false,
+            flip_v: false,
+            turns: 0,
+            crop_l: 0.0,
+            crop_t: 0.0,
+            crop_r: 1.0,
+            crop_b: 1.0,
+            shadows: 0.0,
+            highlights: 0.0,
+            clarity: 0.0,
+            texture: 0.0,
+            sharpen: 0.0,
+            sharpen_radius: 1.0,
+            sharpen_detail: 0.25,
+            sharpen_masking: 0.0,
+            denoise_luma: 0.0,
+            denoise_chroma: 0.0,
+            dehaze: 0.0,
+            vignette: 0.0,
+            vignette_midpoint: 0.5,
+            vignette_feather: 0.5,
+            vignette_roundness: 0.0,
+            vignette_highlights: 0.0,
+            grain: 0.0,
+            grain_size: 0.25,
+            grain_roughness: 0.5,
+            film_halation: 0.0,
+            film_halation_radius: 0.5,
+            film_halation_threshold: 0.8,
+            film_bloom: 0.0,
+            film_bloom_radius: 0.5,
+            film_bloom_threshold: 0.75,
+            film_dust: 0.0,
+            film_scratches: 0.0,
+            shader_lab_preset: 0,
+            shader_param1: 0.0,
+            shader_param2: 0.0,
+            shader_param3: 0.0,
+            remove_chromatic_aberration: false,
+            defringe_purple_amount: 0.0,
+            defringe_purple_hue_min: 0.70,
+            defringe_purple_hue_max: 0.95,
+            defringe_green_amount: 0.0,
+            defringe_green_hue_min: 0.17,
+            defringe_green_hue_max: 0.50,
+            profile_corrections: false,
+            profile_distortion: 1.0,
+            profile_vignetting: 1.0,
+            blur_enabled: false,
+            blur_amount: 0.0,
+            blur_focal_point: 0.5,
+            blur_focal_range: 0.2,
+            blur_bokeh_shape: 0,
+            blur_bokeh_boost: 0.0,
+            blur_background_blur: false,
+        }
+    }
+}
+
 impl PreviewBaseSpec {
     /// Maps the flat blur fields onto the engine's [`crate::blur::LensBlurParams`].
     pub fn blur_params(&self) -> crate::blur::LensBlurParams {
@@ -140,11 +202,23 @@ pub fn preview_close(handle: u64) {
     crate::preview::close(handle);
 }
 
-/// Stores an AI-computed depth map (width*height f32 plane in [0.0, 1.0],
+/// Stores a computed depth map (width*height f32 plane in [0.0, 1.0],
 /// lower = closer) for [handle], used by the lens blur stage to protect
 /// subjects from being blurred.
 pub fn preview_set_depth_map(handle: u64, depth_map: Vec<f32>) -> Result<(), String> {
     crate::preview::set_depth_map(handle, depth_map)
+}
+
+/// Stores an embedded JPEG GDepth plane for [handle]. Values are normalized so
+/// 255 is nearest; the engine inverts them into the preview's lower-is-closer
+/// convention and resizes to the source proxy.
+pub fn preview_set_embedded_depth(
+    handle: u64,
+    depth: Vec<u8>,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    crate::preview::set_embedded_depth(handle, depth, width, height)
 }
 
 /// Fused base pipeline on the resident source: flip → rotate → normalized
@@ -490,6 +564,14 @@ mod tests {
         spec.blur_focal_range = 0.2;
 
         let h_handle = preview_open(src.clone(), w as u32, h as u32);
+        // Explicit depth: the centre is in focus, the rest is background.
+        let mut depth = vec![1.0f32; w * h];
+        for y in 8..24 {
+            for x in 8..24 {
+                depth[y * w + x] = 0.5;
+            }
+        }
+        preview_set_depth_map(h_handle, depth).unwrap();
         let frame = preview_base(h_handle, spec, Vec::new(), Vec::new()).unwrap();
         preview_close(h_handle);
 
@@ -497,7 +579,6 @@ mod tests {
             frame.rgba, src,
             "blur-engaged spec must change out-of-focus pixels"
         );
-        // Synthetic depth puts the image centre inside the focal plane.
         let center = ((h / 2) * w + w / 2) * 4;
         assert_eq!(
             &frame.rgba[center..center + 4],

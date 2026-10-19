@@ -19,17 +19,26 @@ pub fn extract_exif(jpeg: Vec<u8>) -> Vec<u8> {
 pub struct EmbeddedDepthResult {
     pub width: u32,
     pub height: u32,
-    /// 8-bit grayscale depth values (0..255).
+    /// 8-bit grayscale depth values normalized so 255 is nearest.
     pub depth: Vec<u8>,
+    /// `GDepth:Format` value (`RangeInverse` or `RangeLinear`).
+    pub format: String,
+    /// `GDepth:Near` in the container's units.
+    pub near: f32,
+    /// `GDepth:Far` in the container's units.
+    pub far: f32,
 }
 
 /// Attempts to extract embedded portrait depth map from JPEG container metadata.
 /// Returns None if no embedded depth map exists.
 pub fn extract_embedded_depth(jpeg: Vec<u8>) -> Option<EmbeddedDepthResult> {
-    exif::extract_embedded_depth(&jpeg).map(|(depth, w, h)| EmbeddedDepthResult {
-        width: w as u32,
-        height: h as u32,
-        depth,
+    exif::extract_embedded_depth_meta(&jpeg).map(|d| EmbeddedDepthResult {
+        width: d.width as u32,
+        height: d.height as u32,
+        depth: d.depth,
+        format: d.format.as_str().to_string(),
+        near: d.near,
+        far: d.far,
     })
 }
 

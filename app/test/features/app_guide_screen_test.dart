@@ -30,10 +30,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Exposure & Dynamic Range'), findsNothing);
-    expect(find.text('AI Depth Bokeh & Lens Blur'), findsOneWidget);
+    expect(find.text('Depth Bokeh & Lens Blur'), findsOneWidget);
 
     // Tap to expand guide card
-    await tester.tap(find.text('AI Depth Bokeh & Lens Blur'));
+    await tester.tap(find.text('Depth Bokeh & Lens Blur'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Pro Tips:'), findsOneWidget);

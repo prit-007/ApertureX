@@ -605,6 +605,28 @@ class AxEngine {
   static Future<void> previewClose(int handle) =>
       rust_preview.previewClose(handle: BigInt.from(handle));
 
+  /// Stores a computed depth map (width*height f32, lower = closer) for
+  /// [handle]. Lens blur uses it instead of the built-in heuristic.
+  static Future<void> previewSetDepthMap(int handle, Float32List depthMap) =>
+      rust_preview.previewSetDepthMap(
+        handle: BigInt.from(handle),
+        depthMap: depthMap,
+      );
+
+  /// Stores an embedded JPEG GDepth plane (255 = nearest) for [handle].
+  /// Rust inverts it into the preview convention and resizes it to the proxy.
+  static Future<void> previewSetEmbeddedDepth(
+    int handle,
+    Uint8List depth, {
+    required int width,
+    required int height,
+  }) => rust_preview.previewSetEmbeddedDepth(
+    handle: BigInt.from(handle),
+    depth: depth,
+    width: width,
+    height: height,
+  );
+
   /// Fused geometry → spatial → masks bake on the resident source in **one**
   /// round trip (spike A). Straighten/perspective/skew stay GPU-warped live
   /// (issues #36/#52), so [PreviewBaseSpec] deliberately omits them; export

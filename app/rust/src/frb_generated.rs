@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1920502424;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1481105195;
 
 // Section: executor
 
@@ -2266,6 +2266,38 @@ fn wire__crate__api__preview__preview_base_spec_blur_params_impl(
         },
     )
 }
+fn wire__crate__api__preview__preview_base_spec_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "preview_base_spec_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::preview::PreviewBaseSpec::default())?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__preview__preview_close_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2528,6 +2560,44 @@ fn wire__crate__api__preview__preview_set_depth_map_impl(
                 transform_result_sse::<_, String>((move || {
                     let output_ok =
                         crate::api::preview::preview_set_depth_map(api_handle, api_depth_map)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__preview__preview_set_embedded_depth_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "preview_set_embedded_depth",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_handle = <u64>::sse_decode(&mut deserializer);
+            let api_depth = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_width = <u32>::sse_decode(&mut deserializer);
+            let api_height = <u32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok = crate::api::preview::preview_set_embedded_depth(
+                        api_handle, api_depth, api_width, api_height,
+                    )?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -3428,10 +3498,16 @@ impl SseDecode for crate::api::exif::EmbeddedDepthResult {
         let mut var_width = <u32>::sse_decode(deserializer);
         let mut var_height = <u32>::sse_decode(deserializer);
         let mut var_depth = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_format = <String>::sse_decode(deserializer);
+        let mut var_near = <f32>::sse_decode(deserializer);
+        let mut var_far = <f32>::sse_decode(deserializer);
         return crate::api::exif::EmbeddedDepthResult {
             width: var_width,
             height: var_height,
             depth: var_depth,
+            format: var_format,
+            near: var_near,
+            far: var_far,
         };
     }
 }
@@ -4383,50 +4459,62 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        58 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__preview__preview_get_source_rgba_impl(
+        58 => wire__crate__api__preview__preview_base_spec_default_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        60 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
-        61 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__preview__preview_open_jpeg_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
-        64 => {
+        59 => wire__crate__api__preview__preview_close_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__preview__preview_get_source_rgba_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        61 => wire__crate__api__preview__preview_histogram_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__preview__preview_open_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__preview__preview_open_jpeg_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__preview__preview_render_impl(port, ptr, rust_vec_len, data_len),
+        65 => {
             wire__crate__api__preview__preview_set_depth_map_impl(port, ptr, rust_vec_len, data_len)
         }
-        65 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
-        66 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__mask__refine_mask_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__api__export__render_branding_preview_impl(
+        66 => wire__crate__api__preview__preview_set_embedded_depth_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        69 => wire__crate__api__retouch__retouch_apply_impl(port, ptr, rust_vec_len, data_len),
-        70 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
-        71 => wire__crate__api__mask__segment_subject_impl(port, ptr, rust_vec_len, data_len),
-        72 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
-        73 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
-        74 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
-        75 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
+        67 => wire__crate__api__raw__raw_camera_matrix_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__raw__raw_dimensions_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__mask__refine_mask_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__export__render_branding_preview_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        76 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
-        77 => wire__crate__api__spatial__spatial_sharpen_edge_mask_impl(
+        71 => wire__crate__api__retouch__retouch_apply_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__roi__roi_halo_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__mask__segment_subject_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__spatial__spatial_apply_impl(port, ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__spatial__spatial_clarity_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__spatial__spatial_denoise_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__spatial__spatial_shadow_highlight_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        78 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
-        79 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__spatial__spatial_sharpen_impl(port, ptr, rust_vec_len, data_len),
+        79 => wire__crate__api__spatial__spatial_sharpen_edge_mask_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        80 => wire__crate__api__spatial__spatial_texture_impl(port, ptr, rust_vec_len, data_len),
+        81 => wire__crate__api__engine__synthetic_jpeg_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -4725,6 +4813,9 @@ impl flutter_rust_bridge::IntoDart for crate::api::exif::EmbeddedDepthResult {
             self.width.into_into_dart().into_dart(),
             self.height.into_into_dart().into_dart(),
             self.depth.into_into_dart().into_dart(),
+            self.format.into_into_dart().into_dart(),
+            self.near.into_into_dart().into_dart(),
+            self.far.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -5421,6 +5512,9 @@ impl SseEncode for crate::api::exif::EmbeddedDepthResult {
         <u32>::sse_encode(self.width, serializer);
         <u32>::sse_encode(self.height, serializer);
         <Vec<u8>>::sse_encode(self.depth, serializer);
+        <String>::sse_encode(self.format, serializer);
+        <f32>::sse_encode(self.near, serializer);
+        <f32>::sse_encode(self.far, serializer);
     }
 }
 
