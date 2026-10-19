@@ -50,8 +50,9 @@ The IJG notice must be included in the app's license bundle.
 The `ai` cargo feature links [`ort`](https://crates.io/crates/ort) against
 ONNX Runtime (MIT). The `ort` crate's `download-binaries` convenience is for
 development only: release and F-Droid builds must vendor the native ORT
-libraries and build without network access. No model weights are bundled yet;
-each model still needs a verified row in the ML table below.
+libraries and build without network access. The optional `ai` build also
+compiles in the U²-NetP weights listed below; the default build contains
+neither the runtime nor the model.
 
 ### Optional native fallback (LibRaw / lensfun) — not in the default build
 
@@ -101,15 +102,24 @@ above with their notices.
 
 ---
 
-## Machine-learning models (planned — ADR 0010)
+## Machine-learning models (optional AI module — ADR 0010)
 
-No model ships yet. Every model added to the optional AI module **must** get a
-row here — with its **weights** license verified (not just the code) — before it
-is adopted. This is a hard gate (ADR 0010).
+Every model added to the optional AI module **must** get a row here — with its
+**weights** license verified (not just the code) — before it is adopted. This is
+a hard gate (ADR 0010). Bundled weights are compiled only with `--features ai`;
+the default APK ships none.
 
 | Model | Purpose | Runtime | Code license | Weights license | Source | Status |
 |---|---|---|---|---|---|---|
-| U²-NetP | Salient object / subject mask | ONNX RT / in-tree | Apache-2.0 | Apache-2.0 | xuebinqin/U-2-Net | Adopted (#87) |
+| U²-NetP | Salient object / subject mask | ONNX RT / in-tree | Apache-2.0 | Apache-2.0 | [xuebinqin/U-2-Net](https://github.com/xuebinqin/U-2-Net) | Bundled behind `ai` (#87) |
+
+Bundled file: `app/rust/assets/models/u2netp.onnx` (4,574,861 bytes,
+SHA-256 `309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8`).
+The ONNX export is the original U²-NetP weights republished in the
+[`danielgatis/rembg` v0.0.0 release](https://github.com/danielgatis/rembg/releases/tag/v0.0.0)
+(MIT build tooling; weights remain Apache-2.0). Input is RGB
+`[1,3,320,320]` with ImageNet normalization; the first of the seven outputs is
+the fused saliency map.
 
 Candidate models (verify each model's weights license before adoption):
 MobileSAM / SAM 2 small (tap-select), U²-Net-style salient (auto subject), sky

@@ -21,6 +21,27 @@ pub trait Segmenter: Send + Sync {
     ) -> Result<Vec<f32>, String>;
 }
 
+/// Segments the dominant subject, preferring the bundled U²-NetP model when
+/// the optional `ai` feature is enabled and falling back to the deterministic
+/// saliency segmenter if inference is unavailable.
+pub fn segment_subject_mask(
+    rgba: &[u8],
+    src_w: usize,
+    src_h: usize,
+    target_w: usize,
+    target_h: usize,
+) -> Result<Vec<f32>, String> {
+    #[cfg(feature = "ai")]
+    {
+        if let Ok(mask) =
+            crate::u2netp::U2NetpSegmenter.segment(rgba, src_w, src_h, target_w, target_h)
+        {
+            return Ok(mask);
+        }
+    }
+    SaliencySegmenter {}.segment(rgba, src_w, src_h, target_w, target_h)
+}
+
 /// Bilinearly samples RGBA pixel at continuous normalized coordinates `(u, v)`.
 #[inline]
 fn sample_bilinear_rgba(rgba: &[u8], w: usize, h: usize, u: f32, v: f32) -> [f32; 3] {
@@ -332,9 +353,8 @@ pub fn estimate_depth_map(
     }
     crate::validate::validate_rgba(rgba, src_w as u32, src_h as u32)?;
 
-    // 1. Compute saliency subject segmentation
-    let segmenter = SaliencySegmenter {};
-    let subject_mask = segmenter.segment(rgba, src_w, src_h, target_w, target_h)?;
+    // 1. Compute the best available subject segmentation
+    let subject_mask = segment_subject_mask(rgba, src_w, src_h, target_w, target_h)?;
 
     let mut depth = vec![0.0f32; target_w * target_h];
     let inv_w = if target_w > 1 {

@@ -23,6 +23,8 @@ pub mod sha256;
 pub mod sha512;
 pub mod simd;
 pub mod spatial;
+#[cfg(feature = "ai")]
+pub mod u2netp;
 pub mod ultrahdr;
 pub mod validate;
 pub mod watermark;

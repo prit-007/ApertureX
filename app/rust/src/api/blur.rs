@@ -54,18 +54,14 @@ pub fn blur_apply(
 /// and perspective priors. Returns a `width * height` plane of `f32` values
 /// in `[0.0, 1.0]` where lower = closer (more in focus).
 pub fn estimate_depth_map(rgba: Vec<u8>, width: u32, height: u32) -> Result<Vec<f32>, String> {
-    use crate::ml::{SaliencySegmenter, Segmenter};
-
-    let segmenter = SaliencySegmenter {};
-    let subject_mask = segmenter
-        .segment(
-            &rgba,
-            width as usize,
-            height as usize,
-            width as usize,
-            height as usize,
-        )
-        .map_err(|e| format!("segmentation failed: {e}"))?;
+    let subject_mask = crate::ml::segment_subject_mask(
+        &rgba,
+        width as usize,
+        height as usize,
+        width as usize,
+        height as usize,
+    )
+    .map_err(|e| format!("segmentation failed: {e}"))?;
 
     let mut depth = vec![0.0f32; (width * height) as usize];
     for y in 0..height as usize {

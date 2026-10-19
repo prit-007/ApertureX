@@ -8,3 +8,5 @@ app/rust/tests/golden_fixtures/*.PNG filter=lfs diff=lfs merge=lfs -text
 *.dng filter=lfs diff=lfs merge=lfs -text
 *.DNG filter=lfs diff=lfs merge=lfs -text
 *.arw filter=lfs diff=lfs merge=lfs -text
+
+*.onnx filter=lfs diff=lfs merge=lfs -text

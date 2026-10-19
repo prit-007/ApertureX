@@ -23,15 +23,22 @@ fn environment() -> Result<&'static Environment, String> {
         .map_err(Clone::clone)
 }
 
-/// Runs a single-input, single-output f32 ONNX model and returns the first
-/// output tensor as a flat slice.
-///
-/// The engine deliberately keeps the model bytes in memory so an embedded
-/// asset or a bundled model can be loaded without a temp file.
-pub fn run_f32(model: &[u8], input: &[f32], shape: &[usize]) -> Result<Vec<f32>, String> {
+pub(crate) fn create_session(model: &[u8]) -> Result<Session, String> {
     if model.is_empty() {
         return Err("ONNX model bytes are empty".into());
     }
+    let environment = environment()?;
+    Session::builder(environment)
+        .map_err(|e| format!("ONNX Runtime session builder failed: {e}"))?
+        .commit_from_memory(model)
+        .map_err(|e| format!("ONNX Runtime model load failed: {e}"))
+}
+
+pub(crate) fn run_session(
+    session: &mut Session,
+    input: &[f32],
+    shape: &[usize],
+) -> Result<Vec<f32>, String> {
     let expected = shape
         .iter()
         .try_fold(1usize, |acc, &dim| acc.checked_mul(dim))
@@ -43,11 +50,6 @@ pub fn run_f32(model: &[u8], input: &[f32], shape: &[usize]) -> Result<Vec<f32>,
         ));
     }
 
-    let environment = environment()?;
-    let mut session = Session::builder(environment)
-        .map_err(|e| format!("ONNX Runtime session builder failed: {e}"))?
-        .commit_from_memory(model)
-        .map_err(|e| format!("ONNX Runtime model load failed: {e}"))?;
     let tensor = Tensor::from_array((shape.to_vec(), input.to_vec()))
         .map_err(|e| format!("ONNX Runtime input tensor failed: {e}"))?;
     let outputs = session
@@ -57,6 +59,16 @@ pub fn run_f32(model: &[u8], input: &[f32], shape: &[usize]) -> Result<Vec<f32>,
         .try_extract_tensor::<f32>()
         .map_err(|e| format!("ONNX Runtime output tensor failed: {e}"))?;
     Ok(data.to_vec())
+}
+
+/// Runs a single-input, single-output f32 ONNX model and returns the first
+/// output tensor as a flat slice.
+///
+/// The engine deliberately keeps the model bytes in memory so an embedded
+/// asset or a bundled model can be loaded without a temp file.
+pub fn run_f32(model: &[u8], input: &[f32], shape: &[usize]) -> Result<Vec<f32>, String> {
+    let mut session = create_session(model)?;
+    run_session(&mut session, input, shape)
 }
 
 #[cfg(test)]
