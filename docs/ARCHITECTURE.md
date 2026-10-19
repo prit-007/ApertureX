@@ -529,13 +529,15 @@ A **separable** module for intelligent masking; the base app never depends on it
 - **Runtime:** ONNX Runtime Mobile (MIT) via Rust, with optional NNAPI/CoreML
   providers; ncnn (BSD-3) remains an alternative. No ML Kit, no Play Services.
   OpenCV (Apache-2.0) for classical CV (horizon/edge/saliency).
-- **First bundled model:** Apache-2.0 U²-NetP (4.5 MB ONNX), compiled only into
-  the optional `ai` build; the default app links neither ORT nor weights.
+- **Bundled models:** Apache-2.0 U²-NetP (4.5 MB ONNX) for subject masks and
+  MIT YuNet (0.23 MB ONNX) for portrait face placement. Flutter builds enable
+  `ai` through `app/rust/cargokit.yaml`; Android ships a pinned
+  `libonnxruntime.so` and loads it dynamically. Plain Cargo builds still link
+  neither ORT nor weights.
 - **Models** (each license verified before adoption; prefer Apache-2.0/MIT):
   MobileSAM/SAM2-small (tap-select), U²-Net-style salient (auto subject), sky
   segmentation (or a classical fallback), MODNet-class matting (hair), Depth
-  Anything V2 small (depth for blur), YuNet (face, MIT). RMBG avoided
-  (non-commercial).
+  Anything V2 small (depth for blur). RMBG avoided (non-commercial).
 - **Output → shader:** a model produces a mask array; the mask becomes a coverage
   texture that gates a sub-recipe's edits (or a bokeh blur kernel) exactly like a
   manual mask (§18). Same rendering path, different mask source.

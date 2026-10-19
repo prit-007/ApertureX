@@ -18,8 +18,17 @@ libraw = { version = "0.1.1", optional = true }
 num-bigint = "0.4.8"
 num-traits = "0.2.19"
 rayon = "1.10"
-# Optional ONNX Runtime Mobile backend (ADR 0010, #87). Off by default so the
-# base APK stays free of native ML libraries and model weights.
+
+# Optional ONNX Runtime Mobile backend (ADR 0010, #87).
+#
+# Mobile release builds load the runtime dynamically so Cargokit never needs
+# network access and the APK ships a single vendored `libonnxruntime.so` per
+# ABI (see tool/ci/vendor_ort_android.sh). Host-side tests keep using the
+# `download-binaries` convenience because there is no Android/iOS lib to load.
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+ort = { version = "=2.0.0-rc.15", optional = true, default-features = false, features = ["std", "load-dynamic", "api-22"] }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 ort = { version = "=2.0.0-rc.15", optional = true, default-features = false, features = ["std", "download-binaries", "tls-rustls", "api-22"] }
 
 [features]

@@ -304,12 +304,14 @@ inverted-background selection (#83/#89), the intent-based AI mask resolver +
 smart paste with FNV-1a caching across photos (#96), a Settings consent
 provider / first-use dialog for F-Droid compliance, and the classical
 Select Sky fallback (#88). The optional `ai` build now adds the ONNX Runtime
-backend, NNAPI/CoreML provider hooks, and the bundled Apache-2.0 U²-NetP
-weights; subject masks and depth prefer U²-NetP and fall back to saliency.
-The default APK still ships without ORT or weights. `THIRD_PARTY.md` carries
-the U²-NetP row (Apache-2.0, bundled via #87). **Remaining:** vendor ORT
-native libraries for release/`ai` builds, device performance/quality
-validation, YuNet face detection, ML depth, and learned auto-frame.
+backend, NNAPI/CoreML provider hooks, the bundled Apache-2.0 U²-NetP
+subject weights, and the MIT YuNet face detector; subject masks and depth
+prefer U²-NetP, while portrait auto-subject placement prefers YuNet, and both
+fall back to saliency. Flutter builds enable `ai`, and Android release APKs
+ship a vendored ONNX Runtime loaded dynamically. `THIRD_PARTY.md` carries the
+U²-NetP (Apache-2.0) and YuNet (MIT) rows. **Remaining:** device
+performance/quality validation, iOS ORT packaging, real-photo face-placement
+validation, ML depth, and learned auto-frame.
 
 **Exit criteria**
 - Subject/sky masks usable in the Lightroom shell's Masking panel.
