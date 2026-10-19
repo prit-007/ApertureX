@@ -50,8 +50,8 @@ The IJG notice must be included in the app's license bundle.
 The `ai` cargo feature links [`ort`](https://crates.io/crates/ort) against
 ONNX Runtime (MIT). Plain `cargo` builds leave it off; Flutter builds enable it
 through `app/rust/cargokit.yaml`. Android release APKs load a vendored
-`libonnxruntime.so` at runtime (`ort/load-dynamic`) and contain the model
-weights below, so the build needs no network. Host tests use the
+`libonnxruntime.so` 1.24.3 at runtime (`ort/load-dynamic`) and contain the
+model weights below, so the build needs no network. Host tests use the
 `download-binaries` convenience because there is no Android/iOS library to
 load.
 
