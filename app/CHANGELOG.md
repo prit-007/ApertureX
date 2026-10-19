@@ -4,6 +4,57 @@ All notable changes to ApertureX are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.3] - 2026-10-19
+
+Pro-level polish release: film/slate UI refinements, bottom sheet redesign,
+auto-tone, AI depth blur for subjects, and compare-view fixes.
+
+### Added
+- **Ruby Peeks toggle** (default OFF) in Effects & Detail tab — auto-peek on
+  detail sliders only activates when enabled, so you see the normal image
+  during scrub.
+- **Auto-Tone button** in the Light & Color tab — analyzes JPEG histogram and
+  applies balanced exposure/contrast/highlights/shadows/whites/blacks in one
+  tap.
+- **ML Background Blur** — subject stays sharp while background blurs (separate
+  from the DSLR optical blur). Power curve for creamier DSLR bokeh at 100%
+  (max radius 24→60).
+- **Compare view fix** — the "before" side now samples the unedited source
+  texture instead of the graded base image; Wiper curtain and blend compare
+  both show the true original.
+- **Film tab sliders now work** — halation, bloom, dust, and scratches are
+  wired through `SpatialSpec` → `PreviewBaseSpec` → Rust engine (were
+  hardcoded to neutral).
+- **Image Information sheet fixed** — loads original EXIF-bearing JPEG bytes
+  via `loadImage()` instead of preview bytes (which had EXIF stripped).
+
+### Fixed
+- **Compare view** — Wiper curtain and blend now show the unedited "before"
+  side instead of the graded image on both sides.
+- **Film tab sliders** — halation/bloom/dust/scratches had no effect on the
+  preview; now wired end-to-end through the render pipeline.
+- **Ruby Peeks** — default OFF; opt-in via toggle in Effects & Detail tab.
+- **Image Information** — was showing stale/null/fake EXIF data; now reads
+  original image bytes for real metadata.
+- **100% lens blur** — now produces a creamy DSLR blur (power curve, max
+  radius 24→60).
+- **Auto-mix on open** — verified code path; HSL defaults are all zeros.
+- **Bottom-heavy test flakiness** — `bottom_heavy_test.dart` now drives
+  `compareHoldProvider` directly instead of relying on gesture timing.
+
+### Changed
+- **Bottom sheet layout** — accordion-style `ExpansionTile` groups for
+  Light/Color/Effects/Detail panels, tight 12×2 px spacing, compact chips;
+  prominent Auto Tone button in the Light & Color panel header.
+- **Prominent model-selection UI** — Active Model per Task router in the
+  Plugins tab so you can choose which model runs for each AI task when
+  multiple are installed.
+
+### Technical
+- `flutter_rust_bridge_codegen regenerate` after adding `blurBackgroundBlur`
+  to `PreviewBaseSpec`/`ExportSpec`.
+- All tests green: 1045 Dart + 320 Rust, `flutter analyze`/clippy/fmt clean.
+
 ## [0.2.2] - 2026-10-18
 
 Film simulation, lens corrections, depth-aware lens blur, retouch preview, and
