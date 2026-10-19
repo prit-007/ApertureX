@@ -28,8 +28,25 @@ pub(crate) fn create_session(model: &[u8]) -> Result<Session, String> {
         return Err("ONNX model bytes are empty".into());
     }
     let environment = environment()?;
-    Session::builder(environment)
-        .map_err(|e| format!("ONNX Runtime session builder failed: {e}"))?
+    #[allow(unused_mut)]
+    let mut builder = Session::builder(environment)
+        .map_err(|e| format!("ONNX Runtime session builder failed: {e}"))?;
+
+    #[cfg(feature = "ai-nnapi")]
+    {
+        builder = builder
+            .with_execution_providers([ort::ep::NNAPI::default().build()])
+            .map_err(|e| format!("ONNX Runtime NNAPI setup failed: {e}"))?;
+    }
+
+    #[cfg(feature = "ai-coreml")]
+    {
+        builder = builder
+            .with_execution_providers([ort::ep::CoreML::default().build()])
+            .map_err(|e| format!("ONNX Runtime CoreML setup failed: {e}"))?;
+    }
+
+    builder
         .commit_from_memory(model)
         .map_err(|e| format!("ONNX Runtime model load failed: {e}"))
 }
