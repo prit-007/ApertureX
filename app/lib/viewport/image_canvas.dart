@@ -13,6 +13,7 @@ import '../color/imported_lut.dart';
 import '../color/lut_atlas.dart';
 import '../color/lut_texture.dart';
 import '../color/tat.dart';
+import '../edit/active_image.dart';
 import '../edit/muted_parameters.dart';
 import '../edit/parameter.dart';
 import '../edit/recipe.dart';
@@ -20,6 +21,7 @@ import '../edit/recipe_controller.dart';
 import '../engine/engine.dart';
 import '../engine/image_format.dart';
 import '../engine/preview_texture.dart';
+import '../gallery/gallery_controller.dart' show gallerySourceProvider;
 import '../core/haptics.dart';
 import '../gesture/gesture_interpreter.dart';
 import '../gesture/zone_mask.dart';
@@ -101,6 +103,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// Handle of the decoded proxy resident in Rust (#37 spike A); all base
   /// bakes and histograms reference it instead of shuttling pixels.
   int? _previewHandle;
+
+  /// Asset whose embedded GDepth map is already loaded into [_previewHandle].
+  String? _embeddedDepthAssetId;
 
   ui.Image? _baseImage; // geometry + spatial + masks applied
   Uint8List? _baseRgba;
@@ -255,6 +260,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _source = proxy.$1;
       // Upload once into the Rust-resident store (#37 spike A); the pixels
       // never need to come back — every bake addresses the handle.
+      _embeddedDepthAssetId = null;
       final handle = await AxEngine.previewOpenJpeg(
         jpegBytes: jpeg,
         maxDim: _maxPreviewDim,
@@ -276,6 +282,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         gradeChanged: true,
       );
       if (mounted && (_baseImage != null || _useTexture)) setState(() {});
+      if (ref.read(recipeControllerProvider).recipe.blurEnabled) {
+        unawaited(_ensureEmbeddedDepth());
+      }
     } catch (_) {
       if (mounted) setState(() => _failed = true);
     }
@@ -594,6 +603,34 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   EditRecipe _renderRecipe(EditRecipe recipe) =>
       withMuted(recipe, ref.read(mutedParametersProvider));
 
+  /// Loads the original asset's embedded GDepth once per preview handle. The
+  /// preview bytes are media-store thumbnails and usually lack the XMP block.
+  Future<void> _ensureEmbeddedDepth() async {
+    final handle = _previewHandle;
+    final asset = ref.read(currentEditingAssetProvider);
+    if (handle == null || asset == null) return;
+    if (_embeddedDepthAssetId == asset.id) return;
+    if (!ref.read(recipeControllerProvider).recipe.blurEnabled) return;
+    _embeddedDepthAssetId = asset.id;
+    try {
+      final original = await ref.read(gallerySourceProvider).loadImage(asset.id);
+      if (original.isEmpty) return;
+      final depth = await AxEngine.extractEmbeddedDepth(original);
+      if (depth == null) return;
+      await AxEngine.previewSetEmbeddedDepth(
+        handle,
+        depth.depth,
+        width: depth.width,
+        height: depth.height,
+      );
+      if (!mounted || handle != _previewHandle) return;
+      _lastBaseKey = null;
+      _scheduleBake(ref.read(recipeControllerProvider).recipe);
+    } catch (_) {
+      _embeddedDepthAssetId = null;
+    }
+  }
+
   void _scheduleBake(EditRecipe recipe) {
     if (_program == null || _previewHandle == null) return;
     recipe = _renderRecipe(recipe);
@@ -865,6 +902,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _scheduleRoi(); // spatial/mask changes must re-bake the overlay band
       }
     });
+    ref.listen<bool>(
+      recipeControllerProvider.select((s) => s.recipe.blurEnabled),
+      (previous, next) {
+        if (next && previous != true) unawaited(_ensureEmbeddedDepth());
+      },
+    );
     ref.listen(
       importedLutProvider,
       (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),

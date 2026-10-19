@@ -376,6 +376,61 @@ fn transform_depth_map(
     data
 }
 
+/// Converts a JPEG GDepth plane (near = 255) into the preview depth convention
+/// (lower = closer), resizing it to the resident source dimensions.
+pub(crate) fn gdepth_to_preview_depth(
+    depth: &[u8],
+    width: usize,
+    height: usize,
+    target_width: usize,
+    target_height: usize,
+) -> Result<Vec<f32>, String> {
+    if width == 0 || height == 0 || depth.len() != width * height {
+        return Err(format!(
+            "embedded depth has {} samples, expected {} for {width}x{height}",
+            depth.len(),
+            width * height
+        ));
+    }
+    let converted: Vec<f32> = depth.iter().map(|&v| 1.0 - f32::from(v) / 255.0).collect();
+    if width == target_width && height == target_height {
+        return Ok(converted);
+    }
+    let resized = crate::ml::resize_mask(&converted, width, height, target_width, target_height);
+    if resized.is_empty() {
+        return Err("failed to resize embedded depth".into());
+    }
+    Ok(resized)
+}
+
+/// Stores an embedded GDepth plane for [handle], converting it into the
+/// preview's lower-is-closer convention and resizing it to the source proxy.
+pub fn set_embedded_depth(
+    handle: u64,
+    depth: Vec<u8>,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    let mut store = lock_store();
+    let resident = store
+        .images
+        .get_mut(&handle)
+        .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+    let data = gdepth_to_preview_depth(
+        &depth,
+        width as usize,
+        height as usize,
+        resident.width as usize,
+        resident.height as usize,
+    )?;
+    resident.depth_map = Some(Arc::new(DepthMap {
+        data: data.into(),
+        width: resident.width as usize,
+        height: resident.height as usize,
+    }));
+    Ok(())
+}
+
 /// Binds a platform window (spike B) to [handle]: `render` will write its
 /// frames there instead of returning them across the bridge.
 ///
@@ -1139,6 +1194,27 @@ mod depth_tests {
             "a uniform in-focus depth map must leave the frame untouched"
         );
         close(handle);
+    }
+
+    #[test]
+    fn embedded_gdepth_is_inverted_and_resized_for_preview() {
+        let depth = [255u8, 0, 0, 128];
+        let out = gdepth_to_preview_depth(&depth, 2, 2, 4, 4).expect("converted depth");
+        assert_eq!(out.len(), 16);
+        assert!(out[0] < 0.01, "near (255) must map to 0, got {}", out[0]);
+        assert!(
+            (out[3] - 1.0).abs() < 0.01,
+            "far (0) must map to 1, got {}",
+            out[3]
+        );
+        assert!((out[12] - 1.0).abs() < 0.01);
+        assert!((out[15] - 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn embedded_gdepth_rejects_wrong_sample_count() {
+        let err = gdepth_to_preview_depth(&[0u8; 3], 2, 2, 4, 4).unwrap_err();
+        assert!(err.contains("expected 4"), "unexpected error: {err}");
     }
 
     #[test]
