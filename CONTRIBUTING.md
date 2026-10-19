@@ -40,9 +40,17 @@ flutter_rust_bridge_codegen generate
 
 ## Branches, commits, PRs
 
-- Trunk is `main`; branch `feat/<issue>` or `fix/<issue>`.
-- Small, focused commits (featurewise). Reference the issue number.
-- Open a PR against `main`; CI must pass. Fill in the PR checklist.
+**`main` is protected — no direct pushes.** Every change must go through a pull request.
+
+- **Create a feature branch** from `main`: `git checkout -b feat/<issue-number>-short-description` or `fix/<issue-number>-short-description`
+- **Small, focused commits** referencing the issue number (`Closes #<issue>` or `Fixes #<issue>`)
+- **Run baseline checks locally** before opening the PR:
+  - `flutter analyze`
+  - `flutter test`
+  - `cd rust && cargo test && cargo fmt --check && cargo clippy --all-targets -- -D warnings`
+- **Open a PR against `main`**; CI must pass. Fill in the PR checklist completely.
+- **CI must pass** on the PR before merging. Maintainers review and merge — the PR author does not self-merge unless they are a maintainer.
+
 
 ## Labels & milestones
 
@@ -71,3 +79,29 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), the ADRs in
 [`docs/adr/`](docs/adr/), and the forward plan in
 [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) /
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+## Collaboration & Code Review
+
+- **Be kind and patient** — we welcome contributors of all experience levels.
+- **Review constructively** — focus on the code, not the person. Suggest
+  concrete changes with code examples when possible.
+- **Respond to review comments** in a timely manner. If you need more time,
+  just say so on the PR.
+- **One PR, one concern** — keep PRs small and focused. Do not bundle
+  unrelated changes together.
+- **Reference issues** — every commit and PR should reference an issue number
+  (`Closes #<issue>` or `Fixes #<issue>`).
+- **Maintainers merge** — the PR author does not self-merge unless they are a
+  maintainer.
+
+## First-time contributors
+
+1. Fork the repo (if you don't have write access) or create a branch from `main`.
+2. Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
+   [`docs/ROADMAP.md`](docs/ROADMAP.md) to understand the project direction.
+3. Pick an issue labeled `good first issue` or ask in the issue comments if you
+   need help getting started.
+4. Follow the TDD workflow: write a failing test first, make it pass, refactor.
+5. Open a draft PR early to get feedback before you finish.
+6. Make sure all baseline checks pass before requesting review.
+
