@@ -16,6 +16,9 @@ class AxApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         NativeLog.init(this)
+        // SIGSEGV/SIGABRT bypass the JVM handler below; recover the OS exit
+        // record before starting so the next launch still offers the log page.
+        NativeLog.capturePreviousExit(this)
 
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->

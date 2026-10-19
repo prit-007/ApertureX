@@ -33,10 +33,12 @@ pub fn segment_subject_mask(
 ) -> Result<Vec<f32>, String> {
     #[cfg(feature = "ai")]
     {
-        if let Ok(mask) =
-            crate::u2netp::U2NetpSegmenter.segment(rgba, src_w, src_h, target_w, target_h)
-        {
-            return Ok(mask);
+        match crate::u2netp::U2NetpSegmenter.segment(rgba, src_w, src_h, target_w, target_h) {
+            Ok(mask) => return Ok(mask),
+            Err(err) => crate::api::logging::record_engine_error(
+                "U²-NetP inference failed; using saliency",
+                &err,
+            ),
         }
     }
     SaliencySegmenter {}.segment(rgba, src_w, src_h, target_w, target_h)
