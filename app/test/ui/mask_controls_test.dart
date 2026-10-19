@@ -8,6 +8,10 @@ import 'package:aperturex/edit/active_image.dart';
 import 'package:aperturex/edit/adjustment_layer.dart';
 import 'package:aperturex/edit/node_editor.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
+import 'package:aperturex/engine/engine.dart' show EmbeddedDepthResult;
+import 'package:aperturex/gallery/gallery_asset.dart';
+import 'package:aperturex/gallery/gallery_controller.dart' show gallerySourceProvider;
+import 'package:aperturex/gallery/gallery_source.dart' show FakeGallerySource;
 import 'package:aperturex/ui/common/mask_controls.dart';
 
 import '../helpers/viewport_harness.dart';
@@ -217,6 +221,46 @@ void main() {
 
     // No photo loaded shows snackbar
     expect(find.text('No photo loaded for depth extraction'), findsOneWidget);
+  });
+
+  testWidgets('Depth + extracts from the original asset, not the preview bytes', (
+    tester,
+  ) async {
+    final preview = Uint8List.fromList([1, 2, 3]);
+    final original = Uint8List.fromList([9, 8, 7]);
+    Uint8List? extractedFrom;
+    final source = FakeGallerySource(
+      images: {'asset-1': original},
+      thumbnails: {'asset-1': preview},
+    );
+    container = ProviderContainer(
+      overrides: [
+        gallerySourceProvider.overrideWithValue(source),
+        embeddedDepthExtractorProvider.overrideWithValue((bytes) async {
+          extractedFrom = bytes;
+          return EmbeddedDepthResult(
+            width: 2,
+            height: 2,
+            depth: Uint8List.fromList([0, 64, 128, 255]),
+            format: 'RangeInverse',
+            near: 255,
+            far: 0,
+          );
+        }),
+      ],
+    );
+    container
+        .read(currentEditingAssetProvider.notifier)
+        .setAsset(const GalleryAsset(id: 'asset-1', width: 10, height: 10));
+    container.read(activeImageBytesProvider.notifier).setBytes(preview);
+
+    await pumpMaskControls(tester);
+    await tester.tap(find.byKey(const Key('mask-add-depth')));
+    await tester.pumpAndSettle();
+
+    expect(extractedFrom, original);
+    expect(container.read(recipeControllerProvider).recipe.layers, hasLength(1));
+    expect(find.text('Loaded embedded portrait depth mask'), findsOneWidget);
   });
 
   testWidgets('Background + button adds an inverted subject mask to the stack', (tester) async {
