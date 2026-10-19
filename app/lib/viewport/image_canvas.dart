@@ -512,7 +512,21 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
 
     try {
-      final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+    // Wide-gamut (P3) detection: if the JPEG is Display-P3 encoded, decode
+    // with Rust and convert to sRGB so the preview shader sees correct colors.
+    final cs = await AxEngine.detectColorspace(bytes);
+    if (cs == 2) {
+      final decoded = await AxEngine.decodeJpegRgba(bytes);
+      final srgb = await AxEngine.p3ToSrgb(
+        decoded.rgba,
+        width: decoded.width,
+        height: decoded.height,
+      );
+      final image = await _imageFrom(srgb, decoded.width, decoded.height);
+      return (image, Uint8List(0), image.width, image.height);
+    }
+
+    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
       final descriptor = await ui.ImageDescriptor.encoded(buffer);
       final orientation = readExifOrientation(bytes);
       final target = computeDecodeTarget(
