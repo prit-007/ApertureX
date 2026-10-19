@@ -6,9 +6,11 @@ import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../color/tat.dart';
+import '../../edit/active_image.dart' show activeImageBytesProvider;
 import '../../edit/parameter.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
+import '../../engine/engine.dart';
 import '../../features/ai_plugins/ai_plugin_store.dart';
 import '../../features/ai_plugins/ai_plugins_screen.dart';
 import '../../viewport/compare_hold.dart';
@@ -250,6 +252,44 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
       ),
     );
 
+    /// Shows Apply / Discard / Cancel when switching master tabs with uncommitted changes.
+    Future<void> showUncommittedChangesDialog({
+      required BuildContext dialogContext,
+      required RecipeController notifier,
+      required String tabLabel,
+      required VoidCallback onApply,
+      required VoidCallback onDiscard,
+    }) async {
+      final result = await showDialog<String>(
+        context: dialogContext,
+        builder: (ctx) => AlertDialog(
+          title: Text('Uncommitted changes in $tabLabel'),
+          content: const Text(
+            'You have uncommitted changes. Apply them, discard, or cancel?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop('discard'),
+              child: const Text('Discard'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop('cancel'),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop('apply'),
+              child: const Text('Apply'),
+            ),
+          ],
+        ),
+      );
+      if (result == 'apply') {
+        onApply();
+      } else if (result == 'discard') {
+        onDiscard();
+      }
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final content = Column(
@@ -272,9 +312,60 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                       () {
                         HapticFeedback.selectionClick();
                         // Modal guard: block switching tabs while the current
-                        // tab has uncommitted changes (Lightroom parity).
+                        // tab has uncommitted changes. Offer Apply / Discard /
+                        // Cancel so the user is never stuck.
                         if (hasTabChanges && tab != _activeTab) {
                           HapticFeedback.heavyImpact();
+                          showUncommittedChangesDialog(
+                            dialogContext: context,
+                            notifier: controller,
+                            tabLabel: _masterTabLabel(_activeTab),
+                            onApply: () {
+                              controller.commit(
+                                  label: 'Applied ${_masterTabLabel(_activeTab)}');
+                              setState(() {
+                                _activeTab = tab;
+                                _tabEntryRecipe =
+                                    ref.read(recipeControllerProvider).recipe;
+                              });
+                              final idx = _masterTabs.indexOf(tab);
+                              if (_tabScrollController.hasClients) {
+                                final target = (idx * 110.0 - 40.0).clamp(
+                                  0.0,
+                                  _tabScrollController.position.maxScrollExtent,
+                                );
+                                _tabScrollController.animateTo(
+                                  target,
+                                  duration: const Duration(milliseconds: 250),
+                                  curve: Curves.easeOut,
+                                );
+                              }
+                            },
+                            onDiscard: () {
+                              controller.loadRecipe(
+                                _tabEntryRecipe!,
+                                label:
+                                    'Discarded ${_masterTabLabel(_activeTab)} changes',
+                              );
+                              setState(() {
+                                _activeTab = tab;
+                                _tabEntryRecipe =
+                                    ref.read(recipeControllerProvider).recipe;
+                              });
+                              final idx = _masterTabs.indexOf(tab);
+                              if (_tabScrollController.hasClients) {
+                                final target = (idx * 110.0 - 40.0).clamp(
+                                  0.0,
+                                  _tabScrollController.position.maxScrollExtent,
+                                );
+                                _tabScrollController.animateTo(
+                                  target,
+                                  duration: const Duration(milliseconds: 250),
+                                  curve: Curves.easeOut,
+                                );
+                              }
+                            },
+                          );
                           return;
                         }
                         // Commit any changes in the current tab before leaving.
@@ -391,8 +482,42 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
+                      ),
+                    ],
+                  if (_activeTab == MasterTab.lightColor &&
+                      _lightColorTab == _LightColorSubTab.light)
+                    IconButton(
+                      tooltip: 'Auto Tone: analyze image and apply balanced adjustments',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () async {
+                        final bytes = ref.read(activeImageBytesProvider);
+                        if (bytes == null) return;
+                        final notifier =
+                            ref.read(recipeControllerProvider.notifier);
+                        final auto = await AxEngine.autoTone(bytes);
+                        if (auto == null) return;
+                        notifier.update(
+                            Parameter.exposure, auto['exposure'] as double);
+                        notifier.update(
+                            Parameter.contrast, auto['contrast'] as double);
+                        notifier.update(
+                            Parameter.highlights, auto['highlights'] as double);
+                        notifier.update(
+                            Parameter.shadows, auto['shadows'] as double);
+                        notifier.update(
+                            Parameter.whites, auto['whites'] as double);
+                        notifier.update(
+                            Parameter.blacks, auto['blacks'] as double);
+                        notifier.commit(label: 'Auto Tone');
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Auto-tone applied')),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.auto_awesome, size: 18),
                     ),
-                  ],
+                  const SizedBox(width: Insets.sm),
                   IconButton(
                     tooltip: 'Target Adjustment: drag the image to target the HSL '
                         'colour under your finger',
@@ -557,7 +682,9 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             ),
             Expanded(
               child: switch (_lightColorTab) {
-                _LightColorSubTab.light => ParameterPanel(section: RecipeSection.light),
+                _LightColorSubTab.light => ParameterPanel(
+                  section: RecipeSection.light,
+                ),
                 _LightColorSubTab.color => ParameterPanel(section: RecipeSection.color),
                 _LightColorSubTab.curve => const ToneCurveEditor(),
                 _LightColorSubTab.mix => const SingleChildScrollView(
@@ -754,7 +881,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     Widget tab(String label, T value, String keyName, bool isModified) {
       final selected = current == value;
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        // Tighter chip padding: 8px horizontal, 0 vertical
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
         child: ChoiceChip(
           label: Row(
             mainAxisSize: MainAxisSize.min,

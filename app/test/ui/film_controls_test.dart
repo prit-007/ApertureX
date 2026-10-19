@@ -35,37 +35,122 @@ void main() {
     );
   }
 
-  testWidgets('renders Halation, Bloom, and Emulsion headers and sliders', (
+  testWidgets('FilmControls uses ExpansionTile accordion groups', (
     tester,
   ) async {
     await pumpFilmControls(tester);
 
-    expect(find.text('Halation'), findsWidgets);
-    expect(find.text('OPTICAL BLOOM'), findsOneWidget);
-    expect(find.text('FILM EMULSION'), findsOneWidget);
+    // Three ExpansionTiles: Halation, Optical Bloom, Film Emulsion
+    expect(find.byType(ExpansionTile), findsNWidgets(3));
+  });
 
-    // Verify parameter controls are present
+  testWidgets('FilmControls ExpansionTiles start expanded', (
+    tester,
+  ) async {
+    await pumpFilmControls(tester);
+
+    for (final tile in tester.widgetList<ExpansionTile>(
+      find.byType(ExpansionTile),
+    )) {
+      expect(tile.initiallyExpanded, isTrue);
+    }
+  });
+
+  testWidgets('FilmControls sections contain correct parameter controls', (
+    tester,
+  ) async {
+    await pumpFilmControls(tester);
+
+    // Halation section
     expect(
       find.byWidgetPredicate(
-        (w) => w is ParameterControl && w.parameter == Parameter.filmHalation,
+        (widget) {
+          if (widget is ParameterControl) {
+            return widget.parameter == Parameter.filmHalation;
+          }
+          return false;
+        },
       ),
       findsOneWidget,
     );
     expect(
       find.byWidgetPredicate(
-        (w) => w is ParameterControl && w.parameter == Parameter.filmBloom,
+        (widget) {
+          if (widget is ParameterControl) {
+            return widget.parameter == Parameter.filmHalationRadius;
+          }
+          return false;
+        },
       ),
       findsOneWidget,
     );
     expect(
       find.byWidgetPredicate(
-        (w) => w is ParameterControl && w.parameter == Parameter.filmDust,
+        (widget) {
+          if (widget is ParameterControl) {
+            return widget.parameter == Parameter.filmHalationThreshold;
+          }
+          return false;
+        },
+      ),
+      findsOneWidget,
+    );
+
+    // Optical Bloom section
+    expect(
+      find.byWidgetPredicate(
+        (widget) {
+          if (widget is ParameterControl) {
+            return widget.parameter == Parameter.filmBloom;
+          }
+          return false;
+        },
       ),
       findsOneWidget,
     );
     expect(
       find.byWidgetPredicate(
-        (w) => w is ParameterControl && w.parameter == Parameter.filmScratches,
+        (widget) {
+          if (widget is ParameterControl) {
+            return widget.parameter == Parameter.filmBloomRadius;
+          }
+          return false;
+        },
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) {
+          if (widget is ParameterControl) {
+            return widget.parameter == Parameter.filmBloomThreshold;
+          }
+          return false;
+        },
+      ),
+      findsOneWidget,
+    );
+
+    // Film Emulsion section
+    expect(
+      find.byWidgetPredicate(
+        (widget) {
+          if (widget is ParameterControl) {
+            return widget.parameter == Parameter.filmDust;
+          }
+          return false;
+        },
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) {
+          if (widget is ParameterControl) {
+            return widget.parameter == Parameter.filmScratches;
+          }
+          return false;
+        },
       ),
       findsOneWidget,
     );

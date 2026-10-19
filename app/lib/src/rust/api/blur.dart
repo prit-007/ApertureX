@@ -23,6 +23,19 @@ Future<Uint8List> blurApply({
   depthMap: depthMap,
 );
 
+/// Computes an on-device monocular depth map from RGBA pixels using saliency
+/// and perspective priors. Returns a `width * height` plane of `f32` values
+/// in `[0.0, 1.0]` where lower = closer (more in focus).
+Future<Float32List> estimateDepthMap({
+  required List<int> rgba,
+  required int width,
+  required int height,
+}) => RustLib.instance.api.crateApiBlurEstimateDepthMap(
+  rgba: rgba,
+  width: width,
+  height: height,
+);
+
 /// Lens Blur parameters across the FFI boundary.
 class ApiLensBlurParams {
   final bool enabled;

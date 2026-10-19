@@ -141,6 +141,20 @@ Engine (Rust via flutter_rust_bridge)
 - **Shader compilation**: `flutter build apk --debug` verifies shaders compile
 - **Preview == Export**: Grading math lives once in Rust, shared by preview LUT and export path
 
+### Pull Request & Branch Convention (REQUIRED)
+
+**`main` is protected — no direct pushes.** Every change must go through a pull request.
+
+1. **Create a feature branch** from `main`: `git checkout -b feat/<issue-number>-short-description` or `fix/<issue-number>-short-description`
+2. **Make small, focused commits** referencing the issue number (`Closes #<issue>` or `Fixes #<issue>`)
+3. **Run baseline checks locally** before opening the PR:
+   - `flutter analyze`
+   - `flutter test`
+   - `cd rust && cargo test && cargo fmt --check && cargo clippy --all-targets -- -D warnings`
+4. **Open a PR against `main`** — fill in the PR checklist completely
+5. **CI must pass** on the PR before merging
+6. **Maintainers review and merge** — the PR author does not self-merge unless they are a maintainer
+
 ### Release Process
 - Trunk is `main`; feature branches: `feat/<issue>` or `fix/<issue>`
 - Small, focused commits referencing issue numbers

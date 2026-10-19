@@ -5,7 +5,8 @@ import '../../edit/recipe_mapping.dart';
 import 'parameter_control.dart';
 
 /// Renders every parameter in a [RecipeSection] through the shared
-/// [ParameterControl].
+/// [ParameterControl]. Uses tight 12x2 spacing so sliders nest closely
+/// together, minimizing vertical scroll in bottom sheets.
 class ParameterPanel extends StatelessWidget {
   const ParameterPanel({super.key, required this.section});
 
@@ -13,12 +14,17 @@ class ParameterPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final parameters = parametersIn(section);
+
     return ListView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       children: [
-        for (final parameter in parametersIn(section))
-          ParameterControl(parameter: parameter),
+        for (final parameter in parameters)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            child: ParameterControl(parameter: parameter),
+          ),
       ],
     );
   }

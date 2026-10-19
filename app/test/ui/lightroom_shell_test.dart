@@ -424,13 +424,13 @@ void main() {
           );
       await tester.pumpAndSettle();
 
-      // Try to switch to Effects & Detail while uncommitted -> blocked
+      // Try to switch to Effects & Detail while uncommitted -> dialog appears
       await tester.tap(find.text('Effects & Detail'));
       await tester.pumpAndSettle();
       expect(container.read(recipeControllerProvider).recipe.temperature, 0.5);
 
-      // Apply commits
-      await tester.tap(find.byKey(const Key('tray-apply')));
+      // Apply via dialog
+      await tester.tap(find.text('Apply'));
       await tester.pumpAndSettle();
       expect(container.read(recipeControllerProvider).recipe.temperature, 0.5);
 
@@ -452,13 +452,13 @@ void main() {
           );
       await tester.pumpAndSettle();
 
-      // Try to switch to Effects & Detail while uncommitted -> blocked
+      // Try to switch to Effects & Detail while uncommitted -> dialog appears
       await tester.tap(find.text('Effects & Detail'));
       await tester.pumpAndSettle();
       expect(container.read(recipeControllerProvider).recipe.exposure, 1.5);
 
-      // Discard reverts
-      await tester.tap(find.byKey(const Key('tray-cancel')));
+      // Discard via dialog
+      await tester.tap(find.text('Discard'));
       await tester.pumpAndSettle();
       expect(container.read(recipeControllerProvider).recipe.exposure, 0.0);
 
