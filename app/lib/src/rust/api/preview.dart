@@ -50,7 +50,7 @@ Future<RgbaImage> previewGetSourceRgba({required BigInt handle}) =>
 Future<void> previewClose({required BigInt handle}) =>
     RustLib.instance.api.crateApiPreviewPreviewClose(handle: handle);
 
-/// Stores an AI-computed depth map (width*height f32 plane in [0.0, 1.0],
+/// Stores a computed depth map (width*height f32 plane in [0.0, 1.0],
 /// lower = closer) for [handle], used by the lens blur stage to protect
 /// subjects from being blurred.
 Future<void> previewSetDepthMap({
@@ -59,6 +59,21 @@ Future<void> previewSetDepthMap({
 }) => RustLib.instance.api.crateApiPreviewPreviewSetDepthMap(
   handle: handle,
   depthMap: depthMap,
+);
+
+/// Stores an embedded JPEG GDepth plane for [handle]. Values are normalized so
+/// 255 is nearest; the engine inverts them into the preview's lower-is-closer
+/// convention and resizes to the source proxy.
+Future<void> previewSetEmbeddedDepth({
+  required BigInt handle,
+  required List<int> depth,
+  required int width,
+  required int height,
+}) => RustLib.instance.api.crateApiPreviewPreviewSetEmbeddedDepth(
+  handle: handle,
+  depth: depth,
+  width: width,
+  height: height,
 );
 
 /// Fused base pipeline on the resident source: flip → rotate → normalized
@@ -260,6 +275,9 @@ class PreviewBaseSpec {
   /// Maps the flat blur fields onto the engine's [`crate::blur::LensBlurParams`].
   Future<LensBlurParams> blurParams() =>
       RustLib.instance.api.crateApiPreviewPreviewBaseSpecBlurParams(that: this);
+
+  static Future<PreviewBaseSpec> default_() =>
+      RustLib.instance.api.crateApiPreviewPreviewBaseSpecDefault();
 
   @override
   int get hashCode =>

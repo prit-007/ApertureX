@@ -272,15 +272,14 @@ impl GeometrySpec {
 
 /// Normalized `[0,1]` crop, returning `None` when the rect is the identity or
 /// degenerate so callers keep their buffer instead of paying a full-frame copy.
-pub fn crop_normalized(
-    buf: &[u8],
+pub fn crop_rect(
     w: usize,
     h: usize,
     crop_l: f32,
     crop_t: f32,
     crop_r: f32,
     crop_b: f32,
-) -> Option<(Vec<u8>, usize, usize)> {
+) -> Option<(usize, usize, usize, usize)> {
     let (cl, ct, cr, cb) = (
         crop_l.clamp(0.0, 1.0),
         crop_t.clamp(0.0, 1.0),
@@ -299,6 +298,19 @@ pub fn crop_normalized(
     let max_h = (h - y).max(1);
     let cw = (((cr - cl) * w as f32).round() as usize).clamp(1, max_w);
     let ch = (((cb - ct) * h as f32).round() as usize).clamp(1, max_h);
+    Some((x, y, cw, ch))
+}
+
+pub fn crop_normalized(
+    buf: &[u8],
+    w: usize,
+    h: usize,
+    crop_l: f32,
+    crop_t: f32,
+    crop_r: f32,
+    crop_b: f32,
+) -> Option<(Vec<u8>, usize, usize)> {
+    let (x, y, cw, ch) = crop_rect(w, h, crop_l, crop_t, crop_r, crop_b)?;
     Some((crop(buf, w, h, x, y, cw, ch), cw, ch))
 }
 
