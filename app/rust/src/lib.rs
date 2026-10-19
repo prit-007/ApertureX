@@ -14,6 +14,8 @@ pub mod icc;
 pub mod mask;
 pub mod ml;
 pub mod optics;
+#[cfg(feature = "ai")]
+pub mod ort_runtime;
 pub mod preview;
 pub mod raw;
 pub mod retouch;

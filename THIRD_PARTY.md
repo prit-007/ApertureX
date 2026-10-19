@@ -28,6 +28,8 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 | [`qr_flutter`](https://pub.dev/packages/qr_flutter) | ^4.1.0 | BSD-3-Clause | QR code generation and rendering for Look/QR open standard sharing | ✅ |
 | [`zxing2`](https://pub.dev/packages/zxing2) | ^0.2.4 | Apache-2.0 | Pure-Dart port of ZXing for offline QR code detection and decoding from image buffers | ✅ |
 | [`miniz_oxide`](https://crates.io/crates/miniz_oxide) | ^0.8.9 | MIT OR Zlib OR Apache-2.0 | Pure-Rust DEFLATE decompression for watermark PNG decoding & C2PA payload decompression | ✅ |
+| [`ort`](https://crates.io/crates/ort) | =2.0.0-rc.15 | MIT OR Apache-2.0 | Safe Rust bindings for ONNX Runtime Mobile (`ai` feature; not in the default build) | ✅ |
+| [`ort-sys`](https://crates.io/crates/ort-sys) | =2.0.0-rc.15 | MIT OR Apache-2.0 | Low-level ONNX Runtime bindings and native runtime (`ai` feature; not in the default build) | ✅ |
 | [`zune-jpeg`](https://crates.io/crates/zune-jpeg) | ^0.5.15 | MIT OR Apache-2.0 OR Zlib | Rust JPEG decode for the ROI/proxy path | ✅ |
 
 Apache-2.0 and GPL-3.0 are mutually compatible (both are modern, patent-granting
@@ -42,6 +44,14 @@ preserving rawler's notice.
 (Independent JPEG Group) JPEG reference implementation, whose permissive license
 permits use in free and proprietary software provided the IJG notice is carried.
 The IJG notice must be included in the app's license bundle.
+
+### Optional ONNX Runtime Mobile — not in the default build
+
+The `ai` cargo feature links [`ort`](https://crates.io/crates/ort) against
+ONNX Runtime (MIT). The `ort` crate's `download-binaries` convenience is for
+development only: release and F-Droid builds must vendor the native ORT
+libraries and build without network access. No model weights are bundled yet;
+each model still needs a verified row in the ML table below.
 
 ### Optional native fallback (LibRaw / lensfun) — not in the default build
 

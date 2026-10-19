@@ -51,6 +51,11 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
 - `Segmenter` trait + tensor pre/post-processing pipeline in
   `app/rust/src/ml.rs` (#87), behind the `ai` cargo feature — the base APK
   builds without any ML code.
+- **ONNX Runtime Mobile spike** (`app/rust/src/ort_runtime.rs`, #87): the
+  `ort` crate (MIT OR Apache-2.0) now sits behind the optional `ai` feature.
+  It loads a model from memory, runs a single f32 input, and passes a host
+  Add-one ONNX fixture. `ai-nnapi` and `ai-coreml` gate the Android/iOS
+  execution providers. No weights ship yet, and default builds are unchanged.
 - **One-tap subject/background masks** via the in-tree `SaliencySegmenter`
   (no bundled weights, no runtime download), with inverted-background
   selection (#83/#89).
@@ -67,9 +72,11 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
   weights, #87).
 
 **Pending**
-- The `ort` runtime crate and the U²-NetP **weights themselves are not yet a
-  dependency** — the `ai` feature is currently an empty gate, so no model file
-  ships. Runtime adoption is the next step behind the licensing ledger.
+- No model weights ship yet. U²-NetP remains the first candidate; each model
+  still needs a verified weights-license row before adoption.
+- ORT mobile packaging: replace the development `download-binaries` path with
+  vendored native libraries, then measure APK size, cold-start, and NNAPI/
+  CoreML latency on real devices.
 - ML-based depth for lens blur (Depth Anything V2 small), YuNet face detection,
   learned auto-frame — each gated on verified per-model licenses.
 - The `THIRD_PARTY.md` table header still reads "planned / No model ships
