@@ -107,6 +107,9 @@ jobs:
           cargo clippy --features ai --all-targets -- -D warnings
           cargo test --features ai
 
+      - name: Build-tooling tests
+        run: python3 -m unittest discover -s tool/ci -p 'test_*.py' -v
+
   build-android:
     name: Release APKs (F-Droid buildserver container)
     needs: analyze-and-test
@@ -358,6 +361,10 @@ jobs:
           APKSIGNER=$(find "$SDK/build-tools" -type f -name apksigner | sort -V | tail -1)
           test -x "$AAPT" || { echo "aapt2 not found under $SDK/build-tools"; exit 1; }
           test -x "$APKSIGNER" || { echo "apksigner not found under $SDK/build-tools"; exit 1; }
+
+          # F-Droid's check apk job rejects reference APKs containing AGP's
+          # 0x504B4453 "Dependency metadata" signing block.
+          python3 tool/ci/strip_dependency_metadata.py --check release/assets/*.apk
 
           # Must match AllowedAPKSigningKeys in docs/fdroid-metadata.yml.
           EXPECTED_CERT=745e013035b596f1190c54ee1cf798b2d59a70100d284bb8fa0ff7c5af3dcdac

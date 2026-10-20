@@ -22,5 +22,9 @@ app/rust/.cargo/
 *.iml
 .vscode/
 
+# Python tooling
+__pycache__/
+*.pyc
+
 # OS
 .DS_Store

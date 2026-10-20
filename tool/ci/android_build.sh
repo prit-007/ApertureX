@@ -11,6 +11,9 @@
 #      F-Droid builds unsigned and signs with its own key.
 #   3. flutter build apk with SOURCE_DATE_EPOCH=0 (reproducible), per-ABI
 #      splits, Dart obfuscation + split debug info.
+#   4. strip AGP's "Dependency metadata" signing block (0x504B4453), which
+#      F-Droid's `check apk` rejects in reference APKs. The block is outside
+#      the v2-signed data, so the existing signature stays valid.
 #
 # Usage: tool/ci/android_build.sh [flutter-target-platform ...]
 #   [platform ...]   e.g. android-arm android-arm64 android-x64 — one flutter
@@ -21,7 +24,9 @@
 # Callers guarantee cwd is the repository root and flutter/dart are on PATH.
 set -euo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
+cd "$ROOT"
 
 PLATFORMS=("$@")
 
@@ -68,3 +73,7 @@ else
   build_one --split-per-abi --target-platform=android-x64
   build_one
 fi
+
+# --- 4. F-Droid-compatible signing block -----------------------------------
+python3 "$SCRIPT_DIR/strip_dependency_metadata.py" \
+  app/build/app/outputs/flutter-apk/*-release.apk

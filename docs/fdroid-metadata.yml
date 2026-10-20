@@ -18,6 +18,10 @@
 #     tool/ci/android_build.sh, shared by GitHub CI and F-Droid. The Rust build
 #     also remaps the Cargo home to /github/home/.cargo so panic-location paths
 #     match the GitHub release APKs byte-for-byte.
+#   * tool/ci/android_build.sh removes AGP's 0x504B4453 "Dependency metadata"
+#     APK signing block after every build. F-Droid's `check apk` rejects it in
+#     reference binaries; the block is outside the v2-signed data, so stripping
+#     it preserves the release signature.
 #   * Binaries/binary URLs must match the GitHub release asset names exactly.
 #   * The project GitLab buildserver has network access. An official F-Droid
 #     buildserver is offline, so vendored crates (`tool/ci/rust_vendor.sh`) are
