@@ -29,6 +29,28 @@ AutoName: ApertureX
 Name: ApertureX
 
 Builds:
+  - versionName: 0.2.4
+    # Per-ABI scheme (ADR 0004): the gradle build emits base×10+{1,2,3}
+    # (41/42/43); VercodeOperation accepts all three from one base code.
+    versionCode: 4
+    VercodeOperation:
+      - '%c * 10 + 1'
+      - '%c * 10 + 2'
+      - '%c * 10 + 3'
+    commit: v0.2.4
+    subdir: app/android
+    sudo:
+      - apt-get update
+      - apt-get install -y --no-install-recommends clang cmake ninja-build pkg-config make binutils
+    srclibs:
+      - Flutter/3.44.8
+    init:
+      - tool/ci/fdroid_flutter_setup.sh $$flutter$$
+      - tool/ci/android_prebuild.sh
+      - tool/ci/rust_vendor.sh --check
+    build:
+      - flutter build apk --release
+
   - versionName: 0.2.0
     versionCode: 2
     VercodeOperation:
@@ -45,28 +67,6 @@ Builds:
     init:
       - tool/ci/fdroid_flutter_setup.sh $$flutter$$
       - tool/ci/android_prebuild.sh
-    build:
-      - flutter build apk --release
-
-  - versionName: 0.2.3
-    # Per-ABI scheme (ADR 0004): the gradle build emits base×10+{1,2,3}
-    # (11/12/13); VercodeOperation accepts all three from one base code.
-    versionCode: 3
-    VercodeOperation:
-      - '%c * 10 + 1'
-      - '%c * 10 + 2'
-      - '%c * 10 + 3'
-    commit: v0.2.3
-    subdir: app/android
-    sudo:
-      - apt-get update
-      - apt-get install -y --no-install-recommends clang cmake ninja-build pkg-config make binutils
-    srclibs:
-      - Flutter/3.44.8
-    init:
-      - tool/ci/fdroid_flutter_setup.sh $$flutter$$
-      - tool/ci/android_prebuild.sh
-      - tool/ci/rust_vendor.sh --check
     build:
       - flutter build apk --release
 
