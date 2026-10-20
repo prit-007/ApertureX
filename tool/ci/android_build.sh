@@ -76,4 +76,4 @@ fi
 
 # --- 4. F-Droid-compatible signing block -----------------------------------
 python3 "$SCRIPT_DIR/strip_dependency_metadata.py" \
-  app/build/app/outputs/flutter-apk/*-release.apk
+  "$ROOT"/app/build/app/outputs/flutter-apk/*-release.apk
