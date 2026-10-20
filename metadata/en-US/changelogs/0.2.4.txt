@@ -1,0 +1,16 @@
+v0.2.4 (2026-10-20)
+AI subject detection, real embedded depth, 16-bit TIFF export, and an Android
+16 native-crash fix.
+
+* YuNet face detection: largest-face auto-subject placement with saliency
+  fallback
+* On-device U²-NetP subject masks and depth through ONNX Runtime Mobile
+* Color-range masks with hue/saturation/luminance bands and an eyedropper
+* 16-bit TIFF export with the full edit baked in
+* Lens blur uses embedded JPEG GDepth maps when available
+* Android 16 native crash fixed by pinning ONNX Runtime 1.24.3
+* Native SIGSEGV/SIGABRT/ANR exits now produce a next-launch crash report
+* AI fallbacks are written to the in-app log instead of being swallowed
+* Auto Tone now applies temperature and tint with the tonal adjustments
+* All 1047 Dart tests + 353 Rust tests pass
+* flutter analyze / cargo clippy / cargo fmt clean

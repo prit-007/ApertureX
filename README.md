@@ -1,7 +1,7 @@
 # ApertureX
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Status](https://img.shields.io/badge/status-v0.2.3-blue.svg)](docs/ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-v0.2.4-blue.svg)](docs/ROADMAP.md)
 [![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-lightgrey.svg)](#)
 [![Website](https://img.shields.io/badge/website-prit--007.github.io%2FApertureX-6BEAF7)](https://prit-007.github.io/ApertureX/)
 [![100% Offline](https://img.shields.io/badge/100%25-Offline-green.svg)](#privacy)
@@ -14,18 +14,20 @@
   <img src="app/icons/app_icon.png" alt="ApertureX app icon — a camera-aperture shutter mark on a dark field" width="192">
 </p>
 
-> **Status: v0.2.3 (Release).** Both UI shells
+> **Status: v0.2.4 (Release).** Both UI shells
 > (Lightroom panels + Snapseed gestures) run over one shared recipe; the Rust
 > engine carries the full color/spatial/geometry pipeline plus the **complete
-> local-adjustment stack**: 7 mask kinds (linear/radial/luminance/brush/bitmap +
-> AI subject/sky), **mask group algebra** (Add/Subtract/Intersect, ADR 0013),
+> local-adjustment stack**: 8 mask kinds (linear/radial/luminance/brush/bitmap/
+> color-range + AI subject/sky), **mask group algebra** (Add/Subtract/
+> Intersect, ADR 0013),
 > Amount 0–200%, Zone-System luminosity masks, per-mask 3-way color wheels +
 > Highlights/Shadows, and a guided-filter **Refine Edge brush**.
 >
 > **Industry-Grade Pro Capabilities:**
 > - **ApertureX Neural Forge (BYOM Plugins):** Declarative ONNX plugins via GitHub/HuggingFace links with auto-generated native parameter sliders.
-> - **Lossless DNG & CFA Passthrough (#79):** Zero-loss Bayer CFA raw preservation with injected non-destructive XMP metadata.
+> - **Lossless DNG & CFA Passthrough + 16-bit TIFF (#79):** Zero-loss Bayer CFA raw preservation with injected non-destructive XMP metadata, plus full-edit 16-bit TIFF export.
 > - **Lensfun Optics Database & EXIF Inspector (#85):** Hardware camera/lens profile matching with distortion/vignette compensation and deep EXIF shooting telemetry.
+> - **YuNet + U²-NetP AI Subject Detection:** Face-first auto-subject placement runs entirely on-device through ONNX Runtime 1.24.3, with saliency fallback.
 > - **ApertureX Academy & Interactive Guide:** Full tool-by-tool masterclasses, search filter, and pro workflow tips.
 > - **In-App GitHub Releases OTA Updater:** Seamless automatic updates with live progress bar and release notes changelog.
 > - **Staggered Media Gallery & Virtual Copies:** Google Photos-style date-grouped staggered layout with dedicated edited-versions catalog.
@@ -33,7 +35,7 @@
 > - **Translucent Glassmorphism:** Real-time backdrop-blur HUD overlays that preserve uninhibited photo viewing.
 > - **Zero-Telemetry Offline Integrity:** 100% local SQLite/Drift database, zero network calls unless explicitly requested by the user.
 >
-> Verified across 1045 Dart tests, 320 Rust tests (including 7 golden fixture corpus tests), and 0 analyzer lints. See [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`docs/PARITY.md`](docs/PARITY.md).
+> Verified across 1047 Dart tests, 353 Rust tests (including 7 golden fixture corpus tests), and 0 analyzer lints. See [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`docs/PARITY.md`](docs/PARITY.md).
 
 > **Naming:** the product is **ApertureX** and every identifier is canonical:
 > Dart package `aperturex`, applicationId/bundle id `com.devparadise.aperturex`,

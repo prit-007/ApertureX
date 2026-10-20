@@ -4,6 +4,46 @@ All notable changes to ApertureX are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.4] - 2026-10-20
+
+AI subject detection, real embedded depth, 16-bit TIFF export, and an Android
+16 native-crash fix.
+
+### Added
+- **YuNet face detection** — the MIT 2023mar model decodes all 12 heads with
+  greedy NMS; auto-subject placement prefers the largest face, then falls back
+  to saliency.
+- **On-device AI runtime** — optional `ai` builds bundle Apache-2.0 U²-NetP
+  with ONNX Runtime Mobile, NNAPI/CoreML provider hooks, and saliency
+  fallbacks for subject masks and depth.
+- **Color-range masks** — HSV hue/saturation/luminance bands with softness and
+  an eyedropper, composable through mask-group algebra.
+- **16-bit TIFF export** — uncompressed 16-bit-per-channel TIFF with the full
+  edit baked in.
+- **Embedded GDepth blur** — parses JPEG XMP GDepth `Format`/`Near`/`Far`,
+  inverts `RangeLinear` maps, caches a preview depth map, and aligns it
+  through flip/rotate/crop before lens blur.
+
+### Fixed
+- **Android 16 native crash** — ORT 1.22 SIGSEGV'd during U²-NetP inference on
+  arm64; vendor ORT 1.24.3 and bump the `ort` API to 24.
+- **Hard-crash observability** — `ApplicationExitInfo` reconstructs
+  `crash_marker.json` after native `SIGSEGV`/`SIGABRT`/ANR deaths, so the next
+  launch still offers the log page.
+- **AI fallbacks are logged** — U²-NetP and depth-estimation failures now
+  append to the Rust JSONL log instead of being silently swallowed.
+- **Auto Tone** — now applies the computed temperature and tint alongside the
+  tonal adjustments.
+- **Lens blur depth** — uses the embedded GDepth map when present instead of a
+  synthetic gradient, and labels the focus-plane chip honestly.
+- **Subject mask** — face-first placement falls back to saliency when YuNet
+  finds no face.
+
+### Technical
+- ORT 1.24.3 vendored for `arm64-v8a`, `armeabi-v7a`, and `x86_64` with a
+  reproducible SHA-256 fetch script.
+- All tests green: 1047 Dart + 353 Rust, `flutter analyze`/clippy/fmt clean.
+
 ## [0.2.3] - 2026-10-19
 
 Pro-level polish release: film/slate UI refinements, bottom sheet redesign,
