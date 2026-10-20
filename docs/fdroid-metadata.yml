@@ -15,7 +15,9 @@
 #   * The repo is moved to /__w/ApertureX/ApertureX during prebuild/build so
 #     paths match the GitHub Actions release builds (same as the published APKs).
 #   * `SOURCE_DATE_EPOCH=0` and the per-ABI Flutter commands live in
-#     tool/ci/android_build.sh, shared by GitHub CI and F-Droid.
+#     tool/ci/android_build.sh, shared by GitHub CI and F-Droid. The Rust build
+#     also remaps the Cargo home to /github/home/.cargo so panic-location paths
+#     match the GitHub release APKs byte-for-byte.
 #   * Binaries/binary URLs must match the GitHub release asset names exactly.
 #   * The project GitLab buildserver has network access. An official F-Droid
 #     buildserver is offline, so vendored crates (`tool/ci/rust_vendor.sh`) are
@@ -67,7 +69,8 @@ Builds:
       - app/android/app/src/main/jniLibs
     build:
       - export orig=$(pwd) repo=/__w/ApertureX/ApertureX; cd ..; mv com.devparadise.aperturex
-        $repo; cd $repo; export PUB_CACHE=$(pwd)/.pub-cache; export PATH=/opt/flutter/bin:$PATH
+        $repo; cd $repo; export PUB_CACHE=$(pwd)/.pub-cache; export PATH=/opt/flutter/bin:$PATH;
+        export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$HOME/.cargo=/github/home/.cargo"
       - tool/ci/android_build.sh android-arm
       - mv $repo "$orig"
     ndk: 28.2.13676358
@@ -100,7 +103,8 @@ Builds:
       - app/android/app/src/main/jniLibs
     build:
       - export orig=$(pwd) repo=/__w/ApertureX/ApertureX; cd ..; mv com.devparadise.aperturex
-        $repo; cd $repo; export PUB_CACHE=$(pwd)/.pub-cache; export PATH=/opt/flutter/bin:$PATH
+        $repo; cd $repo; export PUB_CACHE=$(pwd)/.pub-cache; export PATH=/opt/flutter/bin:$PATH;
+        export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$HOME/.cargo=/github/home/.cargo"
       - tool/ci/android_build.sh android-arm64
       - mv $repo "$orig"
     ndk: 28.2.13676358
@@ -133,7 +137,8 @@ Builds:
       - app/android/app/src/main/jniLibs
     build:
       - export orig=$(pwd) repo=/__w/ApertureX/ApertureX; cd ..; mv com.devparadise.aperturex
-        $repo; cd $repo; export PUB_CACHE=$(pwd)/.pub-cache; export PATH=/opt/flutter/bin:$PATH
+        $repo; cd $repo; export PUB_CACHE=$(pwd)/.pub-cache; export PATH=/opt/flutter/bin:$PATH;
+        export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$HOME/.cargo=/github/home/.cargo"
       - tool/ci/android_build.sh android-x64
       - mv $repo "$orig"
     ndk: 28.2.13676358
