@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ApertureX — Pro-Grade FOSS Photo Editor | Look QR Standard, Rust Engine & Dual Shells</title>
+<title>ApertureX — Pro-Grade FOSS Photo Editor</title>
 <meta name="description" content="ApertureX is the mobile-native FOSS photo editor for Android & iOS. Dual UI shells (Lightroom-style precision panel + Snapseed gesture mode) over one shared recipe, Look QR open preset standard, on-device C2PA provenance, Pat David film emulations, and a compiled Rust engine. 100% offline, GPL-3.0.">
 <meta property="og:title" content="ApertureX — Pro-Grade FOSS Photo Editor">
 <meta property="og:description" content="The Lightroom & Snapseed replacement the open-source community deserved. Dual UI shells, Look QR open standard, C2PA provenance, Pat David film stocks, and high-performance Rust core. Zero cloud, zero subscriptions.">
@@ -11,10 +11,31 @@
 <meta property="og:url" content="https://prit-007.github.io/ApertureX/">
 <meta property="og:image" content="https://raw.githubusercontent.com/prit-007/ApertureX/main/app/icons/app_icon.png">
 <meta name="theme-color" content="#080B11">
+<meta property="og:site_name" content="ApertureX">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ApertureX — Pro-Grade FOSS Photo Editor">
+<meta name="twitter:description" content="Dual UI shells, on-device AI subject detection, 16-bit TIFF export, and a compiled Rust engine. 100% offline, GPL-3.0.">
+<link rel="canonical" href="https://prit-007.github.io/ApertureX/">
 <link rel="icon" type="image/png" href="assets/app_icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add('js');</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ApertureX",
+  "applicationCategory": "PhotographyApplication",
+  "operatingSystem": "Android, iOS",
+  "softwareVersion": "0.2.4",
+  "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+  "url": "https://prit-007.github.io/ApertureX/",
+  "downloadUrl": "https://github.com/prit-007/ApertureX/releases/latest",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "A mobile-native, non-destructive FOSS photo editor with dual Lightroom-style and Snapseed-style shells over one shared recipe."
+}
+</script>
 
 <style>
   :root {
@@ -88,10 +109,53 @@
   a { color: inherit; text-decoration: none; }
   img, svg { display: block; max-width: 100%; }
   ul { list-style: none; }
+  button { font: inherit; color: inherit; }
   :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 4px; }
+  section[id], header[id] { scroll-margin-top: 88px; }
 
   .wrap { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
   @media (max-width: 640px) { .wrap { padding: 0 20px; } }
+
+  /* Accessibility helpers */
+  .skip-link {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translate(-50%, -160%);
+    z-index: 200;
+    background: var(--cyan);
+    color: #040810;
+    font-family: var(--display);
+    font-weight: 800;
+    padding: 10px 18px;
+    border-radius: 100px;
+    transition: transform 0.2s ease;
+  }
+  .skip-link:focus { transform: translate(-50%, 0); }
+
+  .scroll-progress {
+    position: fixed;
+    top: 0; left: 0;
+    width: 0;
+    height: 2px;
+    z-index: 150;
+    background: linear-gradient(90deg, var(--cyan), var(--amber), var(--coral));
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
+    pointer-events: none;
+    transition: width 0.08s linear;
+  }
+
+  /* Scroll reveal (only when JS is available) */
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+  }
+  .js .reveal.is-visible { opacity: 1; transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) {
+    .js .reveal { opacity: 1; transform: none; transition: none; }
+  }
 
   h1, h2, h3, h4 { font-family: var(--display); font-weight: 700; letter-spacing: -0.025em; line-height: 1.15; }
 
@@ -242,6 +306,7 @@
     top: 0;
     z-index: 90;
     background: rgba(8, 11, 17, 0.85);
+    transition: background 0.2s ease, box-shadow 0.2s ease;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
@@ -273,7 +338,29 @@
     font-weight: 600;
     color: var(--text-muted);
   }
+  .nav-links a {
+    position: relative;
+    padding: 6px 0;
+    transition: color 0.2s ease;
+  }
+  .nav-links a::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--cyan);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.2s ease;
+  }
   .nav-links a:hover { color: var(--text); }
+  .nav-links a.active { color: var(--text); }
+  .nav-links a.active::after { transform: scaleX(1); }
+  .site-nav.scrolled {
+    background: rgba(8, 11, 17, 0.96);
+    box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.9);
+  }
   @media (max-width: 960px) { .nav-links { display: none; } }
 
   .nav-actions {
@@ -304,15 +391,61 @@
   /* Mobile Drawer */
   .mobile-drawer {
     display: none;
+    position: fixed;
+    top: 68px;
+    left: 0; right: 0;
+    z-index: 85;
     flex-direction: column;
-    background: var(--bg-1);
+    background: rgba(10, 14, 22, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
-    padding: 20px 24px;
-    gap: 16px;
+    padding: 20px 24px 26px;
+    gap: 6px;
+    max-height: calc(100dvh - 68px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .mobile-drawer.open { display: flex; }
-  .mobile-drawer a { font-size: 1rem; font-weight: 600; color: var(--text-muted); padding: 6px 0; }
+  .mobile-drawer a {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 11px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
   .mobile-drawer a:hover { color: var(--cyan); }
+  .mobile-drawer .btn {
+    margin-top: 14px;
+    border-bottom: 0;
+    padding: 13px 26px;
+    justify-content: center;
+    color: #040810;
+  }
+  .mobile-drawer .btn:hover { color: #040810; }
+  .drawer-backdrop {
+    position: fixed;
+    inset: 68px 0 0;
+    z-index: 84;
+    background: rgba(0, 0, 0, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+  body.drawer-open { overflow: hidden; }
+
+  @media (max-width: 700px) {
+    .nav-version-badge { display: none; }
+    .site-nav .btn-primary { padding: 10px 18px; font-size: 0.85rem; }
+    .announcement-bar { flex-wrap: wrap; gap: 6px; padding: 8px 12px; font-size: 0.72rem; }
+  }
+  @media (max-width: 380px) {
+    .site-nav .wrap { padding: 0 14px; }
+    .nav-brand span { display: none; }
+    .site-nav .btn-primary { padding: 10px 14px; font-size: 0.8rem; }
+    .nav-actions { gap: 8px; }
+  }
 
   /* ============ HERO SECTION ============ */
   .hero {
@@ -352,6 +485,8 @@
   .hero-badge-wrap {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 24px;
   }
@@ -381,6 +516,18 @@
     gap: 16px;
     flex-wrap: wrap;
     margin-bottom: 50px;
+  }
+  .hero-note {
+    flex-basis: 100%;
+    margin-top: 2px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: var(--text-faint);
+  }
+  @media (max-width: 640px) {
+    .hero-cta { flex-direction: column; }
+    .hero-cta .btn { width: 100%; max-width: 360px; }
   }
 
   /* Hero Tech Metrics Strip */
@@ -446,6 +593,12 @@
     overflow: hidden;
     cursor: ew-resize;
     user-select: none;
+    -webkit-user-select: none;
+    touch-action: pan-y;
+  }
+  .compare-viewport:focus-visible {
+    outline: 3px solid var(--cyan);
+    outline-offset: -3px;
   }
   @media (max-width: 640px) { .compare-viewport { height: 360px; } }
 
@@ -565,6 +718,52 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    --mouse-x: 50%;
+    --mouse-y: 50%;
+  }
+  .bento-card > * {
+    position: relative;
+    z-index: 1;
+  }
+  .bento-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: radial-gradient(
+      800px circle at var(--mouse-x) var(--mouse-y),
+      rgba(0, 229, 255, 0.4),
+      transparent 40%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 2;
+  }
+  .bento-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      600px circle at var(--mouse-x) var(--mouse-y),
+      rgba(0, 229, 255, 0.04),
+      transparent 40%
+    );
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 0;
+  }
+  .bento-card:hover::before,
+  .bento-card:hover::after { opacity: 1; }
+  .bento-icon { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+  @media (hover: hover) {
+    .bento-card:hover .bento-icon { transform: scale(1.1) rotate(-3deg); }
   }
   .bento-span-8 { grid-column: span 8; }
   .bento-span-7 { grid-column: span 7; }
@@ -635,6 +834,7 @@
   }
   .demo-tab-btn {
     padding: 10px 18px;
+    transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     border-radius: 100px;
     font-family: var(--display);
     font-size: 0.88rem;
@@ -654,6 +854,14 @@
     color: #040810;
     border-color: var(--cyan);
     box-shadow: 0 4px 20px rgba(0, 229, 255, 0.35);
+  }
+  .mock-chip:active,
+  .mock-subchip:active,
+  .demo-tab-btn:active { transform: scale(0.92); }
+  @media (prefers-reduced-motion: reduce) {
+    .mock-chip:active,
+    .mock-subchip:active,
+    .demo-tab-btn:active { transform: none; }
   }
 
   .demo-stage {
@@ -684,6 +892,22 @@
     box-shadow: 0 35px 70px -15px rgba(0, 229, 255, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.05);
     position: relative;
     user-select: none;
+    animation: phoneFloat 6s ease-in-out infinite;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+  @keyframes phoneFloat {
+    0%, 100% {
+      transform: translateY(0) rotateX(0deg) rotateY(0deg);
+      box-shadow: 0 35px 70px -15px rgba(0, 229, 255, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+    50% {
+      transform: translateY(-12px) rotateX(2deg) rotateY(-2deg);
+      box-shadow: 0 50px 80px -10px rgba(0, 229, 255, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .phone-frame { animation: none; }
   }
   .phone-screen {
     position: relative;
@@ -742,11 +966,14 @@
     padding-bottom: 2px;
   }
   .mock-chip {
+    appearance: none;
     padding: 3px 8px;
+    transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease;
     border-radius: 100px;
     font-size: 0.62rem;
     font-family: var(--display);
     font-weight: 700;
+    line-height: 1.2;
     color: var(--text-muted);
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -766,10 +993,13 @@
     padding-bottom: 2px;
   }
   .mock-subchip {
+    appearance: none;
     padding: 2px 7px;
+    transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease;
     border-radius: 4px;
     font-size: 0.56rem;
     font-family: var(--mono);
+    line-height: 1.2;
     color: var(--text-faint);
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.06);
@@ -801,6 +1031,7 @@
     border-radius: 3px;
     background: rgba(255, 255, 255, 0.12);
     cursor: pointer;
+    touch-action: pan-y;
   }
   .mock-slider-fill {
     position: absolute;
@@ -869,14 +1100,18 @@
     justify-content: space-around;
     backdrop-filter: blur(16px);
   }
-  .mock-gesture-hud span {
+  .mock-gesture-hud button {
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 4px 2px;
     font-size: 0.68rem;
     font-family: var(--display);
     font-weight: 700;
     color: var(--text-muted);
     cursor: pointer;
   }
-  .mock-gesture-hud span.active { color: var(--cyan); }
+  .mock-gesture-hud button.active { color: var(--cyan); }
 
   /* Mock View 3: Export Ring & C2PA */
   .mock-export-box {
@@ -1246,6 +1481,16 @@
     color: var(--cyan);
     font-weight: 800;
   }
+  .cl-items strong { color: var(--text); }
+  .cl-items code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    color: var(--cyan);
+    background: rgba(0, 229, 255, 0.08);
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+  .cl-items a { color: var(--cyan); text-decoration: underline; }
   .spinner {
     width: 24px;
     height: 24px;
@@ -1304,15 +1549,18 @@
 
 <body>
 
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+
 <!-- Announcement Bar -->
 <div class="announcement-bar">
-  <span class="announcement-pill">v0.2.0 RELEASED</span>
-  <span><strong>ApertureX v0.2.0 is live!</strong> Look QR Open Standard, Pat David Analog Film Core &amp; On-Device C2PA Provenance.</span>
+  <span class="announcement-pill">v0.2.4 RELEASED</span>
+  <span><strong>ApertureX v0.2.4 is live!</strong> On-device AI subject detection, embedded depth, 16-bit TIFF export &amp; Android 16 crash fix.</span>
   <a href="#changelog" style="color: var(--cyan); font-weight:700; text-decoration:underline;">View Notes &rarr;</a>
 </div>
 
 <!-- Sticky Navigation -->
-<nav class="site-nav">
+<nav class="site-nav" id="siteNav" aria-label="Primary">
   <div class="wrap nav-inner">
     <a class="nav-brand" href="#top">
       <img src="assets/app_icon.png" alt="ApertureX logo">
@@ -1320,17 +1568,17 @@
     </a>
     
     <div class="nav-links">
-      <a href="#compare">Compare</a>
-      <a href="#features">Capabilities</a>
-      <a href="#screens">Studio Tour</a>
-      <a href="#pipeline">Architecture</a>
-      <a href="#changelog">Changelog</a>
+      <a href="#compare" data-nav="compare">Compare</a>
+      <a href="#features" data-nav="features">Capabilities</a>
+      <a href="#screens" data-nav="screens">Studio Tour</a>
+      <a href="#pipeline" data-nav="pipeline">Architecture</a>
+      <a href="#changelog" data-nav="changelog">Changelog</a>
     </div>
     
     <div class="nav-actions">
-      <span class="nav-version-badge" id="navVersion">v0.2.0</span>
+      <span class="nav-version-badge" id="navVersion">v0.2.4</span>
       <a class="btn btn-primary" id="navDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK</a>
-      <button class="menu-toggle-btn" id="menuBtn" aria-label="Toggle navigation menu" aria-expanded="false">
+      <button type="button" class="menu-toggle-btn" id="menuBtn" aria-label="Open navigation menu" aria-controls="mobileDrawer" aria-expanded="false">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
     </div>
@@ -1338,14 +1586,17 @@
 </nav>
 
 <!-- Mobile Navigation Drawer -->
-<div class="mobile-drawer" id="mobileDrawer">
+<div class="drawer-backdrop" id="drawerBackdrop" aria-hidden="true"></div>
+<nav class="mobile-drawer" id="mobileDrawer" aria-label="Mobile navigation">
   <a href="#compare">Before &amp; After</a>
   <a href="#features">Studio Capabilities</a>
   <a href="#screens">Interactive Studio Tour</a>
   <a href="#pipeline">Zero-Copy Architecture</a>
   <a href="#changelog">Release Changelog</a>
-  <a class="btn btn-primary" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK (v0.2.0)</a>
-</div>
+  <a class="btn btn-primary" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK (<span id="drawerDlText">v0.2.4</span>)</a>
+</nav>
+
+<main id="main">
 
 <!-- ============ HERO ============ -->
 <header class="hero" id="top">
@@ -1365,13 +1616,13 @@
     </h1>
     
     <p class="lead">
-      The open-source alternative to Adobe Lightroom &amp; Snapseed. Dual UI shells over one non-destructive recipe, a high-performance <strong>compiled Rust engine</strong>, <strong>Look QR open standard</strong> preset sharing, and cryptographic <strong>C2PA provenance</strong>.
+      The open-source alternative to Adobe Lightroom &amp; Snapseed. Dual UI shells over one non-destructive recipe, a high-performance <strong>compiled Rust engine</strong>, <strong>on-device AI masks</strong>, <strong>16-bit TIFF export</strong>, and cryptographic <strong>C2PA provenance</strong>.
     </p>
     
     <div class="hero-cta">
       <a class="btn btn-primary" id="heroDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
-        <span id="heroDlText">Download Universal APK (v0.2.0)</span>
+        <span id="heroDlText">Download Universal APK (v0.2.4)</span>
       </a>
       <a class="btn btn-ghost" href="#screens">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
@@ -1381,6 +1632,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
         GitHub (FOSS)
       </a>
+      <p class="hero-note">Android 8.0+ &bull; Signed APK &bull; No account required</p>
     </div>
     
     <!-- Tech Metrics Row -->
@@ -1394,8 +1646,8 @@
         <div class="label">Zero-Cloud Preset Standard</div>
       </div>
       <div class="hero-spec-card">
-        <div class="val" style="color:var(--amber);">Pure Rust rxing</div>
-        <div class="label">Zero Closed Google Blobs</div>
+        <div class="val" style="color:var(--amber);">YuNet + U&sup2;-NetP</div>
+        <div class="label">On-Device AI Subject Masks</div>
       </div>
       <div class="hero-spec-card">
         <div class="val" style="color:var(--emerald);">C2PA Verified</div>
@@ -1423,7 +1675,9 @@
     </div>
     
     <div class="compare-container">
-      <div class="compare-viewport" id="compareViewport" style="--split: 50%;">
+      <div class="compare-viewport" id="compareViewport" style="--split: 50%;" role="slider" tabindex="0"
+        aria-label="Before and after comparison" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"
+        aria-valuetext="50% graded image">
         <!-- Underneath: Raw capture layer -->
         <div class="compare-layer compare-raw">
           <div style="opacity:0.65; transform:scale(1.2);">
@@ -1661,15 +1915,15 @@
     </div>
     
     <div class="interactive-demo">
-      <div class="demo-nav">
-        <button class="demo-tab-btn active" data-tab="lightroom" onclick="setDemoTab('lightroom')">1. Zen Lightroom Inspector</button>
-        <button class="demo-tab-btn" data-tab="snapseed" onclick="setDemoTab('snapseed')">2. Snapseed Gesture Shell</button>
-        <button class="demo-tab-btn" data-tab="lookqr" onclick="setDemoTab('lookqr')">3. Look QR &amp; Film Studio</button>
-        <button class="demo-tab-btn" data-tab="export" onclick="setDemoTab('export')">4. Lossless Export &amp; C2PA</button>
-        <button class="demo-tab-btn" data-tab="gallery" onclick="setDemoTab('gallery')">5. Studio Library &amp; Batch</button>
+      <div class="demo-nav" role="tablist" aria-label="Studio tour">
+        <button type="button" class="demo-tab-btn active" id="tab-lightroom" role="tab" aria-selected="true" aria-controls="demoPanel" data-tab="lightroom" onclick="setDemoTab('lightroom')">1. Zen Lightroom Inspector</button>
+        <button type="button" class="demo-tab-btn" id="tab-snapseed" role="tab" aria-selected="false" aria-controls="demoPanel" data-tab="snapseed" onclick="setDemoTab('snapseed')">2. Snapseed Gesture Shell</button>
+        <button type="button" class="demo-tab-btn" id="tab-lookqr" role="tab" aria-selected="false" aria-controls="demoPanel" data-tab="lookqr" onclick="setDemoTab('lookqr')">3. Look QR &amp; Film Studio</button>
+        <button type="button" class="demo-tab-btn" id="tab-export" role="tab" aria-selected="false" aria-controls="demoPanel" data-tab="export" onclick="setDemoTab('export')">4. Lossless Export &amp; C2PA</button>
+        <button type="button" class="demo-tab-btn" id="tab-gallery" role="tab" aria-selected="false" aria-controls="demoPanel" data-tab="gallery" onclick="setDemoTab('gallery')">5. Studio Library &amp; Batch</button>
       </div>
       
-      <div class="demo-stage">
+      <div class="demo-stage" id="demoPanel" role="tabpanel" aria-labelledby="tab-lightroom" tabindex="0">
         <!-- Mockup Column -->
         <div class="demo-mockup-col">
           <div class="phone-frame">
@@ -1686,20 +1940,20 @@
                 
                 <div class="mock-hud-tray">
                   <!-- 6 Master Tabs -->
-                  <div class="mock-chip-row" id="mockChipRow">
-                    <span class="mock-chip active" data-cat="Light" onclick="setMockCategory('Light')">Light</span>
-                    <span class="mock-chip" data-cat="Color" onclick="setMockCategory('Color')">Color</span>
-                    <span class="mock-chip" data-cat="Blur" onclick="setMockCategory('Blur')">Blur</span>
-                    <span class="mock-chip" data-cat="Effects" onclick="setMockCategory('Effects')">Effects</span>
-                    <span class="mock-chip" data-cat="Detail" onclick="setMockCategory('Detail')">Detail</span>
-                    <span class="mock-chip" data-cat="Geometry" onclick="setMockCategory('Geometry')">Geometry</span>
+                  <div class="mock-chip-row" id="mockChipRow" role="group" aria-label="Adjustment category">
+                    <button type="button" class="mock-chip active" aria-pressed="true" data-cat="Light" onclick="setMockCategory('Light')">Light</button>
+                    <button type="button" class="mock-chip" aria-pressed="false" data-cat="Color" onclick="setMockCategory('Color')">Color</button>
+                    <button type="button" class="mock-chip" aria-pressed="false" data-cat="Blur" onclick="setMockCategory('Blur')">Blur</button>
+                    <button type="button" class="mock-chip" aria-pressed="false" data-cat="Effects" onclick="setMockCategory('Effects')">Effects</button>
+                    <button type="button" class="mock-chip" aria-pressed="false" data-cat="Detail" onclick="setMockCategory('Detail')">Detail</button>
+                    <button type="button" class="mock-chip" aria-pressed="false" data-cat="Geometry" onclick="setMockCategory('Geometry')">Geometry</button>
                   </div>
                   
                   <!-- Progressive Sub-Menus -->
-                  <div class="mock-subchip-row" id="mockSubchipRow">
-                    <span class="mock-subchip active">Tone</span>
-                    <span class="mock-subchip">Curve</span>
-                    <span class="mock-subchip">Dynamic Range</span>
+                  <div class="mock-subchip-row" id="mockSubchipRow" role="group" aria-label="Adjustment submenu">
+                    <button type="button" class="mock-subchip active">Tone</button>
+                    <button type="button" class="mock-subchip">Curve</button>
+                    <button type="button" class="mock-subchip">Dynamic Range</button>
                   </div>
                   
                   <!-- Slider 1 -->
@@ -1708,7 +1962,7 @@
                       <span class="name" id="mockSlider1Name">Exposure (EV)</span>
                       <span class="val" id="mockSlider1Val">+0.50 EV</span>
                     </div>
-                    <div class="mock-slider-track" id="mockSlider1Track" onmousedown="startSlider1Drag(event)" ontouchstart="startSlider1Drag(event)">
+                    <div class="mock-slider-track" id="mockSlider1Track" role="slider" tabindex="0" aria-label="Exposure" aria-valuemin="-5" aria-valuemax="5" aria-valuenow="0.5" aria-valuetext="+0.50 EV" onmousedown="startSlider1Drag(event)" ontouchstart="startSlider1Drag(event)">
                       <div class="mock-slider-fill" id="mockSlider1Fill" style="left:50%; width: 25%;"></div>
                       <div class="mock-slider-thumb" id="mockSlider1Thumb" style="left: 75%;"></div>
                     </div>
@@ -1720,7 +1974,7 @@
                       <span class="name" id="mockSlider2Name">Contrast</span>
                       <span class="val" id="mockSlider2Val">+18</span>
                     </div>
-                    <div class="mock-slider-track" id="mockSlider2Track" onmousedown="startSlider2Drag(event)" ontouchstart="startSlider2Drag(event)">
+                    <div class="mock-slider-track" id="mockSlider2Track" role="slider" tabindex="0" aria-label="Contrast" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="18" aria-valuetext="+18" onmousedown="startSlider2Drag(event)" ontouchstart="startSlider2Drag(event)">
                       <div class="mock-slider-fill" id="mockSlider2Fill" style="left:50%; width: 18%;"></div>
                       <div class="mock-slider-thumb" id="mockSlider2Thumb" style="left: 68%;"></div>
                     </div>
@@ -1734,12 +1988,12 @@
                   <div class="mock-ruby-mask" id="mockRubyMask"></div>
                   <div class="mock-brush-cursor" id="mockBrushCursor"></div>
                 </div>
-                <div class="mock-gesture-hud" id="mockGestureHud">
-                  <span class="active" onclick="setSnapseedTool(this)">BRUSH</span>
-                  <span onclick="setSnapseedTool(this)">LINEAR</span>
-                  <span onclick="setSnapseedTool(this)">RADIAL</span>
-                  <span onclick="setSnapseedTool(this)">DEPTH</span>
-                  <span onclick="setSnapseedTool(this)">ERASER</span>
+                <div class="mock-gesture-hud" id="mockGestureHud" role="group" aria-label="Gesture mask tool">
+                  <button type="button" class="active" aria-pressed="true" onclick="setSnapseedTool(this)">BRUSH</button>
+                  <button type="button" aria-pressed="false" onclick="setSnapseedTool(this)">LINEAR</button>
+                  <button type="button" aria-pressed="false" onclick="setSnapseedTool(this)">RADIAL</button>
+                  <button type="button" aria-pressed="false" onclick="setSnapseedTool(this)">DEPTH</button>
+                  <button type="button" aria-pressed="false" onclick="setSnapseedTool(this)">ERASER</button>
                 </div>
               </div>
 
@@ -2042,7 +2296,7 @@
       <div class="download-actions">
         <a class="btn btn-primary" id="dlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
-          <span id="dlBtnText">Download APK (v0.2.0)</span>
+          <span id="dlBtnText">Download APK (v0.2.4)</span>
         </a>
         <a class="btn btn-ghost" href="https://github.com/prit-007/ApertureX/releases" target="_blank" rel="noopener">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5 5-5M12 4v12"/></svg>
@@ -2050,7 +2304,7 @@
         </a>
       </div>
       
-      <div class="version-badge-lg">Latest Release: <b id="latestVersion">v0.2.0</b> &bull; Signed Universal APK</div>
+      <div class="version-badge-lg">Latest Release: <b id="latestVersion">v0.2.4</b> &bull; Signed Universal APK</div>
       
       <div class="arch-strip">
         <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Android 8.0+ (ARM64, ARMv7, x86_64)</span>
@@ -2078,15 +2332,57 @@
     </div>
     
     <div id="changelogFallback" style="display:none;">
-      <!-- v0.2.0 Entry -->
+      <!-- v0.2.4 Entry -->
       <div class="cl-entry">
         <details open>
+          <summary class="cl-toggle">
+            <span>v0.2.4 &mdash; Oct 20, 2026</span>
+            <span class="arrow">&#9662;</span>
+          </summary>
+          <div class="cl-body">
+            <ul class="cl-items cl-added">
+              <li><strong>YuNet face detection:</strong> 12-head MIT model with greedy NMS and largest-face auto-subject placement.</li>
+              <li><strong>On-device AI runtime:</strong> optional U&sup2;-NetP subject masks and depth through ONNX Runtime Mobile with NNAPI/CoreML hooks.</li>
+              <li><strong>Color-range masks:</strong> HSV hue, saturation, and luminance bands with softness and an eyedropper.</li>
+              <li><strong>16-bit TIFF export:</strong> uncompressed 16-bit-per-channel output with the full edit baked in.</li>
+              <li><strong>Embedded GDepth blur:</strong> parses JPEG XMP depth maps, aligns them through flip/rotate/crop, and drives lens blur.</li>
+            </ul>
+            <ul class="cl-items cl-fixed" style="margin-top:12px;">
+              <li><strong>Android 16 native crash:</strong> ORT 1.24.3 fixes the arm64 SIGSEGV during U&sup2;-NetP inference.</li>
+              <li><strong>Hard-crash observability:</strong> native SIGSEGV/SIGABRT/ANR exits now produce a next-launch crash report.</li>
+              <li><strong>AI fallbacks are logged:</strong> subject-mask and depth failures now reach the in-app JSONL log.</li>
+              <li><strong>Auto Tone</strong> now applies temperature and tint alongside tonal adjustments.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <!-- v0.2.3 Entry -->
+      <div class="cl-entry">
+        <details>
+          <summary class="cl-toggle">
+            <span>v0.2.3 &mdash; Oct 19, 2026</span>
+            <span class="arrow">&#9662;</span>
+          </summary>
+          <div class="cl-body">
+            <ul class="cl-items cl-added">
+              <li>Film and slate UI refinements, compact accordion bottom sheets, and an Auto Tone action.</li>
+              <li>ML background blur, Ruby Peeks toggle, true-source compare view, and wired film sliders.</li>
+              <li>Original-bytes EXIF inspection and a prominent per-task model router.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <!-- v0.2.0 Entry -->
+      <div class="cl-entry">
+        <details>
           <summary class="cl-toggle">
             <span>v0.2.0 &mdash; Oct 17, 2026</span>
             <span class="arrow">&#9662;</span>
           </summary>
           <div class="cl-body">
-            <div class="cl-items cl-added">
+            <ul class="cl-items cl-added">
               <li><strong>Look QR Code Open Standard:</strong> Encode complete non-destructive edit recipes into scannable offline QR creator cards with zero cloud dependencies.</li>
               <li><strong>Pure-FOSS Offline QR Engine:</strong> High-performance Rust <code>rxing</code> camera decoder running in compiled memory with zero closed Google Play Services / Firebase blobs.</li>
               <li><strong>Pat David Analog Film Simulation Core:</strong> Bundled open-source profiles for Kodak Portra 400, Fuji Pro 400H, Ilford HP5, and Cine Teal &amp; Orange in &lt;0.05MB JSON recipes.</li>
@@ -2096,7 +2392,7 @@
               <li><strong>Export Branding &amp; Watermark Engine:</strong> Native Rust watermark renderer supporting custom photographer signatures, EXIF stamps, and FOSS badges.</li>
               <li><strong>Zen 6-Master Tab Bar:</strong> Clean progressive disclosure organizing Light, Color, Blur, Effects, Detail, and Geometry with deep sub-menus.</li>
               <li><strong>Wiper Split-Curtain &amp; History Tree:</strong> Smooth interactive comparison curtain and non-destructive snapshot history tree.</li>
-            </div>
+            </ul>
           </div>
         </details>
       </div>
@@ -2109,19 +2405,21 @@
             <span class="arrow">&#9662;</span>
           </summary>
           <div class="cl-body">
-            <div class="cl-items cl-added">
+            <ul class="cl-items cl-added">
               <li>First public release: Dual-UI shells (Lightroom-style precision panel + Snapseed gesture mode).</li>
               <li>Native Rust engine: 65³ 3D LUT generation in &lt;1ms, tile viewport memory budget up to 200MP.</li>
               <li>Banded full-res export with Adobe-compatible .xmp sidecar sync.</li>
               <li>Classical Hough transform auto-straighten and GDepth/Apple disparity bokeh extraction.</li>
               <li>Guaranteed 100% offline via CI offline-guard test.</li>
-            </div>
+            </ul>
           </div>
         </details>
       </div>
     </div>
   </div>
 </section>
+
+</main>
 
 <!-- ============ FOOTER ============ -->
 <footer>
@@ -2152,56 +2450,118 @@
   // Mobile drawer
   const menuBtn = document.getElementById('menuBtn');
   const drawer = document.getElementById('mobileDrawer');
+  const drawerBackdrop = document.getElementById('drawerBackdrop');
+  const siteNav = document.getElementById('siteNav');
+
+  function positionDrawer() {
+    if (!siteNav || !drawer) return;
+    const top = Math.max(0, Math.round(siteNav.getBoundingClientRect().bottom));
+    drawer.style.top = top + 'px';
+    drawer.style.maxHeight = 'calc(100dvh - ' + top + 'px)';
+    if (drawerBackdrop) drawerBackdrop.style.top = top + 'px';
+  }
+
+  function closeDrawer(restoreFocus) {
+    if (!drawer || !menuBtn) return;
+    drawer.classList.remove('open');
+    drawerBackdrop?.classList.remove('open');
+    menuBtn.setAttribute('aria-expanded', 'false');
+    menuBtn.setAttribute('aria-label', 'Open navigation menu');
+    document.body.classList.remove('drawer-open');
+    if (restoreFocus) menuBtn.focus();
+  }
+
+  function openDrawer() {
+    if (!drawer || !menuBtn) return;
+    positionDrawer();
+    drawer.classList.add('open');
+    drawerBackdrop?.classList.add('open');
+    menuBtn.setAttribute('aria-expanded', 'true');
+    menuBtn.setAttribute('aria-label', 'Close navigation menu');
+    document.body.classList.add('drawer-open');
+    drawer.querySelector('a')?.focus();
+  }
+
   if (menuBtn && drawer) {
     menuBtn.addEventListener('click', () => {
-      const open = drawer.classList.toggle('open');
-      menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      drawer.classList.contains('open') ? closeDrawer(true) : openDrawer();
     });
-    drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
-      drawer.classList.remove('open');
-      menuBtn.setAttribute('aria-expanded', 'false');
-    }));
+    drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', () => closeDrawer(false)));
+    drawerBackdrop?.addEventListener('click', () => closeDrawer(true));
+    drawer.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const focusable = Array.from(drawer.querySelectorAll('a[href], button:not([disabled])'));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && drawer.classList.contains('open')) closeDrawer(true);
+    });
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 960) closeDrawer(false);
+      else if (drawer.classList.contains('open')) positionDrawer();
+    });
   }
 
   // Interactive Before/After Split Slider
   const viewport = document.getElementById('compareViewport');
   let isDraggingCompare = false;
+  let comparePercent = 50;
+
+  function setComparePercent(pct) {
+    if (!viewport) return;
+    comparePercent = Math.max(0, Math.min(100, pct));
+    const rounded = Math.round(comparePercent);
+    viewport.style.setProperty('--split', rounded + '%');
+    viewport.setAttribute('aria-valuenow', String(rounded));
+    viewport.setAttribute('aria-valuetext', rounded + '% graded image');
+  }
 
   function updateCompare(clientX) {
     if (!viewport) return;
     const rect = viewport.getBoundingClientRect();
     const pos = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    const pct = ((pos / rect.width) * 100).toFixed(2);
-    viewport.style.setProperty('--split', pct + '%');
+    setComparePercent((pos / rect.width) * 100);
   }
 
   if (viewport) {
-    viewport.addEventListener('mousedown', (e) => {
+    viewport.addEventListener('pointerdown', (e) => {
       isDraggingCompare = true;
+      viewport.setPointerCapture?.(e.pointerId);
       updateCompare(e.clientX);
     });
-    window.addEventListener('mousemove', (e) => {
-      if (!isDraggingCompare) return;
-      updateCompare(e.clientX);
+    viewport.addEventListener('pointermove', (e) => {
+      if (isDraggingCompare) updateCompare(e.clientX);
     });
-    window.addEventListener('mouseup', () => { isDraggingCompare = false; });
-
-    viewport.addEventListener('touchstart', (e) => {
-      isDraggingCompare = true;
-      updateCompare(e.touches[0].clientX);
-    }, { passive: true });
-    window.addEventListener('touchmove', (e) => {
-      if (!isDraggingCompare) return;
-      updateCompare(e.touches[0].clientX);
-    }, { passive: true });
-    window.addEventListener('touchend', () => { isDraggingCompare = false; });
+    viewport.addEventListener('pointerup', () => { isDraggingCompare = false; });
+    viewport.addEventListener('pointercancel', () => { isDraggingCompare = false; });
+    viewport.addEventListener('keydown', (e) => {
+      const step = e.shiftKey ? 10 : 2;
+      if (e.key === 'ArrowLeft') { setComparePercent(comparePercent - step); e.preventDefault(); }
+      else if (e.key === 'ArrowRight') { setComparePercent(comparePercent + step); e.preventDefault(); }
+      else if (e.key === 'Home') { setComparePercent(0); e.preventDefault(); }
+      else if (e.key === 'End') { setComparePercent(100); e.preventDefault(); }
+    });
   }
 
   // Interactive Demo Tab Switcher across 5 screens
   function setDemoTab(tab) {
     document.querySelectorAll('.demo-tab-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.tab === tab);
+      const selected = b.dataset.tab === tab;
+      b.classList.toggle('active', selected);
+      b.setAttribute('aria-selected', selected ? 'true' : 'false');
+      b.tabIndex = selected ? 0 : -1;
     });
+    const panel = document.getElementById('demoPanel');
+    if (panel) panel.setAttribute('aria-labelledby', 'tab-' + tab);
     
     const lrView = document.getElementById('mockLightroomView');
     const snView = document.getElementById('mockSnapseedView');
@@ -2227,6 +2587,25 @@
     if (exText) exText.style.display = tab === 'export' ? 'block' : 'none';
     if (glText) glText.style.display = tab === 'gallery' ? 'block' : 'none';
   }
+
+  const demoNav = document.querySelector('.demo-nav');
+  if (demoNav) {
+    demoNav.addEventListener('keydown', (e) => {
+      const tabs = Array.from(demoNav.querySelectorAll('.demo-tab-btn'));
+      const current = tabs.indexOf(document.activeElement);
+      if (current === -1) return;
+      let next = current;
+      if (e.key === 'ArrowRight') next = (current + 1) % tabs.length;
+      else if (e.key === 'ArrowLeft') next = (current - 1 + tabs.length) % tabs.length;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = tabs.length - 1;
+      else return;
+      e.preventDefault();
+      setDemoTab(tabs[next].dataset.tab);
+      tabs[next].focus();
+    });
+  }
+  setDemoTab('lightroom');
 
   // 6-Master Categories & Interactive Sliders
   const MOCK_CATEGORIES = {
@@ -2283,6 +2662,14 @@
   const s2Thumb = document.getElementById('mockSlider2Thumb');
   const subchipRow = document.getElementById('mockSubchipRow');
 
+  if (subchipRow) {
+    subchipRow.addEventListener('click', (e) => {
+      const chip = e.target.closest('.mock-subchip');
+      if (!chip) return;
+      subchipRow.querySelectorAll('.mock-subchip').forEach(c => c.classList.toggle('active', c === chip));
+    });
+  }
+
   function renderMockSliders() {
     const cat = MOCK_CATEGORIES[currentCategory];
     if (!cat) return;
@@ -2290,13 +2677,18 @@
     // Sub-menus
     if (subchipRow && cat.submenus) {
       subchipRow.innerHTML = cat.submenus.map((m, idx) => 
-        '<span class="mock-subchip' + (idx === 0 ? ' active' : '') + '">' + m + '</span>'
+        '<button type="button" class="mock-subchip' + (idx === 0 ? ' active' : '') + '">' + m + '</button>'
       ).join('');
     }
 
     // Slider 1
     s1Name.textContent = cat.s1.name;
     s1Val.textContent = cat.s1.format(cat.s1.val);
+    s1Track.setAttribute('aria-label', cat.s1.name);
+    s1Track.setAttribute('aria-valuemin', cat.s1.min);
+    s1Track.setAttribute('aria-valuemax', cat.s1.max);
+    s1Track.setAttribute('aria-valuenow', cat.s1.val);
+    s1Track.setAttribute('aria-valuetext', cat.s1.format(cat.s1.val));
     const p1 = ((cat.s1.val - cat.s1.min) / (cat.s1.max - cat.s1.min)) * 100;
     s1Thumb.style.left = p1 + '%';
     if (cat.s1.min < 0 && cat.s1.max > 0) {
@@ -2316,6 +2708,11 @@
     // Slider 2
     s2Name.textContent = cat.s2.name;
     s2Val.textContent = cat.s2.format(cat.s2.val);
+    s2Track.setAttribute('aria-label', cat.s2.name);
+    s2Track.setAttribute('aria-valuemin', cat.s2.min);
+    s2Track.setAttribute('aria-valuemax', cat.s2.max);
+    s2Track.setAttribute('aria-valuenow', cat.s2.val);
+    s2Track.setAttribute('aria-valuetext', cat.s2.format(cat.s2.val));
     const p2 = ((cat.s2.val - cat.s2.min) / (cat.s2.max - cat.s2.min)) * 100;
     s2Thumb.style.left = p2 + '%';
     if (cat.s2.min < 0 && cat.s2.max > 0) {
@@ -2340,7 +2737,9 @@
   function setMockCategory(name) {
     currentCategory = name;
     document.querySelectorAll('.mock-chip').forEach(c => {
-      c.classList.toggle('active', c.dataset.cat === name);
+      const active = c.dataset.cat === name;
+      c.classList.toggle('active', active);
+      c.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
     renderMockSliders();
   }
@@ -2383,6 +2782,28 @@
   }, { passive: true });
   window.addEventListener('touchend', () => { isS1Dragging = false; isS2Dragging = false; });
 
+  function nudgeMockSlider(spec, direction, bigStep) {
+    const range = spec.max - spec.min;
+    const step = range / (bigStep ? 10 : 100);
+    spec.val = Math.max(spec.min, Math.min(spec.max, spec.val + direction * step));
+    renderMockSliders();
+  }
+
+  s1Track?.addEventListener('keydown', (e) => {
+    const spec = MOCK_CATEGORIES[currentCategory].s1;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { nudgeMockSlider(spec, -1, e.shiftKey); e.preventDefault(); }
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { nudgeMockSlider(spec, 1, e.shiftKey); e.preventDefault(); }
+    else if (e.key === 'Home') { spec.val = spec.min; renderMockSliders(); e.preventDefault(); }
+    else if (e.key === 'End') { spec.val = spec.max; renderMockSliders(); e.preventDefault(); }
+  });
+  s2Track?.addEventListener('keydown', (e) => {
+    const spec = MOCK_CATEGORIES[currentCategory].s2;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { nudgeMockSlider(spec, -1, e.shiftKey); e.preventDefault(); }
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { nudgeMockSlider(spec, 1, e.shiftKey); e.preventDefault(); }
+    else if (e.key === 'Home') { spec.val = spec.min; renderMockSliders(); e.preventDefault(); }
+    else if (e.key === 'End') { spec.val = spec.max; renderMockSliders(); e.preventDefault(); }
+  });
+
   // Snapseed Interactive Canvas Brush
   const snCanvas = document.getElementById('mockSnapseedCanvas');
   const snBrush = document.getElementById('mockBrushCursor');
@@ -2411,8 +2832,12 @@
   }
 
   function setSnapseedTool(el) {
-    document.querySelectorAll('#mockGestureHud span').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('#mockGestureHud button').forEach(s => {
+      s.classList.remove('active');
+      s.setAttribute('aria-pressed', 'false');
+    });
     el.classList.add('active');
+    el.setAttribute('aria-pressed', 'true');
   }
 
   // Export Banded Streaming Simulator
@@ -2437,6 +2862,75 @@
     }, 25);
   }
 
+  // Sticky-nav state, reading progress, and active section
+  const scrollProgress = document.getElementById('scrollProgress');
+  const navAnchors = Array.from(document.querySelectorAll('.nav-links a[data-nav]'));
+  const navSections = Array.from(document.querySelectorAll('main section[id]'));
+  let scrollTicking = false;
+
+  function updateScrollUI() {
+    const doc = document.documentElement;
+    const maxScroll = Math.max(1, doc.scrollHeight - window.innerHeight);
+    const percent = Math.max(0, Math.min(100, (window.scrollY / maxScroll) * 100));
+    if (scrollProgress) scrollProgress.style.width = percent.toFixed(2) + '%';
+    siteNav?.classList.toggle('scrolled', window.scrollY > 8);
+
+    let activeId = '';
+    navSections.forEach(section => {
+      if (section.getBoundingClientRect().top <= 140) activeId = section.id;
+    });
+    navAnchors.forEach(link => {
+      const active = link.dataset.nav === activeId;
+      link.classList.toggle('active', active);
+      if (active) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
+
+    if (drawer?.classList.contains('open')) positionDrawer();
+    scrollTicking = false;
+  }
+
+  function requestScrollUI() {
+    if (scrollTicking) return;
+    scrollTicking = true;
+    requestAnimationFrame(updateScrollUI);
+  }
+
+  window.addEventListener('scroll', requestScrollUI, { passive: true });
+  window.addEventListener('resize', requestScrollUI);
+  updateScrollUI();
+
+  // Linear-style spotlight follows the pointer across bento cards
+  if (window.matchMedia('(hover: hover)').matches) {
+    document.querySelectorAll('.bento-card').forEach(card => {
+      card.addEventListener('pointermove', (e) => {
+        const rect = card.getBoundingClientRect();
+        card.style.setProperty('--mouse-x', (e.clientX - rect.left) + 'px');
+        card.style.setProperty('--mouse-y', (e.clientY - rect.top) + 'px');
+      });
+    });
+  }
+
+  // Reveal content as it enters the viewport
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if ('IntersectionObserver' in window && !reduceMotion) {
+    const revealTargets = document.querySelectorAll(
+      '.section-head, .bento-card, .flow-step, .trust-card, .download-box, .hero-spec-card, .interactive-demo, .caption-box'
+    );
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        revealObserver.unobserve(entry.target);
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    revealTargets.forEach((el, index) => {
+      el.classList.add('reveal');
+      el.style.transitionDelay = Math.min(index % 6 * 35, 175) + 'ms';
+      revealObserver.observe(el);
+    });
+  }
+
   // GitHub Releases Live API Fetch with verified fallback
   const REPO = 'prit-007/ApertureX';
   const API_URL = 'https://api.github.com/repos/' + REPO + '/releases?per_page=6';
@@ -2446,9 +2940,19 @@
   const navVersion = document.getElementById('navVersion');
   const latestVersion = document.getElementById('latestVersion');
   const dlBtn = document.getElementById('dlBtn');
+  const dlBtnText = document.getElementById('dlBtnText');
   const navDlBtn = document.getElementById('navDlBtn');
   const heroDlBtn = document.getElementById('heroDlBtn');
   const heroDlText = document.getElementById('heroDlText');
+  const drawerDlText = document.getElementById('drawerDlText');
+  const CACHE_KEY = 'aperturex_releases_v1';
+  const CACHE_TTL_MS = 10 * 60 * 1000;
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[char]));
+  }
 
   function pickApk(assets) {
     if (!assets || !assets.length) return null;
@@ -2457,37 +2961,60 @@
     return assets.find(a => a.name && a.name.endsWith('.apk')) || null;
   }
 
+  function inlineMarkdown(text) {
+    return escapeHtml(text)
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>');
+  }
+
   function renderReleases(releases) {
     let html = '';
     releases.forEach((rel, i) => {
       const date = new Date(rel.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
       const body = rel.body || '';
-      const fixedItems = [], changedItems = [], addedItems = [], notesItems = [];
+      const groups = { added: [], changed: [], fixed: [], notes: [], technical: [] };
       let section = 'added';
-      
+      let currentItem = '';
+
+      const flushItem = () => {
+        if (!currentItem) return;
+        groups[section].push('<li>' + inlineMarkdown(currentItem) + '</li>');
+        currentItem = '';
+      };
+
       body.split('\n').forEach(line => {
         const t = line.trim();
-        if (t === '### Fixed') section = 'fixed';
-        else if (t === '### Changed') section = 'changed';
-        else if (t === '### Added') section = 'added';
-        else if (t === '### Notes') section = 'notes';
-        else if (t.startsWith('- ') || t.startsWith('* ')) {
-          const item = '<li>' + t.slice(2) + '</li>';
-          if (section === 'changed') changedItems.push(item);
-          else if (section === 'added') addedItems.push(item);
-          else if (section === 'notes') notesItems.push(item);
-          else fixedItems.push(item);
+        if (!t) { flushItem(); return; }
+        if (t.startsWith('### ')) {
+          flushItem();
+          const heading = t.slice(4).toLowerCase();
+          if (heading.includes('fixed')) section = 'fixed';
+          else if (heading.includes('changed')) section = 'changed';
+          else if (heading.includes('added')) section = 'added';
+          else if (heading.includes('technical')) section = 'technical';
+          else section = 'notes';
+          return;
         }
+        if (t.startsWith('## ') || t.startsWith('#')) { flushItem(); return; }
+        if (t.startsWith('- ') || t.startsWith('* ')) {
+          flushItem();
+          currentItem = t.slice(2);
+          return;
+        }
+        if (currentItem) currentItem += ' ' + t;
       });
-      
+      flushItem();
+
       let bodyHtml = '';
-      if (addedItems.length) bodyHtml += '<div class="cl-items cl-added">' + addedItems.join('') + '</div>';
-      if (changedItems.length) bodyHtml += '<div class="cl-items cl-changed" style="margin-top:12px;">' + changedItems.join('') + '</div>';
-      if (fixedItems.length) bodyHtml += '<div class="cl-items cl-fixed" style="margin-top:12px;">' + fixedItems.join('') + '</div>';
-      if (notesItems.length) bodyHtml += '<div class="cl-items cl-notes" style="margin-top:12px;">' + notesItems.join('') + '</div>';
+      if (groups.added.length) bodyHtml += '<ul class="cl-items cl-added">' + groups.added.join('') + '</ul>';
+      if (groups.changed.length) bodyHtml += '<ul class="cl-items cl-changed" style="margin-top:12px;">' + groups.changed.join('') + '</ul>';
+      if (groups.fixed.length) bodyHtml += '<ul class="cl-items cl-fixed" style="margin-top:12px;">' + groups.fixed.join('') + '</ul>';
+      if (groups.technical.length) bodyHtml += '<ul class="cl-items cl-notes" style="margin-top:12px;">' + groups.technical.join('') + '</ul>';
+      if (groups.notes.length) bodyHtml += '<ul class="cl-items cl-notes" style="margin-top:12px;">' + groups.notes.join('') + '</ul>';
 
       html += '<div class="cl-entry"><details' + (i === 0 ? ' open' : '') + '>';
-      html += '<summary class="cl-toggle"><span>' + rel.tag_name + ' &mdash; ' + date + '</span><span class="arrow">&#9662;</span></summary>';
+      html += '<summary class="cl-toggle"><span>' + escapeHtml(rel.tag_name) + ' &mdash; ' + date + '</span><span class="arrow">&#9662;</span></summary>';
       html += '<div class="cl-body">' + bodyHtml + '</div></details></div>';
     });
     
@@ -2495,31 +3022,65 @@
     if (container) container.innerHTML = html;
   }
 
+  function applyLatest(releases) {
+    const latest = releases[0];
+    if (!latest) return;
+    const vText = latest.tag_name.startsWith('v') ? latest.tag_name : 'v' + latest.tag_name;
+    if (navVersion) navVersion.textContent = vText;
+    if (latestVersion) latestVersion.textContent = vText;
+    if (heroDlText) heroDlText.textContent = 'Download Universal APK (' + vText + ')';
+    if (dlBtnText) dlBtnText.textContent = 'Download APK (' + vText + ')';
+    if (drawerDlText) drawerDlText.textContent = vText;
+
+    const apkAsset = pickApk(latest.assets);
+    if (apkAsset) {
+      if (dlBtn) dlBtn.href = apkAsset.browser_download_url;
+      if (navDlBtn) navDlBtn.href = apkAsset.browser_download_url;
+      if (heroDlBtn) heroDlBtn.href = apkAsset.browser_download_url;
+    }
+  }
+
+  function readReleaseCache() {
+    try {
+      const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY));
+      if (cached && Array.isArray(cached.releases) && Date.now() - cached.savedAt < CACHE_TTL_MS) {
+        return cached.releases;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function writeReleaseCache(releases) {
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), releases }));
+    } catch (_) {}
+  }
+
   async function fetchReleases() {
+    const cached = readReleaseCache();
+    if (cached && cached.length) {
+      applyLatest(cached);
+      renderReleases(cached);
+      return;
+    }
+
     try {
       const resp = await fetch(API_URL, { headers: { 'Accept': 'application/vnd.github.v3+json' } });
       if (!resp.ok) throw new Error('API error ' + resp.status);
       const releases = await resp.json();
       if (!releases.length) throw new Error('No releases');
 
-      const latest = releases[0];
-      const vText = latest.tag_name.startsWith('v') ? latest.tag_name : 'v' + latest.tag_name;
-      if (navVersion) navVersion.textContent = vText;
-      if (latestVersion) latestVersion.textContent = vText;
-      if (heroDlText) heroDlText.textContent = 'Download Universal APK (' + vText + ')';
-
-      const apkAsset = pickApk(latest.assets);
-      if (apkAsset) {
-        if (dlBtn) dlBtn.href = apkAsset.browser_download_url;
-        if (navDlBtn) navDlBtn.href = apkAsset.browser_download_url;
-        if (heroDlBtn) heroDlBtn.href = apkAsset.browser_download_url;
-      }
+      applyLatest(releases);
+      writeReleaseCache(releases);
       renderReleases(releases);
     } catch (_) {
       if (loading) loading.style.display = 'none';
       if (fallback) fallback.style.display = 'block';
-      if (navVersion) navVersion.textContent = 'v0.2.0';
-      if (latestVersion) latestVersion.textContent = 'v0.2.0';
+      if (navVersion) navVersion.textContent = 'v0.2.4';
+      if (latestVersion) latestVersion.textContent = 'v0.2.4';
+      if (heroDlText) heroDlText.textContent = 'Download Universal APK (v0.2.4)';
+      if (dlBtnText) dlBtnText.textContent = 'Download APK (v0.2.4)';
+      if (drawerDlText) drawerDlText.textContent = 'v0.2.4';
     }
   }
   fetchReleases();
