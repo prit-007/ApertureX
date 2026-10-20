@@ -1,6 +1,9 @@
 package com.devparadise.aperturex
 
+import android.app.ActivityManager
+import android.app.ApplicationExitInfo
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import org.json.JSONObject
 import java.io.File
@@ -114,6 +117,115 @@ object NativeLog {
             // best effort
         }
     }
+
+    /**
+     * Reconstructs a crash marker for a process that died without running the
+     * JVM uncaught-exception handler — native SIGSEGV/SIGABRT, ANR, or LMK.
+     *
+     * These exits never reach Dart's zone or Kotlin's exception handler, so
+     * `getHistoricalProcessExitReasons` is the only source of truth. Runs once
+     * per process start; records the newest unread exit and writes a marker so
+     * the next launch can deep-link into the log page (ADR 0012 §3/§6).
+     */
+    fun capturePreviousExit(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        val base = dir ?: return
+        try {
+            val manager = context.getSystemService(ActivityManager::class.java) ?: return
+            val newest = manager
+                .getHistoricalProcessExitReasons(context.packageName, 0, 8)
+                .maxByOrNull { it.timestamp } ?: return
+            if (newest.timestamp <= readLastExitTimestamp(base)) return
+            writeLastExitTimestamp(base, newest.timestamp)
+
+            val fatal = newest.reason in FATAL_REASONS
+            if (!fatal) return
+            // A JVM-handled crash already wrote a richer marker; never replace it.
+            if (markerFile?.exists() == true) return
+
+            val description = newest.description?.takeIf { it.isNotBlank() }
+                ?: exitReasonName(newest.reason)
+            val trace = buildString {
+                appendLine("reason=${exitReasonName(newest.reason)} (${newest.reason})")
+                appendLine("status=${newest.status}")
+                appendLine("timestamp=${iso.format(Date(newest.timestamp))}")
+                if (newest.processName.isNotBlank()) appendLine("process=${newest.processName}")
+                readTrace(newest)?.takeIf { it.isNotBlank() }?.let {
+                    appendLine("trace:")
+                    appendLine(it)
+                }
+            }.trim()
+
+            val error = "Process exit: $description"
+            record("$error (reason=${exitReasonName(newest.reason)})")
+            writeCrashMarkerRecord(error, trace)
+        } catch (_: Throwable) {
+            // Evidence gathering must never block startup.
+        }
+    }
+
+    private fun writeCrashMarkerRecord(error: String, stack: String) {
+        val file = markerFile ?: return
+        try {
+            JSONObject()
+                .put("t", iso.format(Date()))
+                .put("where", "native")
+                .put("error", error)
+                .put("stack", stack)
+                .let { file.writeText(it.toString()) }
+        } catch (_: Throwable) {
+            // best effort
+        }
+    }
+
+    private fun readLastExitTimestamp(base: File): Long = try {
+        File(base, "last_exit_ms").takeIf { it.exists() }?.readText()?.toLongOrNull() ?: 0L
+    } catch (_: Throwable) {
+        0L
+    }
+
+    private fun writeLastExitTimestamp(base: File, timestamp: Long) {
+        try {
+            File(base, "last_exit_ms").writeText(timestamp.toString())
+        } catch (_: Throwable) {
+            // best effort
+        }
+    }
+
+    private fun readTrace(reason: ApplicationExitInfo): String? = try {
+        reason.traceInputStream?.use { stream ->
+            val buffer = ByteArray(64 * 1024)
+            var total = 0
+            while (total < buffer.size) {
+                val read = stream.read(buffer, total, buffer.size - total)
+                if (read <= 0) break
+                total += read
+            }
+            String(buffer, 0, total, Charsets.UTF_8)
+        }
+    } catch (_: Throwable) {
+        null
+    }
+
+    private fun exitReasonName(reason: Int): String = when (reason) {
+        ApplicationExitInfo.REASON_SIGNALED -> "signaled"
+        ApplicationExitInfo.REASON_LOW_MEMORY -> "low memory"
+        ApplicationExitInfo.REASON_CRASH -> "crash"
+        ApplicationExitInfo.REASON_CRASH_NATIVE -> "native crash"
+        ApplicationExitInfo.REASON_ANR -> "ANR"
+        ApplicationExitInfo.REASON_INITIALIZATION_FAILURE -> "initialization failure"
+        ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "excessive resource usage"
+        else -> "exit"
+    }
+
+    private val FATAL_REASONS = setOf(
+        ApplicationExitInfo.REASON_SIGNALED,
+        ApplicationExitInfo.REASON_CRASH,
+        ApplicationExitInfo.REASON_CRASH_NATIVE,
+        ApplicationExitInfo.REASON_ANR,
+        ApplicationExitInfo.REASON_INITIALIZATION_FAILURE,
+        ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE,
+    )
 
     private fun parseLine(line: String): Map<String, Any?>? = try {
         if (line.isBlank()) null else {

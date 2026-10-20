@@ -37,6 +37,23 @@ fn record(info: &std::panic::PanicHookInfo<'_>) {
     append_panic_line(&target, info);
 }
 
+/// Appends a non-fatal engine failure (e.g. an AI fallback) to the same
+/// LogEntry JSONL stream as panics. The next launch hydrates it into the log
+/// page, so recoverable failures are evidence rather than silent `.ok()`s.
+pub(crate) fn record_engine_error(message: &str, error: &str) {
+    let Some(target) = TARGET.get() else { return };
+    let Ok(target) = target.lock() else { return };
+    let t = now_rfc3339();
+    let m = json_escape(&truncate(message, MAX_FIELD_CHARS));
+    let e = json_escape(&truncate(error, MAX_FIELD_CHARS));
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&*target) {
+        let _ = writeln!(
+            file,
+            r#"{{"t":"{t}","d":"error","l":"error","m":"{m}","e":"{e}"}}"#
+        );
+    }
+}
+
 fn append_panic_line(path: &Path, info: &std::panic::PanicHookInfo<'_>) {
     let payload = truncate(&extract_payload(info), MAX_FIELD_CHARS);
     let location = info
@@ -173,6 +190,8 @@ mod tests {
         let second = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| panic!("{huge}")));
         assert!(second.is_err());
 
+        record_engine_error("U²-NetP failed; using saliency", "onnx exploded");
+
         let log = dir.join("rust_panic.log");
         let text = fs::read_to_string(&log).expect("rust_panic.log written");
         let mut lines = text.lines();
@@ -194,7 +213,22 @@ mod tests {
         let long_line = lines.next().expect("second line");
         assert!(long_line.len() < 9_000, "bounded: {}", long_line.len());
         assert!(!long_line.contains('\n'), "JSONL stays single-line");
-        assert!(lines.next().is_none(), "exactly two lines");
+
+        // Line 3: recoverable engine failures use the same schema/domain.
+        let engine_line = lines.next().expect("engine error line");
+        assert!(
+            engine_line.contains(r#""d":"error","l":"error""#),
+            "engine domain: {engine_line}"
+        );
+        assert!(
+            engine_line.contains(r#""m":"U²-NetP failed; using saliency""#),
+            "engine message: {engine_line}"
+        );
+        assert!(
+            engine_line.contains(r#""e":"onnx exploded""#),
+            "engine error: {engine_line}"
+        );
+        assert!(lines.next().is_none(), "exactly three lines");
 
         // Second init never wrote anywhere else.
         assert!(!Path::new("/nonexistent/aperturex_second_init").exists());

@@ -56,9 +56,11 @@ So every ML component must be (a) open-source runtime, (b) open-weights model,
   `ort` crate (MIT OR Apache-2.0) sits behind the optional `ai` feature. It
   loads models from memory, runs a single f32 input, and passes a host
   Add-one ONNX fixture. `ai-nnapi` and `ai-coreml` gate the Android/iOS
-  execution providers. Android ships the pinned ORT 1.22 `libonnxruntime.so`
+  execution providers. Android ships the pinned ORT 1.24.3 `libonnxruntime.so`
   in `app/android/app/src/main/jniLibs/` and loads it dynamically; iOS loads a
-  dylib when packaged and otherwise falls back to saliency.
+  dylib when packaged and otherwise falls back to saliency. ORT 1.22 crashed
+  natively during U²-NetP inference on Android 16 (ARM CPU detection); 1.24.x
+  contains the upstream fix.
 - **U²-NetP subject segmenter** (`app/rust/src/u2netp.rs`, #87): the
   Apache-2.0 4.5 MB `u2netp.onnx` weights are compiled into the `ai` build,
   run through ORT, and post-processed into a target-sized alpha mask.

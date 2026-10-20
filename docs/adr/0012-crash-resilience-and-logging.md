@@ -38,12 +38,14 @@ One system, four concerns: **boundaries → reporter → log → recovery UI**.
 | Subtree render | `ErrorWidget.builder` → `BoundaryFallback` | any element that fails to build paints elsewhere in the tree | in-place fallback card (tap → dialog → logs) instead of a dead/blank region |
 | Riverpod / call sites | existing `try/catch` + SnackBar, now routed through `ErrorReporter` | handled feature errors | popup + log, app continues |
 | Rust | `std::panic::set_hook` (once, at engine init) + FRB's unwind capture | panics become `AnyhowException` on the Dart side | hook appends a **LogEntry-JSONL** `rust_panic.log` line (hydrated into the in-app log page) before unwinding; the Dart exception hits the dispatcher boundary (popup + marker) |
-| Kotlin | channel handlers fully `try/catch` → `result.error`; `Application` installs `Thread.setDefaultUncaughtExceptionHandler` | platform-channel faults; process-level uncaught exceptions | channel faults become popup+log (app **lives**); uncaught ones write `native.log` + `crash_marker.json` before the process dies |
+| Kotlin | channel handlers fully `try/catch` → `result.error`; `Application` installs `Thread.setDefaultUncaughtExceptionHandler`; `ApplicationExitInfo` on next launch | platform-channel faults; process-level uncaught exceptions; native SIGSEGV/SIGABRT, ANR, LMK | channel faults become popup+log (app **lives**); JVM uncaught ones write `native.log` + `crash_marker.json` before the process dies; **native deaths bypass the JVM**, so `getHistoricalProcessExitReasons` reconstructs the marker on the next launch |
 
 Honest limits: an uncaught **main-thread Kotlin** exception still ends the
-process (Android owns that); survival there means *not letting exceptions
-escape handlers* (channel/executor guards) and *recovering with evidence*
-(marker → next-launch report). Everything Dart-side is survivable in-process.
+process (Android owns that), and **native signals cannot be caught from Dart,
+Kotlin, or Rust**. Survival there means *not letting exceptions escape
+handlers* (channel/executor guards), *eliminating known native crash sources*,
+and *recovering with evidence* (`ApplicationExitInfo` → marker →
+next-launch report). Everything Dart-side is survivable in-process.
 
 ### 2. `ErrorReporter` — classify, throttle, present
 
@@ -108,7 +110,14 @@ only), scroll/pointer streams, per-tile work.
 ### 6. Android native hardening
 
 - `AxApplication : Application` (manifest `android:name`): init native logger,
-  install the uncaught handler (marker + `native.log`, then chain to default).
+  install the uncaught handler (marker + `native.log`, then chain to default),
+  then call `NativeLog.capturePreviousExit(this)`. On API 30+ it reads
+  `ActivityManager.getHistoricalProcessExitReasons`, records the newest unread
+  fatal exit (`CRASH_NATIVE`, `CRASH`, `SIGNALED`, `ANR`, init failure,
+  resource exhaustion) to `native.log`, and reconstructs
+  `crash_marker.json` with the exit description and trace. The last-seen
+  timestamp lives in `last_exit_ms` so old exits are not re-reported; an
+  existing JVM/Dart marker always wins.
 - Audit every `setMethodCallHandler` and executor task: `try/catch` →
   `result.error(...)` / posted error — never an exception reaching the looper.
   Dart converts `PlatformException` → `ErrorReporter` (popup + log, app lives).
