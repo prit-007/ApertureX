@@ -151,7 +151,7 @@ Builds:
     ndk: 28.2.13676358
 
   - versionName: 0.2.5
-    versionCode: 44
+    versionCode: 53
     commit: cf95c3fa1a9f65f127ba84312d205234817e79fe
     sudo:
       - apt-get update
@@ -185,7 +185,7 @@ Builds:
     ndk: 28.2.13676358
 
   - versionName: 0.2.5
-    versionCode: 44
+    versionCode: 53
     commit: cf95c3fa1a9f65f127ba84312d205234817e79fe
     sudo:
       - apt-get update
@@ -219,7 +219,7 @@ Builds:
     ndk: 28.2.13676358
 
   - versionName: 0.2.5
-    versionCode: 44
+    versionCode: 53
     commit: cf95c3fa1a9f65f127ba84312d205234817e79fe
     sudo:
       - apt-get update
@@ -262,4 +262,4 @@ VercodeOperation:
   - 10*%c+3
 UpdateCheckData: app/pubspec.yaml|version:\s.+\+(\d+)|.|version:\s(.+)\+
 CurrentVersion: 0.2.5
-CurrentVersionCode: 44
+CurrentVersionCode: 53
