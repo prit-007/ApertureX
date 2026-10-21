@@ -1,0 +1,10 @@
+v0.2.4 — AI subject detection, embedded depth, 16-bit TIFF, Android 16 fix.
+* YuNet face detection with saliency fallback
+* On-device U²-NetP subject masks via ONNX Runtime Mobile
+* Color-range masks with HSL bands and eyedropper
+* 16-bit TIFF export with the full edit baked in
+* Lens blur uses embedded JPEG GDepth maps
+* ONNX Runtime 1.24.3 fixes the Android 16 native crash
+* Next-launch report for native exits
+* AI fallbacks written to the in-app log
+* Auto Tone applies temperature and tint

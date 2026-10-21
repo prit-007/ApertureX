@@ -5,6 +5,9 @@
 # Keep this copy in sync with it. The recipe targets one build per ABI because
 # the release APKs are split per ABI; version codes follow base * 10 + 1..3.
 #
+# Upstream store metadata lives in fastlane/metadata/android/en-US/ so F-Droid
+# can read the listing, icon, feature graphic, and versionCode-keyed changelogs.
+#
 # Reproducibility notes:
 #   * `scanignore` is used instead of `scandelete` for `.pub-cache`,
 #     `app/rust/vendor`, and `app/android/app/src/main/jniLibs`: Flutter plugins

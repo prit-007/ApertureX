@@ -1,0 +1,9 @@
+v0.2.3 — film sliders, Auto Tone, AI background blur, compare fix, Ruby Peeks.
+* Film tab sliders wired end-to-end (halation, bloom, dust, scratches)
+* Auto Tone one-tap balance in Light & Color
+* ML Background Blur keeps the subject sharp
+* Compare view samples the unedited source
+* Ruby Peeks toggle (default off)
+* Accordion bottom sheet with compact chips
+* Per-task model router in Plugins
+* Image info reads original EXIF bytes
