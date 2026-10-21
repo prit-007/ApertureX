@@ -49,7 +49,7 @@ void main() {
         .select(AppShellKind.snapseed);
     // The first-run ghost hint loops forever, so don't pumpAndSettle here.
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.byType(SnapseedShell), findsOneWidget);
     expect(find.byType(LightroomShell), findsNothing);

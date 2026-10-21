@@ -1093,6 +1093,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
     return AppShell(
       imageBytes: _bytes,
+      heroTag: widget.asset != null ? 'photo-${widget.asset!.id}' : null,
       onNextPhoto: _navigateToNext,
       onPreviousPhoto: _navigateToPrevious,
     );

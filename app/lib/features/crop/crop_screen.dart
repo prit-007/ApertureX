@@ -38,7 +38,8 @@ class CropScreen extends ConsumerStatefulWidget {
 
 enum _Corner { topLeft, topRight, bottomLeft, bottomRight, move }
 
-class _CropScreenState extends ConsumerState<CropScreen> {
+class _CropScreenState extends ConsumerState<CropScreen>
+    with TickerProviderStateMixin {
   ui.Image? _image;
   bool _loading = true;
 
@@ -51,15 +52,28 @@ class _CropScreenState extends ConsumerState<CropScreen> {
   late bool _flipH;
   double _straighten = 0;
 
+  /// Rule-of-thirds grid opacity: 0 when idle, 1 while dragging crop handles.
+  late final AnimationController _gridController;
+
   @override
   void initState() {
     super.initState();
+    _gridController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    )..addListener(() => setState(() {}));
     final recipe = ref.read(recipeControllerProvider).recipe;
     _rotation = recipe.rotation;
     _flipH = recipe.flipH;
     _straighten = recipe.straighten;
     _crop = clampNormalized(listToRect(recipe.crop));
     _init();
+  }
+
+  @override
+  void dispose() {
+    _gridController.dispose();
+    super.dispose();
   }
 
   double? get _aspect {
@@ -144,7 +158,9 @@ class _CropScreenState extends ConsumerState<CropScreen> {
   void _pickAspect(int index) {
     setState(() {
       _aspectIndex = index;
-      _crop = _withAspect(_crop.isEmpty ? const Rect.fromLTRB(0, 0, 1, 1) : _crop);
+      _crop = _withAspect(
+        _crop.isEmpty ? const Rect.fromLTRB(0, 0, 1, 1) : _crop,
+      );
     });
   }
 
@@ -161,6 +177,7 @@ class _CropScreenState extends ConsumerState<CropScreen> {
   }
 
   void _dragCorner(_Corner corner, Offset deltaNorm) {
+    _gridController.forward();
     final d = Offset(deltaNorm.dx, deltaNorm.dy);
     var r = _crop;
     switch (corner) {
@@ -171,7 +188,7 @@ class _CropScreenState extends ConsumerState<CropScreen> {
       case _Corner.bottomLeft:
         r = Rect.fromLTRB(r.left + d.dx, r.top, r.right, r.bottom + d.dy);
       case _Corner.bottomRight:
-        r = Rect.fromLTRB(r.left, r.top, r.right + d.dx, r.bottom + d.dy);
+        r = Rect.fromLTRB(r.left, r.top, r.right + d.dx, r.bottom);
       case _Corner.move:
         final w = r.width, h = r.height;
         final l = (r.left + d.dx).clamp(0.0, 1.0 - w);
@@ -186,11 +203,7 @@ class _CropScreenState extends ConsumerState<CropScreen> {
   void _apply() {
     ref
         .read(recipeControllerProvider.notifier)
-        .applyCrop(
-          crop: rectToList(_crop),
-          rotation: _rotation,
-          flipH: _flipH,
-        );
+        .applyCrop(crop: rectToList(_crop), rotation: _rotation, flipH: _flipH);
     Navigator.of(context).maybePop();
   }
 
@@ -253,7 +266,11 @@ class _CropScreenState extends ConsumerState<CropScreen> {
             ),
             Positioned.fill(
               child: CustomPaint(
-                painter: _CropPainter(crop: _crop, dst: dst),
+                painter: _CropPainter(
+                  crop: _crop,
+                  dst: dst,
+                  gridOpacity: _gridController.value,
+                ),
               ),
             ),
             // Movable interior.
@@ -296,9 +313,9 @@ class _CropScreenState extends ConsumerState<CropScreen> {
           corner,
           Offset(d.delta.dx / dst.width, d.delta.dy / dst.height),
         ),
-        child: const Center(
-          child: _HandleDot(),
-        ),      ),
+        onPanEnd: (_) => _gridController.reverse(),
+        child: const Center(child: _HandleDot()),
+      ),
     );
   }
 
@@ -323,6 +340,7 @@ class _CropScreenState extends ConsumerState<CropScreen> {
           corner,
           Offset(d.delta.dx / dst.width, d.delta.dy / dst.height),
         ),
+        onPanEnd: (_) => _gridController.reverse(),
       ),
     );
   }
@@ -405,11 +423,13 @@ class _HandleDot extends StatelessWidget {
 }
 
 /// Dims everything outside the crop, draws the border + rule-of-thirds grid.
+/// Grid fades in/out based on [gridOpacity] (0 = hidden, 1 = visible).
 class _CropPainter extends CustomPainter {
-  _CropPainter({required this.crop, required this.dst});
+  _CropPainter({required this.crop, required this.dst, this.gridOpacity = 0.0});
 
   final Rect crop;
   final Rect dst;
+  final double gridOpacity;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -426,7 +446,10 @@ class _CropPainter extends CustomPainter {
       ..drawRect(Rect.fromLTRB(0, 0, size.width, rect.top), dim)
       ..drawRect(Rect.fromLTRB(0, rect.bottom, size.width, size.height), dim)
       ..drawRect(Rect.fromLTRB(0, rect.top, rect.left, rect.bottom), dim)
-      ..drawRect(Rect.fromLTRB(rect.right, rect.top, size.width, rect.bottom), dim);
+      ..drawRect(
+        Rect.fromLTRB(rect.right, rect.top, size.width, rect.bottom),
+        dim,
+      );
 
     canvas.drawRect(
       rect,
@@ -437,7 +460,7 @@ class _CropPainter extends CustomPainter {
     );
 
     final grid = Paint()
-      ..color = Colors.white38
+      ..color = Colors.white38.withValues(alpha: gridOpacity)
       ..strokeWidth = 1;
     for (var i = 1; i < 3; i++) {
       final x = rect.left + rect.width * i / 3;
@@ -450,5 +473,5 @@ class _CropPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CropPainter old) =>
-      old.crop != crop || old.dst != dst;
+      old.crop != crop || old.dst != dst || old.gridOpacity != gridOpacity;
 }

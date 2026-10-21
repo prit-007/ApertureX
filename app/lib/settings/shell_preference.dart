@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,6 +26,9 @@ class ShellPreference extends Notifier<AppShellKind> {
     state = kind;
     _persist(kind);
     axLog(LogDomain.app, 'Shell preference set to ${kind.name}');
+    // Tactile confirmation when switching shells so the user feels the change.
+    // non-critical; safe to ignore if the binding isn't initialized (e.g. tests).
+    unawaited(HapticFeedback.selectionClick().catchError((_) {}));
   }
 
   Future<void> _restore() async {

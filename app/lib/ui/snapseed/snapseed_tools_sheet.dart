@@ -190,6 +190,7 @@ class SnapseedToolsSheet extends ConsumerWidget {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Material(
         color: Theme.of(context).colorScheme.surface,
