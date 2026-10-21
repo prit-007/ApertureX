@@ -1549,8 +1549,8 @@
 html{overflow-x:visible}
 .hero.pin{height:260vh;padding:0;overflow:visible;text-align:center}
 .stick{position:sticky;top:0;height:100vh;height:100dvh;overflow:hidden;display:grid;place-items:center;padding-top:68px;box-sizing:border-box}
-.iris{position:absolute;width:min(94vmin,780px);aspect-ratio:1;z-index:1;pointer-events:none}.iris svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.photo{position:absolute;width:56%;aspect-ratio:1;left:22%;top:22%;border-radius:50%;transform:scale(.6);will-change:transform;background:#111;box-shadow:0 0 90px rgba(0,229,255,.28)}
+.iris{position:absolute;width:min(94vmin,780px);aspect-ratio:1;z-index:1;pointer-events:none;overflow:hidden;border-radius:50%}.iris svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.photo{position:absolute;width:44%;aspect-ratio:1;left:28%;top:28%;border-radius:50%;overflow:hidden;transform:scale(.6);will-change:transform;background:#111;box-shadow:0 0 90px rgba(0,229,255,.28);object-fit:cover}
 .hcopy{position:relative;z-index:5;width:100%;will-change:transform,opacity}
 .hcopy h1,.hcopy p.lead{text-shadow:0 4px 40px rgba(6,8,13,.9)}
 .hero .hero-badge-wrap,.hero p.lead,.hero .hero-cta{animation:up .9s var(--ease) both}
@@ -2081,7 +2081,7 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
 
               <!-- 4. Export & C2PA Mode View -->
               <div id="mockExportView" class="mock-export-box" style="display:none;">
-                <img src="assets/stock/export.webp" alt="Export processing" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
+                <img src="assets/stock/export.webp" alt="Export processing" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;">
                 <div class="mock-ring" id="mockExportRing"><b id="mockExportVal">74%</b></div>
                 <span id="mockExportLabel" style="font-family:var(--display); font-size:0.75rem; color:var(--text-muted); letter-spacing:0.06em; text-transform:uppercase;">Banded Streaming</span>
                 <button type="button" class="btn btn-ghost" style="padding:6px 16px; font-size:0.75rem; border-radius:100px; cursor:pointer;" onclick="triggerSimulatedExport()">Simulate Stream</button>
