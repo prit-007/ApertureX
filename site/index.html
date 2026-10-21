@@ -93,7 +93,7 @@
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
+    overflow-x: clip;
     font-variant-numeric: tabular-nums;
   }
 
@@ -1544,6 +1544,81 @@
     flex-wrap: wrap;
     gap: 12px;
   }
+
+:root{--ease:cubic-bezier(.16,1,.3,1)}
+html{overflow-x:visible}
+.hero.pin{height:260vh;padding:0;overflow:visible;text-align:center}
+.stick{position:sticky;top:0;height:100vh;height:100dvh;overflow:hidden;display:grid;place-items:center;padding-top:68px;box-sizing:border-box}
+.iris{position:absolute;width:min(94vmin,780px);aspect-ratio:1;z-index:1;pointer-events:none}.iris svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.photo{position:absolute;width:56%;aspect-ratio:1;left:22%;top:22%;border-radius:50%;transform:scale(.6);will-change:transform;background:#111;box-shadow:0 0 90px rgba(0,229,255,.28)}
+.hcopy{position:relative;z-index:5;width:100%;will-change:transform,opacity}
+.hcopy h1,.hcopy p.lead{text-shadow:0 4px 40px rgba(6,8,13,.9)}
+.hero .hero-badge-wrap,.hero p.lead,.hero .hero-cta{animation:up .9s var(--ease) both}
+.hero h1{animation:trk 1.3s var(--ease) both}.hero .hero-badge-wrap{animation-delay:.1s}.hero p.lead{animation-delay:.55s}.hero .hero-cta{animation-delay:.75s}
+@keyframes up{from{opacity:0;transform:translateY(40px)}}@keyframes trk{from{opacity:0;letter-spacing:.1em;filter:blur(14px);transform:translateY(20px)}}
+.pin .hero-cta{margin-bottom:0}.pin p.lead{margin-bottom:28px}
+.hero-specs{padding:70px 0 50px}
+.orb{position:absolute;width:min(112vmin,900px);aspect-ratio:1;animation:spin 46s linear infinite;pointer-events:none;z-index:2}
+.orb span{position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(var(--a)) translateY(calc(min(56vmin,450px)*-1)) rotate(calc(var(--a)*-1))}
+.orb b{display:block;transform:translate(-50%,-50%);white-space:nowrap;padding:7px 14px;border-radius:99px;background:rgba(14,18,26,.88);border:1px solid rgba(0,229,255,.4);color:var(--cyan);font:700 .72rem var(--mono);animation:spinr 46s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes spinr{to{transform:translate(-50%,-50%) rotate(-360deg)}}
+.rev2{position:absolute;z-index:5;text-align:center;padding:0 24px;max-width:780px;opacity:0;pointer-events:none;will-change:transform,opacity}
+.rev2 .big{font:800 clamp(2.1rem,6.4vw,4.6rem) var(--display);letter-spacing:-.03em;line-height:1.04;text-shadow:0 4px 40px rgba(6,8,13,.95)}
+.rev2 .ch{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px}.rev2 .ch span{padding:10px 18px;border-radius:99px;background:rgba(8,11,17,.74);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);font:700 .9rem var(--display)}
+.fstop{position:absolute;bottom:22px;left:0;right:0;display:flex;justify-content:center;gap:18px;font:600 .8rem var(--mono);color:var(--text-faint);z-index:6}.fstop b{color:var(--cyan);min-width:4.5ch;display:inline-block}
+.mq{background:linear-gradient(90deg,#00E5FF,#0099FF);color:#040810;overflow:hidden;white-space:nowrap;padding:15px 0;transform:rotate(-1.2deg);margin:-14px -20px 0;position:relative;z-index:7}
+.mq div{display:inline-flex;gap:44px;animation:mq 30s linear infinite;font:800 1.4rem var(--display)}.mq span::after{content:'\2736';margin-left:44px}
+@keyframes mq{to{transform:translateX(-50%)}}
+.w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.1em}.w>span{display:inline-block;transform:translateY(110%) rotate(6deg);transition:transform 1s var(--ease);transition-delay:calc(var(--k)*70ms)}.is-visible .w>span{transform:none}
+.flow-step{animation:fglow 10s infinite;animation-delay:calc(var(--i)*2s)}
+@keyframes fglow{0%,18%{border-color:rgba(0,229,255,.7);box-shadow:0 0 30px -6px rgba(0,229,255,.5)}24%,100%{border-color:var(--border);box-shadow:none}}
+.film-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 4px}.film-strip figure{margin:0}.ft{aspect-ratio:1;border-radius:10px;border:1px solid var(--border)}.film-strip figcaption{font:600 .6rem var(--mono);color:var(--text-muted);margin-top:5px;text-align:center}
+.mock-photo-tile{transition:transform .3s var(--ease),box-shadow .3s}.mock-photo-tile.sel{transform:scale(.92);box-shadow:0 0 0 2px var(--cyan)}
+@media(max-width:760px){.hero.pin{height:220vh}.hero-cta .btn:nth-child(3){display:none}.hero p.lead{font-size:1rem;margin-bottom:22px}.hero h1{font-size:clamp(2.2rem,11vw,3.2rem);margin-bottom:16px}.hero-badge-wrap{margin-bottom:16px}.hcopy{padding:0 18px}.fstop span:last-child{display:none}.orb span{transform:rotate(var(--a)) translateY(-40vmin) rotate(calc(var(--a)*-1))}.orb b{font-size:.6rem;padding:4px 9px}.rev2 .ch span{font-size:.8rem;padding:8px 14px}.hero-specs{padding:50px 0 30px}}
+@media(prefers-reduced-motion:reduce){.w>span{transform:none!important}.hero h1,.hero .hero-badge-wrap,.hero p.lead,.hero .hero-cta{animation:none}}
+
+/* ===== v3: motion pass ===== */
+.orb b{width:max-content;max-width:none;line-height:1}
+.orb::before{content:'';position:absolute;inset:0;border-radius:50%;border:1px dashed rgba(0,229,255,.22)}
+.orb.o2{width:min(76vmin,620px);animation:spin 38s linear infinite reverse}
+.orb.o2::before{border-color:rgba(255,179,0,.2)}
+.orb.o2 span{transform:rotate(var(--a)) translateY(calc(min(38vmin,310px)*-1)) rotate(calc(var(--a)*-1))}
+.orb.o2 b{animation:spinr 38s linear infinite reverse;border-color:rgba(255,179,0,.45);color:var(--amber)}
+.iris{translate:calc(var(--px,0)*-26px) calc(var(--py,0)*-26px)}
+.orb{translate:calc(var(--px,0)*18px) calc(var(--py,0)*18px)}
+.orb.o2{translate:calc(var(--px,0)*-12px) calc(var(--py,0)*-12px)}
+.hcopy{translate:calc(var(--px,0)*10px) calc(var(--py,0)*8px)}
+.hero-ambient{translate:calc(var(--px,0)*40px) calc(var(--py,0)*30px)}
+.iris svg{animation:breathe 7s ease-in-out infinite}
+@keyframes breathe{50%{transform:scale(1.025) rotate(1.5deg)}}
+.photo{animation:kb 16s ease-in-out infinite alternate}
+@keyframes kb{from{background-position:40% 50%}to{background-position:62% 46%}}
+#fx{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+.flash{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.55),rgba(0,229,255,.25) 35%,transparent 65%)}
+.flash.go{animation:flash .7s ease-out}
+@keyframes flash{0%{opacity:0;transform:scale(.6)}20%{opacity:1}100%{opacity:0;transform:scale(1.4)}}
+.gradient-text{background:linear-gradient(110deg,#fff 5%,#70F3FF 28%,#FFB300 50%,#FF2A55 72%,#fff 95%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;animation:gshift 7s linear infinite}
+@keyframes gshift{to{background-position:-250% 0}}
+.btn-primary{overflow:hidden}
+.btn-primary::after{content:'';position:absolute;top:0;bottom:0;left:-60%;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.6),transparent);transform:skewX(-20deg);animation:shine 3.8s ease-in-out infinite;pointer-events:none}
+@keyframes shine{0%,55%{left:-60%}100%{left:140%}}
+.btn{transition:transform .22s cubic-bezier(.16,1,.3,1),box-shadow .22s,background .22s,border-color .22s,translate .25s cubic-bezier(.16,1,.3,1)}
+@keyframes bob{50%{translate:0 -6px}}
+.bento-icon{animation:bob 5s ease-in-out infinite}
+.bento-card:nth-child(2n) .bento-icon{animation-delay:-1.4s}.bento-card:nth-child(3n) .bento-icon{animation-delay:-2.8s}
+.hero-spec-card{animation:bob 6s ease-in-out infinite}
+.hero-spec-card:nth-child(2n){animation-delay:-1.5s}.hero-spec-card:nth-child(3n){animation-delay:-3s}
+.hero-spec-card:hover{border-color:rgba(0,229,255,.45);box-shadow:0 14px 40px -14px rgba(0,229,255,.4)}
+.trust-card:hover,.flow-step:hover{transform:translateY(-6px)}
+.flow-step{transition:transform .3s cubic-bezier(.16,1,.3,1)}
+.compare-line{animation:linepulse 2.4s ease-in-out infinite}
+@keyframes linepulse{50%{box-shadow:0 0 28px rgba(0,229,255,1),0 0 6px #fff}}
+.compare-handle{animation:hpulse 2.4s ease-in-out infinite}
+@keyframes hpulse{50%{box-shadow:0 6px 24px rgba(0,0,0,.6),0 0 0 9px rgba(0,229,255,.18)}}
+body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none;background:radial-gradient(40% 35% at 20% 25%,rgba(0,229,255,.10),transparent 70%),radial-gradient(35% 30% at 80% 70%,rgba(255,42,85,.08),transparent 70%),radial-gradient(30% 30% at 60% 15%,rgba(255,179,0,.06),transparent 70%);animation:drift 26s ease-in-out infinite alternate}
+@keyframes drift{to{transform:translate3d(4%,-3%,0) rotate(6deg) scale(1.08)}}
+.mq{will-change:transform}
+@media(max-width:760px){.orb::before{inset:16vmin}.orb.o2::before{inset:0}.orb.o2{width:min(76vmin,620px)}.orb.o2 span{transform:rotate(var(--a)) translateY(-28vmin) rotate(calc(var(--a)*-1))}.orb.o2::before{inset:10vmin}}
 </style>
 </head>
 
@@ -1599,27 +1674,25 @@
 <main id="main">
 
 <!-- ============ HERO ============ -->
-<header class="hero" id="top">
-  <div class="hero-ambient"></div>
-  <div class="hero-grid-bg"></div>
-  
-  <div class="wrap hero-content">
-    <div class="hero-badge-wrap">
+<header class="hero pin" id="top">
+  <div class="stick">
+    <div class="hero-ambient"></div><div class="hero-grid-bg"></div><canvas id="fx" aria-hidden="true"></canvas>
+    <div class="orb" aria-hidden="true"><span style="--a:0deg"><b>Rust engine</b></span><span style="--a:90deg"><b>RAW</b></span><span style="--a:180deg"><b>C2PA</b></span><span style="--a:270deg"><b>Look QR</b></span></div>
+    <div class="iris" aria-hidden="true"><img id="photo" src="assets/stock/iris.webp" alt="Hero photo preview" style="width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity .6s ease;"><div id="photoFallback" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;overflow:hidden;"></div></div>
+    <div class="hcopy hero-content" id="hcopy">
+      <div class="hero-badge-wrap">
       <span class="hud-tag">TRUE FOSS CREATIVE SUITE</span>
       <span class="hud-tag hud-tag-amber">GPL-3.0</span>
       <span class="hud-tag hud-tag-emerald">100% ON-DEVICE</span>
     </div>
-    
-    <h1>
+      <h1>
       Pro Photo Editing.<br>
       <span class="gradient-text">Zero Cloud. Zero Subscriptions.</span>
     </h1>
-    
-    <p class="lead">
+      <p class="lead">
       The open-source alternative to Adobe Lightroom &amp; Snapseed. Dual UI shells over one non-destructive recipe, a high-performance <strong>compiled Rust engine</strong>, <strong>on-device AI masks</strong>, <strong>16-bit TIFF export</strong>, and cryptographic <strong>C2PA provenance</strong>.
     </p>
-    
-    <div class="hero-cta">
+      <div class="hero-cta">
       <a class="btn btn-primary" id="heroDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
         <span id="heroDlText">Download Universal APK (v0.2.4)</span>
@@ -1634,9 +1707,13 @@
       </a>
       <p class="hero-note">Android 8.0+ &bull; Signed APK &bull; No account required</p>
     </div>
-    
-    <!-- Tech Metrics Row -->
-    <div class="hero-specs-row">
+    </div>
+    <div class="rev2" id="rev2" aria-hidden="true"><p class="big">Every pixel stays yours.</p><div class="ch"><span>200 MP tiles</span><span>16-bit TIFF</span><span>Zero trackers</span></div></div>
+    <div class="fstop" aria-hidden="true"><span>Aperture <b id="fval">f/16</b></span><span>Scroll to open</span></div>
+  </div>
+</header>
+<section class="hero-specs"><div class="wrap">
+<div class="hero-specs-row">
       <div class="hero-spec-card">
         <div class="val" style="color:var(--cyan);">6 Master Tabs</div>
         <div class="label">Zen Progressive Inspector</div>
@@ -1662,8 +1739,8 @@
         <div class="label">&lt;512MB Tile LRU Safety</div>
       </div>
     </div>
-  </div>
-</header>
+</div></section>
+<div class="mq" aria-hidden="true"><div id="mq"></div></div>
 
 <!-- ============ INTERACTIVE BEFORE & AFTER SLIDER ============ -->
 <section class="compare-section" id="compare">
@@ -1679,25 +1756,15 @@
         aria-label="Before and after comparison" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"
         aria-valuetext="50% graded image">
         <!-- Underneath: Raw capture layer -->
-        <div class="compare-layer compare-raw">
-          <div style="opacity:0.65; transform:scale(1.2);">
-            <svg width="220" height="220" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-              <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/>
-              <path d="M12 3a9 9 0 0 0 0 18"/>
-              <circle cx="12" cy="12" r="4"/>
-            </svg>
-          </div>
+        <div class="compare-layer compare-raw" style="--bg-img: url('assets/stock/compare.webp');">
+          <img class="compare-img" id="compareRawImg" src="assets/stock/compare.webp" alt="Original flat RAW capture" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
+          <div id="compareRawFallback" style="position:absolute;inset:0;background:radial-gradient(circle at 35% 45%, #4B5565 0%, #242B36 55%, #12151D 100%);filter:saturate(0.65) contrast(0.9) brightness(0.92);display:flex;align-items:center;justify-content:center;"></div>
         </div>
         
         <!-- On top: Graded layer with dynamic clip-path -->
-        <div class="compare-layer compare-graded">
-          <div style="opacity:0.95; transform:scale(1.2);">
-            <svg width="220" height="220" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-              <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/>
-              <path d="M12 3a9 9 0 0 0 0 18"/>
-              <circle cx="12" cy="12" r="4"/>
-            </svg>
-          </div>
+        <div class="compare-layer compare-graded" style="--bg-img: url('assets/stock/compare.webp');">
+          <img class="compare-img" id="compareGradedImg" src="assets/stock/compare.webp" alt="ApertureX film grade" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
+          <div id="compareGradedFallback" style="position:absolute;inset:0;background:radial-gradient(circle at 65% 35%, #FFB300 0%, #FF2A55 35%, #00E5FF 70%, #081120 100%);filter:contrast(1.18) saturate(1.3) brightness(1.05);display:flex;align-items:center;justify-content:center;"></div>
         </div>
         
         <!-- Badges -->
@@ -1932,8 +1999,9 @@
               
               <!-- 1. Lightroom View -->
               <div id="mockLightroomView" style="display:flex; flex-direction:column; height:100%;">
-                <div class="mock-canvas" id="mockCanvas">
-                  <div class="mock-canvas-art">
+                <div class="mock-canvas" id="mockCanvas" style="--editor-img: url('assets/stock/editor.webp');">
+                  <img id="mockCanvasImg" src="assets/stock/editor.webp" alt="Editor canvas preview" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
+                  <div id="mockCanvasFallback" class="mock-canvas-art" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);">
                     <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></svg>
                   </div>
                 </div>
@@ -1984,9 +2052,12 @@
               
               <!-- 2. Snapseed Mode View -->
               <div id="mockSnapseedView" class="mock-snapseed" style="display:none;">
-                <div class="mock-canvas" id="mockSnapseedCanvas" style="background: radial-gradient(circle at 45% 45%, #E8455F 0%, #6E1626 55%, #18090C 100%); cursor: crosshair;">
-                  <div class="mock-ruby-mask" id="mockRubyMask"></div>
-                  <div class="mock-brush-cursor" id="mockBrushCursor"></div>
+                <div class="mock-canvas" id="mockSnapseedCanvas" style="--mask-img: url('assets/stock/mask.webp'); background:#0B0E15; cursor: crosshair;">
+                  <img id="snapseedMaskImg" src="assets/stock/mask.webp" alt="Ruby mask overlay" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
+                  <div id="snapseedMaskFallback" style="position:absolute;inset:0;">
+                    <div class="mock-ruby-mask" id="mockRubyMask"></div>
+                    <div class="mock-brush-cursor" id="mockBrushCursor"></div>
+                  </div>
                 </div>
                 <div class="mock-gesture-hud" id="mockGestureHud" role="group" aria-label="Gesture mask tool">
                   <button type="button" class="active" aria-pressed="true" onclick="setSnapseedTool(this)">BRUSH</button>
@@ -2005,30 +2076,33 @@
                     <span style="font-size:0.5rem; background:rgba(0,229,255,0.25); color:var(--cyan);">APERTUREX</span>
                   </div>
                   <div class="mock-qr-code-graphic">
-                    <svg viewBox="0 0 100 100" width="88" height="88">
-                      <!-- Position markers -->
-                      <rect x="5" y="5" width="28" height="28" fill="#000"/>
-                      <rect x="9" y="9" width="20" height="20" fill="#FFF"/>
-                      <rect x="13" y="13" width="12" height="12" fill="#000"/>
-                      <rect x="67" y="5" width="28" height="28" fill="#000"/>
-                      <rect x="71" y="9" width="20" height="20" fill="#FFF"/>
-                      <rect x="75" y="13" width="12" height="12" fill="#000"/>
-                      <rect x="5" y="67" width="28" height="28" fill="#000"/>
-                      <rect x="9" y="71" width="20" height="20" fill="#FFF"/>
-                      <rect x="13" y="75" width="12" height="12" fill="#000"/>
-                      <!-- Data dots -->
-                      <rect x="38" y="10" width="8" height="8" fill="#000"/>
-                      <rect x="50" y="15" width="8" height="8" fill="#000"/>
-                      <rect x="38" y="25" width="6" height="6" fill="#000"/>
-                      <rect x="48" y="38" width="14" height="14" fill="#000"/>
-                      <rect x="68" y="40" width="8" height="8" fill="#000"/>
-                      <rect x="15" y="42" width="10" height="10" fill="#000"/>
-                      <rect x="38" y="55" width="8" height="8" fill="#000"/>
-                      <rect x="52" y="65" width="10" height="10" fill="#000"/>
-                      <rect x="68" y="65" width="8" height="8" fill="#000"/>
-                      <rect x="40" y="80" width="12" height="12" fill="#000"/>
-                      <rect x="70" y="80" width="8" height="8" fill="#000"/>
-                    </svg>
+                    <img id="lookqrImg" src="assets/stock/lookqr.webp" alt="Look QR code" style="width:100px;height:100px;border-radius:8px;padding:6px;object-fit:cover;opacity:0;transition:opacity .5s ease;box-shadow:0 4px 16px rgba(0,0,0,0.5);background:#FFF;">
+                    <div id="lookqrFallback" style="width:100px;height:100px;background:#FFF;border-radius:8px;padding:6px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,0.5);">
+                      <svg viewBox="0 0 100 100" width="88" height="88">
+                        <!-- Position markers -->
+                        <rect x="5" y="5" width="28" height="28" fill="#000"/>
+                        <rect x="9" y="9" width="20" height="20" fill="#FFF"/>
+                        <rect x="13" y="13" width="12" height="12" fill="#000"/>
+                        <rect x="67" y="5" width="28" height="28" fill="#000"/>
+                        <rect x="71" y="9" width="20" height="20" fill="#FFF"/>
+                        <rect x="75" y="13" width="12" height="12" fill="#000"/>
+                        <rect x="5" y="67" width="28" height="28" fill="#000"/>
+                        <rect x="9" y="71" width="20" height="20" fill="#FFF"/>
+                        <rect x="13" y="75" width="12" height="12" fill="#000"/>
+                        <!-- Data dots -->
+                        <rect x="38" y="10" width="8" height="8" fill="#000"/>
+                        <rect x="50" y="15" width="8" height="8" fill="#000"/>
+                        <rect x="38" y="25" width="6" height="6" fill="#000"/>
+                        <rect x="48" y="38" width="14" height="14" fill="#000"/>
+                        <rect x="68" y="40" width="8" height="8" fill="#000"/>
+                        <rect x="15" y="42" width="10" height="10" fill="#000"/>
+                        <rect x="38" y="55" width="8" height="8" fill="#000"/>
+                        <rect x="52" y="65" width="10" height="10" fill="#000"/>
+                        <rect x="68" y="65" width="8" height="8" fill="#000"/>
+                        <rect x="40" y="80" width="12" height="12" fill="#000"/>
+                        <rect x="70" y="80" width="8" height="8" fill="#000"/>
+                      </svg>
+                    </div>
                   </div>
                   <div class="mock-qr-meta">
                     <strong>Look QR Creator Card</strong>
@@ -2039,8 +2113,11 @@
               </div>
 
               <!-- 4. Export & C2PA Mode View -->
-              <div id="mockExportView" class="mock-export-box" style="display:none;">
-                <div class="mock-ring" id="mockExportRing"><b id="mockExportVal">74%</b></div>
+              <div id="mockExportView" class="mock-export-box" style="--export-img: url('assets/stock/export.webp'); display:none;">
+                <img id="mockExportRingImg" src="assets/stock/export.webp" alt="Export processing" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
+                <div id="mockExportRingFallback" style="position:absolute;inset:0;background:#090C12;display:flex;align-items:center;justify-content:center;padding:20px;">
+                  <div class="mock-ring" id="mockExportRing"><b id="mockExportVal">74%</b></div>
+                </div>
                 <span id="mockExportLabel" style="font-family:var(--display); font-size:0.75rem; color:var(--text-muted); letter-spacing:0.06em; text-transform:uppercase;">Banded Streaming</span>
                 <button type="button" class="btn btn-ghost" style="padding:6px 16px; font-size:0.75rem; border-radius:100px; cursor:pointer;" onclick="triggerSimulatedExport()">Simulate Stream</button>
                 <div style="width:100%; padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.05); font-size:0.7rem; display:flex; justify-content:space-between;">
@@ -2061,22 +2138,34 @@
                   <span class="mock-gallery-badge">BATCH SELECT</span>
                 </div>
                 <div class="mock-gallery-grid">
-                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #FFB300, #FF2A55);">
+                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #FFB300, #FF2A55); --gallery-img: url('assets/stock/gallery-1.webp');">
+                    <img class="gallery-img" src="assets/stock/gallery-1.webp" alt="Gallery photo 1" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
+                    <div class="gallery-fallback" style="position:absolute;inset:0;background:radial-gradient(circle, #FFB300, #FF2A55);"></div>
                     <span class="mock-photo-tag">RAW</span>
                   </div>
-                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #00E5FF, #006699);">
+                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #00E5FF, #006699); --gallery-img: url('assets/stock/gallery-2.webp');">
+                    <img class="gallery-img" src="assets/stock/gallery-2.webp" alt="Gallery photo 2" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
+                    <div class="gallery-fallback" style="position:absolute;inset:0;background:radial-gradient(circle, #00E5FF, #006699);"></div>
                     <span class="mock-photo-tag">HDR</span>
                   </div>
-                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #70F3FF, #152238);">
+                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #70F3FF, #152238); --gallery-img: url('assets/stock/gallery-3.webp');">
+                    <img class="gallery-img" src="assets/stock/gallery-3.webp" alt="Gallery photo 3" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
+                    <div class="gallery-fallback" style="position:absolute;inset:0;background:radial-gradient(circle, #70F3FF, #152238);"></div>
                     <span class="mock-photo-tag">RAW</span>
                   </div>
-                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #FF5C7E, #3A0C16);">
+                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #FF5C7E, #3A0C16); --gallery-img: url('assets/stock/gallery-4.webp');">
+                    <img class="gallery-img" src="assets/stock/gallery-4.webp" alt="Gallery photo 4" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
+                    <div class="gallery-fallback" style="position:absolute;inset:0;background:radial-gradient(circle, #FF5C7E, #3A0C16);"></div>
                     <span class="mock-photo-tag">EDIT</span>
                   </div>
-                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #FFD54F, #5D3A00);">
+                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #FFD54F, #5D3A00); --gallery-img: url('assets/stock/gallery-5.webp');">
+                    <img class="gallery-img" src="assets/stock/gallery-5.webp" alt="Gallery photo 5" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
+                    <div class="gallery-fallback" style="position:absolute;inset:0;background:radial-gradient(circle, #FFD54F, #5D3A00);"></div>
                     <span class="mock-photo-tag">RAW</span>
                   </div>
-                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #10B981, #083320);">
+                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #10B981, #083320); --gallery-img: url('assets/stock/gallery-6.webp');">
+                    <img class="gallery-img" src="assets/stock/gallery-6.webp" alt="Gallery photo 6" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
+                    <div class="gallery-fallback" style="position:absolute;inset:0;background:radial-gradient(circle, #10B981, #083320);"></div>
                     <span class="mock-photo-tag">C2PA</span>
                   </div>
                 </div>
@@ -3084,6 +3173,127 @@
     }
   }
   fetchReleases();
+</script>
+<script>
+(()=>{
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const LOGO='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIjJSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCT/wAARCACAAIADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD52oooroMwooooAKKKKACiiigAooooAKKKKAEpaKKACkpaKACiiigApCaQnFaljZCJRJIAZDyAf4f/AK9MCpFYXEo3bQgPduKm/smT/nqn5GtLNG7FOwrmb/ZMn/PVPyNH9kyf89U/I12Gk+Ctc1gK8Vn5MTdJbg7AfoOp/Kujt/hDdOuZ9Wt0PpHCzfqSK6YYOrNXjE8fFZ/l+Gly1ayv5a/lc8s/smT/AJ6p+Ro/smT/AJ6p+Rr1Sf4QXQUm31e3c+kkLL+oJrktd8N3/h66W1uzbvIw3BYJA5x6kdR+IpVcLUpK842ReBzvBY2fs8NUUpdtU/xSOY/smT/nqn5GoZbC4hGdoceqnNbGaM1z2PVuc/mlrSvrJZQZYwA45IH8X/16zBSsMKWiikAUlFBoAmsoxLcqDyB8xrXzWXpv+uf/AHf61o5qkDJY0aZwkalmPQV1ngvT4oPEAWVUmK2xkG5chW3AZFZOlwC2i3sP3jjn2HpW74XcHxISP+fRv/QhXVhF++jfueRncn9Rq27HplmS5q7PcQ2du89xKkMMYy8jsAqj3NcpqfjLTvDcGyQ/aLx/u28ZGR6Fj0Ufr7VxGo6tqHiadZtSmV4lOY7aLiJPw/iPua9fG5lSwytu+x8Hw5wLj89q3guSl1k/0XU6bWvH9zqJa10AGGHo19IvJ/65qf5msaxskhdpMtJNIcyTOdzufUmmWsKhdzsqIvVicACta2n02Nebq1J95V/xr43G4+tiZXk9Ox/SPDXCGW5DTUaCXO95PdmXqXhqDUkMkQWG47MBw3+8P61xl1bTWU7wTxmORDgqf89K9P8A7Q08f8vdp/39X/GsPxXa2GqWRuIbq2+0wDK4lXLr3Xr+I/8Ar1nhcTKL5Z7Gmf5Lh61N4jDtKa1aXX/g/mcPmse9jEVywHAb5hWrms7Uj+/T/d/rXqs/PUVqKQUtIYUGig0CJ9OOJn/3f61sWFt9suliJIUgliOwrGsD++b/AHf610WgYE8rHsgH5n/61NA2WIZXQtDLxJGdp9x2NXNIvLmLV/LsYzJe3EPkW69t7MOT7AZP4VV1VOl0g+ZBhx6r/wDWroPhZ5c3it3cKxSzcoT2O5RkfgTXRhk3VjFOx5Wb1Y0sFVqyjdJXt3/4HfyKPjvwZN4Zkt7pZpLq3uFAkmfkibHzZ9jyR+I7VlaBegSi1kPDH5Cex9K901fTbXWtOn0+8XdDMu046qezD3B5rwDWtJuvD+qzWNzkSwtlXHAdf4WHsa2zPBKOsdn+DOLgTiqpNr2j/eQ3/vR/rT7maXiTVMj+zoW+VeZSO57L+FW/A/gWXxb9qmkdoLWFCiygfelI4H0HU/gO9Yvh/Q73xRrMGm2YLTTtlnPIjXqzt7D/AD1r6S0bw1BoOmW+n2aYhgXaPVj3Y+5PNfA8SZ2ssorD0H+8l+C7/PZf8A/ScNB5pipYnE/Cun5L5df+Ccb4P0TQNZsZIb7w/psep2L/AGe8j+zrw46MPZhyPxrpU8DeGT10DTP/AAHWuK8V+Ih4N+J9reMuLO4s40vVUfeTcw3/AFXAP0BFesxRq6JLGyvG4DKynIIPQ18Jm9XFUfZ4iM5KFVcy1ej6rfo9vKx6mGlQlzUnFOUXbZa9n/XU+afiFoS+HfFt9ZRIEt2IngUdFRxkAfQ5H4VxmoHMyf7v9a9f+P1qsWu6VcgYMto6H32vx/6FXj98f3y/7v8AWv1TIsVLFZfRrS3a19Vp+h8fjaap4icVtcgooor1jlFoNFB6UhEtl/rW/wB2t3R5dksg9V/rWDaHEjf7taFtN5MytnjofpTQM6B5QQQehrQ+Hsq2PiSVSwAa2cJk9fmU4/Q1zjXsR/5ap+dMW/8AInjuIJkWaFg6HPetqNX2dSM30OLH4X6zhp0L25lY9o1DxKml2ct1cP8Au4lyR3J7Ae5rxnV9VuvEGqS3twS00zAKg5Cjoqj6Vb8S+KDrhhjjzHBGoYoT1kxyfoOgq74Q0cEHVrhf3aZEAPc92/DoPet80x6l8Pwr8WcfBnC0o1EmrVJb/wB2P9fojM8P67e+Ftbg1K0JWe3fDRtwHXoyN7Hp+vavqjw/rVj4j0i21WwffBcJuAPVD3U+4OQa+YfFNkPPN9EMBz+8A7H1rZ+GfxIn8Fy3drJDJd2dypaOBOouMYUj2bhT+B7V+f8AFOR/2nh1iMOv3sfxXb5br59z7qHPlmJlhqvw9H+T+fU2vjY8Vx46WNGVmjsI1kA/hJZjg++CD+NdX8FfF5vLGTwxfSZubJd9qzHmSDP3fqpP5Eeleb+JNMvLHX1fUpTLqV5ai7vGzx5ru2VHsoAX8KqWl5d6LqFtqunttu7N/NT0cfxIfYjI/Gt5ZJTx2SwwkXdpe6/NdfR7ejOF4qeHxkpyVtdUdb+0JdK/iDSrUHmG0ZyPTc/H/oNeO3v+tX/drqvHfihfF/ie61aNHjgkCRwxv1RFUAA/jk/jXK3Z/er/ALtetkeDlhMBRoT3S19Xq/xZy4uqqteU1s2Q0UClr1jnCg9KKD0pCH2xxIfpVnNU422SA9ulWs0xnofgq/0/VLMWVxa2pu7dcZaJcyp69OSOh/Oum/syw/58bX/vyv8AhXjVtdTWk6XFvI0csZ3K6nkGu+0fxtb6lGsN4Vt7rpnokn0PY+xry8VhpJ88Nj9B4fzuhUprDYlJTWib6/8AB/P1OimtdMhUlrS0z6CFc/yrKvbpSoVFWKJBwoAAAqvqGrxRTC2hR7q6b7sEI3N9T6D3NVzoV1efvdXlUJ1FpCflH+838R/SueMLazZ79TEx5nDDwvLrbRL1f6avyMu61BrxmisoxOBw0jf6sfj3rqfhP4N/tLUZPENyoktbVzHb5XAkmHVgPRe3v9KzodHn1vVbPw9pgEU12cFlXiCEffc/QdPevfrDQ7PRtLt9OsIhHbW0YRF9h3PueST6mvneKM6WEofVqWkp/hH/AIOy+fkeBio+0xKVV8zhq+iT6JLy3bd3ttqjxb4ipjxsinp/Z6f+jGrjdcvVtIvJjb99IO38K+tdD8V/ENmPGTS6dcQXmyyWBmjbcqSB2JBI6kAjpXnUkrzSNJIxZ2OST3r6jIbxy6ipKz5UfFZm1PF1JLa4Zqtc8yD6VPmqsjb5Se3SvVOMB0ooHSigQtJS0lADCKlim/hbr2PrTGFMK0DLmaM1TDunQ5HvTvPf0Wi4GzpWu6horu1lOI9/31Khg31zWx/wn9+64ltLVz6jcv8AWuO89/RaPPf0WspUYSd5I9DD5pi8PHkpVGl26fczufDfxM1LwtcX93ZWFhJeXuFM84ZjFGOiKAQMZ596qeIPiN4p8TI0Wo6vMbdutvDiKM/VV6/jmuR89/QUee/oK5lluF9t9Y9mnPu1d6dr7fI554qtO6lJ6lrOO1Gaq+e/oKaXd+CePau65zk0s3VV69z6VGopoWngUAOpKWkoELRRRQAlGKWigY0rSYp9JQA3FGKdRQFxuKMU6igBuKXbS0tADcUtLRQAUlLRQB//2Q==';
+// Logo: keeps assets/app_icon.png, falls back to embedded copy
+$$('img[src$="app_icon.png"]').forEach(i=>{const f=()=>{i.src=LOGO};i.addEventListener('error',f,{once:true});if(i.complete&&!i.naturalWidth)f()});
+const ic=$('link[rel=icon]');if(ic)ic.href=LOGO;
+// Photos: drop real stock files in assets/photos/photo-1.jpg ... photo-7.jpg; generated scenes are used until then
+const PAL=[['#2b3a8c','#ff7a52','#ffd08a','#fff2c9','#3a2f66','#1f1b45','#1d2a66'],['#0b3c49','#2a9d8f','#f4d58d','#fff6d6','#12545a','#0b2f3a','#0a2a3a'],['#143d2e','#6aa86a','#d9f0b0','#fffbd0','#1f5a3a','#0f2e20','#12352a'],['#7a2e4a','#e76f51','#f6bd60','#fff1cf','#5a2340','#34172e','#4a1d3a'],['#0d0221','#7b2cbf','#ff4d9d','#ffd1ec','#24104a','#12072e','#1b0a3d'],['#1b2a49','#7f9cf5','#e0e7ff','#ffffff','#2f3f73','#1a2447','#18244a'],['#3a1c5a','#ff8a5b','#ffd89b','#fff0c9','#2a1448','#160a2b','#1f0f38']];
+function scene(i){const p=PAL[i%7],o=(i*37)%90;const s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+p[0]+'"/><stop offset=".55" stop-color="'+p[1]+'"/><stop offset="1" stop-color="'+p[2]+'"/></linearGradient></defs><rect width="800" height="520" fill="url(#a)"/><circle cx="'+(300+o*4)+'" cy="'+(250+o%40)+'" r="'+(50+o%30)+'" fill="'+p[3]+'"/><path d="M0 330L'+(110+o)+' 210l90 90 120-150 150 190 110-110 200 160v190H0z" fill="'+p[4]+'"/><path d="M0 380l160-90 140 80 150-110 170 120 180-70v210H0z" fill="'+p[5]+'"/><rect y="405" width="800" height="115" fill="'+p[6]+'"/><path d="M'+(260+o*4)+' 415h120M'+(280+o*4)+' 435h80" stroke="'+p[3]+'" stroke-width="5" stroke-linecap="round" opacity=".6"/></svg>';return 'data:image/svg+xml,'+encodeURIComponent(s)}
+const PH=[0,1,2,3,4,5,6].map(scene);
+const bgp=(el,i)=>{if(!el)return;el.style.backgroundImage='url("'+PH[i]+'")';el.style.backgroundSize='cover';el.style.backgroundPosition='center'};
+const FG=['saturate(1.3) contrast(1.1) sepia(.18) hue-rotate(-8deg)','saturate(.9) contrast(1.05) brightness(1.08) hue-rotate(12deg)','grayscale(1) contrast(1.4)','saturate(1.7) contrast(1.2) hue-rotate(-20deg)'];
+const fc=$$('.bento-title').find(e=>e.textContent.includes('Pat David'));
+if(fc){const c=fc.closest('.bento-card'),d=document.createElement('div');d.className='film-strip';d.innerHTML=['Portra 400','Pro 400H','HP5','Teal & Orange'].map((n,k)=>'<figure><div class="ft film-thumb" style="filter:'+FG[k]+'"></div><figcaption>'+n+'</figcaption></figure>').join('');c.querySelector('.bento-tag-row').before(d)}
+function paint(){bgp($('.compare-raw'),0);bgp($('.compare-graded'),0);$$('.compare-layer>div').forEach(d=>d.style.display='none');bgp($('#photo'),0);bgp($('#mockCanvas'),1);const a=$('.mock-canvas-art');if(a)a.style.display='none';bgp($('#mockSnapseedCanvas'),6);bgp($('.mock-qr-preview-thumb'),2);$$('.mock-photo-tile').forEach((t,k)=>bgp(t,k%6));$$('.film-thumb').forEach((t,k)=>bgp(t,[0,3,2,5][k]))}
+paint();
+PH.forEach((_,i)=>{const im=new Image(),p='assets/photos/photo-'+(i+1)+'.jpg';im.onload=()=>{PH[i]=p;paint()};im.src=p});
+// Marquee
+$('#mq').innerHTML=['Non-destructive','100% offline','RAW ready','Open source','Look QR','200 MP tiles','C2PA signed','No accounts'].map(t=>'<span>'+t+'</span>').join('');$('#mq').innerHTML+=$('#mq').innerHTML;
+// Aperture blades + scroll engine
+const bl=$('#blades');for(let k=0;k<8;k++)bl.insertAdjacentHTML('beforeend','<g transform="rotate('+k*45+')"><polygon class="bd" points="0,-190 190,-90 190,120 0,40" fill="url(#bl)" stroke="#00E5FF" stroke-opacity=".3" stroke-width="1.5"/></g>');
+const blades=$$('.bd'),pin=$('#top'),hc=$('#hcopy'),photo=$('#photo'),r2=$('#rev2'),fv=$('#fval'),stops=[16,11,8,5.6,4,2.8,2,1.4,1.2];let tk=false;
+function frame(){tk=false;const r=pin.getBoundingClientRect(),p=RM?0:Math.max(0,Math.min(1,-r.top/(r.height-innerHeight))),e=p*p*(3-2*p);
+blades.forEach(b=>b.setAttribute('transform','translate('+e*210+',0) rotate('+e*-24+' 95 0)'));
+photo.style.transform='scale('+(.6+e*1.3)+')';
+const hp=Math.min(1,p*2.2),ho=1-Math.max(0,(p-.25)*3);hc.style.opacity=ho;hc.style.pointerEvents=ho<.15?'none':'';hc.style.transform='translateY('+(-hp*60)+'px) scale('+(1-hp*.08)+')';
+const q=Math.max(0,Math.min(1,(p-.5)*3));r2.style.opacity=q;r2.style.transform='translateY('+(1-q)*40+'px)';
+fv.textContent='f/'+stops[Math.min(8,Math.round(p*8))]}
+addEventListener('scroll',()=>{if(!tk){tk=true;requestAnimationFrame(frame)}},{passive:true});addEventListener('resize',frame);frame();
+// Word-by-word headings, flow step order
+$$('.section-head h2,.download-box h2').forEach(h=>{const t=h.textContent.trim();h.setAttribute('aria-label',t);h.innerHTML=t.split(/\s+/).map((w,k)=>'<span class="w" aria-hidden="true"><span style="--k:'+k+'">'+w+'</span></span>').join(' ')});
+$$('.flow-step').forEach((f,i)=>f.style.setProperty('--i',i));
+// Live demo: auto-play the studio tour until the visitor touches it
+let user=false,inV=false;const stage=$('#demoPanel');new IntersectionObserver(e=>inV=e[0].isIntersecting).observe(stage);
+['pointerdown','keydown'].forEach(v=>$('#screens').addEventListener(v,()=>user=true,true));
+const TO=['lightroom','snapseed','lookqr','export','gallery'],CS=['Light','Color','Effects','Detail'];let ti=0,ci=0,lr=0,ex=0,gt=0;
+if(!RM){
+setInterval(()=>{if(user||!inV)return;ti=(ti+1)%5;setDemoTab(TO[ti])},6500);
+setInterval(()=>{if(user||!inV||TO[ti]!=='lightroom')return;ci=(ci+1)%4;setMockCategory(CS[ci])},3200);
+(function loop(ms){requestAnimationFrame(loop);if(!inV||user)return;const t=ms/1000,tab=TO[ti];
+if(tab==='lightroom'){if(ms-lr>70){lr=ms;const c=MOCK_CATEGORIES[currentCategory];c.s1.val=c.s1.min+(c.s1.max-c.s1.min)*(.5+.3*Math.sin(t*.9));c.s2.val=c.s2.min+(c.s2.max-c.s2.min)*(.5+.3*Math.cos(t*.7));renderMockSliders()}}
+else if(tab==='snapseed'){const r=snCanvas.getBoundingClientRect(),x=r.width*(.5+.26*Math.sin(t*1.1)),y=r.height*(.5+.18*Math.sin(t*1.7));snBrush.style.left=(x-19)+'px';snBrush.style.top=(y-19)+'px';snRuby.style.left=(x-80)+'px';snRuby.style.top=(y-90)+'px'}
+else if(tab==='export'){if(ms-ex>5500){ex=ms;triggerSimulatedExport()}}
+else if(tab==='gallery'&&ms-gt>650){gt=ms;const ts=$$('.mock-photo-tile'),k=Math.floor(ms/650)%(ts.length+2);ts.forEach((e,j)=>e.classList.toggle('sel',j<k))}
+})(0)}
+// Phone fills the width on small screens
+const ph=$('.phone-frame');function fit(){ph.style.zoom=innerWidth<=900?Math.max(.75,Math.min(1.3,$('.demo-stage').clientWidth/310)):1}fit();addEventListener('resize',fit);
+})();
+
+</script>
+
+<script>
+(()=>{
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches,$=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+// Second, counter-rotating orbit of pills
+const o=$('.orb');
+if(o){const o2=document.createElement('div');o2.className='orb o2';o2.setAttribute('aria-hidden','true');
+o2.innerHTML=['65\u00b3 LUT','16-bit TIFF','AI masks','0 trackers','GPL-3.0','200 MP'].map((t,i)=>'<span style="--a:'+i*60+'deg"><b>'+t+'</b></span>').join('');o.after(o2)}
+if(RM)return;
+const st=$('.stick'),top=$('#top'),mq=$('.mq'),cv=$('#fx'),fl=document.createElement('div');
+fl.className='flash';st.appendChild(fl);
+// Bokeh particles + mouse parallax + scroll velocity
+const cx=cv.getContext('2d'),COL=['0,229,255','255,179,0','255,42,85','255,255,255'];
+let W=0,H=0,D=1,P=[],vis=true,tx=0,ty=0,px=0,py=0,lastY=scrollY,vel=0,skew=0;
+function size(){const r=cv.getBoundingClientRect();D=Math.min(2,devicePixelRatio||1);W=cv.width=Math.max(1,r.width*D);H=cv.height=Math.max(1,r.height*D)}
+function mk(){return{x:Math.random()*W,y:Math.random()*H,r:(2+Math.random()*9)*D,vy:-(.08+Math.random()*.35)*D,vx:(Math.random()-.5)*.2*D,a:.08+Math.random()*.35,c:COL[Math.random()*COL.length|0],z:.3+Math.random()*1.2,ph:Math.random()*6.28,ring:Math.random()<.4}}
+size();const N=innerWidth<760?18:38;for(let i=0;i<N;i++)P.push(mk());
+addEventListener('resize',size);
+new IntersectionObserver(e=>vis=e[0].isIntersecting).observe(st);
+st.addEventListener('pointermove',e=>{const r=st.getBoundingClientRect();tx=(e.clientX-r.left)/r.width-.5;ty=(e.clientY-r.top)/r.height-.5});
+st.addEventListener('pointerleave',()=>{tx=0;ty=0});
+let was=false;
+function loop(t){requestAnimationFrame(loop);
+const dy=scrollY-lastY;lastY=scrollY;vel+=(dy-vel)*.12;
+if(mq){skew+=(Math.max(-8,Math.min(8,vel*.25))-skew)*.15;mq.style.transform='rotate(-1.2deg) skewX('+skew.toFixed(2)+'deg)'}
+if(!vis)return;
+px+=(tx-px)*.07;py+=(ty-py)*.07;st.style.setProperty('--px',px.toFixed(4));st.style.setProperty('--py',py.toFixed(4));
+cx.clearRect(0,0,W,H);const boost=1+Math.min(14,Math.abs(vel)*.6);
+for(const p of P){p.y+=p.vy*boost*p.z;p.x+=p.vx+Math.sin(t/1600+p.ph)*.25*D;
+if(p.y<-20*D){p.y=H+20*D;p.x=Math.random()*W}if(p.x<-20*D)p.x=W+10*D;if(p.x>W+20*D)p.x=-10*D;
+const ox=px*-60*p.z*D,oy=py*-60*p.z*D,al=p.a*(.7+.3*Math.sin(t/900+p.ph));
+cx.beginPath();cx.arc(p.x+ox,p.y+oy,p.r*p.z,0,6.283);
+if(p.ring){cx.strokeStyle='rgba('+p.c+','+al+')';cx.lineWidth=1.2*D;cx.stroke()}else{cx.fillStyle='rgba('+p.c+','+al*.7+')';cx.fill()}}
+const r=top.getBoundingClientRect(),pr=-r.top/(r.height-innerHeight),on=pr>.5;
+if(on!==was){was=on;fl.classList.remove('go');void fl.offsetWidth;fl.classList.add('go')}}
+requestAnimationFrame(loop);
+// Magnetic buttons
+$$('.btn').forEach(b=>{if(!matchMedia('(hover:hover)').matches)return;
+b.addEventListener('pointermove',e=>{const r=b.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);b.style.translate=(dx*.18)+'px '+(dy*.28)+'px'});
+b.addEventListener('pointerleave',()=>b.style.translate='')});
+// Compare slider intro sweep
+const cvp=$('#compareViewport');
+if(cvp&&typeof setComparePercent==='function'){let done=0;new IntersectionObserver((es,ob)=>{if(!es[0].isIntersecting||done)return;done=1;ob.disconnect();const s=performance.now();
+(function f(n){const q=Math.min(1,(n-s)/2200);setComparePercent(50+Math.sin(q*Math.PI*2)*38*(1-q*.6));if(q<1)requestAnimationFrame(f);else setComparePercent(50)})(s)},{threshold:.6}).observe(cvp)}
+// Stock image loading: swap SVG fallbacks for real assets when they load
+const stockImgs = [
+  ['#photo', '#photoFallback', 'assets/stock/iris.webp'],
+  ['#compareRawImg', '#compareRawFallback', 'assets/stock/compare.webp'],
+  ['#compareGradedImg', '#compareGradedFallback', 'assets/stock/compare.webp'],
+  ['#mockCanvasImg', '#mockCanvasFallback', 'assets/stock/editor.webp'],
+  ['#snapseedMaskImg', '#snapseedMaskFallback', 'assets/stock/mask.webp'],
+  ['#lookqrImg', '#lookqrFallback', 'assets/stock/lookqr.webp'],
+  ['#mockExportRingImg', '#mockExportRingFallback', 'assets/stock/export.webp']
+];
+$$('.gallery-img').forEach((img, idx) => {
+  const tile = img.closest('.mock-photo-tile');
+  const fb = tile?.querySelector('.gallery-fallback');
+  stockImgs.push([img, fb, tile?.style.getPropertyValue('--gallery-img')?.trim() || `assets/stock/gallery-${idx + 1}.webp`]);
+});
+stockImgs.forEach(([sel, fbSel, src]) => {
+  const img = typeof sel === 'string' ? $(sel) : sel;
+  const fb = typeof fbSel === 'string' ? $(fbSel) : fbSel;
+  if (!img || !src) return;
+  img.onload = () => { img.style.opacity = '1'; if (fb) fb.style.display = 'none'; };
+  img.onerror = () => { img.style.opacity = '0'; if (fb) fb.style.display = 'flex'; };
+  if (img.complete && img.naturalWidth) { img.onload(); }
+  else if (!img.src) { img.src = src; }
+});
 </script>
 </body>
 </html>
