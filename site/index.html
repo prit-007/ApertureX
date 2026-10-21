@@ -3229,7 +3229,34 @@ b.addEventListener('pointerleave',()=>b.style.translate='')});
 const cvp=$('#compareViewport');
 if(cvp&&typeof setComparePercent==='function'){let done=0;new IntersectionObserver((es,ob)=>{if(!es[0].isIntersecting||done)return;done=1;ob.disconnect();const s=performance.now();
 (function f(n){const q=Math.min(1,(n-s)/2200);setComparePercent(50+Math.sin(q*Math.PI*2)*38*(1-q*.6));if(q<1)requestAnimationFrame(f);else setComparePercent(50)})(s)},{threshold:.6}).observe(cvp)}
+<<<<<<< HEAD
 })();
+=======
+// Stock image loading: swap SVG fallbacks for real assets when they load
+const stockImgs = [
+  ['#photo', '#photoFallback', 'assets/stock/iris.webp'],
+  ['#compareRawImg', '#compareRawFallback', 'assets/stock/compare.webp'],
+  ['#compareGradedImg', '#compareGradedFallback', 'assets/stock/compare.webp'],
+  ['#mockCanvasImg', '#mockCanvasFallback', 'assets/stock/editor.webp'],
+  ['#snapseedMaskImg', '#snapseedMaskFallback', 'assets/stock/mask.webp'],
+  ['#lookqrImg', '#lookqrFallback', 'assets/stock/lookqr.webp'],
+  ['#mockExportRingImg', '#mockExportRingFallback', 'assets/stock/export.webp']
+];
+$$('.gallery-img').forEach((img, idx) => {
+  const tile = img.closest('.mock-photo-tile');
+  const fb = tile?.querySelector('.gallery-fallback');
+  stockImgs.push([img, fb, tile?.style.getPropertyValue('--gallery-img')?.trim() || `assets/stock/gallery-${idx + 1}.webp`]);
+});
+stockImgs.forEach(([sel, fbSel, src]) => {
+  const img = typeof sel === 'string' ? $(sel) : sel;
+  const fb = typeof fbSel === 'string' ? $(fbSel) : fbSel;
+  if (!img || !src) return;
+  img.onload = () => { img.style.opacity = '1'; if (fb) fb.style.display = 'none'; };
+  img.onerror = () => { img.style.opacity = '0'; if (fb) fb.style.display = 'flex'; };
+  if (img.complete && img.naturalWidth) { img.onload(); }
+  else if (!img.src) { img.src = src; }
+});
+>>>>>>> 94b9cff61bbb77bf8fc3a014e095138d3e087dda
 </script>
 </body>
 </html>
