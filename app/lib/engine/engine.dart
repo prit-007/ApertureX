@@ -1014,6 +1014,26 @@ class AxEngine {
         xmp: xmp,
       );
 
+  /// Merges bracketed exposures into an Ultra HDR JPEG (#20).
+  ///
+  /// Takes multiple bracketed exposures (RGBA8 + EV offsets), merges them into
+  /// an HDR radiance map, tone-maps to SDR, generates an ISO 21496-1 gain map,
+  /// and packages everything as an Ultra HDR JPEG.
+  static Future<Uint8List> exportHdrMerge({
+    required List<rust_export.HdrExposureSpec> exposures,
+    required int quality,
+    required int gainQuality,
+    required double headroomEv,
+    required Uint8List exif,
+  }) =>
+      rust_export.exportHdrMerge(
+        exposures: exposures,
+        quality: quality,
+        gainQuality: gainQuality,
+        headroomEv: headroomEv,
+        exif: exif,
+      );
+
   /// Creates an opaque cancel token for [exportJpegFull]. Call
   /// [exportCancelSet] to abort a running export, then [exportCancelDrop].
   static Future<int> exportCancelNew() async =>

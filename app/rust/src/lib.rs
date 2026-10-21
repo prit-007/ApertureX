@@ -9,6 +9,7 @@ pub mod export;
 pub mod export_pipeline;
 mod frb_generated;
 pub mod geometry;
+pub mod hdr_merge;
 pub mod histogram;
 pub mod icc;
 pub mod mask;

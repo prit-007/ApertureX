@@ -53,6 +53,24 @@ Future<Uint8List> exportTiff16({
   xmp: xmp,
 );
 
+/// Merges bracketed exposures into an Ultra HDR JPEG (#20).
+///
+/// Runs the full pipeline: merge exposures into linear HDR radiance,
+/// tone-map to SDR, generate ISO 21496-1 gain map, and package as Ultra HDR JPEG.
+Future<Uint8List> exportHdrMerge({
+  required List<HdrExposureSpec> exposures,
+  required int quality,
+  required int gainQuality,
+  required double headroomEv,
+  required List<int> exif,
+}) => RustLib.instance.api.crateApiExportExportHdrMerge(
+  exposures: exposures,
+  quality: quality,
+  gainQuality: gainQuality,
+  headroomEv: headroomEv,
+  exif: exif,
+);
+
 /// Creates a cancel token. Pass it to [`export_full`], call
 /// [`export_cancel_set`] from the UI to abort, then [`export_cancel_drop`].
 Future<BigInt> exportCancelNew() =>
@@ -637,4 +655,36 @@ class ExportSpec {
           colorSpace == other.colorSpace &&
           ultraHdr == other.ultraHdr &&
           hdrHeadroom == other.hdrHeadroom;
+}
+
+/// One bracketed exposure for HDR merge (#20).
+class HdrExposureSpec {
+  final Uint8List rgba;
+  final int width;
+  final int height;
+
+  /// Exposure value in stops relative to base (0.0). Negative = darker,
+  /// positive = brighter.
+  final double ev;
+
+  const HdrExposureSpec({
+    required this.rgba,
+    required this.width,
+    required this.height,
+    required this.ev,
+  });
+
+  @override
+  int get hashCode =>
+      rgba.hashCode ^ width.hashCode ^ height.hashCode ^ ev.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HdrExposureSpec &&
+          runtimeType == other.runtimeType &&
+          rgba == other.rgba &&
+          width == other.width &&
+          height == other.height &&
+          ev == other.ev;
 }
