@@ -1,0 +1,3262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ApertureX — Pro-Grade FOSS Photo Editor</title>
+<meta name="description" content="ApertureX is the mobile-native FOSS photo editor for Android & iOS. Dual UI shells (Lightroom-style precision panel + Snapseed gesture mode) over one shared recipe, Look QR open preset standard, on-device C2PA provenance, Pat David film emulations, and a compiled Rust engine. 100% offline, GPL-3.0.">
+<meta property="og:title" content="ApertureX — Pro-Grade FOSS Photo Editor">
+<meta property="og:description" content="The Lightroom & Snapseed replacement the open-source community deserved. Dual UI shells, Look QR open standard, C2PA provenance, Pat David film stocks, and high-performance Rust core. Zero cloud, zero subscriptions.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://prit-007.github.io/ApertureX/">
+<meta property="og:image" content="https://raw.githubusercontent.com/prit-007/ApertureX/main/app/icons/app_icon.png">
+<meta name="theme-color" content="#080B11">
+<meta property="og:site_name" content="ApertureX">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ApertureX — Pro-Grade FOSS Photo Editor">
+<meta name="twitter:description" content="Dual UI shells, on-device AI subject detection, 16-bit TIFF export, and a compiled Rust engine. 100% offline, GPL-3.0.">
+<link rel="canonical" href="https://prit-007.github.io/ApertureX/">
+<link rel="icon" type="image/png" href="assets/app_icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add('js');</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ApertureX",
+  "applicationCategory": "PhotographyApplication",
+  "operatingSystem": "Android, iOS",
+  "softwareVersion": "0.2.4",
+  "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+  "url": "https://prit-007.github.io/ApertureX/",
+  "downloadUrl": "https://github.com/prit-007/ApertureX/releases/latest",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "A mobile-native, non-destructive FOSS photo editor with dual Lightroom-style and Snapseed-style shells over one shared recipe."
+}
+</script>
+
+<style>
+  :root {
+    --bg-darkest: #06080D;
+    --bg: #080B11;
+    --bg-1: #0E121A;
+    --bg-2: #141A25;
+    --bg-card: rgba(15, 20, 30, 0.72);
+    --bg-card-hover: rgba(22, 29, 44, 0.85);
+
+    --glass: rgba(255, 255, 255, 0.035);
+    --glass-hover: rgba(255, 255, 255, 0.065);
+    --glass-active: rgba(255, 255, 255, 0.1);
+
+    --border: rgba(255, 255, 255, 0.08);
+    --border-soft: rgba(255, 255, 255, 0.045);
+    --border-highlight: rgba(255, 255, 255, 0.16);
+
+    --text: #F3F5F9;
+    --text-muted: #94A3B8;
+    --text-faint: #64748B;
+
+    --cyan: #00E5FF;
+    --cyan-glow: rgba(0, 229, 255, 0.35);
+    --cyan-soft: #70F3FF;
+    --cyan-dim: #094754;
+
+    --coral: #FF2A55;
+    --coral-soft: #FF5C7E;
+    --coral-glow: rgba(255, 42, 85, 0.3);
+
+    --amber: #FFB300;
+    --amber-soft: #FFD54F;
+    --amber-glow: rgba(255, 179, 0, 0.28);
+
+    --emerald: #10B981;
+    --emerald-glow: rgba(16, 185, 129, 0.28);
+
+    --display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+
+    --radius-s: 8px;
+    --radius-m: 14px;
+    --radius-l: 22px;
+    --radius-xl: 32px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background-color: var(--bg-darkest);
+    color: var(--text);
+    font-family: var(--body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: clip;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+
+  a { color: inherit; text-decoration: none; }
+  img, svg { display: block; max-width: 100%; }
+  ul { list-style: none; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 4px; }
+  section[id], header[id] { scroll-margin-top: 88px; }
+
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+  @media (max-width: 640px) { .wrap { padding: 0 20px; } }
+
+  /* Accessibility helpers */
+  .skip-link {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translate(-50%, -160%);
+    z-index: 200;
+    background: var(--cyan);
+    color: #040810;
+    font-family: var(--display);
+    font-weight: 800;
+    padding: 10px 18px;
+    border-radius: 100px;
+    transition: transform 0.2s ease;
+  }
+  .skip-link:focus { transform: translate(-50%, 0); }
+
+  .scroll-progress {
+    position: fixed;
+    top: 0; left: 0;
+    width: 0;
+    height: 2px;
+    z-index: 150;
+    background: linear-gradient(90deg, var(--cyan), var(--amber), var(--coral));
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
+    pointer-events: none;
+    transition: width 0.08s linear;
+  }
+
+  /* Scroll reveal (only when JS is available) */
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+  }
+  .js .reveal.is-visible { opacity: 1; transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) {
+    .js .reveal { opacity: 1; transform: none; transition: none; }
+  }
+
+  h1, h2, h3, h4 { font-family: var(--display); font-weight: 700; letter-spacing: -0.025em; line-height: 1.15; }
+
+  /* Technical HUD Badges */
+  .hud-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    background: rgba(0, 229, 255, 0.08);
+    border: 1px solid rgba(0, 229, 255, 0.22);
+    padding: 5px 12px;
+    border-radius: 6px;
+  }
+  .hud-tag::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+  }
+
+  .hud-tag-amber {
+    color: var(--amber);
+    background: rgba(255, 179, 0, 0.08);
+    border-color: rgba(255, 179, 0, 0.24);
+  }
+  .hud-tag-amber::before {
+    background: var(--amber);
+    box-shadow: 0 0 8px var(--amber);
+  }
+
+  .hud-tag-coral {
+    color: var(--coral-soft);
+    background: rgba(255, 42, 85, 0.08);
+    border-color: rgba(255, 42, 85, 0.24);
+  }
+  .hud-tag-coral::before {
+    background: var(--coral);
+    box-shadow: 0 0 8px var(--coral);
+  }
+
+  .hud-tag-emerald {
+    color: var(--emerald);
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.24);
+  }
+  .hud-tag-emerald::before {
+    background: var(--emerald);
+    box-shadow: 0 0 8px var(--emerald);
+  }
+
+  /* Glass Card */
+  .glass-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: var(--radius-l);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .glass-card:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-highlight);
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 0.92rem;
+    letter-spacing: 0.01em;
+    padding: 13px 26px;
+    border-radius: 100px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+    text-decoration: none;
+    position: relative;
+    user-select: none;
+  }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #00F0FF, #0099FF);
+    color: #040810;
+    box-shadow: 0 6px 26px -4px rgba(0, 229, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #33F5FF, #26A5FF);
+    box-shadow: 0 8px 34px -2px rgba(0, 229, 255, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    transform: translateY(-2px);
+  }
+
+  .btn-ghost {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    color: var(--text);
+    backdrop-filter: blur(12px);
+  }
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: var(--border-highlight);
+    transform: translateY(-2px);
+  }
+
+  /* Top Announcement Banner */
+  .announcement-bar {
+    background: linear-gradient(90deg, rgba(0, 229, 255, 0.12), rgba(255, 42, 85, 0.12), rgba(255, 179, 0, 0.12));
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    text-align: center;
+    font-size: 0.8rem;
+    font-family: var(--display);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    z-index: 100;
+  }
+  .announcement-bar strong { color: var(--text); }
+  .announcement-pill {
+    background: rgba(0, 229, 255, 0.2);
+    color: var(--cyan);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 100px;
+    border: 1px solid rgba(0, 229, 255, 0.35);
+  }
+
+  /* Sticky Navigation */
+  .site-nav {
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    background: rgba(8, 11, 17, 0.85);
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    height: 68px;
+    display: flex;
+    align-items: center;
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 1.15rem;
+    letter-spacing: -0.01em;
+  }
+  .nav-brand img { width: 34px; height: 34px; border-radius: 9px; box-shadow: 0 4px 14px rgba(0, 229, 255, 0.3); }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .nav-links a {
+    position: relative;
+    padding: 6px 0;
+    transition: color 0.2s ease;
+  }
+  .nav-links a::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--cyan);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.2s ease;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-links a.active { color: var(--text); }
+  .nav-links a.active::after { transform: scaleX(1); }
+  .site-nav.scrolled {
+    background: rgba(8, 11, 17, 0.96);
+    box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.9);
+  }
+  @media (max-width: 960px) { .nav-links { display: none; } }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .nav-version-badge {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--cyan);
+    background: rgba(0, 229, 255, 0.08);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    padding: 4px 10px;
+    border-radius: 100px;
+  }
+  .menu-toggle-btn {
+    display: none;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  @media (max-width: 960px) { .menu-toggle-btn { display: flex; } }
+
+  /* Mobile Drawer */
+  .mobile-drawer {
+    display: none;
+    position: fixed;
+    top: 68px;
+    left: 0; right: 0;
+    z-index: 85;
+    flex-direction: column;
+    background: rgba(10, 14, 22, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px 26px;
+    gap: 6px;
+    max-height: calc(100dvh - 68px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .mobile-drawer.open { display: flex; }
+  .mobile-drawer a {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 11px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .mobile-drawer a:hover { color: var(--cyan); }
+  .mobile-drawer .btn {
+    margin-top: 14px;
+    border-bottom: 0;
+    padding: 13px 26px;
+    justify-content: center;
+    color: #040810;
+  }
+  .mobile-drawer .btn:hover { color: #040810; }
+  .drawer-backdrop {
+    position: fixed;
+    inset: 68px 0 0;
+    z-index: 84;
+    background: rgba(0, 0, 0, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+  body.drawer-open { overflow: hidden; }
+
+  @media (max-width: 700px) {
+    .nav-version-badge { display: none; }
+    .site-nav .btn-primary { padding: 10px 18px; font-size: 0.85rem; }
+    .announcement-bar { flex-wrap: wrap; gap: 6px; padding: 8px 12px; font-size: 0.72rem; }
+  }
+  @media (max-width: 380px) {
+    .site-nav .wrap { padding: 0 14px; }
+    .nav-brand span { display: none; }
+    .site-nav .btn-primary { padding: 10px 14px; font-size: 0.8rem; }
+    .nav-actions { gap: 8px; }
+  }
+
+  /* ============ HERO SECTION ============ */
+  .hero {
+    position: relative;
+    padding: 110px 0 80px 0;
+    overflow: hidden;
+    text-align: center;
+  }
+  .hero-ambient {
+    position: absolute;
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 900px;
+    height: 480px;
+    background: radial-gradient(ellipse at center, rgba(0, 229, 255, 0.15) 0%, rgba(255, 42, 85, 0.08) 45%, transparent 70%);
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .hero-grid-bg {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 940px;
+    margin: 0 auto;
+  }
+  .hero-badge-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .hero h1 {
+    font-size: clamp(2.6rem, 5.8vw, 4.8rem);
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+    color: var(--text);
+    margin-bottom: 24px;
+  }
+  .gradient-text {
+    background: linear-gradient(135deg, #FFFFFF 20%, #70F3FF 60%, #FFB300 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .hero p.lead {
+    font-size: clamp(1.08rem, 2vw, 1.3rem);
+    color: var(--text-muted);
+    max-width: 760px;
+    margin: 0 auto 38px auto;
+    line-height: 1.6;
+  }
+  .hero-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 50px;
+  }
+  .hero-note {
+    flex-basis: 100%;
+    margin-top: 2px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: var(--text-faint);
+  }
+  @media (max-width: 640px) {
+    .hero-cta { flex-direction: column; }
+    .hero-cta .btn { width: 100%; max-width: 360px; }
+  }
+
+  /* Hero Tech Metrics Strip */
+  .hero-specs-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    max-width: 1100px;
+    margin: 0 auto;
+    text-align: left;
+  }
+  .hero-spec-card {
+    padding: 16px 20px;
+    border-radius: var(--radius-m);
+    background: rgba(14, 18, 28, 0.6);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+  }
+  .hero-spec-card .val {
+    font-family: var(--display);
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hero-spec-card .label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* Section Styling */
+  section { position: relative; padding: 100px 0; }
+  .section-head { max-width: 720px; margin-bottom: 52px; }
+  .section-head.center { margin-left: auto; margin-right: auto; text-align: center; }
+  .section-head h2 {
+    font-size: clamp(2.1rem, 4.2vw, 3.2rem);
+    margin-top: 16px;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+  .section-head p {
+    margin-top: 14px;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    line-height: 1.6;
+  }
+
+  /* ============ INTERACTIVE BEFORE & AFTER SLIDER ============ */
+  .compare-container {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.85);
+  }
+  .compare-viewport {
+    position: relative;
+    width: 100%;
+    height: 520px;
+    overflow: hidden;
+    cursor: ew-resize;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: pan-y;
+  }
+  .compare-viewport:focus-visible {
+    outline: 3px solid var(--cyan);
+    outline-offset: -3px;
+  }
+  @media (max-width: 640px) { .compare-viewport { height: 360px; } }
+
+  .compare-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .compare-raw {
+    background: radial-gradient(circle at 35% 45%, #4B5565 0%, #242B36 55%, #12151D 100%);
+    filter: saturate(0.65) contrast(0.9) brightness(0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .compare-graded {
+    background: radial-gradient(circle at 65% 35%, #FFB300 0%, #FF2A55 35%, #00E5FF 70%, #081120 100%);
+    filter: contrast(1.18) saturate(1.3) brightness(1.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    clip-path: inset(0 calc(100% - var(--split, 50%)) 0 0);
+    will-change: clip-path;
+  }
+  .compare-line {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: var(--split, 50%);
+    width: 2px;
+    background: #FFFFFF;
+    box-shadow: 0 0 16px rgba(0, 229, 255, 0.85), 0 0 4px #FFFFFF;
+    transform: translateX(-50%);
+    z-index: 15;
+    pointer-events: none;
+    will-change: left;
+  }
+  .compare-handle {
+    position: absolute;
+    top: 50%;
+    left: var(--split, 50%);
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    color: #06090E;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 0 3px rgba(0, 229, 255, 0.5);
+    z-index: 20;
+    pointer-events: none;
+    will-change: left;
+    transition: transform 0.15s ease;
+  }
+  .compare-viewport:hover .compare-handle { transform: translate(-50%, -50%) scale(1.1); }
+  .compare-handle svg { width: 22px; height: 22px; }
+
+  .compare-badge {
+    position: absolute;
+    top: 20px;
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-family: var(--display);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    backdrop-filter: blur(16px);
+    z-index: 15;
+    pointer-events: none;
+  }
+  .badge-after {
+    left: 20px;
+    background: rgba(0, 229, 255, 0.18);
+    color: var(--cyan);
+    border: 1px solid rgba(0, 229, 255, 0.4);
+    box-shadow: 0 0 16px rgba(0, 229, 255, 0.2);
+  }
+  .badge-before {
+    right: 20px;
+    background: rgba(0, 0, 0, 0.65);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  .compare-bar {
+    padding: 16px 28px;
+    background: rgba(14, 18, 28, 0.95);
+    border-top: 1px solid var(--border-soft);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+  }
+  .compare-bar strong { color: var(--text); }
+  .compare-bar-metrics {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* ============ ARTCRAFT-INSPIRED BENTO GRID ============ */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 20px;
+  }
+  .bento-card {
+    padding: 32px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    --mouse-x: 50%;
+    --mouse-y: 50%;
+  }
+  .bento-card > * {
+    position: relative;
+    z-index: 1;
+  }
+  .bento-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: radial-gradient(
+      800px circle at var(--mouse-x) var(--mouse-y),
+      rgba(0, 229, 255, 0.4),
+      transparent 40%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 2;
+  }
+  .bento-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      600px circle at var(--mouse-x) var(--mouse-y),
+      rgba(0, 229, 255, 0.04),
+      transparent 40%
+    );
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 0;
+  }
+  .bento-card:hover::before,
+  .bento-card:hover::after { opacity: 1; }
+  .bento-icon { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+  @media (hover: hover) {
+    .bento-card:hover .bento-icon { transform: scale(1.1) rotate(-3deg); }
+  }
+  .bento-span-8 { grid-column: span 8; }
+  .bento-span-7 { grid-column: span 7; }
+  .bento-span-6 { grid-column: span 6; }
+  .bento-span-5 { grid-column: span 5; }
+  .bento-span-4 { grid-column: span 4; }
+  .bento-span-12 { grid-column: span 12; }
+
+  @media (max-width: 980px) {
+    .bento-span-8, .bento-span-7, .bento-span-6, .bento-span-5, .bento-span-4 { grid-column: span 12; }
+  }
+
+  .bento-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+  .bento-icon svg { width: 24px; height: 24px; }
+  .bento-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .bento-desc {
+    font-size: 0.94rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 18px;
+  }
+  .bento-visual {
+    margin-top: 14px;
+    border-radius: var(--radius-m);
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border-soft);
+    padding: 16px;
+    overflow: hidden;
+  }
+  .bento-tag-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  /* ============ INTERACTIVE INSIDE THE APP TOUR ============ */
+  .interactive-demo {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 44px;
+    box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.8);
+  }
+  @media (max-width: 640px) { .interactive-demo { padding: 24px 18px; } }
+
+  .demo-nav {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+  }
+  .demo-tab-btn {
+    padding: 10px 18px;
+    transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    border-radius: 100px;
+    font-family: var(--display);
+    font-size: 0.88rem;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .demo-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text);
+  }
+  .demo-tab-btn.active {
+    background: var(--cyan);
+    color: #040810;
+    border-color: var(--cyan);
+    box-shadow: 0 4px 20px rgba(0, 229, 255, 0.35);
+  }
+  .mock-chip:active,
+  .mock-subchip:active,
+  .demo-tab-btn:active { transform: scale(0.92); }
+  @media (prefers-reduced-motion: reduce) {
+    .mock-chip:active,
+    .mock-subchip:active,
+    .demo-tab-btn:active { transform: none; }
+  }
+
+  .demo-stage {
+    display: grid;
+    grid-template-columns: 310px 1fr;
+    gap: 50px;
+    align-items: center;
+  }
+  @media (max-width: 900px) {
+    .demo-stage { grid-template-columns: 1fr; gap: 36px; }
+    .demo-mockup-col { order: 1; }
+    .demo-details-col { order: 2; }
+  }
+
+  .demo-mockup-col {
+    display: flex;
+    justify-content: center;
+  }
+
+  /* Phone Mockup Frame */
+  .phone-frame {
+    width: 290px;
+    height: 590px;
+    border-radius: 44px;
+    padding: 10px;
+    background: #080B12;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 35px 70px -15px rgba(0, 229, 255, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    position: relative;
+    user-select: none;
+    animation: phoneFloat 6s ease-in-out infinite;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+  @keyframes phoneFloat {
+    0%, 100% {
+      transform: translateY(0) rotateX(0deg) rotateY(0deg);
+      box-shadow: 0 35px 70px -15px rgba(0, 229, 255, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+    50% {
+      transform: translateY(-12px) rotateX(2deg) rotateY(-2deg);
+      box-shadow: 0 50px 80px -10px rgba(0, 229, 255, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .phone-frame { animation: none; }
+  }
+  .phone-screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 34px;
+    overflow: hidden;
+    background: #0A0D14;
+    display: flex;
+    flex-direction: column;
+  }
+  .phone-island {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 18px;
+    border-radius: 20px;
+    background: #000;
+    z-index: 50;
+  }
+
+  /* Mock View 1: Lightroom Mode */
+  .mock-canvas {
+    flex: 1;
+    position: relative;
+    background: radial-gradient(circle at 50% 40%, #FFB300 0%, #FF3366 50%, #007799 100%);
+    transition: filter 0.1s ease;
+    overflow: hidden;
+  }
+  .mock-canvas-art {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.7);
+  }
+  .mock-hud-tray {
+    height: 236px;
+    background: rgba(11, 14, 21, 0.95);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(16px);
+    display: flex;
+    flex-direction: column;
+    padding: 8px 12px;
+    gap: 8px;
+    z-index: 10;
+  }
+  .mock-chip-row {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .mock-chip {
+    appearance: none;
+    padding: 3px 8px;
+    transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease;
+    border-radius: 100px;
+    font-size: 0.62rem;
+    font-family: var(--display);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .mock-chip.active {
+    background: rgba(0, 229, 255, 0.15);
+    color: var(--cyan);
+    border-color: rgba(0, 229, 255, 0.4);
+  }
+  .mock-subchip-row {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .mock-subchip {
+    appearance: none;
+    padding: 2px 7px;
+    transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease;
+    border-radius: 4px;
+    font-size: 0.56rem;
+    font-family: var(--mono);
+    line-height: 1.2;
+    color: var(--text-faint);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .mock-subchip.active {
+    color: var(--amber);
+    background: rgba(255, 179, 0, 0.12);
+    border-color: rgba(255, 179, 0, 0.35);
+  }
+  .mock-slider-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .mock-slider-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.62rem;
+    font-family: var(--display);
+    font-weight: 700;
+  }
+  .mock-slider-head .name { color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .mock-slider-head .val { color: var(--cyan); font-family: var(--mono); }
+  .mock-slider-track {
+    position: relative;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.12);
+    cursor: pointer;
+    touch-action: pan-y;
+  }
+  .mock-slider-fill {
+    position: absolute;
+    left: 50%;
+    top: 0; bottom: 0;
+    width: 25%;
+    background: var(--cyan);
+    border-radius: 3px;
+  }
+  .mock-slider-thumb {
+    position: absolute;
+    top: 50%;
+    left: 75%;
+    transform: translate(-50%, -50%);
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #FFF;
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.8);
+    cursor: grab;
+  }
+
+  /* Mock View 2: Snapseed Gesture Mode */
+  .mock-snapseed {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: #0B0E15;
+  }
+  .mock-ruby-mask {
+    position: absolute;
+    top: 140px;
+    left: 50px;
+    width: 160px;
+    height: 180px;
+    border-radius: 50% 45% 60% 40%;
+    background: radial-gradient(circle, rgba(255, 42, 85, 0.6), rgba(255, 42, 85, 0.2) 65%, transparent 80%);
+    filter: blur(4px);
+    pointer-events: none;
+    animation: pulseMask 4s ease-in-out infinite alternate;
+  }
+  @keyframes pulseMask {
+    0% { transform: scale(0.98); opacity: 0.75; }
+    100% { transform: scale(1.04); opacity: 0.95; }
+  }
+  .mock-brush-cursor {
+    position: absolute;
+    top: 240px;
+    left: 170px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 2px dashed rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+  }
+  .mock-gesture-hud {
+    position: absolute;
+    bottom: 24px;
+    left: 16px; right: 16px;
+    background: rgba(14, 18, 28, 0.85);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-around;
+    backdrop-filter: blur(16px);
+  }
+  .mock-gesture-hud button {
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 4px 2px;
+    font-size: 0.68rem;
+    font-family: var(--display);
+    font-weight: 700;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .mock-gesture-hud button.active { color: var(--cyan); }
+
+  /* Mock View 3: Export Ring & C2PA */
+  .mock-export-box {
+    position: absolute;
+    inset: 0;
+    background: #090C12;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 20px;
+  }
+  .mock-ring {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: conic-gradient(var(--cyan) 0% 74%, rgba(255, 255, 255, 0.08) 74% 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 0 30px rgba(0, 229, 255, 0.25);
+  }
+  .mock-ring::after {
+    content: '';
+    position: absolute;
+    inset: 9px;
+    border-radius: 50%;
+    background: #0B0E15;
+  }
+  .mock-ring b {
+    position: relative;
+    z-index: 2;
+    font-family: var(--display);
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--cyan);
+  }
+
+  /* Mock View 4: Look QR & Film Preset Card */
+  .mock-qr-box {
+    position: absolute;
+    inset: 0;
+    background: #090C12;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 14px 14px 14px;
+    gap: 10px;
+    align-items: center;
+    overflow-y: auto;
+  }
+  .mock-qr-card {
+    width: 100%;
+    background: linear-gradient(145deg, #141924, #0D111A);
+    border: 1px solid rgba(0, 229, 255, 0.25);
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  }
+  .mock-qr-preview-thumb {
+    width: 100%;
+    height: 90px;
+    border-radius: 10px;
+    background: radial-gradient(circle at 60% 40%, #FFB300 0%, #FF3366 50%, #007799 100%);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 8px 10px;
+  }
+  .mock-qr-preview-thumb span {
+    font-size: 0.62rem;
+    font-weight: 700;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    padding: 2px 7px;
+    border-radius: 4px;
+    color: #FFF;
+  }
+  .mock-qr-code-graphic {
+    width: 100px;
+    height: 100px;
+    background: #FFF;
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+  .mock-qr-meta {
+    text-align: center;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+  }
+  .mock-qr-meta strong {
+    display: block;
+    color: var(--text);
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+  }
+  .mock-qr-badge {
+    font-size: 0.6rem;
+    font-family: var(--mono);
+    color: var(--cyan);
+    background: rgba(0, 229, 255, 0.1);
+    padding: 3px 8px;
+    border-radius: 100px;
+    border: 1px solid rgba(0, 229, 255, 0.25);
+  }
+
+  /* Mock View 5: Asset Gallery */
+  .mock-gallery-box {
+    position: absolute;
+    inset: 0;
+    background: #090C12;
+    display: flex;
+    flex-direction: column;
+    padding: 30px 12px 12px 12px;
+    gap: 10px;
+  }
+  .mock-gallery-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px;
+  }
+  .mock-gallery-header h4 {
+    font-size: 0.78rem;
+    font-family: var(--display);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mock-gallery-badge {
+    font-size: 0.6rem;
+    font-family: var(--mono);
+    color: var(--cyan);
+    background: rgba(0, 229, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 229, 255, 0.2);
+  }
+  .mock-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    flex: 1;
+  }
+  .mock-photo-tile {
+    position: relative;
+    border-radius: 8px;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .mock-photo-tag {
+    position: absolute;
+    top: 4px; left: 4px;
+    font-size: 0.52rem;
+    font-weight: 800;
+    font-family: var(--mono);
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.75);
+    color: var(--cyan);
+  }
+
+  /* Demo Details Side */
+  .demo-details-col h3 {
+    font-size: clamp(1.8rem, 3.2vw, 2.5rem);
+    color: var(--text);
+  }
+  .demo-details-col p {
+    font-size: 1.05rem;
+    color: var(--text-muted);
+    margin-top: 14px;
+    line-height: 1.65;
+  }
+  .feature-checklist {
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .check-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0, 229, 255, 0.12);
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+    border: 1px solid rgba(0, 229, 255, 0.3);
+  }
+  .check-dot svg { width: 13px; height: 13px; stroke-width: 2.8; }
+  .check-text strong { display: block; font-size: 0.95rem; color: var(--text); }
+  .check-text span { font-size: 0.86rem; color: var(--text-muted); line-height: 1.45; }
+
+  /* ============ ARCHITECTURE PIPELINE ============ */
+  .flow-track {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 48px;
+    overflow-x: auto;
+    padding-bottom: 12px;
+  }
+  .flow-step {
+    flex: 1;
+    min-width: 190px;
+    padding: 24px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    position: relative;
+  }
+  .flow-step .num {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--cyan);
+    font-weight: 700;
+    display: block;
+    margin-bottom: 8px;
+  }
+  .flow-step h4 { font-size: 1.08rem; color: var(--text); margin-bottom: 8px; }
+  .flow-step p { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; }
+  .flow-connector {
+    width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--border-highlight);
+    flex-shrink: 0;
+  }
+
+  /* Trust Row */
+  .trust-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-top: 40px;
+  }
+  .trust-card {
+    padding: 20px;
+    border-radius: var(--radius-m);
+    text-align: center;
+  }
+  .trust-card b {
+    display: block;
+    font-family: var(--display);
+    font-size: 1.15rem;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .trust-card span { font-size: 0.82rem; color: var(--text-muted); }
+
+  /* ============ DOWNLOAD SECTION ============ */
+  .download-box {
+    padding: 60px 40px;
+    text-align: center;
+    max-width: 900px;
+    margin: 0 auto;
+    border-radius: var(--radius-xl);
+    position: relative;
+    overflow: hidden;
+  }
+  .download-box::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 300px;
+    background: radial-gradient(ellipse at center, rgba(0, 229, 255, 0.2), transparent 70%);
+    filter: blur(50px);
+    pointer-events: none;
+  }
+  .download-box h2 { font-size: clamp(2.2rem, 4vw, 3.2rem); margin-top: 14px; margin-bottom: 12px; }
+  .download-box p { color: var(--text-muted); font-size: 1.1rem; max-width: 620px; margin: 0 auto 34px auto; }
+  .download-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .version-badge-lg {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.84rem;
+    color: var(--cyan);
+    background: rgba(0, 229, 255, 0.1);
+    border: 1px solid rgba(0, 229, 255, 0.25);
+    padding: 6px 16px;
+    border-radius: 100px;
+  }
+  .arch-strip {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-top: 28px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+  .arch-strip span { display: flex; align-items: center; gap: 8px; }
+  .arch-strip svg { width: 16px; height: 16px; color: var(--cyan); }
+
+  /* ============ CHANGELOG SECTION ============ */
+  #releasesContainer { max-width: 860px; margin: 0 auto; }
+  .cl-entry {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .cl-toggle {
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.05rem;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .cl-toggle:hover { background: rgba(255, 255, 255, 0.05); }
+  .cl-body {
+    padding: 20px 24px 24px 24px;
+    border-top: 1px solid var(--border-soft);
+  }
+  .cl-items li {
+    position: relative;
+    padding-left: 20px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+  .cl-items li::before {
+    content: '•';
+    position: absolute;
+    left: 4px;
+    color: var(--cyan);
+    font-weight: 800;
+  }
+  .cl-items strong { color: var(--text); }
+  .cl-items code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    color: var(--cyan);
+    background: rgba(0, 229, 255, 0.08);
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+  .cl-items a { color: var(--cyan); text-decoration: underline; }
+  .spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(0, 229, 255, 0.2);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 20px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ============ FOOTER ============ */
+  footer {
+    border-top: 1px solid var(--border);
+    background: var(--bg-darkest);
+    padding: 60px 0 36px 0;
+  }
+  .foot-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin-bottom: 36px;
+  }
+  .foot-mark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--display);
+    font-weight: 800;
+    letter-spacing: 0.05em;
+  }
+  .foot-links {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+  }
+  .foot-links a:hover { color: var(--cyan); }
+  .foot-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--text-faint);
+    border-top: 1px solid var(--border-soft);
+    padding-top: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+:root{--ease:cubic-bezier(.16,1,.3,1)}
+html{overflow-x:visible}
+.hero.pin{height:260vh;padding:0;overflow:visible;text-align:center}
+.stick{position:sticky;top:0;height:100vh;height:100dvh;overflow:hidden;display:grid;place-items:center;padding-top:68px;box-sizing:border-box}
+.iris{position:absolute;width:min(94vmin,780px);aspect-ratio:1;z-index:1;pointer-events:none}.iris svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.photo{position:absolute;width:44%;aspect-ratio:1;left:28%;top:28%;border-radius:50%;overflow:hidden;transform:scale(.6);will-change:transform;background:#111;box-shadow:0 0 90px rgba(0,229,255,.28);object-fit:cover}
+.hcopy{position:relative;z-index:5;width:100%;will-change:transform,opacity}
+.hcopy h1,.hcopy p.lead{text-shadow:0 4px 40px rgba(6,8,13,.9)}
+.hero .hero-badge-wrap,.hero p.lead,.hero .hero-cta{animation:up .9s var(--ease) both}
+.hero h1{animation:trk 1.3s var(--ease) both}.hero .hero-badge-wrap{animation-delay:.1s}.hero p.lead{animation-delay:.55s}.hero .hero-cta{animation-delay:.75s}
+@keyframes up{from{opacity:0;transform:translateY(40px)}}@keyframes trk{from{opacity:0;letter-spacing:.1em;filter:blur(14px);transform:translateY(20px)}}
+.pin .hero-cta{margin-bottom:0}.pin p.lead{margin-bottom:28px}
+.hero-specs{padding:70px 0 50px}
+.orb{position:absolute;width:min(112vmin,900px);aspect-ratio:1;animation:spin 46s linear infinite;pointer-events:none;z-index:2}
+.orb span{position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(var(--a)) translateY(calc(min(56vmin,450px)*-1)) rotate(calc(var(--a)*-1))}
+.orb b{display:block;transform:translate(-50%,-50%);white-space:nowrap;padding:7px 14px;border-radius:99px;background:rgba(14,18,26,.88);border:1px solid rgba(0,229,255,.4);color:var(--cyan);font:700 .72rem var(--mono);animation:spinr 46s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes spinr{to{transform:translate(-50%,-50%) rotate(-360deg)}}
+.rev2{position:absolute;z-index:5;text-align:center;padding:0 24px;max-width:780px;opacity:0;pointer-events:none;will-change:transform,opacity}
+.rev2 .big{font:800 clamp(2.1rem,6.4vw,4.6rem) var(--display);letter-spacing:-.03em;line-height:1.04;text-shadow:0 4px 40px rgba(6,8,13,.95)}
+.rev2 .ch{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px}.rev2 .ch span{padding:10px 18px;border-radius:99px;background:rgba(8,11,17,.74);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);font:700 .9rem var(--display)}
+.fstop{position:absolute;bottom:22px;left:0;right:0;display:flex;justify-content:center;gap:18px;font:600 .8rem var(--mono);color:var(--text-faint);z-index:6}.fstop b{color:var(--cyan);min-width:4.5ch;display:inline-block}
+.mq{background:linear-gradient(90deg,#00E5FF,#0099FF);color:#040810;overflow:hidden;white-space:nowrap;padding:15px 0;transform:rotate(-1.2deg);margin:-14px -20px 0;position:relative;z-index:7}
+.mq div{display:inline-flex;gap:44px;animation:mq 30s linear infinite;font:800 1.4rem var(--display)}.mq span::after{content:'\2736';margin-left:44px}
+@keyframes mq{to{transform:translateX(-50%)}}
+.w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.1em}.w>span{display:inline-block;transform:translateY(110%) rotate(6deg);transition:transform 1s var(--ease);transition-delay:calc(var(--k)*70ms)}.is-visible .w>span{transform:none}
+.flow-step{animation:fglow 10s infinite;animation-delay:calc(var(--i)*2s)}
+@keyframes fglow{0%,18%{border-color:rgba(0,229,255,.7);box-shadow:0 0 30px -6px rgba(0,229,255,.5)}24%,100%{border-color:var(--border);box-shadow:none}}
+.film-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 4px}.film-strip figure{margin:0}.ft{aspect-ratio:1;border-radius:10px;border:1px solid var(--border)}.film-strip figcaption{font:600 .6rem var(--mono);color:var(--text-muted);margin-top:5px;text-align:center}
+.mock-photo-tile{transition:transform .3s var(--ease),box-shadow .3s}.mock-photo-tile.sel{transform:scale(.92);box-shadow:0 0 0 2px var(--cyan)}
+@media(max-width:760px){.hero.pin{height:220vh}.hero-cta .btn:nth-child(3){display:none}.hero p.lead{font-size:1rem;margin-bottom:22px}.hero h1{font-size:clamp(2.2rem,11vw,3.2rem);margin-bottom:16px}.hero-badge-wrap{margin-bottom:16px}.hcopy{padding:0 18px}.fstop span:last-child{display:none}.orb span{transform:rotate(var(--a)) translateY(-40vmin) rotate(calc(var(--a)*-1))}.orb b{font-size:.6rem;padding:4px 9px}.rev2 .ch span{font-size:.8rem;padding:8px 14px}.hero-specs{padding:50px 0 30px}}
+@media(prefers-reduced-motion:reduce){.w>span{transform:none!important}.hero h1,.hero .hero-badge-wrap,.hero p.lead,.hero .hero-cta{animation:none}}
+
+/* ===== v3: motion pass ===== */
+.orb b{width:max-content;max-width:none;line-height:1}
+.orb::before{content:'';position:absolute;inset:0;border-radius:50%;border:1px dashed rgba(0,229,255,.22)}
+.orb.o2{width:min(76vmin,620px);animation:spin 38s linear infinite reverse}
+.orb.o2::before{border-color:rgba(255,179,0,.2)}
+.orb.o2 span{transform:rotate(var(--a)) translateY(calc(min(38vmin,310px)*-1)) rotate(calc(var(--a)*-1))}
+.orb.o2 b{animation:spinr 38s linear infinite reverse;border-color:rgba(255,179,0,.45);color:var(--amber)}
+.iris{translate:calc(var(--px,0)*-26px) calc(var(--py,0)*-26px)}
+.orb{translate:calc(var(--px,0)*18px) calc(var(--py,0)*18px)}
+.orb.o2{translate:calc(var(--px,0)*-12px) calc(var(--py,0)*-12px)}
+.hcopy{translate:calc(var(--px,0)*10px) calc(var(--py,0)*8px)}
+.hero-ambient{translate:calc(var(--px,0)*40px) calc(var(--py,0)*30px)}
+.iris svg{animation:breathe 7s ease-in-out infinite}
+@keyframes breathe{50%{transform:scale(1.025) rotate(1.5deg)}}
+.photo{animation:kb 16s ease-in-out infinite alternate}
+@keyframes kb{from{background-position:40% 50%}to{background-position:62% 46%}}
+#fx{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+.flash{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.55),rgba(0,229,255,.25) 35%,transparent 65%)}
+.flash.go{animation:flash .7s ease-out}
+@keyframes flash{0%{opacity:0;transform:scale(.6)}20%{opacity:1}100%{opacity:0;transform:scale(1.4)}}
+.gradient-text{background:linear-gradient(110deg,#fff 5%,#70F3FF 28%,#FFB300 50%,#FF2A55 72%,#fff 95%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;animation:gshift 7s linear infinite}
+@keyframes gshift{to{background-position:-250% 0}}
+.btn-primary{overflow:hidden}
+.btn-primary::after{content:'';position:absolute;top:0;bottom:0;left:-60%;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.6),transparent);transform:skewX(-20deg);animation:shine 3.8s ease-in-out infinite;pointer-events:none}
+@keyframes shine{0%,55%{left:-60%}100%{left:140%}}
+.btn{transition:transform .22s cubic-bezier(.16,1,.3,1),box-shadow .22s,background .22s,border-color .22s,translate .25s cubic-bezier(.16,1,.3,1)}
+@keyframes bob{50%{translate:0 -6px}}
+.bento-icon{animation:bob 5s ease-in-out infinite}
+.bento-card:nth-child(2n) .bento-icon{animation-delay:-1.4s}.bento-card:nth-child(3n) .bento-icon{animation-delay:-2.8s}
+.hero-spec-card{animation:bob 6s ease-in-out infinite}
+.hero-spec-card:nth-child(2n){animation-delay:-1.5s}.hero-spec-card:nth-child(3n){animation-delay:-3s}
+.hero-spec-card:hover{border-color:rgba(0,229,255,.45);box-shadow:0 14px 40px -14px rgba(0,229,255,.4)}
+.trust-card:hover,.flow-step:hover{transform:translateY(-6px)}
+.flow-step{transition:transform .3s cubic-bezier(.16,1,.3,1)}
+.compare-line{animation:linepulse 2.4s ease-in-out infinite}
+@keyframes linepulse{50%{box-shadow:0 0 28px rgba(0,229,255,1),0 0 6px #fff}}
+.compare-handle{animation:hpulse 2.4s ease-in-out infinite}
+@keyframes hpulse{50%{box-shadow:0 6px 24px rgba(0,0,0,.6),0 0 0 9px rgba(0,229,255,.18)}}
+body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none;background:radial-gradient(40% 35% at 20% 25%,rgba(0,229,255,.10),transparent 70%),radial-gradient(35% 30% at 80% 70%,rgba(255,42,85,.08),transparent 70%),radial-gradient(30% 30% at 60% 15%,rgba(255,179,0,.06),transparent 70%);animation:drift 26s ease-in-out infinite alternate}
+@keyframes drift{to{transform:translate3d(4%,-3%,0) rotate(6deg) scale(1.08)}}
+.mq{will-change:transform}
+@media(max-width:760px){.orb::before{inset:16vmin}.orb.o2::before{inset:0}.orb.o2{width:min(76vmin,620px)}.orb.o2 span{transform:rotate(var(--a)) translateY(-28vmin) rotate(calc(var(--a)*-1))}.orb.o2::before{inset:10vmin}}
+</style>
+</head>
+
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+
+<!-- Announcement Bar -->
+<div class="announcement-bar">
+  <span class="announcement-pill">v0.2.4 RELEASED</span>
+  <span><strong>ApertureX v0.2.4 is live!</strong> On-device AI subject detection, embedded depth, 16-bit TIFF export &amp; Android 16 crash fix.</span>
+  <a href="#changelog" style="color: var(--cyan); font-weight:700; text-decoration:underline;">View Notes &rarr;</a>
+</div>
+
+<!-- Sticky Navigation -->
+<nav class="site-nav" id="siteNav" aria-label="Primary">
+  <div class="wrap nav-inner">
+    <a class="nav-brand" href="#top">
+      <img src="assets/app_icon.png" alt="ApertureX logo">
+      <span>APERTUREX</span>
+    </a>
+    
+    <div class="nav-links">
+      <a href="#compare" data-nav="compare">Compare</a>
+      <a href="#features" data-nav="features">Capabilities</a>
+      <a href="#screens" data-nav="screens">Studio Tour</a>
+      <a href="#pipeline" data-nav="pipeline">Architecture</a>
+      <a href="#changelog" data-nav="changelog">Changelog</a>
+    </div>
+    
+    <div class="nav-actions">
+      <span class="nav-version-badge" id="navVersion">v0.2.4</span>
+      <a class="btn btn-primary" id="navDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK</a>
+      <button type="button" class="menu-toggle-btn" id="menuBtn" aria-label="Open navigation menu" aria-controls="mobileDrawer" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- Mobile Navigation Drawer -->
+<div class="drawer-backdrop" id="drawerBackdrop" aria-hidden="true"></div>
+<nav class="mobile-drawer" id="mobileDrawer" aria-label="Mobile navigation">
+  <a href="#compare">Before &amp; After</a>
+  <a href="#features">Studio Capabilities</a>
+  <a href="#screens">Interactive Studio Tour</a>
+  <a href="#pipeline">Zero-Copy Architecture</a>
+  <a href="#changelog">Release Changelog</a>
+  <a class="btn btn-primary" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK (<span id="drawerDlText">v0.2.4</span>)</a>
+</nav>
+
+<main id="main">
+
+<!-- ============ HERO ============ -->
+<header class="hero pin" id="top">
+  <div class="stick">
+    <div class="hero-ambient"></div><div class="hero-grid-bg"></div><canvas id="fx" aria-hidden="true"></canvas>
+    <div class="orb" aria-hidden="true"><span style="--a:0deg"><b>Rust engine</b></span><span style="--a:90deg"><b>RAW</b></span><span style="--a:180deg"><b>C2PA</b></span><span style="--a:270deg"><b>Look QR</b></span></div>
+    <div class="iris" aria-hidden="true"><img id="photo" src="assets/stock/iris.webp" alt="Hero photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"><svg viewBox="-200 -200 400 400"><defs><linearGradient id="bl" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#1b2438"/><stop offset="1" stop-color="#0b0f1a"/></linearGradient></defs><g id="blades"></g><circle r="196" fill="none" stroke="#00E5FF" stroke-width="2" opacity=".45"/></svg></div>
+    <div class="hcopy hero-content" id="hcopy">
+      <div class="hero-badge-wrap">
+      <span class="hud-tag">TRUE FOSS CREATIVE SUITE</span>
+      <span class="hud-tag hud-tag-amber">GPL-3.0</span>
+      <span class="hud-tag hud-tag-emerald">100% ON-DEVICE</span>
+    </div>
+      <h1>
+      Pro Photo Editing.<br>
+      <span class="gradient-text">Zero Cloud. Zero Subscriptions.</span>
+    </h1>
+      <p class="lead">
+      The open-source alternative to Adobe Lightroom &amp; Snapseed. Dual UI shells over one non-destructive recipe, a high-performance <strong>compiled Rust engine</strong>, <strong>on-device AI masks</strong>, <strong>16-bit TIFF export</strong>, and cryptographic <strong>C2PA provenance</strong>.
+    </p>
+      <div class="hero-cta">
+      <a class="btn btn-primary" id="heroDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
+        <span id="heroDlText">Download Universal APK (v0.2.4)</span>
+      </a>
+      <a class="btn btn-ghost" href="#screens">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+        Explore Studio Tour
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/prit-007/ApertureX" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub (FOSS)
+      </a>
+      <p class="hero-note">Android 8.0+ &bull; Signed APK &bull; No account required</p>
+    </div>
+    </div>
+    <div class="rev2" id="rev2" aria-hidden="true"><p class="big">Every pixel stays yours.</p><div class="ch"><span>200 MP tiles</span><span>16-bit TIFF</span><span>Zero trackers</span></div></div>
+    <div class="fstop" aria-hidden="true"><span>Aperture <b id="fval">f/16</b></span><span>Scroll to open</span></div>
+  </div>
+</header>
+<section class="hero-specs"><div class="wrap">
+<div class="hero-specs-row">
+      <div class="hero-spec-card">
+        <div class="val" style="color:var(--cyan);">6 Master Tabs</div>
+        <div class="label">Zen Progressive Inspector</div>
+      </div>
+      <div class="hero-spec-card">
+        <div class="val" style="color:var(--coral-soft);">Look QR Code</div>
+        <div class="label">Zero-Cloud Preset Standard</div>
+      </div>
+      <div class="hero-spec-card">
+        <div class="val" style="color:var(--amber);">YuNet + U&sup2;-NetP</div>
+        <div class="label">On-Device AI Subject Masks</div>
+      </div>
+      <div class="hero-spec-card">
+        <div class="val" style="color:var(--emerald);">C2PA Verified</div>
+        <div class="label">On-Device Provenance Signing</div>
+      </div>
+      <div class="hero-spec-card">
+        <div class="val" style="color:var(--cyan);">120 FPS GPU</div>
+        <div class="label">Impeller 65³ 3D LUT Atlas</div>
+      </div>
+      <div class="hero-spec-card">
+        <div class="val" style="color:var(--text);">200 MP RAM</div>
+        <div class="label">&lt;512MB Tile LRU Safety</div>
+      </div>
+    </div>
+</div></section>
+<div class="mq" aria-hidden="true"><div id="mq"></div></div>
+
+<!-- ============ INTERACTIVE BEFORE & AFTER SLIDER ============ -->
+<section class="compare-section" id="compare">
+  <div class="wrap">
+    <div class="section-head center">
+      <span class="hud-tag">INTERACTIVE HARDWARE DEMO</span>
+      <h2>Drag to compare the grading math</h2>
+      <p>True 32-bit floating point color pipeline running completely on device. Slide to compare flat camera sensor capture against the ApertureX film-calibrated 3D LUT grade.</p>
+    </div>
+    
+    <div class="compare-container">
+      <div class="compare-viewport" id="compareViewport" style="--split: 50%;" role="slider" tabindex="0"
+        aria-label="Before and after comparison" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"
+        aria-valuetext="50% graded image">
+        <!-- Underneath: Raw capture layer -->
+        <div class="compare-layer compare-raw">
+          <img src="assets/stock/compare.webp" alt="Original RAW capture" style="width:100%;height:100%;object-fit:cover;opacity:0.65;transform:scale(1.2);">
+        </div>
+        
+        <!-- On top: Graded layer with dynamic clip-path -->
+        <div class="compare-layer compare-graded">
+          <img src="assets/stock/compare.webp" alt="Graded image" style="width:100%;height:100%;object-fit:cover;opacity:0.95;transform:scale(1.2);">
+        </div>
+        
+        <!-- Badges -->
+        <span class="compare-badge badge-after">ApertureX Film Grade (Portra 400)</span>
+        <span class="compare-badge badge-before">Original Flat RAW Capture</span>
+        
+        <!-- Divider line & handle -->
+        <div class="compare-line"></div>
+        <div class="compare-handle" id="compareHandle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18-6-6 6-6M15 6l6 6-6 6"/></svg>
+        </div>
+      </div>
+      
+      <div class="compare-bar">
+        <div><span>Grade profile: </span><strong>Pat David Kodak Portra 400 + Soft Highlight Roll-Off + Vignette</strong></div>
+        <div class="compare-bar-metrics">
+          <span class="hud-tag">65³ 3D LUT Atlas</span>
+          <span class="hud-tag hud-tag-emerald">Zero Compression Loss</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BENTO GRID FEATURE SHOWCASE ============ -->
+<section id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="hud-tag">STUDIO-GRADE CAPABILITIES</span>
+      <h2>Engineered for creators. Built for freedom.</h2>
+      <p>Whether you are a professional colorist demanding calibrated tone curves, or a mobile creator sharing film looks on Instagram, ApertureX delivers desktop-class power with zero compromise.</p>
+    </div>
+    
+    <div class="bento-grid">
+      <!-- Card 1: Large Dual Shells -->
+      <div class="bento-card glass-card bento-span-8">
+        <div>
+          <div class="bento-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>
+          </div>
+          <div class="bento-title">Dual UI Shells, One Shared Non-Destructive Recipe</div>
+          <div class="bento-desc">
+            Seamlessly switch back and forth between a <strong>Lightroom-style Precision Instrument Inspector</strong> (with 6 Master Tabs: Light, Color, Blur, Effects, Detail, Geometry) and a <strong>Snapseed-style Gesture Shell</strong> for edge-to-edge painting. Edits manipulate a unified JSON recipe with 0ms sync latency and zero canvas obstruction.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag">6 Master Tabs</span>
+          <span class="hud-tag hud-tag-amber">Rotary Jog Dial</span>
+          <span class="hud-tag hud-tag-coral">Zero Canvas Suffocation</span>
+        </div>
+      </div>
+      
+      <!-- Card 2: Look QR Open Standard -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 42, 85, 0.12); color: var(--coral-soft);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          </div>
+          <div class="bento-title">Look QR Code Open Standard</div>
+          <div class="bento-desc">
+            Bypass closed proprietary app silos forever. Turn any color grade into a stunning, printable Creator Card with a scannable QR code. Anyone points their phone camera and imports the full grade instantly. Zero cloud accounts required.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-coral">Look QR Spec</span>
+          <span class="hud-tag">100% Offline</span>
+        </div>
+      </div>
+
+      <!-- Card 3: Pure-FOSS QR Scanner -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 179, 0, 0.12); color: var(--amber);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <div class="bento-title">Pure-FOSS QR Scanner (Rust rxing)</div>
+          <div class="bento-desc">
+            Unlike commercial apps that bundle Google Play Services or closed MLKit blobs, ApertureX processes live camera frames directly in compiled Rust using <code>rxing</code>. Ultra-fast, glare-resistant, and 100% F-Droid compliant.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-amber">Rust rxing Engine</span>
+          <span class="hud-tag">Zero Google Blobs</span>
+        </div>
+      </div>
+
+      <!-- Card 4: Pat David Film Simulation Core -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(16, 185, 129, 0.12); color: var(--emerald);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20M2 12a14.5 14.5 0 0 0 20 0"/></svg>
+          </div>
+          <div class="bento-title">Pat David Analog Film Simulation Core</div>
+          <div class="bento-desc">
+            Bundles legendary open-source film stock profiling: Kodak Portra 400, Fuji Pro 400H, Ilford HP5 B&amp;W, and Cine Teal &amp; Orange. Mathematical color transforms compressed into lightweight JSON recipes (&lt;0.05MB APK size footprint).
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-emerald">Pat David Film Stocks</span>
+          <span class="hud-tag">0.05 MB Footprint</span>
+        </div>
+      </div>
+
+      <!-- Card 5: C2PA Content Credentials -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          </div>
+          <div class="bento-title">C2PA Content Credentials Provenance</div>
+          <div class="bento-desc">
+            Defend human photography against AI scraping and unauthorized alteration. ApertureX generates cryptographic C2PA manifests on-device (<code>c2pa.rs</code>) embedding verifiable digital authorship and edit transparency directly in exported JPEGs.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag">C2PA Verified</span>
+          <span class="hud-tag hud-tag-amber">SHA-256 Manifest</span>
+        </div>
+      </div>
+
+      <!-- Card 6: Universal Preset Translation Engine -->
+      <div class="bento-card glass-card bento-span-7">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 42, 85, 0.12); color: var(--coral-soft);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </div>
+          <div class="bento-title">Universal Preset Translation Engine</div>
+          <div class="bento-desc">
+            Import purchased Adobe Lightroom <code>.xmp</code> &amp; <code>.lrtemplate</code> presets, Hollywood <code>.cube</code> 3D LUTs, or reverse-engineer filters from VSCO/Instagram HALD CLUT images. Export your grades straight to DaVinci Resolve or Premiere Pro. Total cross-platform interoperability.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-coral">Adobe XMP / LRTEMPLATE</span>
+          <span class="hud-tag">3D LUT .CUBE</span>
+          <span class="hud-tag hud-tag-emerald">HALD CLUT PNG</span>
+        </div>
+      </div>
+
+      <!-- Card 7: Wiper Split & History Branching -->
+      <div class="bento-card glass-card bento-span-5">
+        <div>
+          <div class="bento-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><path d="m19 15-7 7-7-7"/></svg>
+          </div>
+          <div class="bento-title">Wiper Curtain &amp; History Tree</div>
+          <div class="bento-desc">
+            Interactive Wiper Split Curtain comparison slider for live A/B evaluation, paired with a non-destructive Git-like branching history tree. Never lose an edit idea—branch, snapshot, and undo freely.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag">Live Wiper Compare</span>
+          <span class="hud-tag hud-tag-amber">Branching Snapshots</span>
+        </div>
+      </div>
+
+      <!-- Card 8: High Performance Rust Core -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 179, 0, 0.12); color: var(--amber);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </div>
+          <div class="bento-title">Compiled Rust Engine Core</div>
+          <div class="bento-desc">
+            Raw sensor demosaicing, spatial denoise, matrix operations, and lens geometry run in memory-safe Rust with zero garbage collection pauses.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-amber">rust_lib_aperturex</span>
+        </div>
+      </div>
+
+      <!-- Card 9: 200MP Tile Viewport -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+          </div>
+          <div class="bento-title">200 MP Tile Viewport</div>
+          <div class="bento-desc">
+            Smoothly zoom and pan medium format RAWs and 200MP phone photos. Strict 512MB device LRU tile cache prevents out-of-memory crashes on mobile.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag">512MB LRU Tile Cache</span>
+        </div>
+      </div>
+
+      <!-- Card 10: Stylus & Palm Rejection -->
+      <div class="bento-card glass-card bento-span-4">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 42, 85, 0.12); color: var(--coral-soft);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+          </div>
+          <div class="bento-title">Pro Pen &amp; Palm Rejection</div>
+          <div class="bento-desc">
+            Full pressure sensitivity (0.0 to 1.0) with Apple Pencil and S-Pen. Hardware device filtering rejects accidental palm touches while painting local masks.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-coral">Hardware Filtering</span>
+          <span class="hud-tag">Ruby Heatmap</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INTERACTIVE INSIDE THE APP TOUR ============ -->
+<section id="screens">
+  <div class="wrap">
+    <div class="section-head center">
+      <span class="hud-tag">INTERACTIVE STUDIO TOUR</span>
+      <h2>Experience the real app workflows</h2>
+      <p>ApertureX is designed with thumb ergonomics and zero canvas obstruction. Test the live interactive simulator below across all five core studios.</p>
+    </div>
+    
+    <div class="interactive-demo">
+      <div class="demo-nav" role="tablist" aria-label="Studio tour">
+        <button type="button" class="demo-tab-btn active" id="tab-lightroom" role="tab" aria-selected="true" aria-controls="demoPanel" data-tab="lightroom" onclick="setDemoTab('lightroom')">1. Zen Lightroom Inspector</button>
+        <button type="button" class="demo-tab-btn" id="tab-snapseed" role="tab" aria-selected="false" aria-controls="demoPanel" data-tab="snapseed" onclick="setDemoTab('snapseed')">2. Snapseed Gesture Shell</button>
+        <button type="button" class="demo-tab-btn" id="tab-lookqr" role="tab" aria-selected="false" aria-controls="demoPanel" data-tab="lookqr" onclick="setDemoTab('lookqr')">3. Look QR &amp; Film Studio</button>
+        <button type="button" class="demo-tab-btn" id="tab-export" role="tab" aria-selected="false" aria-controls="demoPanel" data-tab="export" onclick="setDemoTab('export')">4. Lossless Export &amp; C2PA</button>
+        <button type="button" class="demo-tab-btn" id="tab-gallery" role="tab" aria-selected="false" aria-controls="demoPanel" data-tab="gallery" onclick="setDemoTab('gallery')">5. Studio Library &amp; Batch</button>
+      </div>
+      
+      <div class="demo-stage" id="demoPanel" role="tabpanel" aria-labelledby="tab-lightroom" tabindex="0">
+        <!-- Mockup Column -->
+        <div class="demo-mockup-col">
+          <div class="phone-frame">
+            <div class="phone-island"></div>
+            <div class="phone-screen" id="mockScreen">
+              
+              <!-- 1. Lightroom View -->
+              <div id="mockLightroomView" style="display:flex; flex-direction:column; height:100%;">
+                <div class="mock-canvas" id="mockCanvas">
+                  <img src="assets/stock/editor.webp" alt="Editor canvas preview" style="width:100%;height:100%;object-fit:cover;">
+                </div>
+                
+                <div class="mock-hud-tray">
+                  <!-- 6 Master Tabs -->
+                  <div class="mock-chip-row" id="mockChipRow" role="group" aria-label="Adjustment category">
+                    <button type="button" class="mock-chip active" aria-pressed="true" data-cat="Light" onclick="setMockCategory('Light')">Light</button>
+                    <button type="button" class="mock-chip" aria-pressed="false" data-cat="Color" onclick="setMockCategory('Color')">Color</button>
+                    <button type="button" class="mock-chip" aria-pressed="false" data-cat="Blur" onclick="setMockCategory('Blur')">Blur</button>
+                    <button type="button" class="mock-chip" aria-pressed="false" data-cat="Effects" onclick="setMockCategory('Effects')">Effects</button>
+                    <button type="button" class="mock-chip" aria-pressed="false" data-cat="Detail" onclick="setMockCategory('Detail')">Detail</button>
+                    <button type="button" class="mock-chip" aria-pressed="false" data-cat="Geometry" onclick="setMockCategory('Geometry')">Geometry</button>
+                  </div>
+                  
+                  <!-- Progressive Sub-Menus -->
+                  <div class="mock-subchip-row" id="mockSubchipRow" role="group" aria-label="Adjustment submenu">
+                    <button type="button" class="mock-subchip active">Tone</button>
+                    <button type="button" class="mock-subchip">Curve</button>
+                    <button type="button" class="mock-subchip">Dynamic Range</button>
+                  </div>
+                  
+                  <!-- Slider 1 -->
+                  <div class="mock-slider-box">
+                    <div class="mock-slider-head">
+                      <span class="name" id="mockSlider1Name">Exposure (EV)</span>
+                      <span class="val" id="mockSlider1Val">+0.50 EV</span>
+                    </div>
+                    <div class="mock-slider-track" id="mockSlider1Track" role="slider" tabindex="0" aria-label="Exposure" aria-valuemin="-5" aria-valuemax="5" aria-valuenow="0.5" aria-valuetext="+0.50 EV" onmousedown="startSlider1Drag(event)" ontouchstart="startSlider1Drag(event)">
+                      <div class="mock-slider-fill" id="mockSlider1Fill" style="left:50%; width: 25%;"></div>
+                      <div class="mock-slider-thumb" id="mockSlider1Thumb" style="left: 75%;"></div>
+                    </div>
+                  </div>
+                  
+                  <!-- Slider 2 -->
+                  <div class="mock-slider-box">
+                    <div class="mock-slider-head">
+                      <span class="name" id="mockSlider2Name">Contrast</span>
+                      <span class="val" id="mockSlider2Val">+18</span>
+                    </div>
+                    <div class="mock-slider-track" id="mockSlider2Track" role="slider" tabindex="0" aria-label="Contrast" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="18" aria-valuetext="+18" onmousedown="startSlider2Drag(event)" ontouchstart="startSlider2Drag(event)">
+                      <div class="mock-slider-fill" id="mockSlider2Fill" style="left:50%; width: 18%;"></div>
+                      <div class="mock-slider-thumb" id="mockSlider2Thumb" style="left: 68%;"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 2. Snapseed Mode View -->
+              <div id="mockSnapseedView" class="mock-snapseed" style="display:none;">
+                <div class="mock-canvas" id="mockSnapseedCanvas" style="cursor: crosshair;">
+                  <img src="assets/stock/mask.webp" alt="Snapseed mask overlay" style="width:100%;height:100%;object-fit:cover;">
+                  <div class="mock-ruby-mask" id="mockRubyMask"></div>
+                  <div class="mock-brush-cursor" id="mockBrushCursor"></div>
+                </div>
+                <div class="mock-gesture-hud" id="mockGestureHud" role="group" aria-label="Gesture mask tool">
+                  <button type="button" class="active" aria-pressed="true" onclick="setSnapseedTool(this)">BRUSH</button>
+                  <button type="button" aria-pressed="false" onclick="setSnapseedTool(this)">LINEAR</button>
+                  <button type="button" aria-pressed="false" onclick="setSnapseedTool(this)">RADIAL</button>
+                  <button type="button" aria-pressed="false" onclick="setSnapseedTool(this)">DEPTH</button>
+                  <button type="button" aria-pressed="false" onclick="setSnapseedTool(this)">ERASER</button>
+                </div>
+              </div>
+
+              <!-- 3. Look QR Studio View -->
+              <div id="mockQrView" class="mock-qr-box" style="display:none;">
+                <div class="mock-qr-card">
+                  <div class="mock-qr-preview-thumb">
+                    <span>Kodak Portra 400</span>
+                    <span style="font-size:0.5rem; background:rgba(0,229,255,0.25); color:var(--cyan);">APERTUREX</span>
+                  </div>
+                  <div class="mock-qr-code-graphic">
+                    <img src="assets/stock/lookqr.webp" alt="Look QR code" style="width:100px;height:100px;border-radius:8px;padding:6px;object-fit:cover;box-shadow:0 4px 16px rgba(0,0,0,0.5);background:#FFF;">
+                  </div>
+                  <div class="mock-qr-meta">
+                    <strong>Look QR Creator Card</strong>
+                    <span>Exp +0.50 &bull; Warm 5600K &bull; Film Grain 24</span>
+                  </div>
+                </div>
+                <div class="mock-qr-badge">100% Offline &bull; Scanned via Rust rxing</div>
+              </div>
+
+              <!-- 4. Export & C2PA Mode View -->
+              <div id="mockExportView" class="mock-export-box" style="display:none;">
+                <img src="assets/stock/export.webp" alt="Export processing" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;">
+                <div class="mock-ring" id="mockExportRing"><b id="mockExportVal">74%</b></div>
+                <span id="mockExportLabel" style="font-family:var(--display); font-size:0.75rem; color:var(--text-muted); letter-spacing:0.06em; text-transform:uppercase;">Banded Streaming</span>
+                <button type="button" class="btn btn-ghost" style="padding:6px 16px; font-size:0.75rem; border-radius:100px; cursor:pointer;" onclick="triggerSimulatedExport()">Simulate Stream</button>
+                <div style="width:100%; padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.05); font-size:0.7rem; display:flex; justify-content:space-between;">
+                  <span>C2PA Manifest</span><b style="color:var(--emerald);">Signed On-Device</b>
+                </div>
+                <div style="width:100%; padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.05); font-size:0.7rem; display:flex; justify-content:space-between;">
+                  <span>Watermark</span><b style="color:var(--cyan);">Photographer Stamp</b>
+                </div>
+                <div style="width:100%; padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.05); font-size:0.7rem; display:flex; justify-content:space-between;">
+                  <span>Sidecar</span><b style="color:var(--text);">photo.xmp + .cube</b>
+                </div>
+              </div>
+
+              <!-- 5. Gallery Mode View -->
+              <div id="mockGalleryView" class="mock-gallery-box" style="display:none;">
+                <div class="mock-gallery-header">
+                  <h4>Photos <span style="font-size:0.65rem; color:var(--text-muted);">(October 2026)</span></h4>
+                  <span class="mock-gallery-badge">BATCH SELECT</span>
+                </div>
+                <div class="mock-gallery-grid">
+                  <div class="mock-photo-tile" style="--tile-img: url('assets/stock/gallery-1.webp');">
+                    <img src="assets/stock/gallery-1.webp" alt="Gallery tile 1" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
+                    <span class="mock-photo-tag">RAW</span>
+                  </div>
+                  <div class="mock-photo-tile" style="--tile-img: url('assets/stock/gallery-2.webp');">
+                    <img src="assets/stock/gallery-2.webp" alt="Gallery tile 2" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
+                    <span class="mock-photo-tag">HDR</span>
+                  </div>
+                  <div class="mock-photo-tile" style="--tile-img: url('assets/stock/gallery-3.webp');">
+                    <img src="assets/stock/gallery-3.webp" alt="Gallery tile 3" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
+                    <span class="mock-photo-tag">RAW</span>
+                  </div>
+                  <div class="mock-photo-tile" style="--tile-img: url('assets/stock/gallery-4.webp');">
+                    <img src="assets/stock/gallery-4.webp" alt="Gallery tile 4" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
+                    <span class="mock-photo-tag">EDIT</span>
+                  </div>
+                  <div class="mock-photo-tile" style="--tile-img: url('assets/stock/gallery-5.webp');">
+                    <img src="assets/stock/gallery-5.webp" alt="Gallery tile 5" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
+                    <span class="mock-photo-tag">RAW</span>
+                  </div>
+                  <div class="mock-photo-tile" style="--tile-img: url('assets/stock/gallery-6.webp');">
+                    <img src="assets/stock/gallery-6.webp" alt="Gallery tile 6" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
+                    <span class="mock-photo-tag">C2PA</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+        
+        <!-- Details Column -->
+        <div class="demo-details-col">
+          
+          <!-- Detail 1: Lightroom -->
+          <div id="demoTextLightroom">
+            <span class="hud-tag">ZEN 6-MASTER NAVIGATION</span>
+            <h3 style="margin-top:14px;">The photo is the hero: never suffocate the canvas</h3>
+            <p>Unlike bloated apps where bottom sheets cover 80% of the screen, ApertureX guarantees that the photo occupies 75–80% of portrait height. Clean progressive disclosure groups controls into 6 Master Tabs: <strong>Light</strong>, <strong>Color</strong>, <strong>Blur</strong>, <strong>Effects</strong>, <strong>Detail</strong>, and <strong>Geometry</strong> with dedicated sub-menus.</p>
+            
+            <div class="feature-checklist">
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Interactive 120 FPS Response</strong>
+                  <span>Drag the exposure and contrast sliders in the mockup above to see live preview updates in real-time.</span>
+                </div>
+              </div>
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Rotary Jog Dial &amp; Micro-Haptics</strong>
+                  <span>Haptic clicks whenever crossing neutral zero detents; values never jitter during high-speed drag.</span>
+                </div>
+              </div>
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Deep Pro Sub-Menus</strong>
+                  <span>Curve RGB channels, Color Grading Wheels, HSL 8-Channel Mixer, LAB space, and Retouch Healing.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Detail 2: Snapseed -->
+          <div id="demoTextSnapseed" style="display:none;">
+            <span class="hud-tag hud-tag-coral">FULL-BLEED GESTURE SHELL</span>
+            <h3 style="margin-top:14px;">Pro Pen precision &amp; hardware palm rejection</h3>
+            <p>Switch to the Snapseed shell for gesture-first editing. Paint local adjustments with pressure sensitivity (Apple Pencil / S-Pen), while touch gestures remain locked to zoom and pan.</p>
+            
+            <div class="feature-checklist">
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Device Filtering &amp; Inverted Eraser</strong>
+                  <span>Touch inputs are strictly rejected during brush strokes to eliminate accidental thumb marks.</span>
+                </div>
+              </div>
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Ruby Mask Heatmap</strong>
+                  <span>Active mask layers glow in ruby red so you see precisely which highlights, shadows, or figures are affected.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detail 3: Look QR -->
+          <div id="demoTextLookQr" style="display:none;">
+            <span class="hud-tag hud-tag-amber">LOOK QR OPEN STANDARD</span>
+            <h3 style="margin-top:14px;">Share color grades offline via QR cards</h3>
+            <p>Presets shouldn't be trapped behind paywalls or proprietary server accounts. ApertureX encodes 100% of your color grading recipe mathematics into an offline scannable QR code.</p>
+            
+            <div class="feature-checklist">
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Pure-FOSS Rust rxing Scanner</strong>
+                  <span>Point your camera at a computer screen, printed card, or phone. Decodes instantly with zero Google blobs.</span>
+                </div>
+              </div>
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Community Preset Hub</strong>
+                  <span>Browse and download community-curated styles from public GitHub repositories with in-app previews.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detail 4: Export & C2PA -->
+          <div id="demoTextExport" style="display:none;">
+            <span class="hud-tag hud-tag-emerald">BANDED EXPORT &amp; C2PA SIGNING</span>
+            <h3 style="margin-top:14px;">Banded 200MP streaming with authenticity manifests</h3>
+            <p>Exporting massive multi-megapixel files requires gigabytes if processed in one buffer. ApertureX streams bands through compiled Rust, keeping memory capped under 512MB while signing C2PA Content Credentials.</p>
+            
+            <div class="feature-checklist">
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>On-Device C2PA Manifest Signing</strong>
+                  <span>Embeds cryptographic proof of digital authorship and transparent edit history without cloud telemetry.</span>
+                </div>
+              </div>
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Custom Export Branding &amp; Watermark</strong>
+                  <span>Render photographer signatures, camera EXIF stamps, and open-source badges in native Rust.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detail 5: Gallery -->
+          <div id="demoTextGallery" style="display:none;">
+            <span class="hud-tag">STUDIO ASSET MANAGEMENT</span>
+            <h3 style="margin-top:14px;">Fast photo catalog with RAW badges &amp; batch ops</h3>
+            <p>Organize, rate, and filter entire photo libraries smoothly. View RAW, HDR, and edited versions, copy-paste settings recipes across multiple photos, and batch export in seconds.</p>
+            
+            <div class="feature-checklist">
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Batch Copy &amp; Paste Recipes</strong>
+                  <span>Grade one photo to perfection and instantly apply the exact adjustments across an entire photoshoot.</span>
+                </div>
+              </div>
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Non-Destructive Versions</strong>
+                  <span>Keep multiple artistic edits of the same capture without duplicating multi-megabyte storage files.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ARCHITECTURE PIPELINE ============ -->
+<section id="pipeline" class="pipeline-section">
+  <div class="wrap">
+    <div class="section-head center">
+      <span class="hud-tag">ZERO-COPY COMPILATION</span>
+      <h2>Under the hood: Pure Rust Core &amp; Flutter Viewport</h2>
+      <p>Decoded image data lives resident in Rust native heap memory. Edits manipulate a lightweight Dart recipe object with 0ms sync latency.</p>
+    </div>
+    
+    <div class="flow-track">
+      <div class="flow-step">
+        <span class="num">01 // INGEST</span>
+        <h4>Native Decode</h4>
+        <p>TurboJPEG &amp; LibRaw demosaic to native resident heap; EXIF &amp; GDepth extraction.</p>
+      </div>
+      <div class="flow-connector">&rarr;</div>
+      <div class="flow-step">
+        <span class="num">02 // TRANSLATE</span>
+        <h4>Universal Translation</h4>
+        <p>Ingest/export Adobe XMP, 3D .cube LUTs, HALD CLUTs, and Look QR open standard.</p>
+      </div>
+      <div class="flow-connector">&rarr;</div>
+      <div class="flow-step">
+        <span class="num">03 // VIEWPORT</span>
+        <h4>120 FPS Impeller</h4>
+        <p>65³ 3D LUT atlas baked in &lt;1ms; live Wiper split curtain A/B compare.</p>
+      </div>
+      <div class="flow-connector">&rarr;</div>
+      <div class="flow-step">
+        <span class="num">04 // SCANNER</span>
+        <h4>Rust rxing Scanner</h4>
+        <p>Pure-Rust ZXing barcode detection over camera YUV/RGBA frames with 0 Google blobs.</p>
+      </div>
+      <div class="flow-connector">&rarr;</div>
+      <div class="flow-step">
+        <span class="num">05 // PROVENANCE</span>
+        <h4>Banded &amp; C2PA</h4>
+        <p>Full-res streaming export with C2PA Content Credentials manifests &amp; watermark branding.</p>
+      </div>
+    </div>
+    
+    <!-- Trust Metrics -->
+    <div class="trust-row">
+      <div class="trust-card glass-card">
+        <b style="color:var(--cyan);">100% Offline</b>
+        <span>Guarded by CI test against any networking code.</span>
+      </div>
+      <div class="trust-card glass-card">
+        <b style="color:var(--coral-soft);">0 Analytics</b>
+        <span>Zero trackers, no analytics SDKs, no device identifiers.</span>
+      </div>
+      <div class="trust-card glass-card">
+        <b style="color:var(--amber);">GPL-3.0 FOSS</b>
+        <span>Free and open source forever. Auditable code.</span>
+      </div>
+      <div class="trust-card glass-card">
+        <b style="color:var(--emerald);">F-Droid Clean</b>
+        <span>Zero Google Play Services or closed vendor blobs.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DOWNLOAD SECTION ============ -->
+<section id="download">
+  <div class="wrap">
+    <div class="download-box glass-card">
+      <span class="hud-tag">READY FOR STUDIO-GRADE EDITING</span>
+      <h2>Download ApertureX Today</h2>
+      <p>Sideload the universal signed APK directly for Android devices or compile from source for iOS and desktop.</p>
+      
+      <div class="download-actions">
+        <a class="btn btn-primary" id="dlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
+          <span id="dlBtnText">Download APK (v0.2.4)</span>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/prit-007/ApertureX/releases" target="_blank" rel="noopener">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5 5-5M12 4v12"/></svg>
+          All Release Assets
+        </a>
+      </div>
+      
+      <div class="version-badge-lg">Latest Release: <b id="latestVersion">v0.2.4</b> &bull; Signed Universal APK</div>
+      
+      <div class="arch-strip">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Android 8.0+ (ARM64, ARMv7, x86_64)</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>iOS Support (Xcode Build)</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>GPL-3.0 Licensed FOSS</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CHANGELOG ============ -->
+<section id="changelog">
+  <div class="wrap">
+    <div class="section-head center">
+      <span class="hud-tag">CONTINUOUS EVOLUTION</span>
+      <h2>Verified Release History</h2>
+      <p>All release artifacts are generated transparently via GitHub Actions with cryptographically verified checksums.</p>
+    </div>
+    
+    <div id="releasesContainer">
+      <div class="releases-loading" id="releasesLoading">
+        <div class="spinner"></div>
+        <p style="text-align:center; font-size:0.85rem; color:var(--text-muted);">Fetching verified release notes from GitHub...</p>
+      </div>
+    </div>
+    
+    <div id="changelogFallback" style="display:none;">
+      <!-- v0.2.4 Entry -->
+      <div class="cl-entry">
+        <details open>
+          <summary class="cl-toggle">
+            <span>v0.2.4 &mdash; Oct 20, 2026</span>
+            <span class="arrow">&#9662;</span>
+          </summary>
+          <div class="cl-body">
+            <ul class="cl-items cl-added">
+              <li><strong>YuNet face detection:</strong> 12-head MIT model with greedy NMS and largest-face auto-subject placement.</li>
+              <li><strong>On-device AI runtime:</strong> optional U&sup2;-NetP subject masks and depth through ONNX Runtime Mobile with NNAPI/CoreML hooks.</li>
+              <li><strong>Color-range masks:</strong> HSV hue, saturation, and luminance bands with softness and an eyedropper.</li>
+              <li><strong>16-bit TIFF export:</strong> uncompressed 16-bit-per-channel output with the full edit baked in.</li>
+              <li><strong>Embedded GDepth blur:</strong> parses JPEG XMP depth maps, aligns them through flip/rotate/crop, and drives lens blur.</li>
+            </ul>
+            <ul class="cl-items cl-fixed" style="margin-top:12px;">
+              <li><strong>Android 16 native crash:</strong> ORT 1.24.3 fixes the arm64 SIGSEGV during U&sup2;-NetP inference.</li>
+              <li><strong>Hard-crash observability:</strong> native SIGSEGV/SIGABRT/ANR exits now produce a next-launch crash report.</li>
+              <li><strong>AI fallbacks are logged:</strong> subject-mask and depth failures now reach the in-app JSONL log.</li>
+              <li><strong>Auto Tone</strong> now applies temperature and tint alongside tonal adjustments.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <!-- v0.2.3 Entry -->
+      <div class="cl-entry">
+        <details>
+          <summary class="cl-toggle">
+            <span>v0.2.3 &mdash; Oct 19, 2026</span>
+            <span class="arrow">&#9662;</span>
+          </summary>
+          <div class="cl-body">
+            <ul class="cl-items cl-added">
+              <li>Film and slate UI refinements, compact accordion bottom sheets, and an Auto Tone action.</li>
+              <li>ML background blur, Ruby Peeks toggle, true-source compare view, and wired film sliders.</li>
+              <li>Original-bytes EXIF inspection and a prominent per-task model router.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <!-- v0.2.0 Entry -->
+      <div class="cl-entry">
+        <details>
+          <summary class="cl-toggle">
+            <span>v0.2.0 &mdash; Oct 17, 2026</span>
+            <span class="arrow">&#9662;</span>
+          </summary>
+          <div class="cl-body">
+            <ul class="cl-items cl-added">
+              <li><strong>Look QR Code Open Standard:</strong> Encode complete non-destructive edit recipes into scannable offline QR creator cards with zero cloud dependencies.</li>
+              <li><strong>Pure-FOSS Offline QR Engine:</strong> High-performance Rust <code>rxing</code> camera decoder running in compiled memory with zero closed Google Play Services / Firebase blobs.</li>
+              <li><strong>Pat David Analog Film Simulation Core:</strong> Bundled open-source profiles for Kodak Portra 400, Fuji Pro 400H, Ilford HP5, and Cine Teal &amp; Orange in &lt;0.05MB JSON recipes.</li>
+              <li><strong>Community Preset Hub:</strong> Decentralized preset repository powered by public GitHub repos with in-app previews and one-tap import.</li>
+              <li><strong>C2PA Content Credentials:</strong> On-device cryptographic provenance generator (<code>c2pa.rs</code>) embedding verifiable digital authorship and edit transparency manifests into exported JPEGs.</li>
+              <li><strong>Universal Preset Translation Engine:</strong> Two-way conversion between Adobe XMP (<code>.xmp</code>), <code>.lrtemplate</code>, 3D LUT (<code>.cube</code>), and HALD CLUT PNGs.</li>
+              <li><strong>Export Branding &amp; Watermark Engine:</strong> Native Rust watermark renderer supporting custom photographer signatures, EXIF stamps, and FOSS badges.</li>
+              <li><strong>Zen 6-Master Tab Bar:</strong> Clean progressive disclosure organizing Light, Color, Blur, Effects, Detail, and Geometry with deep sub-menus.</li>
+              <li><strong>Wiper Split-Curtain &amp; History Tree:</strong> Smooth interactive comparison curtain and non-destructive snapshot history tree.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <!-- v0.1.0 Entry -->
+      <div class="cl-entry">
+        <details>
+          <summary class="cl-toggle">
+            <span>v0.1.0 &mdash; Oct 16, 2026</span>
+            <span class="arrow">&#9662;</span>
+          </summary>
+          <div class="cl-body">
+            <ul class="cl-items cl-added">
+              <li>First public release: Dual-UI shells (Lightroom-style precision panel + Snapseed gesture mode).</li>
+              <li>Native Rust engine: 65³ 3D LUT generation in &lt;1ms, tile viewport memory budget up to 200MP.</li>
+              <li>Banded full-res export with Adobe-compatible .xmp sidecar sync.</li>
+              <li>Classical Hough transform auto-straighten and GDepth/Apple disparity bokeh extraction.</li>
+              <li>Guaranteed 100% offline via CI offline-guard test.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap">
+    <div class="foot-row">
+      <span class="foot-mark">
+        <img src="assets/app_icon.png" alt="ApertureX icon" style="width:28px; height:28px; border-radius:6px;">
+        APERTUREX
+      </span>
+      <div class="foot-links">
+        <a href="https://github.com/prit-007/ApertureX" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/prit-007/ApertureX/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/prit-007/ApertureX/blob/main/docs/ROADMAP.md" target="_blank" rel="noopener">Roadmap</a>
+        <a href="https://github.com/prit-007/ApertureX/blob/main/docs/PARITY.md" target="_blank" rel="noopener">Parity Ledger</a>
+        <a href="https://github.com/prit-007/ApertureX/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+        <a href="https://github.com/prit-007/ApertureX/blob/main/LICENSE" target="_blank" rel="noopener">GPL-3.0 License</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div>&copy; 2026 Developer's Paradise &bull; Released under the GNU General Public License v3.0</div>
+      <div>Designed for creators &bull; 100% on-device &bull; Zero telemetry</div>
+    </div>
+  </div>
+</footer>
+
+<!-- ============ INTERACTIVE SCRIPTS ============ -->
+<script>
+  // Mobile drawer
+  const menuBtn = document.getElementById('menuBtn');
+  const drawer = document.getElementById('mobileDrawer');
+  const drawerBackdrop = document.getElementById('drawerBackdrop');
+  const siteNav = document.getElementById('siteNav');
+
+  function positionDrawer() {
+    if (!siteNav || !drawer) return;
+    const top = Math.max(0, Math.round(siteNav.getBoundingClientRect().bottom));
+    drawer.style.top = top + 'px';
+    drawer.style.maxHeight = 'calc(100dvh - ' + top + 'px)';
+    if (drawerBackdrop) drawerBackdrop.style.top = top + 'px';
+  }
+
+  function closeDrawer(restoreFocus) {
+    if (!drawer || !menuBtn) return;
+    drawer.classList.remove('open');
+    drawerBackdrop?.classList.remove('open');
+    menuBtn.setAttribute('aria-expanded', 'false');
+    menuBtn.setAttribute('aria-label', 'Open navigation menu');
+    document.body.classList.remove('drawer-open');
+    if (restoreFocus) menuBtn.focus();
+  }
+
+  function openDrawer() {
+    if (!drawer || !menuBtn) return;
+    positionDrawer();
+    drawer.classList.add('open');
+    drawerBackdrop?.classList.add('open');
+    menuBtn.setAttribute('aria-expanded', 'true');
+    menuBtn.setAttribute('aria-label', 'Close navigation menu');
+    document.body.classList.add('drawer-open');
+    drawer.querySelector('a')?.focus();
+  }
+
+  if (menuBtn && drawer) {
+    menuBtn.addEventListener('click', () => {
+      drawer.classList.contains('open') ? closeDrawer(true) : openDrawer();
+    });
+    drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', () => closeDrawer(false)));
+    drawerBackdrop?.addEventListener('click', () => closeDrawer(true));
+    drawer.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const focusable = Array.from(drawer.querySelectorAll('a[href], button:not([disabled])'));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && drawer.classList.contains('open')) closeDrawer(true);
+    });
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 960) closeDrawer(false);
+      else if (drawer.classList.contains('open')) positionDrawer();
+    });
+  }
+
+  // Interactive Before/After Split Slider
+  const viewport = document.getElementById('compareViewport');
+  let isDraggingCompare = false;
+  let comparePercent = 50;
+
+  function setComparePercent(pct) {
+    if (!viewport) return;
+    comparePercent = Math.max(0, Math.min(100, pct));
+    const rounded = Math.round(comparePercent);
+    viewport.style.setProperty('--split', rounded + '%');
+    viewport.setAttribute('aria-valuenow', String(rounded));
+    viewport.setAttribute('aria-valuetext', rounded + '% graded image');
+  }
+
+  function updateCompare(clientX) {
+    if (!viewport) return;
+    const rect = viewport.getBoundingClientRect();
+    const pos = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    setComparePercent((pos / rect.width) * 100);
+  }
+
+  if (viewport) {
+    viewport.addEventListener('pointerdown', (e) => {
+      isDraggingCompare = true;
+      viewport.setPointerCapture?.(e.pointerId);
+      updateCompare(e.clientX);
+    });
+    viewport.addEventListener('pointermove', (e) => {
+      if (isDraggingCompare) updateCompare(e.clientX);
+    });
+    viewport.addEventListener('pointerup', () => { isDraggingCompare = false; });
+    viewport.addEventListener('pointercancel', () => { isDraggingCompare = false; });
+    viewport.addEventListener('keydown', (e) => {
+      const step = e.shiftKey ? 10 : 2;
+      if (e.key === 'ArrowLeft') { setComparePercent(comparePercent - step); e.preventDefault(); }
+      else if (e.key === 'ArrowRight') { setComparePercent(comparePercent + step); e.preventDefault(); }
+      else if (e.key === 'Home') { setComparePercent(0); e.preventDefault(); }
+      else if (e.key === 'End') { setComparePercent(100); e.preventDefault(); }
+    });
+  }
+
+  // Interactive Demo Tab Switcher across 5 screens
+  function setDemoTab(tab) {
+    document.querySelectorAll('.demo-tab-btn').forEach(b => {
+      const selected = b.dataset.tab === tab;
+      b.classList.toggle('active', selected);
+      b.setAttribute('aria-selected', selected ? 'true' : 'false');
+      b.tabIndex = selected ? 0 : -1;
+    });
+    const panel = document.getElementById('demoPanel');
+    if (panel) panel.setAttribute('aria-labelledby', 'tab-' + tab);
+    
+    const lrView = document.getElementById('mockLightroomView');
+    const snView = document.getElementById('mockSnapseedView');
+    const qrView = document.getElementById('mockQrView');
+    const exView = document.getElementById('mockExportView');
+    const glView = document.getElementById('mockGalleryView');
+    
+    const lrText = document.getElementById('demoTextLightroom');
+    const snText = document.getElementById('demoTextSnapseed');
+    const qrText = document.getElementById('demoTextLookQr');
+    const exText = document.getElementById('demoTextExport');
+    const glText = document.getElementById('demoTextGallery');
+    
+    if (lrView) lrView.style.display = tab === 'lightroom' ? 'flex' : 'none';
+    if (snView) snView.style.display = tab === 'snapseed' ? 'block' : 'none';
+    if (qrView) qrView.style.display = tab === 'lookqr' ? 'flex' : 'none';
+    if (exView) exView.style.display = tab === 'export' ? 'flex' : 'none';
+    if (glView) glView.style.display = tab === 'gallery' ? 'flex' : 'none';
+    
+    if (lrText) lrText.style.display = tab === 'lightroom' ? 'block' : 'none';
+    if (snText) snText.style.display = tab === 'snapseed' ? 'block' : 'none';
+    if (qrText) qrText.style.display = tab === 'lookqr' ? 'block' : 'none';
+    if (exText) exText.style.display = tab === 'export' ? 'block' : 'none';
+    if (glText) glText.style.display = tab === 'gallery' ? 'block' : 'none';
+  }
+
+  const demoNav = document.querySelector('.demo-nav');
+  if (demoNav) {
+    demoNav.addEventListener('keydown', (e) => {
+      const tabs = Array.from(demoNav.querySelectorAll('.demo-tab-btn'));
+      const current = tabs.indexOf(document.activeElement);
+      if (current === -1) return;
+      let next = current;
+      if (e.key === 'ArrowRight') next = (current + 1) % tabs.length;
+      else if (e.key === 'ArrowLeft') next = (current - 1 + tabs.length) % tabs.length;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = tabs.length - 1;
+      else return;
+      e.preventDefault();
+      setDemoTab(tabs[next].dataset.tab);
+      tabs[next].focus();
+    });
+  }
+  setDemoTab('lightroom');
+
+  // 6-Master Categories & Interactive Sliders
+  const MOCK_CATEGORIES = {
+    Light: {
+      submenus: ['Tone', 'Curve', 'Dynamic Range'],
+      s1: { name: 'Exposure (EV)', min: -5, max: 5, val: 0.5, format: (v) => (v >= 0 ? '+' : '') + v.toFixed(2) + ' EV' },
+      s2: { name: 'Contrast', min: -100, max: 100, val: 18, format: (v) => (v >= 0 ? '+' : '') + Math.round(v) },
+      filter: (v1, v2) => 'brightness(' + (1 + v1 * 0.15) + ') contrast(' + (1 + v2 * 0.005) + ')'
+    },
+    Color: {
+      submenus: ['White Balance', 'HSL Mixer', 'Color Wheels', 'LAB Space'],
+      s1: { name: 'Temp (Kelvin)', min: 2000, max: 10000, val: 5600, format: (v) => Math.round(v) + ' K' },
+      s2: { name: 'Vibrance', min: -100, max: 100, val: 24, format: (v) => (v >= 0 ? '+' : '') + Math.round(v) },
+      filter: (v1, v2) => 'sepia(' + Math.max(0, (v1 - 5000) / 10000) + ') saturate(' + (1 + v2 * 0.006) + ')'
+    },
+    Blur: {
+      submenus: ['Lens Optics', 'Optical Bokeh', 'Depth Map'],
+      s1: { name: 'Iris Aperture', min: 1.2, max: 16, val: 1.8, format: (v) => 'f/' + v.toFixed(1) },
+      s2: { name: 'Aperture Blades', min: 5, max: 9, val: 7, format: (v) => Math.round(v) + ' blades' },
+      filter: (v1, v2) => 'blur(' + Math.max(0, (4 - v1) * 0.9) + 'px)'
+    },
+    Effects: {
+      submenus: ['Clarity', 'Film Grain', 'Halation', 'Vignette'],
+      s1: { name: 'Clarity', min: -100, max: 100, val: 15, format: (v) => (v >= 0 ? '+' : '') + Math.round(v) },
+      s2: { name: 'Film Grain', min: 0, max: 100, val: 24, format: (v) => Math.round(v) + '%' },
+      filter: (v1, v2) => 'contrast(' + (1 + v1 * 0.004) + ')'
+    },
+    Detail: {
+      submenus: ['Sharpening', 'Denoise', 'Retouch Healing'],
+      s1: { name: 'Sharpening', min: 0, max: 150, val: 40, format: (v) => Math.round(v) },
+      s2: { name: 'Luminance Denoise', min: 0, max: 100, val: 20, format: (v) => Math.round(v) },
+      filter: (v1, v2) => 'contrast(' + (1 + v1 * 0.002) + ')'
+    },
+    Geometry: {
+      submenus: ['Crop & Aspect', 'Auto-Straighten', 'Keystone'],
+      s1: { name: 'Auto-Straighten', min: -10, max: 10, val: 0.4, format: (v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '° (Hough)' },
+      s2: { name: 'Perspective Skew', min: -40, max: 40, val: 0, format: (v) => (v >= 0 ? '+' : '') + Math.round(v) + '°' },
+      filter: () => 'none'
+    }
+  };
+
+  let currentCategory = 'Light';
+  const mockCanvas = document.getElementById('mockCanvas');
+  const s1Name = document.getElementById('mockSlider1Name');
+  const s1Val = document.getElementById('mockSlider1Val');
+  const s1Track = document.getElementById('mockSlider1Track');
+  const s1Fill = document.getElementById('mockSlider1Fill');
+  const s1Thumb = document.getElementById('mockSlider1Thumb');
+
+  const s2Name = document.getElementById('mockSlider2Name');
+  const s2Val = document.getElementById('mockSlider2Val');
+  const s2Track = document.getElementById('mockSlider2Track');
+  const s2Fill = document.getElementById('mockSlider2Fill');
+  const s2Thumb = document.getElementById('mockSlider2Thumb');
+  const subchipRow = document.getElementById('mockSubchipRow');
+
+  if (subchipRow) {
+    subchipRow.addEventListener('click', (e) => {
+      const chip = e.target.closest('.mock-subchip');
+      if (!chip) return;
+      subchipRow.querySelectorAll('.mock-subchip').forEach(c => c.classList.toggle('active', c === chip));
+    });
+  }
+
+  function renderMockSliders() {
+    const cat = MOCK_CATEGORIES[currentCategory];
+    if (!cat) return;
+    
+    // Sub-menus
+    if (subchipRow && cat.submenus) {
+      subchipRow.innerHTML = cat.submenus.map((m, idx) => 
+        '<button type="button" class="mock-subchip' + (idx === 0 ? ' active' : '') + '">' + m + '</button>'
+      ).join('');
+    }
+
+    // Slider 1
+    s1Name.textContent = cat.s1.name;
+    s1Val.textContent = cat.s1.format(cat.s1.val);
+    s1Track.setAttribute('aria-label', cat.s1.name);
+    s1Track.setAttribute('aria-valuemin', cat.s1.min);
+    s1Track.setAttribute('aria-valuemax', cat.s1.max);
+    s1Track.setAttribute('aria-valuenow', cat.s1.val);
+    s1Track.setAttribute('aria-valuetext', cat.s1.format(cat.s1.val));
+    const p1 = ((cat.s1.val - cat.s1.min) / (cat.s1.max - cat.s1.min)) * 100;
+    s1Thumb.style.left = p1 + '%';
+    if (cat.s1.min < 0 && cat.s1.max > 0) {
+      const mid = ((-cat.s1.min) / (cat.s1.max - cat.s1.min)) * 100;
+      if (p1 >= mid) {
+        s1Fill.style.left = mid + '%';
+        s1Fill.style.width = (p1 - mid) + '%';
+      } else {
+        s1Fill.style.left = p1 + '%';
+        s1Fill.style.width = (mid - p1) + '%';
+      }
+    } else {
+      s1Fill.style.left = '0%';
+      s1Fill.style.width = p1 + '%';
+    }
+
+    // Slider 2
+    s2Name.textContent = cat.s2.name;
+    s2Val.textContent = cat.s2.format(cat.s2.val);
+    s2Track.setAttribute('aria-label', cat.s2.name);
+    s2Track.setAttribute('aria-valuemin', cat.s2.min);
+    s2Track.setAttribute('aria-valuemax', cat.s2.max);
+    s2Track.setAttribute('aria-valuenow', cat.s2.val);
+    s2Track.setAttribute('aria-valuetext', cat.s2.format(cat.s2.val));
+    const p2 = ((cat.s2.val - cat.s2.min) / (cat.s2.max - cat.s2.min)) * 100;
+    s2Thumb.style.left = p2 + '%';
+    if (cat.s2.min < 0 && cat.s2.max > 0) {
+      const mid2 = ((-cat.s2.min) / (cat.s2.max - cat.s2.min)) * 100;
+      if (p2 >= mid2) {
+        s2Fill.style.left = mid2 + '%';
+        s2Fill.style.width = (p2 - mid2) + '%';
+      } else {
+        s2Fill.style.left = p2 + '%';
+        s2Fill.style.width = (mid2 - p2) + '%';
+      }
+    } else {
+      s2Fill.style.left = '0%';
+      s2Fill.style.width = p2 + '%';
+    }
+
+    if (mockCanvas && cat.filter) {
+      mockCanvas.style.filter = cat.filter(cat.s1.val, cat.s2.val);
+    }
+  }
+
+  function setMockCategory(name) {
+    currentCategory = name;
+    document.querySelectorAll('.mock-chip').forEach(c => {
+      const active = c.dataset.cat === name;
+      c.classList.toggle('active', active);
+      c.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    renderMockSliders();
+  }
+  renderMockSliders();
+
+  let isS1Dragging = false;
+  let isS2Dragging = false;
+
+  function updateS1FromEvent(e) {
+    if (!s1Track) return;
+    const rect = s1Track.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const cat = MOCK_CATEGORIES[currentCategory];
+    cat.s1.val = cat.s1.min + (pct / 100) * (cat.s1.max - cat.s1.min);
+    renderMockSliders();
+  }
+
+  function updateS2FromEvent(e) {
+    if (!s2Track) return;
+    const rect = s2Track.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const cat = MOCK_CATEGORIES[currentCategory];
+    cat.s2.val = cat.s2.min + (pct / 100) * (cat.s2.max - cat.s2.min);
+    renderMockSliders();
+  }
+
+  function startSlider1Drag(e) { isS1Dragging = true; updateS1FromEvent(e); }
+  function startSlider2Drag(e) { isS2Dragging = true; updateS2FromEvent(e); }
+
+  window.addEventListener('mousemove', (e) => {
+    if (isS1Dragging) updateS1FromEvent(e);
+    if (isS2Dragging) updateS2FromEvent(e);
+  });
+  window.addEventListener('mouseup', () => { isS1Dragging = false; isS2Dragging = false; });
+  window.addEventListener('touchmove', (e) => {
+    if (isS1Dragging) updateS1FromEvent(e);
+    if (isS2Dragging) updateS2FromEvent(e);
+  }, { passive: true });
+  window.addEventListener('touchend', () => { isS1Dragging = false; isS2Dragging = false; });
+
+  function nudgeMockSlider(spec, direction, bigStep) {
+    const range = spec.max - spec.min;
+    const step = range / (bigStep ? 10 : 100);
+    spec.val = Math.max(spec.min, Math.min(spec.max, spec.val + direction * step));
+    renderMockSliders();
+  }
+
+  s1Track?.addEventListener('keydown', (e) => {
+    const spec = MOCK_CATEGORIES[currentCategory].s1;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { nudgeMockSlider(spec, -1, e.shiftKey); e.preventDefault(); }
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { nudgeMockSlider(spec, 1, e.shiftKey); e.preventDefault(); }
+    else if (e.key === 'Home') { spec.val = spec.min; renderMockSliders(); e.preventDefault(); }
+    else if (e.key === 'End') { spec.val = spec.max; renderMockSliders(); e.preventDefault(); }
+  });
+  s2Track?.addEventListener('keydown', (e) => {
+    const spec = MOCK_CATEGORIES[currentCategory].s2;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { nudgeMockSlider(spec, -1, e.shiftKey); e.preventDefault(); }
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { nudgeMockSlider(spec, 1, e.shiftKey); e.preventDefault(); }
+    else if (e.key === 'Home') { spec.val = spec.min; renderMockSliders(); e.preventDefault(); }
+    else if (e.key === 'End') { spec.val = spec.max; renderMockSliders(); e.preventDefault(); }
+  });
+
+  // Snapseed Interactive Canvas Brush
+  const snCanvas = document.getElementById('mockSnapseedCanvas');
+  const snBrush = document.getElementById('mockBrushCursor');
+  const snRuby = document.getElementById('mockRubyMask');
+
+  function moveSnBrush(e) {
+    if (!snCanvas) return;
+    const rect = snCanvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    if (snBrush) {
+      snBrush.style.left = (x - 19) + 'px';
+      snBrush.style.top = (y - 19) + 'px';
+    }
+    if (snRuby) {
+      snRuby.style.left = (x - 80) + 'px';
+      snRuby.style.top = (y - 90) + 'px';
+    }
+  }
+
+  if (snCanvas) {
+    snCanvas.addEventListener('mousemove', moveSnBrush);
+    snCanvas.addEventListener('touchmove', moveSnBrush, { passive: true });
+  }
+
+  function setSnapseedTool(el) {
+    document.querySelectorAll('#mockGestureHud button').forEach(s => {
+      s.classList.remove('active');
+      s.setAttribute('aria-pressed', 'false');
+    });
+    el.classList.add('active');
+    el.setAttribute('aria-pressed', 'true');
+  }
+
+  // Export Banded Streaming Simulator
+  let exportSimInterval = null;
+  function triggerSimulatedExport() {
+    const ring = document.getElementById('mockExportRing');
+    const label = document.getElementById('mockExportLabel');
+    const val = document.getElementById('mockExportVal');
+    if (!ring || !val) return;
+    if (exportSimInterval) clearInterval(exportSimInterval);
+    let p = 0;
+    if (label) label.textContent = 'Streaming Bands...';
+    exportSimInterval = setInterval(() => {
+      p += 3;
+      if (p >= 100) {
+        p = 100;
+        clearInterval(exportSimInterval);
+        if (label) label.textContent = 'C2PA Signed (photo.xmp)';
+      }
+      val.textContent = p + '%';
+      ring.style.background = 'conic-gradient(var(--cyan) 0% ' + p + '%, rgba(255, 255, 255, 0.08) ' + p + '% 100%)';
+    }, 25);
+  }
+
+  // Sticky-nav state, reading progress, and active section
+  const scrollProgress = document.getElementById('scrollProgress');
+  const navAnchors = Array.from(document.querySelectorAll('.nav-links a[data-nav]'));
+  const navSections = Array.from(document.querySelectorAll('main section[id]'));
+  let scrollTicking = false;
+
+  function updateScrollUI() {
+    const doc = document.documentElement;
+    const maxScroll = Math.max(1, doc.scrollHeight - window.innerHeight);
+    const percent = Math.max(0, Math.min(100, (window.scrollY / maxScroll) * 100));
+    if (scrollProgress) scrollProgress.style.width = percent.toFixed(2) + '%';
+    siteNav?.classList.toggle('scrolled', window.scrollY > 8);
+
+    let activeId = '';
+    navSections.forEach(section => {
+      if (section.getBoundingClientRect().top <= 140) activeId = section.id;
+    });
+    navAnchors.forEach(link => {
+      const active = link.dataset.nav === activeId;
+      link.classList.toggle('active', active);
+      if (active) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
+
+    if (drawer?.classList.contains('open')) positionDrawer();
+    scrollTicking = false;
+  }
+
+  function requestScrollUI() {
+    if (scrollTicking) return;
+    scrollTicking = true;
+    requestAnimationFrame(updateScrollUI);
+  }
+
+  window.addEventListener('scroll', requestScrollUI, { passive: true });
+  window.addEventListener('resize', requestScrollUI);
+  updateScrollUI();
+
+  // Linear-style spotlight follows the pointer across bento cards
+  if (window.matchMedia('(hover: hover)').matches) {
+    document.querySelectorAll('.bento-card').forEach(card => {
+      card.addEventListener('pointermove', (e) => {
+        const rect = card.getBoundingClientRect();
+        card.style.setProperty('--mouse-x', (e.clientX - rect.left) + 'px');
+        card.style.setProperty('--mouse-y', (e.clientY - rect.top) + 'px');
+      });
+    });
+  }
+
+  // Reveal content as it enters the viewport
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if ('IntersectionObserver' in window && !reduceMotion) {
+    const revealTargets = document.querySelectorAll(
+      '.section-head, .bento-card, .flow-step, .trust-card, .download-box, .hero-spec-card, .interactive-demo, .caption-box'
+    );
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        revealObserver.unobserve(entry.target);
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    revealTargets.forEach((el, index) => {
+      el.classList.add('reveal');
+      el.style.transitionDelay = Math.min(index % 6 * 35, 175) + 'ms';
+      revealObserver.observe(el);
+    });
+  }
+
+  // GitHub Releases Live API Fetch with verified fallback
+  const REPO = 'prit-007/ApertureX';
+  const API_URL = 'https://api.github.com/repos/' + REPO + '/releases?per_page=6';
+  const container = document.getElementById('releasesContainer');
+  const loading = document.getElementById('releasesLoading');
+  const fallback = document.getElementById('changelogFallback');
+  const navVersion = document.getElementById('navVersion');
+  const latestVersion = document.getElementById('latestVersion');
+  const dlBtn = document.getElementById('dlBtn');
+  const dlBtnText = document.getElementById('dlBtnText');
+  const navDlBtn = document.getElementById('navDlBtn');
+  const heroDlBtn = document.getElementById('heroDlBtn');
+  const heroDlText = document.getElementById('heroDlText');
+  const drawerDlText = document.getElementById('drawerDlText');
+  const CACHE_KEY = 'aperturex_releases_v1';
+  const CACHE_TTL_MS = 10 * 60 * 1000;
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[char]));
+  }
+
+  function pickApk(assets) {
+    if (!assets || !assets.length) return null;
+    const exact = assets.find(a => a.name === 'app-release.apk');
+    if (exact) return exact;
+    return assets.find(a => a.name && a.name.endsWith('.apk')) || null;
+  }
+
+  function inlineMarkdown(text) {
+    return escapeHtml(text)
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>');
+  }
+
+  function renderReleases(releases) {
+    let html = '';
+    releases.forEach((rel, i) => {
+      const date = new Date(rel.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      const body = rel.body || '';
+      const groups = { added: [], changed: [], fixed: [], notes: [], technical: [] };
+      let section = 'added';
+      let currentItem = '';
+
+      const flushItem = () => {
+        if (!currentItem) return;
+        groups[section].push('<li>' + inlineMarkdown(currentItem) + '</li>');
+        currentItem = '';
+      };
+
+      body.split('\n').forEach(line => {
+        const t = line.trim();
+        if (!t) { flushItem(); return; }
+        if (t.startsWith('### ')) {
+          flushItem();
+          const heading = t.slice(4).toLowerCase();
+          if (heading.includes('fixed')) section = 'fixed';
+          else if (heading.includes('changed')) section = 'changed';
+          else if (heading.includes('added')) section = 'added';
+          else if (heading.includes('technical')) section = 'technical';
+          else section = 'notes';
+          return;
+        }
+        if (t.startsWith('## ') || t.startsWith('#')) { flushItem(); return; }
+        if (t.startsWith('- ') || t.startsWith('* ')) {
+          flushItem();
+          currentItem = t.slice(2);
+          return;
+        }
+        if (currentItem) currentItem += ' ' + t;
+      });
+      flushItem();
+
+      let bodyHtml = '';
+      if (groups.added.length) bodyHtml += '<ul class="cl-items cl-added">' + groups.added.join('') + '</ul>';
+      if (groups.changed.length) bodyHtml += '<ul class="cl-items cl-changed" style="margin-top:12px;">' + groups.changed.join('') + '</ul>';
+      if (groups.fixed.length) bodyHtml += '<ul class="cl-items cl-fixed" style="margin-top:12px;">' + groups.fixed.join('') + '</ul>';
+      if (groups.technical.length) bodyHtml += '<ul class="cl-items cl-notes" style="margin-top:12px;">' + groups.technical.join('') + '</ul>';
+      if (groups.notes.length) bodyHtml += '<ul class="cl-items cl-notes" style="margin-top:12px;">' + groups.notes.join('') + '</ul>';
+
+      html += '<div class="cl-entry"><details' + (i === 0 ? ' open' : '') + '>';
+      html += '<summary class="cl-toggle"><span>' + escapeHtml(rel.tag_name) + ' &mdash; ' + date + '</span><span class="arrow">&#9662;</span></summary>';
+      html += '<div class="cl-body">' + bodyHtml + '</div></details></div>';
+    });
+    
+    if (loading) loading.style.display = 'none';
+    if (container) container.innerHTML = html;
+  }
+
+  function applyLatest(releases) {
+    const latest = releases[0];
+    if (!latest) return;
+    const vText = latest.tag_name.startsWith('v') ? latest.tag_name : 'v' + latest.tag_name;
+    if (navVersion) navVersion.textContent = vText;
+    if (latestVersion) latestVersion.textContent = vText;
+    if (heroDlText) heroDlText.textContent = 'Download Universal APK (' + vText + ')';
+    if (dlBtnText) dlBtnText.textContent = 'Download APK (' + vText + ')';
+    if (drawerDlText) drawerDlText.textContent = vText;
+
+    const apkAsset = pickApk(latest.assets);
+    if (apkAsset) {
+      if (dlBtn) dlBtn.href = apkAsset.browser_download_url;
+      if (navDlBtn) navDlBtn.href = apkAsset.browser_download_url;
+      if (heroDlBtn) heroDlBtn.href = apkAsset.browser_download_url;
+    }
+  }
+
+  function readReleaseCache() {
+    try {
+      const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY));
+      if (cached && Array.isArray(cached.releases) && Date.now() - cached.savedAt < CACHE_TTL_MS) {
+        return cached.releases;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function writeReleaseCache(releases) {
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), releases }));
+    } catch (_) {}
+  }
+
+  async function fetchReleases() {
+    const cached = readReleaseCache();
+    if (cached && cached.length) {
+      applyLatest(cached);
+      renderReleases(cached);
+      return;
+    }
+
+    try {
+      const resp = await fetch(API_URL, { headers: { 'Accept': 'application/vnd.github.v3+json' } });
+      if (!resp.ok) throw new Error('API error ' + resp.status);
+      const releases = await resp.json();
+      if (!releases.length) throw new Error('No releases');
+
+      applyLatest(releases);
+      writeReleaseCache(releases);
+      renderReleases(releases);
+    } catch (_) {
+      if (loading) loading.style.display = 'none';
+      if (fallback) fallback.style.display = 'block';
+      if (navVersion) navVersion.textContent = 'v0.2.4';
+      if (latestVersion) latestVersion.textContent = 'v0.2.4';
+      if (heroDlText) heroDlText.textContent = 'Download Universal APK (v0.2.4)';
+      if (dlBtnText) dlBtnText.textContent = 'Download APK (v0.2.4)';
+      if (drawerDlText) drawerDlText.textContent = 'v0.2.4';
+    }
+  }
+  fetchReleases();
+</script>
+<script>
+(()=>{
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const LOGO='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIjJSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCT/wAARCACAAIADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD52oooroMwooooAKKKKACiiigAooooAKKKKAEpaKKACkpaKACiiigApCaQnFaljZCJRJIAZDyAf4f/AK9MCpFYXEo3bQgPduKm/smT/nqn5GtLNG7FOwrmb/ZMn/PVPyNH9kyf89U/I12Gk+Ctc1gK8Vn5MTdJbg7AfoOp/Kujt/hDdOuZ9Wt0PpHCzfqSK6YYOrNXjE8fFZ/l+Gly1ayv5a/lc8s/smT/AJ6p+Ro/smT/AJ6p+Rr1Sf4QXQUm31e3c+kkLL+oJrktd8N3/h66W1uzbvIw3BYJA5x6kdR+IpVcLUpK842ReBzvBY2fs8NUUpdtU/xSOY/smT/nqn5GoZbC4hGdoceqnNbGaM1z2PVuc/mlrSvrJZQZYwA45IH8X/16zBSsMKWiikAUlFBoAmsoxLcqDyB8xrXzWXpv+uf/AHf61o5qkDJY0aZwkalmPQV1ngvT4oPEAWVUmK2xkG5chW3AZFZOlwC2i3sP3jjn2HpW74XcHxISP+fRv/QhXVhF++jfueRncn9Rq27HplmS5q7PcQ2du89xKkMMYy8jsAqj3NcpqfjLTvDcGyQ/aLx/u28ZGR6Fj0Ufr7VxGo6tqHiadZtSmV4lOY7aLiJPw/iPua9fG5lSwytu+x8Hw5wLj89q3guSl1k/0XU6bWvH9zqJa10AGGHo19IvJ/65qf5msaxskhdpMtJNIcyTOdzufUmmWsKhdzsqIvVicACta2n02Nebq1J95V/xr43G4+tiZXk9Ox/SPDXCGW5DTUaCXO95PdmXqXhqDUkMkQWG47MBw3+8P61xl1bTWU7wTxmORDgqf89K9P8A7Q08f8vdp/39X/GsPxXa2GqWRuIbq2+0wDK4lXLr3Xr+I/8Ar1nhcTKL5Z7Gmf5Lh61N4jDtKa1aXX/g/mcPmse9jEVywHAb5hWrms7Uj+/T/d/rXqs/PUVqKQUtIYUGig0CJ9OOJn/3f61sWFt9suliJIUgliOwrGsD++b/AHf610WgYE8rHsgH5n/61NA2WIZXQtDLxJGdp9x2NXNIvLmLV/LsYzJe3EPkW69t7MOT7AZP4VV1VOl0g+ZBhx6r/wDWroPhZ5c3it3cKxSzcoT2O5RkfgTXRhk3VjFOx5Wb1Y0sFVqyjdJXt3/4HfyKPjvwZN4Zkt7pZpLq3uFAkmfkibHzZ9jyR+I7VlaBegSi1kPDH5Cex9K901fTbXWtOn0+8XdDMu046qezD3B5rwDWtJuvD+qzWNzkSwtlXHAdf4WHsa2zPBKOsdn+DOLgTiqpNr2j/eQ3/vR/rT7maXiTVMj+zoW+VeZSO57L+FW/A/gWXxb9qmkdoLWFCiygfelI4H0HU/gO9Yvh/Q73xRrMGm2YLTTtlnPIjXqzt7D/AD1r6S0bw1BoOmW+n2aYhgXaPVj3Y+5PNfA8SZ2ssorD0H+8l+C7/PZf8A/ScNB5pipYnE/Cun5L5df+Ccb4P0TQNZsZIb7w/psep2L/AGe8j+zrw46MPZhyPxrpU8DeGT10DTP/AAHWuK8V+Ih4N+J9reMuLO4s40vVUfeTcw3/AFXAP0BFesxRq6JLGyvG4DKynIIPQ18Jm9XFUfZ4iM5KFVcy1ej6rfo9vKx6mGlQlzUnFOUXbZa9n/XU+afiFoS+HfFt9ZRIEt2IngUdFRxkAfQ5H4VxmoHMyf7v9a9f+P1qsWu6VcgYMto6H32vx/6FXj98f3y/7v8AWv1TIsVLFZfRrS3a19Vp+h8fjaap4icVtcgooor1jlFoNFB6UhEtl/rW/wB2t3R5dksg9V/rWDaHEjf7taFtN5MytnjofpTQM6B5QQQehrQ+Hsq2PiSVSwAa2cJk9fmU4/Q1zjXsR/5ap+dMW/8AInjuIJkWaFg6HPetqNX2dSM30OLH4X6zhp0L25lY9o1DxKml2ct1cP8Au4lyR3J7Ae5rxnV9VuvEGqS3twS00zAKg5Cjoqj6Vb8S+KDrhhjjzHBGoYoT1kxyfoOgq74Q0cEHVrhf3aZEAPc92/DoPet80x6l8Pwr8WcfBnC0o1EmrVJb/wB2P9fojM8P67e+Ftbg1K0JWe3fDRtwHXoyN7Hp+vavqjw/rVj4j0i21WwffBcJuAPVD3U+4OQa+YfFNkPPN9EMBz+8A7H1rZ+GfxIn8Fy3drJDJd2dypaOBOouMYUj2bhT+B7V+f8AFOR/2nh1iMOv3sfxXb5br59z7qHPlmJlhqvw9H+T+fU2vjY8Vx46WNGVmjsI1kA/hJZjg++CD+NdX8FfF5vLGTwxfSZubJd9qzHmSDP3fqpP5Eeleb+JNMvLHX1fUpTLqV5ai7vGzx5ru2VHsoAX8KqWl5d6LqFtqunttu7N/NT0cfxIfYjI/Gt5ZJTx2SwwkXdpe6/NdfR7ejOF4qeHxkpyVtdUdb+0JdK/iDSrUHmG0ZyPTc/H/oNeO3v+tX/drqvHfihfF/ie61aNHjgkCRwxv1RFUAA/jk/jXK3Z/er/ALtetkeDlhMBRoT3S19Xq/xZy4uqqteU1s2Q0UClr1jnCg9KKD0pCH2xxIfpVnNU422SA9ulWs0xnofgq/0/VLMWVxa2pu7dcZaJcyp69OSOh/Oum/syw/58bX/vyv8AhXjVtdTWk6XFvI0csZ3K6nkGu+0fxtb6lGsN4Vt7rpnokn0PY+xry8VhpJ88Nj9B4fzuhUprDYlJTWib6/8AB/P1OimtdMhUlrS0z6CFc/yrKvbpSoVFWKJBwoAAAqvqGrxRTC2hR7q6b7sEI3N9T6D3NVzoV1efvdXlUJ1FpCflH+838R/SueMLazZ79TEx5nDDwvLrbRL1f6avyMu61BrxmisoxOBw0jf6sfj3rqfhP4N/tLUZPENyoktbVzHb5XAkmHVgPRe3v9KzodHn1vVbPw9pgEU12cFlXiCEffc/QdPevfrDQ7PRtLt9OsIhHbW0YRF9h3PueST6mvneKM6WEofVqWkp/hH/AIOy+fkeBio+0xKVV8zhq+iT6JLy3bd3ttqjxb4ipjxsinp/Z6f+jGrjdcvVtIvJjb99IO38K+tdD8V/ENmPGTS6dcQXmyyWBmjbcqSB2JBI6kAjpXnUkrzSNJIxZ2OST3r6jIbxy6ipKz5UfFZm1PF1JLa4Zqtc8yD6VPmqsjb5Se3SvVOMB0ooHSigQtJS0lADCKlim/hbr2PrTGFMK0DLmaM1TDunQ5HvTvPf0Wi4GzpWu6horu1lOI9/31Khg31zWx/wn9+64ltLVz6jcv8AWuO89/RaPPf0WspUYSd5I9DD5pi8PHkpVGl26fczufDfxM1LwtcX93ZWFhJeXuFM84ZjFGOiKAQMZ596qeIPiN4p8TI0Wo6vMbdutvDiKM/VV6/jmuR89/QUee/oK5lluF9t9Y9mnPu1d6dr7fI554qtO6lJ6lrOO1Gaq+e/oKaXd+CePau65zk0s3VV69z6VGopoWngUAOpKWkoELRRRQAlGKWigY0rSYp9JQA3FGKdRQFxuKMU6igBuKXbS0tADcUtLRQAUlLRQB//2Q==';
+// Logo: keeps assets/app_icon.png, falls back to embedded copy
+$$('img[src$="app_icon.png"]').forEach(i=>{const f=()=>{i.src=LOGO};i.addEventListener('error',f,{once:true});if(i.complete&&!i.naturalWidth)f()});
+const ic=$('link[rel=icon]');if(ic)ic.href=LOGO;
+// Photos: drop real stock files in assets/photos/photo-1.jpg ... photo-7.jpg; generated scenes are used until then
+const PAL=[['#2b3a8c','#ff7a52','#ffd08a','#fff2c9','#3a2f66','#1f1b45','#1d2a66'],['#0b3c49','#2a9d8f','#f4d58d','#fff6d6','#12545a','#0b2f3a','#0a2a3a'],['#143d2e','#6aa86a','#d9f0b0','#fffbd0','#1f5a3a','#0f2e20','#12352a'],['#7a2e4a','#e76f51','#f6bd60','#fff1cf','#5a2340','#34172e','#4a1d3a'],['#0d0221','#7b2cbf','#ff4d9d','#ffd1ec','#24104a','#12072e','#1b0a3d'],['#1b2a49','#7f9cf5','#e0e7ff','#ffffff','#2f3f73','#1a2447','#18244a'],['#3a1c5a','#ff8a5b','#ffd89b','#fff0c9','#2a1448','#160a2b','#1f0f38']];
+function scene(i){const p=PAL[i%7],o=(i*37)%90;const s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+p[0]+'"/><stop offset=".55" stop-color="'+p[1]+'"/><stop offset="1" stop-color="'+p[2]+'"/></linearGradient></defs><rect width="800" height="520" fill="url(#a)"/><circle cx="'+(300+o*4)+'" cy="'+(250+o%40)+'" r="'+(50+o%30)+'" fill="'+p[3]+'"/><path d="M0 330L'+(110+o)+' 210l90 90 120-150 150 190 110-110 200 160v190H0z" fill="'+p[4]+'"/><path d="M0 380l160-90 140 80 150-110 170 120 180-70v210H0z" fill="'+p[5]+'"/><rect y="405" width="800" height="115" fill="'+p[6]+'"/><path d="M'+(260+o*4)+' 415h120M'+(280+o*4)+' 435h80" stroke="'+p[3]+'" stroke-width="5" stroke-linecap="round" opacity=".6"/></svg>';return 'data:image/svg+xml,'+encodeURIComponent(s)}
+const PH=[0,1,2,3,4,5,6].map(scene);
+const bgp=(el,i)=>{if(!el)return;el.style.backgroundImage='url("'+PH[i]+'")';el.style.backgroundSize='cover';el.style.backgroundPosition='center'};
+const FG=['saturate(1.3) contrast(1.1) sepia(.18) hue-rotate(-8deg)','saturate(.9) contrast(1.05) brightness(1.08) hue-rotate(12deg)','grayscale(1) contrast(1.4)','saturate(1.7) contrast(1.2) hue-rotate(-20deg)'];
+const fc=$$('.bento-title').find(e=>e.textContent.includes('Pat David'));
+if(fc){const c=fc.closest('.bento-card'),d=document.createElement('div');d.className='film-strip';d.innerHTML=['Portra 400','Pro 400H','HP5','Teal & Orange'].map((n,k)=>'<figure><div class="ft film-thumb" style="filter:'+FG[k]+'"></div><figcaption>'+n+'</figcaption></figure>').join('');c.querySelector('.bento-tag-row').before(d)}
+function paint(){bgp($('.compare-raw'),0);bgp($('.compare-graded'),0);$$('.compare-layer>div').forEach(d=>d.style.display='none');bgp($('#photo'),0);bgp($('#mockCanvas'),1);const a=$('.mock-canvas-art');if(a)a.style.display='none';bgp($('#mockSnapseedCanvas'),6);bgp($('.mock-qr-preview-thumb'),2);$$('.mock-photo-tile').forEach((t,k)=>bgp(t,k%6));$$('.film-thumb').forEach((t,k)=>bgp(t,[0,3,2,5][k]))}
+paint();
+PH.forEach((_,i)=>{const im=new Image(),p='assets/photos/photo-'+(i+1)+'.jpg';im.onload=()=>{PH[i]=p;paint()};im.src=p});
+// Marquee
+$('#mq').innerHTML=['Non-destructive','100% offline','RAW ready','Open source','Look QR','200 MP tiles','C2PA signed','No accounts'].map(t=>'<span>'+t+'</span>').join('');$('#mq').innerHTML+=$('#mq').innerHTML;
+// Aperture blades + scroll engine
+const bl=$('#blades');for(let k=0;k<8;k++)bl.insertAdjacentHTML('beforeend','<g transform="rotate('+k*45+')"><polygon class="bd" points="0,-190 190,-90 190,120 0,40" fill="url(#bl)" stroke="#00E5FF" stroke-opacity=".3" stroke-width="1.5"/></g>');
+const blades=$$('.bd'),pin=$('#top'),hc=$('#hcopy'),photo=$('#photo'),r2=$('#rev2'),fv=$('#fval'),stops=[16,11,8,5.6,4,2.8,2,1.4,1.2];let tk=false;
+function frame(){tk=false;const r=pin.getBoundingClientRect(),p=RM?0:Math.max(0,Math.min(1,-r.top/(r.height-innerHeight))),e=p*p*(3-2*p);
+blades.forEach(b=>b.setAttribute('transform','translate('+e*210+',0) rotate('+e*-24+' 95 0)'));
+photo.style.transform='scale('+Math.min(1.2,.6+e*0.6)+')';
+const hp=Math.min(1,p*2.2),ho=1-Math.max(0,(p-.25)*3);hc.style.opacity=ho;hc.style.pointerEvents=ho<.15?'none':'';hc.style.transform='translateY('+(-hp*60)+'px) scale('+(1-hp*.08)+')';
+const q=Math.max(0,Math.min(1,(p-.5)*3));r2.style.opacity=q;r2.style.transform='translateY('+(1-q)*40+'px)';
+fv.textContent='f/'+stops[Math.min(8,Math.round(p*8))]}
+addEventListener('scroll',()=>{if(!tk){tk=true;requestAnimationFrame(frame)}},{passive:true});addEventListener('resize',frame);frame();
+// Word-by-word headings, flow step order
+$$('.section-head h2,.download-box h2').forEach(h=>{const t=h.textContent.trim();h.setAttribute('aria-label',t);h.innerHTML=t.split(/\s+/).map((w,k)=>'<span class="w" aria-hidden="true"><span style="--k:'+k+'">'+w+'</span></span>').join(' ')});
+$$('.flow-step').forEach((f,i)=>f.style.setProperty('--i',i));
+// Live demo: auto-play the studio tour until the visitor touches it
+let user=false,inV=false;const stage=$('#demoPanel');new IntersectionObserver(e=>inV=e[0].isIntersecting).observe(stage);
+['pointerdown','keydown'].forEach(v=>$('#screens').addEventListener(v,()=>user=true,true));
+const TO=['lightroom','snapseed','lookqr','export','gallery'],CS=['Light','Color','Effects','Detail'];let ti=0,ci=0,lr=0,ex=0,gt=0;
+if(!RM){
+setInterval(()=>{if(user||!inV)return;ti=(ti+1)%5;setDemoTab(TO[ti])},6500);
+setInterval(()=>{if(user||!inV||TO[ti]!=='lightroom')return;ci=(ci+1)%4;setMockCategory(CS[ci])},3200);
+(function loop(ms){requestAnimationFrame(loop);if(!inV||user)return;const t=ms/1000,tab=TO[ti];
+if(tab==='lightroom'){if(ms-lr>70){lr=ms;const c=MOCK_CATEGORIES[currentCategory];c.s1.val=c.s1.min+(c.s1.max-c.s1.min)*(.5+.3*Math.sin(t*.9));c.s2.val=c.s2.min+(c.s2.max-c.s2.min)*(.5+.3*Math.cos(t*.7));renderMockSliders()}}
+else if(tab==='snapseed'){const r=snCanvas.getBoundingClientRect(),x=r.width*(.5+.26*Math.sin(t*1.1)),y=r.height*(.5+.18*Math.sin(t*1.7));snBrush.style.left=(x-19)+'px';snBrush.style.top=(y-19)+'px';snRuby.style.left=(x-80)+'px';snRuby.style.top=(y-90)+'px'}
+else if(tab==='export'){if(ms-ex>5500){ex=ms;triggerSimulatedExport()}}
+else if(tab==='gallery'&&ms-gt>650){gt=ms;const ts=$$('.mock-photo-tile'),k=Math.floor(ms/650)%(ts.length+2);ts.forEach((e,j)=>e.classList.toggle('sel',j<k))}
+})(0)}
+// Phone fills the width on small screens
+const ph=$('.phone-frame');function fit(){ph.style.zoom=innerWidth<=900?Math.max(.75,Math.min(1.3,$('.demo-stage').clientWidth/310)):1}fit();addEventListener('resize',fit);
+})();
+
+</script>
+
+<script>
+(()=>{
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches,$=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+// Second, counter-rotating orbit of pills
+const o=$('.orb');
+if(o){const o2=document.createElement('div');o2.className='orb o2';o2.setAttribute('aria-hidden','true');
+o2.innerHTML=['65\u00b3 LUT','16-bit TIFF','AI masks','0 trackers','GPL-3.0','200 MP'].map((t,i)=>'<span style="--a:'+i*60+'deg"><b>'+t+'</b></span>').join('');o.after(o2)}
+if(RM)return;
+const st=$('.stick'),top=$('#top'),mq=$('.mq'),cv=$('#fx'),fl=document.createElement('div');
+fl.className='flash';st.appendChild(fl);
+// Bokeh particles + mouse parallax + scroll velocity
+const cx=cv.getContext('2d'),COL=['0,229,255','255,179,0','255,42,85','255,255,255'];
+let W=0,H=0,D=1,P=[],vis=true,tx=0,ty=0,px=0,py=0,lastY=scrollY,vel=0,skew=0;
+function size(){const r=cv.getBoundingClientRect();D=Math.min(2,devicePixelRatio||1);W=cv.width=Math.max(1,r.width*D);H=cv.height=Math.max(1,r.height*D)}
+function mk(){return{x:Math.random()*W,y:Math.random()*H,r:(2+Math.random()*9)*D,vy:-(.08+Math.random()*.35)*D,vx:(Math.random()-.5)*.2*D,a:.08+Math.random()*.35,c:COL[Math.random()*COL.length|0],z:.3+Math.random()*1.2,ph:Math.random()*6.28,ring:Math.random()<.4}}
+size();const N=innerWidth<760?18:38;for(let i=0;i<N;i++)P.push(mk());
+addEventListener('resize',size);
+new IntersectionObserver(e=>vis=e[0].isIntersecting).observe(st);
+st.addEventListener('pointermove',e=>{const r=st.getBoundingClientRect();tx=(e.clientX-r.left)/r.width-.5;ty=(e.clientY-r.top)/r.height-.5});
+st.addEventListener('pointerleave',()=>{tx=0;ty=0});
+let was=false;
+function loop(t){requestAnimationFrame(loop);
+const dy=scrollY-lastY;lastY=scrollY;vel+=(dy-vel)*.12;
+if(mq){skew+=(Math.max(-8,Math.min(8,vel*.25))-skew)*.15;mq.style.transform='rotate(-1.2deg) skewX('+skew.toFixed(2)+'deg)'}
+if(!vis)return;
+px+=(tx-px)*.07;py+=(ty-py)*.07;st.style.setProperty('--px',px.toFixed(4));st.style.setProperty('--py',py.toFixed(4));
+cx.clearRect(0,0,W,H);const boost=1+Math.min(14,Math.abs(vel)*.6);
+for(const p of P){p.y+=p.vy*boost*p.z;p.x+=p.vx+Math.sin(t/1600+p.ph)*.25*D;
+if(p.y<-20*D){p.y=H+20*D;p.x=Math.random()*W}if(p.x<-20*D)p.x=W+10*D;if(p.x>W+20*D)p.x=-10*D;
+const ox=px*-60*p.z*D,oy=py*-60*p.z*D,al=p.a*(.7+.3*Math.sin(t/900+p.ph));
+cx.beginPath();cx.arc(p.x+ox,p.y+oy,p.r*p.z,0,6.283);
+if(p.ring){cx.strokeStyle='rgba('+p.c+','+al+')';cx.lineWidth=1.2*D;cx.stroke()}else{cx.fillStyle='rgba('+p.c+','+al*.7+')';cx.fill()}}
+const r=top.getBoundingClientRect(),pr=-r.top/(r.height-innerHeight),on=pr>.5;
+if(on!==was){was=on;fl.classList.remove('go');void fl.offsetWidth;fl.classList.add('go')}}
+requestAnimationFrame(loop);
+// Magnetic buttons
+$$('.btn').forEach(b=>{if(!matchMedia('(hover:hover)').matches)return;
+b.addEventListener('pointermove',e=>{const r=b.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);b.style.translate=(dx*.18)+'px '+(dy*.28)+'px'});
+b.addEventListener('pointerleave',()=>b.style.translate='')});
+// Compare slider intro sweep
+const cvp=$('#compareViewport');
+if(cvp&&typeof setComparePercent==='function'){let done=0;new IntersectionObserver((es,ob)=>{if(!es[0].isIntersecting||done)return;done=1;ob.disconnect();const s=performance.now();
+(function f(n){const q=Math.min(1,(n-s)/2200);setComparePercent(50+Math.sin(q*Math.PI*2)*38*(1-q*.6));if(q<1)requestAnimationFrame(f);else setComparePercent(50)})(s)},{threshold:.6}).observe(cvp)}
+<<<<<<< HEAD
+})();
+=======
+// Stock image loading: swap SVG fallbacks for real assets when they load
+const stockImgs = [
+  ['#photo', '#photoFallback', 'assets/stock/iris.webp'],
+  ['#compareRawImg', '#compareRawFallback', 'assets/stock/compare.webp'],
+  ['#compareGradedImg', '#compareGradedFallback', 'assets/stock/compare.webp'],
+  ['#mockCanvasImg', '#mockCanvasFallback', 'assets/stock/editor.webp'],
+  ['#snapseedMaskImg', '#snapseedMaskFallback', 'assets/stock/mask.webp'],
+  ['#lookqrImg', '#lookqrFallback', 'assets/stock/lookqr.webp'],
+  ['#mockExportRingImg', '#mockExportRingFallback', 'assets/stock/export.webp']
+];
+$$('.gallery-img').forEach((img, idx) => {
+  const tile = img.closest('.mock-photo-tile');
+  const fb = tile?.querySelector('.gallery-fallback');
+  stockImgs.push([img, fb, tile?.style.getPropertyValue('--gallery-img')?.trim() || `assets/stock/gallery-${idx + 1}.webp`]);
+});
+stockImgs.forEach(([sel, fbSel, src]) => {
+  const img = typeof sel === 'string' ? $(sel) : sel;
+  const fb = typeof fbSel === 'string' ? $(fbSel) : fbSel;
+  if (!img || !src) return;
+  img.onload = () => { img.style.opacity = '1'; if (fb) fb.style.display = 'none'; };
+  img.onerror = () => { img.style.opacity = '0'; if (fb) fb.style.display = 'flex'; };
+  if (img.complete && img.naturalWidth) { img.onload(); }
+  else if (!img.src) { img.src = src; }
+});
+>>>>>>> 94b9cff61bbb77bf8fc3a014e095138d3e087dda
+</script>
+</body>
+</html>
