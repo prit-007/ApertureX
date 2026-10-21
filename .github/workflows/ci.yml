@@ -62,6 +62,21 @@ jobs:
           fi
           echo "Releasing $VER (tag $GITHUB_REF_NAME)"
 
+      - name: Verify F-Droid metadata version
+        run: |
+          set -euo pipefail
+          VER=$(sed -n 's/^version: *\([0-9][0-9.]*\).*/\1/p' app/pubspec.yaml)
+          BASE=$(sed -n 's/^version: *[0-9][0-9.]*+\([0-9][0-9]*\).*/\1/p' app/pubspec.yaml)
+          META=docs/fdroid-metadata.yml
+          META_VER=$(sed -n 's/^CurrentVersion: *//p' "$META")
+          META_CODE=$(sed -n 's/^CurrentVersionCode: *//p' "$META")
+          EXPECTED_CODE=$((BASE * 10 + 3))
+          test "$META_VER" = "$VER" \
+            || { echo "$META: CurrentVersion '$META_VER' != pubspec '$VER'"; exit 1; }
+          test "$META_CODE" = "$EXPECTED_CODE" \
+            || { echo "$META: CurrentVersionCode '$META_CODE' != '$EXPECTED_CODE'"; exit 1; }
+          echo "F-Droid metadata version: $META_VER ($META_CODE)"
+
       - name: Flutter pub get
         working-directory: app
         run: flutter pub get
@@ -91,6 +106,9 @@ jobs:
         run: |
           cargo clippy --features ai --all-targets -- -D warnings
           cargo test --features ai
+
+      - name: Build-tooling tests
+        run: python3 -m unittest discover -s tool/ci -p 'test_*.py' -v
 
   build-android:
     name: Release APKs (F-Droid buildserver container)
@@ -329,6 +347,55 @@ jobs:
           fi
           echo "Staged assets:"
           ls -la release/assets/
+
+      - name: Verify F-Droid release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          BASE=$(sed -n 's/^version: *[0-9][0-9.]*+\([0-9][0-9]*\).*/\1/p' app/pubspec.yaml)
+          test -n "$BASE" || { echo "Cannot read build number from app/pubspec.yaml"; exit 1; }
+
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          AAPT=$(find "$SDK/build-tools" -type f -name aapt2 | sort -V | tail -1)
+          APKSIGNER=$(find "$SDK/build-tools" -type f -name apksigner | sort -V | tail -1)
+          test -x "$AAPT" || { echo "aapt2 not found under $SDK/build-tools"; exit 1; }
+          test -x "$APKSIGNER" || { echo "apksigner not found under $SDK/build-tools"; exit 1; }
+
+          # F-Droid's check apk job rejects reference APKs containing AGP's
+          # 0x504B4453 "Dependency metadata" signing block.
+          python3 tool/ci/strip_dependency_metadata.py --check release/assets/*.apk
+
+          # Must match AllowedAPKSigningKeys in docs/fdroid-metadata.yml.
+          EXPECTED_CERT=745e013035b596f1190c54ee1cf798b2d59a70100d284bb8fa0ff7c5af3dcdac
+          test -s release/assets/app-release.apk \
+            || { echo "Missing universal app-release.apk"; exit 1; }
+
+          for spec in armeabi-v7a:1 arm64-v8a:2 x86_64:3; do
+            abi="${spec%:*}"
+            offset="${spec#*:}"
+            apk="release/assets/app-${abi}-release.apk"
+            test -s "$apk" || { echo "Missing $apk (F-Droid binary URL)"; exit 1; }
+
+            badging=$("$AAPT" dump badging "$apk")
+            pkg=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" <<<"$badging")
+            name=$(sed -n "s/^package: .* versionName='\([^']*\)'.*/\1/p" <<<"$badging")
+            code=$(sed -n "s/^package: .* versionCode='\([0-9]*\)'.*/\1/p" <<<"$badging")
+            expected=$((BASE * 10 + offset))
+
+            test "$pkg" = "com.devparadise.aperturex" \
+              || { echo "$apk: package '$pkg' is wrong"; exit 1; }
+            test "$name" = "$VERSION" \
+              || { echo "$apk: versionName '$name' != '$VERSION'"; exit 1; }
+            test "$code" = "$expected" \
+              || { echo "$apk: versionCode '$code' != '$expected'"; exit 1; }
+
+            cert=$("$APKSIGNER" verify --print-certs "$apk" \
+              | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+            test "$cert" = "$EXPECTED_CERT" \
+              || { echo "$apk: signing cert '$cert' != '$EXPECTED_CERT'"; exit 1; }
+            echo "$abi: package=$pkg versionName=$name versionCode=$code cert=$cert"
+          done
 
       - name: Create Release and upload assets
         uses: softprops/action-gh-release@v2

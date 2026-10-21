@@ -1,0 +1,25 @@
+ApertureX is a mobile-native, non-destructive, free and open-source photo
+editor — a touch-first alternative to Snapseed and Lightroom.
+
+Two interfaces over one edit recipe:
+* Panels (Lightroom-style) — categorized sliders, tone curves, an HSL mixer,
+  geometry, masks, and a node-based local-adjustment editor.
+* Gestures (Snapseed-style) — an edge-to-edge ghost UI: swipe for tools, scrub
+  to adjust, drag the photo to target a colour (HSL), pinch to zoom.
+
+A real color engine in Rust, fast enough to feel instant:
+* Light, Color, Effects and Detail groups; split toning; curves; HSL mixer.
+* Crop with aspect presets, rotate, flip, straighten, and keystone correction.
+* Clarity, texture, sharpen, denoise, dehaze, vignette, and film grain.
+* Local adjustments with linear, radial, luminance, colour-range, and AI
+  subject masks.
+
+Built for a photographer's workflow:
+* A date-grouped gallery with albums, batch editing, and a searchable library.
+* Non-destructive recipes stored per photo; import .cube LUTs, Lightroom .xmp
+  presets, and shareable JSON looks.
+* Full-resolution JPEG, PNG, and 16-bit TIFF export with EXIF preserved.
+* On-device AI for face detection, subject masks, depth, and lens blur.
+
+ApertureX is fully offline. It has no ads, accounts, telemetry, or network
+calls; your photos and settings stay on your device. Licensed GPL-3.0-or-later.

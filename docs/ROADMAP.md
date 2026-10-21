@@ -373,7 +373,8 @@ F-Droid build are the same build, from the same `tool/ci/*` scripts); `vX.Y.Z`
 tags are checked against `app/pubspec.yaml` and publish a GitHub Release with
 APKs + CHANGELOG notes. Signing is provisioned (`tool/ci/make_release_keystore.sh`,
 secrets on the `ci` environment). F-Droid prep: metadata draft
-(`fdroid-metadata.yml`) + store listing/changelogs (`metadata/`). The **iOS CI
+(`fdroid-metadata.yml`) + store listing/changelogs
+(`fastlane/metadata/android/en-US/`). The **iOS CI
 build** (#70) is green: an unsigned `flutter build ios` runs on every push
 (deployment target 14.0, with an automatic `xcodebuild -v` retry so real
 errors surface instead of Flutter's canned Xcode diagnosis). **Remaining:**

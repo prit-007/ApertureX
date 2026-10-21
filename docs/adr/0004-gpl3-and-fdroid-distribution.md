@@ -50,7 +50,8 @@ compatible with a GPL-3.0 outbound project.
 - [x] **Per-ABI version codes + metadata draft** — `base×10+{1,2,3}` in
   `app/android/app/build.gradle.kts`; `VercodeOperation` and pinned Flutter
   srclib in [`fdroid-metadata.yml`](../fdroid-metadata.yml); store listing +
-  versionCode-keyed changelogs under `metadata/`; release signing via
+  versionCode-keyed changelogs under `fastlane/metadata/android/en-US/`;
+  release signing via
   `tool/ci/make_release_keystore.sh` (keystore + secrets on the `ci`
   environment).
 - [ ] **Offline Rust crates** for the F-Droid builder: `tool/ci/rust_vendor.sh`
