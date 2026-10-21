@@ -51,12 +51,17 @@ class AppShell extends ConsumerStatefulWidget {
   const AppShell({
     super.key,
     this.imageBytes,
+    this.heroTag,
     this.topHud,
     this.onNextPhoto,
     this.onPreviousPhoto,
   });
 
   final Uint8List? imageBytes;
+
+  /// Optional hero tag shared with the gallery thumbnail for the fly-in
+  /// transition into the editor canvas.
+  final String? heroTag;
 
   /// Floating action row rendered over the top of the image (the gesture
   /// shell's "top gradient HUD"). Null in the Lightroom shell, whose chrome
@@ -95,23 +100,31 @@ class _AppShellState extends ConsumerState<AppShell> {
       case SpeedMacroAction.paste:
         final recipe = ref.read(settingsClipboardProvider);
         if (recipe != null) {
-          ref.read(recipeControllerProvider.notifier).loadRecipe(recipe, label: 'Pasted');
+          ref
+              .read(recipeControllerProvider.notifier)
+              .loadRecipe(recipe, label: 'Pasted');
           HapticFeedback.mediumImpact();
-          ref.read(macroHudProvider.notifier).show('Recipe Pasted', Icons.paste);
+          ref
+              .read(macroHudProvider.notifier)
+              .show('Recipe Pasted', Icons.paste);
         }
         break;
       case SpeedMacroAction.nextPhoto:
         if (widget.onNextPhoto != null) {
           widget.onNextPhoto!();
           HapticFeedback.lightImpact();
-          ref.read(macroHudProvider.notifier).show('Next Photo', Icons.skip_next);
+          ref
+              .read(macroHudProvider.notifier)
+              .show('Next Photo', Icons.skip_next);
         }
         break;
       case SpeedMacroAction.previousPhoto:
         if (widget.onPreviousPhoto != null) {
           widget.onPreviousPhoto!();
           HapticFeedback.lightImpact();
-          ref.read(macroHudProvider.notifier).show('Previous Photo', Icons.skip_previous);
+          ref
+              .read(macroHudProvider.notifier)
+              .show('Previous Photo', Icons.skip_previous);
         }
         break;
     }
@@ -150,17 +163,42 @@ class _AppShellState extends ConsumerState<AppShell> {
         if (lockedIdx != null && lockedIdx < layers.length) {
           final layer = layers[lockedIdx];
           final updatedLayer = switch (parameter) {
-            Parameter.exposure => layer.copyWith(exposure: (layer.exposure + delta * spec.scale).clamp(-4.0, 4.0)),
-            Parameter.contrast => layer.copyWith(contrast: (layer.contrast + delta * spec.scale).clamp(-1.0, 1.0)),
-            Parameter.highlights => layer.copyWith(highlights: (layer.highlights + delta * spec.scale).clamp(-1.0, 1.0)),
-            Parameter.shadows => layer.copyWith(shadows: (layer.shadows + delta * spec.scale).clamp(-1.0, 1.0)),
-            Parameter.saturation => layer.copyWith(saturation: (layer.saturation + delta * spec.scale).clamp(-1.0, 1.0)),
-            Parameter.temperature => layer.copyWith(temperature: (layer.temperature + delta * spec.scale).clamp(-1.0, 1.0)),
-            Parameter.tint => layer.copyWith(tint: (layer.tint + delta * spec.scale).clamp(-1.0, 1.0)),
+            Parameter.exposure => layer.copyWith(
+              exposure: (layer.exposure + delta * spec.scale).clamp(-4.0, 4.0),
+            ),
+            Parameter.contrast => layer.copyWith(
+              contrast: (layer.contrast + delta * spec.scale).clamp(-1.0, 1.0),
+            ),
+            Parameter.highlights => layer.copyWith(
+              highlights: (layer.highlights + delta * spec.scale).clamp(
+                -1.0,
+                1.0,
+              ),
+            ),
+            Parameter.shadows => layer.copyWith(
+              shadows: (layer.shadows + delta * spec.scale).clamp(-1.0, 1.0),
+            ),
+            Parameter.saturation => layer.copyWith(
+              saturation: (layer.saturation + delta * spec.scale).clamp(
+                -1.0,
+                1.0,
+              ),
+            ),
+            Parameter.temperature => layer.copyWith(
+              temperature: (layer.temperature + delta * spec.scale).clamp(
+                -1.0,
+                1.0,
+              ),
+            ),
+            Parameter.tint => layer.copyWith(
+              tint: (layer.tint + delta * spec.scale).clamp(-1.0, 1.0),
+            ),
             _ => null,
           };
           if (updatedLayer != null) {
-            ref.read(recipeControllerProvider.notifier).updateLayerAt(lockedIdx, updatedLayer);
+            ref
+                .read(recipeControllerProvider.notifier)
+                .updateLayerAt(lockedIdx, updatedLayer);
             final nextVal = switch (parameter) {
               Parameter.exposure => updatedLayer.exposure,
               Parameter.contrast => updatedLayer.contrast,
@@ -176,13 +214,23 @@ class _AppShellState extends ConsumerState<AppShell> {
           }
         }
 
-        final previous = valueOf(ref.read(recipeControllerProvider).recipe, parameter);
-        ref.read(recipeControllerProvider.notifier).applyDelta(parameter, delta);
+        final previous = valueOf(
+          ref.read(recipeControllerProvider).recipe,
+          parameter,
+        );
+        ref
+            .read(recipeControllerProvider.notifier)
+            .applyDelta(parameter, delta);
         final next = clampParameter(parameter, previous + delta * spec.scale);
         fireHaptic(hapticFor(previous, next, spec.min, spec.max));
         final elapsed = _gestureSw.elapsed;
         _gestureSw.reset();
-        if (_gradient.tick(elapsed, value: next, min: spec.min, max: spec.max)) {
+        if (_gradient.tick(
+          elapsed,
+          value: next,
+          min: spec.min,
+          max: spec.max,
+        )) {
           HapticFeedback.selectionClick();
         }
       },
@@ -196,23 +244,40 @@ class _AppShellState extends ConsumerState<AppShell> {
         if (zone == null) return;
         final recipe = ref.read(recipeControllerProvider).recipe;
         final (prevHue, prevSat) = switch (zone) {
-          GradeWheelZone.shadows => (recipe.gradeShadowHue, recipe.gradeShadowSat),
+          GradeWheelZone.shadows => (
+            recipe.gradeShadowHue,
+            recipe.gradeShadowSat,
+          ),
           GradeWheelZone.midtones => (recipe.gradeMidHue, recipe.gradeMidSat),
-          GradeWheelZone.highlights => (recipe.gradeHighlightHue, recipe.gradeHighlightSat),
+          GradeWheelZone.highlights => (
+            recipe.gradeHighlightHue,
+            recipe.gradeHighlightSat,
+          ),
         };
         // Hue delta in degrees (full swipe = 360°), sat delta in 0..1 (full swipe = 1.0)
         final hueDelta = deltaY * 360.0;
         final satDelta = deltaX * 1.0;
-        ref.read(recipeControllerProvider.notifier).applyGradeWheel2DDelta(
-          zone,
-          hueDelta: hueDelta,
-          satDelta: satDelta,
-        );
+        ref
+            .read(recipeControllerProvider.notifier)
+            .applyGradeWheel2DDelta(
+              zone,
+              hueDelta: hueDelta,
+              satDelta: satDelta,
+            );
         final nextRecipe = ref.read(recipeControllerProvider).recipe;
         final (nextHue, nextSat) = switch (zone) {
-          GradeWheelZone.shadows => (nextRecipe.gradeShadowHue, nextRecipe.gradeShadowSat),
-          GradeWheelZone.midtones => (nextRecipe.gradeMidHue, nextRecipe.gradeMidSat),
-          GradeWheelZone.highlights => (nextRecipe.gradeHighlightHue, nextRecipe.gradeHighlightSat),
+          GradeWheelZone.shadows => (
+            nextRecipe.gradeShadowHue,
+            nextRecipe.gradeShadowSat,
+          ),
+          GradeWheelZone.midtones => (
+            nextRecipe.gradeMidHue,
+            nextRecipe.gradeMidSat,
+          ),
+          GradeWheelZone.highlights => (
+            nextRecipe.gradeHighlightHue,
+            nextRecipe.gradeHighlightSat,
+          ),
         };
         // Haptics: neutral crossing (sat=0) and limits (sat=1)
         fireHaptic(hapticFor(prevSat, nextSat, 0.0, 1.0));
@@ -230,11 +295,17 @@ class _AppShellState extends ConsumerState<AppShell> {
       },
       onReset: (tool) {
         if (tool == GradeTool.shadowsGrade) {
-          ref.read(recipeControllerProvider.notifier).setGradeWheel(GradeWheelZone.shadows, hue: 0, sat: 0);
+          ref
+              .read(recipeControllerProvider.notifier)
+              .setGradeWheel(GradeWheelZone.shadows, hue: 0, sat: 0);
         } else if (tool == GradeTool.midtonesGrade) {
-          ref.read(recipeControllerProvider.notifier).setGradeWheel(GradeWheelZone.midtones, hue: 0, sat: 0);
+          ref
+              .read(recipeControllerProvider.notifier)
+              .setGradeWheel(GradeWheelZone.midtones, hue: 0, sat: 0);
         } else if (tool == GradeTool.highlightsGrade) {
-          ref.read(recipeControllerProvider.notifier).setGradeWheel(GradeWheelZone.highlights, hue: 0, sat: 0);
+          ref
+              .read(recipeControllerProvider.notifier)
+              .setGradeWheel(GradeWheelZone.highlights, hue: 0, sat: 0);
         } else {
           ref
               .read(recipeControllerProvider.notifier)
@@ -255,7 +326,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (widget.imageBytes != oldWidget.imageBytes) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          ref.read(activeImageBytesProvider.notifier).setBytes(widget.imageBytes);
+          ref
+              .read(activeImageBytesProvider.notifier)
+              .setBytes(widget.imageBytes);
         }
       });
     }
@@ -298,6 +371,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       },
       child: ImageCanvas(
         imageBytes: widget.imageBytes,
+        heroTag: widget.heroTag,
         editInterpreter: interpreter,
         onTap: () {
           final activeSection = ref.read(activeSectionProvider);
@@ -325,9 +399,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final isRetouch = activeSection == RecipeSection.retouch;
     final scheme = Theme.of(context).colorScheme;
     // Only rebuild when the histogram's *presence* changes (not on every bake).
-    final hasHistogram = ref.watch(
-      histogramProvider.select((h) => h != null),
-    );
+    final hasHistogram = ref.watch(histogramProvider.select((h) => h != null));
 
     final overlays = <Widget>[
       _CompareHint(),
@@ -337,10 +409,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         onPressed: () => setState(() => _showHistogram = !_showHistogram),
       ),
     ];
+    Widget shell;
 
     if (kind == AppShellKind.snapseed) {
       final hintSeen = ref.watch(gestureHintSeenProvider);
-      return ColoredBox(
+      shell = ColoredBox(
         color: scheme.surface,
         child: Listener(
           behavior: HitTestBehavior.translucent,
@@ -352,7 +425,8 @@ class _AppShellState extends ConsumerState<AppShell> {
           child: Stack(
             children: [
               Positioned.fill(child: _canvas(interpreter: _fsm)),
-              if (isRetouch) const Positioned.fill(child: RetouchCanvasOverlay()),
+              if (isRetouch)
+                const Positioned.fill(child: RetouchCanvasOverlay()),
               // Selective editing (issue #25): the node layer sits above the
               // canvas and absorbs every pointer until Done is tapped.
               if (nodeMode) const Positioned.fill(child: NodeOverlay()),
@@ -400,7 +474,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                 top: Insets.lg + 16,
                 left: Insets.md,
                 right: Insets.md,
-                child: const SafeArea(bottom: false, child: _AiProgressFloatingPill()),
+                child: const SafeArea(
+                  bottom: false,
+                  child: _AiProgressFloatingPill(),
+                ),
               ),
               if (widget.topHud != null)
                 Positioned(
@@ -433,7 +510,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                             border: glassmorphic
                                 ? Border(
                                     bottom: BorderSide(
-                                      color: scheme.outlineVariant.withValues(alpha: 0.3),
+                                      color: scheme.outlineVariant.withValues(
+                                        alpha: 0.3,
+                                      ),
                                     ),
                                   )
                                 : null,
@@ -453,7 +532,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     ),
                   ),
                 ),
-              if (_showHistogram && hasHistogram)
+              if (_showHistogram && hasHistogram) ...[
                 Positioned(
                   left: 0,
                   right: 0,
@@ -466,6 +545,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     ),
                   ),
                 ),
+              ],
               if (!hintSeen) const Positioned.fill(child: GhostHint()),
               // Compare affordance floating above the bottom dock (steps aside in node mode).
               if (!nodeMode)
@@ -474,10 +554,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                   bottom: 68,
                   child: _Fade(
                     active: active,
-                    child: SafeArea(
-                      top: false,
-                      child: overlays[0],
-                    ),
+                    child: SafeArea(top: false, child: overlays[0]),
                   ),
                 ),
               if (nodeMode)
@@ -498,147 +575,172 @@ class _AppShellState extends ConsumerState<AppShell> {
           ),
         ),
       );
-    }
+    } else {
+      // Lightroom shell: adaptive layout (issue #34)
+      shell = Stack(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wide =
+                  constraints.maxWidth > constraints.maxHeight ||
+                  constraints.maxWidth >= 600;
+              final canvas = Stack(
+                children: [
+                  Positioned.fill(child: _canvas()),
+                  // Retouch overlay (Lightroom heal/clone pins directly on canvas)
+                  if (isRetouch)
+                    const Positioned.fill(child: RetouchCanvasOverlay()),
+                  // Selective editing (issue #25) over the photo, with the
+                  // adjust bar floating at its bottom edge.
+                  if (nodeMode) const Positioned.fill(child: NodeOverlay()),
+                  if (nodeMode)
+                    Positioned(
+                      top: Insets.md,
+                      left: Insets.sm,
+                      right: Insets.sm,
+                      child: const SafeArea(
+                        bottom: false,
+                        child: BrushToolbar(),
+                      ),
+                    ),
+                  if (isRetouch)
+                    Positioned(
+                      top: Insets.md,
+                      left: Insets.sm,
+                      right: Insets.sm,
+                      child: const SafeArea(
+                        bottom: false,
+                        child: Center(child: RetouchToolbar()),
+                      ),
+                    ),
+                  Positioned(
+                    top: Insets.lg + 16,
+                    left: Insets.md,
+                    right: Insets.md,
+                    child: const SafeArea(
+                      bottom: false,
+                      child: _AiProgressFloatingPill(),
+                    ),
+                  ),
+                  if (nodeMode && (wide || kind == AppShellKind.snapseed))
+                    Positioned(
+                      left: Insets.sm,
+                      right: Insets.sm,
+                      bottom: Insets.sm,
+                      child: const SafeArea(top: false, child: NodeControls()),
+                    ),
+                  if (!nodeMode && !isRetouch)
+                    Positioned(
+                      left: Insets.sm,
+                      bottom: Insets.sm,
+                      child: _Fade(
+                        active: active,
+                        child: SafeArea(top: false, child: overlays[0]),
+                      ),
+                    ),
+                ],
+              );
 
-    // Adaptive layout (issue #34): landscape or tablet widths split into a
-    // canvas + fixed sidebar; portrait phones keep the stacked panel.
-    return Stack(
-      children: [
-        LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth > constraints.maxHeight ||
-            constraints.maxWidth >= 600;
-        final canvas = Stack(
-          children: [
-            Positioned.fill(child: _canvas()),
-            // Retouch overlay (Lightroom heal/clone pins directly on canvas)
-            if (isRetouch) const Positioned.fill(child: RetouchCanvasOverlay()),
-            // Selective editing (issue #25) over the photo, with the
-            // adjust bar floating at its bottom edge.
-            if (nodeMode) const Positioned.fill(child: NodeOverlay()),
-            if (nodeMode)
-              Positioned(
-                top: Insets.md,
-                left: Insets.sm,
-                right: Insets.sm,
-                child: const SafeArea(bottom: false, child: BrushToolbar()),
-              ),
-            if (isRetouch)
-              Positioned(
-                top: Insets.md,
-                left: Insets.sm,
-                right: Insets.sm,
-                child: const SafeArea(
-                  bottom: false,
-                  child: Center(child: RetouchToolbar()),
-                ),
-              ),
-            Positioned(
-              top: Insets.lg + 16,
-              left: Insets.md,
-              right: Insets.md,
-              child: const SafeArea(bottom: false, child: _AiProgressFloatingPill()),
-            ),
-            if (nodeMode && (wide || kind == AppShellKind.snapseed))
-              Positioned(
-                left: Insets.sm,
-                right: Insets.sm,
-                bottom: Insets.sm,
-                child: const SafeArea(
-                  top: false,
-                  child: NodeControls(),
-                ),
-              ),
-            if (!nodeMode && !isRetouch)
-              Positioned(
-                left: Insets.sm,
-                bottom: Insets.sm,
-                child: _Fade(
-                  active: active,
-                  child: SafeArea(top: false, child: overlays[0]),
-                ),
-              ),
-          ],
-        );
-
-        if (wide) {
-          final sidebarWidth = (constraints.maxWidth * 0.30)
-              .clamp(240.0, 480.0)
-              .clamp(200.0, constraints.maxWidth * 0.40);
-          return Material(
-            color: scheme.surface,
-            child: Row(
-              children: [
-                Expanded(child: canvas),
-                // Notch/punch-hole protection on the trailing edge.
-                SafeArea(
-                  left: false,
-                  right: true,
-                  child: SizedBox(
-                    width: sidebarWidth,
-                    child: ClipRect(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(
-                          sigmaX: glassmorphic ? 20 : 0,
-                          sigmaY: glassmorphic ? 20 : 0,
-                        ),
-                        child: Material(
-                          color: glassmorphic
-                              ? scheme.surface.withValues(alpha: 0.75)
-                              : scheme.surface,
-                          child: Column(
-                            children: [
-                              _PanelHandle(
-                                collapsed: _panelCollapsed,
-                                onToggle: () => setState(
-                                  () => _panelCollapsed = !_panelCollapsed,
+              if (wide) {
+                final sidebarWidth = (constraints.maxWidth * 0.30)
+                    .clamp(240.0, 480.0)
+                    .clamp(200.0, constraints.maxWidth * 0.40);
+                return Material(
+                  color: scheme.surface,
+                  child: Row(
+                    children: [
+                      Expanded(child: canvas),
+                      // Notch/punch-hole protection on the trailing edge.
+                      SafeArea(
+                        left: false,
+                        right: true,
+                        child: SizedBox(
+                          width: sidebarWidth,
+                          child: ClipRect(
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(
+                                sigmaX: glassmorphic ? 20 : 0,
+                                sigmaY: glassmorphic ? 20 : 0,
+                              ),
+                              child: Material(
+                                color: glassmorphic
+                                    ? scheme.surface.withValues(alpha: 0.75)
+                                    : scheme.surface,
+                                child: Column(
+                                  children: [
+                                    _PanelHandle(
+                                      collapsed: _panelCollapsed,
+                                      onToggle: () => setState(
+                                        () =>
+                                            _panelCollapsed = !_panelCollapsed,
+                                      ),
+                                    ),
+                                    if (!_panelCollapsed && hasHistogram)
+                                      _HistogramDrawer(
+                                        open: _histogramOpen,
+                                        setOpen: (v) =>
+                                            setState(() => _histogramOpen = v),
+                                      ),
+                                    if (!_panelCollapsed)
+                                      const Expanded(child: LightroomShell()),
+                                  ],
                                 ),
                               ),
-                              if (!_panelCollapsed && hasHistogram)
-                                _HistogramDrawer(
-                                  open: _histogramOpen,
-                                  setOpen: (v) =>
-                                      setState(() => _histogramOpen = v),
-                                ),
-                              if (!_panelCollapsed)
-                                const Expanded(child: LightroomShell()),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-          );
-        }
+                );
+              }
 
-        // Docked Instrument Tray layout (Lightroom Mobile parity):
-        // Viewport sanctity: the photo occupies 75–80% of portrait height, completely
-        // unobstructed; tool controls live in a docked, compact bottom tray in the
-        // thumb reach zone.
-        return Material(
-          color: scheme.surface,
-          child: Column(
-            children: [
-              Expanded(child: canvas),
-              _LightroomSheet(
-                availableHeight: constraints.maxHeight,
-                snap: _sheetSnap,
-                onSnap: (s) => setState(() => _sheetSnap = s),
-                hasHistogram: hasHistogram,
-                histogramOpen: _histogramOpen,
-                setHistogramOpen: (v) => setState(() => _histogramOpen = v),
-              ),
-            ],
+              // Docked Instrument Tray layout (Lightroom Mobile parity):
+              // Viewport sanctity: the photo occupies 75–80% of portrait height, completely
+              // unobstructed; tool controls live in a docked, compact bottom tray in the
+              // thumb reach zone.
+              return Material(
+                color: scheme.surface,
+                child: Column(
+                  children: [
+                    Expanded(child: canvas),
+                    _LightroomSheet(
+                      availableHeight: constraints.maxHeight,
+                      snap: _sheetSnap,
+                      onSnap: (s) => setState(() => _sheetSnap = s),
+                      hasHistogram: hasHistogram,
+                      histogramOpen: _histogramOpen,
+                      setHistogramOpen: (v) =>
+                          setState(() => _histogramOpen = v),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const Positioned.fill(child: MacroActionHud()),
+        ],
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.0, 0.05),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
           ),
         );
       },
-    ),
-    const Positioned.fill(child: MacroActionHud()),
-  ],
-);
+      child: shell,
+    );
   }
 }
 
@@ -710,7 +812,9 @@ class _PanelHandle extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        collapsed ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        collapsed
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
                         size: 14,
                         color: scheme.onSurfaceVariant,
                       ),
@@ -817,10 +921,10 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
     } else {
       final measured = _height;
       target = snaps.reduce((a, b) {
-        final da =
-            (_sheetFractions[a]! * widget.availableHeight - measured).abs();
-        final db =
-            (_sheetFractions[b]! * widget.availableHeight - measured).abs();
+        final da = (_sheetFractions[a]! * widget.availableHeight - measured)
+            .abs();
+        final db = (_sheetFractions[b]! * widget.availableHeight - measured)
+            .abs();
         return da <= db ? a : b;
       });
     }
@@ -889,7 +993,9 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
                         shape: glassmorphic
                             ? Border(
                                 top: BorderSide(
-                                  color: scheme.outlineVariant.withValues(alpha: 0.35),
+                                  color: scheme.outlineVariant.withValues(
+                                    alpha: 0.35,
+                                  ),
                                 ),
                               )
                             : null,
@@ -1117,9 +1223,7 @@ class _CompareHint extends ConsumerWidget {
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.90),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.5),
-        ),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),
@@ -1129,10 +1233,7 @@ class _CompareHint extends ConsumerWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Insets.sm,
-          vertical: 4,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
@@ -1140,9 +1241,12 @@ class _CompareHint extends ConsumerWidget {
             children: [
               Listener(
                 behavior: HitTestBehavior.opaque,
-                onPointerDown: (_) => ref.read(compareHoldProvider.notifier).hold(),
-                onPointerUp: (_) => ref.read(compareHoldProvider.notifier).release(),
-                onPointerCancel: (_) => ref.read(compareHoldProvider.notifier).release(),
+                onPointerDown: (_) =>
+                    ref.read(compareHoldProvider.notifier).hold(),
+                onPointerUp: (_) =>
+                    ref.read(compareHoldProvider.notifier).release(),
+                onPointerCancel: (_) =>
+                    ref.read(compareHoldProvider.notifier).release(),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1178,15 +1282,21 @@ class _CompareHint extends ConsumerWidget {
                     Icon(
                       Icons.splitscreen,
                       size: 14,
-                      color: wiper.isActive ? scheme.primary : scheme.onSurfaceVariant,
+                      color: wiper.isActive
+                          ? scheme.primary
+                          : scheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: Insets.xs),
                     Text(
                       'Wiper',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: wiper.isActive ? FontWeight.bold : FontWeight.w600,
-                        color: wiper.isActive ? scheme.primary : scheme.onSurfaceVariant,
+                        fontWeight: wiper.isActive
+                            ? FontWeight.bold
+                            : FontWeight.w600,
+                        color: wiper.isActive
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -1211,17 +1321,25 @@ class _CompareHint extends ConsumerWidget {
                     Icon(
                       Icons.wb_iridescent_outlined,
                       size: 14,
-                      color: assist.isActive ? scheme.primary : scheme.onSurfaceVariant,
+                      color: assist.isActive
+                          ? scheme.primary
+                          : scheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: Insets.xs),
                     Text(
                       assist.mode == ExposureAssistMode.zebras
                           ? 'Zebras'
-                          : (assist.mode == ExposureAssistMode.falseColor ? 'IRE' : 'Assist'),
+                          : (assist.mode == ExposureAssistMode.falseColor
+                                ? 'IRE'
+                                : 'Assist'),
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: assist.isActive ? FontWeight.bold : FontWeight.w600,
-                        color: assist.isActive ? scheme.primary : scheme.onSurfaceVariant,
+                        fontWeight: assist.isActive
+                            ? FontWeight.bold
+                            : FontWeight.w600,
+                        color: assist.isActive
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -1243,7 +1361,8 @@ class _AiProgressFloatingPill extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isInferring = ref.watch(aiMaskInferringProvider);
-    final statusMsg = ref.watch(aiMaskStatusMessageProvider) ??
+    final statusMsg =
+        ref.watch(aiMaskStatusMessageProvider) ??
         'Processing with on-device AI… Please wait a moment';
 
     return AnimatedOpacity(
@@ -1257,11 +1376,12 @@ class _AiProgressFloatingPill extends ConsumerWidget {
                 child: Container(
                   key: const Key('ai-floating-pill'),
                   margin: const EdgeInsets.symmetric(horizontal: 24),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest
                         .withValues(alpha: 0.94),
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
@@ -1272,10 +1392,9 @@ class _AiProgressFloatingPill extends ConsumerWidget {
                       ),
                     ],
                     border: Border.all(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outlineVariant
-                          .withValues(alpha: 0.4),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outlineVariant.withValues(alpha: 0.4),
                     ),
                   ),
                   child: Row(
@@ -1308,4 +1427,3 @@ class _AiProgressFloatingPill extends ConsumerWidget {
     );
   }
 }
-

@@ -15,6 +15,7 @@ class HistoryTreeSheet extends ConsumerWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const HistoryTreeSheet(),
     );

@@ -44,7 +44,8 @@ class GalleryScreen extends ConsumerStatefulWidget {
   ConsumerState<GalleryScreen> createState() => _GalleryScreenState();
 }
 
-class _GalleryScreenState extends ConsumerState<GalleryScreen> {
+class _GalleryScreenState extends ConsumerState<GalleryScreen>
+    with SingleTickerProviderStateMixin {
   GalleryScope _scope = GalleryScope.photos;
 
   /// Non-null while a batch export runs — owns the cooperative cancel and
@@ -59,9 +60,18 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   final Set<String> _exportingIds = <String>{};
   final Set<String> _exportedIds = <String>{};
 
+  /// Fades the AppBar + SelectionBar out during the hero flight into the
+  /// editor so only the photo moves (issue: buttery gallery→editor transition).
+  late final AnimationController _navFade;
+  double get _navOpacity => _navFade.value;
+
   @override
   void initState() {
     super.initState();
+    _navFade = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(galleryControllerProvider.notifier).load();
       // Restore the persisted library (virtual copies, edits, ratings) so the
@@ -70,13 +80,38 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _navFade.dispose();
+    super.dispose();
+  }
+
   GallerySource get _source => ref.read(gallerySourceProvider);
 
   void _open(GalleryAsset asset) async {
     axLog(LogDomain.editor, 'Opened photo ${asset.id}');
-    final res = await Navigator.of(
-      context,
-    ).push<dynamic>(MaterialPageRoute<dynamic>(builder: (_) => EditorScreen(asset: asset)));
+    // Fade chrome out as the photo begins its hero flight into the editor.
+    await _navFade.forward();
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    final res = await navigator.push<dynamic>(
+      PageRouteBuilder<dynamic>(
+        transitionDuration: const Duration(milliseconds: 400),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (_, _, _) => EditorScreen(asset: asset),
+        transitionsBuilder: (_, animation, _, child) {
+          return FadeTransition(
+            opacity: CurvedAnimation(
+              parent: animation,
+              curve: Curves.fastOutSlowIn,
+            ),
+            child: child,
+          );
+        },
+      ),
+    );
+    // Fade chrome back in when returning from the editor.
+    if (mounted) await _navFade.reverse();
     if (res == 'show_edits' && mounted) {
       setState(() => _scope = GalleryScope.edits);
     }
@@ -87,8 +122,20 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   void _openEntry(GalleryAsset asset, String entryId) async {
     axLog(LogDomain.editor, 'Opened $entryId');
     final res = await Navigator.of(context).push<dynamic>(
-      MaterialPageRoute<dynamic>(
-        builder: (_) => EditorScreen(asset: asset, entryId: entryId),
+      PageRouteBuilder<dynamic>(
+        transitionDuration: const Duration(milliseconds: 400),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (_, _, _) =>
+            EditorScreen(asset: asset, entryId: entryId),
+        transitionsBuilder: (_, animation, _, child) {
+          return FadeTransition(
+            opacity: CurvedAnimation(
+              parent: animation,
+              curve: Curves.fastOutSlowIn,
+            ),
+            child: child,
+          );
+        },
       ),
     );
     if (res == 'show_edits' && mounted) {
@@ -102,11 +149,22 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     final bytes = file.readAsBytesSync();
     axLog(LogDomain.editor, 'Opened saved edit ${preview.entryId}');
     await Navigator.of(context).push<dynamic>(
-      MaterialPageRoute<dynamic>(
-        builder: (_) => EditorScreen(
+      PageRouteBuilder<dynamic>(
+        transitionDuration: const Duration(milliseconds: 400),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (_, _, _) => EditorScreen(
           imageBytes: bytes,
           entryId: preview.entryId,
         ),
+        transitionsBuilder: (_, animation, _, child) {
+          return FadeTransition(
+            opacity: CurvedAnimation(
+              parent: animation,
+              curve: Curves.fastOutSlowIn,
+            ),
+            child: child,
+          );
+        },
       ),
     );
   }
@@ -265,61 +323,72 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
 
     return SafeArea(
       child: Scaffold(
-        appBar: AppBar(
-          title: state.selectionMode
-              ? Text('${state.selectedCount} selected')
-              : _AlbumTitle(title: state.title, onTap: _openAlbumPicker),
-          actions: [
-            if (state.selectionMode)
-              IconButton(
-                tooltip: 'Clear selection',
-                onPressed: controller.clearSelection,
-                icon: const Icon(Icons.close),
-              )
-            else ...[
-              IconButton(
-                tooltip: 'Select',
-                onPressed: controller.selectAll,
-                icon: const Icon(Icons.checklist),
-              ),
-              IconButton(
-                tooltip: 'Edited versions',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const EditedVersionsScreen(),
-                  ),
+        appBar: PreferredSize(
+          preferredSize: const Size(double.infinity, kToolbarHeight),
+          child: AnimatedOpacity(
+            opacity: _navOpacity,
+            duration: const Duration(milliseconds: 180),
+            child: AppBar(
+            title: state.selectionMode
+                ? Text('${state.selectedCount} selected')
+                : _AlbumTitle(title: state.title, onTap: _openAlbumPicker),
+            actions: [
+              if (state.selectionMode)
+                IconButton(
+                  tooltip: 'Clear selection',
+                  onPressed: controller.clearSelection,
+                  icon: const Icon(Icons.close),
+                )
+              else ...[
+                IconButton(
+                  tooltip: 'Select',
+                  onPressed: controller.selectAll,
+                  icon: const Icon(Icons.checklist),
                 ),
-                icon: const Icon(Icons.collections_bookmark_outlined),
-              ),
-              IconButton(
-                tooltip: 'Settings',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const SettingsScreen(),
+                IconButton(
+                  tooltip: 'Edited versions',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const EditedVersionsScreen(),
+                    ),
                   ),
+                  icon: const Icon(Icons.collections_bookmark_outlined),
                 ),
-                icon: const Icon(Icons.settings_outlined),
-              ),
+                IconButton(
+                  tooltip: 'Settings',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SettingsScreen(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.settings_outlined),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
+      ),
         body: _buildBody(state, controller),
-        bottomNavigationBar: _exportCancel != null
-            ? _ExportProgressBar(
-                done: _exportDone,
-                total: _exportTotal,
-                overall: _exportAgg?.overall,
-                onCancel: () => _exportCancel?.request(),
-              )
-            : state.selectionMode
-            ? _SelectionBar(
-                canCopy: state.selectedCount == 1,
-                onCopy: _copyEdits,
-                onVirtualCopy: _createVirtualCopies,
-                onPaste: _paste,
-                onExport: _export,
-              )
-            : null,
+        bottomNavigationBar: AnimatedOpacity(
+          opacity: _navOpacity,
+          duration: const Duration(milliseconds: 180),
+          child: _exportCancel != null
+              ? _ExportProgressBar(
+                  done: _exportDone,
+                  total: _exportTotal,
+                  overall: _exportAgg?.overall,
+                  onCancel: () => _exportCancel?.request(),
+                )
+              : state.selectionMode
+              ? _SelectionBar(
+                  canCopy: state.selectedCount == 1,
+                  onCopy: _copyEdits,
+                  onVirtualCopy: _createVirtualCopies,
+                  onPaste: _paste,
+                  onExport: _export,
+                )
+              : null,
+        ),
       ),
     );
   }
@@ -630,33 +699,40 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
             spacing: 2,
             itemCount: items.length,
             itemBuilder: (context, j) => switch (items[j]) {
-              _OriginalItem(:final asset) => AspectRatio(
-                  aspectRatio: (asset.width > 0 && asset.height > 0)
-                      ? (asset.width / asset.height).clamp(0.65, 1.8)
-                      : 1.0,
-                  child: _Cell(
-                    source: _source,
-                    asset: asset,
-                    selected: state.isSelected(asset.id),
-                    edited: recipes.containsKey(originalEntryId(asset.id)),
-                    copyCount: vcsBySource[asset.id]?.length ?? 0,
-                    selectionMode: state.selectionMode,
-                    exporting: _exportingIds.contains(asset.id),
-                    exported: _exportedIds.contains(asset.id),
-                    onTap: () => state.selectionMode
-                        ? controller.toggle(asset.id)
-                        : _open(asset),
-                    onLongPress: () => controller.startSelection(asset.id),
+                _OriginalItem(:final asset) => AspectRatio(
+                    aspectRatio: (asset.width > 0 && asset.height > 0)
+                        ? (asset.width / asset.height).clamp(0.65, 1.8)
+                        : 1.0,
+                    child: _StaggeredCell(
+                      index: j,
+                      child: _Cell(
+                      source: _source,
+                      asset: asset,
+                      heroTag: 'photo-${asset.id}',
+                      selected: state.isSelected(asset.id),
+                      edited: recipes.containsKey(originalEntryId(asset.id)),
+                      copyCount: vcsBySource[asset.id]?.length ?? 0,
+                      selectionMode: state.selectionMode,
+                      exporting: _exportingIds.contains(asset.id),
+                      exported: _exportedIds.contains(asset.id),
+                      onTap: () => state.selectionMode
+                          ? controller.toggle(asset.id)
+                          : _open(asset),
+                      onLongPress: () => controller.startSelection(asset.id),
+                    ),
                   ),
                 ),
                 _VirtualItem(:final entry, :final asset) => AspectRatio(
                   aspectRatio: (asset.width > 0 && asset.height > 0)
                       ? (asset.width / asset.height).clamp(0.65, 1.8)
                       : 1.0,
-                  child: _VirtualCell(
+                  child: _StaggeredCell(
+                    index: j,
+                    child: _VirtualCell(
                     source: _source,
                     asset: asset,
                     entry: entry,
+                    heroTag: 'photo-vc-${entry.entryId}',
                     selected: state.isSelected(asset.id),
                     edited: recipes.containsKey(entry.entryId),
                     selectionMode: state.selectionMode,
@@ -666,6 +742,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                     onLongPressStart: (details) => state.selectionMode
                         ? controller.startSelection(asset.id)
                         : _vcMenu(entry, details.globalPosition),
+                    ),
                   ),
                 ),
               },
@@ -723,6 +800,68 @@ class _AlbumTitle extends StatelessWidget {
   }
 }
 
+/// Wraps a gallery cell with a staggered entrance animation: each cell fades
+/// in and slides up slightly, delayed by its grid index, creating a ripple
+/// effect when the library loads.
+class _StaggeredCell extends StatefulWidget {
+  const _StaggeredCell({required this.child, required this.index});
+
+  final Widget child;
+  final int index;
+
+  @override
+  State<_StaggeredCell> createState() => _StaggeredCellState();
+}
+
+class _StaggeredCellState extends State<_StaggeredCell>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _offset;
+
+  @override
+  void initState() {
+    super.initState();
+    final delay = Duration(milliseconds: 40 * widget.index);
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+    _offset = Tween<Offset>(begin: Offset(0, 0.18), end: Offset.zero).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+    Future.delayed(delay, () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _opacity.value,
+          child: Transform.translate(
+            offset: _offset.value,
+            child: child,
+          ),
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
 class _DateHeader extends StatelessWidget {
   const _DateHeader({required this.label});
 
@@ -757,6 +896,7 @@ class _Cell extends StatelessWidget {
     required this.selectionMode,
     required this.onTap,
     required this.onLongPress,
+    required this.heroTag,
     this.copyCount = 0,
     this.exporting = false,
     this.exported = false,
@@ -769,6 +909,9 @@ class _Cell extends StatelessWidget {
   final bool selectionMode;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+
+  /// Unique hero tag for the shared-element transition into the editor.
+  final String heroTag;
 
   /// How many virtual copies this photo has (0 = none) — surfaced as a small
   /// count chip so an expanded photo is obvious at a glance (#73).
@@ -800,7 +943,10 @@ class _Cell extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            GalleryThumbnail(source: source, assetId: asset.id),
+            Hero(
+              tag: heroTag,
+              child: GalleryThumbnail(source: source, assetId: asset.id),
+            ),
             AnimatedOpacity(
               opacity: selected ? 1 : 0,
               duration: Motion.fast,
@@ -903,6 +1049,7 @@ class _VirtualCell extends StatelessWidget {
     required this.selectionMode,
     required this.onTap,
     required this.onLongPressStart,
+    required this.heroTag,
   });
 
   final GallerySource source;
@@ -913,6 +1060,7 @@ class _VirtualCell extends StatelessWidget {
   final bool selectionMode;
   final VoidCallback onTap;
   final GestureLongPressStartCallback onLongPressStart;
+  final String heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -934,7 +1082,10 @@ class _VirtualCell extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            GalleryThumbnail(source: source, assetId: entry.sourceAssetId),
+            Hero(
+              tag: heroTag,
+              child: GalleryThumbnail(source: source, assetId: entry.sourceAssetId),
+            ),
             AnimatedOpacity(
               opacity: selected ? 1 : 0,
               duration: Motion.fast,

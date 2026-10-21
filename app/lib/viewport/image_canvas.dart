@@ -71,12 +71,17 @@ class ImageCanvas extends ConsumerStatefulWidget {
   const ImageCanvas({
     super.key,
     this.imageBytes,
+    this.heroTag,
     this.editInterpreter,
     this.onTap,
   });
 
   /// JPEG bytes of the photo being edited (null → the built-in sample).
   final Uint8List? imageBytes;
+
+  /// Optional [Hero] tag so the gallery thumbnail can fly into the editor
+  /// canvas on open (issue: buttery gallery→editor transition).
+  final String? heroTag;
 
   /// When non-null, 1-finger drags are routed to this Snapseed gesture model
   /// instead of panning (Lightroom).
@@ -166,12 +171,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   Uint8List? _roiBytes; // the bytes actually loaded (widget bytes or sample)
   int _fullW = 0; // original source dims; 0 while unknown or RAW (no ROI)
   int _fullH = 0;
+
   /// Level-0 tile grid once the full-res dims are known; null → no tiles.
   TileGrid? _tileGrid;
+
   /// Key of the spatial/mask recipe the cached tiles were baked with; any
   /// other change (including the first tile schedule) re-bakes. Grade-only
   /// edits don't invalidate — the shader picks up the new LUT on repaint.
   int? _tileBaseKey;
+
   /// True while any tile is decoding/baking — the painter shows the proxy
   /// underneath until the first tiles land, and `useTextureDelivery` stays
   /// off so the shader path (which draws the tiles) is live.
@@ -332,9 +340,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       ref.read(wiperCompareProvider).isActive ||
       ref.read(exposureAssistProvider).isActive;
 
-  void _onDeliveryGestureSettled(AnimationStatus _) => _scheduleBake(
-    _renderRecipe(ref.read(recipeControllerProvider).recipe),
-  );
+  void _onDeliveryGestureSettled(AnimationStatus _) =>
+      _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
 
   /// Debounced (#16): re-plans the high-zoom tiles after the viewport settles
   /// (pan/zoom end) or a spatial/mask recipe change the tiles must re-bake.
@@ -468,7 +475,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final y0 = rect.top.toInt();
     final tw = rect.width.toInt();
     final th = rect.height.toInt();
-    final decode = tileDecodeRect(rect, imageW: _fullW, imageH: _fullH, halo: halo);
+    final decode = tileDecodeRect(
+      rect,
+      imageW: _fullW,
+      imageH: _fullH,
+      halo: halo,
+    );
     final dx = decode.left.toInt();
     final dy = decode.top.toInt();
     final dw = decode.width.toInt();
@@ -521,21 +533,21 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
 
     try {
-    // Wide-gamut (P3) detection: if the JPEG is Display-P3 encoded, decode
-    // with Rust and convert to sRGB so the preview shader sees correct colors.
-    final cs = await AxEngine.detectColorspace(bytes);
-    if (cs == 2) {
-      final decoded = await AxEngine.decodeJpegRgba(bytes);
-      final srgb = await AxEngine.p3ToSrgb(
-        decoded.rgba,
-        width: decoded.width,
-        height: decoded.height,
-      );
-      final image = await _imageFrom(srgb, decoded.width, decoded.height);
-      return (image, Uint8List(0), image.width, image.height);
-    }
+      // Wide-gamut (P3) detection: if the JPEG is Display-P3 encoded, decode
+      // with Rust and convert to sRGB so the preview shader sees correct colors.
+      final cs = await AxEngine.detectColorspace(bytes);
+      if (cs == 2) {
+        final decoded = await AxEngine.decodeJpegRgba(bytes);
+        final srgb = await AxEngine.p3ToSrgb(
+          decoded.rgba,
+          width: decoded.width,
+          height: decoded.height,
+        );
+        final image = await _imageFrom(srgb, decoded.width, decoded.height);
+        return (image, Uint8List(0), image.width, image.height);
+      }
 
-    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+      final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
       final descriptor = await ui.ImageDescriptor.encoded(buffer);
       final orientation = readExifOrientation(bytes);
       final target = computeDecodeTarget(
@@ -627,7 +639,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (!ref.read(recipeControllerProvider).recipe.blurEnabled) return;
     _embeddedDepthAssetId = asset.id;
     try {
-      final original = await ref.read(gallerySourceProvider).loadImage(asset.id);
+      final original = await ref
+          .read(gallerySourceProvider)
+          .loadImage(asset.id);
       if (original.isEmpty) return;
       final depth = await AxEngine.extractEmbeddedDepth(original);
       if (depth == null) return;
@@ -655,8 +669,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final useTexture = _computeUseTexture();
     final modeChanged = useTexture != _useTexture;
     _useTexture = useTexture;
-    final baseChanged =
-        modeChanged || _baseKey(recipe) != _lastBaseKey;
+    final baseChanged = modeChanged || _baseKey(recipe) != _lastBaseKey;
     final gradeChanged =
         modeChanged ||
         _gradeKey(recipe) != _lastGradeKey ||
@@ -673,7 +686,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _debounce?.cancel();
     _debounce = Timer(
       const Duration(milliseconds: 16),
-      () => _rebake(recipe, baseChanged: baseChanged, gradeChanged: gradeChanged),
+      () =>
+          _rebake(recipe, baseChanged: baseChanged, gradeChanged: gradeChanged),
     );
   }
 
@@ -789,10 +803,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       lutImage = await lutAtlasToImage(imported);
       lutSize = imported.size;
     } else {
-      final data = await AxEngine.bakeLut3d(
-        spec,
-        size: _previewLutSize,
-      );
+      final data = await AxEngine.bakeLut3d(spec, size: _previewLutSize);
       if (token != _bakeToken) return;
       lutImage = await lutAtlasToImage(
         LutAtlas(size: data.size, rgba: data.rgba),
@@ -837,7 +848,6 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (token != _bakeToken) return;
     ref.read(histogramProvider.notifier).publish(histogram);
   }
-
 
   Future<void> _rebuildTexture(
     EditRecipe recipe,
@@ -884,6 +894,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
     if (id != null) unawaited(PreviewTextureChannel.dispose(id));
   }
+
   @override
   void dispose() {
     _disposed = true;
@@ -1054,7 +1065,88 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         }
         // Publish the view transform so overlays outside this widget (the
         // selective-editing nodes, issue #25) can map image ↔ screen.
-        _publishTransform(CanvasTransform(fitted: fitted, offset: _offset, scale: _scale));
+        _publishTransform(
+          CanvasTransform(fitted: fitted, offset: _offset, scale: _scale),
+        );
+
+        // The image content — optionally wrapped in a [Hero] so the gallery
+        // thumbnail flies into the editor canvas on open.
+        Widget imageContent(double width, double height) {
+          final sized = SizedBox(
+            width: width,
+            height: height,
+            child: AnimatedBuilder(
+              animation: Listenable.merge([_compare, _maskPeek, _zebraTicker]),
+              builder: (context, _) {
+                // High-zoom tiles (#16): the cached, baked level-0
+                // tiles, drawn over the proxy through the shader.
+                // World rect → fitted rect, same mapping as the
+                // proxy (image px → contain-fit content px).
+                final tiles = _tilesActive && _fullH > 0
+                    ? _visibleTileImages(fitted)
+                    : const <_CanvasTile>[];
+                final wiper = ref.watch(wiperCompareProvider);
+                final zoneMask = ref.watch(zoneMaskProvider);
+                final exposureAssist = ref.watch(exposureAssistProvider);
+                if (exposureAssist.mode == ExposureAssistMode.zebras) {
+                  if (!_zebraTicker.isAnimating) {
+                    _zebraTicker.repeat();
+                  }
+                } else {
+                  if (_zebraTicker.isAnimating) {
+                    _zebraTicker.stop();
+                  }
+                }
+                final (zLo, zHi) = zoneMask.isTargeting
+                    ? zoneMask.lumaBounds
+                    : (-1.0, -1.0);
+                final effectiveMaskBlend = zoneMask.isTargeting
+                    ? 1.0
+                    : _maskPeek.value;
+                return PreviewSurface(
+                  // Issue #54: actually display the texture Rust is
+                  // writing into; the shader paint is the fallback
+                  // (imported LUTs, iOS/tests, compare/peek fades,
+                  // tile overlay, geometry edits, wiper split curtain, exposure assist).
+                  textureId:
+                      zeroCopy &&
+                          !zoneMask.isTargeting &&
+                          !wiper.isActive &&
+                          !exposureAssist.isActive
+                      ? _textureId
+                      : null,
+                  fallback: (_) => CustomPaint(
+                    size: fitted,
+                    painter: _CanvasPainter(
+                      shader: fragShader,
+                      source: proxySource,
+                      compareSource: compareSource,
+                      // Only ever built when `!zeroCopy`, where the
+                      // placeholder gate proved the LUT exists.
+                      lut: lut!,
+                      lutSize: _activeLutSize.toDouble(),
+                      dst: Offset.zero & fitted,
+                      blend: _compare.value,
+                      maskBlend: effectiveMaskBlend,
+                      zoneLo: zLo,
+                      zoneHi: zHi,
+                      wiperActive: wiper.isActive,
+                      wiperPosition: wiper.position,
+                      wiperOrientation: wiper.orientation,
+                      zebraMode: exposureAssist.mode,
+                      time: _zebraTicker.value * 1.0,
+                      zebraHigh: exposureAssist.zebraHigh,
+                      zebraLow: exposureAssist.zebraLow,
+                      tiles: tiles,
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+          if (widget.heroTag == null) return sized;
+          return Hero(tag: widget.heroTag!, child: sized);
+        }
 
         return Stack(
           children: [
@@ -1080,86 +1172,20 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 onLongPressCancel: () =>
                     ref.read(compareHoldProvider.notifier).release(),
                 child: ClipRect(
-                    child: Transform(
-                      alignment: Alignment.center,
-                      transform: _computeLiveWarp(
-                        ref.read(recipeControllerProvider).recipe,
-                        content,
-                      ),
-                      child: Transform(
-                        alignment: Alignment.topLeft,
-                        transform: Matrix4.identity()
-                          ..translateByDouble(_offset.dx, _offset.dy, 0, 1)
-                          ..scaleByDouble(_scale, _scale, _scale, 1),
-                        child: SizedBox(
-                          width: fitted.width,
-                          height: fitted.height,
-                        child: AnimatedBuilder(
-                          animation: Listenable.merge([_compare, _maskPeek, _zebraTicker]),
-                          builder: (context, _) {
-                            // High-zoom tiles (#16): the cached, baked level-0
-                            // tiles, drawn over the proxy through the shader.
-                            // World rect → fitted rect, same mapping as the
-                            // proxy (image px → contain-fit content px).
-                            final tiles = _tilesActive && _fullH > 0
-                                ? _visibleTileImages(fitted)
-                                : const <_CanvasTile>[];
-                            final wiper = ref.watch(wiperCompareProvider);
-                            final zoneMask = ref.watch(zoneMaskProvider);
-                            final exposureAssist = ref.watch(exposureAssistProvider);
-                            if (exposureAssist.mode == ExposureAssistMode.zebras) {
-                              if (!_zebraTicker.isAnimating) {
-                                _zebraTicker.repeat();
-                              }
-                            } else {
-                              if (_zebraTicker.isAnimating) {
-                                _zebraTicker.stop();
-                              }
-                            }
-                            final (zLo, zHi) = zoneMask.isTargeting
-                                ? zoneMask.lumaBounds
-                                : (-1.0, -1.0);
-                            final effectiveMaskBlend = zoneMask.isTargeting
-                                ? 1.0
-                                : _maskPeek.value;
-                            return PreviewSurface(
-                              // Issue #54: actually display the texture Rust is
-                              // writing into; the shader paint is the fallback
-                              // (imported LUTs, iOS/tests, compare/peek fades,
-                              // tile overlay, geometry edits, wiper split curtain, exposure assist).
-                              textureId: zeroCopy && !zoneMask.isTargeting && !wiper.isActive && !exposureAssist.isActive ? _textureId : null,
-                              fallback: (_) => CustomPaint(
-                                size: fitted,
-                                painter: _CanvasPainter(
-                                  shader: fragShader,
-                                  source: proxySource,
-                                  compareSource: compareSource,
-                                  // Only ever built when `!zeroCopy`, where the
-                                  // placeholder gate proved the LUT exists.
-                                  lut: lut!,
-                                  lutSize: _activeLutSize.toDouble(),
-                                  dst: Offset.zero & fitted,
-                                  blend: _compare.value,
-                                  maskBlend: effectiveMaskBlend,
-                                  zoneLo: zLo,
-                                  zoneHi: zHi,
-                                  wiperActive: wiper.isActive,
-                                  wiperPosition: wiper.position,
-                                  wiperOrientation: wiper.orientation,
-                                  zebraMode: exposureAssist.mode,
-                                  time: _zebraTicker.value * 1.0,
-                                  zebraHigh: exposureAssist.zebraHigh,
-                                  zebraLow: exposureAssist.zebraLow,
-                                  tiles: tiles,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        ),
-                      ),
+                  child: Transform(
+                    alignment: Alignment.center,
+                    transform: _computeLiveWarp(
+                      ref.read(recipeControllerProvider).recipe,
+                      content,
                     ),
-
+                    child: Transform(
+                      alignment: Alignment.topLeft,
+                      transform: Matrix4.identity()
+                        ..translateByDouble(_offset.dx, _offset.dy, 0, 1)
+                        ..scaleByDouble(_scale, _scale, _scale, 1),
+                      child: imageContent(fitted.width, fitted.height),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1427,7 +1453,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       out.add(
         _CanvasTile(
           image: img,
-          dst: Rect.fromLTWH(r.left * sx, r.top * sy, r.width * sx, r.height * sy),
+          dst: Rect.fromLTWH(
+            r.left * sx,
+            r.top * sy,
+            r.width * sx,
+            r.height * sy,
+          ),
         ),
       );
     }
@@ -1447,7 +1478,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   int? _bandAt(Offset viewportLocal, Size fitted) {
     final rgba = _baseRgba;
-    if (rgba == null || _baseW == 0 || fitted.width == 0 || fitted.height == 0) {
+    if (rgba == null ||
+        _baseW == 0 ||
+        fitted.width == 0 ||
+        fitted.height == 0) {
       return null;
     }
     final scene = _toScene(viewportLocal);
@@ -1667,7 +1701,12 @@ class _CanvasPainter extends CustomPainter {
         canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, splitX, dst.bottom));
         canvas.drawImageRect(
           compareSource,
-          Rect.fromLTWH(0, 0, compareSource.width.toDouble(), compareSource.height.toDouble()),
+          Rect.fromLTWH(
+            0,
+            0,
+            compareSource.width.toDouble(),
+            compareSource.height.toDouble(),
+          ),
           dst,
           Paint(),
         );
@@ -1710,16 +1749,28 @@ class _CanvasPainter extends CustomPainter {
           ..color = const Color(0x6600E5FF)
           ..strokeWidth = 6.0
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
-        canvas.drawLine(Offset(splitX, dst.top), Offset(splitX, dst.bottom), glowPaint);
+        canvas.drawLine(
+          Offset(splitX, dst.top),
+          Offset(splitX, dst.bottom),
+          glowPaint,
+        );
 
         final linePaint = Paint()
           ..color = const Color(0xFF00E5FF)
           ..strokeWidth = 2.0;
-        canvas.drawLine(Offset(splitX, dst.top), Offset(splitX, dst.bottom), linePaint);
+        canvas.drawLine(
+          Offset(splitX, dst.top),
+          Offset(splitX, dst.bottom),
+          linePaint,
+        );
 
         // 4. Circular thumb handle at center
         final handleCenter = Offset(splitX, dst.top + dst.height * 0.5);
-        canvas.drawCircle(handleCenter, 18, Paint()..color = const Color(0xDD000000));
+        canvas.drawCircle(
+          handleCenter,
+          18,
+          Paint()..color = const Color(0xDD000000),
+        );
         canvas.drawCircle(
           handleCenter,
           18,
@@ -1750,7 +1801,12 @@ class _CanvasPainter extends CustomPainter {
         canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, dst.right, splitY));
         canvas.drawImageRect(
           compareSource,
-          Rect.fromLTWH(0, 0, compareSource.width.toDouble(), compareSource.height.toDouble()),
+          Rect.fromLTWH(
+            0,
+            0,
+            compareSource.width.toDouble(),
+            compareSource.height.toDouble(),
+          ),
           dst,
           Paint(),
         );
@@ -1793,16 +1849,28 @@ class _CanvasPainter extends CustomPainter {
           ..color = const Color(0x6600E5FF)
           ..strokeWidth = 6.0
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
-        canvas.drawLine(Offset(dst.left, splitY), Offset(dst.right, splitY), glowPaint);
+        canvas.drawLine(
+          Offset(dst.left, splitY),
+          Offset(dst.right, splitY),
+          glowPaint,
+        );
 
         final linePaint = Paint()
           ..color = const Color(0xFF00E5FF)
           ..strokeWidth = 2.0;
-        canvas.drawLine(Offset(dst.left, splitY), Offset(dst.right, splitY), linePaint);
+        canvas.drawLine(
+          Offset(dst.left, splitY),
+          Offset(dst.right, splitY),
+          linePaint,
+        );
 
         // 4. Circular thumb handle at center
         final handleCenter = Offset(dst.left + dst.width * 0.5, splitY);
-        canvas.drawCircle(handleCenter, 18, Paint()..color = const Color(0xDD000000));
+        canvas.drawCircle(
+          handleCenter,
+          18,
+          Paint()..color = const Color(0xDD000000),
+        );
         canvas.drawCircle(
           handleCenter,
           18,
@@ -1835,7 +1903,12 @@ class _CanvasPainter extends CustomPainter {
     if (blend > 0) {
       canvas.drawImageRect(
         compareSource,
-        Rect.fromLTWH(0, 0, compareSource.width.toDouble(), compareSource.height.toDouble()),
+        Rect.fromLTWH(
+          0,
+          0,
+          compareSource.width.toDouble(),
+          compareSource.height.toDouble(),
+        ),
         dst,
         Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: blend),
       );
