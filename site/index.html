@@ -1678,7 +1678,7 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
   <div class="stick">
     <div class="hero-ambient"></div><div class="hero-grid-bg"></div><canvas id="fx" aria-hidden="true"></canvas>
     <div class="orb" aria-hidden="true"><span style="--a:0deg"><b>Rust engine</b></span><span style="--a:90deg"><b>RAW</b></span><span style="--a:180deg"><b>C2PA</b></span><span style="--a:270deg"><b>Look QR</b></span></div>
-    <div class="iris" aria-hidden="true"><img id="photo" src="assets/stock/iris.webp" alt="Hero photo preview" style="width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity .6s ease;"><div id="photoFallback" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;overflow:hidden;"></div></div>
+    <div class="iris" aria-hidden="true"><img id="photo" src="assets/stock/iris.webp" alt="Hero photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"><svg viewBox="-200 -200 400 400"><defs><linearGradient id="bl" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#1b2438"/><stop offset="1" stop-color="#0b0f1a"/></linearGradient></defs><g id="blades"></g><circle r="196" fill="none" stroke="#00E5FF" stroke-width="2" opacity=".45"/></svg></div>
     <div class="hcopy hero-content" id="hcopy">
       <div class="hero-badge-wrap">
       <span class="hud-tag">TRUE FOSS CREATIVE SUITE</span>
@@ -1756,15 +1756,13 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
         aria-label="Before and after comparison" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"
         aria-valuetext="50% graded image">
         <!-- Underneath: Raw capture layer -->
-        <div class="compare-layer compare-raw" style="--bg-img: url('assets/stock/compare.webp');">
-          <img class="compare-img" id="compareRawImg" src="assets/stock/compare.webp" alt="Original flat RAW capture" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
-          <div id="compareRawFallback" style="position:absolute;inset:0;background:radial-gradient(circle at 35% 45%, #4B5565 0%, #242B36 55%, #12151D 100%);filter:saturate(0.65) contrast(0.9) brightness(0.92);display:flex;align-items:center;justify-content:center;"></div>
+        <div class="compare-layer compare-raw">
+          <img src="assets/stock/compare.webp" alt="Original RAW capture" style="width:100%;height:100%;object-fit:cover;opacity:0.65;transform:scale(1.2);">
         </div>
         
         <!-- On top: Graded layer with dynamic clip-path -->
-        <div class="compare-layer compare-graded" style="--bg-img: url('assets/stock/compare.webp');">
-          <img class="compare-img" id="compareGradedImg" src="assets/stock/compare.webp" alt="ApertureX film grade" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
-          <div id="compareGradedFallback" style="position:absolute;inset:0;background:radial-gradient(circle at 65% 35%, #FFB300 0%, #FF2A55 35%, #00E5FF 70%, #081120 100%);filter:contrast(1.18) saturate(1.3) brightness(1.05);display:flex;align-items:center;justify-content:center;"></div>
+        <div class="compare-layer compare-graded">
+          <img src="assets/stock/compare.webp" alt="Graded image" style="width:100%;height:100%;object-fit:cover;opacity:0.95;transform:scale(1.2);">
         </div>
         
         <!-- Badges -->
@@ -1999,11 +1997,8 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
               
               <!-- 1. Lightroom View -->
               <div id="mockLightroomView" style="display:flex; flex-direction:column; height:100%;">
-                <div class="mock-canvas" id="mockCanvas" style="--editor-img: url('assets/stock/editor.webp');">
-                  <img id="mockCanvasImg" src="assets/stock/editor.webp" alt="Editor canvas preview" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
-                  <div id="mockCanvasFallback" class="mock-canvas-art" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);">
-                    <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></svg>
-                  </div>
+                <div class="mock-canvas" id="mockCanvas">
+                  <img src="assets/stock/editor.webp" alt="Editor canvas preview" style="width:100%;height:100%;object-fit:cover;">
                 </div>
                 
                 <div class="mock-hud-tray">
@@ -2052,12 +2047,10 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
               
               <!-- 2. Snapseed Mode View -->
               <div id="mockSnapseedView" class="mock-snapseed" style="display:none;">
-                <div class="mock-canvas" id="mockSnapseedCanvas" style="--mask-img: url('assets/stock/mask.webp'); background:#0B0E15; cursor: crosshair;">
-                  <img id="snapseedMaskImg" src="assets/stock/mask.webp" alt="Ruby mask overlay" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
-                  <div id="snapseedMaskFallback" style="position:absolute;inset:0;">
-                    <div class="mock-ruby-mask" id="mockRubyMask"></div>
-                    <div class="mock-brush-cursor" id="mockBrushCursor"></div>
-                  </div>
+                <div class="mock-canvas" id="mockSnapseedCanvas" style="cursor: crosshair;">
+                  <img src="assets/stock/mask.webp" alt="Snapseed mask overlay" style="width:100%;height:100%;object-fit:cover;">
+                  <div class="mock-ruby-mask" id="mockRubyMask"></div>
+                  <div class="mock-brush-cursor" id="mockBrushCursor"></div>
                 </div>
                 <div class="mock-gesture-hud" id="mockGestureHud" role="group" aria-label="Gesture mask tool">
                   <button type="button" class="active" aria-pressed="true" onclick="setSnapseedTool(this)">BRUSH</button>
@@ -2076,33 +2069,7 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
                     <span style="font-size:0.5rem; background:rgba(0,229,255,0.25); color:var(--cyan);">APERTUREX</span>
                   </div>
                   <div class="mock-qr-code-graphic">
-                    <img id="lookqrImg" src="assets/stock/lookqr.webp" alt="Look QR code" style="width:100px;height:100px;border-radius:8px;padding:6px;object-fit:cover;opacity:0;transition:opacity .5s ease;box-shadow:0 4px 16px rgba(0,0,0,0.5);background:#FFF;">
-                    <div id="lookqrFallback" style="width:100px;height:100px;background:#FFF;border-radius:8px;padding:6px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,0.5);">
-                      <svg viewBox="0 0 100 100" width="88" height="88">
-                        <!-- Position markers -->
-                        <rect x="5" y="5" width="28" height="28" fill="#000"/>
-                        <rect x="9" y="9" width="20" height="20" fill="#FFF"/>
-                        <rect x="13" y="13" width="12" height="12" fill="#000"/>
-                        <rect x="67" y="5" width="28" height="28" fill="#000"/>
-                        <rect x="71" y="9" width="20" height="20" fill="#FFF"/>
-                        <rect x="75" y="13" width="12" height="12" fill="#000"/>
-                        <rect x="5" y="67" width="28" height="28" fill="#000"/>
-                        <rect x="9" y="71" width="20" height="20" fill="#FFF"/>
-                        <rect x="13" y="75" width="12" height="12" fill="#000"/>
-                        <!-- Data dots -->
-                        <rect x="38" y="10" width="8" height="8" fill="#000"/>
-                        <rect x="50" y="15" width="8" height="8" fill="#000"/>
-                        <rect x="38" y="25" width="6" height="6" fill="#000"/>
-                        <rect x="48" y="38" width="14" height="14" fill="#000"/>
-                        <rect x="68" y="40" width="8" height="8" fill="#000"/>
-                        <rect x="15" y="42" width="10" height="10" fill="#000"/>
-                        <rect x="38" y="55" width="8" height="8" fill="#000"/>
-                        <rect x="52" y="65" width="10" height="10" fill="#000"/>
-                        <rect x="68" y="65" width="8" height="8" fill="#000"/>
-                        <rect x="40" y="80" width="12" height="12" fill="#000"/>
-                        <rect x="70" y="80" width="8" height="8" fill="#000"/>
-                      </svg>
-                    </div>
+                    <img src="assets/stock/lookqr.webp" alt="Look QR code" style="width:100px;height:100px;border-radius:8px;padding:6px;object-fit:cover;box-shadow:0 4px 16px rgba(0,0,0,0.5);background:#FFF;">
                   </div>
                   <div class="mock-qr-meta">
                     <strong>Look QR Creator Card</strong>
@@ -2113,11 +2080,9 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
               </div>
 
               <!-- 4. Export & C2PA Mode View -->
-              <div id="mockExportView" class="mock-export-box" style="--export-img: url('assets/stock/export.webp'); display:none;">
-                <img id="mockExportRingImg" src="assets/stock/export.webp" alt="Export processing" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
-                <div id="mockExportRingFallback" style="position:absolute;inset:0;background:#090C12;display:flex;align-items:center;justify-content:center;padding:20px;">
-                  <div class="mock-ring" id="mockExportRing"><b id="mockExportVal">74%</b></div>
-                </div>
+              <div id="mockExportView" class="mock-export-box" style="display:none;">
+                <img src="assets/stock/export.webp" alt="Export processing" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
+                <div class="mock-ring" id="mockExportRing"><b id="mockExportVal">74%</b></div>
                 <span id="mockExportLabel" style="font-family:var(--display); font-size:0.75rem; color:var(--text-muted); letter-spacing:0.06em; text-transform:uppercase;">Banded Streaming</span>
                 <button type="button" class="btn btn-ghost" style="padding:6px 16px; font-size:0.75rem; border-radius:100px; cursor:pointer;" onclick="triggerSimulatedExport()">Simulate Stream</button>
                 <div style="width:100%; padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.05); font-size:0.7rem; display:flex; justify-content:space-between;">
@@ -2138,34 +2103,28 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
                   <span class="mock-gallery-badge">BATCH SELECT</span>
                 </div>
                 <div class="mock-gallery-grid">
-                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #FFB300, #FF2A55); --gallery-img: url('assets/stock/gallery-1.webp');">
-                    <img class="gallery-img" src="assets/stock/gallery-1.webp" alt="Gallery photo 1" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
-                    <div class="gallery-fallback" style="position:absolute;inset:0;background:radial-gradient(circle, #FFB300, #FF2A55);"></div>
+                  <div class="mock-photo-tile" style="--tile-img: url('assets/stock/gallery-1.webp');">
+                    <img src="assets/stock/gallery-1.webp" alt="Gallery tile 1" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
                     <span class="mock-photo-tag">RAW</span>
                   </div>
-                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #00E5FF, #006699); --gallery-img: url('assets/stock/gallery-2.webp');">
-                    <img class="gallery-img" src="assets/stock/gallery-2.webp" alt="Gallery photo 2" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
-                    <div class="gallery-fallback" style="position:absolute;inset:0;background:radial-gradient(circle, #00E5FF, #006699);"></div>
+                  <div class="mock-photo-tile" style="--tile-img: url('assets/stock/gallery-2.webp');">
+                    <img src="assets/stock/gallery-2.webp" alt="Gallery tile 2" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
                     <span class="mock-photo-tag">HDR</span>
                   </div>
-                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #70F3FF, #152238); --gallery-img: url('assets/stock/gallery-3.webp');">
-                    <img class="gallery-img" src="assets/stock/gallery-3.webp" alt="Gallery photo 3" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
-                    <div class="gallery-fallback" style="position:absolute;inset:0;background:radial-gradient(circle, #70F3FF, #152238);"></div>
+                  <div class="mock-photo-tile" style="--tile-img: url('assets/stock/gallery-3.webp');">
+                    <img src="assets/stock/gallery-3.webp" alt="Gallery tile 3" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
                     <span class="mock-photo-tag">RAW</span>
                   </div>
-                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #FF5C7E, #3A0C16); --gallery-img: url('assets/stock/gallery-4.webp');">
-                    <img class="gallery-img" src="assets/stock/gallery-4.webp" alt="Gallery photo 4" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
-                    <div class="gallery-fallback" style="position:absolute;inset:0;background:radial-gradient(circle, #FF5C7E, #3A0C16);"></div>
+                  <div class="mock-photo-tile" style="--tile-img: url('assets/stock/gallery-4.webp');">
+                    <img src="assets/stock/gallery-4.webp" alt="Gallery tile 4" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
                     <span class="mock-photo-tag">EDIT</span>
                   </div>
-                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #FFD54F, #5D3A00); --gallery-img: url('assets/stock/gallery-5.webp');">
-                    <img class="gallery-img" src="assets/stock/gallery-5.webp" alt="Gallery photo 5" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
-                    <div class="gallery-fallback" style="position:absolute;inset:0;background:radial-gradient(circle, #FFD54F, #5D3A00);"></div>
+                  <div class="mock-photo-tile" style="--tile-img: url('assets/stock/gallery-5.webp');">
+                    <img src="assets/stock/gallery-5.webp" alt="Gallery tile 5" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
                     <span class="mock-photo-tag">RAW</span>
                   </div>
-                  <div class="mock-photo-tile" style="background: radial-gradient(circle, #10B981, #083320); --gallery-img: url('assets/stock/gallery-6.webp');">
-                    <img class="gallery-img" src="assets/stock/gallery-6.webp" alt="Gallery photo 6" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;">
-                    <div class="gallery-fallback" style="position:absolute;inset:0;background:radial-gradient(circle, #10B981, #083320);"></div>
+                  <div class="mock-photo-tile" style="--tile-img: url('assets/stock/gallery-6.webp');">
+                    <img src="assets/stock/gallery-6.webp" alt="Gallery tile 6" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;">
                     <span class="mock-photo-tag">C2PA</span>
                   </div>
                 </div>
@@ -3270,30 +3229,7 @@ b.addEventListener('pointerleave',()=>b.style.translate='')});
 const cvp=$('#compareViewport');
 if(cvp&&typeof setComparePercent==='function'){let done=0;new IntersectionObserver((es,ob)=>{if(!es[0].isIntersecting||done)return;done=1;ob.disconnect();const s=performance.now();
 (function f(n){const q=Math.min(1,(n-s)/2200);setComparePercent(50+Math.sin(q*Math.PI*2)*38*(1-q*.6));if(q<1)requestAnimationFrame(f);else setComparePercent(50)})(s)},{threshold:.6}).observe(cvp)}
-// Stock image loading: swap SVG fallbacks for real assets when they load
-const stockImgs = [
-  ['#photo', '#photoFallback', 'assets/stock/iris.webp'],
-  ['#compareRawImg', '#compareRawFallback', 'assets/stock/compare.webp'],
-  ['#compareGradedImg', '#compareGradedFallback', 'assets/stock/compare.webp'],
-  ['#mockCanvasImg', '#mockCanvasFallback', 'assets/stock/editor.webp'],
-  ['#snapseedMaskImg', '#snapseedMaskFallback', 'assets/stock/mask.webp'],
-  ['#lookqrImg', '#lookqrFallback', 'assets/stock/lookqr.webp'],
-  ['#mockExportRingImg', '#mockExportRingFallback', 'assets/stock/export.webp']
-];
-$$('.gallery-img').forEach((img, idx) => {
-  const tile = img.closest('.mock-photo-tile');
-  const fb = tile?.querySelector('.gallery-fallback');
-  stockImgs.push([img, fb, tile?.style.getPropertyValue('--gallery-img')?.trim() || `assets/stock/gallery-${idx + 1}.webp`]);
-});
-stockImgs.forEach(([sel, fbSel, src]) => {
-  const img = typeof sel === 'string' ? $(sel) : sel;
-  const fb = typeof fbSel === 'string' ? $(fbSel) : fbSel;
-  if (!img || !src) return;
-  img.onload = () => { img.style.opacity = '1'; if (fb) fb.style.display = 'none'; };
-  img.onerror = () => { img.style.opacity = '0'; if (fb) fb.style.display = 'flex'; };
-  if (img.complete && img.naturalWidth) { img.onload(); }
-  else if (!img.src) { img.src = src; }
-});
+})();
 </script>
 </body>
 </html>
