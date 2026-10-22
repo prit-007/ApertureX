@@ -786,16 +786,21 @@ class _AlbumTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.smAll,
+      splashColor: scheme.primary.withValues(alpha: 0.12),
+      highlightColor: scheme.primary.withValues(alpha: 0.06),
+      mouseCursor: MaterialStateMouseCursor.clickable,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const Icon(Icons.arrow_drop_down),
+            const SizedBox(width: Insets.xs),
+            Icon(Icons.arrow_drop_down, size: 20),
           ],
         ),
       ),
