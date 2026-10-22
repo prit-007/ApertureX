@@ -138,9 +138,10 @@ class GalleryController extends Notifier<GalleryState> {
   Future<void> selectAlbum(String? albumId) async {
     if (state.selectedAlbumId == albumId) return;
     axLog(LogDomain.gallery, 'Opened album ${albumId ?? 'Recent'}');
+    // Keep showing existing assets while loading the new album's photos,
+    // so the gallery never appears empty during the transition.
     state = state.copyWith(
       selectedAlbumId: albumId,
-      assets: const [],
       selected: const {},
       selectionMode: false,
       loading: true,

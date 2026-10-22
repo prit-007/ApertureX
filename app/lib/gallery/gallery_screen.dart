@@ -649,10 +649,13 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     if (state.assets.isEmpty) {
       return EmptyState(
         icon: Icons.photo_library_outlined,
-        title: 'No photos here',
-        message:
-            'Photos on your device will appear here. '
-            'Or try the editor with a sample image.',
+        title: state.selectedAlbumId == null
+            ? 'No photos here'
+            : 'No photos in this album',
+        message: state.selectedAlbumId == null
+            ? 'Photos on your device will appear here. '
+                'Or try the editor with a sample image.'
+            : 'This album has no photos yet.',
         action: FilledButton.tonal(
           onPressed: _openSample,
           child: const Text('Open a sample'),
