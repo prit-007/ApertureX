@@ -150,6 +150,108 @@ Builds:
       - mv $repo "$orig"
     ndk: 28.2.13676358
 
+  - versionName: 0.2.5
+    versionCode: 53
+    commit: cf95c3fa1a9f65f127ba84312d205234817e79fe
+    sudo:
+      - apt-get update
+      - apt-get install -y --no-install-recommends cmake libglu1-mesa libsecret-1-dev
+        ninja-build tcl clang make git rustup
+      - mkdir -p /__w/ApertureX /opt
+      - chown -R vagrant /__w /opt
+    output: app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+    binary: 
+      https://github.com/prit-007/ApertureX/releases/download/v%v/app-armeabi-v7a-release.apk
+    srclibs:
+      - flutter@3.44.8
+    rm:
+      - app/ios
+    prebuild:
+      - tool/ci/fdroid_flutter_setup.sh $$flutter$$
+      - export orig=$(pwd) repo=/__w/ApertureX/ApertureX; cd ..; mv com.devparadise.aperturex
+        $repo; cd $repo; export PUB_CACHE=$(pwd)/.pub-cache; export PATH=/opt/flutter/bin:$PATH;
+        tool/ci/android_prebuild.sh
+      - mv $repo "$orig"
+    scanignore:
+      - .pub-cache
+      - app/rust/vendor
+      - app/android/app/src/main/jniLibs
+    build:
+      - export orig=$(pwd) repo=/__w/ApertureX/ApertureX; cd ..; mv com.devparadise.aperturex
+        $repo; cd $repo; export PUB_CACHE=$(pwd)/.pub-cache; export PATH=/opt/flutter/bin:$PATH;
+        export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$HOME/.cargo=/github/home/.cargo"
+      - tool/ci/android_build.sh android-arm
+      - mv $repo "$orig"
+    ndk: 28.2.13676358
+
+  - versionName: 0.2.5
+    versionCode: 53
+    commit: cf95c3fa1a9f65f127ba84312d205234817e79fe
+    sudo:
+      - apt-get update
+      - apt-get install -y --no-install-recommends cmake libglu1-mesa libsecret-1-dev
+        ninja-build tcl clang make git rustup
+      - mkdir -p /__w/ApertureX /opt
+      - chown -R vagrant /__w /opt
+    output: app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+    binary: 
+      https://github.com/prit-007/ApertureX/releases/download/v%v/app-arm64-v8a-release.apk
+    srclibs:
+      - flutter@3.44.8
+    rm:
+      - app/ios
+    prebuild:
+      - tool/ci/fdroid_flutter_setup.sh $$flutter$$
+      - export orig=$(pwd) repo=/__w/ApertureX/ApertureX; cd ..; mv com.devparadise.aperturex
+        $repo; cd $repo; export PUB_CACHE=$(pwd)/.pub-cache; export PATH=/opt/flutter/bin:$PATH;
+        tool/ci/android_prebuild.sh
+      - mv $repo "$orig"
+    scanignore:
+      - .pub-cache
+      - app/rust/vendor
+      - app/android/app/src/main/jniLibs
+    build:
+      - export orig=$(pwd) repo=/__w/ApertureX/ApertureX; cd ..; mv com.devparadise.aperturex
+        $repo; cd $repo; export PUB_CACHE=$(pwd)/.pub-cache; export PATH=/opt/flutter/bin:$PATH;
+        export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$HOME/.cargo=/github/home/.cargo"
+      - tool/ci/android_build.sh android-arm64
+      - mv $repo "$orig"
+    ndk: 28.2.13676358
+
+  - versionName: 0.2.5
+    versionCode: 53
+    commit: cf95c3fa1a9f65f127ba84312d205234817e79fe
+    sudo:
+      - apt-get update
+      - apt-get install -y --no-install-recommends cmake libglu1-mesa libsecret-1-dev
+        ninja-build tcl clang make git rustup
+      - mkdir -p /__w/ApertureX /opt
+      - chown -R vagrant /__w /opt
+    output: app/build/app/outputs/flutter-apk/app-x86_64-release.apk
+    binary: 
+      https://github.com/prit-007/ApertureX/releases/download/v%v/app-x86_64-release.apk
+    srclibs:
+      - flutter@3.44.8
+    rm:
+      - app/ios
+    prebuild:
+      - tool/ci/fdroid_flutter_setup.sh $$flutter$$
+      - export orig=$(pwd) repo=/__w/ApertureX/ApertureX; cd ..; mv com.devparadise.aperturex
+        $repo; cd $repo; export PUB_CACHE=$(pwd)/.pub-cache; export PATH=/opt/flutter/bin:$PATH;
+        tool/ci/android_prebuild.sh
+      - mv $repo "$orig"
+    scanignore:
+      - .pub-cache
+      - app/rust/vendor
+      - app/android/app/src/main/jniLibs
+    build:
+      - export orig=$(pwd) repo=/__w/ApertureX/ApertureX; cd ..; mv com.devparadise.aperturex
+        $repo; cd $repo; export PUB_CACHE=$(pwd)/.pub-cache; export PATH=/opt/flutter/bin:$PATH;
+        export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$HOME/.cargo=/github/home/.cargo"
+      - tool/ci/android_build.sh android-x64
+      - mv $repo "$orig"
+    ndk: 28.2.13676358
+
 AllowedAPKSigningKeys: 745e013035b596f1190c54ee1cf798b2d59a70100d284bb8fa0ff7c5af3dcdac
 
 AutoUpdateMode: Version
@@ -159,5 +261,5 @@ VercodeOperation:
   - 10*%c+2
   - 10*%c+3
 UpdateCheckData: app/pubspec.yaml|version:\s.+\+(\d+)|.|version:\s(.+)\+
-CurrentVersion: 0.2.4
-CurrentVersionCode: 43
+CurrentVersion: 0.2.5
+CurrentVersionCode: 53

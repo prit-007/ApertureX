@@ -6,7 +6,7 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `append_panic_line`, `extract_payload`, `format_utc`, `json_escape`, `now_rfc3339`, `record`, `truncate`
+// These functions are ignored because they are not marked as `pub`: `append_panic_line`, `extract_payload`, `format_utc`, `json_escape`, `now_rfc3339`, `record_engine_error`, `record`, `truncate`
 
 /// Installs the panic hook once, pointing it at `<dir>/rust_panic.log`.
 /// Any failure to install or write is swallowed: evidence gathering must

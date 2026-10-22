@@ -4,6 +4,24 @@ All notable changes to ApertureX are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.5] - 2026-10-20
+
+HDR multi-exposure merge and Ultra HDR export engine.
+
+### Added
+- **HDR multi-exposure merge (#20)** — Merge bracketed exposures into linear HDR radiance using exposure-weighted averaging. Recover highlight detail from underexposed frames and shadow detail from overexposed frames.
+- **Ultra HDR export (#20)** — Encode merged HDR radiance as ISO 21496-1 compliant Ultra HDR JPEG with embedded gain map and C2PA-ready provenance. Banded export pipeline for 200 MP images.
+- **TIFF 16-bit export (#79)** — Uncompressed 16-bit-per-channel TIFF with full edit bake-in.
+- **Color-range masks** — HSV hue/saturation/luminance bands with softness falloff, composable through mask-group algebra.
+- **Advanced color grading** — 3-way shadow/midtone/highlight color wheels with blending and balance controls.
+- **Hero gallery→editor transition** — Shared element animation when opening a photo from the gallery.
+- **Animated shell switcher** — Smooth fade/slide transition between Lightroom and Snapseed shells.
+- **Crop grid feathering** — Rule-of-thirds grid fades in during drag, out on release.
+- **Shell switch haptics** — Tactile confirmation when switching editing shells.
+
+### Changed
+- Version bumped to 0.2.5 across all crates and packages.
+
 ## [0.2.4] - 2026-10-20
 
 AI subject detection, real embedded depth, 16-bit TIFF export, and an Android

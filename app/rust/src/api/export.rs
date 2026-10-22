@@ -18,9 +18,11 @@ use crate::api::retouch::{to_engine_patches, ApiRetouchPatch};
 use crate::export;
 use crate::export_pipeline::{self, ExportOutcome, ExportRecipe};
 use crate::geometry::{self, GeometrySpec};
+use crate::hdr_merge;
 use crate::mask::{self, LocalAdjustment};
 use crate::optics::OpticsParams;
 use crate::spatial::SpatialParams;
+use crate::ultrahdr;
 use crate::watermark::{MuseumFrameTheme, WatermarkAnchor, WatermarkSpec};
 
 /// Encodes an RGBA8 buffer as a JPEG (alpha dropped). [exif] (a full APP1
@@ -49,6 +51,69 @@ pub fn export_tiff16(
     xmp: String,
 ) -> Result<Vec<u8>, String> {
     crate::raw::export_tiff16(&rgba, width, height, &xmp)
+}
+
+/// One bracketed exposure for HDR merge (#20).
+pub struct HdrExposureSpec {
+    pub rgba: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+    /// Exposure value in stops relative to base (0.0). Negative = darker,
+    /// positive = brighter.
+    pub ev: f32,
+}
+
+/// Merges bracketed exposures into an Ultra HDR JPEG (#20).
+///
+/// Runs the full pipeline: merge exposures into linear HDR radiance,
+/// tone-map to SDR, generate ISO 21496-1 gain map, and package as Ultra HDR JPEG.
+pub fn export_hdr_merge(
+    exposures: Vec<HdrExposureSpec>,
+    quality: u8,
+    gain_quality: u8,
+    headroom_ev: f32,
+    exif: Vec<u8>,
+) -> Result<Vec<u8>, String> {
+    if exposures.is_empty() {
+        return Err("at least one exposure required".to_string());
+    }
+
+    // Convert Dart-facing specs to internal HdrExposure structs
+    let exps: Vec<hdr_merge::HdrExposure> = exposures
+        .iter()
+        .map(|e| hdr_merge::HdrExposure {
+            rgba: e.rgba.clone(),
+            width: e.width as usize,
+            height: e.height as usize,
+            ev: e.ev,
+        })
+        .collect();
+
+    // Merge into linear HDR radiance
+    let radiance = hdr_merge::merge_exposures(&exps)?;
+
+    // Tone map to SDR
+    let w = exposures[0].width as usize;
+    let h = exposures[0].height as usize;
+    let sdr = hdr_merge::tone_map_to_sdr(&radiance, w, h);
+
+    // Encode Ultra HDR JPEG with embedded gain map
+    let metadata = ultrahdr::UltraHdrMetadata {
+        gain_map_max: headroom_ev.max(0.1),
+        ..ultrahdr::UltraHdrMetadata::default()
+    };
+    let jpeg = ultrahdr::encode_ultra_hdr_jpeg(
+        &sdr,
+        w,
+        h,
+        quality,
+        gain_quality,
+        &exif,
+        &metadata,
+        Some(&radiance),
+    )?;
+
+    Ok(jpeg)
 }
 
 /// Everything [`export_full`] bakes, in one bridge struct — geometry, spatial,

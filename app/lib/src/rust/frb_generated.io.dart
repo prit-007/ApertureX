@@ -144,6 +144,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   GeometryResult dco_decode_geometry_result(dynamic raw);
 
   @protected
+  HdrExposureSpec dco_decode_hdr_exposure_spec(dynamic raw);
+
+  @protected
   Histogram dco_decode_histogram(dynamic raw);
 
   @protected
@@ -163,6 +166,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ApiRetouchPatch> dco_decode_list_api_retouch_patch(dynamic raw);
+
+  @protected
+  List<HdrExposureSpec> dco_decode_list_hdr_exposure_spec(dynamic raw);
 
   @protected
   List<MaskLayer> dco_decode_list_mask_layer(dynamic raw);
@@ -387,6 +393,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   GeometryResult sse_decode_geometry_result(SseDeserializer deserializer);
 
   @protected
+  HdrExposureSpec sse_decode_hdr_exposure_spec(SseDeserializer deserializer);
+
+  @protected
   Histogram sse_decode_histogram(SseDeserializer deserializer);
 
   @protected
@@ -406,6 +415,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ApiRetouchPatch> sse_decode_list_api_retouch_patch(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<HdrExposureSpec> sse_decode_list_hdr_exposure_spec(
     SseDeserializer deserializer,
   );
 
@@ -680,6 +694,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_hdr_exposure_spec(
+    HdrExposureSpec self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_histogram(Histogram self, SseSerializer serializer);
 
   @protected
@@ -703,6 +723,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_api_retouch_patch(
     List<ApiRetouchPatch> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_hdr_exposure_spec(
+    List<HdrExposureSpec> self,
     SseSerializer serializer,
   );
 
