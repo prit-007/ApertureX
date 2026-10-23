@@ -83,6 +83,13 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
+  windows:
+    generate: true
+    # Single 256x256 frame (nook ADR 0010 parity) — the default 48px frame
+    # is visibly soft in Explorer large-icons mode and the Inno installer.
+    icon_size: 256
+  macos:
+    generate: true
   image_path: "icons/app_icon.png"
   # Adaptive icons are only emitted when BOTH foreground and background are
   # set. Inset is 0 because the master already carries its own margin.
