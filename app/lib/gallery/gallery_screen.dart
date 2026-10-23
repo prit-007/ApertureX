@@ -792,7 +792,7 @@ class _AlbumTitle extends StatelessWidget {
       borderRadius: Radii.smAll,
       splashColor: scheme.primary.withValues(alpha: 0.12),
       highlightColor: scheme.primary.withValues(alpha: 0.06),
-      mouseCursor: MaterialStateMouseCursor.clickable,
+      mouseCursor: WidgetStateMouseCursor.clickable,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
         child: Row(
