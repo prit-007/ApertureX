@@ -33,6 +33,11 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Desktop runners regenerate this CMake state on every build (issue #102).
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+windows/flutter/ephemeral/
+
 # Symbolication related
 app.*.symbols
 
