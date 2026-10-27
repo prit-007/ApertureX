@@ -685,7 +685,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
     _debounce?.cancel();
     _debounce = Timer(
-      const Duration(milliseconds: 16),
+      const Duration(milliseconds: 40),
       () =>
           _rebake(recipe, baseChanged: baseChanged, gradeChanged: gradeChanged),
     );
@@ -919,6 +919,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     super.dispose();
   }
 
+  /// Whether the user has requested reduced motion (accessibility setting).
+  bool get _reduceMotion =>
+      ui.PlatformDispatcher.instance.accessibilityFeatures.reduceMotion;
+
   @override
   Widget build(BuildContext context) {
     ref.listen(recipeControllerProvider, (previous, next) {
@@ -946,10 +950,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     // held, back to the graded image on release.
     ref.listen(maskPeekProvider, (previous, next) {
       if (previous == next) return;
-      if (next) {
-        _maskPeek.forward();
+      if (_reduceMotion) {
+        _maskPeek.value = next ? 1.0 : 0.0;
       } else {
-        _maskPeek.reverse();
+        if (next) {
+          _maskPeek.forward();
+        } else {
+          _maskPeek.reverse();
+        }
       }
       // The crossfade only renders on the shader path — switch delivery for
       // the gesture and back (#54).
@@ -959,11 +967,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     // button both drive the same flag (issue #28).
     ref.listen(compareHoldProvider, (previous, next) {
       if (previous == next) return;
-      setState(() => _comparing = next);
-      if (next) {
-        _compare.forward();
+      if (_reduceMotion) {
+        _compare.value = next ? 1.0 : 0.0;
       } else {
-        _compare.reverse();
+        setState(() => _comparing = next);
+        if (next) {
+          _compare.forward();
+        } else {
+          _compare.reverse();
+        }
       }
       _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
     });
@@ -1089,7 +1101,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 final zoneMask = ref.watch(zoneMaskProvider);
                 final exposureAssist = ref.watch(exposureAssistProvider);
                 if (exposureAssist.mode == ExposureAssistMode.zebras) {
-                  if (!_zebraTicker.isAnimating) {
+                  if (!_reduceMotion && !_zebraTicker.isAnimating) {
                     _zebraTicker.repeat();
                   }
                 } else {

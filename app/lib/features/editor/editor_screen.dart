@@ -368,7 +368,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       );
     } catch (e) {
       axLog(LogDomain.export, 'Save to ApertureX failed: $e', level: LogLevel.error);
-      messenger.showSnackBar(SnackBar(content: Text('Save failed: $e')));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Save failed: $e'),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () => _saveToApertureX(),
+          ),
+        ),
+      );
     } finally {
       poller?.stop();
       if (token != 0) {
@@ -565,7 +573,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       );
     } catch (e) {
       axLog(LogDomain.export, 'Export failed: $e', level: LogLevel.error);
-      messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Export failed: $e'),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () => _exportToPhotos(),
+          ),
+        ),
+      );
     } finally {
       poller?.stop();
       if (token != 0) {
@@ -643,7 +659,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       );
     } catch (e) {
       axLog(LogDomain.export, 'DNG export failed: $e', level: LogLevel.error);
-      messenger.showSnackBar(SnackBar(content: Text('DNG export failed: $e')));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('DNG export failed: $e'),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () => _exportDngToPhotos(),
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -659,24 +683,24 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final previewBytes = _bytes;
     if (previewBytes == null) return;
     final messenger = ScaffoldMessenger.of(context);
-      setState(() {
-        _exporting = true;
-        _exportPhase = ExportPhase.loading;
-        _exportRenderFraction = 0;
-      });
-      var token = 0;
-      ExportProgressPoller? poller;
-      try {
-        final currentAsset = _currentAsset ?? widget.asset;
-        final bytes = currentAsset != null
-            ? await ref.read(gallerySourceProvider).loadImage(currentAsset.id)
-            : previewBytes;
+    setState(() {
+      _exporting = true;
+      _exportPhase = ExportPhase.loading;
+      _exportRenderFraction = 0;
+    });
+    var token = 0;
+    ExportProgressPoller? poller;
+    try {
+      final currentAsset = _currentAsset ?? widget.asset;
+      final bytes = currentAsset != null
+          ? await ref.read(gallerySourceProvider).loadImage(currentAsset.id)
+          : previewBytes;
 
-        if (bytes.isEmpty) throw StateError('The image could not be read.');
+      if (bytes.isEmpty) throw StateError('The image could not be read.');
 
-        final recipe = ref.read(recipeControllerProvider).recipe;
-        final exif = bytes;
-        final settings = ref.read(exportSettingsProvider);
+      final recipe = ref.read(recipeControllerProvider).recipe;
+      final exif = bytes;
+      final settings = ref.read(exportSettingsProvider);
 
       if (!mounted) return;
       token = await AxEngine.exportCancelNew();
@@ -855,7 +879,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       await _share(jpeg, recipe);
     } catch (e) {
       axLog(LogDomain.export, 'Export and share failed: $e', level: LogLevel.error);
-      messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Export failed: $e'),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () => _exportAndShare(),
+          ),
+        ),
+      );
     } finally {
       poller?.stop();
       if (token != 0) {
@@ -873,26 +905,29 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
   }
 
-  void _cancelExport() {
+  void _cancelExport() async {
     final token = _exportCancelToken;
     if (token == null) return;
     axLog(LogDomain.export, 'Cancel requested');
-    AxEngine.exportCancelSet(token);
+    await AxEngine.exportCancelSet(token);
   }
 
   Future<void> _share(Uint8List jpeg, EditRecipe recipe) async {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _sharing = true);
+    final tempFiles = <File>[];
     try {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/aperturex-share.jpg');
       await file.writeAsBytes(jpeg, flush: true);
+      tempFiles.add(file);
       // The .xmp rides along so the user can drop it next to the photo in
       // Lightroom/darktable (#77 — edits must be able to leave the app).
       final xmp = File(
         '${dir.path}/${XmpSidecar.fileNameFor('aperturex-share.jpg')}',
       );
       await xmp.writeAsString(writeXmp(recipe), flush: true);
+      tempFiles.add(xmp);
       if (!mounted) return;
       setState(() => _sharing = false);
       await SharePlus.instance.share(
@@ -906,16 +941,25 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     } catch (e) {
       if (mounted) setState(() => _sharing = false);
       messenger.showSnackBar(SnackBar(content: Text('Share failed: $e')));
+    } finally {
+      // Clean up temp files after sharing (#SEC-01).
+      for (final f in tempFiles) {
+        if (await f.exists()) {
+          await f.delete();
+        }
+      }
     }
   }
 
   Future<void> _shareDng(Uint8List dngBytes) async {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _sharing = true);
+    final tempFiles = <File>[];
     try {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/aperturex-share.dng');
       await file.writeAsBytes(dngBytes, flush: true);
+      tempFiles.add(file);
       if (!mounted) return;
       setState(() => _sharing = false);
       await SharePlus.instance.share(
@@ -928,6 +972,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     } catch (e) {
       if (mounted) setState(() => _sharing = false);
       messenger.showSnackBar(SnackBar(content: Text('Share failed: $e')));
+    } finally {
+      // Clean up temp files after sharing (#SEC-01).
+      for (final f in tempFiles) {
+        if (await f.exists()) {
+          await f.delete();
+        }
+      }
     }
   }
 
@@ -991,9 +1042,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               ? _cancelExport
               : _export,
       icon: _exporting
-          ? const Icon(Icons.cancel_outlined, size: 18)
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
           : const Icon(Icons.ios_share, size: 18),
-      label: Text(_exporting ? 'Cancel' : 'Export'),
+      label: Text(_exporting ? 'Exporting…' : 'Export'),
     );
 
     return EditorShortcuts(
