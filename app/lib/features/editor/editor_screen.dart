@@ -258,10 +258,37 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     );
   }
 
-  Future<void> _saveToApertureX() async {
+  /// Shared JPEG export pipeline: load → decode → token+poller → exportJpegFull
+  /// → onSaveResult → cleanup. Handles state management and cancellation
+  /// consistently across all export entry points (#PERF-02).
+  ///
+  /// [exportJpeg] builds the Rust export call with method-specific params and
+  /// returns the exported JPEG bytes (or null if cancelled).
+  /// [onSaveResult] receives the exported JPEG plus decoded metadata and
+  /// performs the method-specific save (gallery / preview store / share).
+  /// [onCancelled] is called when the export is cancelled.
+  /// [onError] is called on failure and should show a snackbar.
+  Future<void> _runJpegExportPipeline({
+    required Future<Uint8List?> Function(
+      RgbaImage decoded,
+      Uint8List exif,
+      int token,
+      Uint8List bytes,
+      EditRecipe recipe,
+    ) exportJpeg,
+    required Future<void> Function(
+      Uint8List jpeg,
+      EditRecipe recipe,
+      Uint8List exif,
+      Uint8List rgba,
+      int width,
+      int height,
+    ) onSaveResult,
+    required VoidCallback onCancelled,
+    required void Function(Object e) onError,
+  }) async {
     final previewBytes = _bytes;
     if (previewBytes == null) return;
-    final messenger = ScaffoldMessenger.of(context);
     setState(() {
       _exporting = true;
       _exportPhase = ExportPhase.loading;
@@ -302,81 +329,22 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         },
       )..start();
 
-      // Explicit save: proxy render with maxDim 1600, quality 85 (#85)
-      final jpeg = await AxEngine.exportJpegFull(
-        rgba: decoded.rgba,
-        width: decoded.width,
-        height: decoded.height,
-        spec: GradeSpec.fromRecipe(recipe),
-        spatial: SpatialSpec.fromRecipe(recipe),
-        geometry: GeometrySpec.fromRecipe(recipe),
-        optics: OpticsSpec.fromRecipe(recipe),
-        blur: LensBlurSpec.fromRecipe(recipe),
-        layers: recipe.layers,
-        maskGroups: recipe.maskGroups,
-        exif: exif,
-        quality: 85,
-        maxDim: 1600,
-        cancelToken: token,
-      );
+      final jpeg = await exportJpeg(decoded, exif, token, bytes, recipe);
       if (jpeg == null) {
-        axLog(LogDomain.export, 'Save to ApertureX cancelled');
-        if (mounted) {
-          messenger.showSnackBar(const SnackBar(content: Text('Save cancelled')));
-        }
+        onCancelled();
         return;
       }
-      if (!mounted) return;
-      setState(() => _exportPhase = ExportPhase.saving);
 
-      final entryId = _currentEntryId ?? widget._entryId ?? 'sample';
-      final hash = computeRecipeHash(recipe);
-      final aspect = decoded.width / decoded.height;
-      int outW = decoded.width;
-      int outH = decoded.height;
-      if (outW > 1600 || outH > 1600) {
-        if (aspect >= 1.0) {
-          outW = 1600;
-          outH = (1600 / aspect).round();
-        } else {
-          outH = 1600;
-          outW = (1600 * aspect).round();
-        }
-      }
-
-      final store = ref.read(editPreviewStoreProvider);
-      await store.savePreview(
-        entryId: entryId,
-        jpegBytes: jpeg,
-        width: outW,
-        height: outH,
-        recipeHash: hash,
-      );
-
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Saved to Edits'),
-          action: SnackBarAction(
-            label: 'View',
-            onPressed: () {
-              if (Navigator.of(context).canPop()) {
-                Navigator.of(context).pop('show_edits');
-              }
-            },
-          ),
-        ),
+      await onSaveResult(
+        jpeg,
+        recipe,
+        exif,
+        decoded.rgba,
+        decoded.width,
+        decoded.height,
       );
     } catch (e) {
-      axLog(LogDomain.export, 'Save to ApertureX failed: $e', level: LogLevel.error);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Save failed: $e'),
-          action: SnackBarAction(
-            label: 'Retry',
-            onPressed: () => _saveToApertureX(),
-          ),
-        ),
-      );
+      onError(e);
     } finally {
       poller?.stop();
       if (token != 0) {
@@ -392,6 +360,94 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         });
       }
     }
+  }
+
+  Future<void> _saveToApertureX() async {
+    await _runJpegExportPipeline(
+      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+        // Explicit save: proxy render with maxDim 1600, quality 85 (#85)
+        return await AxEngine.exportJpegFull(
+          rgba: decoded.rgba,
+          width: decoded.width,
+          height: decoded.height,
+          spec: GradeSpec.fromRecipe(recipe),
+          spatial: SpatialSpec.fromRecipe(recipe),
+          geometry: GeometrySpec.fromRecipe(recipe),
+          optics: OpticsSpec.fromRecipe(recipe),
+          blur: LensBlurSpec.fromRecipe(recipe),
+          layers: recipe.layers,
+          maskGroups: recipe.maskGroups,
+          exif: exif,
+          quality: 85,
+          maxDim: 1600,
+          cancelToken: token,
+        );
+      },
+      onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
+        if (!mounted) return;
+        setState(() => _exportPhase = ExportPhase.saving);
+
+        final entryId = _currentEntryId ?? widget._entryId ?? 'sample';
+        final hash = computeRecipeHash(recipe);
+        final aspect = width / height;
+        int outW = width;
+        int outH = height;
+        if (outW > 1600 || outH > 1600) {
+          if (aspect >= 1.0) {
+            outW = 1600;
+            outH = (1600 / aspect).round();
+          } else {
+            outH = 1600;
+            outW = (1600 * aspect).round();
+          }
+        }
+
+        final store = ref.read(editPreviewStoreProvider);
+        await store.savePreview(
+          entryId: entryId,
+          jpegBytes: jpeg,
+          width: outW,
+          height: outH,
+          recipeHash: hash,
+        );
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Saved to Edits'),
+            action: SnackBarAction(
+              label: 'View',
+              onPressed: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop('show_edits');
+                }
+              },
+            ),
+          ),
+        );
+      },
+      onCancelled: () {
+        axLog(LogDomain.export, 'Save to ApertureX cancelled');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Save cancelled')),
+          );
+        }
+      },
+      onError: (e) {
+        axLog(LogDomain.export, 'Save to ApertureX failed: $e',
+            level: LogLevel.error);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Save failed: $e'),
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: () => _saveToApertureX(),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<({rust_export.ExportBrandingSpec branding, rust_export.C2paExportSpec? c2pa})>
@@ -458,145 +514,88 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   Future<void> _exportToPhotos() async {
-    final previewBytes = _bytes;
-    if (previewBytes == null) return;
-    final messenger = ScaffoldMessenger.of(context);
-    setState(() {
-      _exporting = true;
-      _exportPhase = ExportPhase.loading;
-      _exportRenderFraction = 0;
-    });
-    var token = 0;
-    ExportProgressPoller? poller;
-    try {
-      // Export at full resolution: fetch the original only now (never during
-      // preview), so the editor's memory stays at preview size until export.
-      final currentAsset = _currentAsset ?? widget.asset;
-      final bytes = currentAsset != null
-          ? await ref.read(gallerySourceProvider).loadImage(currentAsset.id)
-          : previewBytes;
-
-      if (bytes.isEmpty) throw StateError('The image could not be read.');
-
-      final recipe = ref.read(recipeControllerProvider).recipe;
-      final settings = ref.read(exportSettingsProvider);
-      // RAW/DNG export goes through the Rust RAW path; Exif extraction is
-      // JPEG-specific and yields nothing for raw containers (follow-up).
-      final isRaw = isRawImage(bytes);
-      if (!mounted) return;
-      setState(() => _exportPhase = ExportPhase.decoding);
-      final decoded = isRaw
-          ? await AxEngine.decodeRawRgba(bytes)
-          : await AxEngine.decodeJpegRgba(bytes);
-      final exif = await AxEngine.extractExif(bytes);
-
-      // Build custom branding (Museum Frame, Signature, FOSS Badge) and C2PA provenance
-      final exportCustoms = await _buildExportBrandingAndC2pa(
-        bytes: bytes,
-        recipe: recipe,
-        exif: exif,
-      );
-
-      // One-call export inside Rust (geometry → banded spatial → masks → grade
-      // → encode), cancellable via a token so a big render can be aborted.
-      token = await AxEngine.exportCancelNew();
-      if (!mounted) return;
-      setState(() {
-        _exportCancelToken = token;
-        _exportPhase = ExportPhase.rendering;
-        _exportPollerActive = true;
-      });
-      // Poll the Rust progress cell (permille, updated between bands) so the
-      // bar tracks the real render, not a guess.
-      poller = ExportProgressPoller(
-        token: token,
-        read: AxEngine.exportProgressFraction,
-        onValue: (fraction) {
-          if (!mounted) return;
-          setState(() => _exportRenderFraction = fraction);
-        },
-      )..start();
-
-      final jpeg = await AxEngine.exportJpegFull(
-        rgba: decoded.rgba,
-        width: decoded.width,
-        height: decoded.height,
-        spec: GradeSpec.fromRecipe(recipe),
-        spatial: SpatialSpec.fromRecipe(recipe),
-        geometry: GeometrySpec.fromRecipe(recipe),
-        optics: OpticsSpec.fromRecipe(recipe),
-        blur: LensBlurSpec.fromRecipe(recipe),
-        layers: recipe.layers,
-        maskGroups: recipe.maskGroups,
-        exif: exif,
-        branding: exportCustoms.branding,
-        c2pa: exportCustoms.c2pa,
-        quality: settings.quality,
-        maxDim: settings.maxDim == 0 ? null : settings.maxDim,
-        cancelToken: token,
-        colorSpace: settings.colorSpace,
-        ultraHdr: settings.ultraHdr,
-        hdrHeadroom: settings.hdrHeadroom,
-      );
-      if (jpeg == null) {
+    await _runJpegExportPipeline(
+      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+        final settings = ref.read(exportSettingsProvider);
+        // Build custom branding (Museum Frame, Signature, FOSS Badge) and C2PA provenance
+        final exportCustoms = await _buildExportBrandingAndC2pa(
+          bytes: bytes,
+          recipe: recipe,
+          exif: exif,
+        );
+        return await AxEngine.exportJpegFull(
+          rgba: decoded.rgba,
+          width: decoded.width,
+          height: decoded.height,
+          spec: GradeSpec.fromRecipe(recipe),
+          spatial: SpatialSpec.fromRecipe(recipe),
+          geometry: GeometrySpec.fromRecipe(recipe),
+          optics: OpticsSpec.fromRecipe(recipe),
+          blur: LensBlurSpec.fromRecipe(recipe),
+          layers: recipe.layers,
+          maskGroups: recipe.maskGroups,
+          exif: exif,
+          branding: exportCustoms.branding,
+          c2pa: exportCustoms.c2pa,
+          quality: settings.quality,
+          maxDim: settings.maxDim == 0 ? null : settings.maxDim,
+          cancelToken: token,
+          colorSpace: settings.colorSpace,
+          ultraHdr: settings.ultraHdr,
+          hdrHeadroom: settings.hdrHeadroom,
+        );
+      },
+      onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
+        if (!mounted) return;
+        setState(() => _exportPhase = ExportPhase.saving);
+        if (!await Gal.hasAccess()) await Gal.requestAccess();
+        final outName = 'aperturex_${DateTime.now().millisecondsSinceEpoch}';
+        await Gal.putImageBytes(jpeg, name: outName);
+        // Sidecar next to the export (#77): the same recipe as a Lightroom-
+        // readable .xmp, best effort (a failure logs, never fails the export).
+        await emitXmpSidecar(
+          ref.read(exportSidecarSinkProvider),
+          outName,
+          recipe,
+        );
+        final settings = ref.read(exportSettingsProvider);
+        axLog(
+          LogDomain.export,
+          'Exported $width×$height '
+              '(q${settings.quality}, ${jpeg.length} bytes)',
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Saved to your photos'),
+            action: SnackBarAction(
+              label: 'Share',
+              onPressed: () => _share(jpeg, recipe),
+            ),
+          ),
+        );
+      },
+      onCancelled: () {
         axLog(LogDomain.export, 'Export cancelled');
         if (mounted) {
-          messenger.showSnackBar(const SnackBar(content: Text('Export cancelled')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Export cancelled')),
+          );
         }
-        return;
-      }
-      if (!mounted) return;
-      setState(() => _exportPhase = ExportPhase.saving);
-      if (!await Gal.hasAccess()) await Gal.requestAccess();
-      final outName = 'aperturex_${DateTime.now().millisecondsSinceEpoch}';
-      await Gal.putImageBytes(jpeg, name: outName);
-      // Sidecar next to the export (#77): the same recipe as a Lightroom-
-      // readable .xmp, best effort (a failure logs, never fails the export).
-      await emitXmpSidecar(
-        ref.read(exportSidecarSinkProvider),
-        outName,
-        recipe,
-      );
-      axLog(
-        LogDomain.export,
-        'Exported ${decoded.width}×${decoded.height} '
-            '(q${settings.quality}, ${jpeg.length} bytes)',
-      );
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Saved to your photos'),
-          action: SnackBarAction(
-            label: 'Share',
-            onPressed: () => _share(jpeg, recipe),
+      },
+      onError: (e) {
+        axLog(LogDomain.export, 'Export failed: $e', level: LogLevel.error);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: () => _exportToPhotos(),
+            ),
           ),
-        ),
-      );
-    } catch (e) {
-      axLog(LogDomain.export, 'Export failed: $e', level: LogLevel.error);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Export failed: $e'),
-          action: SnackBarAction(
-            label: 'Retry',
-            onPressed: () => _exportToPhotos(),
-          ),
-        ),
-      );
-    } finally {
-      poller?.stop();
-      if (token != 0) {
-        await AxEngine.exportCancelDrop(token);
-      }
-      if (mounted) {
-        setState(() {
-          _exporting = false;
-          _exportCancelToken = null;
-          _exportPhase = null;
-          _exportRenderFraction = 0;
-          _exportPollerActive = false;
-        });
-      }
-    }
+        );
+      },
+    );
   }
 
   Future<void> _exportDngToPhotos() async {
@@ -680,229 +679,133 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   Future<void> _exportTiff16ToPhotos() async {
-    final previewBytes = _bytes;
-    if (previewBytes == null) return;
-    final messenger = ScaffoldMessenger.of(context);
-    setState(() {
-      _exporting = true;
-      _exportPhase = ExportPhase.loading;
-      _exportRenderFraction = 0;
-    });
-    var token = 0;
-    ExportProgressPoller? poller;
-    try {
-      final currentAsset = _currentAsset ?? widget.asset;
-      final bytes = currentAsset != null
-          ? await ref.read(gallerySourceProvider).loadImage(currentAsset.id)
-          : previewBytes;
+    await _runJpegExportPipeline(
+      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+        final settings = ref.read(exportSettingsProvider);
+        // Bake all edits into a full-res JPEG, then decode back to RGBA for TIFF16 encode.
+        // (A direct RGBA export bridge can be added later to avoid the JPEG round-trip.)
+        return await AxEngine.exportJpegFull(
+          rgba: decoded.rgba,
+          width: decoded.width,
+          height: decoded.height,
+          spec: GradeSpec.fromRecipe(recipe),
+          spatial: SpatialSpec.fromRecipe(recipe),
+          geometry: GeometrySpec.fromRecipe(recipe),
+          optics: OpticsSpec.fromRecipe(recipe),
+          blur: LensBlurSpec.fromRecipe(recipe),
+          layers: recipe.layers,
+          maskGroups: recipe.maskGroups,
+          exif: exif,
+          branding: null,
+          c2pa: null,
+          quality: settings.quality,
+          maxDim: settings.maxDim == 0 ? null : settings.maxDim,
+          cancelToken: token,
+          colorSpace: settings.colorSpace,
+          ultraHdr: false,
+          hdrHeadroom: settings.hdrHeadroom,
+        );
+      },
+      onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
+        if (!mounted) return;
+        setState(() => _exportPhase = ExportPhase.saving);
 
-      if (bytes.isEmpty) throw StateError('The image could not be read.');
+        final baked = await AxEngine.decodeJpegRgba(jpeg);
+        final xmp = writeXmp(recipe);
+        final tiff = await AxEngine.exportTiff16(
+          rgba: baked.rgba,
+          width: baked.width,
+          height: baked.height,
+          xmp: xmp,
+        );
 
-      final recipe = ref.read(recipeControllerProvider).recipe;
-      final exif = bytes;
-      final settings = ref.read(exportSettingsProvider);
+        if (!mounted) return;
+        if (!await Gal.hasAccess()) await Gal.requestAccess();
+        final outName = 'aperturex_${DateTime.now().millisecondsSinceEpoch}';
+        final dir = await getTemporaryDirectory();
+        final tempFile = File('${dir.path}/$outName.tiff');
+        await tempFile.writeAsBytes(tiff, flush: true);
+        await Gal.putImage(tempFile.path);
 
-      if (!mounted) return;
-      token = await AxEngine.exportCancelNew();
-      if (!mounted) return;
-      setState(() {
-        _exportCancelToken = token;
-        _exportPhase = ExportPhase.rendering;
-        _exportPollerActive = true;
-      });
-      poller = ExportProgressPoller(
-        token: token,
-        read: AxEngine.exportProgressFraction,
-        onValue: (fraction) {
-          if (!mounted) return;
-          setState(() => _exportRenderFraction = fraction);
-        },
-      )..start();
+        await emitXmpSidecar(
+          ref.read(exportSidecarSinkProvider),
+          outName,
+          recipe,
+        );
 
-      final decoded = await AxEngine.decodeJpegRgba(bytes);
-
-      // Bake all edits into a full-res JPEG, then decode back to RGBA for TIFF16 encode.
-      // (A direct RGBA export bridge can be added later to avoid the JPEG round-trip.)
-      final jpeg = await AxEngine.exportJpegFull(
-        rgba: decoded.rgba,
-        width: decoded.width,
-        height: decoded.height,
-        spec: GradeSpec.fromRecipe(recipe),
-        spatial: SpatialSpec.fromRecipe(recipe),
-        geometry: GeometrySpec.fromRecipe(recipe),
-        optics: OpticsSpec.fromRecipe(recipe),
-        blur: LensBlurSpec.fromRecipe(recipe),
-        layers: recipe.layers,
-        maskGroups: recipe.maskGroups,
-        exif: exif,
-        branding: null,
-        c2pa: null,
-        quality: settings.quality,
-        maxDim: settings.maxDim == 0 ? null : settings.maxDim,
-        cancelToken: token,
-        colorSpace: settings.colorSpace,
-        ultraHdr: false,
-        hdrHeadroom: settings.hdrHeadroom,
-      );
-      if (jpeg == null) {
+        axLog(
+          LogDomain.export,
+          'Exported TIFF 16-bit (${tiff.length} bytes)',
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('TIFF 16-bit saved to your photos')),
+        );
+      },
+      onCancelled: () {
         axLog(LogDomain.export, 'TIFF16 export cancelled');
-        return;
-      }
-
-      final baked = await AxEngine.decodeJpegRgba(jpeg);
-      final xmp = writeXmp(recipe);
-      final tiff = await AxEngine.exportTiff16(
-        rgba: baked.rgba,
-        width: baked.width,
-        height: baked.height,
-        xmp: xmp,
-      );
-
-      if (!mounted) return;
-      setState(() => _exportPhase = ExportPhase.saving);
-      if (!await Gal.hasAccess()) await Gal.requestAccess();
-      final outName = 'aperturex_${DateTime.now().millisecondsSinceEpoch}';
-      final dir = await getTemporaryDirectory();
-      final tempFile = File('${dir.path}/$outName.tiff');
-      await tempFile.writeAsBytes(tiff, flush: true);
-      await Gal.putImage(tempFile.path);
-
-      await emitXmpSidecar(
-        ref.read(exportSidecarSinkProvider),
-        outName,
-        recipe,
-      );
-
-      axLog(
-        LogDomain.export,
-        'Exported TIFF 16-bit (${tiff.length} bytes)',
-      );
-      messenger.showSnackBar(
-        const SnackBar(content: Text('TIFF 16-bit saved to your photos')),
-      );
-    } catch (e) {
-      axLog(LogDomain.export, 'TIFF16 export failed: $e', level: LogLevel.error);
-      messenger.showSnackBar(SnackBar(content: Text('TIFF16 export failed: $e')));
-    } finally {
-      poller?.stop();
-      if (token != 0) {
-        await AxEngine.exportCancelDrop(token);
-      }
-      if (mounted) {
-        setState(() {
-          _exporting = false;
-          _exportPhase = null;
-          _exportRenderFraction = 0;
-        });
-      }
-    }
+      },
+      onError: (e) {
+        axLog(LogDomain.export, 'TIFF16 export failed: $e', level: LogLevel.error);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('TIFF16 export failed: $e')),
+        );
+      },
+    );
   }
 
   Future<void> _exportAndShare() async {
-    final previewBytes = _bytes;
-    if (previewBytes == null) return;
-    final messenger = ScaffoldMessenger.of(context);
-    setState(() {
-      _exporting = true;
-      _exportPhase = ExportPhase.loading;
-      _exportRenderFraction = 0;
-    });
-    var token = 0;
-    ExportProgressPoller? poller;
-    try {
-      final currentAsset = _currentAsset ?? widget.asset;
-      final bytes = currentAsset != null
-          ? await ref.read(gallerySourceProvider).loadImage(currentAsset.id)
-          : previewBytes;
-
-      if (bytes.isEmpty) throw StateError('The image could not be read.');
-
-      final recipe = ref.read(recipeControllerProvider).recipe;
-      final settings = ref.read(exportSettingsProvider);
-      final isRaw = isRawImage(bytes);
-      if (!mounted) return;
-      setState(() => _exportPhase = ExportPhase.decoding);
-      final decoded = isRaw
-          ? await AxEngine.decodeRawRgba(bytes)
-          : await AxEngine.decodeJpegRgba(bytes);
-      final exif = await AxEngine.extractExif(bytes);
-
-      token = await AxEngine.exportCancelNew();
-      if (!mounted) return;
-      setState(() {
-        _exportCancelToken = token;
-        _exportPhase = ExportPhase.rendering;
-        _exportPollerActive = true;
-      });
-      poller = ExportProgressPoller(
-        token: token,
-        read: AxEngine.exportProgressFraction,
-        onValue: (fraction) {
-          if (!mounted) return;
-          setState(() => _exportRenderFraction = fraction);
-        },
-      )..start();
-
-      // Build custom branding (Museum Frame, Signature, FOSS Badge) and C2PA provenance
-      final exportCustoms = await _buildExportBrandingAndC2pa(
-        bytes: bytes,
-        recipe: recipe,
-        exif: exif,
-      );
-
-      final jpeg = await AxEngine.exportJpegFull(
-        rgba: decoded.rgba,
-        width: decoded.width,
-        height: decoded.height,
-        spec: GradeSpec.fromRecipe(recipe),
-        spatial: SpatialSpec.fromRecipe(recipe),
-        geometry: GeometrySpec.fromRecipe(recipe),
-        optics: OpticsSpec.fromRecipe(recipe),
-        blur: LensBlurSpec.fromRecipe(recipe),
-        layers: recipe.layers,
-        maskGroups: recipe.maskGroups,
-        exif: exif,
-        branding: exportCustoms.branding,
-        c2pa: exportCustoms.c2pa,
-        quality: settings.quality,
-        maxDim: settings.maxDim == 0 ? null : settings.maxDim,
-        cancelToken: token,
-        colorSpace: settings.colorSpace,
-        ultraHdr: settings.ultraHdr,
-        hdrHeadroom: settings.hdrHeadroom,
-      );
-      if (jpeg == null) {
+    await _runJpegExportPipeline(
+      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+        final settings = ref.read(exportSettingsProvider);
+        // Build custom branding (Museum Frame, Signature, FOSS Badge) and C2PA provenance
+        final exportCustoms = await _buildExportBrandingAndC2pa(
+          bytes: bytes,
+          recipe: recipe,
+          exif: exif,
+        );
+        return await AxEngine.exportJpegFull(
+          rgba: decoded.rgba,
+          width: decoded.width,
+          height: decoded.height,
+          spec: GradeSpec.fromRecipe(recipe),
+          spatial: SpatialSpec.fromRecipe(recipe),
+          geometry: GeometrySpec.fromRecipe(recipe),
+          optics: OpticsSpec.fromRecipe(recipe),
+          blur: LensBlurSpec.fromRecipe(recipe),
+          layers: recipe.layers,
+          maskGroups: recipe.maskGroups,
+          exif: exif,
+          branding: exportCustoms.branding,
+          c2pa: exportCustoms.c2pa,
+          quality: settings.quality,
+          maxDim: settings.maxDim == 0 ? null : settings.maxDim,
+          cancelToken: token,
+          colorSpace: settings.colorSpace,
+          ultraHdr: settings.ultraHdr,
+          hdrHeadroom: settings.hdrHeadroom,
+        );
+      },
+      onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
+        if (!mounted) return;
+        await _share(jpeg, recipe);
+      },
+      onCancelled: () {
         axLog(LogDomain.export, 'Export cancelled');
-        return;
-      }
-      if (!mounted) return;
-      await _share(jpeg, recipe);
-    } catch (e) {
-      axLog(LogDomain.export, 'Export and share failed: $e', level: LogLevel.error);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Export failed: $e'),
-          action: SnackBarAction(
-            label: 'Retry',
-            onPressed: () => _exportAndShare(),
+      },
+      onError: (e) {
+        axLog(LogDomain.export, 'Export and share failed: $e', level: LogLevel.error);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: () => _exportAndShare(),
+            ),
           ),
-        ),
-      );
-    } finally {
-      poller?.stop();
-      if (token != 0) {
-        await AxEngine.exportCancelDrop(token);
-      }
-      if (mounted) {
-        setState(() {
-          _exporting = false;
-          _exportCancelToken = null;
-          _exportPhase = null;
-          _exportRenderFraction = 0;
-          _exportPollerActive = false;
-        });
-      }
-    }
+        );
+      },
+    );
   }
 
   void _cancelExport() async {

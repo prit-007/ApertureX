@@ -260,13 +260,15 @@ class _HdrMergeSheetState extends ConsumerState<HdrMergeSheet> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return AppSheet(
-      title: 'HDR Merge',
-      subtitle:
-          '${_exposures.length} exposure'
-          '${_exposures.length == 1 ? '' : 's'} • '
-          'Ultra HDR JPEG (ISO 21496-1)',
-      children: [
+    return FocusTraversalGroup(
+      policy: WidgetOrderTraversalPolicy(),
+      child: AppSheet(
+        title: 'HDR Merge',
+        subtitle:
+            '${_exposures.length} exposure'
+            '${_exposures.length == 1 ? '' : 's'} • '
+            'Ultra HDR JPEG (ISO 21496-1)',
+        children: [
         if (_error != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Insets.md),
@@ -423,6 +425,7 @@ class _HdrMergeSheetState extends ConsumerState<HdrMergeSheet> {
         ),
         const SizedBox(height: Insets.lg),
       ],
-    );
-  }
+    ),
+  );
+}
 }
