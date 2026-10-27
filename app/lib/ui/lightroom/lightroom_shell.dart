@@ -748,17 +748,18 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 }
               },
             ),
-            // Ruby Peeks toggle: when enabled, dragging detail/peek parameters
-            // crossfades to a high-contrast detail view. Default off.
+            // Ruby Peeks toggle: compact inline toggle; dragging detail/peek
+            // parameters crossfades to high-contrast detail view. Default off.
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.visibility_off_outlined, size: 16),
-                  const SizedBox(width: 8),
-                  const Text('Ruby Peeks', style: TextStyle(fontSize: 12)),
+                  const Icon(Icons.visibility_off_outlined, size: 14),
+                  const SizedBox(width: 6),
+                  const Text('Ruby Peeks', style: TextStyle(fontSize: 11)),
                   const Spacer(),
-                  Switch(
+                  Switch.adaptive(
                     value: ref.watch(rubyPeeksEnabledProvider),
                     onChanged: (v) =>
                         ref.read(rubyPeeksEnabledProvider.notifier).set(v),

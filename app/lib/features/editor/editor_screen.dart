@@ -92,6 +92,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   ExportPhase? _exportPhase;
   /// Engine render fraction (0..1) polled from the Rust progress cell.
   double _exportRenderFraction = 0;
+  /// True while an [ExportProgressPoller] is actively feeding the render bar.
+  /// DNG and TIFF16 exports lack a cancel token (no progress cell), so they
+  /// show an indeterminate marquee instead of a fake percent.
+  bool _exportPollerActive = false;
   /// True while the share sheet is being prepared (temp files writing).
   bool _sharing = false;
 
@@ -287,6 +291,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       setState(() {
         _exportCancelToken = token;
         _exportPhase = ExportPhase.rendering;
+        _exportPollerActive = true;
       });
       poller = ExportProgressPoller(
         token: token,
@@ -375,6 +380,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           _exportCancelToken = null;
           _exportPhase = null;
           _exportRenderFraction = 0;
+          _exportPollerActive = false;
         });
       }
     }
@@ -490,6 +496,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       setState(() {
         _exportCancelToken = token;
         _exportPhase = ExportPhase.rendering;
+        _exportPollerActive = true;
       });
       // Poll the Rust progress cell (permille, updated between bands) so the
       // bar tracks the real render, not a guess.
@@ -570,6 +577,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           _exportCancelToken = null;
           _exportPhase = null;
           _exportRenderFraction = 0;
+          _exportPollerActive = false;
         });
       }
     }
@@ -657,6 +665,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _exportRenderFraction = 0;
       });
       var token = 0;
+      ExportProgressPoller? poller;
       try {
         final currentAsset = _currentAsset ?? widget.asset;
         final bytes = currentAsset != null
@@ -670,7 +679,21 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         final settings = ref.read(exportSettingsProvider);
 
       if (!mounted) return;
-      setState(() => _exportPhase = ExportPhase.rendering);
+      token = await AxEngine.exportCancelNew();
+      if (!mounted) return;
+      setState(() {
+        _exportCancelToken = token;
+        _exportPhase = ExportPhase.rendering;
+        _exportPollerActive = true;
+      });
+      poller = ExportProgressPoller(
+        token: token,
+        read: AxEngine.exportProgressFraction,
+        onValue: (fraction) {
+          if (!mounted) return;
+          setState(() => _exportRenderFraction = fraction);
+        },
+      )..start();
 
       final decoded = await AxEngine.decodeJpegRgba(bytes);
 
@@ -737,6 +760,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       axLog(LogDomain.export, 'TIFF16 export failed: $e', level: LogLevel.error);
       messenger.showSnackBar(SnackBar(content: Text('TIFF16 export failed: $e')));
     } finally {
+      poller?.stop();
       if (token != 0) {
         await AxEngine.exportCancelDrop(token);
       }
@@ -784,6 +808,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       setState(() {
         _exportCancelToken = token;
         _exportPhase = ExportPhase.rendering;
+        _exportPollerActive = true;
       });
       poller = ExportProgressPoller(
         token: token,
@@ -842,6 +867,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           _exportCancelToken = null;
           _exportPhase = null;
           _exportRenderFraction = 0;
+          _exportPollerActive = false;
         });
       }
     }
@@ -1024,7 +1050,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 label: _exportPhase == null
                     ? 'Exporting'
                     : phaseLabel(_exportPhase!),
-                value: _exportPhase == null
+                // No poller (DNG / TIFF16) → indeterminate marquee, not a stuck
+                // percent. Only JPEG/HDR-merge exports poll the Rust cell.
+                value: _exportPhase == null || !_exportPollerActive
                     ? null
                     : exportOverall(_exportPhase!, _exportRenderFraction),
                 onCancel: _cancelExport,
