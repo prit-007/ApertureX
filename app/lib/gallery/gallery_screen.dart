@@ -649,10 +649,13 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     if (state.assets.isEmpty) {
       return EmptyState(
         icon: Icons.photo_library_outlined,
-        title: 'No photos here',
-        message:
-            'Photos on your device will appear here. '
-            'Or try the editor with a sample image.',
+        title: state.selectedAlbumId == null
+            ? 'No photos here'
+            : 'No photos in this album',
+        message: state.selectedAlbumId == null
+            ? 'Photos on your device will appear here. '
+                'Or try the editor with a sample image.'
+            : 'This album has no photos yet.',
         action: FilledButton.tonal(
           onPressed: _openSample,
           child: const Text('Open a sample'),
@@ -783,16 +786,21 @@ class _AlbumTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.smAll,
+      splashColor: scheme.primary.withValues(alpha: 0.12),
+      highlightColor: scheme.primary.withValues(alpha: 0.06),
+      mouseCursor: WidgetStateMouseCursor.clickable,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const Icon(Icons.arrow_drop_down),
+            const SizedBox(width: Insets.xs),
+            Icon(Icons.arrow_drop_down, size: 20),
           ],
         ),
       ),
