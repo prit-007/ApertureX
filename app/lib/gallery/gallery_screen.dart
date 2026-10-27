@@ -26,13 +26,11 @@ import 'gallery_controller.dart';
 import 'gallery_export.dart';
 import 'gallery_grouping.dart';
 import 'gallery_source.dart';
+import 'hdr_merge_sheet.dart';
 import 'staggered_photo_grid.dart';
 
 /// Which gallery scope is displayed (#85).
-enum GalleryScope {
-  photos,
-  edits,
-}
+enum GalleryScope { photos, edits }
 
 /// The app home: the device gallery, grouped by date (newest first) with album
 /// switching — Google-Photos style. Tap a photo to edit it; long-press to
@@ -52,6 +50,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   /// Non-null while a batch export runs — owns the cooperative cancel and
   /// drives the bottom-bar progress UI (#75).
   BatchCancel? _exportCancel;
+
   /// Live aggregator: `(done + Σ in-flight fractions) / total`, so the bar
   /// creeps forward *within* a long item instead of freezing until it
   /// finishes.
@@ -139,8 +138,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       PageRouteBuilder<dynamic>(
         transitionDuration: const Duration(milliseconds: 400),
         reverseTransitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (_, _, _) =>
-            EditorScreen(asset: asset, entryId: entryId),
+        pageBuilder: (_, _, _) => EditorScreen(asset: asset, entryId: entryId),
         transitionsBuilder: (_, animation, _, child) {
           return FadeTransition(
             opacity: CurvedAnimation(
@@ -166,10 +164,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       PageRouteBuilder<dynamic>(
         transitionDuration: const Duration(milliseconds: 400),
         reverseTransitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (_, _, _) => EditorScreen(
-          imageBytes: bytes,
-          entryId: preview.entryId,
-        ),
+        pageBuilder: (_, _, _) =>
+            EditorScreen(imageBytes: bytes, entryId: preview.entryId),
         transitionsBuilder: (_, animation, _, child) {
           return FadeTransition(
             opacity: CurvedAnimation(
@@ -278,31 +274,33 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       _exportedIds.clear();
     });
     try {
-      final result = await ref.read(galleryExporterProvider).exportBatch(
-        state.selected,
-        (id) =>
-            ref.read(recipeStoreProvider)[originalEntryId(id)] ??
-            EditRecipe.neutral,
-        cancel: cancel,
-        onProgress: (progress) {
-          if (!mounted) return;
-          setState(() {
-            _exportDone = progress.done;
-            if (progress.started) {
-              agg.start(progress.id);
-              _exportingIds.add(progress.id);
-            } else {
-              agg.finish(progress.id);
-              _exportingIds.remove(progress.id);
-              _exportedIds.add(progress.id);
-            }
-          });
-        },
-        onItemProgress: (id, fraction) {
-          if (!mounted) return;
-          setState(() => agg.fraction(id, fraction));
-        },
-      );
+      final result = await ref
+          .read(galleryExporterProvider)
+          .exportBatch(
+            state.selected,
+            (id) =>
+                ref.read(recipeStoreProvider)[originalEntryId(id)] ??
+                EditRecipe.neutral,
+            cancel: cancel,
+            onProgress: (progress) {
+              if (!mounted) return;
+              setState(() {
+                _exportDone = progress.done;
+                if (progress.started) {
+                  agg.start(progress.id);
+                  _exportingIds.add(progress.id);
+                } else {
+                  agg.finish(progress.id);
+                  _exportingIds.remove(progress.id);
+                  _exportedIds.add(progress.id);
+                }
+              });
+            },
+            onItemProgress: (id, fraction) {
+              if (!mounted) return;
+              setState(() => agg.fraction(id, fraction));
+            },
+          );
       ref.read(galleryControllerProvider.notifier).clearSelection();
       if (!mounted) return;
       _snack(
@@ -319,6 +317,15 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         });
       }
     }
+  }
+
+  void _mergeHdr() {
+    final state = ref.read(galleryControllerProvider);
+    if (state.selected.length < 2) return;
+    final assets = state.selected
+        .map((id) => state.assets.firstWhere((a) => a.id == id))
+        .toList();
+    showAppSheet(context, HdrMergeSheet(assets: assets));
   }
 
   void _snack(String message) {
@@ -343,45 +350,45 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             opacity: _navOpacity,
             duration: const Duration(milliseconds: 180),
             child: AppBar(
-            title: state.selectionMode
-                ? Text('${state.selectedCount} selected')
-                : _AlbumTitle(title: state.title, onTap: _openAlbumPicker),
-            actions: [
-              if (state.selectionMode)
-                IconButton(
-                  tooltip: 'Clear selection',
-                  onPressed: controller.clearSelection,
-                  icon: const Icon(Icons.close),
-                )
-              else ...[
-                IconButton(
-                  tooltip: 'Select',
-                  onPressed: controller.selectAll,
-                  icon: const Icon(Icons.checklist),
-                ),
-                IconButton(
-                  tooltip: 'Edited versions',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const EditedVersionsScreen(),
-                    ),
+              title: state.selectionMode
+                  ? Text('${state.selectedCount} selected')
+                  : _AlbumTitle(title: state.title, onTap: _openAlbumPicker),
+              actions: [
+                if (state.selectionMode)
+                  IconButton(
+                    tooltip: 'Clear selection',
+                    onPressed: controller.clearSelection,
+                    icon: const Icon(Icons.close),
+                  )
+                else ...[
+                  IconButton(
+                    tooltip: 'Select',
+                    onPressed: controller.selectAll,
+                    icon: const Icon(Icons.checklist),
                   ),
-                  icon: const Icon(Icons.collections_bookmark_outlined),
-                ),
-                IconButton(
-                  tooltip: 'Settings',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const SettingsScreen(),
+                  IconButton(
+                    tooltip: 'Edited versions',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const EditedVersionsScreen(),
+                      ),
                     ),
+                    icon: const Icon(Icons.collections_bookmark_outlined),
                   ),
-                  icon: const Icon(Icons.settings_outlined),
-                ),
+                  IconButton(
+                    tooltip: 'Settings',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.settings_outlined),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
-      ),
         body: _buildBody(state, controller),
         bottomNavigationBar: AnimatedOpacity(
           opacity: _navOpacity,
@@ -400,6 +407,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   onVirtualCopy: _createVirtualCopies,
                   onPaste: _paste,
                   onExport: _export,
+                  canMerge: state.selectedCount >= 2,
+                  onMergeHdr: _mergeHdr,
                 )
               : null,
         ),
@@ -420,9 +429,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               width: double.infinity,
               child: SegmentedButton<GalleryScope>(
                 showSelectedIcon: false,
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                ),
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
                 segments: const [
                   ButtonSegment<GalleryScope>(
                     value: GalleryScope.photos,
@@ -485,41 +492,45 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               spacing: 2,
               itemCount: items.length,
               itemBuilder: (context, idx) {
-                  final preview = items[idx];
-                  final catalogEntry = catalog[preview.entryId];
-                  final matchingAsset = state.assets.cast<GalleryAsset?>().firstWhere(
-                    (a) => a?.id == sourceAssetIdFor(preview.entryId),
-                    orElse: () => null,
-                  );
-                  final aspect = (preview.width > 0 && preview.height > 0)
-                      ? (preview.width / preview.height).clamp(0.65, 1.8)
-                      : 1.0;
+                final preview = items[idx];
+                final catalogEntry = catalog[preview.entryId];
+                final matchingAsset = state.assets
+                    .cast<GalleryAsset?>()
+                    .firstWhere(
+                      (a) => a?.id == sourceAssetIdFor(preview.entryId),
+                      orElse: () => null,
+                    );
+                final aspect = (preview.width > 0 && preview.height > 0)
+                    ? (preview.width / preview.height).clamp(0.65, 1.8)
+                    : 1.0;
 
-                  return AspectRatio(
-                    aspectRatio: aspect,
-                    child: _EditPreviewCell(
-                      preview: preview,
-                      catalogEntry: catalogEntry,
-                      onTap: () {
-                        if (matchingAsset != null) {
-                          _openEntry(matchingAsset, preview.entryId);
-                        } else {
-                          _openSavedPreview(preview);
-                        }
-                      },
-                      onLongPressStart: (pos) => _editPreviewMenu(
-                        preview,
-                        matchingAsset,
-                        catalogEntry,
-                        pos,
-                      ),
+                return AspectRatio(
+                  aspectRatio: aspect,
+                  child: _EditPreviewCell(
+                    preview: preview,
+                    catalogEntry: catalogEntry,
+                    onTap: () {
+                      if (matchingAsset != null) {
+                        _openEntry(matchingAsset, preview.entryId);
+                      } else {
+                        _openSavedPreview(preview);
+                      }
+                    },
+                    onLongPressStart: (pos) => _editPreviewMenu(
+                      preview,
+                      matchingAsset,
+                      catalogEntry,
+                      pos,
                     ),
-                  );
-                },
-              ),
-            );
+                  ),
+                );
+              },
+            ),
+          );
         }
-        slivers.add(const SliverToBoxAdapter(child: SizedBox(height: Insets.lg)));
+        slivers.add(
+          const SliverToBoxAdapter(child: SizedBox(height: Insets.lg)),
+        );
         return CustomScrollView(slivers: slivers);
       },
     );
@@ -548,8 +559,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                 child: Text(
                   catalogEntry?.label ?? 'Edit Preview',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               const Divider(),
@@ -572,9 +583,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   Navigator.of(sheetContext).pop();
                   SharePlus.instance.share(
                     ShareParams(
-                      files: [
-                        XFile(preview.path, mimeType: 'image/jpeg'),
-                      ],
+                      files: [XFile(preview.path, mimeType: 'image/jpeg')],
                     ),
                   );
                 },
@@ -587,8 +596,9 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                 ),
                 onTap: () async {
                   final previewStore = ref.read(editPreviewStoreProvider);
-                  final catalogNotifier =
-                      ref.read(libraryCatalogProvider.notifier);
+                  final catalogNotifier = ref.read(
+                    libraryCatalogProvider.notifier,
+                  );
                   Navigator.of(sheetContext).pop();
                   await previewStore.delete(preview.entryId);
                   if (preview.entryId.startsWith('vc:')) {
@@ -708,7 +718,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             : 'No photos in this album',
         message: state.selectedAlbumId == null
             ? 'Photos on your device will appear here. '
-                'Or try the editor with a sample image.'
+                  'Or try the editor with a sample image.'
             : 'This album has no photos yet.',
         action: FilledButton.tonal(
           onPressed: _openSample,
@@ -756,36 +766,36 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             spacing: 2,
             itemCount: items.length,
             itemBuilder: (context, j) => switch (items[j]) {
-                _OriginalItem(:final asset) => AspectRatio(
-                    aspectRatio: (asset.width > 0 && asset.height > 0)
-                        ? (asset.width / asset.height).clamp(0.65, 1.8)
-                        : 1.0,
-                    child: _StaggeredCell(
-                      index: j,
-                      child: _Cell(
-                      source: _source,
-                      asset: asset,
-                      heroTag: 'photo-${asset.id}',
-                      selected: state.isSelected(asset.id),
-                      edited: recipes.containsKey(originalEntryId(asset.id)),
-                      copyCount: vcsBySource[asset.id]?.length ?? 0,
-                      selectionMode: state.selectionMode,
-                      exporting: _exportingIds.contains(asset.id),
-                      exported: _exportedIds.contains(asset.id),
-                      onTap: () => state.selectionMode
-                          ? controller.toggle(asset.id)
-                          : _open(asset),
-                      onLongPress: () => controller.startSelection(asset.id),
-                    ),
+              _OriginalItem(:final asset) => AspectRatio(
+                aspectRatio: (asset.width > 0 && asset.height > 0)
+                    ? (asset.width / asset.height).clamp(0.65, 1.8)
+                    : 1.0,
+                child: _StaggeredCell(
+                  index: j,
+                  child: _Cell(
+                    source: _source,
+                    asset: asset,
+                    heroTag: 'photo-${asset.id}',
+                    selected: state.isSelected(asset.id),
+                    edited: recipes.containsKey(originalEntryId(asset.id)),
+                    copyCount: vcsBySource[asset.id]?.length ?? 0,
+                    selectionMode: state.selectionMode,
+                    exporting: _exportingIds.contains(asset.id),
+                    exported: _exportedIds.contains(asset.id),
+                    onTap: () => state.selectionMode
+                        ? controller.toggle(asset.id)
+                        : _open(asset),
+                    onLongPress: () => controller.startSelection(asset.id),
                   ),
                 ),
-                _VirtualItem(:final entry, :final asset) => AspectRatio(
-                  aspectRatio: (asset.width > 0 && asset.height > 0)
-                      ? (asset.width / asset.height).clamp(0.65, 1.8)
-                      : 1.0,
-                  child: _StaggeredCell(
-                    index: j,
-                    child: _VirtualCell(
+              ),
+              _VirtualItem(:final entry, :final asset) => AspectRatio(
+                aspectRatio: (asset.width > 0 && asset.height > 0)
+                    ? (asset.width / asset.height).clamp(0.65, 1.8)
+                    : 1.0,
+                child: _StaggeredCell(
+                  index: j,
+                  child: _VirtualCell(
                     source: _source,
                     asset: asset,
                     entry: entry,
@@ -799,10 +809,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                     onLongPressStart: (details) => state.selectionMode
                         ? controller.startSelection(asset.id)
                         : _vcMenu(entry, details.globalPosition),
-                    ),
                   ),
                 ),
-              },
+              ),
+            },
           ),
         );
       } else {
@@ -889,12 +899,14 @@ class _StaggeredCellState extends State<_StaggeredCell>
       vsync: this,
       duration: const Duration(milliseconds: 280),
     );
-    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    _offset = Tween<Offset>(begin: Offset(0, 0.18), end: Offset.zero).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _opacity = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _offset = Tween<Offset>(
+      begin: Offset(0, 0.18),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
     Future.delayed(delay, () {
       if (mounted) _controller.forward();
     });
@@ -913,10 +925,7 @@ class _StaggeredCellState extends State<_StaggeredCell>
       builder: (context, child) {
         return Opacity(
           opacity: _opacity.value,
-          child: Transform.translate(
-            offset: _offset.value,
-            child: child,
-          ),
+          child: Transform.translate(offset: _offset.value, child: child),
         );
       },
       child: widget.child,
@@ -1146,7 +1155,10 @@ class _VirtualCell extends StatelessWidget {
           children: [
             Hero(
               tag: heroTag,
-              child: GalleryThumbnail(source: source, assetId: entry.sourceAssetId),
+              child: GalleryThumbnail(
+                source: source,
+                assetId: entry.sourceAssetId,
+              ),
             ),
             AnimatedOpacity(
               opacity: selected ? 1 : 0,
@@ -1250,15 +1262,17 @@ class _GalleryThumbnailState extends State<GalleryThumbnail> {
       _future = null;
     } else {
       _cached = null;
-      _future = widget.source.loadThumbnail(widget.assetId, size: widget.size).then((bytes) {
-        widget.source.thumbnailCache.put(widget.assetId, bytes);
-        if (mounted) {
-          setState(() {
-            _cached = bytes;
+      _future = widget.source
+          .loadThumbnail(widget.assetId, size: widget.size)
+          .then((bytes) {
+            widget.source.thumbnailCache.put(widget.assetId, bytes);
+            if (mounted) {
+              setState(() {
+                _cached = bytes;
+              });
+            }
+            return bytes;
           });
-        }
-        return bytes;
-      });
     }
   }
 
@@ -1324,6 +1338,8 @@ class _SelectionBar extends StatelessWidget {
     required this.onVirtualCopy,
     required this.onPaste,
     required this.onExport,
+    required this.canMerge,
+    required this.onMergeHdr,
   });
 
   /// True only when exactly one photo is selected — the copy target must be
@@ -1334,10 +1350,14 @@ class _SelectionBar extends StatelessWidget {
   final VoidCallback onPaste;
   final VoidCallback onExport;
 
+  /// True when two or more photos are selected — HDR merge needs a bracket.
+  final bool canMerge;
+  final VoidCallback onMergeHdr;
+
   @override
   Widget build(BuildContext context) {
-    // Horizontal scroll so four actions never overflow a 360dp phone; the
-    // viewport is right-aligned so the actions stay in the thumb zone.
+    // Horizontal scroll so actions never overflow a 360dp phone; the viewport
+    // is right-aligned so the actions stay in the thumb zone.
     return BottomAppBar(
       child: Align(
         alignment: Alignment.centerRight,
@@ -1370,6 +1390,13 @@ class _SelectionBar extends StatelessWidget {
                 onPressed: onExport,
                 icon: const Icon(Icons.ios_share, size: 18),
                 label: const Text('Export'),
+              ),
+              const SizedBox(width: Insets.sm),
+              FilledButton.tonalIcon(
+                key: const Key('hdr-merge-action'),
+                onPressed: canMerge ? onMergeHdr : null,
+                icon: const Icon(Icons.auto_awesome, size: 18),
+                label: const Text('HDR Merge'),
               ),
             ],
           ),
@@ -1599,9 +1626,9 @@ class _EditPreviewCellState extends State<_EditPreviewCell> {
                   gaplessPlayback: true,
                   errorBuilder: (context, error, stackTrace) =>
                       const ColoredBox(
-                    color: Colors.black26,
-                    child: Icon(Icons.broken_image, size: 24),
-                  ),
+                        color: Colors.black26,
+                        child: Icon(Icons.broken_image, size: 24),
+                      ),
                 )
               : const ColoredBox(
                   color: Colors.black12,
@@ -1629,11 +1656,7 @@ class _EditPreviewCellState extends State<_EditPreviewCell> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.star,
-                          size: 12,
-                          color: Colors.amber,
-                        ),
+                        const Icon(Icons.star, size: 12, color: Colors.amber),
                         const SizedBox(width: 2),
                         Text(
                           '${catalogEntry.rating}',
@@ -1692,4 +1715,3 @@ class _EditPreviewCellState extends State<_EditPreviewCell> {
     );
   }
 }
-

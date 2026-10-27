@@ -35,29 +35,26 @@ void main() {
   final reporter = ErrorReporter(presenter: showErrorDialog);
   installBoundaryHooks(reporter: reporter);
 
-  runGuarded(
-    () async {
-      WidgetsFlutterBinding.ensureInitialized();
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      lifecycleObserver.attach();
-      try {
-        await AxEngine.init();
-        await _initActivityLog(reporter);
-      } catch (error, stack) {
-        // Degrade, don't die: every later engine call re-hits the boundary.
-        reporter.report(error, stack, fatal: true);
-      }
-      runApp(
-        bootstrapApp(
-          overrides: [
-            gallerySourceProvider.overrideWithValue(defaultGallerySource()),
-          ],
-          child: PrecisionListener(child: const ApertureXApp()),
-        ),
-      );
-    },
-    (error, stack) => reporter.report(error, stack, fatal: true),
-  );
+  runGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    lifecycleObserver.attach();
+    try {
+      await AxEngine.init();
+      await _initActivityLog(reporter);
+    } catch (error, stack) {
+      // Degrade, don't die: every later engine call re-hits the boundary.
+      reporter.report(error, stack, fatal: true);
+    }
+    runApp(
+      bootstrapApp(
+        overrides: [
+          gallerySourceProvider.overrideWithValue(defaultGallerySource()),
+        ],
+        child: PrecisionListener(child: const ApertureXApp()),
+      ),
+    );
+  }, (error, stack) => reporter.report(error, stack, fatal: true));
 }
 
 /// Restores the durable, on-device activity log and starts appending to it.

@@ -58,10 +58,15 @@ class ExportOptionsSheet extends StatelessWidget {
       hasScope = false;
     }
 
+    final focusedContent = FocusTraversalGroup(
+      policy: WidgetOrderTraversalPolicy(),
+      child: content,
+    );
+
     if (!hasScope) {
-      return ProviderScope(child: content);
+      return ProviderScope(child: focusedContent);
     }
-    return content;
+    return focusedContent;
   }
 }
 
@@ -140,6 +145,7 @@ class _ExportOptionsSheetContentState
                         ),
                       ),
                       IconButton(
+                        autofocus: true,
                         icon: const Icon(Icons.close, size: 20),
                         tooltip: 'Close',
                         onPressed: () => Navigator.of(context).pop(),

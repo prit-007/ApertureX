@@ -66,11 +66,14 @@ class BlurControls extends ConsumerWidget {
               SwitchListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 title: const Text('Depth-Aware Lens Blur'),
-                subtitle: const Text('Simulate optical depth-of-field and aperture bokeh'),
+                subtitle: const Text('Optical depth-of-field + subject-aware bokeh'),
                 visualDensity: VisualDensity.compact,
                 value: recipe.blurEnabled,
-                onChanged: (val) {
+                onChanged: (val) async {
                   notifier.setBlurEnabled(val);
+                  if (val) {
+                    await _applySubjectFocus(context, ref);
+                  }
                 },
               ),
               if (recipe.blurEnabled)
@@ -78,67 +81,13 @@ class BlurControls extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   child: Align(
                     alignment: Alignment.centerLeft,
-      child: ActionChip(
-        key: const Key('blur-subject-focus'),
-        visualDensity: VisualDensity.compact,
-        avatar: const Icon(Icons.psychology, size: 14),
-        label: const Text('Subject Focus', style: TextStyle(fontSize: 12)),
+                    child: ActionChip(
+                      key: const Key('blur-subject-focus'),
+                      visualDensity: VisualDensity.compact,
+                      avatar: const Icon(Icons.psychology, size: 14),
+                      label: const Text('Re-run Subject Focus', style: TextStyle(fontSize: 12)),
                       onPressed: () async {
-                        final bytes = ref.read(activeImageBytesProvider);
-                        if (bytes == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('No photo loaded to place focus')),
-                          );
-                          return;
-                        }
-                        final consent = await ref
-                            .read(aiConsentProvider.notifier)
-                            .requestConsentDialog(context);
-                        if (!consent) return;
-
-                        ref.read(aiMaskInferringProvider.notifier).setInferring(true);
-                        ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
-                          'Subject Focus: Finding the subject… Please wait a moment',
-                        );
-                        try {
-                          final detector = ref.read(subjectDetectorProvider);
-                          final subject = await detector(bytes);
-                          final focalPoint = subject != null
-                              ? (0.25 + 0.40 * subject.cy).clamp(0.20, 0.80)
-                              : 0.40;
-                          final focalRange = subject != null
-                              ? (subject.ry * 0.90).clamp(0.15, 0.40)
-                              : 0.25;
-
-                          HapticFeedback.selectionClick();
-                          if (recipe.blurAmount < 0.20) {
-                            notifier.update(Parameter.blurAmount, 0.45);
-                          }
-                          notifier.update(Parameter.blurFocalPoint, focalPoint);
-                          notifier.update(Parameter.blurFocalRange, focalRange);
-                          notifier.commit(label: 'Subject Focus');
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Subject focus placed: focal point ${(focalPoint * 100).round()}%, range ${(focalRange * 100).round()}%',
-                                ),
-                              ),
-                            );
-                          }
-                        } catch (_) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Subject focus failed; keeping current plane'),
-                              ),
-                            );
-                          }
-                        } finally {
-                          ref.read(aiMaskInferringProvider.notifier).setInferring(false);
-                          ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
-                        }
+                    await _applySubjectFocus(context, ref);
                       },
                     ),
                   ),
@@ -199,6 +148,80 @@ class _PanelTitle extends StatelessWidget {
           color: Theme.of(context).colorScheme.primary,
         ),
       );
+}
+
+/// Shared subject-detection flow used both when blur is first enabled and
+/// when the user taps "Re-run Subject Focus". Avoids duplicating the
+/// consent → detect → apply focal plane → report UX.
+Future<void> _applySubjectFocus(BuildContext context, WidgetRef ref) async {
+  final bytes = ref.read(activeImageBytesProvider);
+  if (bytes == null) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No photo loaded to place focus')),
+      );
+    }
+    return;
+  }
+
+  final consent = await ref.read(aiConsentProvider.notifier).requestConsentDialog(context);
+  if (!consent) {
+    final notifier = ref.read(recipeControllerProvider.notifier);
+    notifier.update(Parameter.blurAmount, 0.45);
+    notifier.update(Parameter.blurFocalPoint, 0.40);
+    notifier.update(Parameter.blurFocalRange, 0.25);
+    notifier.commit(label: 'Lens Blur (center focus)');
+    return;
+  }
+
+  ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+  ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+      'Finding subject… Please wait a moment');
+
+  try {
+    final detector = ref.read(subjectDetectorProvider);
+    final subject = await detector(bytes);
+    final focalPoint = subject != null
+        ? (0.25 + 0.40 * subject.cy).clamp(0.20, 0.80)
+        : 0.40;
+    final focalRange = subject != null
+        ? (subject.ry * 0.90).clamp(0.15, 0.40)
+        : 0.25;
+
+    final notifier = ref.read(recipeControllerProvider.notifier);
+    final recipe = ref.read(recipeControllerProvider).recipe;
+
+    HapticFeedback.selectionClick();
+    if (recipe.blurAmount < 0.20) {
+      notifier.update(Parameter.blurAmount, 0.45);
+    }
+    notifier.update(Parameter.blurFocalPoint, focalPoint);
+    notifier.update(Parameter.blurFocalRange, focalRange);
+    notifier.commit(label: 'Subject-focused lens blur');
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Subject focus placed: focal point ${(focalPoint * 100).round()}%, range ${(focalRange * 100).round()}%',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Subject not detected — center focus applied'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  } finally {
+    ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+    ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+  }
 }
 
 /// Pads a ParameterControl with tight 12px horizontal, 2px vertical spacing.
