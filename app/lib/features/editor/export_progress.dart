@@ -119,13 +119,29 @@ class ExportProgressBar extends StatelessWidget implements PreferredSizeWidget {
               child: LinearProgressIndicator(value: value, minHeight: 4),
             ),
             const SizedBox(width: 12),
-            Text(
-              value == null ? '' : '${(value! * 100).round()}%',
-              style: TextStyle(
-                fontSize: 12,
-                color: scheme.onSurfaceVariant,
+            if (value == null) ...[
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
-            ),
+              const SizedBox(width: 8),
+              Text(
+                'Working…',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ] else ...[
+              Text(
+                '${(value! * 100).round()}%',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
             if (onCancel != null) ...[
               const SizedBox(width: 4),
               IconButton(
