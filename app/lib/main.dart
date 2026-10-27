@@ -22,7 +22,7 @@ import 'core/theme/app_theme.dart';
 import 'engine/engine.dart';
 import 'gallery/gallery_controller.dart';
 import 'gallery/gallery_screen.dart';
-import 'gallery/photo_gallery_source.dart';
+import 'gallery/gallery_source_factory.dart';
 import 'settings/app_settings.dart';
 import 'ui/precision_gear.dart';
 import 'viewport/shader_warmup.dart';
@@ -50,7 +50,7 @@ void main() {
       runApp(
         bootstrapApp(
           overrides: [
-            gallerySourceProvider.overrideWithValue(PhotoGallerySource()),
+            gallerySourceProvider.overrideWithValue(defaultGallerySource()),
           ],
           child: PrecisionListener(child: const ApertureXApp()),
         ),

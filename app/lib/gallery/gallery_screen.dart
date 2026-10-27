@@ -20,6 +20,7 @@ import '../ui/common/app_primitives.dart';
 import '../ui/common/app_sheet.dart';
 import 'edit_preview_store.dart';
 import 'edited_versions_screen.dart';
+import 'folder_gallery_source.dart';
 import 'gallery_asset.dart';
 import 'gallery_controller.dart';
 import 'gallery_export.dart';
@@ -87,6 +88,19 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   }
 
   GallerySource get _source => ref.read(gallerySourceProvider);
+
+  /// Runs the native folder dialog for the desktop library and reloads the
+  /// grid (#103). A cancelled pick leaves the current state untouched.
+  Future<void> _pickFolder() async {
+    final source = _source;
+    if (source is! FolderGallerySource) return;
+    final picked = await source.pickRoot();
+    if (!picked) return;
+    axLog(LogDomain.app, 'Desktop library root: ${source.rootPath}');
+    if (mounted) {
+      await ref.read(galleryControllerProvider.notifier).load();
+    }
+  }
 
   void _open(GalleryAsset asset) async {
     axLog(LogDomain.editor, 'Opened photo ${asset.id}');
@@ -592,6 +606,46 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   Widget _body(GalleryState state, GalleryController controller) {
     if (state.loading) {
       return const Center(child: CircularProgressIndicator());
+    }
+    // Desktop folder source (#103): there is no OS photo permission to
+    // explain — the only empty states are "no folder chosen yet" and
+    // "the chosen folder has nothing in it".
+    if (_source is FolderGallerySource && state.assets.isEmpty) {
+      final root = (_source as FolderGallerySource).rootPath;
+      if (root == null) {
+        return EmptyState(
+          icon: Icons.folder_open_outlined,
+          title: 'Choose a photo folder',
+          message:
+              'Pick a folder of photos to browse and edit. '
+              'ApertureX remembers your choice on this computer.',
+          action: FilledButton.icon(
+            onPressed: _pickFolder,
+            icon: const Icon(Icons.folder_open, size: 18),
+            label: const Text('Choose a folder'),
+          ),
+        );
+      }
+      return EmptyState(
+        icon: Icons.folder_outlined,
+        title: 'No photos in this folder',
+        message: 'Looked in $root',
+        action: Wrap(
+          spacing: Insets.sm,
+          runSpacing: Insets.xs,
+          alignment: WrapAlignment.center,
+          children: [
+            FilledButton.tonal(
+              onPressed: _pickFolder,
+              child: const Text('Choose a folder'),
+            ),
+            TextButton(
+              onPressed: _openSample,
+              child: const Text('Open a sample'),
+            ),
+          ],
+        ),
+      );
     }
     if (state.permissionDenied && state.assets.isEmpty) {
       return EmptyState(
