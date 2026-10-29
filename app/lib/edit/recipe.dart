@@ -125,6 +125,133 @@ class EditRecipe {
     this.customGlslCode = '',
   });
 
+  /// Deserialises from [json], tolerating missing keys (default to neutral) and
+  /// ignoring unknown keys. Any supported version migrates forward to
+  /// [currentSchemaVersion].
+  factory EditRecipe.fromJson(Map<String, Object?> json) {
+    double asDouble(String key) => (json[key] as num?)?.toDouble() ?? 0;
+    return EditRecipe(
+      schemaVersion: currentSchemaVersion,
+      exposure: asDouble('exposure'),
+      contrast: asDouble('contrast'),
+      highlights: asDouble('highlights'),
+      shadows: asDouble('shadows'),
+      whites: asDouble('whites'),
+      blacks: asDouble('blacks'),
+      clarity: asDouble('clarity'),
+      texture: asDouble('texture'),
+      dehaze: asDouble('dehaze'),
+      vignette: asDouble('vignette'),
+      vignetteMidpoint: (json['vignetteMidpoint'] as num?)?.toDouble() ?? 0.5,
+      vignetteFeather: (json['vignetteFeather'] as num?)?.toDouble() ?? 0.5,
+      vignetteRoundness: asDouble('vignetteRoundness'),
+      vignetteHighlights: asDouble('vignetteHighlights'),
+      grain: asDouble('grain'),
+      grainSize: (json['grainSize'] as num?)?.toDouble() ?? 0.25,
+      grainRoughness: (json['grainRoughness'] as num?)?.toDouble() ?? 0.5,
+      sharpen: asDouble('sharpen'),
+      sharpenRadius: (json['sharpenRadius'] as num?)?.toDouble() ?? 1.0,
+      sharpenDetail: (json['sharpenDetail'] as num?)?.toDouble() ?? 0.25,
+      sharpenMasking: asDouble('sharpenMasking'),
+      denoiseLuma: asDouble('denoiseLuma'),
+      denoiseChroma: asDouble('denoiseChroma'),
+      removeChromaticAberration:
+          json['removeChromaticAberration'] as bool? ?? false,
+      defringePurpleAmount: asDouble('defringePurpleAmount'),
+      defringePurpleHueMin:
+          (json['defringePurpleHueMin'] as num?)?.toDouble() ?? 0.70,
+      defringePurpleHueMax:
+          (json['defringePurpleHueMax'] as num?)?.toDouble() ?? 0.95,
+      defringeGreenAmount: asDouble('defringeGreenAmount'),
+      defringeGreenHueMin:
+          (json['defringeGreenHueMin'] as num?)?.toDouble() ?? 0.17,
+      defringeGreenHueMax:
+          (json['defringeGreenHueMax'] as num?)?.toDouble() ?? 0.50,
+      profileCorrections: json['profileCorrections'] as bool? ?? false,
+      profileDistortion:
+          (json['profileDistortion'] as num?)?.toDouble() ?? 1.0,
+      profileVignetting:
+          (json['profileVignetting'] as num?)?.toDouble() ?? 1.0,
+      temperature: asDouble('temperature'),
+      tint: asDouble('tint'),
+      vibrance: asDouble('vibrance'),
+      saturation: asDouble('saturation'),
+      gradeShadowHue: asDouble('gradeShadowHue'),
+      gradeShadowSat: asDouble('gradeShadowSat'),
+      gradeShadowLum: asDouble('gradeShadowLum'),
+      gradeMidHue: asDouble('gradeMidHue'),
+      gradeMidSat: asDouble('gradeMidSat'),
+      gradeMidLum: asDouble('gradeMidLum'),
+      gradeHighlightHue: asDouble('gradeHighlightHue'),
+      gradeHighlightSat: asDouble('gradeHighlightSat'),
+      gradeHighlightLum: asDouble('gradeHighlightLum'),
+      gradeBlending: (json['gradeBlending'] as num?)?.toDouble() ?? 0.5,
+      gradeBalance: asDouble('gradeBalance'),
+      masterCurve: ToneCurve.fromJson(json['masterCurve']),
+      redCurve: ToneCurve.fromJson(json['redCurve']),
+      greenCurve: ToneCurve.fromJson(json['greenCurve']),
+      blueCurve: ToneCurve.fromJson(json['blueCurve']),
+      hsl:
+          (json['hsl'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
+          neutralHsl,
+      rotation: (json['rotation'] as num?)?.toInt() ?? 0,
+      flipH: json['flipH'] as bool? ?? false,
+      flipV: json['flipV'] as bool? ?? false,
+      straighten: asDouble('straighten'),
+      crop:
+          (json['crop'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
+          fullCrop,
+      perspectiveX: asDouble('perspectiveX'),
+      perspectiveY: asDouble('perspectiveY'),
+      skewX: asDouble('skewX'),
+      skewY: asDouble('skewY'),
+      layers:
+          (json['layers'] as List?)
+              ?.map(
+                (e) => AdjustmentLayer.fromJson((e as Map).cast<String, Object?>()),
+              )
+              .toList() ??
+          const <AdjustmentLayer>[],
+      maskGroups:
+          (json['maskGroups'] as List?)
+              ?.map(
+                (e) => MaskGroup.fromJson((e as Map).cast<String, Object?>()),
+              )
+              .toList() ??
+          const <MaskGroup>[],
+      retouchPatches:
+          (json['retouchPatches'] as List?)
+              ?.map(
+                (e) => RetouchPatch.fromJson((e as Map).cast<String, Object?>()),
+              )
+              .toList() ??
+          const <RetouchPatch>[],
+      blurEnabled: json['blurEnabled'] as bool? ?? false,
+      blurAmount: asDouble('blurAmount'),
+      blurFocalPoint: (json['blurFocalPoint'] as num?)?.toDouble() ?? 0.5,
+      blurFocalRange: (json['blurFocalRange'] as num?)?.toDouble() ?? 0.2,
+      blurBokehShape: (json['blurBokehShape'] as num?)?.toInt() ?? 0,
+      blurBokehBoost: asDouble('blurBokehBoost'),
+      blurBackgroundBlur: json['blurBackgroundBlur'] as bool? ?? false,
+      filmHalation: asDouble('filmHalation'),
+      filmHalationRadius:
+          (json['filmHalationRadius'] as num?)?.toDouble() ?? 0.5,
+      filmHalationThreshold:
+          (json['filmHalationThreshold'] as num?)?.toDouble() ?? 0.8,
+      filmBloom: asDouble('filmBloom'),
+      filmBloomRadius: (json['filmBloomRadius'] as num?)?.toDouble() ?? 0.5,
+      filmBloomThreshold:
+          (json['filmBloomThreshold'] as num?)?.toDouble() ?? 0.75,
+      filmDust: asDouble('filmDust'),
+      filmScratches: asDouble('filmScratches'),
+      shaderLabPreset: (json['shaderLabPreset'] as num?)?.toInt() ?? 0,
+      shaderParam1: asDouble('shaderParam1'),
+      shaderParam2: asDouble('shaderParam2'),
+      shaderParam3: asDouble('shaderParam3'),
+      customGlslCode: json['customGlslCode'] as String? ?? '',
+    );
+  }
+
   /// Bumped only on a breaking schema change (ARCHITECTURE §16).
   ///
   /// v2: grouped, catalog-driven parameter model (JSON still flat, v1 keys
@@ -531,133 +658,6 @@ class EditRecipe {
     'shaderParam3': shaderParam3,
     'customGlslCode': customGlslCode,
   };
-
-  /// Deserialises from [json], tolerating missing keys (default to neutral) and
-  /// ignoring unknown keys. Any supported version migrates forward to
-  /// [currentSchemaVersion].
-  factory EditRecipe.fromJson(Map<String, Object?> json) {
-    double asDouble(String key) => (json[key] as num?)?.toDouble() ?? 0;
-    return EditRecipe(
-      schemaVersion: currentSchemaVersion,
-      exposure: asDouble('exposure'),
-      contrast: asDouble('contrast'),
-      highlights: asDouble('highlights'),
-      shadows: asDouble('shadows'),
-      whites: asDouble('whites'),
-      blacks: asDouble('blacks'),
-      clarity: asDouble('clarity'),
-      texture: asDouble('texture'),
-      dehaze: asDouble('dehaze'),
-      vignette: asDouble('vignette'),
-      vignetteMidpoint: (json['vignetteMidpoint'] as num?)?.toDouble() ?? 0.5,
-      vignetteFeather: (json['vignetteFeather'] as num?)?.toDouble() ?? 0.5,
-      vignetteRoundness: asDouble('vignetteRoundness'),
-      vignetteHighlights: asDouble('vignetteHighlights'),
-      grain: asDouble('grain'),
-      grainSize: (json['grainSize'] as num?)?.toDouble() ?? 0.25,
-      grainRoughness: (json['grainRoughness'] as num?)?.toDouble() ?? 0.5,
-      sharpen: asDouble('sharpen'),
-      sharpenRadius: (json['sharpenRadius'] as num?)?.toDouble() ?? 1.0,
-      sharpenDetail: (json['sharpenDetail'] as num?)?.toDouble() ?? 0.25,
-      sharpenMasking: asDouble('sharpenMasking'),
-      denoiseLuma: asDouble('denoiseLuma'),
-      denoiseChroma: asDouble('denoiseChroma'),
-      removeChromaticAberration:
-          json['removeChromaticAberration'] as bool? ?? false,
-      defringePurpleAmount: asDouble('defringePurpleAmount'),
-      defringePurpleHueMin:
-          (json['defringePurpleHueMin'] as num?)?.toDouble() ?? 0.70,
-      defringePurpleHueMax:
-          (json['defringePurpleHueMax'] as num?)?.toDouble() ?? 0.95,
-      defringeGreenAmount: asDouble('defringeGreenAmount'),
-      defringeGreenHueMin:
-          (json['defringeGreenHueMin'] as num?)?.toDouble() ?? 0.17,
-      defringeGreenHueMax:
-          (json['defringeGreenHueMax'] as num?)?.toDouble() ?? 0.50,
-      profileCorrections: json['profileCorrections'] as bool? ?? false,
-      profileDistortion:
-          (json['profileDistortion'] as num?)?.toDouble() ?? 1.0,
-      profileVignetting:
-          (json['profileVignetting'] as num?)?.toDouble() ?? 1.0,
-      temperature: asDouble('temperature'),
-      tint: asDouble('tint'),
-      vibrance: asDouble('vibrance'),
-      saturation: asDouble('saturation'),
-      gradeShadowHue: asDouble('gradeShadowHue'),
-      gradeShadowSat: asDouble('gradeShadowSat'),
-      gradeShadowLum: asDouble('gradeShadowLum'),
-      gradeMidHue: asDouble('gradeMidHue'),
-      gradeMidSat: asDouble('gradeMidSat'),
-      gradeMidLum: asDouble('gradeMidLum'),
-      gradeHighlightHue: asDouble('gradeHighlightHue'),
-      gradeHighlightSat: asDouble('gradeHighlightSat'),
-      gradeHighlightLum: asDouble('gradeHighlightLum'),
-      gradeBlending: (json['gradeBlending'] as num?)?.toDouble() ?? 0.5,
-      gradeBalance: asDouble('gradeBalance'),
-      masterCurve: ToneCurve.fromJson(json['masterCurve']),
-      redCurve: ToneCurve.fromJson(json['redCurve']),
-      greenCurve: ToneCurve.fromJson(json['greenCurve']),
-      blueCurve: ToneCurve.fromJson(json['blueCurve']),
-      hsl:
-          (json['hsl'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
-          neutralHsl,
-      rotation: (json['rotation'] as num?)?.toInt() ?? 0,
-      flipH: json['flipH'] as bool? ?? false,
-      flipV: json['flipV'] as bool? ?? false,
-      straighten: asDouble('straighten'),
-      crop:
-          (json['crop'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
-          fullCrop,
-      perspectiveX: asDouble('perspectiveX'),
-      perspectiveY: asDouble('perspectiveY'),
-      skewX: asDouble('skewX'),
-      skewY: asDouble('skewY'),
-      layers:
-          (json['layers'] as List?)
-              ?.map(
-                (e) => AdjustmentLayer.fromJson((e as Map).cast<String, Object?>()),
-              )
-              .toList() ??
-          const <AdjustmentLayer>[],
-      maskGroups:
-          (json['maskGroups'] as List?)
-              ?.map(
-                (e) => MaskGroup.fromJson((e as Map).cast<String, Object?>()),
-              )
-              .toList() ??
-          const <MaskGroup>[],
-      retouchPatches:
-          (json['retouchPatches'] as List?)
-              ?.map(
-                (e) => RetouchPatch.fromJson((e as Map).cast<String, Object?>()),
-              )
-              .toList() ??
-          const <RetouchPatch>[],
-      blurEnabled: json['blurEnabled'] as bool? ?? false,
-      blurAmount: asDouble('blurAmount'),
-      blurFocalPoint: (json['blurFocalPoint'] as num?)?.toDouble() ?? 0.5,
-      blurFocalRange: (json['blurFocalRange'] as num?)?.toDouble() ?? 0.2,
-      blurBokehShape: (json['blurBokehShape'] as num?)?.toInt() ?? 0,
-      blurBokehBoost: asDouble('blurBokehBoost'),
-      blurBackgroundBlur: json['blurBackgroundBlur'] as bool? ?? false,
-      filmHalation: asDouble('filmHalation'),
-      filmHalationRadius:
-          (json['filmHalationRadius'] as num?)?.toDouble() ?? 0.5,
-      filmHalationThreshold:
-          (json['filmHalationThreshold'] as num?)?.toDouble() ?? 0.8,
-      filmBloom: asDouble('filmBloom'),
-      filmBloomRadius: (json['filmBloomRadius'] as num?)?.toDouble() ?? 0.5,
-      filmBloomThreshold:
-          (json['filmBloomThreshold'] as num?)?.toDouble() ?? 0.75,
-      filmDust: asDouble('filmDust'),
-      filmScratches: asDouble('filmScratches'),
-      shaderLabPreset: (json['shaderLabPreset'] as num?)?.toInt() ?? 0,
-      shaderParam1: asDouble('shaderParam1'),
-      shaderParam2: asDouble('shaderParam2'),
-      shaderParam3: asDouble('shaderParam3'),
-      customGlslCode: json['customGlslCode'] as String? ?? '',
-    );
-  }
 
   @override
   bool operator ==(Object other) =>

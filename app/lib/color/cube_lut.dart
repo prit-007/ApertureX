@@ -9,6 +9,43 @@ class CubeLut {
     : assert(size >= 2, 'size must be >= 2'),
       assert(data.length == size * size * size * 3);
 
+  /// Expands a per-channel 1D `curve` (`size1D` × RGB) into a separable 3D LUT.
+  ///
+  /// The cube is resampled to `min(size1D, max1DExpand)` per axis (or `resample`
+  /// when given) so oversized curves (1024-point is typical) stay memory-cheap.
+  factory CubeLut.from1D({
+    required Float32List curve,
+    required int size1D,
+    String? title,
+    int? resample,
+  }) {
+    if (size1D < 2 || curve.length != size1D * 3) {
+      throw FormatException('expected $size1D 1D entries');
+    }
+    final cap = size1D < max1DExpand ? size1D : max1DExpand;
+    final n = (resample ?? cap).clamp(2, cap);
+    double sample(int channel, double t) {
+      final pos = t * (size1D - 1);
+      final k0 = pos.floor();
+      final k1 = k0 >= size1D - 1 ? size1D - 1 : k0 + 1;
+      final f = pos - k0;
+      return curve[k0 * 3 + channel] * (1 - f) + curve[k1 * 3 + channel] * f;
+    }
+
+    final out = Float32List(n * n * n * 3);
+    for (var b = 0; b < n; b++) {
+      for (var g = 0; g < n; g++) {
+        for (var r = 0; r < n; r++) {
+          final i = (r + g * n + b * n * n) * 3;
+          out[i] = sample(0, n == 1 ? 0 : r / (n - 1));
+          out[i + 1] = sample(1, n == 1 ? 0 : g / (n - 1));
+          out[i + 2] = sample(2, n == 1 ? 0 : b / (n - 1));
+        }
+      }
+    }
+    return CubeLut(size: n, data: out, title: title);
+  }
+
   final int size;
   final Float32List data;
   final String? title;
@@ -53,43 +90,6 @@ class CubeLut {
       );
     }
     return buf.toString();
-  }
-
-  /// Expands a per-channel 1D `curve` (`size1D` × RGB) into a separable 3D LUT.
-  ///
-  /// The cube is resampled to `min(size1D, max1DExpand)` per axis (or `resample`
-  /// when given) so oversized curves (1024-point is typical) stay memory-cheap.
-  factory CubeLut.from1D({
-    required Float32List curve,
-    required int size1D,
-    String? title,
-    int? resample,
-  }) {
-    if (size1D < 2 || curve.length != size1D * 3) {
-      throw FormatException('expected $size1D 1D entries');
-    }
-    final cap = size1D < max1DExpand ? size1D : max1DExpand;
-    final n = (resample ?? cap).clamp(2, cap);
-    double sample(int channel, double t) {
-      final pos = t * (size1D - 1);
-      final k0 = pos.floor();
-      final k1 = k0 >= size1D - 1 ? size1D - 1 : k0 + 1;
-      final f = pos - k0;
-      return curve[k0 * 3 + channel] * (1 - f) + curve[k1 * 3 + channel] * f;
-    }
-
-    final out = Float32List(n * n * n * 3);
-    for (var b = 0; b < n; b++) {
-      for (var g = 0; g < n; g++) {
-        for (var r = 0; r < n; r++) {
-          final i = (r + g * n + b * n * n) * 3;
-          out[i] = sample(0, n == 1 ? 0 : r / (n - 1));
-          out[i + 1] = sample(1, n == 1 ? 0 : g / (n - 1));
-          out[i + 2] = sample(2, n == 1 ? 0 : b / (n - 1));
-        }
-      }
-    }
-    return CubeLut(size: n, data: out, title: title);
   }
 
   /// Parses `.cube` text. Supports `TITLE`, `LUT_3D_SIZE`, `LUT_1D_SIZE`

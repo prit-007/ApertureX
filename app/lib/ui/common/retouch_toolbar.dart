@@ -95,7 +95,7 @@ class RetouchToolbar extends ConsumerWidget {
                     Icons.auto_fix_high,
                     size: 14,
                     color: currentMode == RetouchMode.heal
-                        ? const Color(0xFF00E5FF)
+                        ? scheme.primary
                         : null,
                   ),
                   const SizedBox(width: 4),
@@ -131,7 +131,7 @@ class RetouchToolbar extends ConsumerWidget {
                     Icons.copy,
                     size: 14,
                     color: currentMode == RetouchMode.clone
-                        ? const Color(0xFFFFB300)
+                        ? scheme.secondary
                         : null,
                   ),
                   const SizedBox(width: 4),

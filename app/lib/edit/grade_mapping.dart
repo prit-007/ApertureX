@@ -20,15 +20,6 @@ class GradeUniforms {
     required this.shadows,
   });
 
-  final double exposure;
-  final double contrast;
-  final double saturation;
-  final double temperature;
-  final double tint;
-  final double vibrance;
-  final double highlights;
-  final double shadows;
-
   /// Recipe → uniforms for the currently-renderable subset.
   factory GradeUniforms.fromRecipe(EditRecipe recipe) => GradeUniforms(
     exposure: recipe.exposure,
@@ -40,6 +31,15 @@ class GradeUniforms {
     highlights: recipe.highlights,
     shadows: recipe.shadows,
   );
+
+  final double exposure;
+  final double contrast;
+  final double saturation;
+  final double temperature;
+  final double tint;
+  final double vibrance;
+  final double highlights;
+  final double shadows;
 
   /// Flat list of floats in shader uniform-slot order (slots 2..9),
   /// ready for `shader.setFloat(i, value)`.

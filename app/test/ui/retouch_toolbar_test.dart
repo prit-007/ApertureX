@@ -92,4 +92,34 @@ void main() {
       expect(scrollable, findsOneWidget);
     },
   );
+
+  testWidgets('retouch delete IconButton meets the 48x48dp Android touch-target minimum', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: RetouchToolbar(),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Create a patch so the Delete button renders
+    await tester.tap(find.byKey(const Key('retouch-toolbar-add')));
+    await tester.pumpAndSettle();
+
+    final deleteButton = tester.widget<IconButton>(
+      find.byKey(const Key('retouch-toolbar-delete')),
+    );
+    expect(deleteButton.constraints?.minWidth, greaterThanOrEqualTo(48.0));
+    expect(deleteButton.constraints?.minHeight, greaterThanOrEqualTo(48.0));
+  });
 }

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -14,6 +15,10 @@ import '../../settings/ai_consent.dart';
 import '../../viewport/canvas_transform.dart';
 import '../../viewport/mask_peek.dart';
 import 'color_grading_editor.dart';
+
+/// Whether the user has requested reduced motion (accessibility setting).
+bool get _reduceMotion =>
+    PlatformDispatcher.instance.accessibilityFeatures.reduceMotion;
 
 /// Function signature for sky detection from photo bytes.
 typedef SkyDetectorFn = Future<DetectedSky?> Function(Uint8List imageBytes);
@@ -457,7 +462,7 @@ class MaskControls extends ConsumerWidget {
             ),
             if (i == selectedIndex)
               AnimatedSize(
-                duration: const Duration(milliseconds: 250),
+                duration: _reduceMotion ? Duration.zero : const Duration(milliseconds: 250),
                 curve: Curves.easeOutCubic,
                 child: _buildInlineCard(context, ref, i: i, layer: layers[i], notifier: notifier),
               ),
@@ -675,9 +680,9 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.add),
-                  child: Chip(
-                    avatar: const Icon(Icons.add, size: 14),
-                    label: const Text('Add', style: TextStyle(fontSize: 11)),
+                  child: const Chip(
+                    avatar: Icon(Icons.add, size: 14),
+                    label: Text('Add', style: TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),
@@ -695,9 +700,9 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.subtract),
-                  child: Chip(
-                    avatar: const Icon(Icons.remove, size: 14),
-                    label: const Text('Subtract', style: TextStyle(fontSize: 11)),
+                  child: const Chip(
+                    avatar: Icon(Icons.remove, size: 14),
+                    label: Text('Subtract', style: TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),
@@ -715,9 +720,9 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.intersect),
-                  child: Chip(
-                    avatar: const Icon(Icons.join_inner, size: 14),
-                    label: const Text('Intersect', style: TextStyle(fontSize: 11)),
+                  child: const Chip(
+                    avatar: Icon(Icons.join_inner, size: 14),
+                    label: Text('Intersect', style: TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),

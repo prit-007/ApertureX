@@ -19,7 +19,7 @@ final Uint8List _pngBytes = Uint8List.fromList(const [
   0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
 ]);
 
-/// TIFF magic — [detectImageFormat] reports this as a RAW container.
+/// TIFF magic — detectImageFormat reports this as a RAW container.
 const List<int> _tiffMagic = [0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00];
 
 void main() {
@@ -215,7 +215,7 @@ void main() {
         await src.pickRoot();
         expect(await src.loadImage('a.jpg'), _pngBytes);
 
-        final different = const [0x01, 0x02, 0x03];
+        const different = [0x01, 0x02, 0x03];
         File('${other.path}/a.jpg').writeAsBytesSync(different);
         expect(await src.setRoot(other.path), isTrue);
         expect(

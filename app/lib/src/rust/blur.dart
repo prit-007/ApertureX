@@ -11,6 +11,16 @@ enum BokehShape { circle, pentagon, hexagon, septagon, swirl }
 
 /// Parameters for depth-guided optical lens blur.
 class LensBlurParams {
+
+  const LensBlurParams({
+    required this.enabled,
+    required this.amount,
+    required this.focalPoint,
+    required this.focalRange,
+    required this.bokehShape,
+    required this.bokehBoost,
+    required this.backgroundBlur,
+  });
   final bool enabled;
 
   /// Amount of aperture blur (`0..1`, where 1.0 = wide open f/1.2).
@@ -31,16 +41,6 @@ class LensBlurParams {
   /// When true, applies background-only blur using AI subject segmentation:
   /// the subject stays sharp while the background is blurred.
   final bool backgroundBlur;
-
-  const LensBlurParams({
-    required this.enabled,
-    required this.amount,
-    required this.focalPoint,
-    required this.focalRange,
-    required this.bokehShape,
-    required this.bokehBoost,
-    required this.backgroundBlur,
-  });
 
   @override
   int get hashCode =>

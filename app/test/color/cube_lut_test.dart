@@ -65,7 +65,7 @@ void main() {
       expect(rgba.length, 4 * 2 * 4); // width 4, height 2
 
       // Texel for slice b=1, g=0, r=1 -> x = b*2 + r = 3, y = 0.
-      final o = (0 * 4 + 3) * 4;
+      const o = (0 * 4 + 3) * 4;
       expect(rgba[o], 255); // R
       expect(rgba[o + 1], 0); // G
       expect(rgba[o + 2], 255); // B
@@ -99,7 +99,7 @@ void main() {
       final lut = CubeLut.parse('LUT_1D_SIZE 3\n0 0 0\n0.5 0.5 0.5\n1 1 1\n');
       expect(lut.size, 3);
       // Corner (r=2,g=2,b=2) should still be white.
-      final o = (2 * 9 + (2 * 3 + 2)) * 4; // slice b=2, x=b*3+r=8? see layout
+      const o = (2 * 9 + (2 * 3 + 2)) * 4; // slice b=2, x=b*3+r=8? see layout
       expect(lut.toAtlasRgba()[o], 255);
     });
 
@@ -116,7 +116,7 @@ void main() {
       final lut = CubeLut.parse3dl(_identity3dl);
       expect(lut.size, 2);
       // Red-fastest in memory: index = r + g*2 + b*4, so (r=1,g=0,b=1) -> 5.
-      final i = (1 + 0 * 2 + 1 * 4) * 3;
+      const i = (1 + 0 * 2 + 1 * 4) * 3;
       expect(lut.data[i], closeTo(1, 1e-6));
       expect(lut.data[i + 1], closeTo(0, 1e-6));
       expect(lut.data[i + 2], closeTo(1, 1e-6));

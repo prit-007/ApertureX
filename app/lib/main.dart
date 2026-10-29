@@ -51,7 +51,7 @@ void main() {
         overrides: [
           gallerySourceProvider.overrideWithValue(defaultGallerySource()),
         ],
-        child: PrecisionListener(child: const ApertureXApp()),
+        child: const PrecisionListener(child: ApertureXApp()),
       ),
     );
   }, (error, stack) => reporter.report(error, stack, fatal: true));

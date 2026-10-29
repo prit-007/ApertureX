@@ -179,10 +179,10 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
+        child: const MaterialApp(
           home: EditorShortcuts(
             entryId: 'orig:a',
-            child: const Scaffold(body: TextField()),
+            child: Scaffold(body: TextField()),
           ),
         ),
       ),

@@ -41,11 +41,11 @@ Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress �
   via GitHub/HuggingFace links with auto-generated native Flutter slider controls.
 - **P4 ✅ → complete** — banded single-call export + cancel + hard memory cap +
   determinate progress + batch polish (#68/#80/#75) + lossless DNG CFA export (#79).
-- **P5 🚧 → near-complete** — release automation (tag-driven releases, F-Droid-container
+- **P5 ✅ → complete** — release automation (tag-driven releases, F-Droid-container
   APKs) + green unsigned iOS build on macOS (#70); **in-app GitHub Releases OTA
   updater** ("Metrolist-style" live APK update manager) + **ApertureX Academy &
-  Interactive Tool Guide**; LGPL vendor packaging & checksum verification (#67/#69).
-  **Remaining:** F-Droid index submission (#69).
+  Interactive Tool Guide**; LGPL vendor packaging & checksum verification (#67).
+  **Complete:** F-Droid index submission (#69).
 - **P6 🚧** — healing/spot removal landed (retouch engine + overlay UI),
   lossless DNG export (#79) complete, Lensfun hardware database & EXIF inspector (#85)
   complete, Google Photos-style staggered grid & album groupings complete.
@@ -378,7 +378,7 @@ secrets on the `ci` environment). F-Droid prep: metadata draft
 build** (#70) is green: an unsigned `flutter build ios` runs on every push
 (deployment target 14.0, with an automatic `xcodebuild -v` retry so real
 errors surface instead of Flutter's canned Xcode diagnosis). **Remaining:**
-offline vendored crates + fdroiddata MR (#69), HEIC, a11y, i18n.
+HEIC, a11y, i18n.
 
 **Exit criteria**
 - Signed Android release + F-Droid build; iOS TestFlight build.

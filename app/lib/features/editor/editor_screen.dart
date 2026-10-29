@@ -843,7 +843,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     );
   }
 
-  void _cancelExport() async {
+  Future<void> _cancelExport() async {
     final token = _exportCancelToken;
     if (token == null) return;
     axLog(LogDomain.export, 'Cancel requested');

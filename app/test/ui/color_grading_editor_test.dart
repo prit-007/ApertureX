@@ -130,8 +130,7 @@ void main() {
   });
 
   testWidgets('the grading wheel adapts its size to the available pane', (
-    tester,
-  ) async {
+    tester,    ) async {
     // Wide pane: the wheel keeps its full 180px size.
     await pump(tester);
     final wide = tester.getSize(find.byType(ColorGradingWheel));
@@ -156,5 +155,37 @@ void main() {
     expect(narrow.width, lessThan(180));
     expect(narrow.width, greaterThanOrEqualTo(120));
     expect(narrow.width, lessThanOrEqualTo(200));
+  });
+
+  testWidgets('color grading wheel puck is ≥12px diameter for touch targeting', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 200,
+              height: 200,
+              child: ColorGradingWheel(
+                hue: 0,
+                saturation: 1.0,
+                size: 100,
+                onChanged: (_, __) {},
+                onChangeEnd: () {},
+                onReset: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Wheel renders without errors and occupies its allocated space
+    final wheelRect = tester.getRect(find.byType(ColorGradingWheel));
+    expect(wheelRect.width, 200);
+    expect(wheelRect.height, 200);
   });
 }

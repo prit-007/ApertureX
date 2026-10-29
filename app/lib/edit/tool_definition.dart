@@ -15,6 +15,15 @@ class ToolDefinition {
     required this.params,
   });
 
+  factory ToolDefinition.fromJson(Map<String, Object?> json) => ToolDefinition(
+    name: (json['name'] as String?) ?? 'Untitled',
+    description: (json['description'] as String?) ?? '',
+    params: {
+      for (final e in (json['params'] as Map? ?? {}).entries)
+        e.key.toString(): (e.value as num).toDouble(),
+    },
+  );
+
   final String name;
   final String description;
 
@@ -42,15 +51,6 @@ class ToolDefinition {
     'description': description,
     'params': params,
   };
-
-  factory ToolDefinition.fromJson(Map<String, Object?> json) => ToolDefinition(
-    name: (json['name'] as String?) ?? 'Untitled',
-    description: (json['description'] as String?) ?? '',
-    params: {
-      for (final e in (json['params'] as Map? ?? {}).entries)
-        e.key.toString(): (e.value as num).toDouble(),
-    },
-  );
 
   String encode() => const JsonEncoder.withIndent('  ').convert(toJson());
 

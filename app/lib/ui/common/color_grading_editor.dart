@@ -430,20 +430,20 @@ class _WheelPainter extends CustomPainter {
       ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0;
-    canvas.drawCircle(puckPos, 8, puckBorder);
+    canvas.drawCircle(puckPos, 12, puckBorder);
 
     // Dark drop shadow ring
     final puckShadow = Paint()
       ..color = const Color(0x88000000)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
-    canvas.drawCircle(puckPos, 9.5, puckShadow);
+    canvas.drawCircle(puckPos, 13.5, puckShadow);
 
     // Inner dot with hue color
     final puckInner = Paint()
       ..color = HSVColor.fromAHSV(1.0, hue, saturation, 1.0).toColor()
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(puckPos, 6, puckInner);
+    canvas.drawCircle(puckPos, 10, puckInner);
   }
 
   @override

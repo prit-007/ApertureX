@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:aperturex/viewport/image_canvas.dart' show ImageCanvas;
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter/material.dart';

@@ -212,7 +212,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
+        child: const MaterialApp(
           home: EditorScreen(
             asset: GalleryAsset(id: 'a', width: 1, height: 1),
           ),

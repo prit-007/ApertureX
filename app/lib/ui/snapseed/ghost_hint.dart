@@ -75,7 +75,7 @@ class _GhostHintState extends ConsumerState<GhostHint>
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
+                    color: scheme.onSurface.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: const Column(

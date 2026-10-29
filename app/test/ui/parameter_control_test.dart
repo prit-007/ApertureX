@@ -254,10 +254,52 @@ void main() {
       final data = bytes!.buffer.asUint8List();
       // Centre pixel = the neutral marker: the fill (and thumb) sit here.
       const cx = 150, cy = 18;
-      final i = (cy * 300 + cx) * 4;
+      const i = (cy * 300 + cx) * 4;
       return Color.fromARGB(data[i + 3], data[i], data[i + 1], data[i + 2]);
     }).then((c) => c!);
   }
+
+  testWidgets('jog-dial IconButton meets the 48x48dp Android touch-target minimum', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_harness(container, Parameter.contrast));
+
+    final jogDial = tester.widget<IconButton>(
+      find.byKey(const Key('param-jog-dial-contrast')),
+    );
+    expect(jogDial.constraints?.minWidth, greaterThanOrEqualTo(48.0));
+    expect(jogDial.constraints?.minHeight, greaterThanOrEqualTo(48.0));
+  });
+
+  testWidgets('jog-dial IconButton meets the 48x48dp Android touch-target minimum on exposure', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_harness(container, Parameter.exposure));
+
+    final jogDial = tester.widget<IconButton>(
+      find.byKey(const Key('param-jog-dial-exposure')),
+    );
+    expect(jogDial.constraints?.minWidth, greaterThanOrEqualTo(48.0));
+    expect(jogDial.constraints?.minHeight, greaterThanOrEqualTo(48.0));
+  });
+
+  testWidgets('muted parameter semantics announce muted and unmute in the a11y tree', (
+    tester,
+  ) async {
+    container
+        .read(recipeControllerProvider.notifier)
+        .update(Parameter.exposure, 2.5);
+    await tester.pumpWidget(_harness(container, Parameter.exposure));
+
+    // Mute the parameter via long-press on the label
+    await tester.longPress(find.byKey(const Key('param-label-exposure')));
+    await tester.pump();
+
+    // The semantics node for the label should announce muted + unmute action
+    final semantics = tester.getSemantics(find.text('Exposure'));
+    expect(semantics.label, contains('muted'));
+    expect(semantics.label, contains('unmute'));
+  });
 
   testWidgets('a muted parameter dims the track fill to the surface colour', (
     tester,

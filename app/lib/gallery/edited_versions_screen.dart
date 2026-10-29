@@ -36,7 +36,7 @@ class EditedVersionsScreen extends ConsumerStatefulWidget {
 class _EditedVersionsScreenState extends ConsumerState<EditedVersionsScreen> {
   EditedFilter _filter = EditedFilter.all;
 
-  void _openPreview(EditPreview preview) async {
+  Future<void> _openPreview(EditPreview preview) async {
     final file = File(preview.path);
     if (!file.existsSync()) return;
     final bytes = file.readAsBytesSync();

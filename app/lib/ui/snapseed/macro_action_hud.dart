@@ -71,7 +71,7 @@ class MacroActionHud extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.black87,
+                    color: scheme.onSurface.withValues(alpha: 0.87),
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
                       color: scheme.primary.withValues(alpha: 0.6),

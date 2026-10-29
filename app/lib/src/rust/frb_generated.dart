@@ -33,10 +33,10 @@ import 'watermark.dart';
 
 /// Main entrypoint of the Rust API
 class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
-  @internal
-  static final instance = RustLib._();
 
   RustLib._();
+  @internal
+  static final instance = RustLib._();
 
   /// Initialize flutter_rust_bridge
   static Future<void> init({
@@ -671,8 +671,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiMaskApplyMasksConstMeta => const TaskConstMeta(
-    debugName: "apply_masks",
-    argNames: ["rgba", "width", "height", "layers"],
+    debugName: 'apply_masks',
+    argNames: ['rgba', 'width', 'height', 'layers'],
   );
 
   @override
@@ -703,7 +703,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiColorAutoToneConstMeta =>
-      const TaskConstMeta(debugName: "auto_tone", argNames: ["jpeg"]);
+      const TaskConstMeta(debugName: 'auto_tone', argNames: ['jpeg']);
 
   @override
   Future<LutData> crateApiColorBakeLut3D({
@@ -739,8 +739,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiColorBakeLut3DConstMeta => const TaskConstMeta(
-    debugName: "bake_lut3d",
-    argNames: ["size", "params", "curves", "hsl"],
+    debugName: 'bake_lut3d',
+    argNames: ['size', 'params', 'curves', 'hsl'],
   );
 
   @override
@@ -794,16 +794,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiRoiBakeRoiBandConstMeta => const TaskConstMeta(
-    debugName: "bake_roi_band",
+    debugName: 'bake_roi_band',
     argNames: [
-      "band",
-      "decodeTop",
-      "outTop",
-      "outRows",
-      "fullWidth",
-      "fullHeight",
-      "spec",
-      "layers",
+      'band',
+      'decodeTop',
+      'outTop',
+      'outRows',
+      'fullWidth',
+      'fullHeight',
+      'spec',
+      'layers',
     ],
   );
 
@@ -873,21 +873,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiRoiBakeRoiRectConstMeta => const TaskConstMeta(
-    debugName: "bake_roi_rect",
+    debugName: 'bake_roi_rect',
     argNames: [
-      "rect",
-      "decodeX",
-      "decodeY",
-      "decodeW",
-      "decodeH",
-      "outX",
-      "outY",
-      "outW",
-      "outH",
-      "fullWidth",
-      "fullHeight",
-      "spec",
-      "layers",
+      'rect',
+      'decodeX',
+      'decodeY',
+      'decodeW',
+      'decodeH',
+      'outX',
+      'outY',
+      'outW',
+      'outH',
+      'fullWidth',
+      'fullHeight',
+      'spec',
+      'layers',
     ],
   );
 
@@ -927,8 +927,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiBlurBlurApplyConstMeta => const TaskConstMeta(
-    debugName: "blur_apply",
-    argNames: ["rgba", "width", "height", "params", "depthMap"],
+    debugName: 'blur_apply',
+    argNames: ['rgba', 'width', 'height', 'params', 'depthMap'],
   );
 
   @override
@@ -961,8 +961,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiEngineBrightenRgbaConstMeta => const TaskConstMeta(
-    debugName: "brighten_rgba",
-    argNames: ["rgba", "amount"],
+    debugName: 'brighten_rgba',
+    argNames: ['rgba', 'amount'],
   );
 
   @override
@@ -994,8 +994,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiC2PaC2PaGenerateDeviceKeyConstMeta =>
       const TaskConstMeta(
-        debugName: "c2pa_generate_device_key",
-        argNames: ["deviceSeed"],
+        debugName: 'c2pa_generate_device_key',
+        argNames: ['deviceSeed'],
       );
 
   @override
@@ -1029,8 +1029,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiC2PaC2PaVerifyImageConstMeta =>
       const TaskConstMeta(
-        debugName: "c2pa_verify_image",
-        argNames: ["imageBytes", "devicePrivateKey"],
+        debugName: 'c2pa_verify_image',
+        argNames: ['imageBytes', 'devicePrivateKey'],
       );
 
   @override
@@ -1059,7 +1059,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiExportC2PaExportSpecDefaultConstMeta =>
       const TaskConstMeta(
-        debugName: "c_2_pa_export_spec_default",
+        debugName: 'c_2_pa_export_spec_default',
         argNames: [],
       );
 
@@ -1088,7 +1088,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiColorColorParamsDefaultConstMeta =>
-      const TaskConstMeta(debugName: "color_params_default", argNames: []);
+      const TaskConstMeta(debugName: 'color_params_default', argNames: []);
 
   @override
   Future<bool> crateApiColorColorParamsIsNeutral({required ColorParams that}) {
@@ -1117,8 +1117,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiColorColorParamsIsNeutralConstMeta =>
       const TaskConstMeta(
-        debugName: "color_params_is_neutral",
-        argNames: ["that"],
+        debugName: 'color_params_is_neutral',
+        argNames: ['that'],
       );
 
   @override
@@ -1147,7 +1147,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiDecodeDecodeJpegRgbaConstMeta =>
-      const TaskConstMeta(debugName: "decode_jpeg_rgba", argNames: ["jpeg"]);
+      const TaskConstMeta(debugName: 'decode_jpeg_rgba', argNames: ['jpeg']);
 
   @override
   Future<RgbaImage> crateApiDecodeDecodeJpegRoi({
@@ -1186,8 +1186,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiDecodeDecodeJpegRoiConstMeta =>
       const TaskConstMeta(
-        debugName: "decode_jpeg_roi",
-        argNames: ["jpeg", "x", "y", "width", "height"],
+        debugName: 'decode_jpeg_roi',
+        argNames: ['jpeg', 'x', 'y', 'width', 'height'],
       );
 
   @override
@@ -1216,7 +1216,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiRawDecodeRawRgbaConstMeta =>
-      const TaskConstMeta(debugName: "decode_raw_rgba", argNames: ["raw"]);
+      const TaskConstMeta(debugName: 'decode_raw_rgba', argNames: ['raw']);
 
   @override
   Future<RgbaImage> crateApiRawDecodeRawRoi({
@@ -1254,8 +1254,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiRawDecodeRawRoiConstMeta => const TaskConstMeta(
-    debugName: "decode_raw_roi",
-    argNames: ["raw", "x", "y", "width", "height"],
+    debugName: 'decode_raw_roi',
+    argNames: ['raw', 'x', 'y', 'width', 'height'],
   );
 
   @override
@@ -1284,7 +1284,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiIccDetectColorspaceConstMeta =>
-      const TaskConstMeta(debugName: "detect_colorspace", argNames: ["jpeg"]);
+      const TaskConstMeta(debugName: 'detect_colorspace', argNames: ['jpeg']);
 
   @override
   Future<DetectedSky?> crateApiMaskDetectSky({
@@ -1318,8 +1318,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiMaskDetectSkyConstMeta => const TaskConstMeta(
-    debugName: "detect_sky",
-    argNames: ["rgba", "width", "height"],
+    debugName: 'detect_sky',
+    argNames: ['rgba', 'width', 'height'],
   );
 
   @override
@@ -1354,8 +1354,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiMaskDetectSubjectConstMeta => const TaskConstMeta(
-    debugName: "detect_subject",
-    argNames: ["rgba", "width", "height"],
+    debugName: 'detect_subject',
+    argNames: ['rgba', 'width', 'height'],
   );
 
   @override
@@ -1395,8 +1395,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiExportEncodeJpegRgbaConstMeta =>
       const TaskConstMeta(
-        debugName: "encode_jpeg_rgba",
-        argNames: ["rgba", "width", "height", "quality", "exif"],
+        debugName: 'encode_jpeg_rgba',
+        argNames: ['rgba', 'width', 'height', 'quality', 'exif'],
       );
 
   @override
@@ -1424,7 +1424,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiEngineEngineVersionConstMeta =>
-      const TaskConstMeta(debugName: "engine_version", argNames: []);
+      const TaskConstMeta(debugName: 'engine_version', argNames: []);
 
   @override
   Future<Float32List> crateApiBlurEstimateDepthMap({
@@ -1459,8 +1459,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiBlurEstimateDepthMapConstMeta =>
       const TaskConstMeta(
-        debugName: "estimate_depth_map",
-        argNames: ["rgba", "width", "height"],
+        debugName: 'estimate_depth_map',
+        argNames: ['rgba', 'width', 'height'],
       );
 
   @override
@@ -1489,7 +1489,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiExportExportBrandingSpecDefaultConstMeta =>
       const TaskConstMeta(
-        debugName: "export_branding_spec_default",
+        debugName: 'export_branding_spec_default',
         argNames: [],
       );
 
@@ -1522,8 +1522,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiExportExportBrandingSpecToCoreConstMeta =>
       const TaskConstMeta(
-        debugName: "export_branding_spec_to_core",
-        argNames: ["that"],
+        debugName: 'export_branding_spec_to_core',
+        argNames: ['that'],
       );
 
   @override
@@ -1552,7 +1552,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiExportExportCancelDropConstMeta =>
-      const TaskConstMeta(debugName: "export_cancel_drop", argNames: ["token"]);
+      const TaskConstMeta(debugName: 'export_cancel_drop', argNames: ['token']);
 
   @override
   Future<BigInt> crateApiExportExportCancelNew() {
@@ -1579,7 +1579,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiExportExportCancelNewConstMeta =>
-      const TaskConstMeta(debugName: "export_cancel_new", argNames: []);
+      const TaskConstMeta(debugName: 'export_cancel_new', argNames: []);
 
   @override
   Future<void> crateApiExportExportCancelSet({required BigInt token}) {
@@ -1607,7 +1607,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiExportExportCancelSetConstMeta =>
-      const TaskConstMeta(debugName: "export_cancel_set", argNames: ["token"]);
+      const TaskConstMeta(debugName: 'export_cancel_set', argNames: ['token']);
 
   @override
   Future<String> crateApiColorExportCubeLut({
@@ -1645,8 +1645,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiColorExportCubeLutConstMeta => const TaskConstMeta(
-    debugName: "export_cube_lut",
-    argNames: ["size", "params", "curves", "hsl", "title"],
+    debugName: 'export_cube_lut',
+    argNames: ['size', 'params', 'curves', 'hsl', 'title'],
   );
 
   @override
@@ -1706,18 +1706,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiExportExportFullConstMeta => const TaskConstMeta(
-    debugName: "export_full",
+    debugName: 'export_full',
     argNames: [
-      "rgba",
-      "width",
-      "height",
-      "spec",
-      "layers",
-      "retouchPatches",
-      "params",
-      "curves",
-      "hsl",
-      "exif",
+      'rgba',
+      'width',
+      'height',
+      'spec',
+      'layers',
+      'retouchPatches',
+      'params',
+      'curves',
+      'hsl',
+      'exif',
     ],
   );
 
@@ -1785,20 +1785,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiExportExportFullWithBrandingConstMeta =>
       const TaskConstMeta(
-        debugName: "export_full_with_branding",
+        debugName: 'export_full_with_branding',
         argNames: [
-          "rgba",
-          "width",
-          "height",
-          "spec",
-          "layers",
-          "retouchPatches",
-          "params",
-          "curves",
-          "hsl",
-          "exif",
-          "branding",
-          "c2Pa",
+          'rgba',
+          'width',
+          'height',
+          'spec',
+          'layers',
+          'retouchPatches',
+          'params',
+          'curves',
+          'hsl',
+          'exif',
+          'branding',
+          'c2Pa',
         ],
       );
 
@@ -1839,8 +1839,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiExportExportHdrMergeConstMeta =>
       const TaskConstMeta(
-        debugName: "export_hdr_merge",
-        argNames: ["exposures", "quality", "gainQuality", "headroomEv", "exif"],
+        debugName: 'export_hdr_merge',
+        argNames: ['exposures', 'quality', 'gainQuality', 'headroomEv', 'exif'],
       );
 
   @override
@@ -1870,8 +1870,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiExportExportProgressGetConstMeta =>
       const TaskConstMeta(
-        debugName: "export_progress_get",
-        argNames: ["token"],
+        debugName: 'export_progress_get',
+        argNames: ['token'],
       );
 
   @override
@@ -1904,8 +1904,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiExportExportRawDngConstMeta => const TaskConstMeta(
-    debugName: "export_raw_dng",
-    argNames: ["rawBytes", "xmp"],
+    debugName: 'export_raw_dng',
+    argNames: ['rawBytes', 'xmp'],
   );
 
   @override
@@ -1937,8 +1937,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiExportExportSpecBlurParamsConstMeta =>
       const TaskConstMeta(
-        debugName: "export_spec_blur_params",
-        argNames: ["that"],
+        debugName: 'export_spec_blur_params',
+        argNames: ['that'],
       );
 
   @override
@@ -1975,8 +1975,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiExportExportTiff16ConstMeta => const TaskConstMeta(
-    debugName: "export_tiff16",
-    argNames: ["rgba", "width", "height", "xmp"],
+    debugName: 'export_tiff16',
+    argNames: ['rgba', 'width', 'height', 'xmp'],
   );
 
   @override
@@ -2008,8 +2008,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiExifExtractEmbeddedDepthConstMeta =>
       const TaskConstMeta(
-        debugName: "extract_embedded_depth",
-        argNames: ["jpeg"],
+        debugName: 'extract_embedded_depth',
+        argNames: ['jpeg'],
       );
 
   @override
@@ -2038,7 +2038,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiExifExtractExifConstMeta =>
-      const TaskConstMeta(debugName: "extract_exif", argNames: ["jpeg"]);
+      const TaskConstMeta(debugName: 'extract_exif', argNames: ['jpeg']);
 
   @override
   Future<GeometryResult> crateApiGeometryGeometryApply({
@@ -2113,23 +2113,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiGeometryGeometryApplyConstMeta =>
       const TaskConstMeta(
-        debugName: "geometry_apply",
+        debugName: 'geometry_apply',
         argNames: [
-          "rgba",
-          "width",
-          "height",
-          "flipH",
-          "flipV",
-          "turns",
-          "angle",
-          "cropL",
-          "cropT",
-          "cropR",
-          "cropB",
-          "perspectiveX",
-          "perspectiveY",
-          "skewX",
-          "skewY",
+          'rgba',
+          'width',
+          'height',
+          'flipH',
+          'flipV',
+          'turns',
+          'angle',
+          'cropL',
+          'cropT',
+          'cropR',
+          'cropB',
+          'perspectiveX',
+          'perspectiveY',
+          'skewX',
+          'skewY',
         ],
       );
 
@@ -2174,8 +2174,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiGeometryGeometryCropConstMeta =>
       const TaskConstMeta(
-        debugName: "geometry_crop",
-        argNames: ["rgba", "width", "height", "x", "y", "cw", "ch"],
+        debugName: 'geometry_crop',
+        argNames: ['rgba', 'width', 'height', 'x', 'y', 'cw', 'ch'],
       );
 
   @override
@@ -2211,8 +2211,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiGeometryGeometryDetectStraightenAngleConstMeta =>
       const TaskConstMeta(
-        debugName: "geometry_detect_straighten_angle",
-        argNames: ["rgba", "width", "height"],
+        debugName: 'geometry_detect_straighten_angle',
+        argNames: ['rgba', 'width', 'height'],
       );
 
   @override
@@ -2250,8 +2250,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiGeometryGeometryDownscaleConstMeta =>
       const TaskConstMeta(
-        debugName: "geometry_downscale",
-        argNames: ["rgba", "width", "height", "maxDim"],
+        debugName: 'geometry_downscale',
+        argNames: ['rgba', 'width', 'height', 'maxDim'],
       );
 
   @override
@@ -2289,8 +2289,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiGeometryGeometryFlipConstMeta =>
       const TaskConstMeta(
-        debugName: "geometry_flip",
-        argNames: ["rgba", "width", "height", "horizontal"],
+        debugName: 'geometry_flip',
+        argNames: ['rgba', 'width', 'height', 'horizontal'],
       );
 
   @override
@@ -2342,15 +2342,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiGeometryGeometryPerspectiveRgbaConstMeta =>
       const TaskConstMeta(
-        debugName: "geometry_perspective_rgba",
+        debugName: 'geometry_perspective_rgba',
         argNames: [
-          "rgba",
-          "width",
-          "height",
-          "perspectiveX",
-          "perspectiveY",
-          "skewX",
-          "skewY",
+          'rgba',
+          'width',
+          'height',
+          'perspectiveX',
+          'perspectiveY',
+          'skewX',
+          'skewY',
         ],
       );
 
@@ -2389,8 +2389,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiGeometryGeometryRotateConstMeta =>
       const TaskConstMeta(
-        debugName: "geometry_rotate",
-        argNames: ["rgba", "width", "height", "turns"],
+        debugName: 'geometry_rotate',
+        argNames: ['rgba', 'width', 'height', 'turns'],
       );
 
   @override
@@ -2428,8 +2428,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiGeometryGeometryStraightenConstMeta =>
       const TaskConstMeta(
-        debugName: "geometry_straighten",
-        argNames: ["rgba", "width", "height", "angleDeg"],
+        debugName: 'geometry_straighten',
+        argNames: ['rgba', 'width', 'height', 'angleDeg'],
       );
 
   @override
@@ -2460,7 +2460,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiExifGetImageMetadataConstMeta =>
-      const TaskConstMeta(debugName: "get_image_metadata", argNames: ["bytes"]);
+      const TaskConstMeta(debugName: 'get_image_metadata', argNames: ['bytes']);
 
   @override
   Future<Uint8List> crateApiColorGradeRgba({
@@ -2496,8 +2496,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiColorGradeRgbaConstMeta => const TaskConstMeta(
-    debugName: "grade_rgba",
-    argNames: ["rgba", "params", "curves", "hsl"],
+    debugName: 'grade_rgba',
+    argNames: ['rgba', 'params', 'curves', 'hsl'],
   );
 
   @override
@@ -2541,15 +2541,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiHistogramHistogramGradedConstMeta =>
       const TaskConstMeta(
-        debugName: "histogram_graded",
+        debugName: 'histogram_graded',
         argNames: [
-          "rgba",
-          "width",
-          "height",
-          "params",
-          "sampleDim",
-          "curves",
-          "hsl",
+          'rgba',
+          'width',
+          'height',
+          'params',
+          'sampleDim',
+          'curves',
+          'hsl',
         ],
       );
 
@@ -2578,7 +2578,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiEngineInitAppConstMeta =>
-      const TaskConstMeta(debugName: "init_app", argNames: []);
+      const TaskConstMeta(debugName: 'init_app', argNames: []);
 
   @override
   Future<void> crateApiLoggingInitPanicHook({required String dir}) {
@@ -2606,7 +2606,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiLoggingInitPanicHookConstMeta =>
-      const TaskConstMeta(debugName: "init_panic_hook", argNames: ["dir"]);
+      const TaskConstMeta(debugName: 'init_panic_hook', argNames: ['dir']);
 
   @override
   Future<ImageDims> crateApiDecodeJpegDimensions({required List<int> jpeg}) {
@@ -2634,7 +2634,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiDecodeJpegDimensionsConstMeta =>
-      const TaskConstMeta(debugName: "jpeg_dimensions", argNames: ["jpeg"]);
+      const TaskConstMeta(debugName: 'jpeg_dimensions', argNames: ['jpeg']);
 
   @override
   Future<MaskLayer> crateApiMaskMaskLayerDefault() {
@@ -2661,7 +2661,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiMaskMaskLayerDefaultConstMeta =>
-      const TaskConstMeta(debugName: "mask_layer_default", argNames: []);
+      const TaskConstMeta(debugName: 'mask_layer_default', argNames: []);
 
   @override
   Future<Uint8List> crateApiOpticsOpticsApply({
@@ -2729,21 +2729,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiOpticsOpticsApplyConstMeta => const TaskConstMeta(
-    debugName: "optics_apply",
+    debugName: 'optics_apply',
     argNames: [
-      "rgba",
-      "width",
-      "height",
-      "removeChromaticAberration",
-      "defringePurpleAmount",
-      "defringePurpleHueMin",
-      "defringePurpleHueMax",
-      "defringeGreenAmount",
-      "defringeGreenHueMin",
-      "defringeGreenHueMax",
-      "profileCorrections",
-      "profileDistortion",
-      "profileVignetting",
+      'rgba',
+      'width',
+      'height',
+      'removeChromaticAberration',
+      'defringePurpleAmount',
+      'defringePurpleHueMin',
+      'defringePurpleHueMax',
+      'defringeGreenAmount',
+      'defringeGreenHueMin',
+      'defringeGreenHueMax',
+      'profileCorrections',
+      'profileDistortion',
+      'profileVignetting',
     ],
   );
 
@@ -2802,17 +2802,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiOpticsOpticsDefringeConstMeta =>
       const TaskConstMeta(
-        debugName: "optics_defringe",
+        debugName: 'optics_defringe',
         argNames: [
-          "rgba",
-          "width",
-          "height",
-          "purpleAmount",
-          "purpleMin",
-          "purpleMax",
-          "greenAmount",
-          "greenMin",
-          "greenMax",
+          'rgba',
+          'width',
+          'height',
+          'purpleAmount',
+          'purpleMin',
+          'purpleMax',
+          'greenAmount',
+          'greenMin',
+          'greenMax',
         ],
       );
 
@@ -2849,8 +2849,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiOpticsOpticsLateralCaConstMeta =>
       const TaskConstMeta(
-        debugName: "optics_lateral_ca",
-        argNames: ["rgba", "width", "height"],
+        debugName: 'optics_lateral_ca',
+        argNames: ['rgba', 'width', 'height'],
       );
 
   @override
@@ -2890,8 +2890,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiOpticsOpticsLensProfileConstMeta =>
       const TaskConstMeta(
-        debugName: "optics_lens_profile",
-        argNames: ["rgba", "width", "height", "distortion", "vignetting"],
+        debugName: 'optics_lens_profile',
+        argNames: ['rgba', 'width', 'height', 'distortion', 'vignetting'],
       );
 
   @override
@@ -2926,8 +2926,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiIccP3ToSrgbConstMeta => const TaskConstMeta(
-    debugName: "p3_to_srgb",
-    argNames: ["rgba", "width", "height"],
+    debugName: 'p3_to_srgb',
+    argNames: ['rgba', 'width', 'height'],
   );
 
   @override
@@ -2964,8 +2964,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiPreviewPreviewBaseConstMeta => const TaskConstMeta(
-    debugName: "preview_base",
-    argNames: ["handle", "spec", "layers", "retouchPatches"],
+    debugName: 'preview_base',
+    argNames: ['handle', 'spec', 'layers', 'retouchPatches'],
   );
 
   @override
@@ -2997,8 +2997,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiPreviewPreviewBaseSpecBlurParamsConstMeta =>
       const TaskConstMeta(
-        debugName: "preview_base_spec_blur_params",
-        argNames: ["that"],
+        debugName: 'preview_base_spec_blur_params',
+        argNames: ['that'],
       );
 
   @override
@@ -3026,7 +3026,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiPreviewPreviewBaseSpecDefaultConstMeta =>
-      const TaskConstMeta(debugName: "preview_base_spec_default", argNames: []);
+      const TaskConstMeta(debugName: 'preview_base_spec_default', argNames: []);
 
   @override
   Future<void> crateApiPreviewPreviewClose({required BigInt handle}) {
@@ -3054,7 +3054,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiPreviewPreviewCloseConstMeta =>
-      const TaskConstMeta(debugName: "preview_close", argNames: ["handle"]);
+      const TaskConstMeta(debugName: 'preview_close', argNames: ['handle']);
 
   @override
   Future<RgbaImage> crateApiPreviewPreviewGetSourceRgba({
@@ -3085,8 +3085,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiPreviewPreviewGetSourceRgbaConstMeta =>
       const TaskConstMeta(
-        debugName: "preview_get_source_rgba",
-        argNames: ["handle"],
+        debugName: 'preview_get_source_rgba',
+        argNames: ['handle'],
       );
 
   @override
@@ -3126,8 +3126,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiPreviewPreviewHistogramConstMeta =>
       const TaskConstMeta(
-        debugName: "preview_histogram",
-        argNames: ["handle", "params", "sampleDim", "curves", "hsl"],
+        debugName: 'preview_histogram',
+        argNames: ['handle', 'params', 'sampleDim', 'curves', 'hsl'],
       );
 
   @override
@@ -3162,8 +3162,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiPreviewPreviewOpenConstMeta => const TaskConstMeta(
-    debugName: "preview_open",
-    argNames: ["rgba", "width", "height"],
+    debugName: 'preview_open',
+    argNames: ['rgba', 'width', 'height'],
   );
 
   @override
@@ -3197,8 +3197,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiPreviewPreviewOpenJpegConstMeta =>
       const TaskConstMeta(
-        debugName: "preview_open_jpeg",
-        argNames: ["jpegBytes", "maxDim"],
+        debugName: 'preview_open_jpeg',
+        argNames: ['jpegBytes', 'maxDim'],
       );
 
   @override
@@ -3253,16 +3253,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiPreviewPreviewRenderConstMeta =>
       const TaskConstMeta(
-        debugName: "preview_render",
+        debugName: 'preview_render',
         argNames: [
-          "handle",
-          "spec",
-          "layers",
-          "retouchPatches",
-          "params",
-          "curves",
-          "hsl",
-          "baseChanged",
+          'handle',
+          'spec',
+          'layers',
+          'retouchPatches',
+          'params',
+          'curves',
+          'hsl',
+          'baseChanged',
         ],
       );
 
@@ -3297,8 +3297,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiPreviewPreviewSetDepthMapConstMeta =>
       const TaskConstMeta(
-        debugName: "preview_set_depth_map",
-        argNames: ["handle", "depthMap"],
+        debugName: 'preview_set_depth_map',
+        argNames: ['handle', 'depthMap'],
       );
 
   @override
@@ -3336,8 +3336,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiPreviewPreviewSetEmbeddedDepthConstMeta =>
       const TaskConstMeta(
-        debugName: "preview_set_embedded_depth",
-        argNames: ["handle", "depth", "width", "height"],
+        debugName: 'preview_set_embedded_depth',
+        argNames: ['handle', 'depth', 'width', 'height'],
       );
 
   @override
@@ -3366,7 +3366,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiRawRawCameraMatrixConstMeta =>
-      const TaskConstMeta(debugName: "raw_camera_matrix", argNames: ["raw"]);
+      const TaskConstMeta(debugName: 'raw_camera_matrix', argNames: ['raw']);
 
   @override
   Future<ImageDims> crateApiRawRawDimensions({required List<int> raw}) {
@@ -3394,7 +3394,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiRawRawDimensionsConstMeta =>
-      const TaskConstMeta(debugName: "raw_dimensions", argNames: ["raw"]);
+      const TaskConstMeta(debugName: 'raw_dimensions', argNames: ['raw']);
 
   @override
   Future<Float32List> crateApiMaskRefineMask({
@@ -3450,17 +3450,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiMaskRefineMaskConstMeta => const TaskConstMeta(
-    debugName: "refine_mask",
+    debugName: 'refine_mask',
     argNames: [
-      "rgba",
-      "width",
-      "height",
-      "kind",
-      "params",
-      "strokePoints",
-      "brushRadius",
-      "filterRadius",
-      "eps",
+      'rgba',
+      'width',
+      'height',
+      'kind',
+      'params',
+      'strokePoints',
+      'brushRadius',
+      'filterRadius',
+      'eps',
     ],
   );
 
@@ -3499,8 +3499,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiExportRenderBrandingPreviewConstMeta =>
       const TaskConstMeta(
-        debugName: "render_branding_preview",
-        argNames: ["rgba", "width", "height", "branding"],
+        debugName: 'render_branding_preview',
+        argNames: ['rgba', 'width', 'height', 'branding'],
       );
 
   @override
@@ -3538,8 +3538,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiRetouchRetouchApplyConstMeta =>
       const TaskConstMeta(
-        debugName: "retouch_apply",
-        argNames: ["rgba", "width", "height", "patches"],
+        debugName: 'retouch_apply',
+        argNames: ['rgba', 'width', 'height', 'patches'],
       );
 
   @override
@@ -3574,8 +3574,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiRoiRoiHaloConstMeta => const TaskConstMeta(
-    debugName: "roi_halo",
-    argNames: ["spec", "fullWidth", "fullHeight"],
+    debugName: 'roi_halo',
+    argNames: ['spec', 'fullWidth', 'fullHeight'],
   );
 
   @override
@@ -3614,8 +3614,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta get kCrateApiMaskSegmentSubjectConstMeta => const TaskConstMeta(
-    debugName: "segment_subject",
-    argNames: ["rgba", "width", "height", "targetWidth", "targetHeight"],
+    debugName: 'segment_subject',
+    argNames: ['rgba', 'width', 'height', 'targetWidth', 'targetHeight'],
   );
 
   @override
@@ -3712,30 +3712,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiSpatialSpatialApplyConstMeta =>
       const TaskConstMeta(
-        debugName: "spatial_apply",
+        debugName: 'spatial_apply',
         argNames: [
-          "rgba",
-          "width",
-          "height",
-          "shadows",
-          "highlights",
-          "clarity",
-          "texture",
-          "sharpen",
-          "sharpenRadius",
-          "sharpenDetail",
-          "sharpenMasking",
-          "denoiseLuma",
-          "denoiseChroma",
-          "dehaze",
-          "vignette",
-          "vignetteMidpoint",
-          "vignetteFeather",
-          "vignetteRoundness",
-          "vignetteHighlights",
-          "grain",
-          "grainSize",
-          "grainRoughness",
+          'rgba',
+          'width',
+          'height',
+          'shadows',
+          'highlights',
+          'clarity',
+          'texture',
+          'sharpen',
+          'sharpenRadius',
+          'sharpenDetail',
+          'sharpenMasking',
+          'denoiseLuma',
+          'denoiseChroma',
+          'dehaze',
+          'vignette',
+          'vignetteMidpoint',
+          'vignetteFeather',
+          'vignetteRoundness',
+          'vignetteHighlights',
+          'grain',
+          'grainSize',
+          'grainRoughness',
         ],
       );
 
@@ -3774,8 +3774,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiSpatialSpatialClarityConstMeta =>
       const TaskConstMeta(
-        debugName: "spatial_clarity",
-        argNames: ["rgba", "width", "height", "amount"],
+        debugName: 'spatial_clarity',
+        argNames: ['rgba', 'width', 'height', 'amount'],
       );
 
   @override
@@ -3815,8 +3815,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiSpatialSpatialDenoiseConstMeta =>
       const TaskConstMeta(
-        debugName: "spatial_denoise",
-        argNames: ["rgba", "width", "height", "luma", "chroma"],
+        debugName: 'spatial_denoise',
+        argNames: ['rgba', 'width', 'height', 'luma', 'chroma'],
       );
 
   @override
@@ -3856,8 +3856,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiSpatialSpatialShadowHighlightConstMeta =>
       const TaskConstMeta(
-        debugName: "spatial_shadow_highlight",
-        argNames: ["rgba", "width", "height", "shadows", "highlights"],
+        debugName: 'spatial_shadow_highlight',
+        argNames: ['rgba', 'width', 'height', 'shadows', 'highlights'],
       );
 
   @override
@@ -3897,8 +3897,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiSpatialSpatialSharpenConstMeta =>
       const TaskConstMeta(
-        debugName: "spatial_sharpen",
-        argNames: ["rgba", "width", "height", "amount", "radius"],
+        debugName: 'spatial_sharpen',
+        argNames: ['rgba', 'width', 'height', 'amount', 'radius'],
       );
 
   @override
@@ -3936,8 +3936,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiSpatialSpatialSharpenEdgeMaskConstMeta =>
       const TaskConstMeta(
-        debugName: "spatial_sharpen_edge_mask",
-        argNames: ["rgba", "width", "height", "masking"],
+        debugName: 'spatial_sharpen_edge_mask',
+        argNames: ['rgba', 'width', 'height', 'masking'],
       );
 
   @override
@@ -3975,8 +3975,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiSpatialSpatialTextureConstMeta =>
       const TaskConstMeta(
-        debugName: "spatial_texture",
-        argNames: ["rgba", "width", "height", "amount"],
+        debugName: 'spatial_texture',
+        argNames: ['rgba', 'width', 'height', 'amount'],
       );
 
   @override
@@ -4010,8 +4010,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiEngineSyntheticJpegConstMeta =>
       const TaskConstMeta(
-        debugName: "synthetic_jpeg",
-        argNames: ["width", "height"],
+        debugName: 'synthetic_jpeg',
+        argNames: ['width', 'height'],
       );
 
   @protected
@@ -4871,14 +4871,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_list_record_string_f_64(deserializer);
+    final inner = sse_decode_list_record_string_f_64(deserializer);
     return Map.fromEntries(inner.map((e) => MapEntry(e.$1, e.$2)));
   }
 
   @protected
   String sse_decode_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_list_prim_u_8_strict(deserializer);
+    final inner = sse_decode_list_prim_u_8_strict(deserializer);
     return utf8.decoder.convert(inner);
   }
 
@@ -4887,13 +4887,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_enabled = sse_decode_bool(deserializer);
-    var var_amount = sse_decode_f_32(deserializer);
-    var var_focalPoint = sse_decode_f_32(deserializer);
-    var var_focalRange = sse_decode_f_32(deserializer);
-    var var_bokehShapeIndex = sse_decode_u_32(deserializer);
-    var var_bokehBoost = sse_decode_f_32(deserializer);
-    var var_backgroundBlur = sse_decode_bool(deserializer);
+    final var_enabled = sse_decode_bool(deserializer);
+    final var_amount = sse_decode_f_32(deserializer);
+    final var_focalPoint = sse_decode_f_32(deserializer);
+    final var_focalRange = sse_decode_f_32(deserializer);
+    final var_bokehShapeIndex = sse_decode_u_32(deserializer);
+    final var_bokehBoost = sse_decode_f_32(deserializer);
+    final var_backgroundBlur = sse_decode_bool(deserializer);
     return ApiLensBlurParams(
       enabled: var_enabled,
       amount: var_amount,
@@ -4908,14 +4908,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   ApiRetouchPatch sse_decode_api_retouch_patch(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_targetX = sse_decode_f_32(deserializer);
-    var var_targetY = sse_decode_f_32(deserializer);
-    var var_sourceX = sse_decode_f_32(deserializer);
-    var var_sourceY = sse_decode_f_32(deserializer);
-    var var_radius = sse_decode_f_32(deserializer);
-    var var_feather = sse_decode_f_32(deserializer);
-    var var_opacity = sse_decode_f_32(deserializer);
-    var var_isClone = sse_decode_bool(deserializer);
+    final var_targetX = sse_decode_f_32(deserializer);
+    final var_targetY = sse_decode_f_32(deserializer);
+    final var_sourceX = sse_decode_f_32(deserializer);
+    final var_sourceY = sse_decode_f_32(deserializer);
+    final var_radius = sse_decode_f_32(deserializer);
+    final var_feather = sse_decode_f_32(deserializer);
+    final var_opacity = sse_decode_f_32(deserializer);
+    final var_isClone = sse_decode_bool(deserializer);
     return ApiRetouchPatch(
       targetX: var_targetX,
       targetY: var_targetY,
@@ -4931,7 +4931,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   BokehShape sse_decode_bokeh_shape(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_i_32(deserializer);
+    final inner = sse_decode_i_32(deserializer);
     return BokehShape.values[inner];
   }
 
@@ -5046,27 +5046,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   BrandedFrame sse_decode_branded_frame(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
-    var var_width = sse_decode_u_32(deserializer);
-    var var_height = sse_decode_u_32(deserializer);
+    final var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
+    final var_width = sse_decode_u_32(deserializer);
+    final var_height = sse_decode_u_32(deserializer);
     return BrandedFrame(rgba: var_rgba, width: var_width, height: var_height);
   }
 
   @protected
   C2paDeviceInfo sse_decode_c_2_pa_device_info(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_privateKey = sse_decode_list_prim_u_8_strict(deserializer);
-    var var_keyId = sse_decode_String(deserializer);
+    final var_privateKey = sse_decode_list_prim_u_8_strict(deserializer);
+    final var_keyId = sse_decode_String(deserializer);
     return C2paDeviceInfo(privateKey: var_privateKey, keyId: var_keyId);
   }
 
   @protected
   C2paExportSpec sse_decode_c_2_pa_export_spec(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_enableC2Pa = sse_decode_bool(deserializer);
-    var var_devicePrivateKey = sse_decode_list_prim_u_8_strict(deserializer);
-    var var_recipeJson = sse_decode_String(deserializer);
-    var var_exifSummary = sse_decode_String(deserializer);
+    final var_enableC2Pa = sse_decode_bool(deserializer);
+    final var_devicePrivateKey = sse_decode_list_prim_u_8_strict(deserializer);
+    final var_recipeJson = sse_decode_String(deserializer);
+    final var_exifSummary = sse_decode_String(deserializer);
     return C2paExportSpec(
       enableC2Pa: var_enableC2Pa,
       devicePrivateKey: var_devicePrivateKey,
@@ -5080,16 +5080,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_status = sse_decode_String(deserializer);
-    var var_isValid = sse_decode_bool(deserializer);
-    var var_title = sse_decode_String(deserializer);
-    var var_claimGenerator = sse_decode_String(deserializer);
-    var var_signerKeyId = sse_decode_String(deserializer);
-    var var_actions = sse_decode_list_String(deserializer);
-    var var_cameraMetadata = sse_decode_String(deserializer);
-    var var_recipeHash = sse_decode_String(deserializer);
-    var var_pixelHash = sse_decode_String(deserializer);
-    var var_statusMessage = sse_decode_String(deserializer);
+    final var_status = sse_decode_String(deserializer);
+    final var_isValid = sse_decode_bool(deserializer);
+    final var_title = sse_decode_String(deserializer);
+    final var_claimGenerator = sse_decode_String(deserializer);
+    final var_signerKeyId = sse_decode_String(deserializer);
+    final var_actions = sse_decode_list_String(deserializer);
+    final var_cameraMetadata = sse_decode_String(deserializer);
+    final var_recipeHash = sse_decode_String(deserializer);
+    final var_pixelHash = sse_decode_String(deserializer);
+    final var_statusMessage = sse_decode_String(deserializer);
     return C2paVerifyResult(
       status: var_status,
       isValid: var_isValid,
@@ -5107,27 +5107,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   ColorParams sse_decode_color_params(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_exposure = sse_decode_f_32(deserializer);
-    var var_contrast = sse_decode_f_32(deserializer);
-    var var_highlights = sse_decode_f_32(deserializer);
-    var var_shadows = sse_decode_f_32(deserializer);
-    var var_whites = sse_decode_f_32(deserializer);
-    var var_blacks = sse_decode_f_32(deserializer);
-    var var_saturation = sse_decode_f_32(deserializer);
-    var var_temperature = sse_decode_f_32(deserializer);
-    var var_tint = sse_decode_f_32(deserializer);
-    var var_vibrance = sse_decode_f_32(deserializer);
-    var var_gradeShadowHue = sse_decode_f_32(deserializer);
-    var var_gradeShadowSat = sse_decode_f_32(deserializer);
-    var var_gradeShadowLum = sse_decode_f_32(deserializer);
-    var var_gradeMidHue = sse_decode_f_32(deserializer);
-    var var_gradeMidSat = sse_decode_f_32(deserializer);
-    var var_gradeMidLum = sse_decode_f_32(deserializer);
-    var var_gradeHighlightHue = sse_decode_f_32(deserializer);
-    var var_gradeHighlightSat = sse_decode_f_32(deserializer);
-    var var_gradeHighlightLum = sse_decode_f_32(deserializer);
-    var var_gradeBlending = sse_decode_f_32(deserializer);
-    var var_gradeBalance = sse_decode_f_32(deserializer);
+    final var_exposure = sse_decode_f_32(deserializer);
+    final var_contrast = sse_decode_f_32(deserializer);
+    final var_highlights = sse_decode_f_32(deserializer);
+    final var_shadows = sse_decode_f_32(deserializer);
+    final var_whites = sse_decode_f_32(deserializer);
+    final var_blacks = sse_decode_f_32(deserializer);
+    final var_saturation = sse_decode_f_32(deserializer);
+    final var_temperature = sse_decode_f_32(deserializer);
+    final var_tint = sse_decode_f_32(deserializer);
+    final var_vibrance = sse_decode_f_32(deserializer);
+    final var_gradeShadowHue = sse_decode_f_32(deserializer);
+    final var_gradeShadowSat = sse_decode_f_32(deserializer);
+    final var_gradeShadowLum = sse_decode_f_32(deserializer);
+    final var_gradeMidHue = sse_decode_f_32(deserializer);
+    final var_gradeMidSat = sse_decode_f_32(deserializer);
+    final var_gradeMidLum = sse_decode_f_32(deserializer);
+    final var_gradeHighlightHue = sse_decode_f_32(deserializer);
+    final var_gradeHighlightSat = sse_decode_f_32(deserializer);
+    final var_gradeHighlightLum = sse_decode_f_32(deserializer);
+    final var_gradeBlending = sse_decode_f_32(deserializer);
+    final var_gradeBalance = sse_decode_f_32(deserializer);
     return ColorParams(
       exposure: var_exposure,
       contrast: var_contrast,
@@ -5156,10 +5156,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   CurveParams sse_decode_curve_params(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_master = sse_decode_list_prim_f_32_strict(deserializer);
-    var var_red = sse_decode_list_prim_f_32_strict(deserializer);
-    var var_green = sse_decode_list_prim_f_32_strict(deserializer);
-    var var_blue = sse_decode_list_prim_f_32_strict(deserializer);
+    final var_master = sse_decode_list_prim_f_32_strict(deserializer);
+    final var_red = sse_decode_list_prim_f_32_strict(deserializer);
+    final var_green = sse_decode_list_prim_f_32_strict(deserializer);
+    final var_blue = sse_decode_list_prim_f_32_strict(deserializer);
     return CurveParams(
       master: var_master,
       red: var_red,
@@ -5171,9 +5171,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   DetectedSky sse_decode_detected_sky(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_horizonY = sse_decode_f_32(deserializer);
-    var var_feather = sse_decode_f_32(deserializer);
-    var var_blueWeight = sse_decode_f_32(deserializer);
+    final var_horizonY = sse_decode_f_32(deserializer);
+    final var_feather = sse_decode_f_32(deserializer);
+    final var_blueWeight = sse_decode_f_32(deserializer);
     return DetectedSky(
       horizonY: var_horizonY,
       feather: var_feather,
@@ -5184,11 +5184,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   DetectedSubject sse_decode_detected_subject(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_cx = sse_decode_f_32(deserializer);
-    var var_cy = sse_decode_f_32(deserializer);
-    var var_rx = sse_decode_f_32(deserializer);
-    var var_ry = sse_decode_f_32(deserializer);
-    var var_feather = sse_decode_f_32(deserializer);
+    final var_cx = sse_decode_f_32(deserializer);
+    final var_cy = sse_decode_f_32(deserializer);
+    final var_rx = sse_decode_f_32(deserializer);
+    final var_ry = sse_decode_f_32(deserializer);
+    final var_feather = sse_decode_f_32(deserializer);
     return DetectedSubject(
       cx: var_cx,
       cy: var_cy,
@@ -5203,12 +5203,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_width = sse_decode_u_32(deserializer);
-    var var_height = sse_decode_u_32(deserializer);
-    var var_depth = sse_decode_list_prim_u_8_strict(deserializer);
-    var var_format = sse_decode_String(deserializer);
-    var var_near = sse_decode_f_32(deserializer);
-    var var_far = sse_decode_f_32(deserializer);
+    final var_width = sse_decode_u_32(deserializer);
+    final var_height = sse_decode_u_32(deserializer);
+    final var_depth = sse_decode_list_prim_u_8_strict(deserializer);
+    final var_format = sse_decode_String(deserializer);
+    final var_near = sse_decode_f_32(deserializer);
+    final var_far = sse_decode_f_32(deserializer);
     return EmbeddedDepthResult(
       width: var_width,
       height: var_height,
@@ -5224,21 +5224,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_enableMuseumFrame = sse_decode_bool(deserializer);
-    var var_frameTheme = sse_decode_u_8(deserializer);
-    var var_exifLine1 = sse_decode_String(deserializer);
-    var var_exifLine2 = sse_decode_String(deserializer);
-    var var_enableSignature = sse_decode_bool(deserializer);
-    var var_signatureText = sse_decode_String(deserializer);
-    var var_signatureAnchor = sse_decode_u_8(deserializer);
-    var var_signatureOpacity = sse_decode_f_32(deserializer);
-    var var_signatureSizePct = sse_decode_f_32(deserializer);
-    var var_enableLogo = sse_decode_bool(deserializer);
-    var var_logoBytes = sse_decode_list_prim_u_8_strict(deserializer);
-    var var_logoAnchor = sse_decode_u_8(deserializer);
-    var var_logoOpacity = sse_decode_f_32(deserializer);
-    var var_logoScalePct = sse_decode_f_32(deserializer);
-    var var_enableFossBadge = sse_decode_bool(deserializer);
+    final var_enableMuseumFrame = sse_decode_bool(deserializer);
+    final var_frameTheme = sse_decode_u_8(deserializer);
+    final var_exifLine1 = sse_decode_String(deserializer);
+    final var_exifLine2 = sse_decode_String(deserializer);
+    final var_enableSignature = sse_decode_bool(deserializer);
+    final var_signatureText = sse_decode_String(deserializer);
+    final var_signatureAnchor = sse_decode_u_8(deserializer);
+    final var_signatureOpacity = sse_decode_f_32(deserializer);
+    final var_signatureSizePct = sse_decode_f_32(deserializer);
+    final var_enableLogo = sse_decode_bool(deserializer);
+    final var_logoBytes = sse_decode_list_prim_u_8_strict(deserializer);
+    final var_logoAnchor = sse_decode_u_8(deserializer);
+    final var_logoOpacity = sse_decode_f_32(deserializer);
+    final var_logoScalePct = sse_decode_f_32(deserializer);
+    final var_enableFossBadge = sse_decode_bool(deserializer);
     return ExportBrandingSpec(
       enableMuseumFrame: var_enableMuseumFrame,
       frameTheme: var_frameTheme,
@@ -5261,81 +5261,81 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   ExportResult sse_decode_export_result(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_cancelled = sse_decode_bool(deserializer);
-    var var_jpeg = sse_decode_list_prim_u_8_strict(deserializer);
+    final var_cancelled = sse_decode_bool(deserializer);
+    final var_jpeg = sse_decode_list_prim_u_8_strict(deserializer);
     return ExportResult(cancelled: var_cancelled, jpeg: var_jpeg);
   }
 
   @protected
   ExportSpec sse_decode_export_spec(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_flipH = sse_decode_bool(deserializer);
-    var var_flipV = sse_decode_bool(deserializer);
-    var var_turns = sse_decode_u_32(deserializer);
-    var var_angle = sse_decode_f_32(deserializer);
-    var var_cropL = sse_decode_f_32(deserializer);
-    var var_cropT = sse_decode_f_32(deserializer);
-    var var_cropR = sse_decode_f_32(deserializer);
-    var var_cropB = sse_decode_f_32(deserializer);
-    var var_perspectiveX = sse_decode_f_32(deserializer);
-    var var_perspectiveY = sse_decode_f_32(deserializer);
-    var var_skewX = sse_decode_f_32(deserializer);
-    var var_skewY = sse_decode_f_32(deserializer);
-    var var_shadows = sse_decode_f_32(deserializer);
-    var var_highlights = sse_decode_f_32(deserializer);
-    var var_clarity = sse_decode_f_32(deserializer);
-    var var_texture = sse_decode_f_32(deserializer);
-    var var_sharpen = sse_decode_f_32(deserializer);
-    var var_sharpenRadius = sse_decode_f_32(deserializer);
-    var var_sharpenDetail = sse_decode_f_32(deserializer);
-    var var_sharpenMasking = sse_decode_f_32(deserializer);
-    var var_denoiseLuma = sse_decode_f_32(deserializer);
-    var var_denoiseChroma = sse_decode_f_32(deserializer);
-    var var_dehaze = sse_decode_f_32(deserializer);
-    var var_vignette = sse_decode_f_32(deserializer);
-    var var_vignetteMidpoint = sse_decode_f_32(deserializer);
-    var var_vignetteFeather = sse_decode_f_32(deserializer);
-    var var_vignetteRoundness = sse_decode_f_32(deserializer);
-    var var_vignetteHighlights = sse_decode_f_32(deserializer);
-    var var_grain = sse_decode_f_32(deserializer);
-    var var_grainSize = sse_decode_f_32(deserializer);
-    var var_grainRoughness = sse_decode_f_32(deserializer);
-    var var_filmHalation = sse_decode_f_32(deserializer);
-    var var_filmHalationRadius = sse_decode_f_32(deserializer);
-    var var_filmHalationThreshold = sse_decode_f_32(deserializer);
-    var var_filmBloom = sse_decode_f_32(deserializer);
-    var var_filmBloomRadius = sse_decode_f_32(deserializer);
-    var var_filmBloomThreshold = sse_decode_f_32(deserializer);
-    var var_filmDust = sse_decode_f_32(deserializer);
-    var var_filmScratches = sse_decode_f_32(deserializer);
-    var var_shaderLabPreset = sse_decode_u_32(deserializer);
-    var var_shaderParam1 = sse_decode_f_32(deserializer);
-    var var_shaderParam2 = sse_decode_f_32(deserializer);
-    var var_shaderParam3 = sse_decode_f_32(deserializer);
-    var var_removeChromaticAberration = sse_decode_bool(deserializer);
-    var var_defringePurpleAmount = sse_decode_f_32(deserializer);
-    var var_defringePurpleHueMin = sse_decode_f_32(deserializer);
-    var var_defringePurpleHueMax = sse_decode_f_32(deserializer);
-    var var_defringeGreenAmount = sse_decode_f_32(deserializer);
-    var var_defringeGreenHueMin = sse_decode_f_32(deserializer);
-    var var_defringeGreenHueMax = sse_decode_f_32(deserializer);
-    var var_profileCorrections = sse_decode_bool(deserializer);
-    var var_profileDistortion = sse_decode_f_32(deserializer);
-    var var_profileVignetting = sse_decode_f_32(deserializer);
-    var var_blurEnabled = sse_decode_bool(deserializer);
-    var var_blurAmount = sse_decode_f_32(deserializer);
-    var var_blurFocalPoint = sse_decode_f_32(deserializer);
-    var var_blurFocalRange = sse_decode_f_32(deserializer);
-    var var_blurBokehShape = sse_decode_u_8(deserializer);
-    var var_blurBokehBoost = sse_decode_f_32(deserializer);
-    var var_blurBackgroundBlur = sse_decode_bool(deserializer);
-    var var_quality = sse_decode_u_8(deserializer);
-    var var_maxDim = sse_decode_u_32(deserializer);
-    var var_bandRows = sse_decode_u_32(deserializer);
-    var var_cancelToken = sse_decode_u_64(deserializer);
-    var var_colorSpace = sse_decode_u_32(deserializer);
-    var var_ultraHdr = sse_decode_bool(deserializer);
-    var var_hdrHeadroom = sse_decode_f_32(deserializer);
+    final var_flipH = sse_decode_bool(deserializer);
+    final var_flipV = sse_decode_bool(deserializer);
+    final var_turns = sse_decode_u_32(deserializer);
+    final var_angle = sse_decode_f_32(deserializer);
+    final var_cropL = sse_decode_f_32(deserializer);
+    final var_cropT = sse_decode_f_32(deserializer);
+    final var_cropR = sse_decode_f_32(deserializer);
+    final var_cropB = sse_decode_f_32(deserializer);
+    final var_perspectiveX = sse_decode_f_32(deserializer);
+    final var_perspectiveY = sse_decode_f_32(deserializer);
+    final var_skewX = sse_decode_f_32(deserializer);
+    final var_skewY = sse_decode_f_32(deserializer);
+    final var_shadows = sse_decode_f_32(deserializer);
+    final var_highlights = sse_decode_f_32(deserializer);
+    final var_clarity = sse_decode_f_32(deserializer);
+    final var_texture = sse_decode_f_32(deserializer);
+    final var_sharpen = sse_decode_f_32(deserializer);
+    final var_sharpenRadius = sse_decode_f_32(deserializer);
+    final var_sharpenDetail = sse_decode_f_32(deserializer);
+    final var_sharpenMasking = sse_decode_f_32(deserializer);
+    final var_denoiseLuma = sse_decode_f_32(deserializer);
+    final var_denoiseChroma = sse_decode_f_32(deserializer);
+    final var_dehaze = sse_decode_f_32(deserializer);
+    final var_vignette = sse_decode_f_32(deserializer);
+    final var_vignetteMidpoint = sse_decode_f_32(deserializer);
+    final var_vignetteFeather = sse_decode_f_32(deserializer);
+    final var_vignetteRoundness = sse_decode_f_32(deserializer);
+    final var_vignetteHighlights = sse_decode_f_32(deserializer);
+    final var_grain = sse_decode_f_32(deserializer);
+    final var_grainSize = sse_decode_f_32(deserializer);
+    final var_grainRoughness = sse_decode_f_32(deserializer);
+    final var_filmHalation = sse_decode_f_32(deserializer);
+    final var_filmHalationRadius = sse_decode_f_32(deserializer);
+    final var_filmHalationThreshold = sse_decode_f_32(deserializer);
+    final var_filmBloom = sse_decode_f_32(deserializer);
+    final var_filmBloomRadius = sse_decode_f_32(deserializer);
+    final var_filmBloomThreshold = sse_decode_f_32(deserializer);
+    final var_filmDust = sse_decode_f_32(deserializer);
+    final var_filmScratches = sse_decode_f_32(deserializer);
+    final var_shaderLabPreset = sse_decode_u_32(deserializer);
+    final var_shaderParam1 = sse_decode_f_32(deserializer);
+    final var_shaderParam2 = sse_decode_f_32(deserializer);
+    final var_shaderParam3 = sse_decode_f_32(deserializer);
+    final var_removeChromaticAberration = sse_decode_bool(deserializer);
+    final var_defringePurpleAmount = sse_decode_f_32(deserializer);
+    final var_defringePurpleHueMin = sse_decode_f_32(deserializer);
+    final var_defringePurpleHueMax = sse_decode_f_32(deserializer);
+    final var_defringeGreenAmount = sse_decode_f_32(deserializer);
+    final var_defringeGreenHueMin = sse_decode_f_32(deserializer);
+    final var_defringeGreenHueMax = sse_decode_f_32(deserializer);
+    final var_profileCorrections = sse_decode_bool(deserializer);
+    final var_profileDistortion = sse_decode_f_32(deserializer);
+    final var_profileVignetting = sse_decode_f_32(deserializer);
+    final var_blurEnabled = sse_decode_bool(deserializer);
+    final var_blurAmount = sse_decode_f_32(deserializer);
+    final var_blurFocalPoint = sse_decode_f_32(deserializer);
+    final var_blurFocalRange = sse_decode_f_32(deserializer);
+    final var_blurBokehShape = sse_decode_u_8(deserializer);
+    final var_blurBokehBoost = sse_decode_f_32(deserializer);
+    final var_blurBackgroundBlur = sse_decode_bool(deserializer);
+    final var_quality = sse_decode_u_8(deserializer);
+    final var_maxDim = sse_decode_u_32(deserializer);
+    final var_bandRows = sse_decode_u_32(deserializer);
+    final var_cancelToken = sse_decode_u_64(deserializer);
+    final var_colorSpace = sse_decode_u_32(deserializer);
+    final var_ultraHdr = sse_decode_bool(deserializer);
+    final var_hdrHeadroom = sse_decode_f_32(deserializer);
     return ExportSpec(
       flipH: var_flipH,
       flipV: var_flipV,
@@ -5422,19 +5422,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   GeometryResult sse_decode_geometry_result(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_width = sse_decode_u_32(deserializer);
-    var var_height = sse_decode_u_32(deserializer);
-    var var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
+    final var_width = sse_decode_u_32(deserializer);
+    final var_height = sse_decode_u_32(deserializer);
+    final var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
     return GeometryResult(width: var_width, height: var_height, rgba: var_rgba);
   }
 
   @protected
   HdrExposureSpec sse_decode_hdr_exposure_spec(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
-    var var_width = sse_decode_u_32(deserializer);
-    var var_height = sse_decode_u_32(deserializer);
-    var var_ev = sse_decode_f_32(deserializer);
+    final var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
+    final var_width = sse_decode_u_32(deserializer);
+    final var_height = sse_decode_u_32(deserializer);
+    final var_ev = sse_decode_f_32(deserializer);
     return HdrExposureSpec(
       rgba: var_rgba,
       width: var_width,
@@ -5446,10 +5446,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   Histogram sse_decode_histogram(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_r = sse_decode_list_prim_u_32_strict(deserializer);
-    var var_g = sse_decode_list_prim_u_32_strict(deserializer);
-    var var_b = sse_decode_list_prim_u_32_strict(deserializer);
-    var var_luma = sse_decode_list_prim_u_32_strict(deserializer);
+    final var_r = sse_decode_list_prim_u_32_strict(deserializer);
+    final var_g = sse_decode_list_prim_u_32_strict(deserializer);
+    final var_b = sse_decode_list_prim_u_32_strict(deserializer);
+    final var_luma = sse_decode_list_prim_u_32_strict(deserializer);
     return Histogram(r: var_r, g: var_g, b: var_b, luma: var_luma);
   }
 
@@ -5462,35 +5462,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   ImageDims sse_decode_image_dims(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_width = sse_decode_u_32(deserializer);
-    var var_height = sse_decode_u_32(deserializer);
+    final var_width = sse_decode_u_32(deserializer);
+    final var_height = sse_decode_u_32(deserializer);
     return ImageDims(width: var_width, height: var_height);
   }
 
   @protected
   ImageMetadata sse_decode_image_metadata(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_make = sse_decode_opt_String(deserializer);
-    var var_model = sse_decode_opt_String(deserializer);
-    var var_lensMake = sse_decode_opt_String(deserializer);
-    var var_lensModel = sse_decode_opt_String(deserializer);
-    var var_focalLength = sse_decode_opt_box_autoadd_f_32(deserializer);
-    var var_focalLength35Mm = sse_decode_opt_box_autoadd_f_32(deserializer);
-    var var_fNumber = sse_decode_opt_box_autoadd_f_32(deserializer);
-    var var_exposureTime = sse_decode_opt_String(deserializer);
-    var var_exposureTimeSeconds = sse_decode_opt_box_autoadd_f_32(deserializer);
-    var var_iso = sse_decode_opt_box_autoadd_u_32(deserializer);
-    var var_exposureBias = sse_decode_opt_box_autoadd_f_32(deserializer);
-    var var_flashFired = sse_decode_opt_box_autoadd_bool(deserializer);
-    var var_meteringMode = sse_decode_opt_String(deserializer);
-    var var_whiteBalanceMode = sse_decode_opt_String(deserializer);
-    var var_dateTime = sse_decode_opt_String(deserializer);
-    var var_gpsLatitude = sse_decode_opt_box_autoadd_f_64(deserializer);
-    var var_gpsLongitude = sse_decode_opt_box_autoadd_f_64(deserializer);
-    var var_gpsAltitude = sse_decode_opt_box_autoadd_f_32(deserializer);
-    var var_width = sse_decode_opt_box_autoadd_u_32(deserializer);
-    var var_height = sse_decode_opt_box_autoadd_u_32(deserializer);
-    var var_formatName = sse_decode_opt_String(deserializer);
+    final var_make = sse_decode_opt_String(deserializer);
+    final var_model = sse_decode_opt_String(deserializer);
+    final var_lensMake = sse_decode_opt_String(deserializer);
+    final var_lensModel = sse_decode_opt_String(deserializer);
+    final var_focalLength = sse_decode_opt_box_autoadd_f_32(deserializer);
+    final var_focalLength35Mm = sse_decode_opt_box_autoadd_f_32(deserializer);
+    final var_fNumber = sse_decode_opt_box_autoadd_f_32(deserializer);
+    final var_exposureTime = sse_decode_opt_String(deserializer);
+    final var_exposureTimeSeconds = sse_decode_opt_box_autoadd_f_32(deserializer);
+    final var_iso = sse_decode_opt_box_autoadd_u_32(deserializer);
+    final var_exposureBias = sse_decode_opt_box_autoadd_f_32(deserializer);
+    final var_flashFired = sse_decode_opt_box_autoadd_bool(deserializer);
+    final var_meteringMode = sse_decode_opt_String(deserializer);
+    final var_whiteBalanceMode = sse_decode_opt_String(deserializer);
+    final var_dateTime = sse_decode_opt_String(deserializer);
+    final var_gpsLatitude = sse_decode_opt_box_autoadd_f_64(deserializer);
+    final var_gpsLongitude = sse_decode_opt_box_autoadd_f_64(deserializer);
+    final var_gpsAltitude = sse_decode_opt_box_autoadd_f_32(deserializer);
+    final var_width = sse_decode_opt_box_autoadd_u_32(deserializer);
+    final var_height = sse_decode_opt_box_autoadd_u_32(deserializer);
+    final var_formatName = sse_decode_opt_String(deserializer);
     return ImageMetadata(
       make: var_make,
       model: var_model,
@@ -5519,13 +5519,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   LensBlurParams sse_decode_lens_blur_params(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_enabled = sse_decode_bool(deserializer);
-    var var_amount = sse_decode_f_32(deserializer);
-    var var_focalPoint = sse_decode_f_32(deserializer);
-    var var_focalRange = sse_decode_f_32(deserializer);
-    var var_bokehShape = sse_decode_bokeh_shape(deserializer);
-    var var_bokehBoost = sse_decode_f_32(deserializer);
-    var var_backgroundBlur = sse_decode_bool(deserializer);
+    final var_enabled = sse_decode_bool(deserializer);
+    final var_amount = sse_decode_f_32(deserializer);
+    final var_focalPoint = sse_decode_f_32(deserializer);
+    final var_focalRange = sse_decode_f_32(deserializer);
+    final var_bokehShape = sse_decode_bokeh_shape(deserializer);
+    final var_bokehBoost = sse_decode_f_32(deserializer);
+    final var_backgroundBlur = sse_decode_bool(deserializer);
     return LensBlurParams(
       enabled: var_enabled,
       amount: var_amount,
@@ -5541,8 +5541,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<String> sse_decode_list_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <String>[];
+    final len_ = sse_decode_i_32(deserializer);
+    final ans_ = <String>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_String(deserializer));
     }
@@ -5555,8 +5555,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <ApiRetouchPatch>[];
+    final len_ = sse_decode_i_32(deserializer);
+    final ans_ = <ApiRetouchPatch>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_api_retouch_patch(deserializer));
     }
@@ -5569,8 +5569,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <HdrExposureSpec>[];
+    final len_ = sse_decode_i_32(deserializer);
+    final ans_ = <HdrExposureSpec>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_hdr_exposure_spec(deserializer));
     }
@@ -5581,8 +5581,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<MaskLayer> sse_decode_list_mask_layer(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <MaskLayer>[];
+    final len_ = sse_decode_i_32(deserializer);
+    final ans_ = <MaskLayer>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_mask_layer(deserializer));
     }
@@ -5592,35 +5592,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   List<double> sse_decode_list_prim_f_32_loose(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var len_ = sse_decode_i_32(deserializer);
+    final len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getFloat32List(len_);
   }
 
   @protected
   Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var len_ = sse_decode_i_32(deserializer);
+    final len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getFloat32List(len_);
   }
 
   @protected
   Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var len_ = sse_decode_i_32(deserializer);
+    final len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint32List(len_);
   }
 
   @protected
   List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var len_ = sse_decode_i_32(deserializer);
+    final len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
   }
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var len_ = sse_decode_i_32(deserializer);
+    final len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
   }
 
@@ -5630,8 +5630,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <(String, double)>[];
+    final len_ = sse_decode_i_32(deserializer);
+    final ans_ = <(String, double)>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_record_string_f_64(deserializer));
     }
@@ -5641,10 +5641,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   LutData sse_decode_lut_data(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_size = sse_decode_u_32(deserializer);
-    var var_width = sse_decode_u_32(deserializer);
-    var var_height = sse_decode_u_32(deserializer);
-    var var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
+    final var_size = sse_decode_u_32(deserializer);
+    final var_width = sse_decode_u_32(deserializer);
+    final var_height = sse_decode_u_32(deserializer);
+    final var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
     return LutData(
       size: var_size,
       width: var_width,
@@ -5656,15 +5656,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   MaskLayer sse_decode_mask_layer(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_kind = sse_decode_u_32(deserializer);
-    var var_mask = sse_decode_list_prim_f_32_strict(deserializer);
-    var var_params = sse_decode_color_params(deserializer);
-    var var_inverted = sse_decode_bool(deserializer);
-    var var_amount = sse_decode_f_32(deserializer);
-    var var_groupId = sse_decode_opt_String(deserializer);
-    var var_joinOp = sse_decode_u_32(deserializer);
-    var var_groupInverted = sse_decode_bool(deserializer);
-    var var_groupAmount = sse_decode_f_32(deserializer);
+    final var_kind = sse_decode_u_32(deserializer);
+    final var_mask = sse_decode_list_prim_f_32_strict(deserializer);
+    final var_params = sse_decode_color_params(deserializer);
+    final var_inverted = sse_decode_bool(deserializer);
+    final var_amount = sse_decode_f_32(deserializer);
+    final var_groupId = sse_decode_opt_String(deserializer);
+    final var_joinOp = sse_decode_u_32(deserializer);
+    final var_groupInverted = sse_decode_bool(deserializer);
+    final var_groupAmount = sse_decode_f_32(deserializer);
     return MaskLayer(
       kind: var_kind,
       mask: var_mask,
@@ -5681,7 +5681,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   MuseumFrameTheme sse_decode_museum_frame_theme(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_i_32(deserializer);
+    final inner = sse_decode_i_32(deserializer);
     return MuseumFrameTheme.values[inner];
   }
 
@@ -5819,61 +5819,61 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   PreviewBaseSpec sse_decode_preview_base_spec(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_flipH = sse_decode_bool(deserializer);
-    var var_flipV = sse_decode_bool(deserializer);
-    var var_turns = sse_decode_u_32(deserializer);
-    var var_cropL = sse_decode_f_32(deserializer);
-    var var_cropT = sse_decode_f_32(deserializer);
-    var var_cropR = sse_decode_f_32(deserializer);
-    var var_cropB = sse_decode_f_32(deserializer);
-    var var_shadows = sse_decode_f_32(deserializer);
-    var var_highlights = sse_decode_f_32(deserializer);
-    var var_clarity = sse_decode_f_32(deserializer);
-    var var_texture = sse_decode_f_32(deserializer);
-    var var_sharpen = sse_decode_f_32(deserializer);
-    var var_sharpenRadius = sse_decode_f_32(deserializer);
-    var var_sharpenDetail = sse_decode_f_32(deserializer);
-    var var_sharpenMasking = sse_decode_f_32(deserializer);
-    var var_denoiseLuma = sse_decode_f_32(deserializer);
-    var var_denoiseChroma = sse_decode_f_32(deserializer);
-    var var_dehaze = sse_decode_f_32(deserializer);
-    var var_vignette = sse_decode_f_32(deserializer);
-    var var_vignetteMidpoint = sse_decode_f_32(deserializer);
-    var var_vignetteFeather = sse_decode_f_32(deserializer);
-    var var_vignetteRoundness = sse_decode_f_32(deserializer);
-    var var_vignetteHighlights = sse_decode_f_32(deserializer);
-    var var_grain = sse_decode_f_32(deserializer);
-    var var_grainSize = sse_decode_f_32(deserializer);
-    var var_grainRoughness = sse_decode_f_32(deserializer);
-    var var_filmHalation = sse_decode_f_32(deserializer);
-    var var_filmHalationRadius = sse_decode_f_32(deserializer);
-    var var_filmHalationThreshold = sse_decode_f_32(deserializer);
-    var var_filmBloom = sse_decode_f_32(deserializer);
-    var var_filmBloomRadius = sse_decode_f_32(deserializer);
-    var var_filmBloomThreshold = sse_decode_f_32(deserializer);
-    var var_filmDust = sse_decode_f_32(deserializer);
-    var var_filmScratches = sse_decode_f_32(deserializer);
-    var var_shaderLabPreset = sse_decode_u_32(deserializer);
-    var var_shaderParam1 = sse_decode_f_32(deserializer);
-    var var_shaderParam2 = sse_decode_f_32(deserializer);
-    var var_shaderParam3 = sse_decode_f_32(deserializer);
-    var var_removeChromaticAberration = sse_decode_bool(deserializer);
-    var var_defringePurpleAmount = sse_decode_f_32(deserializer);
-    var var_defringePurpleHueMin = sse_decode_f_32(deserializer);
-    var var_defringePurpleHueMax = sse_decode_f_32(deserializer);
-    var var_defringeGreenAmount = sse_decode_f_32(deserializer);
-    var var_defringeGreenHueMin = sse_decode_f_32(deserializer);
-    var var_defringeGreenHueMax = sse_decode_f_32(deserializer);
-    var var_profileCorrections = sse_decode_bool(deserializer);
-    var var_profileDistortion = sse_decode_f_32(deserializer);
-    var var_profileVignetting = sse_decode_f_32(deserializer);
-    var var_blurEnabled = sse_decode_bool(deserializer);
-    var var_blurAmount = sse_decode_f_32(deserializer);
-    var var_blurFocalPoint = sse_decode_f_32(deserializer);
-    var var_blurFocalRange = sse_decode_f_32(deserializer);
-    var var_blurBokehShape = sse_decode_u_8(deserializer);
-    var var_blurBokehBoost = sse_decode_f_32(deserializer);
-    var var_blurBackgroundBlur = sse_decode_bool(deserializer);
+    final var_flipH = sse_decode_bool(deserializer);
+    final var_flipV = sse_decode_bool(deserializer);
+    final var_turns = sse_decode_u_32(deserializer);
+    final var_cropL = sse_decode_f_32(deserializer);
+    final var_cropT = sse_decode_f_32(deserializer);
+    final var_cropR = sse_decode_f_32(deserializer);
+    final var_cropB = sse_decode_f_32(deserializer);
+    final var_shadows = sse_decode_f_32(deserializer);
+    final var_highlights = sse_decode_f_32(deserializer);
+    final var_clarity = sse_decode_f_32(deserializer);
+    final var_texture = sse_decode_f_32(deserializer);
+    final var_sharpen = sse_decode_f_32(deserializer);
+    final var_sharpenRadius = sse_decode_f_32(deserializer);
+    final var_sharpenDetail = sse_decode_f_32(deserializer);
+    final var_sharpenMasking = sse_decode_f_32(deserializer);
+    final var_denoiseLuma = sse_decode_f_32(deserializer);
+    final var_denoiseChroma = sse_decode_f_32(deserializer);
+    final var_dehaze = sse_decode_f_32(deserializer);
+    final var_vignette = sse_decode_f_32(deserializer);
+    final var_vignetteMidpoint = sse_decode_f_32(deserializer);
+    final var_vignetteFeather = sse_decode_f_32(deserializer);
+    final var_vignetteRoundness = sse_decode_f_32(deserializer);
+    final var_vignetteHighlights = sse_decode_f_32(deserializer);
+    final var_grain = sse_decode_f_32(deserializer);
+    final var_grainSize = sse_decode_f_32(deserializer);
+    final var_grainRoughness = sse_decode_f_32(deserializer);
+    final var_filmHalation = sse_decode_f_32(deserializer);
+    final var_filmHalationRadius = sse_decode_f_32(deserializer);
+    final var_filmHalationThreshold = sse_decode_f_32(deserializer);
+    final var_filmBloom = sse_decode_f_32(deserializer);
+    final var_filmBloomRadius = sse_decode_f_32(deserializer);
+    final var_filmBloomThreshold = sse_decode_f_32(deserializer);
+    final var_filmDust = sse_decode_f_32(deserializer);
+    final var_filmScratches = sse_decode_f_32(deserializer);
+    final var_shaderLabPreset = sse_decode_u_32(deserializer);
+    final var_shaderParam1 = sse_decode_f_32(deserializer);
+    final var_shaderParam2 = sse_decode_f_32(deserializer);
+    final var_shaderParam3 = sse_decode_f_32(deserializer);
+    final var_removeChromaticAberration = sse_decode_bool(deserializer);
+    final var_defringePurpleAmount = sse_decode_f_32(deserializer);
+    final var_defringePurpleHueMin = sse_decode_f_32(deserializer);
+    final var_defringePurpleHueMax = sse_decode_f_32(deserializer);
+    final var_defringeGreenAmount = sse_decode_f_32(deserializer);
+    final var_defringeGreenHueMin = sse_decode_f_32(deserializer);
+    final var_defringeGreenHueMax = sse_decode_f_32(deserializer);
+    final var_profileCorrections = sse_decode_bool(deserializer);
+    final var_profileDistortion = sse_decode_f_32(deserializer);
+    final var_profileVignetting = sse_decode_f_32(deserializer);
+    final var_blurEnabled = sse_decode_bool(deserializer);
+    final var_blurAmount = sse_decode_f_32(deserializer);
+    final var_blurFocalPoint = sse_decode_f_32(deserializer);
+    final var_blurFocalRange = sse_decode_f_32(deserializer);
+    final var_blurBokehShape = sse_decode_u_8(deserializer);
+    final var_blurBokehBoost = sse_decode_f_32(deserializer);
+    final var_blurBackgroundBlur = sse_decode_bool(deserializer);
     return PreviewBaseSpec(
       flipH: var_flipH,
       flipV: var_flipV,
@@ -5936,25 +5936,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   (String, double) sse_decode_record_string_f_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_field0 = sse_decode_String(deserializer);
-    var var_field1 = sse_decode_f_64(deserializer);
+    final var_field0 = sse_decode_String(deserializer);
+    final var_field1 = sse_decode_f_64(deserializer);
     return (var_field0, var_field1);
   }
 
   @protected
   RenderedSize sse_decode_rendered_size(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_width = sse_decode_u_32(deserializer);
-    var var_height = sse_decode_u_32(deserializer);
+    final var_width = sse_decode_u_32(deserializer);
+    final var_height = sse_decode_u_32(deserializer);
     return RenderedSize(width: var_width, height: var_height);
   }
 
   @protected
   RgbaImage sse_decode_rgba_image(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_width = sse_decode_u_32(deserializer);
-    var var_height = sse_decode_u_32(deserializer);
-    var var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
+    final var_width = sse_decode_u_32(deserializer);
+    final var_height = sse_decode_u_32(deserializer);
+    final var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
     return RgbaImage(width: var_width, height: var_height, rgba: var_rgba);
   }
 
@@ -5984,28 +5984,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   WatermarkAnchor sse_decode_watermark_anchor(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_i_32(deserializer);
+    final inner = sse_decode_i_32(deserializer);
     return WatermarkAnchor.values[inner];
   }
 
   @protected
   WatermarkSpec sse_decode_watermark_spec(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_enableMuseumFrame = sse_decode_bool(deserializer);
-    var var_frameTheme = sse_decode_museum_frame_theme(deserializer);
-    var var_exifLine1 = sse_decode_String(deserializer);
-    var var_exifLine2 = sse_decode_String(deserializer);
-    var var_enableSignature = sse_decode_bool(deserializer);
-    var var_signatureText = sse_decode_String(deserializer);
-    var var_signatureAnchor = sse_decode_watermark_anchor(deserializer);
-    var var_signatureOpacity = sse_decode_f_32(deserializer);
-    var var_signatureSizePct = sse_decode_f_32(deserializer);
-    var var_enableLogo = sse_decode_bool(deserializer);
-    var var_logoBytes = sse_decode_list_prim_u_8_strict(deserializer);
-    var var_logoAnchor = sse_decode_watermark_anchor(deserializer);
-    var var_logoOpacity = sse_decode_f_32(deserializer);
-    var var_logoScalePct = sse_decode_f_32(deserializer);
-    var var_enableFossBadge = sse_decode_bool(deserializer);
+    final var_enableMuseumFrame = sse_decode_bool(deserializer);
+    final var_frameTheme = sse_decode_museum_frame_theme(deserializer);
+    final var_exifLine1 = sse_decode_String(deserializer);
+    final var_exifLine2 = sse_decode_String(deserializer);
+    final var_enableSignature = sse_decode_bool(deserializer);
+    final var_signatureText = sse_decode_String(deserializer);
+    final var_signatureAnchor = sse_decode_watermark_anchor(deserializer);
+    final var_signatureOpacity = sse_decode_f_32(deserializer);
+    final var_signatureSizePct = sse_decode_f_32(deserializer);
+    final var_enableLogo = sse_decode_bool(deserializer);
+    final var_logoBytes = sse_decode_list_prim_u_8_strict(deserializer);
+    final var_logoAnchor = sse_decode_watermark_anchor(deserializer);
+    final var_logoOpacity = sse_decode_f_32(deserializer);
+    final var_logoScalePct = sse_decode_f_32(deserializer);
+    final var_enableFossBadge = sse_decode_bool(deserializer);
     return WatermarkSpec(
       enableMuseumFrame: var_enableMuseumFrame,
       frameTheme: var_frameTheme,

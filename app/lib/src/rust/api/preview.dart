@@ -139,6 +139,64 @@ Future<RenderedSize> previewRender({
 /// Everything `preview_base` bakes on the CPU. Perspective/skew/straighten
 /// are absent on purpose — they are GPU-warped live (see module docs).
 class PreviewBaseSpec {
+
+  const PreviewBaseSpec({
+    required this.flipH,
+    required this.flipV,
+    required this.turns,
+    required this.cropL,
+    required this.cropT,
+    required this.cropR,
+    required this.cropB,
+    required this.shadows,
+    required this.highlights,
+    required this.clarity,
+    required this.texture,
+    required this.sharpen,
+    required this.sharpenRadius,
+    required this.sharpenDetail,
+    required this.sharpenMasking,
+    required this.denoiseLuma,
+    required this.denoiseChroma,
+    required this.dehaze,
+    required this.vignette,
+    required this.vignetteMidpoint,
+    required this.vignetteFeather,
+    required this.vignetteRoundness,
+    required this.vignetteHighlights,
+    required this.grain,
+    required this.grainSize,
+    required this.grainRoughness,
+    required this.filmHalation,
+    required this.filmHalationRadius,
+    required this.filmHalationThreshold,
+    required this.filmBloom,
+    required this.filmBloomRadius,
+    required this.filmBloomThreshold,
+    required this.filmDust,
+    required this.filmScratches,
+    required this.shaderLabPreset,
+    required this.shaderParam1,
+    required this.shaderParam2,
+    required this.shaderParam3,
+    required this.removeChromaticAberration,
+    required this.defringePurpleAmount,
+    required this.defringePurpleHueMin,
+    required this.defringePurpleHueMax,
+    required this.defringeGreenAmount,
+    required this.defringeGreenHueMin,
+    required this.defringeGreenHueMax,
+    required this.profileCorrections,
+    required this.profileDistortion,
+    required this.profileVignetting,
+    required this.blurEnabled,
+    required this.blurAmount,
+    required this.blurFocalPoint,
+    required this.blurFocalRange,
+    required this.blurBokehShape,
+    required this.blurBokehBoost,
+    required this.blurBackgroundBlur,
+  });
   final bool flipH;
   final bool flipV;
 
@@ -213,64 +271,6 @@ class PreviewBaseSpec {
 
   /// When true, applies background-only blur (subject stays sharp).
   final bool blurBackgroundBlur;
-
-  const PreviewBaseSpec({
-    required this.flipH,
-    required this.flipV,
-    required this.turns,
-    required this.cropL,
-    required this.cropT,
-    required this.cropR,
-    required this.cropB,
-    required this.shadows,
-    required this.highlights,
-    required this.clarity,
-    required this.texture,
-    required this.sharpen,
-    required this.sharpenRadius,
-    required this.sharpenDetail,
-    required this.sharpenMasking,
-    required this.denoiseLuma,
-    required this.denoiseChroma,
-    required this.dehaze,
-    required this.vignette,
-    required this.vignetteMidpoint,
-    required this.vignetteFeather,
-    required this.vignetteRoundness,
-    required this.vignetteHighlights,
-    required this.grain,
-    required this.grainSize,
-    required this.grainRoughness,
-    required this.filmHalation,
-    required this.filmHalationRadius,
-    required this.filmHalationThreshold,
-    required this.filmBloom,
-    required this.filmBloomRadius,
-    required this.filmBloomThreshold,
-    required this.filmDust,
-    required this.filmScratches,
-    required this.shaderLabPreset,
-    required this.shaderParam1,
-    required this.shaderParam2,
-    required this.shaderParam3,
-    required this.removeChromaticAberration,
-    required this.defringePurpleAmount,
-    required this.defringePurpleHueMin,
-    required this.defringePurpleHueMax,
-    required this.defringeGreenAmount,
-    required this.defringeGreenHueMin,
-    required this.defringeGreenHueMax,
-    required this.profileCorrections,
-    required this.profileDistortion,
-    required this.profileVignetting,
-    required this.blurEnabled,
-    required this.blurAmount,
-    required this.blurFocalPoint,
-    required this.blurFocalRange,
-    required this.blurBokehShape,
-    required this.blurBokehBoost,
-    required this.blurBackgroundBlur,
-  });
 
   /// Maps the flat blur fields onto the engine's [`crate::blur::LensBlurParams`].
   Future<LensBlurParams> blurParams() =>
@@ -402,10 +402,10 @@ class PreviewBaseSpec {
 /// Dimensions of the frame a [`preview_render`] just wrote into the bound
 /// texture. No pixels cross the bridge in texture mode — only this size.
 class RenderedSize {
-  final int width;
-  final int height;
 
   const RenderedSize({required this.width, required this.height});
+  final int width;
+  final int height;
 
   @override
   int get hashCode => width.hashCode ^ height.hashCode;

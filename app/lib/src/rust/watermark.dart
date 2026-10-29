@@ -24,21 +24,6 @@ enum WatermarkAnchor {
 
 /// Specification for custom branding and watermarking.
 class WatermarkSpec {
-  final bool enableMuseumFrame;
-  final MuseumFrameTheme frameTheme;
-  final String exifLine1;
-  final String exifLine2;
-  final bool enableSignature;
-  final String signatureText;
-  final WatermarkAnchor signatureAnchor;
-  final double signatureOpacity;
-  final double signatureSizePct;
-  final bool enableLogo;
-  final Uint8List logoBytes;
-  final WatermarkAnchor logoAnchor;
-  final double logoOpacity;
-  final double logoScalePct;
-  final bool enableFossBadge;
 
   const WatermarkSpec({
     required this.enableMuseumFrame,
@@ -57,6 +42,21 @@ class WatermarkSpec {
     required this.logoScalePct,
     required this.enableFossBadge,
   });
+  final bool enableMuseumFrame;
+  final MuseumFrameTheme frameTheme;
+  final String exifLine1;
+  final String exifLine2;
+  final bool enableSignature;
+  final String signatureText;
+  final WatermarkAnchor signatureAnchor;
+  final double signatureOpacity;
+  final double signatureSizePct;
+  final bool enableLogo;
+  final Uint8List logoBytes;
+  final WatermarkAnchor logoAnchor;
+  final double logoOpacity;
+  final double logoScalePct;
+  final bool enableFossBadge;
 
   @override
   int get hashCode =>

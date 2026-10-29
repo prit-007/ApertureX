@@ -50,7 +50,7 @@ void main() {
     });
 
     test('contrast is monotone', () {
-      final p = 0.5;
+      const p = 0.5;
       for (var i = 0; i < 100; i++) {
         final v1 = i / 100.0;
         final v2 = (i + 1) / 100.0;

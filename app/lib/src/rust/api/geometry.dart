@@ -145,15 +145,15 @@ Future<double> geometryDetectStraightenAngle({
 
 /// Rotated/cropped result: pixels plus the new dimensions.
 class GeometryResult {
-  final int width;
-  final int height;
-  final Uint8List rgba;
 
   const GeometryResult({
     required this.width,
     required this.height,
     required this.rgba,
   });
+  final int width;
+  final int height;
+  final Uint8List rgba;
 
   @override
   int get hashCode => width.hashCode ^ height.hashCode ^ rgba.hashCode;

@@ -11,23 +11,14 @@ enum ToolCategory {
   masking('Masking', Icons.brush_outlined),
   workflow('Workflow', Icons.tune);
 
+  const ToolCategory(this.label, this.icon);
+
   final String label;
   final IconData icon;
-
-  const ToolCategory(this.label, this.icon);
 }
 
 /// Comprehensive documentation model for a single tool or workflow in ApertureX.
 class ToolGuideModel {
-  final String id;
-  final String title;
-  final ToolCategory category;
-  final String summary;
-  final String description;
-  final IconData icon;
-  final List<String> proTips;
-  final String bestUsedFor;
-  final String? shortcut;
 
   const ToolGuideModel({
     required this.id,
@@ -40,4 +31,13 @@ class ToolGuideModel {
     required this.bestUsedFor,
     this.shortcut,
   });
+  final String id;
+  final String title;
+  final ToolCategory category;
+  final String summary;
+  final String description;
+  final IconData icon;
+  final List<String> proTips;
+  final String bestUsedFor;
+  final String? shortcut;
 }

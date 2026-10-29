@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui' show ImageFilter;
+import 'dart:ui' show ImageFilter, PlatformDispatcher;
 
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -90,6 +90,10 @@ class _AppShellState extends ConsumerState<AppShell> {
   final HapticGradientPacer _gradient = HapticGradientPacer();
   final Stopwatch _gestureSw = Stopwatch()..start();
   final SpeedEditorTracker _speedTracker = SpeedEditorTracker();
+
+  /// Whether the user has requested reduced motion (accessibility setting).
+  bool get _reduceMotion =>
+      PlatformDispatcher.instance.accessibilityFeatures.reduceMotion;
 
   void _handleMacroAction(SpeedMacroAction action) {
     switch (action) {
@@ -740,7 +744,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     return AnimatedSwitcher(
-      duration: AppMotion.standardDuration,
+      duration: _reduceMotion ? Duration.zero : AppMotion.standardDuration,
       switchInCurve: AppMotion.standardCurve,
       switchOutCurve: AppMotion.standardCurve,
       transitionBuilder: (Widget child, Animation<double> animation) {

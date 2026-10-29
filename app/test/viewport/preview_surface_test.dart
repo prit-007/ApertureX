@@ -17,7 +17,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      Directionality(
+      const Directionality(
         textDirection: TextDirection.ltr,
         child: PreviewSurface(textureId: 7, fallback: fallback),
       ),
@@ -35,7 +35,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      Directionality(
+      const Directionality(
         textDirection: TextDirection.ltr,
         child: PreviewSurface(textureId: null, fallback: fallback),
       ),

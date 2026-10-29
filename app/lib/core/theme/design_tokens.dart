@@ -42,10 +42,51 @@ class Radii {
 class Motion {
   const Motion._();
 
-  static const Duration fast = Duration(milliseconds: 120);
-  static const Duration medium = Duration(milliseconds: 220);
-  static const Duration slow = Duration(milliseconds: 360);
+  static const Duration fast = Durations.short3;
+  static const Duration medium = Durations.medium2;
+  static const Duration slow = Durations.medium4;
 
-  static const Curve standard = Curves.easeOutCubic;
-  static const Curve emphasized = Curves.easeOutBack;
+  static const Curve standard = Easing.standard;
+  static const Curve emphasized = Easing.emphasizedDecelerate;
+}
+
+/// Centralized Material 3 motion constants for ApertureX (ADR 0011).
+///
+/// All animation durations and curves derive from Flutter's built-in
+/// `Durations` and `Easing` classes, which align with the Material 3 motion
+/// specification. Never hardcode `Duration(milliseconds: ...)` or `Curves.*`
+/// for new animation code.
+abstract class AppMotion {
+  const AppMotion._();
+
+  // --- Standard transitions ------------------------------------------------
+
+  static const Duration standardDuration = Durations.medium2;
+  static const Curve standardCurve = Easing.standard;
+
+  // --- Page transitions ----------------------------------------------------
+
+  static const Duration pageDuration = Durations.medium4;
+  static const Curve pageEnterCurve = Easing.emphasizedDecelerate;
+  static const Curve pageExitCurve = Easing.emphasizedAccelerate;
+
+  // --- Fades ---------------------------------------------------------------
+
+  static const Duration fadeDuration = Durations.short3;
+  static const Curve fadeCurve = Easing.standard;
+
+  // --- Scrub / gesture HUD ------------------------------------------------
+
+  static const Duration scrubDuration = Durations.short2;
+  static const Curve scrubCurve = Easing.standard;
+
+  // --- Micro fades --------------------------------------------------------
+
+  static const Duration microDuration = Durations.short1;
+  static const Duration shortDuration = Durations.short2;
+
+  // --- Sheet / panel ------------------------------------------------------
+
+  static const Duration sheetDuration = Durations.medium2;
+  static const Curve sheetCurve = Easing.standard;
 }
