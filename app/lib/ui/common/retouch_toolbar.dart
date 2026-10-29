@@ -192,7 +192,7 @@ class RetouchToolbar extends ConsumerWidget {
                 key: const Key('retouch-toolbar-delete'),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 icon: const Icon(Icons.delete_outline, size: 16),
                 color: const Color(0xFFFF5252),
                 tooltip: 'Delete spot',

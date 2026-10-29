@@ -7,6 +7,25 @@ import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
 import '../../edit/recipe_controller.dart';
 
+/// Tracks current stylus pressure (0.0–1.0) for dynamic brush opacity preview.
+///
+/// The canvas Listener (app_shell.dart) writes pressure into this provider;
+/// BrushToolbar reads it to render a live opacity preview chip.
+class BrushPressureNotifier extends Notifier<double> {
+  @override
+  double build() => 0.0;
+
+  void setPressure(double pressure) {
+    state = pressure.clamp(0.0, 1.0);
+  }
+}
+
+/// Riverpod provider for live brush pressure from the stylus.
+final brushPressureProvider =
+    NotifierProvider<BrushPressureNotifier, double>(
+  BrushPressureNotifier.new,
+);
+
 /// A floating, compact on-canvas toolbar for manual brush masking.
 ///
 /// Provides instant access to:
@@ -39,6 +58,8 @@ class BrushToolbar extends ConsumerWidget {
 
     final scheme = Theme.of(context).colorScheme;
     final notifier = ref.read(recipeControllerProvider.notifier);
+    final pressure = ref.watch(brushPressureProvider);
+    final opacityPercent = (pressure * 100).round();
 
     return Material(
       key: const Key('brush-toolbar'),
@@ -150,6 +171,33 @@ class BrushToolbar extends ConsumerWidget {
                     notifier.updateLayerAt(idx, layer.withBrushRadius(val)),
               ),
             ),
+
+            // Pressure-driven opacity preview chip (stylus pressure)
+            if (pressure > 0.0) ...[
+              const SizedBox(width: 8),
+              Container(
+                key: const Key('brush-pressure-opacity'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Text(
+                  'Opacity: $opacityPercent%',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.primary,
+                  ),
+                ),
+              ),
+            ],
 
             // Invert toggle
             IconButton(

@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' show ImageFilter;
+
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -354,12 +356,14 @@ class _AppShellState extends ConsumerState<AppShell> {
       onPointerDown: (e) {
         ref.read(editActivityProvider.notifier).begin();
         _speedTracker.onPointerDown(e.pointer, e.position);
+        _reportPressure(e);
       },
       onPointerMove: (e) {
         final action = _speedTracker.onPointerMove(e.pointer, e.position);
         if (action != null) {
           _handleMacroAction(action);
         }
+        _reportPressure(e);
       },
       onPointerUp: (e) {
         ref.read(editActivityProvider.notifier).end();
@@ -387,6 +391,16 @@ class _AppShellState extends ConsumerState<AppShell> {
         },
       ),
     );
+  }
+
+  /// Reports stylus pressure to [brushPressureProvider] for dynamic brush
+  /// opacity/flow preview. Touch (non-stylus) events are ignored for palm
+  /// rejection (issue #35).
+  void _reportPressure(PointerEvent event) {
+    final isStylus = event.kind == PointerDeviceKind.stylus ||
+        event.kind == PointerDeviceKind.invertedStylus;
+    if (!isStylus) return;
+    ref.read(brushPressureProvider.notifier).setPressure(event.pressure);
   }
 
   @override

@@ -7,6 +7,7 @@ import 'package:aperturex/settings/shell_preference.dart';
 import 'package:aperturex/ui/app_shell.dart';
 import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
 import 'package:aperturex/ui/snapseed/snapseed_shell.dart';
+import 'package:aperturex/ui/common/brush_toolbar.dart';
 import 'package:aperturex/viewport/image_canvas.dart';
 
 void main() {
@@ -130,6 +131,44 @@ void main() {
       await tester.tap(find.text('Optics'));
       await tester.pumpAndSettle();
       expect(find.byType(SwitchListTile), findsWidgets);
+    });
+  });
+
+  group('Stylus pressure (issue #35)', () {
+    testWidgets('brushPressureProvider defaults to 0', (tester) async {
+      await pumpShell(tester);
+      expect(container.read(brushPressureProvider), 0.0);
+    });
+
+    testWidgets('brushPressureProvider accepts pressure updates', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      final notifier =
+          container.read(brushPressureProvider.notifier);
+      notifier.setPressure(0.75);
+      await tester.pump();
+
+      expect(container.read(brushPressureProvider), 0.75);
+
+      notifier.setPressure(0.0);
+      await tester.pump();
+      expect(container.read(brushPressureProvider), 0.0);
+    });
+
+    testWidgets('brushPressureProvider clamps pressure to 0..1', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      final notifier =
+          container.read(brushPressureProvider.notifier);
+      notifier.setPressure(-0.5);
+      expect(container.read(brushPressureProvider), 0.0);
+
+      notifier.setPressure(1.5);
+      expect(container.read(brushPressureProvider), 1.0);
     });
   });
 }
