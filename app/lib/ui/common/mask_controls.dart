@@ -155,49 +155,68 @@ class MaskControls extends ConsumerWidget {
     final selectedIndex = ref.watch(nodeEditorProvider.select((s) => s.selected));
     final groupIds = {for (final g in maskGroups) g.id};
     final isInferring = ref.watch(aiMaskInferringProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     return ListView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      padding: const EdgeInsets.only(bottom: 32),
       children: [
+        // Mask creation toolbar
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               OutlinedButton.icon(
                 key: const Key('edit-on-canvas'),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: nodeMode ? scheme.primaryContainer : null,
+                  foregroundColor: nodeMode ? scheme.onPrimaryContainer : null,
+                  side: BorderSide(
+                    color: nodeMode ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
                 onPressed: () => ref.read(nodeEditorProvider.notifier).toggle(),
-                icon: Icon(nodeMode ? Icons.check : Icons.touch_app),
-                label: Text(nodeMode ? 'Done placing' : 'Edit on canvas'),
+                icon: Icon(nodeMode ? Icons.check : Icons.touch_app, size: 16),
+                label: Text(
+                  nodeMode ? 'Done placing' : 'Edit on canvas',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                ),
               ),
               OutlinedButton.icon(
                 key: const Key('mask-new-group'),
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                 onPressed: () {
                   final gid = 'group_${DateTime.now().microsecondsSinceEpoch}';
                   final num = maskGroups.length + 1;
                   notifier.addMaskGroup(MaskGroup(id: gid, name: 'Mask $num'));
                 },
-                icon: const Icon(Icons.create_new_folder_outlined),
-                label: const Text('New Group +'),
+                icon: const Icon(Icons.create_new_folder_outlined, size: 16),
+                label: const Text('New Group +', style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                 onPressed: () => _addMask(context, ref, MaskKind.brush),
-                icon: const Icon(Icons.brush),
-                label: const Text('Brush +'),
+                icon: const Icon(Icons.brush, size: 16),
+                label: const Text('Brush +', style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                 onPressed: () => _addMask(context, ref, MaskKind.linear),
-                icon: const Icon(Icons.gradient),
-                label: const Text('Linear +'),
+                icon: const Icon(Icons.gradient, size: 16),
+                label: const Text('Linear +', style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                 onPressed: () => _addMask(context, ref, MaskKind.radial),
-                icon: const Icon(Icons.brightness_5),
-                label: const Text('Radial +'),
+                icon: const Icon(Icons.brightness_5, size: 16),
+                label: const Text('Radial +', style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton.icon(
                 key: const Key('mask-add-subject'),
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                 onPressed: isInferring
                     ? null
                     : () => _addAiSubjectMask(context, ref, inverted: false),
@@ -207,11 +226,12 @@ class MaskControls extends ConsumerWidget {
                         height: 14,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.person),
-                label: const Text('Subject +'),
+                    : const Icon(Icons.person, size: 16),
+                label: const Text('Subject +', style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton.icon(
                 key: const Key('mask-add-background'),
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                 onPressed: isInferring
                     ? null
                     : () {
@@ -224,11 +244,12 @@ class MaskControls extends ConsumerWidget {
                         height: 14,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.wallpaper),
-                label: const Text('Background +'),
+                    : const Icon(Icons.wallpaper, size: 16),
+                label: const Text('Background +', style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton.icon(
                 key: const Key('mask-add-sky'),
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                 onPressed: isInferring
                     ? null
                     : () async {
@@ -270,16 +291,18 @@ class MaskControls extends ConsumerWidget {
                         ref.read(nodeEditorProvider.notifier).enable();
                         ref.read(nodeEditorProvider.notifier).select(idx);
                       },
-                icon: const Icon(Icons.cloud_outlined),
-                label: const Text('Sky +'),
+                icon: const Icon(Icons.cloud_outlined, size: 16),
+                label: const Text('Sky +', style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                 onPressed: () => _addMask(context, ref, MaskKind.luminance),
-                icon: const Icon(Icons.dark_mode),
-                label: const Text('Darks +'),
+                icon: const Icon(Icons.dark_mode, size: 16),
+                label: const Text('Darks +', style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton.icon(
                 key: const Key('mask-add-depth'),
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                 onPressed: isInferring
                     ? null
                     : () async {
@@ -336,13 +359,14 @@ class MaskControls extends ConsumerWidget {
                           ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
                         }
                       },
-                icon: const Icon(Icons.blur_on),
-                label: const Text('Depth +'),
+                icon: const Icon(Icons.blur_on, size: 16),
+                label: const Text('Depth +', style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                 onPressed: () => _toggleStylusOnly(ref, !stylusOnly),
-                icon: const Icon(Icons.gesture),
-                label: stylusOnly ? const Text('Touch mode') : const Text('Stylus mode'),
+                icon: Icon(Icons.gesture, size: 16, color: stylusOnly ? scheme.primary : null),
+                label: stylusOnly ? const Text('Touch mode', style: TextStyle(fontSize: 12)) : const Text('Stylus mode', style: TextStyle(fontSize: 12)),
               ),
             ],
           ),

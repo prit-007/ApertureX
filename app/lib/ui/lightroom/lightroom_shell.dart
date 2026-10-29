@@ -474,6 +474,12 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                           : scheme.onSurfaceVariant.withValues(alpha: 0.38),
                     ),
                   ),
+                  VerticalDivider(
+                    width: 12,
+                    indent: 8,
+                    endIndent: 8,
+                    color: scheme.outlineVariant.withValues(alpha: 0.2),
+                  ),
                   if (ref.watch(tatModeProvider)) ...[
                     TextButton(
                       style: TextButton.styleFrom(
@@ -539,7 +545,12 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     icon: const Icon(Icons.colorize),
                     selectedIcon: Icon(Icons.colorize, color: scheme.primary),
                   ),
-                  const SizedBox(width: Insets.sm),
+                  VerticalDivider(
+                    width: 12,
+                    indent: 8,
+                    endIndent: 8,
+                    color: scheme.outlineVariant.withValues(alpha: 0.2),
+                  ),
                   IconButton(
                     tooltip: 'Undo',
                     visualDensity: VisualDensity.compact,
@@ -557,6 +568,12 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     visualDensity: VisualDensity.compact,
                     onPressed: () => HistoryTreeSheet.show(context),
                     icon: const Icon(Icons.alt_route),
+                  ),
+                  VerticalDivider(
+                    width: 12,
+                    indent: 8,
+                    endIndent: 8,
+                    color: scheme.outlineVariant.withValues(alpha: 0.2),
                   ),
                   Listener(
                     behavior: HitTestBehavior.opaque,
@@ -594,6 +611,12 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     },
                     icon: const Icon(Icons.wb_iridescent_outlined),
                     selectedIcon: Icon(Icons.wb_iridescent, color: scheme.primary),
+                  ),
+                  VerticalDivider(
+                    width: 12,
+                    indent: 8,
+                    endIndent: 8,
+                    color: scheme.outlineVariant.withValues(alpha: 0.2),
                   ),
                   IconButton(
                     key: const Key('tray-apply'),
