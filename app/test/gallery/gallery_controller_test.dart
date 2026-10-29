@@ -10,15 +10,15 @@ import 'package:aperturex/gallery/thumbnail_memory_cache.dart';
 
 /// A gallery source that delays album loading to simulate slow album queries.
 class DelayedAlbumsSource implements GallerySource {
-  final List<GalleryAsset> assets;
-  final List<GalleryAlbum> albums;
-  final Duration albumDelay;
 
   DelayedAlbumsSource({
     required this.assets,
     required this.albums,
     this.albumDelay = const Duration(milliseconds: 50),
   });
+  final List<GalleryAsset> assets;
+  final List<GalleryAlbum> albums;
+  final Duration albumDelay;
 
   @override
   final ThumbnailMemoryCache thumbnailCache = ThumbnailMemoryCache();

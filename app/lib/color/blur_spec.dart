@@ -24,6 +24,21 @@ class LensBlurSpec {
     this.blurBackgroundBlur = false,
   });
 
+  /// Derives [LensBlurSpec] from [EditRecipe].
+  factory LensBlurSpec.fromRecipe(EditRecipe recipe) {
+    final shapeIdx =
+        recipe.blurBokehShape.clamp(0, BokehShape.values.length - 1);
+    return LensBlurSpec(
+      enabled: recipe.blurEnabled,
+      amount: recipe.blurAmount,
+      focalPoint: recipe.blurFocalPoint,
+      focalRange: recipe.blurFocalRange,
+      bokehShape: BokehShape.values[shapeIdx],
+      bokehBoost: recipe.blurBokehBoost,
+      blurBackgroundBlur: recipe.blurBackgroundBlur,
+    );
+  }
+
   /// Whether lens blur is engaged.
   final bool enabled;
 
@@ -48,21 +63,6 @@ class LensBlurSpec {
   /// True when blur is disabled or zero.
   bool get isNeutral =>
       !enabled || (amount <= 1e-4 && !blurBackgroundBlur);
-
-  /// Derives [LensBlurSpec] from [EditRecipe].
-  factory LensBlurSpec.fromRecipe(EditRecipe recipe) {
-    final shapeIdx =
-        recipe.blurBokehShape.clamp(0, BokehShape.values.length - 1);
-    return LensBlurSpec(
-      enabled: recipe.blurEnabled,
-      amount: recipe.blurAmount,
-      focalPoint: recipe.blurFocalPoint,
-      focalRange: recipe.blurFocalRange,
-      bokehShape: BokehShape.values[shapeIdx],
-      bokehBoost: recipe.blurBokehBoost,
-      blurBackgroundBlur: recipe.blurBackgroundBlur,
-    );
-  }
 
   @override
   bool operator ==(Object other) =>

@@ -28,11 +28,11 @@ class FilmControls extends ConsumerWidget {
       child: ListView(
         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         padding: const EdgeInsets.only(bottom: 12, top: 2),
-        children: [
+        children: const [
           ExpansionTile(
             initiallyExpanded: true,
             title: _PanelTitle('Halation'),
-            children: const [
+            children: [
               _ParamPad(Parameter.filmHalation),
               _ParamPad(Parameter.filmHalationRadius),
               _ParamPad(Parameter.filmHalationThreshold),
@@ -41,7 +41,7 @@ class FilmControls extends ConsumerWidget {
           ExpansionTile(
             initiallyExpanded: true,
             title: _PanelTitle('Optical Bloom'),
-            children: const [
+            children: [
               _ParamPad(Parameter.filmBloom),
               _ParamPad(Parameter.filmBloomRadius),
               _ParamPad(Parameter.filmBloomThreshold),
@@ -50,7 +50,7 @@ class FilmControls extends ConsumerWidget {
           ExpansionTile(
             initiallyExpanded: true,
             title: _PanelTitle('Film Emulsion'),
-            children: const [
+            children: [
               _ParamPad(Parameter.filmDust),
               _ParamPad(Parameter.filmScratches),
             ],
@@ -63,8 +63,8 @@ class FilmControls extends ConsumerWidget {
 
 /// Uppercase section title used inside FilmControls ExpansionTiles.
 class _PanelTitle extends StatelessWidget {
-  final String title;
   const _PanelTitle(this.title);
+  final String title;
 
   @override
   Widget build(BuildContext context) => Text(
@@ -79,8 +79,8 @@ class _PanelTitle extends StatelessWidget {
 
 /// Pads a ParameterControl with tight 12px horizontal, 2px vertical spacing.
 class _ParamPad extends StatelessWidget {
-  final Parameter param;
   const _ParamPad(this.param);
+  final Parameter param;
 
   @override
   Widget build(BuildContext context) => Padding(

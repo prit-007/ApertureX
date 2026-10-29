@@ -31,6 +31,33 @@ class GradeSpec {
     this.hsl = neutralHsl,
   });
 
+  factory GradeSpec.fromRecipe(EditRecipe recipe) => GradeSpec(
+    exposure: recipe.exposure,
+    contrast: recipe.contrast,
+    whites: recipe.whites,
+    blacks: recipe.blacks,
+    saturation: recipe.saturation,
+    temperature: recipe.temperature,
+    tint: recipe.tint,
+    vibrance: recipe.vibrance,
+    gradeShadowHue: recipe.gradeShadowHue,
+    gradeShadowSat: recipe.gradeShadowSat,
+    gradeShadowLum: recipe.gradeShadowLum,
+    gradeMidHue: recipe.gradeMidHue,
+    gradeMidSat: recipe.gradeMidSat,
+    gradeMidLum: recipe.gradeMidLum,
+    gradeHighlightHue: recipe.gradeHighlightHue,
+    gradeHighlightSat: recipe.gradeHighlightSat,
+    gradeHighlightLum: recipe.gradeHighlightLum,
+    gradeBlending: recipe.gradeBlending,
+    gradeBalance: recipe.gradeBalance,
+    masterCurve: recipe.masterCurve.points,
+    redCurve: recipe.redCurve.points,
+    greenCurve: recipe.greenCurve.points,
+    blueCurve: recipe.blueCurve.points,
+    hsl: recipe.hsl,
+  );
+
   final double exposure;
   final double contrast;
   final double whites;
@@ -59,31 +86,4 @@ class GradeSpec {
 
   /// HSL mixer: 8 bands × (hue, saturation, luminance).
   final List<double> hsl;
-
-  factory GradeSpec.fromRecipe(EditRecipe recipe) => GradeSpec(
-    exposure: recipe.exposure,
-    contrast: recipe.contrast,
-    whites: recipe.whites,
-    blacks: recipe.blacks,
-    saturation: recipe.saturation,
-    temperature: recipe.temperature,
-    tint: recipe.tint,
-    vibrance: recipe.vibrance,
-    gradeShadowHue: recipe.gradeShadowHue,
-    gradeShadowSat: recipe.gradeShadowSat,
-    gradeShadowLum: recipe.gradeShadowLum,
-    gradeMidHue: recipe.gradeMidHue,
-    gradeMidSat: recipe.gradeMidSat,
-    gradeMidLum: recipe.gradeMidLum,
-    gradeHighlightHue: recipe.gradeHighlightHue,
-    gradeHighlightSat: recipe.gradeHighlightSat,
-    gradeHighlightLum: recipe.gradeHighlightLum,
-    gradeBlending: recipe.gradeBlending,
-    gradeBalance: recipe.gradeBalance,
-    masterCurve: recipe.masterCurve.points,
-    redCurve: recipe.redCurve.points,
-    greenCurve: recipe.greenCurve.points,
-    blueCurve: recipe.blueCurve.points,
-    hsl: recipe.hsl,
-  );
 }

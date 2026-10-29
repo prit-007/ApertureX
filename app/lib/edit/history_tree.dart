@@ -15,6 +15,17 @@ class HistoryNode {
     this.metadata,
   });
 
+  factory HistoryNode.fromJson(Map<String, dynamic> json) => HistoryNode(
+        id: json['id'] as String,
+        parentId: json['parentId'] as String?,
+        label: json['label'] as String? ?? 'Edit',
+        recipe: EditRecipe.fromJson(json['recipe'] as Map<String, dynamic>),
+        timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ??
+            DateTime.now().toUtc(),
+        branchName: json['branchName'] as String? ?? 'main',
+        metadata: json['metadata'] as Map<String, dynamic>?,
+      );
+
   final NodeId id;
   final NodeId? parentId;
   final String label;
@@ -32,17 +43,6 @@ class HistoryNode {
         'branchName': branchName,
         if (metadata != null) 'metadata': metadata,
       };
-
-  factory HistoryNode.fromJson(Map<String, dynamic> json) => HistoryNode(
-        id: json['id'] as String,
-        parentId: json['parentId'] as String?,
-        label: json['label'] as String? ?? 'Edit',
-        recipe: EditRecipe.fromJson(json['recipe'] as Map<String, dynamic>),
-        timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ??
-            DateTime.now().toUtc(),
-        branchName: json['branchName'] as String? ?? 'main',
-        metadata: json['metadata'] as Map<String, dynamic>?,
-      );
 }
 
 /// A non-linear, Git-style Directed Acyclic Graph (DAG) of non-destructive edits.
@@ -57,6 +57,48 @@ class HistoryTree {
     required this.activeBranch,
     required this.currentNodeId,
   });
+
+  /// Initializes a pristine tree with a single root node and 'main' branch.
+  factory HistoryTree.initial({
+    EditRecipe initialRecipe = EditRecipe.neutral,
+    String rootLabel = 'Original',
+  }) {
+    final rootId = 'root_${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}';
+    final rootNode = HistoryNode(
+      id: rootId,
+      parentId: null,
+      label: rootLabel,
+      recipe: initialRecipe,
+      timestamp: DateTime.now().toUtc(),
+      branchName: 'main',
+    );
+    return HistoryTree(
+      nodes: {rootId: rootNode},
+      branches: {'main': rootId},
+      activeBranch: 'main',
+      currentNodeId: rootId,
+    );
+  }
+
+  factory HistoryTree.fromJson(Map<String, dynamic> json) {
+    final nodesRaw = json['nodes'] as Map<String, dynamic>? ?? {};
+    final nodes = nodesRaw.map(
+      (k, v) => MapEntry(k, HistoryNode.fromJson(v as Map<String, dynamic>)),
+    );
+    final branches = Map<String, String>.from(
+      json['branches'] as Map? ?? {'main': json['currentNodeId'] as String? ?? 'root'},
+    );
+    final activeBranch = json['activeBranch'] as String? ?? 'main';
+    final currentNodeId = json['currentNodeId'] as String? ??
+        (nodes.isNotEmpty ? nodes.keys.first : 'root');
+
+    return HistoryTree(
+      nodes: nodes,
+      branches: branches,
+      activeBranch: activeBranch,
+      currentNodeId: currentNodeId,
+    );
+  }
 
   /// Map of all committed nodes by their unique [NodeId].
   final Map<NodeId, HistoryNode> nodes;
@@ -84,28 +126,6 @@ class HistoryTree {
           branchName: 'main',
         ),
       );
-
-  /// Initializes a pristine tree with a single root node and 'main' branch.
-  factory HistoryTree.initial({
-    EditRecipe initialRecipe = EditRecipe.neutral,
-    String rootLabel = 'Original',
-  }) {
-    final rootId = 'root_${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}';
-    final rootNode = HistoryNode(
-      id: rootId,
-      parentId: null,
-      label: rootLabel,
-      recipe: initialRecipe,
-      timestamp: DateTime.now().toUtc(),
-      branchName: 'main',
-    );
-    return HistoryTree(
-      nodes: {rootId: rootNode},
-      branches: {'main': rootId},
-      activeBranch: 'main',
-      currentNodeId: rootId,
-    );
-  }
 
   /// Linear lineage from the root ancestor up to [currentNodeId].
   ///
@@ -215,24 +235,4 @@ class HistoryTree {
         'activeBranch': activeBranch,
         'currentNodeId': currentNodeId,
       };
-
-  factory HistoryTree.fromJson(Map<String, dynamic> json) {
-    final nodesRaw = json['nodes'] as Map<String, dynamic>? ?? {};
-    final nodes = nodesRaw.map(
-      (k, v) => MapEntry(k, HistoryNode.fromJson(v as Map<String, dynamic>)),
-    );
-    final branches = Map<String, String>.from(
-      json['branches'] as Map? ?? {'main': json['currentNodeId'] as String? ?? 'root'},
-    );
-    final activeBranch = json['activeBranch'] as String? ?? 'main';
-    final currentNodeId = json['currentNodeId'] as String? ??
-        (nodes.isNotEmpty ? nodes.keys.first : 'root');
-
-    return HistoryTree(
-      nodes: nodes,
-      branches: branches,
-      activeBranch: activeBranch,
-      currentNodeId: currentNodeId,
-    );
-  }
 }

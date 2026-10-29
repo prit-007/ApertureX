@@ -54,7 +54,7 @@ void main() {
       max: 5,
       response: ResponseCurve.squareRootHalf,
     );
-    final m = SliderMath(spec);
+    const m = SliderMath(spec);
 
     test('sqrt curve: ±1.25 EV sits at the quarter/three-quarter marks', () {
       expect(m.fractionOf(0), closeTo(0.5, 1e-9));
@@ -109,7 +109,7 @@ void main() {
       min: 0,
       max: 1,
     );
-    final m = SliderMath(spec);
+    const m = SliderMath(spec);
 
     test('is not bidirectional and the neutral is at the left', () {
       expect(m.bidirectional, isFalse);

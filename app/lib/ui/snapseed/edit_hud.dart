@@ -41,6 +41,8 @@ class EditHud extends ConsumerWidget {
     if (changed.isEmpty) return const SizedBox.shrink();
 
     final scheme = Theme.of(context).colorScheme;
+    final visible = changed.take(4).toList();
+    final overflowCount = changed.length - visible.length;
     return Align(
       alignment: Alignment.topRight,
       child: SafeArea(
@@ -52,7 +54,7 @@ class EditHud extends ConsumerWidget {
           runSpacing: 4,
           alignment: WrapAlignment.end,
           children: [
-            for (final p in changed)
+            for (final p in visible)
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 8,
@@ -68,6 +70,25 @@ class EditHud extends ConsumerWidget {
                   '${valueOf(recipe, p).toStringAsFixed(2)}',
                   style: TextStyle(
                     color: scheme.onSurface,
+                    fontSize: 11,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            if (overflowCount > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '+$overflowCount more',
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
                     fontSize: 11,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),

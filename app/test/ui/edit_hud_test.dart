@@ -54,4 +54,34 @@ void main() {
     await tester.pump();
     expect(find.textContaining('EXP'), findsOneWidget);
   });
+
+  testWidgets('caps visible badges at 4 with overflow chip on small viewports', (
+    tester,
+  ) async {
+    await pump(tester);
+
+    final notifier = container.read(recipeControllerProvider.notifier);
+    // Set 6 parameters to non-neutral
+    notifier.update(Parameter.exposure, 0.5);
+    notifier.update(Parameter.contrast, -0.2);
+    notifier.update(Parameter.highlights, 0.3);
+    notifier.update(Parameter.shadows, -0.1);
+    notifier.update(Parameter.whites, 0.2);
+    notifier.update(Parameter.blacks, -0.3);
+    await tester.pump();
+
+    // First 4 badges visible (parameter.values order: exposure, contrast,
+    // highlights, shadows, whites, blacks, ...)
+    expect(find.textContaining('EXP'), findsOneWidget);
+    expect(find.textContaining('CON'), findsOneWidget);
+    expect(find.textContaining('HIL'), findsOneWidget);
+    expect(find.textContaining('SHA'), findsOneWidget);
+
+    // Remaining 2 not shown individually
+    expect(find.textContaining('WHI'), findsNothing);
+    expect(find.textContaining('BLA'), findsNothing);
+
+    // Overflow chip visible
+    expect(find.textContaining('+2 more'), findsOneWidget);
+  });
 }

@@ -73,7 +73,7 @@ class CrashReportDialog extends StatelessWidget {
           children: [
             SelectableText(error, style: textTheme.bodyMedium),
             if (stack != null && stack.isNotEmpty) ...[
-              SizedBox(height: Insets.sm),
+              const SizedBox(height: Insets.sm),
               SelectableText(
                 stack,
                 style: textTheme.bodySmall?.copyWith(
@@ -108,7 +108,7 @@ class CrashReportDialog extends StatelessWidget {
   void _openLogs(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => LogsScreen(initialDomain: LogDomain.crash),
+        builder: (_) => const LogsScreen(initialDomain: LogDomain.crash),
       ),
     );
   }

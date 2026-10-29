@@ -74,8 +74,8 @@ class SavedToFile extends PhotoSaveOutcome {
 
 /// Routes one export save to the desktop dialog or the mobile gallery (#104).
 ///
-/// Both entry points take the *payload bytes* plus the export's base [name]:
-/// the desktop branch writes `name.<extension>` through [saveBytesDesktop],
+/// Both entry points take the *payload bytes* plus the export's base name:
+/// the desktop branch writes `name.<extension>` through saveBytesDesktop,
 /// the mobile branch either hands bytes to gal (JPEG) or stages a temp file
 /// for gal's path-based API (DNG/TIFF) — exactly the pre-#104 flows.
 class PhotoSaver {

@@ -61,7 +61,7 @@ class BlurControls extends ConsumerWidget {
         children: [
           ExpansionTile(
             initiallyExpanded: true,
-            title: _PanelTitle('Lens Blur'),
+            title: const _PanelTitle('Lens Blur'),
             children: [
               SwitchListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -102,7 +102,7 @@ class BlurControls extends ConsumerWidget {
           if (recipe.blurEnabled) ...[
             ExpansionTile(
               initiallyExpanded: false, // Collapsed by default to save space!
-              title: _PanelTitle('Bokeh Shape & Specular'),
+              title: const _PanelTitle('Bokeh Shape & Specular'),
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -136,8 +136,8 @@ class BlurControls extends ConsumerWidget {
 
 /// Uppercase section title used inside BlurControls ExpansionTiles.
 class _PanelTitle extends StatelessWidget {
-  final String title;
   const _PanelTitle(this.title);
+  final String title;
 
   @override
   Widget build(BuildContext context) => Text(
@@ -226,8 +226,8 @@ Future<void> _applySubjectFocus(BuildContext context, WidgetRef ref) async {
 
 /// Pads a ParameterControl with tight 12px horizontal, 2px vertical spacing.
 class _ParamPad extends StatelessWidget {
-  final Parameter param;
   const _ParamPad(this.param);
+  final Parameter param;
 
   @override
   Widget build(BuildContext context) => Padding(

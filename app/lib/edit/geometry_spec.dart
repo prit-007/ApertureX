@@ -18,6 +18,18 @@ class GeometrySpec {
     this.skewY = 0,
   });
 
+  factory GeometrySpec.fromRecipe(EditRecipe recipe) => GeometrySpec(
+    rotation: recipe.rotation,
+    flipH: recipe.flipH,
+    flipV: recipe.flipV,
+    straighten: recipe.straighten,
+    crop: recipe.crop,
+    perspectiveX: recipe.perspectiveX,
+    perspectiveY: recipe.perspectiveY,
+    skewX: recipe.skewX,
+    skewY: recipe.skewY,
+  );
+
   final int rotation; // quarter turns clockwise
   final bool flipH;
   final bool flipV;
@@ -38,16 +50,4 @@ class GeometrySpec {
       perspectiveY == 0 &&
       skewX == 0 &&
       skewY == 0;
-
-  factory GeometrySpec.fromRecipe(EditRecipe recipe) => GeometrySpec(
-    rotation: recipe.rotation,
-    flipH: recipe.flipH,
-    flipV: recipe.flipV,
-    straighten: recipe.straighten,
-    crop: recipe.crop,
-    perspectiveX: recipe.perspectiveX,
-    perspectiveY: recipe.perspectiveY,
-    skewX: recipe.skewX,
-    skewY: recipe.skewY,
-  );
 }

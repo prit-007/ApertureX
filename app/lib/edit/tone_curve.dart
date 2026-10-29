@@ -9,6 +9,15 @@ enum ToneCurveChannel { master, red, green, blue }
 class ToneCurve {
   const ToneCurve(this.points);
 
+  factory ToneCurve.fromJson(Object? json) {
+    if (json is Map && json['points'] is List) {
+      return ToneCurve(
+        (json['points'] as List).map((e) => (e as num).toDouble()).toList(),
+      );
+    }
+    return identity;
+  }
+
   /// Flat control points, sorted by x.
   final List<double> points;
 
@@ -18,15 +27,6 @@ class ToneCurve {
   bool get isIdentity => listEquals(points, identity.points);
 
   Map<String, Object?> toJson() => <String, Object?>{'points': points};
-
-  factory ToneCurve.fromJson(Object? json) {
-    if (json is Map && json['points'] is List) {
-      return ToneCurve(
-        (json['points'] as List).map((e) => (e as num).toDouble()).toList(),
-      );
-    }
-    return identity;
-  }
 
   @override
   bool operator ==(Object other) =>

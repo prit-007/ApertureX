@@ -67,9 +67,9 @@ PresetImport parseLrtemplatePreset(String content) {
     rawSettings = _findSettingsMap(parsed);
   } catch (_) {
     // Malformed input fails gracefully into neutral recipe with error note
-    return PresetImport(
+    return const PresetImport(
       EditRecipe.neutral,
-      const [PresetNote('Syntax', PresetStatus.unsupported, 'Malformed Lua table')],
+      [PresetNote('Syntax', PresetStatus.unsupported, 'Malformed Lua table')],
     );
   }
 

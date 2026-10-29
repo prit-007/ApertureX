@@ -675,9 +675,9 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.add),
-                  child: Chip(
-                    avatar: const Icon(Icons.add, size: 14),
-                    label: const Text('Add', style: TextStyle(fontSize: 11)),
+                  child: const Chip(
+                    avatar: Icon(Icons.add, size: 14),
+                    label: Text('Add', style: TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),
@@ -695,9 +695,9 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.subtract),
-                  child: Chip(
-                    avatar: const Icon(Icons.remove, size: 14),
-                    label: const Text('Subtract', style: TextStyle(fontSize: 11)),
+                  child: const Chip(
+                    avatar: Icon(Icons.remove, size: 14),
+                    label: Text('Subtract', style: TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),
@@ -715,9 +715,9 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.intersect),
-                  child: Chip(
-                    avatar: const Icon(Icons.join_inner, size: 14),
-                    label: const Text('Intersect', style: TextStyle(fontSize: 11)),
+                  child: const Chip(
+                    avatar: Icon(Icons.join_inner, size: 14),
+                    label: Text('Intersect', style: TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),

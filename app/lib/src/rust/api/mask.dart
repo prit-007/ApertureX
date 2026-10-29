@@ -88,15 +88,15 @@ Future<Float32List> refineMask({
 
 /// Detected sky parameters from a proxy image.
 class DetectedSky {
-  final double horizonY;
-  final double feather;
-  final double blueWeight;
 
   const DetectedSky({
     required this.horizonY,
     required this.feather,
     required this.blueWeight,
   });
+  final double horizonY;
+  final double feather;
+  final double blueWeight;
 
   @override
   int get hashCode =>
@@ -114,11 +114,6 @@ class DetectedSky {
 
 /// Detected subject parameters from a proxy image.
 class DetectedSubject {
-  final double cx;
-  final double cy;
-  final double rx;
-  final double ry;
-  final double feather;
 
   const DetectedSubject({
     required this.cx,
@@ -127,6 +122,11 @@ class DetectedSubject {
     required this.ry,
     required this.feather,
   });
+  final double cx;
+  final double cy;
+  final double rx;
+  final double ry;
+  final double feather;
 
   @override
   int get hashCode =>
@@ -146,6 +146,18 @@ class DetectedSubject {
 
 /// One adjustment layer: a parametric mask + a point-wise sub-grade.
 class MaskLayer {
+
+  const MaskLayer({
+    required this.kind,
+    required this.mask,
+    required this.params,
+    required this.inverted,
+    required this.amount,
+    this.groupId,
+    required this.joinOp,
+    required this.groupInverted,
+    required this.groupAmount,
+  });
   /// Mask kind:
   /// 0 linear, 1 radial, 2 luminance, 3 brush, 4 subject, 5 sky, 6 bitmap.
   final int kind;
@@ -178,18 +190,6 @@ class MaskLayer {
 
   /// Group-level amount scalar (0.0–2.0, default 1.0 = 100%).
   final double groupAmount;
-
-  const MaskLayer({
-    required this.kind,
-    required this.mask,
-    required this.params,
-    required this.inverted,
-    required this.amount,
-    this.groupId,
-    required this.joinOp,
-    required this.groupInverted,
-    required this.groupAmount,
-  });
 
   static Future<MaskLayer> default_() =>
       RustLib.instance.api.crateApiMaskMaskLayerDefault();

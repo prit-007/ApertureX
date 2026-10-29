@@ -38,13 +38,6 @@ Future<Float32List> estimateDepthMap({
 
 /// Lens Blur parameters across the FFI boundary.
 class ApiLensBlurParams {
-  final bool enabled;
-  final double amount;
-  final double focalPoint;
-  final double focalRange;
-  final int bokehShapeIndex;
-  final double bokehBoost;
-  final bool backgroundBlur;
 
   const ApiLensBlurParams({
     required this.enabled,
@@ -55,6 +48,13 @@ class ApiLensBlurParams {
     required this.bokehBoost,
     required this.backgroundBlur,
   });
+  final bool enabled;
+  final double amount;
+  final double focalPoint;
+  final double focalRange;
+  final int bokehShapeIndex;
+  final double bokehBoost;
+  final bool backgroundBlur;
 
   @override
   int get hashCode =>
