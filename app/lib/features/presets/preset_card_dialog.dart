@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gal/gal.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../edit/look_qr_codec.dart';
 import '../../edit/tool_definition.dart';
+import '../../platform/photo_saver.dart';
 
 /// Shows the Creator Preset QR Card export modal dialog.
 Future<void> showPresetCardDialog(
@@ -128,9 +128,20 @@ class _PresetCardDialogState extends ConsumerState<PresetCardDialog> {
     try {
       final bytes = await _captureCardBytes();
       if (bytes != null) {
-        await Gal.putImageBytes(bytes, name: '${_titleController.text.trim()}_card.png');
+        // gal keeps its historical name WITH the extension; the desktop
+        // dialog opens with the same file name (#104 branch lives in
+        // PhotoSaver — this dialog never calls gal directly).
+        final cardName = '${_titleController.text.trim()}_card.png';
+        final outcome = await ref.read(photoSaverProvider).saveBytes(
+              bytes,
+              name: cardName,
+              desktopFileName: cardName,
+            );
+        if (outcome == null) return; // dialog cancelled — quietly abort
         messenger.showSnackBar(
-          const SnackBar(content: Text('Saved preset card to gallery!')),
+          outcome is SavedToFile
+              ? SnackBar(content: Text('Preset card saved to ${outcome.file.path}'))
+              : const SnackBar(content: Text('Saved preset card to gallery!')),
         );
       }
     } catch (e) {

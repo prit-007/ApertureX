@@ -1,12 +1,12 @@
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gal/gal.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'gallery_asset.dart';
 import 'gallery_controller.dart' show gallerySourceProvider;
 import '../engine/engine.dart';
+import '../platform/photo_saver.dart';
 import '../src/rust/api/export.dart';
 import '../ui/common/app_sheet.dart';
 import '../core/theme/design_tokens.dart';
@@ -231,16 +231,22 @@ class _HdrMergeSheetState extends ConsumerState<HdrMergeSheet> {
         exif: exif,
       );
       if (!mounted) return;
-      await Gal.putImageBytes(
-        out,
-        name:
-            'aperturex_hdr_merge_${DateTime.now().millisecondsSinceEpoch}',
-      );
+      // Desktop → save dialog, mobile → gal; branch lives in PhotoSaver
+      // (#104). A cancelled dialog keeps the sheet open so the merge can be
+      // retried or shared instead of silently popping.
+      final outcome = await ref.read(photoSaverProvider).saveBytes(
+            out,
+            name: 'aperturex_hdr_merge_'
+                '${DateTime.now().millisecondsSinceEpoch}',
+          );
+      if (outcome == null) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('HDR merge saved to your gallery'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: outcome is SavedToFile
+                ? Text('HDR merge saved to ${outcome.file.path}')
+                : const Text('HDR merge saved to your gallery'),
+            duration: const Duration(seconds: 2),
           ),
         );
         Navigator.of(context).pop(true);

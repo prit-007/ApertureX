@@ -1,8 +1,10 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aperturex/edit/adjustment_layer.dart';
@@ -15,7 +17,9 @@ import 'package:aperturex/gallery/gallery_controller.dart';
 import 'package:aperturex/gallery/gallery_export.dart';
 import 'package:aperturex/gallery/gallery_screen.dart';
 import 'package:aperturex/gallery/gallery_source.dart';
+import 'package:aperturex/platform/photo_saver.dart';
 import 'package:aperturex/settings/export_settings.dart';
+import 'package:aperturex/src/rust/frb_generated.dart';
 
 /// A valid 1×1 PNG so `Image.memory` decodes in tests.
 final Uint8List _png = Uint8List.fromList(const [
@@ -35,6 +39,32 @@ FakeGallerySource _twoPhotos() => FakeGallerySource(
     GalleryAsset(id: 'b', width: 1, height: 1),
   ],
 );
+
+/// Records gal-seam traffic (#104): desktop batches must leave it untouched.
+class _RecordingSink implements GallerySink {
+  int hasAccessCalls = 0;
+  final List<(Uint8List bytes, String name)> byteSaves = [];
+  final List<String> pathSaves = [];
+
+  @override
+  Future<bool> hasAccess() async {
+    hasAccessCalls++;
+    return true;
+  }
+
+  @override
+  Future<bool> requestAccess() async => true;
+
+  @override
+  Future<void> putImageBytes(Uint8List bytes, {required String name}) async {
+    byteSaves.add((bytes, name));
+  }
+
+  @override
+  Future<void> putImage(String path) async {
+    pathSaves.add(path);
+  }
+}
 
 void main() {
   group('bounded batch pool', () {
@@ -345,5 +375,183 @@ void main() {
       expect(find.byKey(const Key('export-done-a')), findsOneWidget);
       expect(find.byKey(const Key('export-done-b')), findsNothing);
     });
+  });
+
+  group('desktop batch destination (#104)', () {
+    // Real-pipeline tests need the host debug dylib; CI runs `flutter test`
+    // before `cargo build`, so the dylib may be absent (fresh runner, cold
+    // rust-cache) — those tests skip with a visible reason instead of
+    // failing, same spirit as c2pa_service_test's mock fallback.
+    final rustDylib =
+        '${Directory.current.path}/rust/target/debug/librust_lib_aperturex.so';
+    final rustAvailable = File(rustDylib).existsSync();
+
+    setUpAll(() async {
+      if (rustAvailable) {
+        await RustLib.init(externalLibrary: ExternalLibrary.open(rustDylib));
+      }
+    });
+
+    /// A real 8×6 JPEG — the real pipeline decodes JPEG, not the PNG fixture.
+    Uint8List realJpeg() {
+      final image = img.Image(width: 8, height: 6);
+      for (var y = 0; y < 6; y++) {
+        for (var x = 0; x < 8; x++) {
+          image.setPixelRgb(x, y, x * 30 % 256, y * 40 % 256, (x + y) * 25 % 256);
+        }
+      }
+      return img.encodeJpg(image, quality: 85);
+    }
+
+    test('picks the destination folder exactly once for the whole batch', () async {
+      var picks = 0;
+      var items = 0;
+      final exporter = GalleryExporter(
+        FakeGallerySource(),
+        maxConcurrent: 1,
+        isDesktop: true,
+        pickDirectory: () async {
+          picks++;
+          return '/tmp/never-written-because-item-seam';
+        },
+        item: (id, recipe) async {
+          items++;
+          return true;
+        },
+      );
+
+      final result = await exporter.exportBatch(
+        const ['a', 'b', 'c'],
+        (_) => EditRecipe.neutral,
+      );
+
+      expect(picks, 1,
+          reason: 'the folder dialog belongs to the batch, not per item');
+      expect(items, 3);
+      expect(result.exported, 3);
+      expect(result.cancelled, isFalse);
+    });
+
+    test('a cancelled folder picker aborts before any item runs', () async {
+      var picks = 0;
+      var items = 0;
+      final exporter = GalleryExporter(
+        FakeGallerySource(),
+        isDesktop: true,
+        pickDirectory: () async {
+          picks++;
+          return null; // user hit Cancel
+        },
+        item: (id, recipe) async {
+          items++;
+          return true;
+        },
+      );
+
+      final result = await exporter.exportBatch(
+        const ['a', 'b'],
+        (_) => EditRecipe.neutral,
+      );
+
+      expect(picks, 1);
+      expect(items, 0, reason: 'no decode/render work after a cancel');
+      expect(result.exported, 0);
+      expect(result.failed, isEmpty, reason: 'a cancel is not a failure');
+      expect(result.cancelled, isTrue);
+    });
+
+    test('mobile batches never open the folder picker', () async {
+      var picks = 0;
+      final exporter = GalleryExporter(
+        FakeGallerySource(),
+        isDesktop: false,
+        pickDirectory: () async {
+          picks++;
+          return '/tmp/should-not-be-asked';
+        },
+        item: (id, recipe) async => true,
+      );
+
+      final result = await exporter.exportBatch(
+        const ['a'],
+        (_) => EditRecipe.neutral,
+      );
+
+      expect(picks, 0, reason: 'mobile keeps the Photos/DCIM destination');
+      expect(result.exported, 1);
+    });
+
+    test('desktop batch writes aperturex_<id>.jpg into the picked folder', () async {
+      final dest = await Directory.systemTemp.createTemp('batch_dest_');
+      addTearDown(() => dest.delete(recursive: true));
+      final sink = _RecordingSink();
+
+      final exporter = GalleryExporter(
+        FakeGallerySource(
+          images: {'a': realJpeg(), 'b': realJpeg()},
+          assets: const [
+            GalleryAsset(id: 'a', width: 8, height: 6),
+            GalleryAsset(id: 'b', width: 8, height: 6),
+          ],
+        ),
+        isDesktop: true,
+        pickDirectory: () async => dest.path,
+        sink: sink,
+      );
+
+      final progress = <BatchExportProgress>[];
+      final result = await exporter.exportBatch(
+        const ['a', 'b'],
+        (_) => EditRecipe.neutral,
+        onProgress: progress.add,
+      );
+
+      expect(result.exported, 2, reason: 'real Rust pipeline must succeed');
+      expect(result.failed, isEmpty);
+      expect(sink.hasAccessCalls, 0,
+          reason: 'desktop writes files — reaching gal would throw here');
+      expect(sink.byteSaves, isEmpty);
+
+      for (final id in ['a', 'b']) {
+        final file = File('${dest.path}${Platform.pathSeparator}aperturex_$id.jpg');
+        expect(file.existsSync(), isTrue, reason: 'missing $id output');
+        final bytes = file.readAsBytesSync();
+        expect(bytes.length, greaterThan(100));
+        expect([bytes[0], bytes[1]], [0xFF, 0xD8], reason: 'JPEG magic');
+      }
+      expect(dest.listSync(), hasLength(2), reason: 'exactly the two exports');
+      expect(progress.where((p) => p.started).length, 2);
+      expect(progress.where((p) => !p.started).length, 2);
+    }, skip: rustAvailable
+        ? false
+        : 'rust/target/debug dylib not built in this environment');
+
+    test('mobile batch routes real exports through the gallery sink', () async {
+      final sink = _RecordingSink();
+      final exporter = GalleryExporter(
+        FakeGallerySource(
+          images: {'a': realJpeg()},
+          assets: const [GalleryAsset(id: 'a', width: 8, height: 6)],
+        ),
+        isDesktop: false,
+        sink: sink,
+      );
+
+      final result = await exporter.exportBatch(
+        const ['a'],
+        (_) => EditRecipe.neutral,
+      );
+
+      expect(result.exported, 1);
+      expect(sink.byteSaves, hasLength(1),
+          reason: 'mobile keeps gallery_export\'s original gal flow '
+              '(no per-item access check — that lives in the editor)');
+      expect(sink.byteSaves.single.$2, 'aperturex_a',
+          reason: 'gal name without extension (gal doc contract)');
+      expect(sink.byteSaves.single.$1[0], 0xFF);
+      expect(sink.byteSaves.single.$1[1], 0xD8);
+    }, skip: rustAvailable
+        ? false
+        : 'rust/target/debug dylib not built in this environment');
   });
 }

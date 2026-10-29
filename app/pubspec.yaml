@@ -21,6 +21,16 @@ version: 0.2.5+5
 environment:
   sdk: ^3.12.2
 
+# sqlite3 ≥ 3.5.2 ships the native-assets build hook that compiles/bundles
+# libsqlite3 per platform (Linux/Windows/Android/…), replacing the mobile-
+# centric sqlite3_flutter_libs plugin (#104; pattern from nook, which runs
+# drift across all four desktops/mobile with no sqlite3_flutter_libs).
+# No `hooks.user_defines` — plain sqlite3, SQLCipher is irrelevant (ADR 0004).
+# Drift's own constraint already admits 3.5.2; the override pins the floor
+# until drift requires it. F-Droid vendoring of the hook inputs: #69.
+dependency_overrides:
+  sqlite3: ^3.5.2
+
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
 # consider running `flutter pub upgrade --major-versions`. Alternatively,
@@ -49,7 +59,6 @@ dependencies:
   image: ^4.12.0
   file_picker: ^13.1.0
   drift: ^2.35.2
-  sqlite3_flutter_libs: ^0.6.0+eol
   qr_flutter: ^4.1.0
   zxing2: ^0.2.4
 
