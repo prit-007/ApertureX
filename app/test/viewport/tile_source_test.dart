@@ -120,7 +120,7 @@ void main() {
       expect((out.width, out.height), (2, 2));
       // Bottom-right block is a single pixel: (2,2) must pass through.
       final px = crop(src, 3, 2, 2, 1, 1);
-      final i = (1 * 2 + 1) * 4;
+      const i = (1 * 2 + 1) * 4;
       expect(
         (out.rgba[i], out.rgba[i + 1], out.rgba[i + 2], out.rgba[i + 3]),
         (px[0], px[1], px[2], px[3]),

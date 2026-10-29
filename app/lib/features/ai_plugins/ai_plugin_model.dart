@@ -48,6 +48,16 @@ class AiPluginControl {
     this.currentValue,
   });
 
+  factory AiPluginControl.fromJson(Map<String, dynamic> json) => AiPluginControl(
+        id: json['id'] as String? ?? 'param',
+        label: json['label'] as String? ?? 'Amount',
+        type: json['type'] as String? ?? 'slider',
+        min: (json['min'] as num?)?.toDouble() ?? 0.0,
+        max: (json['max'] as num?)?.toDouble() ?? 100.0,
+        defaultValue: (json['default'] as num?)?.toDouble() ?? 20.0,
+        currentValue: (json['currentValue'] as num?)?.toDouble(),
+      );
+
   final String id;
   final String label;
   final String type;
@@ -79,16 +89,6 @@ class AiPluginControl {
         'default': defaultValue,
         if (currentValue != null) 'currentValue': currentValue,
       };
-
-  factory AiPluginControl.fromJson(Map<String, dynamic> json) => AiPluginControl(
-        id: json['id'] as String? ?? 'param',
-        label: json['label'] as String? ?? 'Amount',
-        type: json['type'] as String? ?? 'slider',
-        min: (json['min'] as num?)?.toDouble() ?? 0.0,
-        max: (json['max'] as num?)?.toDouble() ?? 100.0,
-        defaultValue: (json['default'] as num?)?.toDouble() ?? 20.0,
-        currentValue: (json['currentValue'] as num?)?.toDouble(),
-      );
 }
 
 /// Declarative metadata and specification for an on-device AI model / plugin.
@@ -114,6 +114,50 @@ class AiPluginModel {
     this.fileSizeBytes = 0,
     this.version = '1.0.0',
   });
+
+  factory AiPluginModel.fromJson(Map<String, dynamic> json) {
+    final idVal = (json['plugin_id'] ?? json['id'] ?? '') as String;
+    final shape = json['input_shape'] as List<dynamic>?;
+    final width = shape != null && shape.length >= 4
+        ? (shape[3] as num).toInt()
+        : ((json['inputWidth'] as num?)?.toInt() ?? 512);
+    final height = shape != null && shape.length >= 4
+        ? (shape[2] as num).toInt()
+        : ((json['inputHeight'] as num?)?.toInt() ?? 512);
+    final channels = shape != null && shape.length >= 2
+        ? (shape[1] as num).toInt()
+        : ((json['inputChannels'] as num?)?.toInt() ?? 3);
+
+    final controlsJson = json['controls'] as List<dynamic>?;
+    final controlsList = controlsJson != null
+        ? controlsJson.map((c) => AiPluginControl.fromJson(c as Map<String, dynamic>)).toList()
+        : const <AiPluginControl>[];
+
+    return AiPluginModel(
+      id: idVal,
+      name: json['name'] as String? ?? 'Custom AI Plugin',
+      description: json['description'] as String? ?? '',
+      author: json['author'] as String? ?? 'Community',
+      task: AiTask.values.firstWhere(
+        (t) => t.name == (json['task'] ?? json['type']),
+        orElse: () => AiTask.subjectSegmentation,
+      ),
+      sourceUrl: json['sourceUrl'] as String? ?? '',
+      modelFile: json['model_file'] as String?,
+      controls: controlsList,
+      inputWidth: width,
+      inputHeight: height,
+      inputChannels: channels,
+      outputChannels: (json['outputChannels'] as num?)?.toInt() ?? 1,
+      isBuiltIn: json['isBuiltIn'] as bool? ?? false,
+      isEnabled: json['isEnabled'] as bool? ?? true,
+      isInstalled: json['isInstalled'] as bool? ?? false,
+      localPath: json['localPath'] as String?,
+      sha256: json['sha256'] as String?,
+      fileSizeBytes: (json['fileSizeBytes'] as num?)?.toInt() ?? 0,
+      version: json['version'] as String? ?? '1.0.0',
+    );
+  }
 
   final String id;
   final String name;
@@ -197,50 +241,6 @@ class AiPluginModel {
         'fileSizeBytes': fileSizeBytes,
         'version': version,
       };
-
-  factory AiPluginModel.fromJson(Map<String, dynamic> json) {
-    final idVal = (json['plugin_id'] ?? json['id'] ?? '') as String;
-    final shape = json['input_shape'] as List<dynamic>?;
-    final width = shape != null && shape.length >= 4
-        ? (shape[3] as num).toInt()
-        : ((json['inputWidth'] as num?)?.toInt() ?? 512);
-    final height = shape != null && shape.length >= 4
-        ? (shape[2] as num).toInt()
-        : ((json['inputHeight'] as num?)?.toInt() ?? 512);
-    final channels = shape != null && shape.length >= 2
-        ? (shape[1] as num).toInt()
-        : ((json['inputChannels'] as num?)?.toInt() ?? 3);
-
-    final controlsJson = json['controls'] as List<dynamic>?;
-    final controlsList = controlsJson != null
-        ? controlsJson.map((c) => AiPluginControl.fromJson(c as Map<String, dynamic>)).toList()
-        : const <AiPluginControl>[];
-
-    return AiPluginModel(
-      id: idVal,
-      name: json['name'] as String? ?? 'Custom AI Plugin',
-      description: json['description'] as String? ?? '',
-      author: json['author'] as String? ?? 'Community',
-      task: AiTask.values.firstWhere(
-        (t) => t.name == (json['task'] ?? json['type']),
-        orElse: () => AiTask.subjectSegmentation,
-      ),
-      sourceUrl: json['sourceUrl'] as String? ?? '',
-      modelFile: json['model_file'] as String?,
-      controls: controlsList,
-      inputWidth: width,
-      inputHeight: height,
-      inputChannels: channels,
-      outputChannels: (json['outputChannels'] as num?)?.toInt() ?? 1,
-      isBuiltIn: json['isBuiltIn'] as bool? ?? false,
-      isEnabled: json['isEnabled'] as bool? ?? true,
-      isInstalled: json['isInstalled'] as bool? ?? false,
-      localPath: json['localPath'] as String?,
-      sha256: json['sha256'] as String?,
-      fileSizeBytes: (json['fileSizeBytes'] as num?)?.toInt() ?? 0,
-      version: json['version'] as String? ?? '1.0.0',
-    );
-  }
 
   String get tensorShapeLabel => '$inputWidth×$inputHeight×$inputChannels';
 }

@@ -40,7 +40,7 @@ void main() {
     });
 
     test('jumping to an earlier node does not delete subsequent commits (no destructive truncation)', () {
-      final r0 = EditRecipe.neutral;
+      const r0 = EditRecipe.neutral;
       final r1 = r0.copyWith(exposure: 0.5);
       final r2 = r1.copyWith(contrast: 0.2);
 
@@ -59,7 +59,7 @@ void main() {
     });
 
     test('committing from an ancestor creates a branch fork without destroying existing commits', () {
-      final r0 = EditRecipe.neutral;
+      const r0 = EditRecipe.neutral;
       final r1 = r0.copyWith(exposure: 0.5);
       final r2 = r1.copyWith(contrast: 0.2);
 
@@ -85,7 +85,7 @@ void main() {
     });
 
     test('createBranch and switchBranch support parallel workflows', () {
-      final r0 = EditRecipe.neutral;
+      const r0 = EditRecipe.neutral;
       final r1 = r0.copyWith(exposure: 0.5);
 
       var tree = HistoryTree.initial().commit(recipe: r1, label: 'Base Exposure');
@@ -136,7 +136,7 @@ void main() {
     });
 
     test('JSON serialization round-trips DAG tree, branches, and active pointers', () {
-      final r0 = EditRecipe.neutral;
+      const r0 = EditRecipe.neutral;
       final r1 = r0.copyWith(exposure: 0.8);
       final r2 = r1.copyWith(saturation: -0.5);
 

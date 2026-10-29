@@ -23,6 +23,15 @@ Future<ImageMetadata> getImageMetadata({required List<int> bytes}) =>
 
 /// Embedded depth map extracted from JPEG container metadata.
 class EmbeddedDepthResult {
+
+  const EmbeddedDepthResult({
+    required this.width,
+    required this.height,
+    required this.depth,
+    required this.format,
+    required this.near,
+    required this.far,
+  });
   final int width;
   final int height;
 
@@ -37,15 +46,6 @@ class EmbeddedDepthResult {
 
   /// `GDepth:Far` in the container's units.
   final double far;
-
-  const EmbeddedDepthResult({
-    required this.width,
-    required this.height,
-    required this.depth,
-    required this.format,
-    required this.near,
-    required this.far,
-  });
 
   @override
   int get hashCode =>

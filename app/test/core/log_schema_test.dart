@@ -14,7 +14,7 @@ void main() {
         message: 'bake failed',
         error: 'StateError: bad LUT',
         stack: '#0 main\n#1 run',
-        meta: {'image': 'a.jpg', 'rows': 128},
+        meta: const {'image': 'a.jpg', 'rows': 128},
       );
       final back = LogEntry.decode(entry.encode())!;
       expect(back.time, entry.time);
@@ -27,7 +27,7 @@ void main() {
     });
 
     test('decodes legacy lines (t/d/l/m only) with null attachments', () {
-      final legacy = '{"t":"2025-06-01T00:00:00.000","d":"app",'
+      const legacy = '{"t":"2025-06-01T00:00:00.000","d":"app",'
           '"l":"info","m":"old line"}';
       final entry = LogEntry.decode(legacy)!;
       expect(entry.message, 'old line');
@@ -37,7 +37,7 @@ void main() {
     });
 
     test('ignores unknown keys (forward compatible)', () {
-      final future =
+      const future =
           '{"t":"2026-01-01T10:00:00.000","d":"nav","l":"debug",'
           '"m":"pushed","future_field":{"a":1}}';
       final entry = LogEntry.decode(future)!;

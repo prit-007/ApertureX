@@ -96,7 +96,7 @@ void main() {
       );
       expect(FlutterError.onError, isNotNull);
 
-      FlutterError.onError!(details(FormatException('layout'), stack('layout()')));
+      FlutterError.onError!(details(const FormatException('layout'), stack('layout()')));
       expect(presented.single.fatal, isFalse);
       expect(log.entries.single.domain, LogDomain.error);
 

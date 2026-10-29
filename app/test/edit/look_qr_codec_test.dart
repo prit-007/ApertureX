@@ -107,7 +107,7 @@ void main() {
         LookQrCodec.encodeToUri(testTool, author: '@filmlover'),
       );
 
-      final recipe = const EditRecipe();
+      const recipe = EditRecipe();
       final updated = payload.applyTo(recipe);
 
       expect(updated.exposure, closeTo(0.35, 1e-4));

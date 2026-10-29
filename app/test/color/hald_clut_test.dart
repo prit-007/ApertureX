@@ -72,7 +72,7 @@ void main() {
     final hald = HaldClut.extract(bytes);
     final atlas = hald.toAtlasRgba();
     const n = 4;
-    final w = n * n;
+    const w = n * n;
     // Texel for (r,g,b) lives at x = b*n + r, y = g.
     void check(int r, int g, int b) {
       final o = (g * w + (b * n + r)) * 4;

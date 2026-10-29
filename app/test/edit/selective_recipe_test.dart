@@ -61,7 +61,7 @@ void main() {
     test('applyTo transfers masking when selected', () {
       const layer = AdjustmentLayer(maskKind: MaskKind.sky, exposure: 0.5);
       final source = EditRecipe.neutral.copyWith(layers: [layer]);
-      final target = EditRecipe.neutral;
+      const target = EditRecipe.neutral;
 
       final copied = CopiedSettings(
         recipe: source,

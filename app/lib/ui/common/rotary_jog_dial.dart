@@ -412,7 +412,7 @@ class _RotaryArcPainter extends CustomPainter {
       ..strokeWidth = 1.0;
 
     const totalTicks = 41; // symmetric ticks
-    final angleStep = sweep / (totalTicks - 1);
+    const angleStep = sweep / (totalTicks - 1);
     final startAngle = baseAngle - sweep / 2;
 
     // Shift ticks according to value offset

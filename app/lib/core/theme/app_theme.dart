@@ -34,8 +34,8 @@ class AppTheme {
     final base = ThemeData(colorScheme: scheme, useMaterial3: true);
     final text = base.textTheme;
 
-    final controlShape = RoundedRectangleBorder(borderRadius: Radii.mdAll);
-    final buttonShape = RoundedRectangleBorder(borderRadius: Radii.pillAll);
+    const controlShape = RoundedRectangleBorder(borderRadius: Radii.mdAll);
+    const buttonShape = RoundedRectangleBorder(borderRadius: Radii.pillAll);
 
     return base.copyWith(
       scaffoldBackgroundColor: scheme.surface,
@@ -65,13 +65,13 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: scheme.surfaceContainerHigh,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: Radii.xlAll),
+        shape: const RoundedRectangleBorder(borderRadius: Radii.xlAll),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: scheme.inverseSurface,
         contentTextStyle: TextStyle(color: scheme.onInverseSurface),
-        shape: RoundedRectangleBorder(borderRadius: Radii.mdAll),
+        shape: const RoundedRectangleBorder(borderRadius: Radii.mdAll),
       ),
       dividerTheme: DividerThemeData(
         color: scheme.outlineVariant,
@@ -81,7 +81,7 @@ class AppTheme {
       listTileTheme: ListTileThemeData(
         iconColor: scheme.onSurfaceVariant,
         textColor: scheme.onSurface,
-        shape: RoundedRectangleBorder(borderRadius: Radii.mdAll),
+        shape: const RoundedRectangleBorder(borderRadius: Radii.mdAll),
       ),
       sliderTheme: SliderThemeData(
         activeTrackColor: scheme.primary,
@@ -92,7 +92,7 @@ class AppTheme {
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
-          shape: WidgetStatePropertyAll(
+          shape: const WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: Radii.mdAll),
           ),
           side: WidgetStatePropertyAll(
@@ -108,7 +108,7 @@ class AppTheme {
           horizontal: Insets.md,
           vertical: Insets.md,
         ),
-        border: OutlineInputBorder(
+        border: const OutlineInputBorder(
           borderRadius: Radii.mdAll,
           borderSide: BorderSide.none,
         ),

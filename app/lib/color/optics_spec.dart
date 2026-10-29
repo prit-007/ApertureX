@@ -15,6 +15,19 @@ class OpticsSpec {
     this.profileVignetting = 1.0,
   });
 
+  factory OpticsSpec.fromRecipe(EditRecipe recipe) => OpticsSpec(
+    removeChromaticAberration: recipe.removeChromaticAberration,
+    defringePurpleAmount: recipe.defringePurpleAmount,
+    defringePurpleHueMin: recipe.defringePurpleHueMin,
+    defringePurpleHueMax: recipe.defringePurpleHueMax,
+    defringeGreenAmount: recipe.defringeGreenAmount,
+    defringeGreenHueMin: recipe.defringeGreenHueMin,
+    defringeGreenHueMax: recipe.defringeGreenHueMax,
+    profileCorrections: recipe.profileCorrections,
+    profileDistortion: recipe.profileDistortion,
+    profileVignetting: recipe.profileVignetting,
+  );
+
   final bool removeChromaticAberration;
   final double defringePurpleAmount;
   final double defringePurpleHueMin;
@@ -32,17 +45,4 @@ class OpticsSpec {
       defringeGreenAmount == 0 &&
       (!profileCorrections ||
           (profileDistortion == 0 && profileVignetting == 0));
-
-  factory OpticsSpec.fromRecipe(EditRecipe recipe) => OpticsSpec(
-    removeChromaticAberration: recipe.removeChromaticAberration,
-    defringePurpleAmount: recipe.defringePurpleAmount,
-    defringePurpleHueMin: recipe.defringePurpleHueMin,
-    defringePurpleHueMax: recipe.defringePurpleHueMax,
-    defringeGreenAmount: recipe.defringeGreenAmount,
-    defringeGreenHueMin: recipe.defringeGreenHueMin,
-    defringeGreenHueMax: recipe.defringeGreenHueMax,
-    profileCorrections: recipe.profileCorrections,
-    profileDistortion: recipe.profileDistortion,
-    profileVignetting: recipe.profileVignetting,
-  );
 }

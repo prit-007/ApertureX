@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 /// Handles the accumulation of pressure-aware brush strokes into a mask.
 /// A mask is a grayscale buffer where 0 = no effect, 1 = full effect.
 class PaintBrush {
-  final int width;
-  final int height;
 
   PaintBrush({required this.width, required this.height});
+  final int width;
+  final int height;
 
   /// Paints a stroke from [start] to [end] with [pressure] (0..1).
   /// Returns the updated mask buffer.

@@ -35,6 +35,36 @@ class SpatialSpec {
     this.filmScratches = 0,
   });
 
+  factory SpatialSpec.fromRecipe(EditRecipe recipe) => SpatialSpec(
+    shadows: recipe.shadows,
+    highlights: recipe.highlights,
+    clarity: recipe.clarity,
+    texture: recipe.texture,
+    dehaze: recipe.dehaze,
+    vignette: recipe.vignette,
+    vignetteMidpoint: recipe.vignetteMidpoint,
+    vignetteFeather: recipe.vignetteFeather,
+    vignetteRoundness: recipe.vignetteRoundness,
+    vignetteHighlights: recipe.vignetteHighlights,
+    grain: recipe.grain,
+    grainSize: recipe.grainSize,
+    grainRoughness: recipe.grainRoughness,
+    sharpen: recipe.sharpen,
+    sharpenRadius: recipe.sharpenRadius,
+    sharpenDetail: recipe.sharpenDetail,
+    sharpenMasking: recipe.sharpenMasking,
+    denoiseLuma: recipe.denoiseLuma,
+    denoiseChroma: recipe.denoiseChroma,
+    filmHalation: recipe.filmHalation,
+    filmHalationRadius: recipe.filmHalationRadius,
+    filmHalationThreshold: recipe.filmHalationThreshold,
+    filmBloom: recipe.filmBloom,
+    filmBloomRadius: recipe.filmBloomRadius,
+    filmBloomThreshold: recipe.filmBloomThreshold,
+    filmDust: recipe.filmDust,
+    filmScratches: recipe.filmScratches,
+  );
+
   final double shadows;
   final double highlights;
   final double clarity;
@@ -79,34 +109,4 @@ class SpatialSpec {
       filmBloom == 0 &&
       filmDust == 0 &&
       filmScratches == 0;
-
-  factory SpatialSpec.fromRecipe(EditRecipe recipe) => SpatialSpec(
-    shadows: recipe.shadows,
-    highlights: recipe.highlights,
-    clarity: recipe.clarity,
-    texture: recipe.texture,
-    dehaze: recipe.dehaze,
-    vignette: recipe.vignette,
-    vignetteMidpoint: recipe.vignetteMidpoint,
-    vignetteFeather: recipe.vignetteFeather,
-    vignetteRoundness: recipe.vignetteRoundness,
-    vignetteHighlights: recipe.vignetteHighlights,
-    grain: recipe.grain,
-    grainSize: recipe.grainSize,
-    grainRoughness: recipe.grainRoughness,
-    sharpen: recipe.sharpen,
-    sharpenRadius: recipe.sharpenRadius,
-    sharpenDetail: recipe.sharpenDetail,
-    sharpenMasking: recipe.sharpenMasking,
-    denoiseLuma: recipe.denoiseLuma,
-    denoiseChroma: recipe.denoiseChroma,
-    filmHalation: recipe.filmHalation,
-    filmHalationRadius: recipe.filmHalationRadius,
-    filmHalationThreshold: recipe.filmHalationThreshold,
-    filmBloom: recipe.filmBloom,
-    filmBloomRadius: recipe.filmBloomRadius,
-    filmBloomThreshold: recipe.filmBloomThreshold,
-    filmDust: recipe.filmDust,
-    filmScratches: recipe.filmScratches,
-  );
 }

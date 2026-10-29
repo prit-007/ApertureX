@@ -258,7 +258,7 @@ class _ImageInfoSheetState extends ConsumerState<ImageInfoSheet> {
                   label: 'Tone Adjustments',
                   value: 'Exp: ${widget.recipe!.exposure >= 0 ? "+" : ""}${widget.recipe!.exposure.toStringAsFixed(2)} EV · Contrast: ${widget.recipe!.contrast.toStringAsFixed(1)}',
                 ),
-                _InfoRow(
+                const _InfoRow(
                   label: 'Color Space',
                   value: 'Linear ProPhoto RGB (Impeller GPU Canvas)',
                 ),

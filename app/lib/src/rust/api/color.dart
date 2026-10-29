@@ -67,27 +67,6 @@ Future<Map<String, double>?> autoTone({required List<int> jpeg}) =>
 
 /// Point-wise grade parameters (all neutral at 0).
 class ColorParams {
-  final double exposure;
-  final double contrast;
-  final double highlights;
-  final double shadows;
-  final double whites;
-  final double blacks;
-  final double saturation;
-  final double temperature;
-  final double tint;
-  final double vibrance;
-  final double gradeShadowHue;
-  final double gradeShadowSat;
-  final double gradeShadowLum;
-  final double gradeMidHue;
-  final double gradeMidSat;
-  final double gradeMidLum;
-  final double gradeHighlightHue;
-  final double gradeHighlightSat;
-  final double gradeHighlightLum;
-  final double gradeBlending;
-  final double gradeBalance;
 
   const ColorParams({
     required this.exposure,
@@ -112,6 +91,27 @@ class ColorParams {
     required this.gradeBlending,
     required this.gradeBalance,
   });
+  final double exposure;
+  final double contrast;
+  final double highlights;
+  final double shadows;
+  final double whites;
+  final double blacks;
+  final double saturation;
+  final double temperature;
+  final double tint;
+  final double vibrance;
+  final double gradeShadowHue;
+  final double gradeShadowSat;
+  final double gradeShadowLum;
+  final double gradeMidHue;
+  final double gradeMidSat;
+  final double gradeMidLum;
+  final double gradeHighlightHue;
+  final double gradeHighlightSat;
+  final double gradeHighlightLum;
+  final double gradeBlending;
+  final double gradeBalance;
 
   static Future<ColorParams> default_() =>
       RustLib.instance.api.crateApiColorColorParamsDefault();
@@ -174,10 +174,6 @@ class ColorParams {
 /// Tone-curve control points, flat `[x0,y0,x1,y1,...]` per curve. An empty list
 /// is the identity curve.
 class CurveParams {
-  final Float32List master;
-  final Float32List red;
-  final Float32List green;
-  final Float32List blue;
 
   const CurveParams({
     required this.master,
@@ -185,6 +181,10 @@ class CurveParams {
     required this.green,
     required this.blue,
   });
+  final Float32List master;
+  final Float32List red;
+  final Float32List green;
+  final Float32List blue;
 
   @override
   int get hashCode =>
@@ -203,10 +203,6 @@ class CurveParams {
 
 /// A colour pipeline baked into a 2D-packed RGBA8 LUT atlas.
 class LutData {
-  final int size;
-  final int width;
-  final int height;
-  final Uint8List rgba;
 
   const LutData({
     required this.size,
@@ -214,6 +210,10 @@ class LutData {
     required this.height,
     required this.rgba,
   });
+  final int size;
+  final int width;
+  final int height;
+  final Uint8List rgba;
 
   @override
   int get hashCode =>
