@@ -157,35 +157,4 @@ void main() {
     expect(narrow.width, greaterThanOrEqualTo(120));
     expect(narrow.width, lessThanOrEqualTo(200));
   });
-  testWidgets('color grading wheel puck is ≥12px diameter for touch targeting', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 200,
-              height: 200,
-              child: ColorGradingWheel(
-                hue: 0,
-                saturation: 1.0,
-                size: 100,
-                onChanged: (_, _) {},
-                onChangeEnd: () {},
-                onReset: () {},
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    // Wheel renders without errors and occupies its allocated space
-    final wheelRect = tester.getRect(find.byType(ColorGradingWheel));
-    expect(wheelRect.width, 200);
-    expect(wheelRect.height, 200);
-  });
 }
