@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart' show MethodCall, SystemChannels;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -49,6 +50,89 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  group('Pressed-state haptics (issue #M3)', () {
+    Future<void> pumpWithLayer(
+      WidgetTester tester, {
+      MaskKind kind = MaskKind.radial,
+    }) async {
+      final notifier = container.read(recipeControllerProvider.notifier);
+      notifier.addLayer(
+        AdjustmentLayer(
+          maskKind: kind,
+          exposure: 0.5,
+        ),
+      );
+      container.read(nodeEditorProvider.notifier).enable();
+      container.read(nodeEditorProvider.notifier).select(0);
+
+      await pumpMaskControls(tester);
+    }
+
+    List<MethodCall> captureHaptics(WidgetTester tester) {
+      final calls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          calls.add(call);
+          return null;
+        },
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null);
+      });
+      return calls;
+    }
+
+    bool isSelectionClick(MethodCall call) =>
+        call.method == 'HapticFeedback.vibrate' &&
+        call.arguments == 'HapticFeedbackType.selectionClick';
+
+    bool isLightImpact(MethodCall call) =>
+        call.method == 'HapticFeedback.vibrate' &&
+        call.arguments == 'HapticFeedbackType.lightImpact';
+
+    bool isMediumImpact(MethodCall call) =>
+        call.method == 'HapticFeedback.vibrate' &&
+        call.arguments == 'HapticFeedbackType.mediumImpact';
+
+    testWidgets('invert button fires selectionClick on press', (
+      tester,
+    ) async {
+      await pumpWithLayer(tester);
+      final calls = captureHaptics(tester);
+
+      await tester.tap(find.byKey(const Key('mask-invert-0')));
+      await tester.pump();
+
+      expect(calls.where(isSelectionClick), isNotEmpty);
+    });
+
+    testWidgets('duplicate button fires lightImpact on press', (
+      tester,
+    ) async {
+      await pumpWithLayer(tester);
+      final calls = captureHaptics(tester);
+
+      await tester.tap(find.byKey(const Key('mask-duplicate-0')));
+      await tester.pump();
+
+      expect(calls.where(isLightImpact), isNotEmpty);
+    });
+
+    testWidgets('delete button fires mediumImpact on press', (
+      tester,
+    ) async {
+      await pumpWithLayer(tester);
+      final calls = captureHaptics(tester);
+
+      await tester.tap(find.byKey(const Key('mask-delete-0')));
+      await tester.pump();
+
+      expect(calls.where(isMediumImpact), isNotEmpty);
+    });
+  });
 
   testWidgets('handles multiple masks in the mask stack and allows selecting between them', (
     tester,
