@@ -167,7 +167,7 @@ void main() {
           factor,
         );
         final topLastRow = (top.height - 1) * top.width * 4;
-        final bottomRow = 0;
+        const bottomRow = 0;
         for (var x = 0; x < top.width; x++) {
           final t = topLastRow + x * 4;
           final b = bottomRow + x * 4;

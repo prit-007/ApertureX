@@ -80,7 +80,7 @@ void main() {
     });
 
     test('clampToImage keeps a larger image covering the viewport', () {
-      final t = ViewportTransform(scale: 1.0, offset: const Offset(-1000, 500));
+      const t = ViewportTransform(scale: 1.0, offset: Offset(-1000, 500));
       final clamped = t.clampToImage(const Size(1000, 1000), const Size(400, 300));
       expect(clamped.offset.dx, -600);
       expect(clamped.offset.dy, 0);

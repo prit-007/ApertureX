@@ -93,15 +93,15 @@ bool exifSwapsDimensions(int orientation) =>
   return (width: rawWidth, height: rawHeight);
 }
 
-/// Sizing targets for [instantiateImageCodecFromBuffer].
+/// Sizing targets for instantiateImageCodecFromBuffer.
 class DecodeTarget {
   const DecodeTarget({this.targetWidth, this.targetHeight});
   final int? targetWidth;
   final int? targetHeight;
 }
 
-/// Calculates [targetWidth] or [targetHeight] to pass to Flutter's codec, ensuring:
-/// 1. The longest dimension in display orientation does not exceed [maxDim].
+/// Calculates targetWidth or targetHeight to pass to Flutter's codec, ensuring:
+/// 1. The longest dimension in display orientation does not exceed maxDim.
 /// 2. Only ONE target dimension is set, allowing Flutter to scale the other dimension
 ///    proportionally without distorting or squeezing the aspect ratio.
 DecodeTarget computeDecodeTarget({

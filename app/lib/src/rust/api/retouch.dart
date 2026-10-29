@@ -24,14 +24,6 @@ Future<Uint8List> retouchApply({
 
 /// Flutter-facing retouch patch parameter descriptor.
 class ApiRetouchPatch {
-  final double targetX;
-  final double targetY;
-  final double sourceX;
-  final double sourceY;
-  final double radius;
-  final double feather;
-  final double opacity;
-  final bool isClone;
 
   const ApiRetouchPatch({
     required this.targetX,
@@ -43,6 +35,14 @@ class ApiRetouchPatch {
     required this.opacity,
     required this.isClone,
   });
+  final double targetX;
+  final double targetY;
+  final double sourceX;
+  final double sourceY;
+  final double radius;
+  final double feather;
+  final double opacity;
+  final bool isClone;
 
   @override
   int get hashCode =>

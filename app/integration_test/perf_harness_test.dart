@@ -81,7 +81,7 @@ void main() {
       (tester) async {
     final mp = int.tryParse(Platform.environment['PERF_IMAGE_MP'] ?? '') ?? 3;
     final side = math.sqrt(mp * 1000000).round();
-    final budgetBytes = 512 * 1024 * 1024;
+    const budgetBytes = 512 * 1024 * 1024;
 
     int rss() => ProcessInfo.currentRss;
     final before = rss();
@@ -90,7 +90,7 @@ void main() {
     final decoded = await AxEngine.decodeJpegRgba(jpeg);
     final afterOpen = rss();
 
-    var transform = ViewportTransform(scale: 1, offset: Offset.zero);
+    var transform = const ViewportTransform(scale: 1, offset: Offset.zero);
     for (var i = 0; i < 1000; i++) {
       transform = transform.panned(const Offset(2, 1));
     }

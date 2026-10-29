@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:aperturex/ui/common/parameter_control.dart' show ParameterControl;
+
 import '../../edit/parameter.dart';
 
 /// Pure value ↔ track-position math for [ParameterControl] (P2 Slice B).

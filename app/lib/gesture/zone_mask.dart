@@ -1,3 +1,4 @@
+import 'package:aperturex/edit/recipe.dart' show EditRecipe;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/haptics.dart';
@@ -114,13 +115,13 @@ class ZoneMaskController extends Notifier<ZoneMaskState> {
     state = state.copyWith(isTargeting: false);
   }
 
-  /// Locks an AdjustmentLayer with luminance mask targeting [activeZone] into the recipe.
+  /// Locks an AdjustmentLayer with luminance mask targeting activeZone into the recipe.
   void lockMask([dynamic context]) {
     final zone = state.activeZone;
     final controller = _getRecipeController(context);
     final layers = _getLayers(context);
 
-    final layer = AdjustmentLayer(
+    final layer = const AdjustmentLayer(
       maskKind: MaskKind.luminance,
     ).withZone(zone);
 

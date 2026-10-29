@@ -41,6 +41,34 @@ class MaskGroup {
     this.gradeBalance = 0,
   });
 
+  factory MaskGroup.fromJson(Map<String, Object?> json) {
+    double d(String k) => (json[k] as num?)?.toDouble() ?? 0;
+    return MaskGroup(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? 'Mask',
+      inverted: (json['inverted'] as bool?) ?? false,
+      amount: json.containsKey('amount') ? d('amount') : 1.0,
+      exposure: d('exposure'),
+      contrast: d('contrast'),
+      saturation: d('saturation'),
+      temperature: d('temperature'),
+      tint: d('tint'),
+      highlights: d('highlights'),
+      shadows: d('shadows'),
+      gradeShadowHue: d('gradeShadowHue'),
+      gradeShadowSat: d('gradeShadowSat'),
+      gradeShadowLum: d('gradeShadowLum'),
+      gradeMidHue: d('gradeMidHue'),
+      gradeMidSat: d('gradeMidSat'),
+      gradeMidLum: d('gradeMidLum'),
+      gradeHighlightHue: d('gradeHighlightHue'),
+      gradeHighlightSat: d('gradeHighlightSat'),
+      gradeHighlightLum: d('gradeHighlightLum'),
+      gradeBlending: json.containsKey('gradeBlending') ? d('gradeBlending') : 0.5,
+      gradeBalance: d('gradeBalance'),
+    );
+  }
+
   final String id;
   final String name;
   final bool inverted;
@@ -183,34 +211,6 @@ class MaskGroup {
     'gradeBlending': gradeBlending,
     'gradeBalance': gradeBalance,
   };
-
-  factory MaskGroup.fromJson(Map<String, Object?> json) {
-    double d(String k) => (json[k] as num?)?.toDouble() ?? 0;
-    return MaskGroup(
-      id: json['id'] as String? ?? '',
-      name: json['name'] as String? ?? 'Mask',
-      inverted: (json['inverted'] as bool?) ?? false,
-      amount: json.containsKey('amount') ? d('amount') : 1.0,
-      exposure: d('exposure'),
-      contrast: d('contrast'),
-      saturation: d('saturation'),
-      temperature: d('temperature'),
-      tint: d('tint'),
-      highlights: d('highlights'),
-      shadows: d('shadows'),
-      gradeShadowHue: d('gradeShadowHue'),
-      gradeShadowSat: d('gradeShadowSat'),
-      gradeShadowLum: d('gradeShadowLum'),
-      gradeMidHue: d('gradeMidHue'),
-      gradeMidSat: d('gradeMidSat'),
-      gradeMidLum: d('gradeMidLum'),
-      gradeHighlightHue: d('gradeHighlightHue'),
-      gradeHighlightSat: d('gradeHighlightSat'),
-      gradeHighlightLum: d('gradeHighlightLum'),
-      gradeBlending: json.containsKey('gradeBlending') ? d('gradeBlending') : 0.5,
-      gradeBalance: d('gradeBalance'),
-    );
-  }
 
   @override
   bool operator ==(Object other) =>
@@ -371,6 +371,62 @@ class AdjustmentLayer {
     this.aiIntent,
     this.originAssetId,
   });
+
+  factory AdjustmentLayer.fromJson(Map<String, Object?> json) {
+    double d(String k) => (json[k] as num?)?.toDouble() ?? 0;
+    final kindIndex = (json['maskKind'] as num?)?.toInt() ?? 1;
+    final kind = MaskKind.values[kindIndex.clamp(0, MaskKind.values.length - 1)];
+    var params = (json['maskParams'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
+        const <double>[];
+    Uint8List? blob;
+    if (kind == MaskKind.bitmap) {
+      // Both the compact #86 format and the legacy inline-double array land
+      // here; corrupt payloads throw and get skipped by the catalog loader.
+      final (bytes, w, h) = _readBitmapPayload(json, params);
+      blob = bytes;
+      params = <double>[w.toDouble(), h.toDouble()];
+    }
+    final rawJoinOp = json['joinOp'];
+    final MaskJoinOp joinOp;
+    if (rawJoinOp is String) {
+      joinOp = MaskJoinOp.values.firstWhere(
+        (e) => e.name == rawJoinOp,
+        orElse: () => MaskJoinOp.add,
+      );
+    } else {
+      final idx = (rawJoinOp as num?)?.toInt() ?? 0;
+      joinOp = MaskJoinOp.values[idx.clamp(0, MaskJoinOp.values.length - 1)];
+    }
+    return AdjustmentLayer(
+      maskKind: kind,
+      maskParams: params,
+      maskBlob: blob,
+      inverted: (json['inverted'] as bool?) ?? false,
+      amount: json.containsKey('amount') ? d('amount') : 1.0,
+      groupId: json['groupId'] as String?,
+      joinOp: joinOp,
+      exposure: d('exposure'),
+      contrast: d('contrast'),
+      saturation: d('saturation'),
+      temperature: d('temperature'),
+      tint: d('tint'),
+      highlights: d('highlights'),
+      shadows: d('shadows'),
+      gradeShadowHue: d('gradeShadowHue'),
+      gradeShadowSat: d('gradeShadowSat'),
+      gradeShadowLum: d('gradeShadowLum'),
+      gradeMidHue: d('gradeMidHue'),
+      gradeMidSat: d('gradeMidSat'),
+      gradeMidLum: d('gradeMidLum'),
+      gradeHighlightHue: d('gradeHighlightHue'),
+      gradeHighlightSat: d('gradeHighlightSat'),
+      gradeHighlightLum: d('gradeHighlightLum'),
+      gradeBlending: json.containsKey('gradeBlending') ? d('gradeBlending') : 0.5,
+      gradeBalance: d('gradeBalance'),
+      aiIntent: json['aiIntent'] as String?,
+      originAssetId: json['originAssetId'] as String?,
+    );
+  }
 
   /// Creates a local adjustment layer backed by an 8-bit alpha probability tensor / bitmap.
   ///
@@ -961,62 +1017,6 @@ class AdjustmentLayer {
     if (aiIntent != null) 'aiIntent': aiIntent,
     if (originAssetId != null) 'originAssetId': originAssetId,
   };
-
-  factory AdjustmentLayer.fromJson(Map<String, Object?> json) {
-    double d(String k) => (json[k] as num?)?.toDouble() ?? 0;
-    final kindIndex = (json['maskKind'] as num?)?.toInt() ?? 1;
-    final kind = MaskKind.values[kindIndex.clamp(0, MaskKind.values.length - 1)];
-    var params = (json['maskParams'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
-        const <double>[];
-    Uint8List? blob;
-    if (kind == MaskKind.bitmap) {
-      // Both the compact #86 format and the legacy inline-double array land
-      // here; corrupt payloads throw and get skipped by the catalog loader.
-      final (bytes, w, h) = _readBitmapPayload(json, params);
-      blob = bytes;
-      params = <double>[w.toDouble(), h.toDouble()];
-    }
-    final rawJoinOp = json['joinOp'];
-    final MaskJoinOp joinOp;
-    if (rawJoinOp is String) {
-      joinOp = MaskJoinOp.values.firstWhere(
-        (e) => e.name == rawJoinOp,
-        orElse: () => MaskJoinOp.add,
-      );
-    } else {
-      final idx = (rawJoinOp as num?)?.toInt() ?? 0;
-      joinOp = MaskJoinOp.values[idx.clamp(0, MaskJoinOp.values.length - 1)];
-    }
-    return AdjustmentLayer(
-      maskKind: kind,
-      maskParams: params,
-      maskBlob: blob,
-      inverted: (json['inverted'] as bool?) ?? false,
-      amount: json.containsKey('amount') ? d('amount') : 1.0,
-      groupId: json['groupId'] as String?,
-      joinOp: joinOp,
-      exposure: d('exposure'),
-      contrast: d('contrast'),
-      saturation: d('saturation'),
-      temperature: d('temperature'),
-      tint: d('tint'),
-      highlights: d('highlights'),
-      shadows: d('shadows'),
-      gradeShadowHue: d('gradeShadowHue'),
-      gradeShadowSat: d('gradeShadowSat'),
-      gradeShadowLum: d('gradeShadowLum'),
-      gradeMidHue: d('gradeMidHue'),
-      gradeMidSat: d('gradeMidSat'),
-      gradeMidLum: d('gradeMidLum'),
-      gradeHighlightHue: d('gradeHighlightHue'),
-      gradeHighlightSat: d('gradeHighlightSat'),
-      gradeHighlightLum: d('gradeHighlightLum'),
-      gradeBlending: json.containsKey('gradeBlending') ? d('gradeBlending') : 0.5,
-      gradeBalance: d('gradeBalance'),
-      aiIntent: json['aiIntent'] as String?,
-      originAssetId: json['originAssetId'] as String?,
-    );
-  }
 
   @override
   bool operator ==(Object other) =>

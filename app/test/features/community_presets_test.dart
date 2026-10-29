@@ -14,7 +14,7 @@ void main() {
 
   group('CommunityPreset Model', () {
     test('serializes and deserializes correctly', () {
-      final preset = CommunityPreset(
+      const preset = CommunityPreset(
         id: 'film_ektar_100',
         name: 'Kodak Ektar 100',
         category: 'Film',
@@ -45,7 +45,7 @@ void main() {
     });
 
     test('toToolDefinition produces valid ToolDefinition', () {
-      final preset = CommunityPreset(
+      const preset = CommunityPreset(
         id: 'moody_nordic',
         name: 'Nordic Pines',
         category: 'Moody',

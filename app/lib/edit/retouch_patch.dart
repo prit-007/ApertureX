@@ -16,6 +16,21 @@ class RetouchPatch {
     this.mode = RetouchMode.heal,
   });
 
+  factory RetouchPatch.fromJson(Map<String, Object?> json) {
+    double d(String k, [double def = 0]) => (json[k] as num?)?.toDouble() ?? def;
+    final modeIdx = (json['mode'] as num?)?.toInt() ?? 0;
+    return RetouchPatch(
+      targetX: d('targetX'),
+      targetY: d('targetY'),
+      sourceX: d('sourceX'),
+      sourceY: d('sourceY'),
+      radius: d('radius', 0.05),
+      feather: d('feather', 0.5),
+      opacity: d('opacity', 1.0),
+      mode: RetouchMode.values[modeIdx.clamp(0, RetouchMode.values.length - 1)],
+    );
+  }
+
   /// Target center X `0..1` (the blemish to remove).
   final double targetX;
 
@@ -70,21 +85,6 @@ class RetouchPatch {
     'opacity': opacity,
     'mode': mode.index,
   };
-
-  factory RetouchPatch.fromJson(Map<String, Object?> json) {
-    double d(String k, [double def = 0]) => (json[k] as num?)?.toDouble() ?? def;
-    final modeIdx = (json['mode'] as num?)?.toInt() ?? 0;
-    return RetouchPatch(
-      targetX: d('targetX'),
-      targetY: d('targetY'),
-      sourceX: d('sourceX'),
-      sourceY: d('sourceY'),
-      radius: d('radius', 0.05),
-      feather: d('feather', 0.5),
-      opacity: d('opacity', 1.0),
-      mode: RetouchMode.values[modeIdx.clamp(0, RetouchMode.values.length - 1)],
-    );
-  }
 
   @override
   bool operator ==(Object other) =>

@@ -5,6 +5,28 @@ import '../src/rust/api/export.dart';
 
 /// Immutable model representing watermark, signature, museum frame, and C2PA export options.
 class ExportBrandingSettings {
+
+  const ExportBrandingSettings({
+    this.enableMuseumFrame = false,
+    this.frameThemeIndex = 0,
+    this.exifLine1 = '',
+    this.exifLine2 = '',
+    this.enableSignature = false,
+    this.signatureText = '',
+    this.signatureAnchorIndex = 8, // BottomRight
+    this.signatureOpacity = 0.8,
+    this.signatureSizePct = 2.5,
+    this.enableLogo = false,
+    this.logoBytes,
+    this.logoAnchorIndex = 8,
+    this.logoOpacity = 0.8,
+    this.logoScalePct = 10.0,
+    this.enableFossBadge = false,
+    this.enableC2pa = true,
+    this.format = 'jpeg',
+    this.quality = 92,
+    this.maxDim = 0,
+  });
   final bool enableMuseumFrame;
   final int frameThemeIndex; // 0 = StudioWhite, 1 = MatteDark, 2 = WarmGallery
   final String exifLine1;
@@ -28,28 +50,6 @@ class ExportBrandingSettings {
   final String format; // 'jpeg', 'dng', 'png', 'tiff'
   final int quality;
   final int maxDim;
-
-  const ExportBrandingSettings({
-    this.enableMuseumFrame = false,
-    this.frameThemeIndex = 0,
-    this.exifLine1 = '',
-    this.exifLine2 = '',
-    this.enableSignature = false,
-    this.signatureText = '',
-    this.signatureAnchorIndex = 8, // BottomRight
-    this.signatureOpacity = 0.8,
-    this.signatureSizePct = 2.5,
-    this.enableLogo = false,
-    this.logoBytes,
-    this.logoAnchorIndex = 8,
-    this.logoOpacity = 0.8,
-    this.logoScalePct = 10.0,
-    this.enableFossBadge = false,
-    this.enableC2pa = true,
-    this.format = 'jpeg',
-    this.quality = 92,
-    this.maxDim = 0,
-  });
 
   ExportBrandingSettings copyWith({
     bool? enableMuseumFrame,

@@ -93,7 +93,7 @@ Future<int> exportProgressGet({required BigInt token}) =>
 /// Runs the whole export recipe in Rust in one call and returns the JPEG.
 ///
 /// The geometry stage runs full-frame; spatial + masks + grade run one band at a
-/// time (bounded memory, seamless — see `export_pipeline`). [spec.cancel_token]
+/// time (bounded memory, seamless — see `export_pipeline`). spec.cancel_token
 /// is polled between bands, so a cancelled export returns
 /// `ExportResult { cancelled: true, .. }` without finishing.
 /// Renders a live mini-preview of the branding (museum frame, signature, logo, badge)
@@ -143,7 +143,7 @@ Future<ExportResult> exportFullWithBranding({
 /// Runs the whole export recipe in Rust in one call and returns the JPEG.
 ///
 /// The geometry stage runs full-frame; spatial + masks + grade run one band at a
-/// time (bounded memory, seamless — see `export_pipeline`). [spec.cancel_token]
+/// time (bounded memory, seamless — see `export_pipeline`). spec.cancel_token
 /// is polled between bands, so a cancelled export returns
 /// `ExportResult { cancelled: true, .. }` without finishing.
 Future<ExportResult> exportFull({
@@ -172,15 +172,15 @@ Future<ExportResult> exportFull({
 
 /// Branded RGBA frame result for live mini-preview rendering.
 class BrandedFrame {
-  final Uint8List rgba;
-  final int width;
-  final int height;
 
   const BrandedFrame({
     required this.rgba,
     required this.width,
     required this.height,
   });
+  final Uint8List rgba;
+  final int width;
+  final int height;
 
   @override
   int get hashCode => rgba.hashCode ^ width.hashCode ^ height.hashCode;
@@ -197,10 +197,6 @@ class BrandedFrame {
 
 /// Specifications for C2PA cryptographic provenance signing.
 class C2paExportSpec {
-  final bool enableC2Pa;
-  final Uint8List devicePrivateKey;
-  final String recipeJson;
-  final String exifSummary;
 
   const C2paExportSpec({
     required this.enableC2Pa,
@@ -208,6 +204,10 @@ class C2paExportSpec {
     required this.recipeJson,
     required this.exifSummary,
   });
+  final bool enableC2Pa;
+  final Uint8List devicePrivateKey;
+  final String recipeJson;
+  final String exifSummary;
 
   static Future<C2paExportSpec> default_() =>
       RustLib.instance.api.crateApiExportC2PaExportSpecDefault();
@@ -232,6 +232,24 @@ class C2paExportSpec {
 
 /// Specifications for watermark, signature, museum frame, and FOSS badge.
 class ExportBrandingSpec {
+
+  const ExportBrandingSpec({
+    required this.enableMuseumFrame,
+    required this.frameTheme,
+    required this.exifLine1,
+    required this.exifLine2,
+    required this.enableSignature,
+    required this.signatureText,
+    required this.signatureAnchor,
+    required this.signatureOpacity,
+    required this.signatureSizePct,
+    required this.enableLogo,
+    required this.logoBytes,
+    required this.logoAnchor,
+    required this.logoOpacity,
+    required this.logoScalePct,
+    required this.enableFossBadge,
+  });
   final bool enableMuseumFrame;
 
   /// 0 = StudioWhite, 1 = MatteDark, 2 = WarmGallery
@@ -251,24 +269,6 @@ class ExportBrandingSpec {
   final double logoOpacity;
   final double logoScalePct;
   final bool enableFossBadge;
-
-  const ExportBrandingSpec({
-    required this.enableMuseumFrame,
-    required this.frameTheme,
-    required this.exifLine1,
-    required this.exifLine2,
-    required this.enableSignature,
-    required this.signatureText,
-    required this.signatureAnchor,
-    required this.signatureOpacity,
-    required this.signatureSizePct,
-    required this.enableLogo,
-    required this.logoBytes,
-    required this.logoAnchor,
-    required this.logoOpacity,
-    required this.logoScalePct,
-    required this.enableFossBadge,
-  });
 
   static Future<ExportBrandingSpec> default_() =>
       RustLib.instance.api.crateApiExportExportBrandingSpecDefault();
@@ -319,11 +319,11 @@ class ExportBrandingSpec {
 /// The result of [`export_full`]: JPEG bytes, or a flag when the export was
 /// cancelled before it finished encoding.
 class ExportResult {
+
+  const ExportResult({required this.cancelled, required this.jpeg});
   /// True when a cancel token fired — [jpeg] is then empty.
   final bool cancelled;
   final Uint8List jpeg;
-
-  const ExportResult({required this.cancelled, required this.jpeg});
 
   @override
   int get hashCode => cancelled.hashCode ^ jpeg.hashCode;
@@ -341,6 +341,76 @@ class ExportResult {
 /// and the encode knobs. Grade/curves/HSL/layers arrive as their own args so
 /// they reuse the existing bridge types.
 class ExportSpec {
+
+  const ExportSpec({
+    required this.flipH,
+    required this.flipV,
+    required this.turns,
+    required this.angle,
+    required this.cropL,
+    required this.cropT,
+    required this.cropR,
+    required this.cropB,
+    required this.perspectiveX,
+    required this.perspectiveY,
+    required this.skewX,
+    required this.skewY,
+    required this.shadows,
+    required this.highlights,
+    required this.clarity,
+    required this.texture,
+    required this.sharpen,
+    required this.sharpenRadius,
+    required this.sharpenDetail,
+    required this.sharpenMasking,
+    required this.denoiseLuma,
+    required this.denoiseChroma,
+    required this.dehaze,
+    required this.vignette,
+    required this.vignetteMidpoint,
+    required this.vignetteFeather,
+    required this.vignetteRoundness,
+    required this.vignetteHighlights,
+    required this.grain,
+    required this.grainSize,
+    required this.grainRoughness,
+    required this.filmHalation,
+    required this.filmHalationRadius,
+    required this.filmHalationThreshold,
+    required this.filmBloom,
+    required this.filmBloomRadius,
+    required this.filmBloomThreshold,
+    required this.filmDust,
+    required this.filmScratches,
+    required this.shaderLabPreset,
+    required this.shaderParam1,
+    required this.shaderParam2,
+    required this.shaderParam3,
+    required this.removeChromaticAberration,
+    required this.defringePurpleAmount,
+    required this.defringePurpleHueMin,
+    required this.defringePurpleHueMax,
+    required this.defringeGreenAmount,
+    required this.defringeGreenHueMin,
+    required this.defringeGreenHueMax,
+    required this.profileCorrections,
+    required this.profileDistortion,
+    required this.profileVignetting,
+    required this.blurEnabled,
+    required this.blurAmount,
+    required this.blurFocalPoint,
+    required this.blurFocalRange,
+    required this.blurBokehShape,
+    required this.blurBokehBoost,
+    required this.blurBackgroundBlur,
+    required this.quality,
+    required this.maxDim,
+    required this.bandRows,
+    required this.cancelToken,
+    required this.colorSpace,
+    required this.ultraHdr,
+    required this.hdrHeadroom,
+  });
   final bool flipH;
   final bool flipV;
 
@@ -438,76 +508,6 @@ class ExportSpec {
 
   /// HDR headroom in EV stops (e.g. 2.0 = 400% brightness boost).
   final double hdrHeadroom;
-
-  const ExportSpec({
-    required this.flipH,
-    required this.flipV,
-    required this.turns,
-    required this.angle,
-    required this.cropL,
-    required this.cropT,
-    required this.cropR,
-    required this.cropB,
-    required this.perspectiveX,
-    required this.perspectiveY,
-    required this.skewX,
-    required this.skewY,
-    required this.shadows,
-    required this.highlights,
-    required this.clarity,
-    required this.texture,
-    required this.sharpen,
-    required this.sharpenRadius,
-    required this.sharpenDetail,
-    required this.sharpenMasking,
-    required this.denoiseLuma,
-    required this.denoiseChroma,
-    required this.dehaze,
-    required this.vignette,
-    required this.vignetteMidpoint,
-    required this.vignetteFeather,
-    required this.vignetteRoundness,
-    required this.vignetteHighlights,
-    required this.grain,
-    required this.grainSize,
-    required this.grainRoughness,
-    required this.filmHalation,
-    required this.filmHalationRadius,
-    required this.filmHalationThreshold,
-    required this.filmBloom,
-    required this.filmBloomRadius,
-    required this.filmBloomThreshold,
-    required this.filmDust,
-    required this.filmScratches,
-    required this.shaderLabPreset,
-    required this.shaderParam1,
-    required this.shaderParam2,
-    required this.shaderParam3,
-    required this.removeChromaticAberration,
-    required this.defringePurpleAmount,
-    required this.defringePurpleHueMin,
-    required this.defringePurpleHueMax,
-    required this.defringeGreenAmount,
-    required this.defringeGreenHueMin,
-    required this.defringeGreenHueMax,
-    required this.profileCorrections,
-    required this.profileDistortion,
-    required this.profileVignetting,
-    required this.blurEnabled,
-    required this.blurAmount,
-    required this.blurFocalPoint,
-    required this.blurFocalRange,
-    required this.blurBokehShape,
-    required this.blurBokehBoost,
-    required this.blurBackgroundBlur,
-    required this.quality,
-    required this.maxDim,
-    required this.bandRows,
-    required this.cancelToken,
-    required this.colorSpace,
-    required this.ultraHdr,
-    required this.hdrHeadroom,
-  });
 
   /// Maps the flat blur fields onto the engine's [`crate::blur::LensBlurParams`].
   Future<LensBlurParams> blurParams() =>
@@ -659,13 +659,6 @@ class ExportSpec {
 
 /// One bracketed exposure for HDR merge (#20).
 class HdrExposureSpec {
-  final Uint8List rgba;
-  final int width;
-  final int height;
-
-  /// Exposure value in stops relative to base (0.0). Negative = darker,
-  /// positive = brighter.
-  final double ev;
 
   const HdrExposureSpec({
     required this.rgba,
@@ -673,6 +666,13 @@ class HdrExposureSpec {
     required this.height,
     required this.ev,
   });
+  final Uint8List rgba;
+  final int width;
+  final int height;
+
+  /// Exposure value in stops relative to base (0.0). Negative = darker,
+  /// positive = brighter.
+  final double ev;
 
   @override
   int get hashCode =>

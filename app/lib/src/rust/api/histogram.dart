@@ -29,10 +29,6 @@ Future<Histogram> histogramGraded({
 
 /// 256-bin counts for R, G, B and luminance of the graded image.
 class Histogram {
-  final Uint32List r;
-  final Uint32List g;
-  final Uint32List b;
-  final Uint32List luma;
 
   const Histogram({
     required this.r,
@@ -40,6 +36,10 @@ class Histogram {
     required this.b,
     required this.luma,
   });
+  final Uint32List r;
+  final Uint32List g;
+  final Uint32List b;
+  final Uint32List luma;
 
   @override
   int get hashCode => r.hashCode ^ g.hashCode ^ b.hashCode ^ luma.hashCode;

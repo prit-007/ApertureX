@@ -35,10 +35,10 @@ Future<RgbaImage> decodeJpegRoi({
 
 /// Image dimensions in pixels.
 class ImageDims {
-  final int width;
-  final int height;
 
   const ImageDims({required this.width, required this.height});
+  final int width;
+  final int height;
 
   @override
   int get hashCode => width.hashCode ^ height.hashCode;
@@ -54,17 +54,17 @@ class ImageDims {
 
 /// A decoded RGBA8 image buffer with its dimensions.
 class RgbaImage {
-  final int width;
-  final int height;
-
-  /// RGBA8 pixels, length always `width * height * 4`.
-  final Uint8List rgba;
 
   const RgbaImage({
     required this.width,
     required this.height,
     required this.rgba,
   });
+  final int width;
+  final int height;
+
+  /// RGBA8 pixels, length always `width * height * 4`.
+  final Uint8List rgba;
 
   @override
   int get hashCode => width.hashCode ^ height.hashCode ^ rgba.hashCode;

@@ -11,15 +11,6 @@ enum UpdateStatus {
 
 /// Release metadata retrieved from GitHub Releases API.
 class AppReleaseInfo {
-  final String tagName;
-  final String version;
-  final String releaseName;
-  final String changelog;
-  final String htmlUrl;
-  final String? apkDownloadUrl;
-  final int? apkSizeBytes;
-  final DateTime publishedAt;
-  final bool isPrerelease;
 
   const AppReleaseInfo({
     required this.tagName,
@@ -74,4 +65,13 @@ class AppReleaseInfo {
       isPrerelease: isPrerelease,
     );
   }
+  final String tagName;
+  final String version;
+  final String releaseName;
+  final String changelog;
+  final String htmlUrl;
+  final String? apkDownloadUrl;
+  final int? apkSizeBytes;
+  final DateTime publishedAt;
+  final bool isPrerelease;
 }

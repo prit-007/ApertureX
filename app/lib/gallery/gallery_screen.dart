@@ -101,7 +101,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     }
   }
 
-  void _open(GalleryAsset asset) async {
+  Future<void> _open(GalleryAsset asset) async {
     axLog(LogDomain.editor, 'Opened photo ${asset.id}');
     // Fade chrome out as the photo begins its hero flight into the editor.
     await _navFade.forward();
@@ -132,7 +132,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
   /// Opens [asset]'s pixels under a specific catalog entry — a virtual copy
   /// shares the original's data but carries its own recipe (#73).
-  void _openEntry(GalleryAsset asset, String entryId) async {
+  Future<void> _openEntry(GalleryAsset asset, String entryId) async {
     axLog(LogDomain.editor, 'Opened $entryId');
     final res = await Navigator.of(context).push<dynamic>(
       PageRouteBuilder<dynamic>(
@@ -155,7 +155,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     }
   }
 
-  void _openSavedPreview(EditPreview preview) async {
+  Future<void> _openSavedPreview(EditPreview preview) async {
     final file = File(preview.path);
     if (!file.existsSync()) return;
     final bytes = file.readAsBytesSync();
@@ -864,7 +864,7 @@ class _AlbumTitle extends StatelessWidget {
           children: [
             Text(title, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(width: Insets.xs),
-            Icon(Icons.arrow_drop_down, size: 20),
+            const Icon(Icons.arrow_drop_down, size: 20),
           ],
         ),
       ),
@@ -904,7 +904,7 @@ class _StaggeredCellState extends State<_StaggeredCell>
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _offset = Tween<Offset>(
-      begin: Offset(0, 0.18),
+      begin: const Offset(0, 0.18),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
     Future.delayed(delay, () {
@@ -1228,7 +1228,7 @@ class _VirtualCell extends StatelessWidget {
 
 /// A thumbnail that resolves **once** per asset (the previous implementation
 /// re-decoded on every rebuild — a major jank source), and decodes at the
-/// displayed pixel size ([cacheWidth]) so the codec never inflates a big bitmap.
+/// displayed pixel size (cacheWidth) so the codec never inflates a big bitmap.
 class GalleryThumbnail extends StatefulWidget {
   const GalleryThumbnail({
     super.key,

@@ -5,7 +5,7 @@ import 'package:aperturex/features/guide/tool_guide_registry.dart';
 void main() {
   group('ToolGuideRegistry', () {
     test('contains comprehensive guides for all core photography tools', () {
-      final guides = ToolGuideRegistry.allGuides;
+      const guides = ToolGuideRegistry.allGuides;
       expect(guides.length, greaterThanOrEqualTo(15));
 
       // Key tools exist

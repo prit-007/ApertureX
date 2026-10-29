@@ -5,14 +5,14 @@ import 'tool_guide_registry.dart';
 
 /// Full-screen interactive user guide and learning academy for ApertureX.
 class AppGuideScreen extends StatefulWidget {
-  final String? initialToolId;
-  final bool isModal;
 
   const AppGuideScreen({
     super.key,
     this.initialToolId,
     this.isModal = false,
   });
+  final String? initialToolId;
+  final bool isModal;
 
   /// Opens the guide as a modal bottom sheet.
   static Future<void> showModal(BuildContext context, {String? initialToolId}) {
@@ -246,15 +246,15 @@ class _AppGuideScreenState extends State<AppGuideScreen> {
 }
 
 class _ToolGuideCard extends StatelessWidget {
-  final ToolGuideModel guide;
-  final bool isExpanded;
-  final VoidCallback onToggle;
 
   const _ToolGuideCard({
     required this.guide,
     required this.isExpanded,
     required this.onToggle,
   });
+  final ToolGuideModel guide;
+  final bool isExpanded;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {

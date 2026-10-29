@@ -8,27 +8,6 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 /// Comprehensive image and shooting metadata parsed from EXIF and RAW headers.
 class ImageMetadata {
-  final String? make;
-  final String? model;
-  final String? lensMake;
-  final String? lensModel;
-  final double? focalLength;
-  final double? focalLength35Mm;
-  final double? fNumber;
-  final String? exposureTime;
-  final double? exposureTimeSeconds;
-  final int? iso;
-  final double? exposureBias;
-  final bool? flashFired;
-  final String? meteringMode;
-  final String? whiteBalanceMode;
-  final String? dateTime;
-  final double? gpsLatitude;
-  final double? gpsLongitude;
-  final double? gpsAltitude;
-  final int? width;
-  final int? height;
-  final String? formatName;
 
   const ImageMetadata({
     this.make,
@@ -53,6 +32,27 @@ class ImageMetadata {
     this.height,
     this.formatName,
   });
+  final String? make;
+  final String? model;
+  final String? lensMake;
+  final String? lensModel;
+  final double? focalLength;
+  final double? focalLength35Mm;
+  final double? fNumber;
+  final String? exposureTime;
+  final double? exposureTimeSeconds;
+  final int? iso;
+  final double? exposureBias;
+  final bool? flashFired;
+  final String? meteringMode;
+  final String? whiteBalanceMode;
+  final String? dateTime;
+  final double? gpsLatitude;
+  final double? gpsLongitude;
+  final double? gpsAltitude;
+  final int? width;
+  final int? height;
+  final String? formatName;
 
   @override
   int get hashCode =>

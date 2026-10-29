@@ -78,7 +78,7 @@ void main() {
     test('lastError tracks every report, throttled or not', () {
       final r = reporter();
       r.report(StateError('a'), stack('one()'));
-      r.report(FormatException('b'), stack('two()'), fatal: true);
+      r.report(const FormatException('b'), stack('two()'), fatal: true);
 
       expect(r.lastError, isNotNull);
       expect(r.lastError!.fatal, isTrue);

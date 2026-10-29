@@ -110,7 +110,7 @@ void main() {
 
   group('BoundaryFallback (ErrorWidget.builder replacement)', () {
     final details = FlutterErrorDetails(
-      exception: FormatException('bad json'),
+      exception: const FormatException('bad json'),
       stack: StackTrace.fromString('#0      parse()'),
     );
 

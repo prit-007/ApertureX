@@ -1,5 +1,6 @@
 import 'dart:ui' show Offset, Size;
 
+import 'package:aperturex/viewport/image_canvas.dart' show ImageCanvas;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The [ImageCanvas]'s current view transform (fitted image rect + pan/zoom),

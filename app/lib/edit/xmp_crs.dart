@@ -37,7 +37,7 @@ class CrsBinding {
   /// Reads the current recipe value for this attribute.
   final double Function(EditRecipe recipe) get;
 
-  /// Returns a copy of [recipe] with this attribute set to [value].
+  /// Returns a copy of the recipe with this attribute set to value.
   final EditRecipe Function(EditRecipe recipe, double value) set;
 
   /// Clamp bounds applied when *reading* (our valid range), so foreign presets

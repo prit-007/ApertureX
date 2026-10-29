@@ -24,10 +24,10 @@ Future<C2paVerifyResult> c2PaVerifyImage({
 );
 
 class C2paDeviceInfo {
-  final Uint8List privateKey;
-  final String keyId;
 
   const C2paDeviceInfo({required this.privateKey, required this.keyId});
+  final Uint8List privateKey;
+  final String keyId;
 
   @override
   int get hashCode => privateKey.hashCode ^ keyId.hashCode;
@@ -42,16 +42,6 @@ class C2paDeviceInfo {
 }
 
 class C2paVerifyResult {
-  final String status;
-  final bool isValid;
-  final String title;
-  final String claimGenerator;
-  final String signerKeyId;
-  final List<String> actions;
-  final String cameraMetadata;
-  final String recipeHash;
-  final String pixelHash;
-  final String statusMessage;
 
   const C2paVerifyResult({
     required this.status,
@@ -65,6 +55,16 @@ class C2paVerifyResult {
     required this.pixelHash,
     required this.statusMessage,
   });
+  final String status;
+  final bool isValid;
+  final String title;
+  final String claimGenerator;
+  final String signerKeyId;
+  final List<String> actions;
+  final String cameraMetadata;
+  final String recipeHash;
+  final String pixelHash;
+  final String statusMessage;
 
   @override
   int get hashCode =>

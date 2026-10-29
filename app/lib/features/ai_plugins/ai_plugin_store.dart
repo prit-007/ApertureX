@@ -109,7 +109,7 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
   @override
   AiPluginState build() {
     _loadFromPrefs();
-    final builtin = AiPluginModel(
+    const builtin = AiPluginModel(
       id: 'builtin-saliency',
       name: 'ApertureX On-Device Saliency',
       description: 'Default zero-allocation local saliency segmenter for subject masking.',

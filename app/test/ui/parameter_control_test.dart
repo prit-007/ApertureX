@@ -254,7 +254,7 @@ void main() {
       final data = bytes!.buffer.asUint8List();
       // Centre pixel = the neutral marker: the fill (and thumb) sit here.
       const cx = 150, cy = 18;
-      final i = (cy * 300 + cx) * 4;
+      const i = (cy * 300 + cx) * 4;
       return Color.fromARGB(data[i + 3], data[i], data[i + 1], data[i + 2]);
     }).then((c) => c!);
   }

@@ -7,12 +7,12 @@ import 'app_updater.dart';
 
 /// Interactive modal dialog for previewing release changelog and downloading updates.
 class UpdateDialog extends StatefulWidget {
-  final AppReleaseInfo release;
 
   const UpdateDialog({
     super.key,
     required this.release,
   });
+  final AppReleaseInfo release;
 
   /// Displays the update dialog modally.
   static Future<void> show(BuildContext context, AppReleaseInfo release) {
@@ -42,9 +42,9 @@ class UpdateDialog extends StatefulWidget {
     } else {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('ApertureX is up to date (v${AppUpdater.currentVersion})'),
-          duration: const Duration(seconds: 3),
+          duration: Duration(seconds: 3),
         ),
       );
     }
