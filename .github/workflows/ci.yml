@@ -81,6 +81,10 @@ jobs:
         working-directory: app
         run: flutter pub get
 
+      - name: Validate installer script (dry-run)
+        working-directory: app
+        run: dart run tool/build_installer.dart --dry-run
+
       - name: Analyze
         working-directory: app
         run: flutter analyze
@@ -277,10 +281,223 @@ jobs:
           path: app/build/ios-release/*.zip
           if-no-files-found: error
 
+  build-windows:
+    name: Build Windows (release + Inno Setup installer)
+    needs: analyze-and-test
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.99.0"
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/rust
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Extract version
+        id: extract-version
+        working-directory: app
+        shell: pwsh
+        run: |
+          $ver = (Select-String '^version:\s*([0-9]+\.[0-9]+\.[0-9]+)' pubspec.yaml).Matches[0].Groups[1].Value
+          "version=$ver" >> $env:GITHUB_OUTPUT
+          echo "APP_VERSION=$ver"
+
+      - name: Build release Windows app
+        working-directory: app
+        run: flutter build windows --release
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer (ISCC)
+        working-directory: app
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          dart run tool/build_installer.dart --iscc "$iscc"
+
+      - name: Verify engine dll + installer
+        working-directory: app
+        shell: pwsh
+        run: |
+          $dll = "build/windows/x64/runner/Release/rust_lib_aperturex.dll"
+          Test-Path $dll -PathType Leaf -ErrorAction Stop
+          $size = (Get-Item $dll).Length
+          if ($size -eq 0) { Write-Error "rust_lib_aperturex.dll is empty"; exit 1 }
+          Write-Host "Engine DLL OK ($size bytes)"
+          $exe = Get-ChildItem "build/installers/aperturex_setup_*.exe" -ErrorAction Stop
+          Write-Host "Installer OK: $($exe.Name) ($($exe.Length) bytes)"
+
+      - name: Zip Release dir
+        working-directory: app
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.extract-version.outputs.version }}"
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "build/aperturex-windows-v$ver.zip" -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aperturex-windows
+          path: |
+            app/build/aperturex-windows-v*.zip
+            app/build/installers/aperturex_setup_*.exe
+          if-no-files-found: error
+
+  build-linux:
+    name: Build Linux (release tarball)
+    needs: analyze-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.99.0"
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/rust
+
+      - name: Install GTK dependencies
+        run: sudo apt-get install -y --no-install-recommends ninja-build libgtk-3-dev
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Extract version
+        id: extract-version
+        run: |
+          VER=$(sed -n 's/^version: *\([0-9][0-9.]*\).*/\1/p' app/pubspec.yaml)
+          echo "version=$VER" >> $GITHUB_OUTPUT
+
+      - name: Build release Linux app
+        working-directory: app
+        run: flutter build linux --release
+
+      - name: Verify engine .so
+        working-directory: app
+        run: |
+          set -euo pipefail
+          SO=$(ls build/linux/x64/release/bundle/lib/librust_lib_aperturex*.so 2>/dev/null | head -1)
+          test -n "$SO" || { echo "Missing librust_lib_aperturex*.so in bundle"; exit 1 }
+          test -s "$SO" || { echo "Empty $SO"; exit 1 }
+          echo "Engine .so OK: $SO"
+
+      - name: Create tarball
+        working-directory: app
+        run: |
+          VER="${{ steps.extract-version.outputs.version }}"
+          tar -czf build/aperturex-linux-v$VER.tar.gz -C build/linux/x64/release bundle
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aperturex-linux
+          path: app/build/aperturex-linux-v*.tar.gz
+          if-no-files-found: error
+
+  build-macos:
+    name: Build macOS (release .app)
+    needs: analyze-and-test
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.99.0"
+          targets: aarch64-apple-darwin
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/rust
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Extract version
+        id: extract-version
+        run: |
+          VER=$(sed -n 's/^version: *\([0-9][0-9.]*\).*/\1/p' app/pubspec.yaml)
+          echo "version=$VER" >> $GITHUB_OUTPUT
+
+      - name: Build release macOS app
+        working-directory: app
+        run: flutter build macos --release
+
+      - name: Verify engine dylib
+        working-directory: app
+        run: |
+          set -euo pipefail
+          DYLIB=$(find build/macos/Build/Products/Release -name "librust_lib_aperturex.dylib" 2>/dev/null | head -1)
+          test -n "$DYLIB" || { echo "Missing librust_lib_aperturex.dylib in .app Frameworks"; exit 1 }
+          test -s "$DYLIB" || { echo "Empty $DYLIB"; exit 1 }
+          echo "Engine dylib OK: $DYLIB"
+
+      - name: Zip .app
+        working-directory: app
+        run: |
+          VER="${{ steps.extract-version.outputs.version }}"
+          ditto -c -k --sequesterRsrc --keepParent build/macos/Build/Products/Release/ApertureX.app build/aperturex-macos-v$VER.zip
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aperturex-macos
+          path: app/build/aperturex-macos-v*.zip
+          if-no-files-found: error
+
   release:
     name: GitHub Release
-    needs: [analyze-and-test, build-android, build-ios]
-    # Android is required for a release; iOS is best-effort. Only runs on tags.
+    needs: [analyze-and-test, build-android, build-ios, build-windows, build-linux, build-macos]
+    # Android is required for a release; desktop + iOS are best-effort. Only runs on tags.
     if: |
       always() &&
       startsWith(github.ref, 'refs/tags/') &&
@@ -303,6 +520,27 @@ jobs:
         with:
           name: aperturex-ios
           path: release/ios
+
+      - name: Download Windows artifact (if build succeeded)
+        if: needs.build-windows.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: aperturex-windows
+          path: release/windows
+
+      - name: Download Linux artifact (if build succeeded)
+        if: needs.build-linux.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: aperturex-linux
+          path: release/linux
+
+      - name: Download macOS artifact (if build succeeded)
+        if: needs.build-macos.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: aperturex-macos
+          path: release/macos
 
       - name: Prepare release body from CHANGELOG
         shell: bash
@@ -344,6 +582,16 @@ jobs:
             if [ "${#zips[@]}" -gt 0 ]; then
               cp "${zips[@]}" release/assets/
             fi
+          fi
+          if [ -d release/windows ]; then
+            cp release/windows/*.zip release/assets/ 2>/dev/null || true
+            cp release/windows/*.exe release/assets/ 2>/dev/null || true
+          fi
+          if [ -d release/linux ]; then
+            cp release/linux/*.tar.gz release/assets/ 2>/dev/null || true
+          fi
+          if [ -d release/macos ]; then
+            cp release/macos/*.zip release/assets/ 2>/dev/null || true
           fi
           echo "Staged assets:"
           ls -la release/assets/

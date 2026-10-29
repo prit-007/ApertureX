@@ -2,6 +2,7 @@ import 'dart:ui' show FontFeature, ImageFilter;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/theme/design_tokens.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_mapping.dart';
 import '../../gesture/gesture_interpreter.dart';
@@ -187,8 +188,8 @@ class SnapseedScrubHud extends StatelessWidget {
 
     return AnimatedOpacity(
       opacity: visible ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeInOut,
+      duration: AppMotion.shortDuration,
+      curve: AppMotion.scrubCurve,
       child: Center(
         // Keep a 16px screen margin so the pill never spans edge-to-edge;
         // the inner Flexible children shrink first on narrow viewports.
@@ -210,7 +211,7 @@ class SnapseedScrubHud extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.22),
+                        color: scheme.onSurface.withValues(alpha: 0.16),
                         blurRadius: 12,
                         offset: const Offset(0, 3),
                       ),
@@ -314,7 +315,7 @@ class SnapseedParameterCarousel extends StatelessWidget {
     return Center(
       child: AnimatedOpacity(
         opacity: visible ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 150),
+        duration: AppMotion.microDuration,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: BackdropFilter(
@@ -332,7 +333,7 @@ class SnapseedParameterCarousel extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.35),
+                    color: scheme.onSurface.withValues(alpha: 0.24),
                     blurRadius: 24,
                     offset: const Offset(0, 6),
                   ),

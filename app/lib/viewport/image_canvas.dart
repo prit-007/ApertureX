@@ -23,6 +23,7 @@ import '../engine/image_format.dart';
 import '../engine/preview_texture.dart';
 import '../gallery/gallery_controller.dart' show gallerySourceProvider;
 import '../core/haptics.dart';
+import '../core/theme/design_tokens.dart';
 import '../gesture/gesture_interpreter.dart';
 import '../gesture/zone_mask.dart';
 import 'compare_hold.dart';
@@ -210,11 +211,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     super.initState();
     _compare = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 150),
+      duration: AppMotion.microDuration,
     );
     _maskPeek = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: AppMotion.standardDuration,
     );
     _zebraTicker = AnimationController(
       vsync: this,
