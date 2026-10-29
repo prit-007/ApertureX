@@ -640,11 +640,18 @@ jobs:
             test "$code" = "$expected" \
               || { echo "$apk: versionCode '$code' != '$expected'"; exit 1; }
 
+          # Only verify signing cert if signing keys are configured.
+          # PR builds without signing keys produce unsigned APKs, which is fine
+          # for PR verification. Release builds on tags require signed APKs.
+          if [ -n "${APERTUREX_KEYSTORE_BASE64:-}" ]; then
             cert=$("$APKSIGNER" verify --print-certs "$apk" \
               | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
             test "$cert" = "$EXPECTED_CERT" \
               || { echo "$apk: signing cert '$cert' != '$EXPECTED_CERT'"; exit 1; }
             echo "$abi: package=$pkg versionName=$name versionCode=$code cert=$cert"
+          else
+            echo "$abi: package=$pkg versionName=$name versionCode=$code cert=UNSET (PR build)"
+          fi
           done
 
       - name: Create Release and upload assets
