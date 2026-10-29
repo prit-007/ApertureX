@@ -907,19 +907,26 @@ class MaskControls extends ConsumerWidget {
                 layer.inverted ? Icons.swap_horiz : Icons.swap_horizontal_circle_outlined,
                 size: 18,
               ),
-              onPressed: () => notifier.updateLayerAt(i, layer.copyWith(inverted: !layer.inverted)),
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                notifier.updateLayerAt(i, layer.copyWith(inverted: !layer.inverted));
+              },
             ),
             IconButton(
               key: Key('mask-duplicate-$i'),
               tooltip: 'Duplicate mask',
               icon: const Icon(Icons.copy, size: 18),
-              onPressed: () => notifier.addLayer(layer.copyWith()),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                notifier.addLayer(layer.copyWith());
+              },
             ),
             IconButton(
               key: Key('mask-delete-$i'),
               tooltip: 'Remove layer',
               icon: const Icon(Icons.delete_outline, size: 18),
               onPressed: () {
+                HapticFeedback.mediumImpact();
                 notifier.removeLayerAt(i);
                 if (ref.read(nodeEditorProvider).selected == i) {
                   ref.read(nodeEditorProvider.notifier).select(null);

@@ -172,7 +172,7 @@ void main() {
                 hue: 0,
                 saturation: 1.0,
                 size: 100,
-                onChanged: (_, __) {},
+                onChanged: (_, _) {},
                 onChangeEnd: () {},
                 onReset: () {},
               ),
