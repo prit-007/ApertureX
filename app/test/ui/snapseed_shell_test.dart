@@ -12,6 +12,7 @@ import 'package:aperturex/gesture/zone_mask.dart';
 import 'package:aperturex/settings/shell_preference.dart';
 import 'package:aperturex/ui/app_shell.dart';
 import 'package:aperturex/ui/snapseed/macro_action_hud.dart';
+import 'package:aperturex/ui/snapseed/snapseed_gesture_hud.dart';
 import 'package:aperturex/ui/snapseed/snapseed_shell.dart';
 import 'package:aperturex/ui/snapseed/snapseed_tools_sheet.dart';
 
@@ -48,6 +49,7 @@ void main() {
   testWidgets('SnapseedShell renders ghost dock with category, active tool, and straighten button', (
     tester,
   ) async {
+    // ignore: prefer_final_locals
     var cycledCategory = false;
     GradeTool? pickedTool;
 
@@ -90,6 +92,52 @@ void main() {
     await tester.tap(find.byKey(const Key('radial-contrast')));
     await tester.pump();
     expect(pickedTool, GradeTool.contrast);
+  });
+
+  testWidgets('SnapseedShell tool-dock IconButtons meet the 48x48dp Android touch-target minimum', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+              hasHistogram: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final buttons = [
+      const Key('snapseed-tools-sheet-toggle'),
+      const Key('snapseed-straighten-toggle'),
+      const Key('selective-toggle'),
+      const Key('histogram-toggle'),
+    ];
+
+    for (final key in buttons) {
+      final finder = find.byKey(key);
+      expect(finder, findsOneWidget, reason: 'key $key not found');
+      final button = tester.widget<IconButton>(finder);
+      expect(
+        button.constraints?.minWidth,
+        greaterThanOrEqualTo(48.0),
+        reason: '$key minWidth must be >= 48dp',
+      );
+      expect(
+        button.constraints?.minHeight,
+        greaterThanOrEqualTo(48.0),
+        reason: '$key minHeight must be >= 48dp',
+      );
+    }
   });
 
   testWidgets('SnapseedShell straighten button opens precision rotation dial and adjusts angle', (
@@ -257,4 +305,122 @@ void main() {
     // Let the 1400ms toast timer complete so no timers are pending on disposal
     await tester.pump(const Duration(milliseconds: 1500));
   });
+
+  testWidgets('scrub HUD fades out after 600ms when scrubbing ends (not instant)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+              gesturePhase: GesturePhase.scrubbing,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // HUD is visible while scrubbing (opacity 1.0)
+    expect(_scrubHudOpacity(tester), 1.0);
+
+    // Transition out of scrubbing: HUD should NOT instantly disappear
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+              gesturePhase: GesturePhase.idle,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // HUD still at full opacity immediately after transition (fade-out delayed)
+    expect(_scrubHudOpacity(tester), 1.0);
+
+    // After 600ms + animation time, HUD should be faded out (opacity 0.0)
+    await tester.pump(const Duration(milliseconds: 900));
+    expect(_scrubHudOpacity(tester), 0.0);
+  });
+
+  testWidgets('scrub HUD fades in immediately when scrubbing starts', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+              gesturePhase: GesturePhase.idle,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // HUD not visible while idle (opacity 0.0)
+    expect(_scrubHudOpacity(tester), 0.0);
+
+    // Transition to scrubbing: HUD appears immediately (opacity 1.0)
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+              gesturePhase: GesturePhase.scrubbing,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(_scrubHudOpacity(tester), 1.0);
+  });
+}
+
+/// Finds the [AnimatedOpacity] wrapping the scrub HUD and returns its opacity.
+double _scrubHudOpacity(WidgetTester tester) {
+  final opacities = tester.widgetList<AnimatedOpacity>(find.byType(AnimatedOpacity));
+  for (final opacity in opacities) {
+    if (opacity.child is IgnorePointer) {
+      final ignorePointer = opacity.child as IgnorePointer;
+      if (ignorePointer.child is SnapseedScrubHud) {
+        final scrubHud = ignorePointer.child as SnapseedScrubHud;
+        if (scrubHud.key == const Key('snapseed-scrub-hud-root')) {
+          return opacity.opacity;
+        }
+      }
+    }
+  }
+  return -1.0; // not found
 }

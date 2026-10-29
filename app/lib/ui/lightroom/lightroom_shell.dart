@@ -344,8 +344,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                                 );
                                 _tabScrollController.animateTo(
                                   target,
-                                  duration: const Duration(milliseconds: 250),
-                                  curve: Curves.easeOut,
+                                  duration: AppMotion.shortDuration,
+                                  curve: AppMotion.standardCurve,
                                 );
                               }
                             },
@@ -368,8 +368,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                                 );
                                 _tabScrollController.animateTo(
                                   target,
-                                  duration: const Duration(milliseconds: 250),
-                                  curve: Curves.easeOut,
+                                  duration: AppMotion.shortDuration,
+                                  curve: AppMotion.standardCurve,
                                 );
                               }
                             },
@@ -694,10 +694,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             ),
             Expanded(
               child: switch (_lightColorTab) {
-                _LightColorSubTab.light => ParameterPanel(
+                _LightColorSubTab.light => const ParameterPanel(
                   section: RecipeSection.light,
                 ),
-                _LightColorSubTab.color => ParameterPanel(section: RecipeSection.color),
+                _LightColorSubTab.color => const ParameterPanel(section: RecipeSection.color),
                 _LightColorSubTab.curve => const ToneCurveEditor(),
                 _LightColorSubTab.mix => const SingleChildScrollView(
                     physics: BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -769,8 +769,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             ),
             Expanded(
               child: switch (_effectsDetailTab) {
-                _EffectsDetailSubTab.effects => ParameterPanel(section: RecipeSection.effects),
-                _EffectsDetailSubTab.detail => ParameterPanel(section: RecipeSection.detail),
+                _EffectsDetailSubTab.effects => const ParameterPanel(section: RecipeSection.effects),
+                _EffectsDetailSubTab.detail => const ParameterPanel(section: RecipeSection.detail),
                 _EffectsDetailSubTab.blur => const BlurControls(),
                 _EffectsDetailSubTab.film => const FilmControls(),
               },
@@ -1094,10 +1094,13 @@ class LooksPresetsPanel extends ConsumerWidget {
       padding: const EdgeInsets.all(Insets.md),
       children: [
         const SectionHeader('Built-in Looks'),
-        const Text(
+        Text(
           'Tap a look to apply it to the current image. '
           'Applied looks create a new history entry so you can undo.',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: Insets.md),
         ...ToolLibrary.builtins.map((tool) {
@@ -1120,7 +1123,7 @@ class LooksPresetsPanel extends ConsumerWidget {
                 tool.description,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11),
+                style: const TextStyle(fontSize: 11),
               ),
               trailing: isApplied
                   ? Icon(Icons.check_circle, color: scheme.primary, size: 20)
@@ -1141,9 +1144,12 @@ class LooksPresetsPanel extends ConsumerWidget {
         }),
         const SizedBox(height: Insets.lg),
         const SectionHeader('Import Look'),
-        const Text(
+        Text(
           'Paste a look JSON or apx:// QR code to import a custom preset.',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: Insets.sm),
         TextField(
@@ -1166,9 +1172,9 @@ class LooksPresetsPanel extends ConsumerWidget {
               );
             } catch (e) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Invalid look format'),
-                  duration: const Duration(seconds: 1),
+                const SnackBar(
+                  content: Text('Invalid look format'),
+                  duration: Duration(seconds: 1),
                 ),
               );
             }
