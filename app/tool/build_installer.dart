@@ -67,7 +67,7 @@ void main(List<String> args) {
 
   // Fresh AppId GUID for ApertureX (do not reuse nook's — separate products
   // must not collide in Windows' uninstall registry).
-  const appId = '{4F3A8C2E-7B1D-4A9F-8C3D-2E1F4A6B8C9D}';
+  const appId = '4F3A8C2E-7B1D-4A9F-8C3D-2E1F4A6B8C9D';
 
   // --- Generate .iss -------------------------------------------------------
   // The Release dir is only referenced inside the .iss [Files] section as a
@@ -83,7 +83,7 @@ void main(List<String> args) {
 [Setup]
 AppName=ApertureX
 AppVersion=$appVersion
-AppId=$appId
+AppId={{$appId}}
 AppPublisher=ApertureX Contributors
 AppPublisherURL=https://github.com/prit-007/ApertureX
 AppSupportURL=https://github.com/prit-007/ApertureX/issues
