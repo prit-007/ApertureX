@@ -113,6 +113,7 @@ class BlurControls extends ConsumerWidget {
                       for (final shape in BokehShape.values)
                         ChoiceChip(
                           visualDensity: VisualDensity.compact,
+                          avatar: Icon(_bokehIcon(shape), size: 14),
                           label: Text(shape.label, style: const TextStyle(fontSize: 11)),
                           selected: shape == currentShape,
                           onSelected: (selected) {
@@ -133,6 +134,14 @@ class BlurControls extends ConsumerWidget {
     );
   }
 }
+
+IconData _bokehIcon(BokehShape shape) => switch (shape) {
+      BokehShape.circle => Icons.circle_outlined,
+      BokehShape.pentagon => Icons.pentagon_outlined,
+      BokehShape.hexagon => Icons.hexagon_outlined,
+      BokehShape.septagon => Icons.filter_tilt_shift,
+      BokehShape.swirl => Icons.cyclone,
+    };
 
 /// Uppercase section title used inside BlurControls ExpansionTiles.
 class _PanelTitle extends StatelessWidget {

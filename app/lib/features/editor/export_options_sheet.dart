@@ -161,6 +161,7 @@ class _ExportOptionsSheetContentState
                   title: const Text('Save to ApertureX'),
                   subtitle:
                       const Text('Render and index in the in-app Edits gallery'),
+                  trailing: _formatBadge('LIBRARY', theme),
                   onTap: () =>
                       Navigator.of(context).pop(ExportAction.saveToApertureX),
                 ),
@@ -170,6 +171,7 @@ class _ExportOptionsSheetContentState
                   subtitle: const Text(
                     'Full-resolution JPEG with XMP sidecar to device',
                   ),
+                  trailing: _formatBadge('JPEG', theme),
                   onTap: () =>
                       Navigator.of(context).pop(ExportAction.saveToPhotos),
                 ),
@@ -180,6 +182,7 @@ class _ExportOptionsSheetContentState
                     subtitle: const Text(
                       'Original raw CFA sensor data with injected XMP recipe',
                     ),
+                    trailing: _formatBadge('RAW DNG', theme),
                     onTap: () =>
                         Navigator.of(context).pop(ExportAction.saveDngWithXmp),
                   ),
@@ -189,6 +192,7 @@ class _ExportOptionsSheetContentState
                   subtitle: const Text(
                     'Uncompressed 16-bit-per-channel TIFF with full edit bake-in',
                   ),
+                  trailing: _formatBadge('16-BIT', theme),
                   onTap: () =>
                       Navigator.of(context).pop(ExportAction.saveTiff16),
                 ),
@@ -206,6 +210,7 @@ class _ExportOptionsSheetContentState
                   subtitle: const Text(
                     'Share color grade as a watermarked QR card for Instagram & Reddit',
                   ),
+                  trailing: _formatBadge('PRESET', theme),
                   onTap: () =>
                       Navigator.of(context).pop(ExportAction.sharePresetCard),
                 ),
@@ -613,3 +618,23 @@ class _ExportOptionsSheetContentState
     );
   }
 }
+
+Widget _formatBadge(String label, ThemeData theme) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
