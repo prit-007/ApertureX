@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -38,6 +39,7 @@ import 'common/retouch_canvas_overlay.dart';
 import 'common/retouch_toolbar.dart';
 import 'snapseed/ghost_hint.dart';
 import 'snapseed/snapseed_shell.dart';
+import '../core/theme/window_size_class.dart';
 
 /// The editor body shared by the app: one [ImageCanvas] over one recipe.
 ///
@@ -354,12 +356,14 @@ class _AppShellState extends ConsumerState<AppShell> {
       onPointerDown: (e) {
         ref.read(editActivityProvider.notifier).begin();
         _speedTracker.onPointerDown(e.pointer, e.position);
+        _reportPressure(e);
       },
       onPointerMove: (e) {
         final action = _speedTracker.onPointerMove(e.pointer, e.position);
         if (action != null) {
           _handleMacroAction(action);
         }
+        _reportPressure(e);
       },
       onPointerUp: (e) {
         ref.read(editActivityProvider.notifier).end();
@@ -389,6 +393,16 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
+  /// Reports stylus pressure to [brushPressureProvider] for dynamic brush
+  /// opacity/flow preview. Touch (non-stylus) events are ignored for palm
+  /// rejection (issue #35).
+  void _reportPressure(PointerEvent event) {
+    final isStylus = event.kind == PointerDeviceKind.stylus ||
+        event.kind == PointerDeviceKind.invertedStylus;
+    if (!isStylus) return;
+    ref.read(brushPressureProvider.notifier).setPressure(event.pressure);
+  }
+
   @override
   Widget build(BuildContext context) {
     final kind = ref.watch(shellPreferenceProvider);
@@ -402,7 +416,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final hasHistogram = ref.watch(histogramProvider.select((h) => h != null));
 
     final overlays = <Widget>[
-      _CompareHint(),
+      const _CompareHint(),
       _HistogramToggle(
         enabled: hasHistogram,
         selected: _showHistogram,
@@ -454,27 +468,27 @@ class _AppShellState extends ConsumerState<AppShell> {
                 },
               ),
               if (nodeMode)
-                Positioned(
+                const Positioned(
                   top: Insets.md,
                   left: Insets.sm,
                   right: Insets.sm,
-                  child: const SafeArea(bottom: false, child: BrushToolbar()),
+                  child: SafeArea(bottom: false, child: BrushToolbar()),
                 ),
               if (isRetouch)
-                Positioned(
+                const Positioned(
                   top: Insets.md,
                   left: Insets.sm,
                   right: Insets.sm,
-                  child: const SafeArea(
+                  child: SafeArea(
                     bottom: false,
                     child: Center(child: RetouchToolbar()),
                   ),
                 ),
-              Positioned(
+              const Positioned(
                 top: Insets.lg + 16,
                 left: Insets.md,
                 right: Insets.md,
-                child: const SafeArea(
+                child: SafeArea(
                   bottom: false,
                   child: _AiProgressFloatingPill(),
                 ),
@@ -503,8 +517,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
                                     colors: [
-                                      Colors.black.withValues(alpha: 0.5),
-                                      Colors.black.withValues(alpha: 0.0),
+                                      scheme.onSurface.withValues(alpha: 0.5),
+                                      scheme.onSurface.withValues(alpha: 0.0),
                                     ],
                                   ),
                             border: glassmorphic
@@ -558,15 +572,15 @@ class _AppShellState extends ConsumerState<AppShell> {
                   ),
                 ),
               if (nodeMode)
-                Positioned(
+                const Positioned(
                   left: Insets.sm,
                   right: Insets.sm,
                   bottom: 0,
                   child: SafeArea(
                     top: false,
                     child: Padding(
-                      padding: const EdgeInsets.only(bottom: Insets.lg),
-                      child: const NodeControls(),
+                      padding: EdgeInsets.only(bottom: Insets.lg),
+                      child: NodeControls(),
                     ),
                   ),
                 ),
@@ -581,9 +595,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
+              final widthClass = windowSizeClassFor(
+                MediaQuery.sizeOf(context).width,
+              );
               final wide =
-                  constraints.maxWidth > constraints.maxHeight ||
-                  constraints.maxWidth >= 600;
+                  widthClass != WindowSizeClass.compact;
               final canvas = Stack(
                 children: [
                   Positioned.fill(child: _canvas()),
@@ -594,40 +610,40 @@ class _AppShellState extends ConsumerState<AppShell> {
                   // adjust bar floating at its bottom edge.
                   if (nodeMode) const Positioned.fill(child: NodeOverlay()),
                   if (nodeMode)
-                    Positioned(
+                    const Positioned(
                       top: Insets.md,
                       left: Insets.sm,
                       right: Insets.sm,
-                      child: const SafeArea(
+                      child: SafeArea(
                         bottom: false,
                         child: BrushToolbar(),
                       ),
                     ),
                   if (isRetouch)
-                    Positioned(
+                    const Positioned(
                       top: Insets.md,
                       left: Insets.sm,
                       right: Insets.sm,
-                      child: const SafeArea(
+                      child: SafeArea(
                         bottom: false,
                         child: Center(child: RetouchToolbar()),
                       ),
                     ),
-                  Positioned(
+                  const Positioned(
                     top: Insets.lg + 16,
                     left: Insets.md,
                     right: Insets.md,
-                    child: const SafeArea(
+                    child: SafeArea(
                       bottom: false,
                       child: _AiProgressFloatingPill(),
                     ),
                   ),
                   if (nodeMode && (wide || kind == AppShellKind.snapseed))
-                    Positioned(
+                    const Positioned(
                       left: Insets.sm,
                       right: Insets.sm,
                       bottom: Insets.sm,
-                      child: const SafeArea(top: false, child: NodeControls()),
+                      child: SafeArea(top: false, child: NodeControls()),
                     ),
                   if (!nodeMode && !isRetouch)
                     Positioned(
@@ -724,9 +740,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
+      duration: AppMotion.standardDuration,
+      switchInCurve: AppMotion.standardCurve,
+      switchOutCurve: AppMotion.standardCurve,
       transitionBuilder: (Widget child, Animation<double> animation) {
         return FadeTransition(
           opacity: animation,
@@ -756,8 +772,8 @@ class _Fade extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedOpacity(
       opacity: active ? 0 : 1,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
+      duration: AppMotion.fadeDuration,
+      curve: AppMotion.fadeCurve,
       child: IgnorePointer(ignoring: active, child: child),
     );
   }
@@ -793,45 +809,43 @@ class _PanelHandle extends ConsumerWidget {
           child: InkWell(
             onTap: onToggle,
             onDoubleTap: onDoubleTap,
-            child: SizedBox(
-              height: 30,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: scheme.outlineVariant,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: scheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  const SizedBox(height: 2),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        collapsed
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                        size: 14,
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      collapsed
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      size: 14,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      collapsed ? 'Show tools' : 'Hide tools',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.4,
                         color: scheme.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        collapsed ? 'Show tools' : 'Hide tools',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.4,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -911,7 +925,7 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
 
   void _onDragEnd(DragEndDetails d) {
     final velocity = -(d.primaryVelocity ?? 0); // up positive
-    final snaps = _SheetSnap.values;
+    const snaps = _SheetSnap.values;
     final current = snaps.indexOf(widget.snap);
     _SheetSnap target;
     if (velocity > 600 && current < snaps.length - 1) {
@@ -972,8 +986,8 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
             key: const Key('lightroom-sheet-body'),
             duration: _dragging
                 ? Duration.zero
-                : const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
+                : AppMotion.sheetDuration,
+            curve: AppMotion.sheetCurve,
             height: contentHeight,
             child: contentHeight <= 0.5
                 ? const SizedBox.shrink()
@@ -1097,9 +1111,7 @@ class _HistogramDrawerState extends ConsumerState<_HistogramDrawer> {
             onTap: () => widget.setOpen(!widget.open),
             onVerticalDragUpdate: _onUpdate,
             onVerticalDragEnd: _onEnd,
-            child: SizedBox(
-              height: 30,
-              child: Row(
+            child: Row(
                 children: [
                   const SizedBox(width: Insets.sm),
                   const Icon(Icons.bar_chart, size: 16),
@@ -1124,24 +1136,23 @@ class _HistogramDrawerState extends ConsumerState<_HistogramDrawer> {
                 ],
               ),
             ),
-          ),
           ClipRect(
             child: AnimatedSize(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
+              duration: AppMotion.standardDuration,
+              curve: AppMotion.standardCurve,
               alignment: Alignment.topCenter,
               child: widget.open
-                  ? SizedBox(
+                  ? const SizedBox(
                       height: 96,
                       width: double.infinity,
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
+                        padding: EdgeInsets.fromLTRB(
                           Insets.md,
                           0,
                           Insets.md,
                           Insets.xs,
                         ),
-                        child: const InteractiveHistogram(height: 90),
+                        child: InteractiveHistogram(height: 90),
                       ),
                     )
                   : const SizedBox.shrink(),
@@ -1226,7 +1237,7 @@ class _CompareHint extends ConsumerWidget {
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
+            color: scheme.onSurface.withValues(alpha: 0.12),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1386,7 +1397,7 @@ class _AiProgressFloatingPill extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.25),
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.25),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),

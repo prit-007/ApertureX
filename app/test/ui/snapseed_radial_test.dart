@@ -92,4 +92,19 @@ void main() {
     expect(picked, hasLength(1)); // no second pick from the backdrop
     expect(find.byKey(const Key('radial-exposure')), findsNothing);
   });
+
+  testWidgets('radial menu items expose accessibility labels for screen readers', (
+    tester,
+  ) async {
+    await tester.pumpWidget(harness());
+
+    await tester.tap(find.byTooltip('Tools'));
+    await tester.pumpAndSettle();
+
+    final exposureNode = tester.getSemantics(find.byKey(const Key('radial-exposure')));
+    expect(exposureNode.label, contains('exposure'));
+
+    final contrastNode = tester.getSemantics(find.byKey(const Key('radial-contrast')));
+    expect(contrastNode.label, contains('contrast'));
+  });
 }

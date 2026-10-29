@@ -152,4 +152,71 @@ void main() {
     await tester.pump();
     expect(container.read(nodeEditorProvider).enabled, isFalse);
   });
+
+  testWidgets('BrushToolbar exposes brushPressureProvider defaulting to 0', (
+    tester,
+  ) async {
+    await pumpToolbar(tester);
+
+    final pressure = container.read(brushPressureProvider);
+    expect(pressure, 0.0);
+  });
+
+  testWidgets('BrushToolbar pressure provider accepts pressure updates', (
+    tester,
+  ) async {
+    await pumpToolbar(tester);
+
+    final notifier = container.read(brushPressureProvider.notifier);
+    notifier.setPressure(0.75);
+    await tester.pump();
+
+    expect(container.read(brushPressureProvider), 0.75);
+  });
+
+  testWidgets('BrushToolbar renders pressure opacity preview chip when pressure > 0', (
+    tester,
+  ) async {
+    final controller = container.read(recipeControllerProvider.notifier);
+    controller.addLayer(
+      const AdjustmentLayer(
+        maskKind: MaskKind.brush,
+        maskParams: [0.08, 0.35, 2, 0.2, 0.2, 1.0, 0.25, 0.25, 1.0],
+        exposure: 0.5,
+      ),
+    );
+    container.read(nodeEditorProvider.notifier).enable();
+    container.read(nodeEditorProvider.notifier).select(0);
+
+    container.read(brushPressureProvider.notifier).setPressure(0.5);
+    await pumpToolbar(tester);
+
+    await tester.pumpAndSettle();
+
+    // Pressure opacity chip should be visible when pressure > 0
+    expect(find.byKey(const Key('brush-pressure-opacity')), findsOneWidget);
+    expect(find.text('Opacity: 50%'), findsOneWidget);
+  });
+
+  testWidgets('BrushToolbar hides pressure opacity chip when pressure is 0', (
+    tester,
+  ) async {
+    final controller = container.read(recipeControllerProvider.notifier);
+    controller.addLayer(
+      const AdjustmentLayer(
+        maskKind: MaskKind.brush,
+        maskParams: [0.08, 0.35, 2, 0.2, 0.2, 1.0, 0.25, 0.25, 1.0],
+        exposure: 0.5,
+      ),
+    );
+    container.read(nodeEditorProvider.notifier).enable();
+    container.read(nodeEditorProvider.notifier).select(0);
+
+    container.read(brushPressureProvider.notifier).setPressure(0.0);
+    await pumpToolbar(tester);
+
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('brush-pressure-opacity')), findsNothing);
+  });
 }

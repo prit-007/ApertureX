@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
+import 'package:aperturex/viewport/image_canvas.dart' show ImageCanvas;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -97,12 +98,16 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
   void didUpdateWidget(SnapseedShell old) {
     super.didUpdateWidget(old);
     if (widget.gesturePhase == GesturePhase.scrubbing) {
+      // Scrubbing started or continuing: cancel any pending fade-out and show
+      // the HUD immediately.
       _scrubFadeTimer?.cancel();
+      _scrubFadeTimer = null;
       if (!_scrubVisible) {
         setState(() => _scrubVisible = true);
       }
     } else if (old.gesturePhase == GesturePhase.scrubbing &&
         widget.gesturePhase != GesturePhase.scrubbing) {
+      // Scrubbing ended: fade the HUD out over 600ms instead of snapping off.
       _scrubFadeTimer?.cancel();
       _scrubFadeTimer = Timer(const Duration(milliseconds: 600), () {
         if (mounted) setState(() => _scrubVisible = false);
@@ -144,7 +149,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => SizedBox(
-        height: MediaQuery.of(context).size.height * 0.70,
+        height: MediaQuery.sizeOf(context).height * 0.70,
         child: SnapseedToolsSheet(
           onSelectCategoryAndTool: (cat, tool) {
             if (widget.onSelectCategoryAndTool != null) {
@@ -208,22 +213,26 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.black87,
+                  color: scheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: Colors.redAccent.withValues(alpha: 0.8),
+                    color: scheme.error.withValues(alpha: 0.8),
                     width: 1.5,
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.blur_circular, color: Colors.redAccent, size: 16),
+                    Icon(
+                      Icons.blur_circular,
+                      color: scheme.error,
+                      size: 16,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Zone ${zoneMask.activeZone} (${(zoneMask.activeZone / 10.0 * 100).round()}%) · Luminosity Mask',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: scheme.onError,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -250,11 +259,11 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                     color: scheme.primary.withValues(alpha: 0.6),
                     width: 1.0,
                   ),
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
-                      color: Colors.black26,
+                      color: scheme.onSurface.withValues(alpha: 0.16),
                       blurRadius: 8,
-                      offset: Offset(0, 2),
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
@@ -289,14 +298,22 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           ),
 
         // Live Snapseed-style top scrubbing HUD pill
-        if ((widget.gesturePhase == GesturePhase.scrubbing || _scrubVisible) && !nodeMode)
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + 16,
-            left: 16,
-            right: 16,
-            child: IgnorePointer(
-              child: SnapseedScrubHud(
-                tool: widget.tool,
+        Positioned(
+          top: MediaQuery.paddingOf(context).top + 16,
+          left: 16,
+          right: 16,
+          child: AnimatedOpacity(
+            opacity: ((widget.gesturePhase == GesturePhase.scrubbing ||
+                        _scrubVisible) &&
+                    !nodeMode)
+                ? 1.0
+                : 0.0,
+            duration: AppMotion.shortDuration,
+            curve: AppMotion.scrubCurve,
+              child: IgnorePointer(
+                child: SnapseedScrubHud(
+                  key: const Key('snapseed-scrub-hud-root'),
+                  tool: widget.tool,
                 value: value,
                 hue: widget.tool.is2D
                     ? switch (widget.tool) {
@@ -318,6 +335,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
               ),
             ),
           ),
+        ),
 
         // Live Snapseed-style vertical parameter selection carousel
         if (widget.gesturePhase == GesturePhase.cycling && !nodeMode)
@@ -358,7 +376,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.16),
+                            color: scheme.onSurface.withValues(alpha: 0.16),
                             blurRadius: 10,
                             offset: const Offset(0, 3),
                           ),
@@ -376,7 +394,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                 tooltip: 'All Tools',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                                 onPressed: () => _openToolsSheet(context),
                                 icon: const Icon(Icons.grid_view, size: 17),
                               ),
@@ -385,7 +403,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                 tooltip: 'Straighten & Rotate',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                                 isSelected: _straightenOpen,
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
@@ -398,7 +416,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                 tooltip: 'Tools',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   setState(() => _radialOpen = true);
@@ -466,7 +484,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
                                           color: s > 0.01 ? swatch : scheme.outline,
-                                          border: Border.all(color: Colors.white24, width: 0.5),
+                                          border: Border.all(color: scheme.onSurfaceVariant.withValues(alpha: 0.5), width: 0.5),
                                         ),
                                       ),
                                       const SizedBox(width: 4),
@@ -499,7 +517,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                     'drag to adjust it',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                                 isSelected: ref.watch(tatModeProvider),
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
@@ -513,7 +531,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                 tooltip: 'Selective',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   ref.read(nodeEditorProvider.notifier).enable();
@@ -526,7 +544,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                   tooltip: widget.histogramOpen ? 'Hide histogram' : 'Show histogram',
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                                   isSelected: widget.histogramOpen,
                                   onPressed: () {
                                     HapticFeedback.selectionClick();
@@ -536,15 +554,15 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                   selectedIcon: Icon(Icons.bar_chart, size: 17, color: scheme.primary),
                                 ),
                             ],
-                          ),
-                        ),
-                      ),
+            ),
+          ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
+        ),
 
         // Floating straighten & rotation dial HUD
         if (_straightenOpen && !nodeMode)
@@ -682,13 +700,16 @@ class _RadialMenu extends StatelessWidget {
                           math.sin(-math.pi / 2 + i * 2 * math.pi / tools.length) *
                               radius -
                           hitH / 2,
-                      child: GestureDetector(
-                        key: Key('radial-${tools[i].name}'),
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          onPick(tools[i]);
-                        },
-                        child: Container(
+                      child: Semantics(
+                        button: true,
+                        label: tools[i].name,
+                        child: GestureDetector(
+                          key: Key('radial-${tools[i].name}'),
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            onPick(tools[i]);
+                          },
+                          child: Container(
                           width: hitW,
                           height: hitH,
                           color: Colors.transparent,
@@ -701,6 +722,7 @@ class _RadialMenu extends StatelessWidget {
                         ),
                       ),
                     ),
+                  ),
                 ],
               ),
             ),

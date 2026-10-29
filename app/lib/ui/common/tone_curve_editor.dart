@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -155,7 +157,13 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
             padding: const EdgeInsets.all(16),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final side = constraints.biggest.shortestSide;
+                final padding = MediaQuery.of(context).padding;
+                final maxSide = math.min(
+                  constraints.maxWidth - padding.horizontal,
+                  constraints.maxHeight - padding.vertical,
+                ).clamp(0.0, double.infinity);
+                final side =
+                    constraints.biggest.shortestSide.clamp(0.0, maxSide);
                 final tolerance = ToneCurveEditor.toleranceFor(Size(side, side));
                 return Center(
                   child: SizedBox(

@@ -103,7 +103,7 @@ class ParameterControl extends ConsumerWidget {
                 tooltip: 'Jog Dial (${spec.label})',
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 onPressed: () {
                   HapticFeedback.selectionClick();
                   showRotaryJogDial(context, parameter: parameter);
