@@ -413,8 +413,8 @@ jobs:
         run: |
           set -euo pipefail
           SO=$(ls build/linux/x64/release/bundle/lib/librust_lib_aperturex*.so 2>/dev/null | head -1)
-          test -n "$SO" || { echo "Missing librust_lib_aperturex*.so in bundle"; exit 1 }
-          test -s "$SO" || { echo "Empty $SO"; exit 1 }
+          if [ -z "$SO" ]; then echo "Missing librust_lib_aperturex*.so in bundle"; exit 1; fi
+          if [ ! -s "$SO" ]; then echo "Empty $SO"; exit 1; fi
           echo "Engine .so OK: $SO"
 
       - name: Create tarball
@@ -470,6 +470,8 @@ jobs:
 
       - name: Build release macOS app
         working-directory: app
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: flutter build macos --release
 
       - name: Verify engine dylib
@@ -477,8 +479,8 @@ jobs:
         run: |
           set -euo pipefail
           DYLIB=$(find build/macos/Build/Products/Release -name "librust_lib_aperturex.dylib" 2>/dev/null | head -1)
-          test -n "$DYLIB" || { echo "Missing librust_lib_aperturex.dylib in .app Frameworks"; exit 1 }
-          test -s "$DYLIB" || { echo "Empty $DYLIB"; exit 1 }
+          if [ -z "$DYLIB" ]; then echo "Missing librust_lib_aperturex.dylib in .app Frameworks"; exit 1; fi
+          if [ ! -s "$DYLIB" ]; then echo "Empty $DYLIB"; exit 1; fi
           echo "Engine dylib OK: $DYLIB"
 
       - name: Zip .app

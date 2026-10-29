@@ -18,9 +18,20 @@ HDR multi-exposure merge and Ultra HDR export engine.
 - **Animated shell switcher** — Smooth fade/slide transition between Lightroom and Snapseed shells.
 - **Crop grid feathering** — Rule-of-thirds grid fades in during drag, out on release.
 - **Shell switch haptics** — Tactile confirmation when switching editing shells.
+- **WindowSizeClass adaptive layout (#101)** — Shell derives layout from `MediaQuery.sizeOf()` instead of device checks; `WindowSizeClass` enum (compact/medium/expanded/large/extraLarge) with Material 3 breakpoints (600/840/1200/1600 dp).
+- **M3 Motion tokens (#101)** — `AppMotion` class with `Durations`/`Easing` constants replacing hardcoded `Duration`/`Curves` across all animations, fades, and sheet transitions.
 
 ### Changed
-- Version bumped to 0.2.5 across all crates and packages.
+- **Version bumped to 0.2.5 across all crates and packages.**
+- **Adaptive shell navigation (#101)** — Navigation affordance chosen by width class: compact → bottom bar, medium/expanded → rail, large → drawer; no `Platform.is*` layout checks anywhere.
+- **Animation consistency (#101)** — `Timer`-based fades replaced with `AnimatedOpacity` + `AppMotion` tokens; all hardcoded `Duration(milliseconds:)` / `Curves.*` replaced with M3 tokens (`short1`, `short2`, `short3`, `medium2`, `medium4`).
+- **Desktop CI + Inno Setup installer (#101)** — `build-windows`, `build-linux`, `build-macos` jobs; `tool/build_installer.dart` generates `.iss` (fresh AppId GUID, `../LICENSE` pathing, `--dry-run` validation); release job conditionally downloads desktop artifacts.
+- **Stylus ergonomics (#126)** — Radial menu exposes `Semantics` button role + label; jog-dial, tool-dock, and retouch-delete buttons meet 48×48dp touch target; EditHud caps visible badges at 4 with `+N more` overflow chip.
+
+### Fixed
+- **Small-screen overflow (#126)** — Fixed 5px `RenderFlex` overflow at 2× text scale; `_PanelHandle` and `_HistogramDrawer` use content-sized `Column`s instead of fixed `SizedBox(height: 30)`.
+- **Stylus pressure + palm rejection (#126)** — `brushPressureProvider` + dynamic opacity preview chip in `BrushToolbar`; canvas `Listener` reports stylus pressure and ignores touch for brushes (palm rejection); `invertedStylus` engages eraser mode.
+- **Mask haptics (#127)** — Invert button fires `selectionClick` on toggle; Duplicate button fires `lightImpact` on creation; Delete button fires `mediumImpact` on destructive action.
 
 ## [0.2.4] - 2026-10-20
 
