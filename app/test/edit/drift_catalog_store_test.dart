@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:aperturex/edit/catalog_db.dart';
 import 'package:aperturex/edit/drift_catalog_store.dart';
 import 'package:aperturex/edit/library_catalog.dart';
@@ -138,6 +140,56 @@ void main() {
       expect(loaded.length, 1);
       expect(loaded.containsKey('orig:1'), isFalse);
       expect(loaded.containsKey('orig:2'), isTrue);
+    });
+  });
+
+  group('cold open on a fresh file (#104 sqlite3 hook)', () {
+    // The sqlite3 package's native-assets hook supplies libsqlite3 to app
+    // bundles (replacing sqlite3_flutter_libs); host tests open whatever
+    // sqlite3 the package resolves. Either way this is the drift contract
+    // that must hold on a brand-new catalog.sqlite: schema migrates from
+    // nothing to version 1, both tables exist, rows survive a reopen.
+    test('creates schemaVersion 1 with both tables and persists across reopen',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('catalog_cold_');
+      addTearDown(() => dir.delete(recursive: true));
+      final dbPath = '${dir.path}/catalog.sqlite';
+
+      final first = CatalogDb(NativeDatabase(File(dbPath)));
+      final version =
+          await first.customSelect('PRAGMA user_version').getSingle();
+      expect(
+        version.data.values.first,
+        1,
+        reason: 'drift stamps user_version = schemaVersion on first open',
+      );
+
+      final tables = await first
+          .customSelect(
+            "SELECT name FROM sqlite_master WHERE type = 'table'",
+          )
+          .get();
+      final names = [for (final row in tables) row.data.values.first];
+      expect(
+        names,
+        containsAll(<String>['catalog_entries', 'edit_previews']),
+        reason: 'both tables must be created by the migration',
+      );
+
+      final store = DriftLibraryCatalogStore(first);
+      final entry = CatalogEntry.original(
+        entryId: 'orig:cold',
+        recipe: EditRecipe.neutral.copyWith(exposure: 0.7),
+      );
+      await store.save({entry.entryId: entry});
+      await first.close();
+
+      // Reopen the same file: a fresh process's cold start.
+      final second = CatalogDb(NativeDatabase(File(dbPath)));
+      addTearDown(second.close);
+      final reloaded = await DriftLibraryCatalogStore(second).load();
+      expect(reloaded, hasLength(1));
+      expect(reloaded['orig:cold']!.recipe.exposure, 0.7);
     });
   });
 

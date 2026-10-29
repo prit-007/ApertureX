@@ -1,7 +1,7 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gal/gal.dart';
 
 import '../color/blur_spec.dart';
 import '../color/grade_spec.dart';
@@ -14,6 +14,8 @@ import '../edit/xmp_sidecar.dart';
 import '../engine/engine.dart';
 import '../engine/image_format.dart';
 import '../features/editor/export_progress.dart';
+import '../platform/file_saver.dart';
+import '../platform/photo_saver.dart';
 import '../settings/export_settings.dart';
 import 'gallery_controller.dart' show gallerySourceProvider;
 import 'gallery_source.dart';
@@ -183,6 +185,9 @@ class GalleryExporter {
     this.item,
     this.sidecar,
     this.settings = const ExportSettings(),
+    this.isDesktop = false,
+    this.sink = const RealGalSink(),
+    this.pickDirectory,
   });
 
   final GallerySource source;
@@ -205,15 +210,31 @@ class GalleryExporter {
   /// keep their meaning.
   final ExportSettings settings;
 
+  /// Desktop (#104): gal has no Linux implementation, so a desktop batch
+  /// asks for a destination folder once (via [pickDirectory]) and every item
+  /// writes `aperturex_<id>.jpg` there. Mobile keeps gal through [sink].
+  final bool isDesktop;
+
+  /// Where mobile exports land (gal). Desktop batches never touch it — the
+  /// recording fakes in tests fail loudly if they do.
+  final GallerySink sink;
+
+  /// Folder picker for [isDesktop] batches; `null` falls back to the real
+  /// `file_picker` directory dialog.
+  final DirectoryPickDialog? pickDirectory;
+
   /// Grades and saves one asset with [recipe]; returns true when the bytes
   /// reached the gallery (false = failed or cancelled). [onFraction], when
   /// set, receives the render fraction (0..1) polled from the engine's
-  /// progress cell while the full-res export runs.
+  /// progress cell while the full-res export runs. [destinationDirectory]
+  /// (desktop batch, #104) redirects the write to
+  /// `<destinationDirectory>/aperturex_<assetId>.jpg` instead of gal.
   Future<bool> exportAsset(
     String assetId,
     EditRecipe recipe, {
     BatchCancel? cancel,
     void Function(double fraction)? onFraction,
+    String? destinationDirectory,
   }) async {
     final src = await source.loadImage(assetId);
     if (src.isEmpty) return false;
@@ -280,7 +301,16 @@ class GalleryExporter {
         hdrHeadroom: opts.hdrHeadroom,
       );
       if (out == null) return false; // cancelled at a band boundary
-      await Gal.putImageBytes(out, name: 'aperturex_$assetId');
+      if (destinationDirectory != null) {
+        // Desktop batch: plain filesystem write — gal has no Linux impl.
+        final file = File(
+          '$destinationDirectory${Platform.pathSeparator}'
+          'aperturex_$assetId.jpg',
+        );
+        await file.writeAsBytes(out, flush: true);
+      } else {
+        await sink.putImageBytes(out, name: 'aperturex_$assetId');
+      }
       await emitXmpSidecar(sidecar, 'aperturex_$assetId', recipe);
       return true;
     } finally {
@@ -304,7 +334,22 @@ class GalleryExporter {
   }) async {
     final ids = assetIds.toList(growable: false);
     final total = ids.length;
-    final BatchExportItem run = item ?? _runCancellable(cancel, onItemProgress);
+    // Desktop (#104): one folder dialog for the whole batch, asked before
+    // any worker starts — cancelling it aborts the batch (cancelled result,
+    // no items rendered), matching the cooperative-cancel contract.
+    String? destinationDirectory;
+    if (isDesktop) {
+      destinationDirectory = await (pickDirectory ?? filePickerDirectoryPath)();
+      if (destinationDirectory == null) {
+        return const BatchExportResult(
+          exported: 0,
+          failed: <String>[],
+          cancelled: true,
+        );
+      }
+    }
+    final BatchExportItem run =
+        item ?? _runCancellable(cancel, onItemProgress, destinationDirectory: destinationDirectory);
     var next = 0;
     var done = 0;
     var exported = 0;
@@ -353,14 +398,16 @@ class GalleryExporter {
 
   BatchExportItem _runCancellable(
     BatchCancel? cancel,
-    void Function(String id, double fraction)? onItemProgress,
-  ) => (assetId, recipe) => exportAsset(
+    void Function(String id, double fraction)? onItemProgress, {
+    String? destinationDirectory,
+  }) => (assetId, recipe) => exportAsset(
     assetId,
     recipe,
     cancel: cancel,
     onFraction: onItemProgress == null
         ? null
         : (fraction) => onItemProgress(assetId, fraction),
+    destinationDirectory: destinationDirectory,
   );
 }
 
@@ -370,5 +417,8 @@ final galleryExporterProvider = Provider<GalleryExporter>(
     ref.watch(gallerySourceProvider),
     sidecar: ref.watch(exportSidecarSinkProvider),
     settings: ref.watch(exportSettingsProvider),
+    isDesktop: ref.watch(isDesktopPlatformProvider),
+    sink: ref.watch(gallerySinkProvider),
+    pickDirectory: ref.watch(pickDirectoryProvider),
   ),
 );

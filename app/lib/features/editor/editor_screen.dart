@@ -6,7 +6,6 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/services.dart'
     show HapticFeedback, SystemChrome, SystemUiMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gal/gal.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -33,6 +32,7 @@ import '../../edit/xmp_writer.dart';
 import '../../gallery/edit_preview_store.dart';
 import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
+import '../../platform/photo_saver.dart';
 import 'export_options_sheet.dart';
 import '../../engine/engine.dart';
 import '../../engine/image_format.dart';
@@ -548,9 +548,22 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
         if (!mounted) return;
         setState(() => _exportPhase = ExportPhase.saving);
-        if (!await Gal.hasAccess()) await Gal.requestAccess();
         final outName = 'aperturex_${DateTime.now().millisecondsSinceEpoch}';
-        await Gal.putImageBytes(jpeg, name: outName);
+        // Desktop → save dialog; mobile → gal. The branch lives in PhotoSaver
+        // so this screen never touches gal directly (#104).
+        final outcome = await ref
+            .read(photoSaverProvider)
+            .saveBytes(jpeg, name: outName);
+        if (outcome == null) {
+          // User cancelled the dialog: abort quietly, no sidecar (#104).
+          axLog(LogDomain.export, 'Save cancelled at the file dialog');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Save cancelled')),
+            );
+          }
+          return;
+        }
         // Sidecar next to the export (#77): the same recipe as a Lightroom-
         // readable .xmp, best effort (a failure logs, never fails the export).
         await emitXmpSidecar(
@@ -567,7 +580,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Saved to your photos'),
+            content: outcome is SavedToFile
+                ? Text('Saved to ${outcome.file.path}')
+                : const Text('Saved to your photos'),
             action: SnackBarAction(
               label: 'Share',
               onPressed: () => _share(jpeg, recipe),
@@ -629,13 +644,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
       if (!mounted) return;
       setState(() => _exportPhase = ExportPhase.saving);
-      if (!await Gal.hasAccess()) await Gal.requestAccess();
       final outName = 'aperturex_${DateTime.now().millisecondsSinceEpoch}';
 
-      final dir = await getTemporaryDirectory();
-      final tempFile = File('${dir.path}/$outName.dng');
-      await tempFile.writeAsBytes(dng, flush: true);
-      await Gal.putImage(tempFile.path);
+      // Desktop writes the dialog path directly; mobile stages a temp file
+      // for gal — PhotoSaver owns that split (#104).
+      final outcome = await ref
+          .read(photoSaverProvider)
+          .saveFile(dng, name: outName, extension: 'dng');
+      if (outcome == null) {
+        axLog(LogDomain.export, 'DNG save cancelled at the file dialog');
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Save cancelled')),
+        );
+        return;
+      }
 
       await emitXmpSidecar(
         ref.read(exportSidecarSinkProvider),
@@ -649,7 +671,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       );
       messenger.showSnackBar(
         SnackBar(
-          content: const Text('DNG saved to your photos'),
+          content: outcome is SavedToFile
+              ? Text('DNG saved to ${outcome.file.path}')
+              : const Text('DNG saved to your photos'),
           action: SnackBarAction(
             label: 'Share',
             onPressed: () => _shareDng(Uint8List.fromList(dng)),
@@ -720,12 +744,19 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         );
 
         if (!mounted) return;
-        if (!await Gal.hasAccess()) await Gal.requestAccess();
         final outName = 'aperturex_${DateTime.now().millisecondsSinceEpoch}';
-        final dir = await getTemporaryDirectory();
-        final tempFile = File('${dir.path}/$outName.tiff');
-        await tempFile.writeAsBytes(tiff, flush: true);
-        await Gal.putImage(tempFile.path);
+        final outcome = await ref
+            .read(photoSaverProvider)
+            .saveFile(tiff, name: outName, extension: 'tiff');
+        if (outcome == null) {
+          axLog(LogDomain.export, 'TIFF save cancelled at the file dialog');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Save cancelled')),
+            );
+          }
+          return;
+        }
 
         await emitXmpSidecar(
           ref.read(exportSidecarSinkProvider),
@@ -739,7 +770,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('TIFF 16-bit saved to your photos')),
+          SnackBar(
+            content: outcome is SavedToFile
+                ? Text('TIFF 16-bit saved to ${outcome.file.path}')
+                : const Text('TIFF 16-bit saved to your photos'),
+          ),
         );
       },
       onCancelled: () {
