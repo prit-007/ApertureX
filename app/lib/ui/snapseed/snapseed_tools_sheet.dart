@@ -131,6 +131,32 @@ const List<SnapseedToolDef> snapseedToolsList = [
   ),
 ];
 
+/// Grouped categorized map of tools for the Snapseed Tools Sheet.
+final Map<String, List<SnapseedToolDef>> snapseedCategorizedTools = {
+  'Adjustments': [
+    snapseedToolsList[0], // Tune Image
+    snapseedToolsList[2], // Curves
+    snapseedToolsList[3], // White Balance
+  ],
+  'Details & Optics': [
+    snapseedToolsList[1], // Details
+    snapseedToolsList[12], // Optics
+  ],
+  'Composition': [
+    snapseedToolsList[4], // Crop & Rotate
+    snapseedToolsList[5], // Straighten
+  ],
+  'Creative & Retouch': [
+    snapseedToolsList[6], // Selective
+    snapseedToolsList[7], // Brush
+    snapseedToolsList[8], // Healing
+    snapseedToolsList[9], // Lens Blur
+    snapseedToolsList[10], // Vignette
+    snapseedToolsList[11], // Film & Grain
+    snapseedToolsList[13], // Shader Lab
+  ],
+};
+
 /// A Snapseed-style comprehensive tools bottom sheet displaying an organized
 /// grid of all 14 creative editing tools with iconic circular buttons.
 class SnapseedToolsSheet extends ConsumerWidget {
@@ -303,11 +329,12 @@ class SnapseedToolsSheet extends ConsumerWidget {
               Expanded(
                 child: GridView.builder(
                   physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 2, vertical: Insets.xs),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 4,
-                    mainAxisSpacing: Insets.md,
-                    crossAxisSpacing: Insets.sm,
-                    childAspectRatio: 0.82,
+                    mainAxisSpacing: Insets.sm,
+                    crossAxisSpacing: Insets.xs,
+                    childAspectRatio: 0.88,
                   ),
                   itemCount: snapseedToolsList.length,
                   itemBuilder: (context, index) {
@@ -330,17 +357,23 @@ class SnapseedToolsSheet extends ConsumerWidget {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: isModified
-                                    ? scheme.primaryContainer.withValues(alpha: 0.45)
+                                    ? scheme.primaryContainer.withValues(alpha: 0.5)
                                     : scheme.surfaceContainerHighest,
+                                border: Border.all(
+                                  color: isModified
+                                      ? scheme.primary.withValues(alpha: 0.6)
+                                      : scheme.outlineVariant.withValues(alpha: 0.35),
+                                  width: 1,
+                                ),
                               ),
                               child: Icon(
                                 tool.icon,
-                                size: 24,
+                                size: 23,
                                 color: isModified ? scheme.primary : scheme.onSurfaceVariant,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 5),
                           Text(
                             tool.label,
                             textAlign: TextAlign.center,

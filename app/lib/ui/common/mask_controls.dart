@@ -80,6 +80,18 @@ final embeddedDepthExtractorProvider = Provider<EmbeddedDepthExtractorFn>((ref) 
   return (Uint8List bytes) => AxEngine.extractEmbeddedDepth(bytes);
 });
 
+/// Function signature for depth map estimation from RGBA, overridable in tests.
+typedef DepthEstimatorFn = Future<Float32List> Function(Uint8List rgba, int width, int height);
+
+/// Riverpod provider for on-device neural depth estimation, overridable in tests.
+final depthEstimatorProvider = Provider<DepthEstimatorFn>((ref) {
+  return (Uint8List rgba, int width, int height) => AxEngine.estimateDepthMap(
+    rgba: rgba,
+    width: width,
+    height: height,
+  );
+});
+
 /// Notifier tracking in-flight AI mask inference.
 class AiMaskInferringNotifier extends Notifier<bool> {
   @override
@@ -339,6 +351,7 @@ class MaskControls extends ConsumerWidget {
                                 height: depthResult.height,
                                 alphas: alphas,
                                 exposure: 0.3,
+                                aiIntent: 'depth',
                               ),
                             );
                             ref.read(nodeEditorProvider.notifier).enable();
@@ -349,9 +362,38 @@ class MaskControls extends ConsumerWidget {
                                 const SnackBar(content: Text('Loaded embedded portrait depth mask')),
                               );
                             }
-                          } else if (context.mounted) {
+                          } else {
+                            ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+                                'Synthesizing AI monocular depth map…');
+                            final decoded = await AxEngine.decodeAnalysisProxy(bytes);
+                            final estimated = await ref.read(depthEstimatorProvider)(
+                              decoded.rgba,
+                              decoded.width,
+                              decoded.height,
+                            );
+                            final idx = layers.length;
+                            notifier.addLayer(
+                              AdjustmentLayer.bitmap(
+                                width: decoded.width,
+                                height: decoded.height,
+                                alphas: estimated.toList(),
+                                exposure: 0.3,
+                                aiIntent: 'depth',
+                              ),
+                            );
+                            ref.read(nodeEditorProvider.notifier).enable();
+                            ref.read(nodeEditorProvider.notifier).select(idx);
+                            HapticFeedback.selectionClick();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Generated AI neural depth mask')),
+                              );
+                            }
+                          }
+                        } catch (_) {
+                          if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('No embedded depth map in photo metadata')),
+                              const SnackBar(content: Text('Could not generate depth mask')),
                             );
                           }
                         } finally {

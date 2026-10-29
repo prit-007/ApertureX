@@ -15,6 +15,8 @@ import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
 import '../../features/ai_plugins/ai_plugin_store.dart';
 import '../../features/ai_plugins/ai_plugins_screen.dart';
+import '../../features/presets/community_preset_model.dart';
+import '../../features/presets/community_presets_provider.dart';
 import '../../viewport/compare_hold.dart';
 import '../../viewport/exposure_assist.dart';
 import '../../viewport/mask_peek.dart' show rubyPeeksEnabledProvider;
@@ -1031,6 +1033,7 @@ class _PluginsPanelView extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final installed = state.installedPlugins;
+    final notifier = ref.read(aiPluginProvider.notifier);
 
     return ListView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -1072,6 +1075,44 @@ class _PluginsPanelView extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: Insets.sm),
+        const SectionHeader('Active AI Pipeline'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: Insets.sm),
+          child: Text(
+            'Hardware-accelerated neural tasks running on-device via NPU/GPU.',
+            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+          ),
+        ),
+        _aiTaskCard(
+          context,
+          icon: Icons.person_search_rounded,
+          taskName: 'Subject & Object Saliency',
+          modelName: 'ApertureX Saliency (Zero-Copy)',
+          status: 'Active · NPU Accelerated',
+        ),
+        _aiTaskCard(
+          context,
+          icon: Icons.blur_on_rounded,
+          taskName: 'Monocular Depth Estimation',
+          modelName: 'Depth Gradient & Saliency Fusion',
+          status: 'Active · Optical Bokeh Ready',
+        ),
+        _aiTaskCard(
+          context,
+          icon: Icons.auto_fix_high_rounded,
+          taskName: 'Edge Refinement & Matting',
+          modelName: 'Guided Filter Re-Matting',
+          status: 'Active · Pixel-Perfect Edges',
+        ),
+        _aiTaskCard(
+          context,
+          icon: Icons.cloud_outlined,
+          taskName: 'Sky & Horizon Detection',
+          modelName: 'Chromatic Sky Segmenter',
+          status: 'Active · Adaptive Boundary',
+        ),
+        const SizedBox(height: Insets.md),
+        const SectionHeader('Installed Models'),
         for (final p in installed)
           ListTile(
             dense: true,
@@ -1097,81 +1138,343 @@ class _PluginsPanelView extends ConsumerWidget {
               ),
             ),
           ),
+        const SizedBox(height: Insets.md),
+        const SectionHeader('Community Model Hub'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: Insets.sm),
+          child: Text(
+            'Explore high-performance vision models available for instant on-device installation.',
+            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+          ),
+        ),
+        for (final m in kCommunityAiPlugins) ...[
+          Builder(builder: (context) {
+            final isInstalled = installed.any((p) => p.id == m.id);
+            final isDownloading = state.downloadingId == m.id;
+            return Card.outlined(
+              margin: const EdgeInsets.only(bottom: Insets.xs),
+              child: ListTile(
+                dense: true,
+                leading: Icon(
+                  Icons.hub_outlined,
+                  color: isInstalled ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+                title: Text(
+                  m.name,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  '${m.task.label} · ${(m.fileSizeBytes / 1000000).toStringAsFixed(0)} MB',
+                  style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                ),
+                trailing: isDownloading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : isInstalled
+                        ? Icon(Icons.check_circle, color: scheme.primary, size: 20)
+                        : OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                            onPressed: () => notifier.installCommunityPlugin(m),
+                            child: const Text('Install', style: TextStyle(fontSize: 11)),
+                          ),
+              ),
+            );
+          }),
+        ],
       ],
+    );
+  }
+
+  Widget _aiTaskCard(
+    BuildContext context, {
+    required IconData icon,
+    required String taskName,
+    required String modelName,
+    required String status,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(bottom: Insets.xs),
+      elevation: 0,
+      color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: Insets.xs),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: scheme.primary),
+            const SizedBox(width: Insets.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    taskName,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    modelName,
+                    style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                status,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-/// Panel for applying built-in looks and presets to the current image.
-class LooksPresetsPanel extends ConsumerWidget {
+/// Panel for applying built-in looks and community presets to the current image.
+class LooksPresetsPanel extends ConsumerStatefulWidget {
   const LooksPresetsPanel({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LooksPresetsPanel> createState() => _LooksPresetsPanelState();
+}
+
+class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
+  String _selectedCategory = 'All';
+  String _searchQuery = '';
+
+  static const List<String> _categories = [
+    'All',
+    'Built-in',
+    'Film',
+    'Portraits',
+    'Moody',
+    'Landscape',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final recipe = ref.watch(recipeControllerProvider).recipe;
     final notifier = ref.read(recipeControllerProvider.notifier);
+    final communityState = ref.watch(communityPresetsProvider);
+
+    // Filter builtins
+    final builtins = ToolLibrary.builtins.where((tool) {
+      if (_selectedCategory != 'All' && _selectedCategory != 'Built-in') return false;
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        return tool.name.toLowerCase().contains(q) ||
+            tool.description.toLowerCase().contains(q);
+      }
+      return true;
+    }).toList();
+
+    // Filter community presets
+    final communityPresets = communityState.presets.where((preset) {
+      if (_selectedCategory == 'Built-in') return false;
+      if (_selectedCategory != 'All' &&
+          preset.category.toLowerCase() != _selectedCategory.toLowerCase()) {
+        return false;
+      }
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        return preset.name.toLowerCase().contains(q) ||
+            preset.description.toLowerCase().contains(q) ||
+            preset.author.toLowerCase().contains(q) ||
+            preset.tags.any((t) => t.toLowerCase().contains(q));
+      }
+      return true;
+    }).toList();
 
     return ListView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.all(Insets.md),
       children: [
-        const SectionHeader('Built-in Looks'),
+        const SectionHeader('Creative Looks & Presets'),
         Text(
-          'Tap a look to apply it to the current image. '
-          'Applied looks create a new history entry so you can undo.',
+          'One-tap aesthetic grading. Presets create non-destructive history entries so you can fine-tune or undo anytime.',
           style: TextStyle(
             fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            color: scheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: Insets.md),
-        ...ToolLibrary.builtins.map((tool) {
-          final isApplied = _looksMatch(tool, recipe);
-          return Card(
-            margin: const EdgeInsets.only(bottom: Insets.xs),
-            child: ListTile(
-              leading: Icon(
-                Icons.style,
-                color: isApplied ? scheme.primary : scheme.onSurfaceVariant,
-              ),
-              title: Text(
-                tool.name,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: isApplied ? scheme.primary : null,
-                ),
-              ),
-              subtitle: Text(
-                tool.description,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11),
-              ),
-              trailing: isApplied
-                  ? Icon(Icons.check_circle, color: scheme.primary, size: 20)
-                  : Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-              onTap: () {
-                HapticFeedback.lightImpact();
-                notifier.applyTool(tool);
-                notifier.commit(label: 'Applied ${tool.name}');
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Applied look: ${tool.name}'),
-                    duration: const Duration(seconds: 1),
+        const SizedBox(height: Insets.sm),
+        TextField(
+          decoration: InputDecoration(
+            hintText: 'Search looks & presets…',
+            prefixIcon: const Icon(Icons.search, size: 18),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 16),
+                    onPressed: () => setState(() => _searchQuery = ''),
+                  )
+                : null,
+            isDense: true,
+            border: const OutlineInputBorder(borderRadius: Radii.smAll),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          ),
+          onChanged: (val) => setState(() => _searchQuery = val),
+        ),
+        const SizedBox(height: Insets.sm),
+        // Category chips
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final cat in _categories)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: FilterChip(
+                    label: Text(cat, style: const TextStyle(fontSize: 11)),
+                    selected: _selectedCategory == cat,
+                    onSelected: (val) {
+                      if (val) setState(() => _selectedCategory = cat);
+                    },
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                   ),
-                );
-              },
-            ),
-          );
-        }),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: Insets.sm),
+        // Built-in looks
+        if (builtins.isNotEmpty) ...[
+          const SectionHeader('Built-in Looks'),
+          const SizedBox(height: Insets.xs),
+          for (final tool in builtins) ...[
+            Builder(builder: (context) {
+              final isApplied = _looksMatch(tool, recipe);
+              return Card(
+                margin: const EdgeInsets.only(bottom: Insets.xs),
+                child: ListTile(
+                  leading: Icon(
+                    Icons.style,
+                    color: isApplied ? scheme.primary : scheme.onSurfaceVariant,
+                  ),
+                  title: Text(
+                    tool.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isApplied ? scheme.primary : null,
+                    ),
+                  ),
+                  subtitle: Text(
+                    tool.description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  trailing: isApplied
+                      ? Icon(Icons.check_circle, color: scheme.primary, size: 20)
+                      : Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    notifier.applyTool(tool);
+                    notifier.commit(label: 'Applied ${tool.name}');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Applied look: ${tool.name}'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
+              );
+            }),
+          ],
+          const SizedBox(height: Insets.sm),
+        ],
+
+        // Community Presets
+        if (communityPresets.isNotEmpty) ...[
+          const SectionHeader('Community Presets'),
+          const SizedBox(height: Insets.xs),
+          for (final preset in communityPresets) ...[
+            Builder(builder: (context) {
+              final isApplied = _presetMatches(preset, recipe);
+              return Card(
+                margin: const EdgeInsets.only(bottom: Insets.xs),
+                child: ListTile(
+                  leading: Icon(
+                    Icons.auto_awesome,
+                    color: isApplied ? scheme.primary : scheme.onSurfaceVariant,
+                  ),
+                  title: Row(
+                    children: [
+                      Text(
+                        preset.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: isApplied ? scheme.primary : null,
+                        ),
+                      ),
+                      const SizedBox(width: Insets.xs),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: scheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          preset.category,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: scheme.onSecondaryContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  subtitle: Text(
+                    '${preset.author} · ★ ${preset.rating.toStringAsFixed(1)} · ${preset.description}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  trailing: isApplied
+                      ? Icon(Icons.check_circle, color: scheme.primary, size: 20)
+                      : Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    ref.read(communityPresetsProvider.notifier).applyPreset(ref, preset);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Applied preset: ${preset.name}'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
+              );
+            }),
+          ],
+        ],
+
         const SizedBox(height: Insets.lg),
         const SectionHeader('Import Look'),
         Text(
           'Paste a look JSON or apx:// QR code to import a custom preset.',
           style: TextStyle(
             fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            color: scheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: Insets.sm),
@@ -1221,6 +1524,18 @@ class LooksPresetsPanel extends ConsumerWidget {
 
   bool _looksMatch(ToolDefinition tool, EditRecipe recipe) {
     for (final entry in tool.params.entries) {
+      final param = _parameterByName(entry.key);
+      if (param == null) continue;
+      final current = valueOf(recipe, param);
+      if ((current - entry.value).abs() > 0.01) return false;
+    }
+    return true;
+  }
+
+  bool _presetMatches(CommunityPreset preset, EditRecipe recipe) {
+    final params = preset.params;
+    if (params == null || params.isEmpty) return false;
+    for (final entry in params.entries) {
       final param = _parameterByName(entry.key);
       if (param == null) continue;
       final current = valueOf(recipe, param);
