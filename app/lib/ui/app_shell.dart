@@ -374,22 +374,24 @@ class _AppShellState extends ConsumerState<AppShell> {
         ref.read(editActivityProvider.notifier).end();
         _speedTracker.onPointerCancel(e.pointer);
       },
-      child: ImageCanvas(
-        imageBytes: widget.imageBytes,
-        heroTag: widget.heroTag,
-        editInterpreter: interpreter,
-        onTap: () {
-          final activeSection = ref.read(activeSectionProvider);
-          if (activeSection != RecipeSection.masking &&
-              activeSection != RecipeSection.retouch) {
-            HapticFeedback.selectionClick();
-            setState(() {
-              _sheetSnap = _sheetSnap == _SheetSnap.hidden
-                  ? _SheetSnap.half
-                  : _SheetSnap.hidden;
-            });
-          }
-        },
+      child: RepaintBoundary(
+        child: ImageCanvas(
+          imageBytes: widget.imageBytes,
+          heroTag: widget.heroTag,
+          editInterpreter: interpreter,
+          onTap: () {
+            final activeSection = ref.read(activeSectionProvider);
+            if (activeSection != RecipeSection.masking &&
+                activeSection != RecipeSection.retouch) {
+              HapticFeedback.selectionClick();
+              setState(() {
+                _sheetSnap = _sheetSnap == _SheetSnap.hidden
+                    ? _SheetSnap.half
+                    : _SheetSnap.hidden;
+              });
+            }
+          },
+        ),
       ),
     );
   }
@@ -699,7 +701,11 @@ class _AppShellState extends ConsumerState<AppShell> {
                                             setState(() => _histogramOpen = v),
                                       ),
                                     if (!_panelCollapsed)
-                                      const Expanded(child: LightroomShell()),
+                                      const Expanded(
+                                        child: RepaintBoundary(
+                                          child: LightroomShell(),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
@@ -721,14 +727,16 @@ class _AppShellState extends ConsumerState<AppShell> {
                 child: Column(
                   children: [
                     Expanded(child: canvas),
-                    _LightroomSheet(
-                      availableHeight: constraints.maxHeight,
-                      snap: _sheetSnap,
-                      onSnap: (s) => setState(() => _sheetSnap = s),
-                      hasHistogram: hasHistogram,
-                      histogramOpen: _histogramOpen,
-                      setHistogramOpen: (v) =>
-                          setState(() => _histogramOpen = v),
+                    RepaintBoundary(
+                      child: _LightroomSheet(
+                        availableHeight: constraints.maxHeight,
+                        snap: _sheetSnap,
+                        onSnap: (s) => setState(() => _sheetSnap = s),
+                        hasHistogram: hasHistogram,
+                        histogramOpen: _histogramOpen,
+                        setHistogramOpen: (v) =>
+                            setState(() => _histogramOpen = v),
+                      ),
                     ),
                   ],
                 ),

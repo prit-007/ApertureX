@@ -32,6 +32,47 @@ class MainActivity : FlutterActivity() {
     private val producers = mutableMapOf<Long, TextureRegistry.SurfaceProducer>()
     private val roiExecutor = Executors.newSingleThreadExecutor()
 
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableHighRefreshRate()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        enableHighRefreshRate()
+    }
+
+    /**
+     * Enables 90 Hz / 120 Hz / 144 Hz display refresh rates on supported Android
+     * devices (API 23+), unlocking full 120 FPS editing and viewport scrubbing.
+     */
+    private fun enableHighRefreshRate() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                val currentDisplay = display
+                if (currentDisplay != null) {
+                    val maxMode = currentDisplay.supportedModes.maxByOrNull { it.refreshRate }
+                    if (maxMode != null && maxMode.refreshRate > 60.0f) {
+                        val params = window.attributes
+                        params.preferredDisplayModeId = maxMode.modeId
+                        window.attributes = params
+                    }
+                }
+            } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                @Suppress("DEPRECATION")
+                val defaultDisplay = windowManager.defaultDisplay
+                val maxMode = defaultDisplay?.supportedModes?.maxByOrNull { it.refreshRate }
+                if (maxMode != null && maxMode.refreshRate > 60.0f) {
+                    val params = window.attributes
+                    params.preferredDisplayModeId = maxMode.modeId
+                    window.attributes = params
+                }
+            }
+        } catch (t: Throwable) {
+            NativeLog.record("enableHighRefreshRate failed", t, level = "warning")
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 

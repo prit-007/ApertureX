@@ -776,21 +776,23 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
                 return AspectRatio(
                   aspectRatio: aspect,
-                  child: _EditPreviewCell(
-                    preview: preview,
-                    catalogEntry: catalogEntry,
-                    onTap: () {
-                      if (matchingAsset != null) {
-                        _openEntry(matchingAsset, preview.entryId);
-                      } else {
-                        _openSavedPreview(preview);
-                      }
-                    },
-                    onLongPressStart: (pos) => _editPreviewMenu(
-                      preview,
-                      matchingAsset,
-                      catalogEntry,
-                      pos,
+                  child: RepaintBoundary(
+                    child: _EditPreviewCell(
+                      preview: preview,
+                      catalogEntry: catalogEntry,
+                      onTap: () {
+                        if (matchingAsset != null) {
+                          _openEntry(matchingAsset, preview.entryId);
+                        } else {
+                          _openSavedPreview(preview);
+                        }
+                      },
+                      onLongPressStart: (pos) => _editPreviewMenu(
+                        preview,
+                        matchingAsset,
+                        catalogEntry,
+                        pos,
+                      ),
                     ),
                   ),
                 );

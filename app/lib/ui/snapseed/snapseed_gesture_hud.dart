@@ -244,14 +244,16 @@ class SnapseedScrubHud extends StatelessWidget {
                           child: SizedBox(
                             width: 110,
                             height: 6,
-                            child: CustomPaint(
-                              size: const Size(110, 6),
-                              painter: _DualProgressBarPainter(
-                                progress: progress,
-                                isBipolar: isBipolar,
-                                trackColor: scheme.surfaceContainerHigh.withValues(alpha: 0.8),
-                                activeColor: scheme.primary,
-                                tickColor: scheme.outline.withValues(alpha: 0.8),
+                            child: RepaintBoundary(
+                              child: CustomPaint(
+                                size: const Size(110, 6),
+                                painter: _DualProgressBarPainter(
+                                  progress: progress,
+                                  isBipolar: isBipolar,
+                                  trackColor: scheme.surfaceContainerHigh.withValues(alpha: 0.8),
+                                  activeColor: scheme.primary,
+                                  tickColor: scheme.outline.withValues(alpha: 0.8),
+                                ),
                               ),
                             ),
                           ),
