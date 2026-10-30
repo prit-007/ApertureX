@@ -82,6 +82,27 @@ impl Default for GradeParams {
     }
 }
 
+/// Precomputed 256-entry lookup table mapping 8-bit encoded sRGB [0..255] to linear [0.0..1.0].
+/// Eliminates transcendental powf(2.4) overhead across whole-frame pixel traversals.
+pub static SRGB_TO_LINEAR_256: std::sync::LazyLock<[f32; 256]> = std::sync::LazyLock::new(|| {
+    let mut table = [0.0f32; 256];
+    for (i, entry) in table.iter_mut().enumerate() {
+        let c = i as f32 / 255.0;
+        *entry = if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        };
+    }
+    table
+});
+
+/// Maps an 8-bit sRGB value directly to linear via single O(1) L1 cache lookup.
+#[inline(always)]
+pub fn srgb_u8_to_linear(c: u8) -> f32 {
+    SRGB_TO_LINEAR_256[c as usize]
+}
+
 /// sRGB EOTF: encoded `[0,1]` → linear `[0,1]`.
 pub fn srgb_to_linear(c: f32) -> f32 {
     #[cfg(target_arch = "aarch64")]
@@ -534,19 +555,14 @@ fn apply_curve(v: f32, lut: &[f32; 256]) -> f32 {
     a + (b - a) * f
 }
 
-/// Applies the point-wise colour pipeline to one sRGB-encoded pixel, optionally
-/// finishing with tone curves (master then per-channel).
-pub fn grade_pixel_c(
-    r: f32,
-    g: f32,
-    b: f32,
+/// Applies the point-wise colour pipeline to a linear RGB triple.
+#[inline(always)]
+pub fn grade_from_linear(
+    lin: [f32; 3],
     p: GradeParams,
     curves: Option<&CurveSet>,
     hsl: &[f32; 24],
 ) -> [f32; 3] {
-    // 1. decode to linear.
-    let lin = [srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b)];
-
     // 2. white balance (linear, Von Kries).
     let lin = white_balance(lin, p.temperature, p.tint);
 
@@ -634,6 +650,48 @@ pub fn grade_pixel_c(
     ]
 }
 
+/// Applies the point-wise colour pipeline to one sRGB-encoded pixel, optionally
+/// finishing with tone curves (master then per-channel).
+#[inline(always)]
+pub fn grade_pixel_c(
+    r: f32,
+    g: f32,
+    b: f32,
+    p: GradeParams,
+    curves: Option<&CurveSet>,
+    hsl: &[f32; 24],
+) -> [f32; 3] {
+    // 1. decode to linear.
+    let lin = [srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b)];
+    grade_from_linear(lin, p, curves, hsl)
+}
+
+/// High-throughput 8-bit sRGB pixel grading.
+///
+/// Uses precomputed 256-entry L1-cache table lookup for sRGB->linear conversion,
+/// avoiding expensive powf transcendental calculations.
+#[inline(always)]
+pub fn grade_pixel_u8(
+    r: u8,
+    g: u8,
+    b: u8,
+    p: GradeParams,
+    curves: Option<&CurveSet>,
+    hsl: &[f32; 24],
+) -> [u8; 3] {
+    let lin = [
+        srgb_u8_to_linear(r),
+        srgb_u8_to_linear(g),
+        srgb_u8_to_linear(b),
+    ];
+    let c = grade_from_linear(lin, p, curves, hsl);
+    [
+        (c[0] * 255.0 + 0.5) as u8,
+        (c[1] * 255.0 + 0.5) as u8,
+        (c[2] * 255.0 + 0.5) as u8,
+    ]
+}
+
 /// Applies the point-wise colour pipeline with no curves/HSL — used by local
 /// adjustments (masks).
 pub fn grade_pointwise(c: [f32; 3], p: GradeParams) -> [f32; 3] {
@@ -660,31 +718,36 @@ pub fn bake_lut3d_curves(
     curves: Option<&CurveSet>,
     hsl: &[f32; 24],
 ) -> Vec<u8> {
+    use rayon::prelude::*;
     let n = size.clamp(2, 256) as usize;
     let (w, h) = (n * n, n);
     let inv = 1.0 / (n - 1) as f32;
     let mut rgba = vec![0u8; w * h * 4];
 
-    for bi in 0..n {
-        for gi in 0..n {
-            for ri in 0..n {
-                let out = grade_pixel_c(
-                    ri as f32 * inv,
-                    gi as f32 * inv,
-                    bi as f32 * inv,
-                    params,
-                    curves,
-                    hsl,
-                );
-                let x = bi * n + ri;
-                let idx = (gi * w + x) * 4;
-                rgba[idx] = (out[0] * 255.0 + 0.5) as u8;
-                rgba[idx + 1] = (out[1] * 255.0 + 0.5) as u8;
-                rgba[idx + 2] = (out[2] * 255.0 + 0.5) as u8;
-                rgba[idx + 3] = 255;
+    rgba.par_chunks_exact_mut(w * 4)
+        .enumerate()
+        .for_each(|(gi, row)| {
+            for bi in 0..n {
+                let bi_n = bi * n;
+                for ri in 0..n {
+                    let out = grade_pixel_c(
+                        ri as f32 * inv,
+                        gi as f32 * inv,
+                        bi as f32 * inv,
+                        params,
+                        curves,
+                        hsl,
+                    );
+                    let x = bi_n + ri;
+                    let idx = x * 4;
+                    row[idx] = (out[0] * 255.0 + 0.5) as u8;
+                    row[idx + 1] = (out[1] * 255.0 + 0.5) as u8;
+                    row[idx + 2] = (out[2] * 255.0 + 0.5) as u8;
+                    row[idx + 3] = 255;
+                }
             }
-        }
-    }
+        });
+
     rgba
 }
 
@@ -1879,6 +1942,37 @@ pub mod golden {
 
         let lut1 = bake_lut3d(1, GradeParams::default());
         assert_eq!(lut1.len(), 2 * 2 * 2 * 4);
+    }
+
+    #[test]
+    fn grade_pixel_u8_matches_grade_pixel_c() {
+        let p = GradeParams {
+            exposure: 0.5,
+            contrast: 0.2,
+            saturation: 0.1,
+            temperature: 0.15,
+            tint: -0.1,
+            whites: 0.1,
+            blacks: -0.1,
+            ..Default::default()
+        };
+        for v in [0u8, 32, 64, 128, 192, 255] {
+            let u8_res = grade_pixel_u8(v, v, v, p, None, &ZERO_HSL);
+            let c_res = grade_pixel_c(
+                v as f32 / 255.0,
+                v as f32 / 255.0,
+                v as f32 / 255.0,
+                p,
+                None,
+                &ZERO_HSL,
+            );
+            let expected_r = (c_res[0] * 255.0 + 0.5) as u8;
+            let expected_g = (c_res[1] * 255.0 + 0.5) as u8;
+            let expected_b = (c_res[2] * 255.0 + 0.5) as u8;
+            assert_eq!(u8_res[0], expected_r, "r mismatch at {v}");
+            assert_eq!(u8_res[1], expected_g, "g mismatch at {v}");
+            assert_eq!(u8_res[2], expected_b, "b mismatch at {v}");
+        }
     }
 }
 

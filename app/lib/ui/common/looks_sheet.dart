@@ -14,6 +14,7 @@ import '../../features/presets/preset_card_dialog.dart';
 import '../../features/presets/qr_scanner_sheet.dart';
 import 'app_sheet.dart';
 import 'paste_button.dart';
+import 'preset_preview_thumbnail.dart';
 
 /// The look gallery: apply a built-in look, scan a Look QR, or discover
 /// community-contributed presets from the ApertureX Community Hub.
@@ -132,7 +133,10 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
           for (final tool in ToolLibrary.builtins)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.auto_fix_high),
+              leading: PresetThumbnail(
+                params: tool.params,
+                size: 40,
+              ),
               title: Text(tool.name),
               subtitle: Text(tool.description),
               trailing: IconButton(
@@ -304,16 +308,33 @@ class _CommunityPresetCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: Insets.xs),
-            Text(
-              preset.name,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              preset.description,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PresetThumbnail(
+                  params: preset.params ?? const {},
+                  size: 48,
+                ),
+                const SizedBox(width: Insets.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        preset.name,
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        preset.description,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: Insets.sm),
             Row(

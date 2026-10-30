@@ -6,6 +6,8 @@
 //! bin the result. That makes the histogram reflect the current *grade* and
 //! stay unit-testable.
 
+use rayon::prelude::*;
+
 use crate::color::{grade_pixel_c, CurveSet, GradeParams};
 
 /// Number of bins per channel.
@@ -45,31 +47,42 @@ pub fn histogram_graded(
     curves: Option<&CurveSet>,
     hsl: &[f32; 24],
 ) -> Histogram {
-    let mut h = Histogram::empty();
     if crate::validate::validate_rgba(rgba, width, height).is_err() {
-        return h;
+        return Histogram::empty();
     }
     let dim = sample_dim.max(1);
     let step = (width.max(height) / dim).max(1) as usize;
 
-    for y in (0..height as usize).step_by(step) {
-        for x in (0..width as usize).step_by(step) {
-            let idx = (y * width as usize + x) * 4;
-            let c = grade_pixel_c(
-                rgba[idx] as f32 / 255.0,
-                rgba[idx + 1] as f32 / 255.0,
-                rgba[idx + 2] as f32 / 255.0,
-                params,
-                curves,
-                hsl,
-            );
-            h.r[bin(c[0])] += 1;
-            h.g[bin(c[1])] += 1;
-            h.b[bin(c[2])] += 1;
-            h.luma[bin(0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2])] += 1;
-        }
-    }
-    h
+    let y_indices: Vec<usize> = (0..height as usize).step_by(step).collect();
+    y_indices
+        .into_par_iter()
+        .fold(Histogram::empty, |mut local_h, y| {
+            for x in (0..width as usize).step_by(step) {
+                let idx = (y * width as usize + x) * 4;
+                let c = grade_pixel_c(
+                    rgba[idx] as f32 / 255.0,
+                    rgba[idx + 1] as f32 / 255.0,
+                    rgba[idx + 2] as f32 / 255.0,
+                    params,
+                    curves,
+                    hsl,
+                );
+                local_h.r[bin(c[0])] += 1;
+                local_h.g[bin(c[1])] += 1;
+                local_h.b[bin(c[2])] += 1;
+                local_h.luma[bin(0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2])] += 1;
+            }
+            local_h
+        })
+        .reduce(Histogram::empty, |mut a, b| {
+            for i in 0..BINS {
+                a.r[i] += b.r[i];
+                a.g[i] += b.g[i];
+                a.b[i] += b.b[i];
+                a.luma[i] += b.luma[i];
+            }
+            a
+        })
 }
 
 #[cfg(test)]

@@ -8,6 +8,7 @@ import '../color/optics_spec.dart';
 import '../color/spatial_spec.dart';
 import '../edit/adjustment_layer.dart';
 import '../edit/geometry_spec.dart';
+import '../src/rust/api/blur.dart' as rust_blur;
 import '../src/rust/api/color.dart' as rust_color;
 import '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 import '../src/rust/api/decode.dart' as rust_decode;
@@ -474,6 +475,19 @@ class AxEngine {
   /// Attempts to extract an embedded portrait depth map from JPEG container metadata.
   static Future<rust_exif.EmbeddedDepthResult?> extractEmbeddedDepth(Uint8List jpeg) =>
       rust_exif.extractEmbeddedDepth(jpeg: jpeg);
+
+  /// Computes an on-device monocular depth map from RGBA pixels using saliency
+  /// and perspective priors.
+  static Future<Float32List> estimateDepthMap({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+  }) =>
+      rust_blur.estimateDepthMap(
+        rgba: rgba,
+        width: width,
+        height: height,
+      );
 
   // --- masking / local adjustments (P2.5) -----------------------------------
 

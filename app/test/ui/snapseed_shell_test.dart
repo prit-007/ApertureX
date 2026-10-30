@@ -118,6 +118,9 @@ void main() {
 
     final buttons = [
       const Key('snapseed-tools-sheet-toggle'),
+      const Key('snapseed-looks-toggle'),
+      const Key('snapseed-mask-toggle'),
+      const Key('snapseed-lens-blur-toggle'),
       const Key('snapseed-straighten-toggle'),
       const Key('selective-toggle'),
       const Key('histogram-toggle'),
@@ -405,6 +408,102 @@ void main() {
     await tester.pump();
 
     expect(_scrubHudOpacity(tester), 1.0);
+  });
+
+  testWidgets('SnapseedShell looks toggle opens live preset carousel and applying preset updates recipe', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('snapseed-looks-carousel')), findsNothing);
+
+    // Tap looks button to open carousel
+    await tester.tap(find.byKey(const Key('snapseed-looks-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('snapseed-looks-carousel')), findsOneWidget);
+    expect(find.text('Looks & Presets'), findsOneWidget);
+
+    // Tap Punch preset
+    final punchFinder = find.byKey(const Key('snapseed-preset-Punch'));
+    expect(punchFinder, findsOneWidget);
+    await tester.tap(punchFinder);
+    await tester.pumpAndSettle();
+
+    // Verify recipe was updated with punch preset
+    final recipe = container.read(recipeControllerProvider).recipe;
+    expect(recipe.contrast, 0.30);
+    expect(recipe.clarity, 0.30);
+  });
+
+  testWidgets('SnapseedShell mask toggle opens Masks & Layers modal sheet', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('snapseed-mask-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Masks & Layers'), findsOneWidget);
+  });
+
+  testWidgets('SnapseedShell lens blur toggle opens Lens Blur & Bokeh modal sheet', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('snapseed-lens-blur-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lens Blur & Bokeh'), findsOneWidget);
   });
 }
 

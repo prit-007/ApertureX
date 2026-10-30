@@ -853,17 +853,29 @@ class _AlbumTitle extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: Radii.smAll,
+      borderRadius: BorderRadius.circular(20),
       splashColor: scheme.primary.withValues(alpha: 0.12),
       highlightColor: scheme.primary.withValues(alpha: 0.06),
       mouseCursor: WidgetStateMouseCursor.clickable,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(width: Insets.xs),
+            Icon(Icons.photo_library_outlined, size: 16, color: scheme.primary),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(width: 4),
             const Icon(Icons.arrow_drop_down, size: 20),
           ],
         ),
@@ -941,6 +953,7 @@ class _DateHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         Insets.md,
@@ -948,11 +961,24 @@ class _DateHeader extends StatelessWidget {
         Insets.md,
         Insets.sm,
       ),
-      child: Text(
-        label,
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: theme.colorScheme.onSurface,
-        ),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: scheme.onSurface,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(width: Insets.sm),
+          Expanded(
+            child: Divider(
+              color: scheme.outlineVariant.withValues(alpha: 0.25),
+              thickness: 0.75,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1359,10 +1385,13 @@ class _SelectionBar extends StatelessWidget {
     // Horizontal scroll so actions never overflow a 360dp phone; the viewport
     // is right-aligned so the actions stay in the thumb zone.
     return BottomAppBar(
+      elevation: 2,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Align(
         alignment: Alignment.centerRight,
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1382,7 +1411,7 @@ class _SelectionBar extends StatelessWidget {
               const SizedBox(width: Insets.sm),
               TextButton.icon(
                 onPressed: onPaste,
-                icon: const Icon(Icons.paste),
+                icon: const Icon(Icons.paste, size: 18),
                 label: const Text('Paste'),
               ),
               const SizedBox(width: Insets.sm),

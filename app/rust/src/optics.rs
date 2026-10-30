@@ -3,6 +3,8 @@
 //! - Longitudinal (Axial) Defringe (purple and green fringe desaturation on contrast edges)
 //! - Lens profile distortion and vignetting
 
+use rayon::prelude::*;
+
 use crate::color::{hsl_to_rgb, rgb_to_hsl};
 
 /// Parameters for lens optics and chromatic aberration corrections.
@@ -97,31 +99,33 @@ pub fn apply_lateral_ca(rgba: &[u8], w: usize, h: usize) -> Vec<u8> {
     const K_RED: f32 = -0.0018;
     const K_BLUE: f32 = 0.0018;
 
-    for y in 0..h {
-        let dy = y as f32 - cy;
-        for x in 0..w {
-            let dx = x as f32 - cx;
-            let r2 = (dx * dx + dy * dy) / max_radius_sq;
+    out.par_chunks_exact_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            let dy = y as f32 - cy;
+            for x in 0..w {
+                let dx = x as f32 - cx;
+                let r2 = (dx * dx + dy * dy) / max_radius_sq;
 
-            let scale_r = 1.0 + K_RED * r2;
-            let scale_b = 1.0 + K_BLUE * r2;
+                let scale_r = 1.0 + K_RED * r2;
+                let scale_b = 1.0 + K_BLUE * r2;
 
-            let rx = cx + dx * scale_r;
-            let ry = cy + dy * scale_r;
+                let rx = cx + dx * scale_r;
+                let ry = cy + dy * scale_r;
 
-            let bx = cx + dx * scale_b;
-            let by = cy + dy * scale_b;
+                let bx = cx + dx * scale_b;
+                let by = cy + dy * scale_b;
 
-            let idx = (y * w + x) * 4;
-            out[idx] = sample_channel_bilinear(rgba, w, h, rx, ry, 0)
-                .round()
-                .clamp(0.0, 255.0) as u8;
-            // Green channel is reference, remains unchanged
-            out[idx + 2] = sample_channel_bilinear(rgba, w, h, bx, by, 2)
-                .round()
-                .clamp(0.0, 255.0) as u8;
-        }
-    }
+                let idx = x * 4;
+                row[idx] = sample_channel_bilinear(rgba, w, h, rx, ry, 0)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                // Green channel is reference, remains unchanged
+                row[idx + 2] = sample_channel_bilinear(rgba, w, h, bx, by, 2)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+            }
+        });
     out
 }
 
@@ -144,66 +148,73 @@ pub fn apply_defringe(
         return rgba.to_vec();
     }
 
-    // 1. Calculate luminance plane for contrast gradient
-    let mut luma = Vec::with_capacity(n);
-    for i in 0..n {
-        let r = rgba[i * 4] as f32;
-        let g = rgba[i * 4 + 1] as f32;
-        let b = rgba[i * 4 + 2] as f32;
-        luma.push(0.2126 * r + 0.7152 * g + 0.0722 * b);
-    }
+    // 1. Calculate luminance plane for contrast gradient in parallel
+    let mut luma = vec![0.0f32; n];
+    luma.par_chunks_mut(w)
+        .enumerate()
+        .for_each(|(y, luma_row)| {
+            let rgba_row = &rgba[y * w * 4..(y + 1) * w * 4];
+            for x in 0..w {
+                let r = rgba_row[x * 4] as f32;
+                let g = rgba_row[x * 4 + 1] as f32;
+                let b = rgba_row[x * 4 + 2] as f32;
+                luma_row[x] = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            }
+        });
 
     let mut out = rgba.to_vec();
 
-    for y in 0..h {
-        let y_prev = y.saturating_sub(1);
-        let y_next = (y + 1).min(h - 1);
-        for x in 0..w {
-            let x_prev = x.saturating_sub(1);
-            let x_next = (x + 1).min(w - 1);
+    out.par_chunks_exact_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            let y_prev = y.saturating_sub(1);
+            let y_next = (y + 1).min(h - 1);
+            for x in 0..w {
+                let x_prev = x.saturating_sub(1);
+                let x_next = (x + 1).min(w - 1);
 
-            let dx = luma[y * w + x_next] - luma[y * w + x_prev];
-            let dy = luma[y_next * w + x] - luma[y_prev * w + x];
-            let grad = (dx * dx + dy * dy).sqrt();
+                let dx = luma[y * w + x_next] - luma[y * w + x_prev];
+                let dy = luma[y_next * w + x] - luma[y_prev * w + x];
+                let grad = (dx * dx + dy * dy).sqrt();
 
-            // Ignore flat regions; fringes only occur at high-contrast transitions
-            if grad < 8.0 {
-                continue;
+                // Ignore flat regions; fringes only occur at high-contrast transitions
+                if grad < 8.0 {
+                    continue;
+                }
+                let edge_weight = ((grad - 8.0) / 40.0).clamp(0.0, 1.0);
+
+                let idx = x * 4;
+                let r = row[idx] as f32 / 255.0;
+                let g = row[idx + 1] as f32 / 255.0;
+                let b = row[idx + 2] as f32 / 255.0;
+
+                let [h_val, s_val, l_val] = rgb_to_hsl([r, g, b]);
+                if s_val < 0.05 {
+                    continue;
+                }
+
+                let mut new_s = s_val;
+
+                // Purple fringe test
+                if purple_amount > 0.0 && h_val >= purple_min && h_val <= purple_max {
+                    let damp = 1.0 - (purple_amount * edge_weight).clamp(0.0, 1.0);
+                    new_s *= damp;
+                }
+
+                // Green fringe test
+                if green_amount > 0.0 && h_val >= green_min && h_val <= green_max {
+                    let damp = 1.0 - (green_amount * edge_weight).clamp(0.0, 1.0);
+                    new_s *= damp;
+                }
+
+                if (new_s - s_val).abs() > 1e-4 {
+                    let [nr, ng, nb] = hsl_to_rgb([h_val, new_s, l_val]);
+                    row[idx] = (nr * 255.0).round().clamp(0.0, 255.0) as u8;
+                    row[idx + 1] = (ng * 255.0).round().clamp(0.0, 255.0) as u8;
+                    row[idx + 2] = (nb * 255.0).round().clamp(0.0, 255.0) as u8;
+                }
             }
-            let edge_weight = ((grad - 8.0) / 40.0).clamp(0.0, 1.0);
-
-            let idx = (y * w + x) * 4;
-            let r = rgba[idx] as f32 / 255.0;
-            let g = rgba[idx + 1] as f32 / 255.0;
-            let b = rgba[idx + 2] as f32 / 255.0;
-
-            let [h_val, s_val, l_val] = rgb_to_hsl([r, g, b]);
-            if s_val < 0.05 {
-                continue;
-            }
-
-            let mut new_s = s_val;
-
-            // Purple fringe test
-            if purple_amount > 0.0 && h_val >= purple_min && h_val <= purple_max {
-                let damp = 1.0 - (purple_amount * edge_weight).clamp(0.0, 1.0);
-                new_s *= damp;
-            }
-
-            // Green fringe test
-            if green_amount > 0.0 && h_val >= green_min && h_val <= green_max {
-                let damp = 1.0 - (green_amount * edge_weight).clamp(0.0, 1.0);
-                new_s *= damp;
-            }
-
-            if (new_s - s_val).abs() > 1e-4 {
-                let [nr, ng, nb] = hsl_to_rgb([h_val, new_s, l_val]);
-                out[idx] = (nr * 255.0).round().clamp(0.0, 255.0) as u8;
-                out[idx + 1] = (ng * 255.0).round().clamp(0.0, 255.0) as u8;
-                out[idx + 2] = (nb * 255.0).round().clamp(0.0, 255.0) as u8;
-            }
-        }
-    }
+        });
 
     out
 }
@@ -233,46 +244,48 @@ pub fn apply_lens_profile(
     let k_dist = [-0.04 * distortion_scale, 0.01 * distortion_scale, 0.0];
     let k_vig = [0.3 * vignetting_scale, 0.1 * vignetting_scale, 0.0];
 
-    for y in 0..h {
-        let dy = (y as f32 - cy) / half_diag;
-        for x in 0..w {
-            let dx = (x as f32 - cx) / half_diag;
-            let r = (dx * dx + dy * dy).sqrt();
+    out.par_chunks_exact_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            let dy = (y as f32 - cy) / half_diag;
+            for x in 0..w {
+                let dx = (x as f32 - cx) / half_diag;
+                let r = (dx * dx + dy * dy).sqrt();
 
-            let (src_x, src_y) = if distortion_scale != 0.0 && r > 1e-6 {
-                let src_r = crate::raw::lens::undistort_radius(r, &k_dist);
-                let scale = src_r / r;
-                (cx + dx * scale * half_diag, cy + dy * scale * half_diag)
-            } else {
-                (x as f32, y as f32)
-            };
+                let (src_x, src_y) = if distortion_scale != 0.0 && r > 1e-6 {
+                    let src_r = crate::raw::lens::undistort_radius(r, &k_dist);
+                    let scale = src_r / r;
+                    (cx + dx * scale * half_diag, cy + dy * scale * half_diag)
+                } else {
+                    (x as f32, y as f32)
+                };
 
-            let gain = if vignetting_scale != 0.0 {
-                crate::raw::lens::vignette_gain(r, &k_vig)
-            } else {
-                1.0
-            };
+                let gain = if vignetting_scale != 0.0 {
+                    crate::raw::lens::vignette_gain(r, &k_vig)
+                } else {
+                    1.0
+                };
 
-            let r_val = (sample_channel_bilinear(rgba, w, h, src_x, src_y, 0) * gain)
-                .round()
-                .clamp(0.0, 255.0) as u8;
-            let g_val = (sample_channel_bilinear(rgba, w, h, src_x, src_y, 1) * gain)
-                .round()
-                .clamp(0.0, 255.0) as u8;
-            let b_val = (sample_channel_bilinear(rgba, w, h, src_x, src_y, 2) * gain)
-                .round()
-                .clamp(0.0, 255.0) as u8;
-            let a_val = sample_channel_bilinear(rgba, w, h, src_x, src_y, 3)
-                .round()
-                .clamp(0.0, 255.0) as u8;
+                let r_val = (sample_channel_bilinear(rgba, w, h, src_x, src_y, 0) * gain)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                let g_val = (sample_channel_bilinear(rgba, w, h, src_x, src_y, 1) * gain)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                let b_val = (sample_channel_bilinear(rgba, w, h, src_x, src_y, 2) * gain)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                let a_val = sample_channel_bilinear(rgba, w, h, src_x, src_y, 3)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
 
-            let idx = (y * w + x) * 4;
-            out[idx] = r_val;
-            out[idx + 1] = g_val;
-            out[idx + 2] = b_val;
-            out[idx + 3] = a_val;
-        }
-    }
+                let idx = x * 4;
+                row[idx] = r_val;
+                row[idx + 1] = g_val;
+                row[idx + 2] = b_val;
+                row[idx + 3] = a_val;
+            }
+        });
 
     out
 }

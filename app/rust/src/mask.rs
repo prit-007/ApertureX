@@ -3,6 +3,8 @@
 //! point-wise sub-grade, composited over the base. Masks are analytic
 //! (linear / radial / luminance) so they stay small + non-destructive.
 
+use rayon::prelude::*;
+
 use crate::color::{grade_pointwise, GradeParams};
 
 /// Mask kinds.
@@ -271,12 +273,18 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
                     continue;
                 }
                 // Check distance to point itself (covers single taps and stroke endpoints)
-                let dist_pt = ((u - x0).powi(2) + (v - y0).powi(2)).sqrt();
                 let eff_r_pt = radius * pr0.max(0.1);
-                if dist_pt < eff_r_pt {
-                    let cov_pt =
-                        (1.0 - smoothstep(eff_r_pt * (1.0 - feather), eff_r_pt, dist_pt)) * pr0;
-                    max_cov = max_cov.max(cov_pt);
+                let dx = (u - x0).abs();
+                let dy = (v - y0).abs();
+                if dx <= eff_r_pt && dy <= eff_r_pt {
+                    let dist_sq = dx * dx + dy * dy;
+                    let eff_r_pt_sq = eff_r_pt * eff_r_pt;
+                    if dist_sq < eff_r_pt_sq {
+                        let dist_pt = dist_sq.sqrt();
+                        let cov_pt =
+                            (1.0 - smoothstep(eff_r_pt * (1.0 - feather), eff_r_pt, dist_pt)) * pr0;
+                        max_cov = max_cov.max(cov_pt);
+                    }
                 }
 
                 // Check distance to segment connecting to next point if not break
@@ -287,12 +295,21 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
                         points[(i + 1) * 3 + 2].clamp(0.0, 1.0),
                     );
                     if x1 >= 0.0 && y1 >= 0.0 {
-                        let (dist, t) = dist_to_segment(u, v, x0, y0, x1, y1);
-                        let pr = pr0 + t * (pr1 - pr0);
-                        let eff_r = radius * pr.max(0.1);
-                        if dist < eff_r {
-                            let cov = (1.0 - smoothstep(eff_r * (1.0 - feather), eff_r, dist)) * pr;
-                            max_cov = max_cov.max(cov);
+                        let max_pr = pr0.max(pr1).max(0.1);
+                        let eff_r_seg = radius * max_pr;
+                        let min_seg_x = x0.min(x1) - eff_r_seg;
+                        let max_seg_x = x0.max(x1) + eff_r_seg;
+                        let min_seg_y = y0.min(y1) - eff_r_seg;
+                        let max_seg_y = y0.max(y1) + eff_r_seg;
+                        if u >= min_seg_x && u <= max_seg_x && v >= min_seg_y && v <= max_seg_y {
+                            let (dist, t) = dist_to_segment(u, v, x0, y0, x1, y1);
+                            let pr = pr0 + t * (pr1 - pr0);
+                            let eff_r = radius * pr.max(0.1);
+                            if dist < eff_r {
+                                let cov =
+                                    (1.0 - smoothstep(eff_r * (1.0 - feather), eff_r, dist)) * pr;
+                                max_cov = max_cov.max(cov);
+                            }
                         }
                     }
                 }
@@ -983,72 +1000,93 @@ fn apply_local_rows(
     full_h: usize,
     layers: &[LocalAdjustment],
 ) {
+    if layers.is_empty() || buf_w == 0 || full_w == 0 || full_h == 0 {
+        return;
+    }
     let groups = group_adjustments(layers);
-    for group in groups {
-        if group.members.is_empty() {
-            continue;
-        }
-        for y in 0..buf.len() / (buf_w * 4).max(1) {
+    if groups.is_empty() {
+        return;
+    }
+    let row_len = buf_w * 4;
+    let num_rows = buf.len() / row_len;
+    if num_rows == 0 {
+        return;
+    }
+
+    // Process rows in parallel via Rayon across all available CPU cores.
+    buf.par_chunks_exact_mut(row_len)
+        .enumerate()
+        .for_each(|(y, row)| {
             let v = ((row_origin + y) as f32 + 0.5) / full_h as f32;
             for x in 0..buf_w {
-                let i = (y * buf_w + x) * 4;
                 let u = ((x_origin + x) as f32 + 0.5) / full_w as f32;
-                let base = [
-                    buf[i] as f32 / 255.0,
-                    buf[i + 1] as f32 / 255.0,
-                    buf[i + 2] as f32 / 255.0,
+                let i = x * 4;
+                let mut base = [
+                    row[i] as f32 / 255.0,
+                    row[i + 1] as f32 / 255.0,
+                    row[i + 2] as f32 / 255.0,
                 ];
-                let luma = 0.2126 * base[0] + 0.7152 * base[1] + 0.0722 * base[2];
 
-                let mut group_cov = 0.0f32;
-                for (m_idx, member) in group.members.iter().enumerate() {
-                    let raw_cov = coverage(member.mask.kind, &member.mask.params, u, v, luma);
-                    let member_cov = if member.inverted {
-                        1.0 - raw_cov
-                    } else {
-                        raw_cov
-                    };
-                    let c = (member_cov * member.amount).clamp(0.0, 1.0);
-                    if m_idx == 0 {
-                        group_cov = if group.members.len() > 1 {
-                            c
+                for group in &groups {
+                    if group.members.is_empty() {
+                        continue;
+                    }
+                    let luma = 0.2126 * base[0] + 0.7152 * base[1] + 0.0722 * base[2];
+
+                    let mut group_cov = 0.0f32;
+                    for (m_idx, member) in group.members.iter().enumerate() {
+                        let raw_cov =
+                            coverage_rgb(member.mask.kind, &member.mask.params, u, v, luma, base);
+                        let member_cov = if member.inverted {
+                            1.0 - raw_cov
                         } else {
-                            member_cov * member.amount
+                            raw_cov
                         };
-                    } else {
-                        match member.join_op {
-                            JOIN_SUBTRACT => {
-                                group_cov = (group_cov - c).max(0.0);
-                            }
-                            JOIN_INTERSECT => {
-                                group_cov *= c;
-                            }
-                            _ => {
-                                group_cov = (group_cov + c).min(1.0);
+                        let c = (member_cov * member.amount).clamp(0.0, 1.0);
+                        if m_idx == 0 {
+                            group_cov = if group.members.len() > 1 {
+                                c
+                            } else {
+                                member_cov * member.amount
+                            };
+                        } else {
+                            match member.join_op {
+                                JOIN_SUBTRACT => {
+                                    group_cov = (group_cov - c).max(0.0);
+                                }
+                                JOIN_INTERSECT => {
+                                    group_cov *= c;
+                                }
+                                _ => {
+                                    group_cov = (group_cov + c).min(1.0);
+                                }
                             }
                         }
                     }
+
+                    if group.inverted {
+                        group_cov = (1.0 - group_cov).clamp(0.0, 1.0);
+                    }
+
+                    let t = group_cov * group.amount;
+                    if t <= 0.0 {
+                        continue;
+                    }
+
+                    let adjusted = grade_pointwise(base, group.params);
+                    for c in 0..3 {
+                        // Lightroom-style Amount (0–200%): t extrapolates past 1.0 when amount > 1.0.
+                        // Keep unclamped t so overdrive works, clamping to [0.0, 255.0] only at final byte write.
+                        let mixed = base[c] + (adjusted[c] - base[c]) * t;
+                        base[c] = mixed;
+                    }
                 }
 
-                if group.inverted {
-                    group_cov = (1.0 - group_cov).clamp(0.0, 1.0);
-                }
-
-                let t = group_cov * group.amount;
-                if t <= 0.0 {
-                    continue;
-                }
-
-                let adjusted = grade_pointwise(base, group.params);
                 for c in 0..3 {
-                    // Lightroom-style Amount (0–200%): t extrapolates past 1.0 when amount > 1.0.
-                    // Keep unclamped t so overdrive works, clamping to [0.0, 255.0] only at final byte write.
-                    let mixed = base[c] + (adjusted[c] - base[c]) * t;
-                    buf[i + c] = (mixed * 255.0 + 0.5).clamp(0.0, 255.0) as u8;
+                    row[i + c] = (base[c] * 255.0 + 0.5).clamp(0.0, 255.0) as u8;
                 }
             }
-        }
-    }
+        });
 }
 
 #[cfg(test)]
