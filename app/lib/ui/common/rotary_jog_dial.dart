@@ -195,15 +195,17 @@ class _RotaryJogDialState extends ConsumerState<RotaryJogDial> {
                         ).createShader(bounds);
                       },
                       blendMode: BlendMode.dstIn,
-                      child: CustomPaint(
-                        size: Size.infinite,
-                        painter: _RotaryArcPainter(
-                          value: value,
-                          min: spec.min,
-                          max: spec.max,
-                          neutral: spec.neutral,
-                          scheme: scheme,
-                          isRightDock: isRight,
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          size: Size.infinite,
+                          painter: _RotaryArcPainter(
+                            value: value,
+                            min: spec.min,
+                            max: spec.max,
+                            neutral: spec.neutral,
+                            scheme: scheme,
+                            isRightDock: isRight,
+                          ),
                         ),
                       ),
                     ),

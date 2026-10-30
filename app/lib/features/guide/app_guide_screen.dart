@@ -9,19 +9,30 @@ class AppGuideScreen extends StatefulWidget {
   const AppGuideScreen({
     super.key,
     this.initialToolId,
+    this.initialCategory,
+    this.onSelectTool,
     this.isModal = false,
   });
   final String? initialToolId;
+  final ToolCategory? initialCategory;
+  final ValueChanged<String>? onSelectTool;
   final bool isModal;
 
   /// Opens the guide as a modal bottom sheet.
-  static Future<void> showModal(BuildContext context, {String? initialToolId}) {
+  static Future<void> showModal(
+    BuildContext context, {
+    String? initialToolId,
+    ToolCategory? initialCategory,
+    ValueChanged<String>? onSelectTool,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => AppGuideScreen(
         initialToolId: initialToolId,
+        initialCategory: initialCategory,
+        onSelectTool: onSelectTool,
         isModal: true,
       ),
     );
@@ -40,6 +51,14 @@ class _AppGuideScreenState extends State<AppGuideScreen> {
   void initState() {
     super.initState();
     _expandedToolId = widget.initialToolId;
+    if (widget.initialCategory != null) {
+      _selectedCategory = widget.initialCategory;
+    } else if (widget.initialToolId != null) {
+      final g = ToolGuideRegistry.getById(widget.initialToolId!);
+      if (g != null) {
+        _selectedCategory = g.category;
+      }
+    }
   }
 
   @override
@@ -216,6 +235,12 @@ class _AppGuideScreenState extends State<AppGuideScreen> {
                           _expandedToolId = isExpanded ? null : guide.id;
                         });
                       },
+                      onSelectTool: widget.onSelectTool != null
+                          ? () {
+                              if (widget.isModal) Navigator.of(context).maybePop();
+                              widget.onSelectTool!(guide.id);
+                            }
+                          : null,
                     );
                   },
                 ),
@@ -245,21 +270,46 @@ class _AppGuideScreenState extends State<AppGuideScreen> {
   }
 }
 
-class _ToolGuideCard extends StatelessWidget {
-
+class _ToolGuideCard extends StatefulWidget {
   const _ToolGuideCard({
     required this.guide,
     required this.isExpanded,
     required this.onToggle,
+    this.onSelectTool,
   });
+
   final ToolGuideModel guide;
   final bool isExpanded;
   final VoidCallback onToggle;
+  final VoidCallback? onSelectTool;
+
+  @override
+  State<_ToolGuideCard> createState() => _ToolGuideCardState();
+}
+
+class _ToolGuideCardState extends State<_ToolGuideCard> {
+  late double _demoValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _demoValue = widget.guide.demoDefault ?? 0.0;
+  }
+
+  @override
+  void didUpdateWidget(_ToolGuideCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.guide.id != widget.guide.id) {
+      _demoValue = widget.guide.demoDefault ?? 0.0;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final guide = widget.guide;
+    final isExpanded = widget.isExpanded;
 
     return Card(
       elevation: 0,
@@ -267,13 +317,15 @@ class _ToolGuideCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isExpanded ? scheme.primary.withValues(alpha: 0.6) : scheme.outlineVariant.withValues(alpha: 0.4),
+          color: isExpanded
+              ? scheme.primary.withValues(alpha: 0.6)
+              : scheme.outlineVariant.withValues(alpha: 0.4),
           width: isExpanded ? 1.5 : 1.0,
         ),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onToggle,
+        onTap: widget.onToggle,
         child: Padding(
           padding: const EdgeInsets.all(Insets.md),
           child: Column(
@@ -301,11 +353,15 @@ class _ToolGuideCard extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 guide.title,
-                                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                                style: theme.textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w700),
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: scheme.secondaryContainer,
                                 borderRadius: Radii.pillAll,
@@ -355,13 +411,133 @@ class _ToolGuideCard extends StatelessWidget {
                 ),
                 const SizedBox(height: Insets.md),
 
+                // Interactive Simulator / Sandbox (if demo bounds exist)
+                if (guide.demoMin != null && guide.demoMax != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(Insets.sm),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: scheme.outlineVariant.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.tune,
+                                  size: 16,
+                                  color: scheme.primary,
+                                ),
+                                const SizedBox(width: Insets.xs),
+                                Text(
+                                  'Interactive Simulator',
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: scheme.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                Text(
+                                  '${_demoValue > 0 && (guide.demoUnit ?? '').contains('EV') ? '+' : ''}${_demoValue.toStringAsFixed(_demoValue.truncateToDouble() == _demoValue ? 0 : 1)}${guide.demoUnit ?? ''}',
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                if (widget.guide.demoDefault != null &&
+                                    _demoValue != widget.guide.demoDefault)
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 24,
+                                      minHeight: 24,
+                                    ),
+                                    icon: const Icon(Icons.refresh, size: 14),
+                                    tooltip: 'Reset simulator',
+                                    onPressed: () {
+                                      setState(() {
+                                        _demoValue = widget.guide.demoDefault!;
+                                      });
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: Insets.xs),
+                        // Live interactive swatch gradient
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            height: 36,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.black.withValues(
+                                    alpha: (0.4 + (_demoValue / (guide.demoMax! * 2)))
+                                        .clamp(0.1, 0.9),
+                                  ),
+                                  scheme.primary.withValues(
+                                    alpha: (0.5 + (_demoValue / (guide.demoMax! * 2)))
+                                        .clamp(0.1, 0.95),
+                                  ),
+                                  Colors.white.withValues(
+                                    alpha: (0.3 + (_demoValue / (guide.demoMax! * 2)))
+                                        .clamp(0.05, 0.95),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Simulated Output',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  shadows: const [
+                                    Shadow(color: Colors.black, blurRadius: 4),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Slider(
+                          value: _demoValue.clamp(guide.demoMin!, guide.demoMax!),
+                          min: guide.demoMin!,
+                          max: guide.demoMax!,
+                          onChanged: (val) {
+                            setState(() => _demoValue = val);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: Insets.md),
+                ],
+
                 // Best Used For Banner
                 Container(
                   padding: const EdgeInsets.all(Insets.sm),
                   decoration: BoxDecoration(
                     color: scheme.tertiaryContainer.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: scheme.tertiary.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: scheme.tertiary.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,7 +561,8 @@ class _ToolGuideCard extends StatelessWidget {
                 // Pro Tips
                 Text(
                   'Pro Tips:',
-                  style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: Insets.xs),
                 for (final tip in guide.proTips) ...[
@@ -394,7 +571,11 @@ class _ToolGuideCard extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.lightbulb_outline, size: 16, color: scheme.primary),
+                        Icon(
+                          Icons.lightbulb_outline,
+                          size: 16,
+                          color: scheme.primary,
+                        ),
                         const SizedBox(width: Insets.xs + 2),
                         Expanded(
                           child: Text(
@@ -414,7 +595,11 @@ class _ToolGuideCard extends StatelessWidget {
                   const SizedBox(height: Insets.xs),
                   Row(
                     children: [
-                      Icon(Icons.keyboard_outlined, size: 16, color: scheme.onSurfaceVariant),
+                      Icon(
+                        Icons.keyboard_outlined,
+                        size: 16,
+                        color: scheme.onSurfaceVariant,
+                      ),
                       const SizedBox(width: Insets.xs),
                       Text(
                         'Shortcut: ${guide.shortcut}',
@@ -424,6 +609,18 @@ class _ToolGuideCard extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                ],
+
+                if (widget.onSelectTool != null) ...[
+                  const SizedBox(height: Insets.md),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.tonalIcon(
+                      onPressed: widget.onSelectTool,
+                      icon: const Icon(Icons.arrow_forward, size: 16),
+                      label: const Text('Try in Editor'),
+                    ),
                   ),
                 ],
               ],

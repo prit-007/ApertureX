@@ -24,6 +24,10 @@ class ToolGuideRegistry {
         'Watch the live interactive histogram in the HUD to prevent highlight burnout.',
       ],
       shortcut: 'E (in Quick Edit)',
+      demoMin: -3.0,
+      demoMax: 3.0,
+      demoDefault: 0.0,
+      demoUnit: ' EV',
     ),
     ToolGuideModel(
       id: 'contrast',
@@ -39,6 +43,10 @@ class ToolGuideRegistry {
         'For high-contrast scenes with harsh light, lower contrast slightly (-10 to -20) to recover midtone depth.',
         'Pair with Clarity for punchy micro-textures without clipping deep blacks.',
       ],
+      demoMin: -50.0,
+      demoMax: 50.0,
+      demoDefault: 0.0,
+      demoUnit: '',
     ),
     ToolGuideModel(
       id: 'highlights_shadows',
@@ -183,6 +191,48 @@ class ToolGuideRegistry {
       ],
     ),
 
+    // --- DETAIL ---
+    ToolGuideModel(
+      id: 'ai_denoise',
+      title: 'AI Neural Denoise & Noise Reduction',
+      category: ToolCategory.detail,
+      summary: 'Remove high-ISO sensor noise and chromatic speckles while preserving sharp eyelash and texture edges.',
+      description:
+          'ApertureX features both edge-preserving neural bilateral denoising and classical luminance/chrominance wavelets. '
+          'Classical denoise smooths out uniform color patches, while AI Neural Denoise synthesizes missing micro-textures '
+          'and preserves crisp edge boundaries even at extreme ISO 12800.',
+      icon: Icons.auto_fix_high,
+      bestUsedFor: 'High-ISO night shots, concert photography, and noisy smartphone low-light frames.',
+      proTips: [
+        'For ISO 6400+ frames, set AI Denoise to 40-60% to suppress sensor noise without plastic waxy skin.',
+        'Increase Sharpening Detail slightly after AI Denoise to restore micro-textures in hair and foliage.',
+        'Download community ONNX denoise models in Neural Forge for specialized raw astro-photography.',
+      ],
+      demoMin: 0.0,
+      demoMax: 100.0,
+      demoDefault: 0.0,
+      demoUnit: '%',
+    ),
+    ToolGuideModel(
+      id: 'sharpening',
+      title: 'Parametric Sharpening & Edge Masking',
+      category: ToolCategory.detail,
+      summary: 'Edge-aware deconvolution sharpening with halo suppression and masking threshold.',
+      description:
+          'Unsharp sharpening algorithm operating in linear space. Includes Radius, Detail, and Masking controls '
+          'to protect flat surfaces like skies and skin while pin-pointing edge boundaries.',
+      icon: Icons.details_outlined,
+      bestUsedFor: 'Restoring lens softness, rendering crisp hair and architectural masonry.',
+      proTips: [
+        'Hold the Alt / Option key while adjusting Masking to visualize the black-and-white edge mask.',
+        'Keep Radius at 0.8-1.0 pixels for high-resolution cameras to avoid visible halo artifacts.',
+      ],
+      demoMin: 0.0,
+      demoMax: 100.0,
+      demoDefault: 40.0,
+      demoUnit: '%',
+    ),
+
     // --- OPTICS ---
     ToolGuideModel(
       id: 'optics_lensfun',
@@ -311,6 +361,23 @@ class ToolGuideRegistry {
         'Open Settings > AI Neural Plugins > Community to install SOTA models with 1 tap.',
         'Paste any valid GitHub repository or HuggingFace link to install community-created plugins offline.',
       ],
+    ),
+    ToolGuideModel(
+      id: 'split_compare',
+      title: 'Before / After Split & Wiper Compare',
+      category: ToolCategory.workflow,
+      summary: 'Toggle instantaneous side-by-side split screen (Y) or scrub with the 120 FPS draggable curtain.',
+      description:
+          'Compare your graded edits against the original unedited RAW capture. '
+          'Press Y or tap the Split View icon to activate side-by-side or top-and-bottom view with synchronized zoom and pan. '
+          'Use the Wiper curtain to interactively drag a dividing line across the photo.',
+      icon: Icons.view_column_outlined,
+      bestUsedFor: 'Auditing color grading subtlety, checking skin tone naturalness, and evaluating sharpness.',
+      proTips: [
+        'Press keyboard shortcut Y (or Shift+Y to toggle orientation) anytime in the editor.',
+        'Hold to Compare gives you a zero-lag instant hold-and-release toggle for quick subconscious checking.',
+      ],
+      shortcut: 'Y (Split) / \\ (Wiper)',
     ),
   ];
 

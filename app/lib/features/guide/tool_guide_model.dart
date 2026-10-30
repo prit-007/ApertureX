@@ -29,6 +29,10 @@ class ToolGuideModel {
     required this.proTips,
     required this.bestUsedFor,
     this.shortcut,
+    this.demoMin,
+    this.demoMax,
+    this.demoDefault,
+    this.demoUnit,
   });
   final String id;
   final String title;
@@ -39,4 +43,10 @@ class ToolGuideModel {
   final List<String> proTips;
   final String bestUsedFor;
   final String? shortcut;
+
+  /// Optional interactive simulator bounds.
+  final double? demoMin;
+  final double? demoMax;
+  final double? demoDefault;
+  final String? demoUnit;
 }

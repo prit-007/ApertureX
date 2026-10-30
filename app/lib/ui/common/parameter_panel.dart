@@ -23,7 +23,9 @@ class ParameterPanel extends StatelessWidget {
         for (final parameter in parameters)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-            child: ParameterControl(parameter: parameter),
+            child: RepaintBoundary(
+              child: ParameterControl(parameter: parameter),
+            ),
           ),
       ],
     );

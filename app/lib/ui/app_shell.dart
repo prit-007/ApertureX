@@ -26,6 +26,7 @@ import '../settings/app_settings.dart';
 import '../settings/onboarding.dart';
 import '../viewport/compare_hold.dart';
 import '../viewport/wiper_compare.dart';
+import '../viewport/split_compare.dart';
 import '../viewport/exposure_assist.dart';
 import '../viewport/image_canvas.dart';
 import '../viewport/mask_peek.dart';
@@ -373,22 +374,24 @@ class _AppShellState extends ConsumerState<AppShell> {
         ref.read(editActivityProvider.notifier).end();
         _speedTracker.onPointerCancel(e.pointer);
       },
-      child: ImageCanvas(
-        imageBytes: widget.imageBytes,
-        heroTag: widget.heroTag,
-        editInterpreter: interpreter,
-        onTap: () {
-          final activeSection = ref.read(activeSectionProvider);
-          if (activeSection != RecipeSection.masking &&
-              activeSection != RecipeSection.retouch) {
-            HapticFeedback.selectionClick();
-            setState(() {
-              _sheetSnap = _sheetSnap == _SheetSnap.hidden
-                  ? _SheetSnap.half
-                  : _SheetSnap.hidden;
-            });
-          }
-        },
+      child: RepaintBoundary(
+        child: ImageCanvas(
+          imageBytes: widget.imageBytes,
+          heroTag: widget.heroTag,
+          editInterpreter: interpreter,
+          onTap: () {
+            final activeSection = ref.read(activeSectionProvider);
+            if (activeSection != RecipeSection.masking &&
+                activeSection != RecipeSection.retouch) {
+              HapticFeedback.selectionClick();
+              setState(() {
+                _sheetSnap = _sheetSnap == _SheetSnap.hidden
+                    ? _SheetSnap.half
+                    : _SheetSnap.hidden;
+              });
+            }
+          },
+        ),
       ),
     );
   }
@@ -698,7 +701,11 @@ class _AppShellState extends ConsumerState<AppShell> {
                                             setState(() => _histogramOpen = v),
                                       ),
                                     if (!_panelCollapsed)
-                                      const Expanded(child: LightroomShell()),
+                                      const Expanded(
+                                        child: RepaintBoundary(
+                                          child: LightroomShell(),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
@@ -720,14 +727,16 @@ class _AppShellState extends ConsumerState<AppShell> {
                 child: Column(
                   children: [
                     Expanded(child: canvas),
-                    _LightroomSheet(
-                      availableHeight: constraints.maxHeight,
-                      snap: _sheetSnap,
-                      onSnap: (s) => setState(() => _sheetSnap = s),
-                      hasHistogram: hasHistogram,
-                      histogramOpen: _histogramOpen,
-                      setHistogramOpen: (v) =>
-                          setState(() => _histogramOpen = v),
+                    RepaintBoundary(
+                      child: _LightroomSheet(
+                        availableHeight: constraints.maxHeight,
+                        snap: _sheetSnap,
+                        onSnap: (s) => setState(() => _sheetSnap = s),
+                        hasHistogram: hasHistogram,
+                        histogramOpen: _histogramOpen,
+                        setHistogramOpen: (v) =>
+                            setState(() => _histogramOpen = v),
+                      ),
                     ),
                   ],
                 ),
@@ -1228,6 +1237,7 @@ class _CompareHint extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final wiper = ref.watch(wiperCompareProvider);
+    final splitCompare = ref.watch(splitCompareProvider);
     final assist = ref.watch(exposureAssistProvider);
 
     return DecoratedBox(
@@ -1306,6 +1316,49 @@ class _CompareHint extends ConsumerWidget {
                             ? FontWeight.bold
                             : FontWeight.w600,
                         color: wiper.isActive
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 1,
+                height: 12,
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  ref.read(splitCompareProvider.notifier).toggle();
+                  HapticFeedback.selectionClick();
+                },
+                onLongPress: () {
+                  ref.read(splitCompareProvider.notifier).toggleOrientation();
+                  HapticFeedback.heavyImpact();
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.view_column_outlined,
+                      size: 14,
+                      color: splitCompare.isEnabled
+                          ? scheme.primary
+                          : scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: Insets.xs),
+                    Text(
+                      'B/A Split',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: splitCompare.isEnabled
+                            ? FontWeight.bold
+                            : FontWeight.w600,
+                        color: splitCompare.isEnabled
                             ? scheme.primary
                             : scheme.onSurfaceVariant,
                       ),

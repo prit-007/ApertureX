@@ -17,6 +17,8 @@ import '../edit/settings_clipboard.dart';
 import '../features/editor/editor_screen.dart';
 import '../settings/settings_screen.dart';
 import '../ui/common/app_primitives.dart';
+import '../features/onboarding/onboarding_screen.dart';
+import '../settings/onboarding.dart';
 import '../ui/common/app_sheet.dart';
 import 'edit_preview_store.dart';
 import 'edited_versions_screen.dart';
@@ -774,21 +776,23 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
                 return AspectRatio(
                   aspectRatio: aspect,
-                  child: _EditPreviewCell(
-                    preview: preview,
-                    catalogEntry: catalogEntry,
-                    onTap: () {
-                      if (matchingAsset != null) {
-                        _openEntry(matchingAsset, preview.entryId);
-                      } else {
-                        _openSavedPreview(preview);
-                      }
-                    },
-                    onLongPressStart: (pos) => _editPreviewMenu(
-                      preview,
-                      matchingAsset,
-                      catalogEntry,
-                      pos,
+                  child: RepaintBoundary(
+                    child: _EditPreviewCell(
+                      preview: preview,
+                      catalogEntry: catalogEntry,
+                      onTap: () {
+                        if (matchingAsset != null) {
+                          _openEntry(matchingAsset, preview.entryId);
+                        } else {
+                          _openSavedPreview(preview);
+                        }
+                      },
+                      onLongPressStart: (pos) => _editPreviewMenu(
+                        preview,
+                        matchingAsset,
+                        catalogEntry,
+                        pos,
+                      ),
                     ),
                   ),
                 );
@@ -1009,6 +1013,77 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         .read(libraryCatalogProvider.notifier)
         .virtualCopiesBySource();
     final slivers = <Widget>[];
+    final hasCompletedOnboarding = ref.watch(hasCompletedOnboardingProvider);
+    if (!hasCompletedOnboarding) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(Insets.md, Insets.sm, Insets.md, Insets.xs),
+            child: Card(
+              elevation: 0,
+              color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.4),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(Insets.md),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(Insets.sm),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.lens_blur,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: Insets.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Welcome to ApertureX',
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Take a quick tour of dual shells & pro tools',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    FilledButton.tonal(
+                      onPressed: () => OnboardingScreen.show(context),
+                      child: const Text('Tour'),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      tooltip: 'Dismiss',
+                      onPressed: () => ref
+                          .read(hasCompletedOnboardingProvider.notifier)
+                          .complete(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     var i = 0;
     while (i < rows.length) {
       final row = rows[i];

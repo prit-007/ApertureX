@@ -205,15 +205,19 @@ class _ValueField extends StatelessWidget {
       style: TextButton.styleFrom(
         minimumSize: const Size(56, 32),
         padding: const EdgeInsets.symmetric(horizontal: Insets.sm),
+        backgroundColor: isNeutral
+            ? null
+            : scheme.primaryContainer.withValues(alpha: 0.28),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         foregroundColor: isNeutral ? scheme.onSurfaceVariant : scheme.primary,
       ),
       child: Opacity(
         opacity: muted ? 0.3 : 1.0,
         child: Text(
           _format(value, decimals: precise ? 3 : 2),
-          style: const TextStyle(
-            fontFeatures: [FontFeature.tabularFigures()],
-            fontWeight: FontWeight.w600,
+          style: TextStyle(
+            fontFeatures: const [FontFeature.tabularFigures()],
+            fontWeight: isNeutral ? FontWeight.w600 : FontWeight.w700,
           ),
         ),
       ),
@@ -413,7 +417,7 @@ class _TrackState extends ConsumerState<_Track> {
                 return;
               }
               _rejected = false;
-              _dragging = true;
+              setState(() => _dragging = true);
               _dragValue = widget.value;
               _gradient.reset();
               _sw
@@ -431,14 +435,24 @@ class _TrackState extends ConsumerState<_Track> {
               if (_rejected) return;
               // Precision gear (#71): engaged fingers divide the scrub so
               // long drags land on exact numbers instead of overshooting.
-              final scale =
-                  precisionEngaged(ref.read(precisionGearProvider))
-                  ? 1 / kPrecisionDivisor
-                  : 1.0;
-              _dragValue = (_dragValue +
+              final isPrecision =
+                  precisionEngaged(ref.read(precisionGearProvider));
+              final scale = isPrecision ? 1 / kPrecisionDivisor : 1.0;
+              final nextRaw = (_dragValue +
                       d.delta.dx / width * widget.math.span * scale)
                   .clamp(spec.min, spec.max);
-              widget.onChanged(_dragValue);
+              _dragValue = nextRaw;
+
+              // Pro tactile magnetic detent: snap cleanly to neutral if within micro threshold,
+              // but never during precision gear mode where exact micro-adjustments are required.
+              final span = widget.math.span;
+              final snapThreshold = isPrecision ? 0.0 : span * 0.004;
+              final effective = snapThreshold > 0 &&
+                      (nextRaw - spec.neutral).abs() < snapThreshold
+                  ? spec.neutral
+                  : nextRaw;
+
+              widget.onChanged(effective);
               _pulse();
             },
             onHorizontalDragEnd: (_) {
@@ -446,7 +460,7 @@ class _TrackState extends ConsumerState<_Track> {
                 _rejected = false;
                 return;
               }
-              _dragging = false;
+              setState(() => _dragging = false);
               widget.onCommit();
               ref.read(editActivityProvider.notifier).end();
               ref.read(maskPeekProvider.notifier).set(false);
@@ -459,7 +473,7 @@ class _TrackState extends ConsumerState<_Track> {
                 _rejected = false;
                 return;
               }
-              _dragging = false;
+              setState(() => _dragging = false);
               ref.read(editActivityProvider.notifier).end();
               ref.read(maskPeekProvider.notifier).set(false);
               ref.read(activeTrackProvider.notifier).release(
@@ -472,13 +486,16 @@ class _TrackState extends ConsumerState<_Track> {
               value: _format(widget.value, decimals: widget.precise ? 3 : 2),
               child: SizedBox(
                 height: 36,
-                child: CustomPaint(
-                  size: Size(width, 36),
-                  painter: _TrackPainter(
-                    math: widget.math,
-                    value: widget.value,
-                    scheme: widget.scheme,
-                    muted: widget.muted,
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    size: Size(width, 36),
+                    painter: _TrackPainter(
+                      math: widget.math,
+                      value: widget.value,
+                      scheme: widget.scheme,
+                      muted: widget.muted,
+                      isDragging: _dragging,
+                    ),
                   ),
                 ),
               ),
@@ -496,6 +513,7 @@ class _TrackPainter extends CustomPainter {
     required this.value,
     required this.scheme,
     required this.muted,
+    this.isDragging = false,
   });
 
   final SliderMath math;
@@ -505,32 +523,35 @@ class _TrackPainter extends CustomPainter {
   /// A muted (bypassed) parameter paints its fill in the surface colour so
   /// the track reads as inactive without looking deleted.
   final bool muted;
+  final bool isDragging;
 
   @override
   void paint(Canvas canvas, Size size) {
     final cy = size.height / 2;
     const trackH = 4.0;
 
+    // Background track rail
     canvas.drawLine(
       Offset(0, cy),
       Offset(size.width, cy),
       Paint()
-        ..color = scheme.onSurface.withValues(alpha: 0.20)
+        ..color = scheme.onSurface.withValues(alpha: 0.16)
         ..strokeWidth = trackH
         ..strokeCap = StrokeCap.round,
     );
 
-    // Neutral marker.
+    // Neutral graduation notch
     final nx = math.neutralFraction * size.width;
     canvas.drawLine(
-      Offset(nx, cy - 8),
-      Offset(nx, cy + 8),
+      Offset(nx, cy - 7),
+      Offset(nx, cy + 7),
       Paint()
-        ..color = scheme.onSurfaceVariant.withValues(alpha: 0.5)
-        ..strokeWidth = 1,
+        ..color = scheme.onSurfaceVariant.withValues(alpha: 0.55)
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round,
     );
 
-    // Fill between neutral and the current value (dimmed while muted).
+    // Active fill between neutral and the current value (dimmed while muted)
     final accent = muted ? scheme.surfaceContainerHighest : scheme.primary;
     final (start, end) = math.fillRange(value);
     canvas.drawLine(
@@ -542,15 +563,59 @@ class _TrackPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // Thumb.
+    // Thumb position & dimensions
+    final thumbX = math.fractionOf(value) * size.width;
+    final thumbRadius = isDragging ? 10.0 : 8.5;
+
+    // Touch feedback glow halo while scrubbing
+    if (isDragging && !muted) {
+      canvas.drawCircle(
+        Offset(thumbX, cy),
+        17.0,
+        Paint()..color = accent.withValues(alpha: 0.22),
+      );
+    }
+
+    // Drop shadow under thumb for pop
     canvas.drawCircle(
-      Offset(math.fractionOf(value) * size.width, cy),
-      9,
+      Offset(thumbX, cy + 1.2),
+      thumbRadius,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+    );
+
+    // Outer thumb body
+    canvas.drawCircle(
+      Offset(thumbX, cy),
+      thumbRadius,
       Paint()..color = accent,
     );
+
+    // Crisp highlight ring
+    canvas.drawCircle(
+      Offset(thumbX, cy),
+      thumbRadius,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.40)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+
+    // Inner indicator dot if modified
+    if (value != math.spec.neutral && !muted) {
+      canvas.drawCircle(
+        Offset(thumbX, cy),
+        2.5,
+        Paint()..color = scheme.onPrimary,
+      );
+    }
   }
 
   @override
   bool shouldRepaint(_TrackPainter old) =>
-      old.value != value || old.scheme != scheme || old.muted != muted;
+      old.value != value ||
+      old.scheme != scheme ||
+      old.muted != muted ||
+      old.isDragging != isDragging;
 }

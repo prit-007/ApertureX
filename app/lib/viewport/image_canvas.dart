@@ -30,6 +30,7 @@ import 'compare_hold.dart';
 import 'base_spec.dart';
 import 'change_keys.dart';
 import 'wiper_compare.dart';
+import 'split_compare.dart';
 import 'exposure_assist.dart';
 import 'canvas_transform.dart';
 import 'exif_orientation.dart';
@@ -340,6 +341,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _maskPeek.status != AnimationStatus.dismissed ||
       ref.read(zoneMaskProvider).isTargeting ||
       ref.read(wiperCompareProvider).isActive ||
+      ref.read(splitCompareProvider).isEnabled ||
       ref.read(exposureAssistProvider).isActive;
 
   void _onDeliveryGestureSettled(AnimationStatus _) =>
@@ -1100,6 +1102,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                     ? _visibleTileImages(fitted)
                     : const <_CanvasTile>[];
                 final wiper = ref.watch(wiperCompareProvider);
+                final splitCompare = ref.watch(splitCompareProvider);
                 final zoneMask = ref.watch(zoneMaskProvider);
                 final exposureAssist = ref.watch(exposureAssistProvider);
                 final softProof = ref.watch(softProofingProvider);
@@ -1122,11 +1125,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                   // Issue #54: actually display the texture Rust is
                   // writing into; the shader paint is the fallback
                   // (imported LUTs, iOS/tests, compare/peek fades,
-                  // tile overlay, geometry edits, wiper split curtain, exposure assist, soft proofing).
+                  // tile overlay, geometry edits, wiper split curtain, split compare, exposure assist, soft proofing).
                   textureId:
                       zeroCopy &&
                           !zoneMask.isTargeting &&
                           !wiper.isActive &&
+                          !splitCompare.isEnabled &&
                           !exposureAssist.isActive &&
                           !softProof.enabled
                       ? _textureId
@@ -1149,6 +1153,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                       wiperActive: wiper.isActive,
                       wiperPosition: wiper.position,
                       wiperOrientation: wiper.orientation,
+                      splitCompareActive: splitCompare.isEnabled,
+                      splitCompareOrientation: splitCompare.orientation,
                       zebraMode: exposureAssist.mode,
                       time: _zebraTicker.value * 1.0,
                       zebraHigh: exposureAssist.zebraHigh,
@@ -1655,6 +1661,8 @@ class _CanvasPainter extends CustomPainter {
     this.wiperActive = false,
     this.wiperPosition = 0.50,
     this.wiperOrientation = WiperOrientation.vertical,
+    this.splitCompareActive = false,
+    this.splitCompareOrientation = SplitOrientation.sideBySide,
     this.zebraMode = ExposureAssistMode.off,
     this.time = 0.0,
     this.zebraHigh = 0.98,
@@ -1676,6 +1684,8 @@ class _CanvasPainter extends CustomPainter {
   final bool wiperActive;
   final double wiperPosition;
   final WiperOrientation wiperOrientation;
+  final bool splitCompareActive;
+  final SplitOrientation splitCompareOrientation;
   final ExposureAssistMode zebraMode;
   final double time;
   final double zebraHigh;
@@ -1933,6 +1943,139 @@ class _CanvasPainter extends CustomPainter {
       return;
     }
 
+    if (splitCompareActive) {
+      if (splitCompareOrientation == SplitOrientation.sideBySide) {
+        final splitX = dst.left + dst.width * 0.5;
+
+        // 1. Unedited Source on Left side
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, splitX, dst.bottom));
+        canvas.drawImageRect(
+          compareSource,
+          Rect.fromLTWH(
+            0,
+            0,
+            compareSource.width.toDouble(),
+            compareSource.height.toDouble(),
+          ),
+          dst,
+          Paint(),
+        );
+        canvas.restore();
+
+        // 2. Graded result on Right side
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(splitX, dst.top, dst.right, dst.bottom));
+        canvas.drawRect(dst, Paint()..shader = shader);
+        if (tiles.isNotEmpty) {
+          for (final tile in tiles) {
+            canvas.save();
+            canvas.translate(tile.dst.left, tile.dst.top);
+            shader
+              ..setFloat(0, tile.dst.width)
+              ..setFloat(1, tile.dst.height)
+              ..setFloat(2, lutSize)
+              ..setFloat(3, maskBlend)
+              ..setFloat(4, tile.image.width.toDouble())
+              ..setFloat(5, tile.image.height.toDouble())
+              ..setFloat(6, zoneLo)
+              ..setFloat(7, zoneHi)
+              ..setFloat(8, zebraVal)
+              ..setFloat(9, time)
+              ..setFloat(10, zebraHigh)
+              ..setFloat(11, zebraLow)
+              ..setImageSampler(0, tile.image)
+              ..setImageSampler(1, lut);
+            canvas.drawRect(
+              Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
+              Paint()..shader = shader,
+            );
+            canvas.restore();
+          }
+        }
+        canvas.restore();
+
+        // 3. Crisp vertical divider line
+        final linePaint = Paint()
+          ..color = const Color(0xCCFFFFFF)
+          ..strokeWidth = 2.0;
+        canvas.drawLine(
+          Offset(splitX, dst.top),
+          Offset(splitX, dst.bottom),
+          linePaint,
+        );
+
+        // 4. Before / After label badges
+        _drawCompareBadge(canvas, 'BEFORE', Offset(dst.left + 12, dst.top + 12));
+        _drawCompareBadge(canvas, 'AFTER', Offset(splitX + 12, dst.top + 12));
+      } else {
+        final splitY = dst.top + dst.height * 0.5;
+
+        // 1. Unedited Source on Top side
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, dst.right, splitY));
+        canvas.drawImageRect(
+          compareSource,
+          Rect.fromLTWH(
+            0,
+            0,
+            compareSource.width.toDouble(),
+            compareSource.height.toDouble(),
+          ),
+          dst,
+          Paint(),
+        );
+        canvas.restore();
+
+        // 2. Graded result on Bottom side
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(dst.left, splitY, dst.right, dst.bottom));
+        canvas.drawRect(dst, Paint()..shader = shader);
+        if (tiles.isNotEmpty) {
+          for (final tile in tiles) {
+            canvas.save();
+            canvas.translate(tile.dst.left, tile.dst.top);
+            shader
+              ..setFloat(0, tile.dst.width)
+              ..setFloat(1, tile.dst.height)
+              ..setFloat(2, lutSize)
+              ..setFloat(3, maskBlend)
+              ..setFloat(4, tile.image.width.toDouble())
+              ..setFloat(5, tile.image.height.toDouble())
+              ..setFloat(6, zoneLo)
+              ..setFloat(7, zoneHi)
+              ..setFloat(8, zebraVal)
+              ..setFloat(9, time)
+              ..setFloat(10, zebraHigh)
+              ..setFloat(11, zebraLow)
+              ..setImageSampler(0, tile.image)
+              ..setImageSampler(1, lut);
+            canvas.drawRect(
+              Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
+              Paint()..shader = shader,
+            );
+            canvas.restore();
+          }
+        }
+        canvas.restore();
+
+        // 3. Crisp horizontal divider line
+        final linePaint = Paint()
+          ..color = const Color(0xCCFFFFFF)
+          ..strokeWidth = 2.0;
+        canvas.drawLine(
+          Offset(dst.left, splitY),
+          Offset(dst.right, splitY),
+          linePaint,
+        );
+
+        // 4. Before / After label badges
+        _drawCompareBadge(canvas, 'BEFORE', Offset(dst.left + 12, dst.top + 12));
+        _drawCompareBadge(canvas, 'AFTER', Offset(dst.left + 12, splitY + 12));
+      }
+      return;
+    }
+
     canvas.drawRect(dst, Paint()..shader = shader);
 
     if (blend > 0) {
@@ -2004,6 +2147,8 @@ class _CanvasPainter extends CustomPainter {
       old.wiperActive != wiperActive ||
       old.wiperPosition != wiperPosition ||
       old.wiperOrientation != wiperOrientation ||
+      old.splitCompareActive != splitCompareActive ||
+      old.splitCompareOrientation != splitCompareOrientation ||
       old.zebraMode != zebraMode ||
       old.time != time ||
       old.zebraHigh != zebraHigh ||

@@ -36,6 +36,7 @@ enum Parameter {
   sharpenMasking,
   denoiseLuma,
   denoiseChroma,
+  aiDenoise,
   // Color
   temperature,
   tint,
@@ -306,6 +307,13 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     id: Parameter.denoiseChroma,
     section: RecipeSection.detail,
     label: 'Noise (Chroma)',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.aiDenoise: ParameterSpec(
+    id: Parameter.aiDenoise,
+    section: RecipeSection.detail,
+    label: 'AI Denoise',
     min: 0,
     max: 1,
   ),
@@ -691,6 +699,7 @@ double valueOf(EditRecipe recipe, Parameter p) => switch (p) {
   Parameter.sharpenMasking => recipe.sharpenMasking,
   Parameter.denoiseLuma => recipe.denoiseLuma,
   Parameter.denoiseChroma => recipe.denoiseChroma,
+  Parameter.aiDenoise => recipe.aiDenoise,
   Parameter.temperature => recipe.temperature,
   Parameter.tint => recipe.tint,
   Parameter.vibrance => recipe.vibrance,
@@ -768,6 +777,7 @@ EditRecipe withValue(EditRecipe recipe, Parameter p, double value) {
     Parameter.sharpenMasking => recipe.copyWith(sharpenMasking: v),
     Parameter.denoiseLuma => recipe.copyWith(denoiseLuma: v),
     Parameter.denoiseChroma => recipe.copyWith(denoiseChroma: v),
+    Parameter.aiDenoise => recipe.copyWith(aiDenoise: v),
     Parameter.temperature => recipe.copyWith(temperature: v),
     Parameter.tint => recipe.copyWith(tint: v),
     Parameter.vibrance => recipe.copyWith(vibrance: v),
@@ -899,7 +909,8 @@ bool isSectionModified(EditRecipe recipe, RecipeSection section) {
           recipe.sharpenDetail != 0.25 ||
           recipe.sharpenMasking != 0 ||
           recipe.denoiseLuma != 0 ||
-          recipe.denoiseChroma != 0,
+          recipe.denoiseChroma != 0 ||
+          recipe.aiDenoise != 0,
     RecipeSection.optics =>
       recipe.removeChromaticAberration ||
           recipe.defringePurpleAmount != 0 ||

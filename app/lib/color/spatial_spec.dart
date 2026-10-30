@@ -24,6 +24,7 @@ class SpatialSpec {
     this.sharpenMasking = 0,
     this.denoiseLuma = 0,
     this.denoiseChroma = 0,
+    this.aiDenoise = 0,
     // Film emulation parameters (halation, bloom, dust, scratches).
     this.filmHalation = 0,
     this.filmHalationRadius = 0.5,
@@ -55,6 +56,7 @@ class SpatialSpec {
     sharpenMasking: recipe.sharpenMasking,
     denoiseLuma: recipe.denoiseLuma,
     denoiseChroma: recipe.denoiseChroma,
+    aiDenoise: recipe.aiDenoise,
     filmHalation: recipe.filmHalation,
     filmHalationRadius: recipe.filmHalationRadius,
     filmHalationThreshold: recipe.filmHalationThreshold,
@@ -84,6 +86,7 @@ class SpatialSpec {
   final double sharpenMasking;
   final double denoiseLuma;
   final double denoiseChroma;
+  final double aiDenoise;
   // Film emulation parameters.
   final double filmHalation;
   final double filmHalationRadius;
@@ -105,6 +108,7 @@ class SpatialSpec {
       sharpen == 0 &&
       denoiseLuma == 0 &&
       denoiseChroma == 0 &&
+      aiDenoise == 0 &&
       filmHalation == 0 &&
       filmBloom == 0 &&
       filmDust == 0 &&

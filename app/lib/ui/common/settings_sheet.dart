@@ -6,7 +6,9 @@ import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/settings_clipboard.dart';
 import '../../features/ai_plugins/ai_plugins_screen.dart';
+import '../../features/guide/app_guide_screen.dart';
 import '../../features/logs/logs_screen.dart';
+import '../../features/onboarding/onboarding_screen.dart';
 import '../../gallery/edited_versions_screen.dart';
 import '../../settings/ai_consent.dart';
 import '../../settings/app_settings.dart';
@@ -370,6 +372,22 @@ class SettingsSheet extends ConsumerWidget {
                 builder: (_) => const EditedVersionsScreen(),
               ),
             );
+          },
+        ),
+        _Action(
+          icon: Icons.school_outlined,
+          title: 'ApertureX Academy & Tool Guide...',
+          onTap: () {
+            Navigator.of(context).maybePop();
+            AppGuideScreen.showModal(context);
+          },
+        ),
+        _Action(
+          icon: Icons.tour_outlined,
+          title: 'App Onboarding Tour...',
+          onTap: () {
+            Navigator.of(context).maybePop();
+            OnboardingScreen.show(context);
           },
         ),
         _Action(
