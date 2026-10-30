@@ -154,8 +154,8 @@ class AxEngine {
       rust_color.ColorParams(
         exposure: s.exposure,
         contrast: s.contrast,
-        highlights: 0,
-        shadows: 0,
+        highlights: s.highlights,
+        shadows: s.shadows,
         whites: s.whites,
         blacks: s.blacks,
         saturation: s.saturation,
@@ -1026,6 +1026,18 @@ class AxEngine {
         width: width,
         height: height,
         xmp: xmp,
+      );
+
+  /// Exports RGBA8 pixels as a lossless PNG (Phase 1 Pro baseline).
+  static Future<Uint8List> exportPng({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+  }) =>
+      rust_export.exportPng(
+        rgba: rgba,
+        width: width,
+        height: height,
       );
 
   /// Merges bracketed exposures into an Ultra HDR JPEG (#20).

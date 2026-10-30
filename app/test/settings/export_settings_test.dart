@@ -48,4 +48,31 @@ void main() {
     n.setHdrHeadroom(0.2);
     expect(container.read(exportSettingsProvider).hdrHeadroom, 1.0);
   });
+
+  test('applies export presets correctly', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final n = container.read(exportSettingsProvider.notifier);
+
+    n.applyPreset(ExportPresetKind.webSocial);
+    expect(container.read(exportSettingsProvider).quality, 85);
+    expect(container.read(exportSettingsProvider).maxDim, 2048);
+    expect(container.read(exportSettingsProvider).colorSpace, 0);
+
+    n.applyPreset(ExportPresetKind.proDisplay);
+    expect(container.read(exportSettingsProvider).colorSpace, 1);
+    expect(container.read(exportSettingsProvider).ultraHdr, isTrue);
+  });
+
+  test('formats filename tokens correctly', () {
+    const settings = ExportSettings(
+      filenamePattern: '{original}_{preset}_{counter}',
+    );
+    final out = settings.formatFilename(
+      original: 'DSC_0042.CR3',
+      preset: 'landscape',
+      counter: 7,
+    );
+    expect(out, 'DSC_0042_landscape_007');
+  });
 }

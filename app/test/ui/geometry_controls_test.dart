@@ -50,5 +50,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No photo loaded for auto-straighten'), findsOneWidget);
+
+    final autoFrameBtn = find.byKey(const Key('geometry-auto-frame'));
+    expect(autoFrameBtn, findsOneWidget);
+
+    await tester.tap(autoFrameBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('No photo loaded for auto-frame'), findsOneWidget);
   });
 }

@@ -90,8 +90,36 @@ class AppTheme {
         overlayColor: scheme.primary.withValues(alpha: 0.12),
         trackHeight: 4,
       ),
+      chipTheme: ChipThemeData(
+        backgroundColor: scheme.surfaceContainerHigh,
+        selectedColor: scheme.primary.withValues(alpha: 0.22),
+        secondarySelectedColor: scheme.primary.withValues(alpha: 0.22),
+        labelStyle: text.labelMedium?.copyWith(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+        secondaryLabelStyle: text.labelMedium?.copyWith(
+          color: scheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
+        side: BorderSide(color: scheme.outlineVariant),
+        shape: const RoundedRectangleBorder(borderRadius: Radii.pillAll),
+        padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: Insets.xs),
+      ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return scheme.primary.withValues(alpha: 0.22);
+            }
+            return scheme.surfaceContainerHigh;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return scheme.primary;
+            }
+            return scheme.onSurfaceVariant;
+          }),
           shape: const WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: Radii.mdAll),
           ),

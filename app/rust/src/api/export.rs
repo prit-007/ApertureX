@@ -53,6 +53,11 @@ pub fn export_tiff16(
     crate::raw::export_tiff16(&rgba, width, height, &xmp)
 }
 
+/// Exports RGBA8 pixels as a lossless PNG (Phase 1 Pro baseline).
+pub fn export_png(rgba: Vec<u8>, width: u32, height: u32) -> Result<Vec<u8>, String> {
+    crate::export::encode_png(&rgba, width, height)
+}
+
 /// One bracketed exposure for HDR merge (#20).
 pub struct HdrExposureSpec {
     pub rgba: Vec<u8>,

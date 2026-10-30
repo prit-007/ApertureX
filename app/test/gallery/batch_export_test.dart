@@ -289,6 +289,33 @@ void main() {
       expect(find.text('1 selected'), findsOneWidget);
     });
 
+    testWidgets('Sync edits is enabled for 2+ selections and syncs master recipe to targets', (
+      tester,
+    ) async {
+      container.read(recipeStoreProvider.notifier).put(
+        originalEntryId('a'),
+        EditRecipe.neutral.copyWith(exposure: 1.5, contrast: 0.5),
+      );
+
+      await pumpGallery(tester);
+      await tester.longPress(find.byType(Image).at(0));
+      await tester.pumpAndSettle();
+
+      TextButton syncButton() =>
+          tester.widget<TextButton>(find.byKey(const Key('sync-edits-action')));
+      expect(syncButton().onPressed, isNull);
+
+      await tester.tap(find.byType(Image).at(1));
+      await tester.pumpAndSettle();
+      expect(syncButton().onPressed, isNotNull);
+
+      await tester.tap(find.byKey(const Key('sync-edits-action')));
+      await tester.pumpAndSettle();
+
+      expect(container.read(recipeStoreProvider)[originalEntryId('b')]!.exposure, 1.5);
+      expect(container.read(recipeStoreProvider)[originalEntryId('b')]!.contrast, 0.5);
+    });
+
     testWidgets('batch export shows rings, a running count and completes', (
       tester,
     ) async {

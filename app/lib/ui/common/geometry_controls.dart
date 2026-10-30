@@ -2,7 +2,10 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/theme/design_tokens.dart';
 import '../../edit/active_image.dart';
+import '../../edit/crop_math.dart';
+import '../../edit/recipe.dart' show fullCrop;
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
 import 'precision_rotation_dial.dart';
@@ -13,8 +16,8 @@ enum GeometrySubTab {
   perspective,
 }
 
-/// Geometry controls: rotate (90°), flip, and straighten. Writes to the shared
-/// recipe; the transform is non-destructive.
+/// Geometry controls: aspect crop, rotate (90°), flip, straighten, perspective & skew.
+/// Writes to the shared recipe; the transform is non-destructive.
 class GeometryControls extends ConsumerWidget {
   const GeometryControls({super.key, this.subTab});
 
@@ -22,12 +25,19 @@ class GeometryControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final recipe = ref.watch(recipeControllerProvider).recipe;
     final notifier = ref.read(recipeControllerProvider.notifier);
 
     final autoStraightenBtn = FilledButton.tonalIcon(
       key: const Key('geometry-auto-straighten'),
+      style: FilledButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        backgroundColor: scheme.primary.withValues(alpha: 0.15),
+        foregroundColor: scheme.primary,
+        side: BorderSide(color: scheme.primary.withValues(alpha: 0.4)),
+      ),
       onPressed: () async {
         final bytes = ref.read(activeImageBytesProvider);
         if (bytes == null) {
@@ -73,44 +83,205 @@ class GeometryControls extends ConsumerWidget {
           }
         }
       },
-      icon: const Icon(Icons.auto_fix_high),
-      label: const Text('Auto'),
+      icon: const Icon(Icons.auto_fix_high, size: 16),
+      label: const Text('Auto', style: TextStyle(fontWeight: FontWeight.w600)),
+    );
+
+    final autoFrameBtn = FilledButton.tonalIcon(
+      key: const Key('geometry-auto-frame'),
+      style: FilledButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        backgroundColor: scheme.tertiary.withValues(alpha: 0.15),
+        foregroundColor: scheme.tertiary,
+        side: BorderSide(color: scheme.tertiary.withValues(alpha: 0.4)),
+      ),
+      onPressed: () async {
+        final bytes = ref.read(activeImageBytesProvider);
+        if (bytes == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No photo loaded for auto-frame')),
+          );
+          return;
+        }
+        try {
+          final decoded = await AxEngine.decodeAnalysisProxy(bytes);
+          final subject = await AxEngine.detectSubject(
+            decoded.rgba,
+            width: decoded.width,
+            height: decoded.height,
+          );
+          if (subject == null) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('No distinct subject detected to frame'),
+                ),
+              );
+            }
+            return;
+          }
+          final crop = calculateAutoFrameCrop(
+            cx: subject.cx,
+            cy: subject.cy,
+            rx: subject.rx,
+            ry: subject.ry,
+          );
+          notifier.applyCrop(crop: crop);
+          notifier.commit(label: 'Auto Frame (Rule of Thirds)');
+          HapticFeedback.lightImpact();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Auto-framed composition (Rule of Thirds)'),
+              ),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Auto-frame failed: $e')),
+            );
+          }
+        }
+      },
+      icon: const Icon(Icons.crop_rotate, size: 16),
+      label: const Text('Auto Frame', style: TextStyle(fontWeight: FontWeight.w600)),
+    );
+
+    // Aspect Ratio Presets
+    void applyAspect(double? aspect) {
+      HapticFeedback.selectionClick();
+      if (aspect == null || aspect <= 0) {
+        notifier.applyCrop(crop: fullCrop);
+        return;
+      }
+      double l = 0, t = 0, r = 1, b = 1;
+      if (aspect >= 1.0) {
+        final h = (1.0 / aspect).clamp(0.1, 1.0);
+        t = (1.0 - h) / 2.0;
+        b = t + h;
+      } else {
+        final w = aspect.clamp(0.1, 1.0);
+        l = (1.0 - w) / 2.0;
+        r = l + w;
+      }
+      notifier.applyCrop(crop: [l, t, r, b]);
+    }
+
+    final isCurrentlyFullCrop = isFullCrop(recipe.crop);
+
+    final aspectPresets = SizedBox(
+      height: 34,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: Insets.sm),
+        children: [
+          _AspectChip(
+            label: 'Free',
+            isSelected: isCurrentlyFullCrop,
+            onTap: () => applyAspect(null),
+            scheme: scheme,
+          ),
+          _AspectChip(
+            label: '1:1',
+            isSelected: false,
+            onTap: () => applyAspect(1.0),
+            scheme: scheme,
+          ),
+          _AspectChip(
+            label: '4:5',
+            isSelected: false,
+            onTap: () => applyAspect(4.0 / 5.0),
+            scheme: scheme,
+          ),
+          _AspectChip(
+            label: '16:9',
+            isSelected: false,
+            onTap: () => applyAspect(16.0 / 9.0),
+            scheme: scheme,
+          ),
+          _AspectChip(
+            label: '9:16',
+            isSelected: false,
+            onTap: () => applyAspect(9.0 / 16.0),
+            scheme: scheme,
+          ),
+          _AspectChip(
+            label: '3:2',
+            isSelected: false,
+            onTap: () => applyAspect(3.0 / 2.0),
+            scheme: scheme,
+          ),
+          _AspectChip(
+            label: '2:3',
+            isSelected: false,
+            onTap: () => applyAspect(2.0 / 3.0),
+            scheme: scheme,
+          ),
+        ],
+      ),
     );
 
     final transformButtons = Wrap(
-      spacing: 12,
+      spacing: 8,
       runSpacing: 8,
+      alignment: WrapAlignment.center,
       children: [
         OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 8),
+          ),
           onPressed: () {
+            HapticFeedback.selectionClick();
             notifier.rotate(-1);
             notifier.commit(label: 'Rotate');
           },
-          icon: const Icon(Icons.rotate_90_degrees_ccw),
+          icon: const Icon(Icons.rotate_90_degrees_ccw, size: 16),
           label: const Text('Left'),
         ),
         OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 8),
+          ),
           onPressed: () {
+            HapticFeedback.selectionClick();
             notifier.rotate(1);
             notifier.commit(label: 'Rotate');
           },
-          icon: const Icon(Icons.rotate_90_degrees_cw),
+          icon: const Icon(Icons.rotate_90_degrees_cw, size: 16),
           label: const Text('Right'),
         ),
         OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 8),
+            backgroundColor: recipe.flipH ? scheme.primary.withValues(alpha: 0.15) : null,
+            foregroundColor: recipe.flipH ? scheme.primary : null,
+          ),
           onPressed: () {
+            HapticFeedback.selectionClick();
             notifier.toggleFlipH();
             notifier.commit(label: 'Flip H');
           },
-          icon: const Icon(Icons.flip),
+          icon: const Icon(Icons.flip, size: 16),
           label: const Text('Flip H'),
         ),
         OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 8),
+            backgroundColor: recipe.flipV ? scheme.primary.withValues(alpha: 0.15) : null,
+            foregroundColor: recipe.flipV ? scheme.primary : null,
+          ),
           onPressed: () {
+            HapticFeedback.selectionClick();
             notifier.toggleFlipV();
             notifier.commit(label: 'Flip V');
           },
-          icon: const Icon(Icons.flip_camera_android),
+          icon: const Icon(Icons.flip_camera_android, size: 16),
           label: const Text('Flip V'),
         ),
       ],
@@ -122,116 +293,133 @@ class GeometryControls extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [autoStraightenBtn],
+            children: [
+              autoStraightenBtn,
+              const SizedBox(width: 8),
+              autoFrameBtn,
+              const SizedBox(width: 8),
+              if (recipe.straighten.abs() >= 0.05)
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    notifier.setStraighten(0.0);
+                    notifier.commit(label: 'Reset Straighten');
+                  },
+                  icon: const Icon(Icons.refresh, size: 14),
+                  label: Text('${recipe.straighten > 0 ? '+' : ''}${recipe.straighten.toStringAsFixed(1)}°'),
+                ),
+            ],
           ),
         ),
         const PrecisionRotationDial(),
       ],
     );
 
+    Widget geoSliderRow({
+      required String label,
+      required double value,
+      required ValueChanged<double> onChanged,
+      required VoidCallback onChangeEnd,
+      required VoidCallback onReset,
+    }) {
+      final isModified = value.abs() > 0.005;
+      return Row(
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: isModified ? scheme.primary : scheme.onSurfaceVariant,
+                fontWeight: isModified ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SliderTheme(
+              data: SliderThemeData(
+                activeTrackColor: scheme.primary,
+                inactiveTrackColor: scheme.surfaceContainerHighest,
+                thumbColor: scheme.primary,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                trackHeight: 3,
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+              ),
+              child: Slider(
+                value: value.clamp(-1.0, 1.0),
+                min: -1,
+                max: 1,
+                onChanged: onChanged,
+                onChangeEnd: (_) => onChangeEnd(),
+              ),
+            ),
+          ),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onDoubleTap: onReset,
+            child: Container(
+              width: 50,
+              alignment: Alignment.centerRight,
+              child: Text(
+                '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isModified ? scheme.primary : scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     final perspectiveSection = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Column(
         children: [
-          Row(
-            children: [
-              const SizedBox(
-                width: 84,
-                child: Text('Perspective X'),
-              ),
-              Expanded(
-                child: Slider(
-                  value: recipe.perspectiveX.clamp(-1.0, 1.0),
-                  min: -1,
-                  max: 1,
-                  onChanged: (v) => notifier.setPerspectiveX(v),
-                  onChangeEnd: (_) => notifier.commit(label: 'Perspective X'),
-                ),
-              ),
-              SizedBox(
-                width: 52,
-                child: Text(
-                  recipe.perspectiveX.toStringAsFixed(2),
-                  textAlign: TextAlign.end,
-                  style: TextStyle(color: scheme.onSurfaceVariant),
-                ),
-              ),
-            ],
+          geoSliderRow(
+            label: 'Perspective X',
+            value: recipe.perspectiveX,
+            onChanged: (v) => notifier.setPerspectiveX(v),
+            onChangeEnd: () => notifier.commit(label: 'Perspective X'),
+            onReset: () {
+              notifier.setPerspectiveX(0.0);
+              notifier.commit(label: 'Reset Perspective X');
+            },
           ),
-          Row(
-            children: [
-              const SizedBox(
-                width: 84,
-                child: Text('Perspective Y'),
-              ),
-              Expanded(
-                child: Slider(
-                  value: recipe.perspectiveY.clamp(-1.0, 1.0),
-                  min: -1,
-                  max: 1,
-                  onChanged: (v) => notifier.setPerspectiveY(v),
-                  onChangeEnd: (_) => notifier.commit(label: 'Perspective Y'),
-                ),
-              ),
-              SizedBox(
-                width: 52,
-                child: Text(
-                  recipe.perspectiveY.toStringAsFixed(2),
-                  textAlign: TextAlign.end,
-                  style: TextStyle(color: scheme.onSurfaceVariant),
-                ),
-              ),
-            ],
+          geoSliderRow(
+            label: 'Perspective Y',
+            value: recipe.perspectiveY,
+            onChanged: (v) => notifier.setPerspectiveY(v),
+            onChangeEnd: () => notifier.commit(label: 'Perspective Y'),
+            onReset: () {
+              notifier.setPerspectiveY(0.0);
+              notifier.commit(label: 'Reset Perspective Y');
+            },
           ),
-          Row(
-            children: [
-              const SizedBox(
-                width: 84,
-                child: Text('Skew X'),
-              ),
-              Expanded(
-                child: Slider(
-                  value: recipe.skewX.clamp(-1.0, 1.0),
-                  min: -1,
-                  max: 1,
-                  onChanged: (v) => notifier.setSkewX(v),
-                  onChangeEnd: (_) => notifier.commit(label: 'Skew X'),
-                ),
-              ),
-              SizedBox(
-                width: 52,
-                child: Text(
-                  recipe.skewX.toStringAsFixed(2),
-                  textAlign: TextAlign.end,
-                  style: TextStyle(color: scheme.onSurfaceVariant),
-                ),
-              ),
-            ],
+          geoSliderRow(
+            label: 'Skew X',
+            value: recipe.skewX,
+            onChanged: (v) => notifier.setSkewX(v),
+            onChangeEnd: () => notifier.commit(label: 'Skew X'),
+            onReset: () {
+              notifier.setSkewX(0.0);
+              notifier.commit(label: 'Reset Skew X');
+            },
           ),
-          Row(
-            children: [
-              const SizedBox(
-                width: 84,
-                child: Text('Skew Y'),
-              ),
-              Expanded(
-                child: Slider(
-                  value: recipe.skewY.clamp(-1.0, 1.0),
-                  min: -1,
-                  max: 1,
-                  onChanged: (v) => notifier.setSkewY(v),
-                  onChangeEnd: (_) => notifier.commit(label: 'Skew Y'),
-                ),
-              ),
-              SizedBox(
-                width: 52,
-                child: Text(
-                  recipe.skewY.toStringAsFixed(2),
-                  textAlign: TextAlign.end,
-                  style: TextStyle(color: scheme.onSurfaceVariant),
-                ),
-              ),
-            ],
+          geoSliderRow(
+            label: 'Skew Y',
+            value: recipe.skewY,
+            onChanged: (v) => notifier.setSkewY(v),
+            onChangeEnd: () => notifier.commit(label: 'Skew Y'),
+            onReset: () {
+              notifier.setSkewY(0.0);
+              notifier.commit(label: 'Reset Skew Y');
+            },
           ),
         ],
       ),
@@ -242,7 +430,17 @@ class GeometryControls extends ConsumerWidget {
     } else if (subTab == GeometrySubTab.transform) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: transformButtons,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: autoFrameBtn,
+            ),
+            aspectPresets,
+            const SizedBox(height: 8),
+            transformButtons,
+          ],
+        ),
       );
     } else if (subTab == GeometrySubTab.perspective) {
       return perspectiveSection;
@@ -251,53 +449,33 @@ class GeometryControls extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Aspect Presets
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              autoStraightenBtn,
-              OutlinedButton.icon(
-                onPressed: () {
-                  notifier.rotate(-1);
-                  notifier.commit(label: 'Rotate');
-                },
-                icon: const Icon(Icons.rotate_90_degrees_ccw),
-                label: const Text('Left'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () {
-                  notifier.rotate(1);
-                  notifier.commit(label: 'Rotate');
-                },
-                icon: const Icon(Icons.rotate_90_degrees_cw),
-                label: const Text('Right'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () {
-                  notifier.toggleFlipH();
-                  notifier.commit(label: 'Flip H');
-                },
-                icon: const Icon(Icons.flip),
-                label: const Text('Flip H'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () {
-                  notifier.toggleFlipV();
-                  notifier.commit(label: 'Flip V');
-                },
-                icon: const Icon(Icons.flip_camera_android),
-                label: const Text('Flip V'),
-              ),
-            ],
+          padding: const EdgeInsets.only(top: 4, bottom: 2),
+          child: aspectPresets,
+        ),
+        const SizedBox(height: 4),
+
+        // Transform Buttons Card
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Container(
+            padding: const EdgeInsets.all(Insets.sm),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(Radii.md),
+              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            child: transformButtons,
           ),
         ),
+
+        // Straighten & Dial
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Column(
             children: [
-              const PrecisionRotationDial(),
+              straightenSection,
               const SizedBox(height: 8),
               perspectiveSection,
             ],
@@ -305,5 +483,54 @@ class GeometryControls extends ConsumerWidget {
         ),
       ],
     );
-   }
- }
+  }
+}
+
+class _AspectChip extends StatelessWidget {
+  const _AspectChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    required this.scheme,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? scheme.primary.withValues(alpha: 0.2)
+                : scheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(Radii.pill),
+            border: Border.all(
+              color: isSelected
+                  ? scheme.primary
+                  : scheme.outlineVariant.withValues(alpha: 0.6),
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

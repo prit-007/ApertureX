@@ -197,6 +197,20 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     _snack('Applied settings to ${state.selectedCount} photo(s)');
   }
 
+  /// Syncs settings from the first selected photo to all other selected photos (Lightroom-style Batch Sync #13).
+  void _syncEdits() {
+    final state = ref.read(galleryControllerProvider);
+    if (state.selectedCount < 2) return;
+    final masterId = state.selected.first;
+    final recipe =
+        ref.read(recipeStoreProvider)[originalEntryId(masterId)] ??
+        EditRecipe.neutral;
+    final targets = state.selected.skip(1).map(originalEntryId);
+    ref.read(recipeStoreProvider.notifier).pasteTo(targets, recipe);
+    ref.read(galleryControllerProvider.notifier).clearSelection();
+    _snack('Synced settings to ${state.selectedCount - 1} photo(s)');
+  }
+
   void _createVirtualCopies() {
     final state = ref.read(galleryControllerProvider);
     if (state.selected.isEmpty) return;
@@ -404,6 +418,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               ? _SelectionBar(
                   canCopy: state.selectedCount == 1,
                   onCopy: _copyEdits,
+                  canSync: state.selectedCount >= 2,
+                  onSync: _syncEdits,
                   onVirtualCopy: _createVirtualCopies,
                   onPaste: _paste,
                   onExport: _export,
@@ -1361,6 +1377,8 @@ class _SelectionBar extends StatelessWidget {
   const _SelectionBar({
     required this.canCopy,
     required this.onCopy,
+    required this.canSync,
+    required this.onSync,
     required this.onVirtualCopy,
     required this.onPaste,
     required this.onExport,
@@ -1372,6 +1390,12 @@ class _SelectionBar extends StatelessWidget {
   /// unambiguous (#75).
   final bool canCopy;
   final VoidCallback onCopy;
+
+  /// True when 2 or more photos are selected — allows batch syncing the first
+  /// photo's edits to all other selected photos.
+  final bool canSync;
+  final VoidCallback onSync;
+
   final VoidCallback onVirtualCopy;
   final VoidCallback onPaste;
   final VoidCallback onExport;
@@ -1400,6 +1424,13 @@ class _SelectionBar extends StatelessWidget {
                 onPressed: canCopy ? onCopy : null,
                 icon: const Icon(Icons.copy, size: 18),
                 label: const Text('Copy edits'),
+              ),
+              const SizedBox(width: Insets.sm),
+              TextButton.icon(
+                key: const Key('sync-edits-action'),
+                onPressed: canSync ? onSync : null,
+                icon: const Icon(Icons.sync, size: 18),
+                label: const Text('Sync edits'),
               ),
               const SizedBox(width: Insets.sm),
               TextButton.icon(
