@@ -34,6 +34,7 @@
 //! spike B and needs device-side `TextureRegistry` plumbing — the handle
 //! returned here is the seam it will plug into.
 
+use rayon::prelude::*;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -526,19 +527,12 @@ pub fn render(
         let p = params.to_core();
         let set = curves.to_set();
         let hsl24 = to_hsl24(hsl);
-        for px in frame.rgba.as_chunks_mut::<4>().0 {
-            let c = color::grade_pixel_c(
-                px[0] as f32 / 255.0,
-                px[1] as f32 / 255.0,
-                px[2] as f32 / 255.0,
-                p,
-                Some(&set),
-                &hsl24,
-            );
-            px[0] = (c[0] * 255.0 + 0.5) as u8;
-            px[1] = (c[1] * 255.0 + 0.5) as u8;
-            px[2] = (c[2] * 255.0 + 0.5) as u8;
-        }
+        frame.rgba.par_chunks_exact_mut(4).for_each(|px| {
+            let graded = color::grade_pixel_u8(px[0], px[1], px[2], p, Some(&set), &hsl24);
+            px[0] = graded[0];
+            px[1] = graded[1];
+            px[2] = graded[2];
+        });
     }
 
     // 5. Straight into the platform window.

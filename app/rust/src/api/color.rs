@@ -142,17 +142,10 @@ pub fn grade_rgba(
     let hsl = to_hsl24(&hsl);
     let mut out = rgba;
     out.par_chunks_exact_mut(4).for_each(|px| {
-        let c = color::grade_pixel_c(
-            px[0] as f32 / 255.0,
-            px[1] as f32 / 255.0,
-            px[2] as f32 / 255.0,
-            p,
-            Some(&set),
-            &hsl,
-        );
-        px[0] = (c[0] * 255.0 + 0.5) as u8;
-        px[1] = (c[1] * 255.0 + 0.5) as u8;
-        px[2] = (c[2] * 255.0 + 0.5) as u8;
+        let graded = color::grade_pixel_u8(px[0], px[1], px[2], p, Some(&set), &hsl);
+        px[0] = graded[0];
+        px[1] = graded[1];
+        px[2] = graded[2];
     });
     out
 }

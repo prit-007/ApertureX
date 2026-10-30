@@ -28,6 +28,8 @@
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
+use rayon::prelude::*;
+
 use crate::blur::{self, LensBlurParams};
 use crate::color::{self, CurveSet, GradeParams};
 use crate::geometry::{self, GeometrySpec};
@@ -194,19 +196,12 @@ pub fn run_export_tiled(
 /// Point-wise grade in place — the shared colour stage for single and banded
 /// export. Mirrors `api::color::grade_rgba` so preview and export agree.
 fn grade_in_place(buf: &mut [u8], grade: GradeParams, curves: &CurveSet, hsl: &[f32; 24]) {
-    for px in buf.as_chunks_mut::<4>().0 {
-        let c = color::grade_pixel_c(
-            px[0] as f32 / 255.0,
-            px[1] as f32 / 255.0,
-            px[2] as f32 / 255.0,
-            grade,
-            Some(curves),
-            hsl,
-        );
-        px[0] = (c[0] * 255.0 + 0.5) as u8;
-        px[1] = (c[1] * 255.0 + 0.5) as u8;
-        px[2] = (c[2] * 255.0 + 0.5) as u8;
-    }
+    buf.par_chunks_exact_mut(4).for_each(|px| {
+        let graded = color::grade_pixel_u8(px[0], px[1], px[2], grade, Some(curves), hsl);
+        px[0] = graded[0];
+        px[1] = graded[1];
+        px[2] = graded[2];
+    });
 }
 
 #[cfg(test)]

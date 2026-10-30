@@ -247,88 +247,77 @@ pub fn apply_lens_blur(
 
     let kernel = build_bokeh_kernel(params.bokeh_shape, sample_count);
 
-    let num_threads = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(4)
-        .clamp(1, 8);
-    let rows_per_chunk = h.div_ceil(num_threads);
-
-    out.par_chunks_mut(rows_per_chunk * w * 4)
+    out.par_chunks_exact_mut(w * 4)
         .enumerate()
-        .for_each(|(chunk_idx, out_chunk)| {
-            let start_y = chunk_idx * rows_per_chunk;
-            let end_y = (start_y + rows_per_chunk).min(h);
-            for y in start_y..end_y {
-                let chunk_y = y - start_y;
-                for x in 0..w {
-                    let idx = (chunk_y * w + x) * 4;
-                    let src_idx = (y * w + x) * 4;
-                    let pixel_depth = depth_buffer[y * w + x];
-                    let coc = circle_of_confusion(
-                        pixel_depth,
-                        params.focal_point,
-                        params.focal_range,
-                        params.amount,
-                    );
+        .for_each(|(y, row)| {
+            for x in 0..w {
+                let idx = x * 4;
+                let src_idx = (y * w + x) * 4;
+                let pixel_depth = depth_buffer[y * w + x];
+                let coc = circle_of_confusion(
+                    pixel_depth,
+                    params.focal_point,
+                    params.focal_range,
+                    params.amount,
+                );
 
-                    // In sharp focal plane: copy pixel intact
-                    if coc <= 1e-3 {
-                        out_chunk[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
+                // In sharp focal plane: copy pixel intact
+                if coc <= 1e-3 {
+                    row[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
+                    continue;
+                }
+
+                let kernel_r = (coc * max_radius).max(1.0);
+                let mut r_acc = 0.0f32;
+                let mut g_acc = 0.0f32;
+                let mut b_acc = 0.0f32;
+                let mut weight_acc = 0.0f32;
+
+                for sample in &kernel {
+                    let nx = (x as f32 + sample.dx * kernel_r).round() as isize;
+                    let ny = (y as f32 + sample.dy * kernel_r).round() as isize;
+                    if nx < 0 || nx >= w as isize || ny < 0 || ny >= h as isize {
                         continue;
                     }
-
-                    let kernel_r = (coc * max_radius).max(1.0);
-                    let mut r_acc = 0.0f32;
-                    let mut g_acc = 0.0f32;
-                    let mut b_acc = 0.0f32;
-                    let mut weight_acc = 0.0f32;
-
-                    for sample in &kernel {
-                        let nx = (x as f32 + sample.dx * kernel_r).round() as isize;
-                        let ny = (y as f32 + sample.dy * kernel_r).round() as isize;
-                        if nx < 0 || nx >= w as isize || ny < 0 || ny >= h as isize {
-                            continue;
-                        }
-                        let s_x = nx as usize;
-                        let s_y = ny as usize;
-                        let sample_depth = depth_buffer[s_y * w + s_x];
-                        let depth_weight = if sample_depth < pixel_depth - 0.15 {
-                            0.1 // de-weight foreground bleeding onto background
-                        } else {
-                            1.0
-                        };
-
-                        let s_idx = (s_y * w + s_x) * 4;
-                        let mut sr = rgba[s_idx] as f32;
-                        let mut sg = rgba[s_idx + 1] as f32;
-                        let mut sb = rgba[s_idx + 2] as f32;
-
-                        // Specular highlight boost: amplify bright out-of-focus spots
-                        if params.bokeh_boost > 0.0 {
-                            let luma = 0.2126 * sr + 0.7152 * sg + 0.0722 * sb;
-                            if luma > 180.0 {
-                                let boost = 1.0 + params.bokeh_boost * ((luma - 180.0) / 75.0);
-                                sr *= boost;
-                                sg *= boost;
-                                sb *= boost;
-                            }
-                        }
-
-                        let w_val = depth_weight * sample.weight;
-                        r_acc += sr * w_val;
-                        g_acc += sg * w_val;
-                        b_acc += sb * w_val;
-                        weight_acc += w_val;
-                    }
-
-                    if weight_acc > 0.0 {
-                        out_chunk[idx] = (r_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
-                        out_chunk[idx + 1] = (g_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
-                        out_chunk[idx + 2] = (b_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
-                        out_chunk[idx + 3] = rgba[src_idx + 3];
+                    let s_x = nx as usize;
+                    let s_y = ny as usize;
+                    let sample_depth = depth_buffer[s_y * w + s_x];
+                    let depth_weight = if sample_depth < pixel_depth - 0.15 {
+                        0.1 // de-weight foreground bleeding onto background
                     } else {
-                        out_chunk[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
+                        1.0
+                    };
+
+                    let s_idx = (s_y * w + s_x) * 4;
+                    let mut sr = rgba[s_idx] as f32;
+                    let mut sg = rgba[s_idx + 1] as f32;
+                    let mut sb = rgba[s_idx + 2] as f32;
+
+                    // Specular highlight boost: amplify bright out-of-focus spots
+                    if params.bokeh_boost > 0.0 {
+                        let luma = 0.2126 * sr + 0.7152 * sg + 0.0722 * sb;
+                        if luma > 180.0 {
+                            let boost = 1.0 + params.bokeh_boost * ((luma - 180.0) / 75.0);
+                            sr *= boost;
+                            sg *= boost;
+                            sb *= boost;
+                        }
                     }
+
+                    let w_val = depth_weight * sample.weight;
+                    r_acc += sr * w_val;
+                    g_acc += sg * w_val;
+                    b_acc += sb * w_val;
+                    weight_acc += w_val;
+                }
+
+                if weight_acc > 0.0 {
+                    row[idx] = (r_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
+                    row[idx + 1] = (g_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
+                    row[idx + 2] = (b_acc / weight_acc).round().clamp(0.0, 255.0) as u8;
+                    row[idx + 3] = rgba[src_idx + 3];
+                } else {
+                    row[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
                 }
             }
         });
