@@ -284,16 +284,21 @@ class RetouchControls extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      selectedPatch != null
-                          ? 'Spot #${selectedIndex! + 1} (${currentMode == RetouchMode.heal ? 'Heal' : 'Clone'})'
-                          : 'Spot Settings',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: scheme.primary,
-                        fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Text(
+                        selectedPatch != null
+                            ? 'Spot #${selectedIndex! + 1} (${currentMode == RetouchMode.heal ? 'Heal' : 'Clone'})'
+                            : 'Spot Settings',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (selectedPatch != null)
+                    if (selectedPatch != null) ...[
+                      const SizedBox(width: Insets.xs),
                       Text(
                         '(${((selectedPatch.targetX) * 100).round()}%, ${((selectedPatch.targetY) * 100).round()}%)',
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -301,6 +306,7 @@ class RetouchControls extends ConsumerWidget {
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: Insets.xs),

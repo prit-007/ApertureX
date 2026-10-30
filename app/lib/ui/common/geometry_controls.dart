@@ -408,7 +408,7 @@ class GeometryControls extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Column(
             children: [
-              const PrecisionRotationDial(),
+              straightenSection,
               const SizedBox(height: 8),
               perspectiveSection,
             ],
