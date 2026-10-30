@@ -640,3 +640,33 @@ For open-source distribution outside Google Play (e.g., GitHub Releases, direct 
 - **Contextual Help:** Every tool header and sheet provides direct 1-tap access to the specific
   tool's masterclass.
 
+## 25. HEIC / AVIF Direct ISO-BMFF Decoder & Payload Extraction
+
+- **Container Parsing (`AxEngine.decodeHeicRgba`):** Zero-cloud, offline ISO-BMFF container parser reading `ispe` (Image Spatial Extents FullBox) tags to extract true image dimensions (`width`, `height`).
+- **Embedded Proxy Extraction:** Extracts embedded high-resolution JPEG thumbnails and preview payloads directly from the box structure without requiring external platform transcoders.
+- **Universal Gallery Source Integration:** Directly integrated into `FolderGallerySource` and `AxEngine.decodeImageRgba`, allowing HEIC and AVIF files to be loaded, thumbnailed, and edited across desktop and mobile platforms.
+
+## 26. Background Export Worker & Wake-Lock Persistence
+
+- **Isolate Worker Architecture (`BackgroundExportWorker`):** Runs CPU-intensive image export pipelines inside dedicated background Dart Isolates, fully decoupled from the UI thread.
+- **Process Survival:** Employs wake-lock retention and active foreground notification progress tracking so multi-gigabyte or batch exports survive app backgrounding.
+- **Queue Management:** Riverpod state notifier managing export job lifecycle (`queued`, `processing`, `completed`, `failed`), emitting continuous percentage progress updates.
+
+## 27. Internationalization (i18n) & Localized String Architecture
+
+- **Multi-Locale Core (`AppStrings`):** Self-contained, zero-bloat dictionary registry implementing support for English (`en`), Spanish (`es`), German (`de`), French (`fr`), Japanese (`ja`), and Chinese (`zh`).
+- **Flutter Localization Delegates:** Plugged directly into `MaterialApp` via `AppStrings.delegate`, `GlobalMaterialLocalizations`, `GlobalWidgetsLocalizations`, and `GlobalCupertinoLocalizations`.
+- **Decentralized Parameter & Category Coverage:** Covers navigation affordances, Lightroom master tabs, tooltips, batch actions, soft proofing profiles, and accessibility announcements.
+
+## 28. Soft Proofing & Gamut Mapping Engine
+
+- **Profile Simulation (`SoftProofState`):** Renders output device gamut simulations directly on the image viewport for sRGB (Web), Display P3 (Wide Gamut), Adobe RGB (1998), and US Web Coated SWOP (CMYK Print).
+- **Gamut Mapping Intents:** Supports Perceptual (smooth proportional compression) and Relative Colorimetric (exact in-gamut preservation with clipping).
+- **Out-of-Gamut Warning:** Viewport shader false-color overlay highlighting pixels exceeding the target color space boundary.
+
+## 29. Desktop Platform MenuBar & Native System Integration
+
+- **Native Menus (`DesktopMenuBar`):** Automatically injects native `PlatformMenuBar` when running on macOS, Linux, or Windows.
+- **Keyboard Shortcuts:** Integrates macOS Cmd and Windows/Linux Ctrl keybindings for File (Open, Export), Edit (Undo, Redo, Copy/Paste Settings), and View (Curtain Wiper Compare, Reset Zoom).
+
+

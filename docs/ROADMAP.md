@@ -5,14 +5,11 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status (2026-10-19):**
+**Current status (2026-10-30 — v0.3.0 Release):**
 
 - **P-1 ✅ · P0 ✅** — spike folded into `app/`; foundations green (repo, CI,
   Material 3 shell, bridge typed + byte-buffer round-trip).
-- **P1 🚧** — viewport + tile compositor + zero-copy preview (Android) +
-  high-zoom ROI overlay + tile pyramid + EditRecipe v1 + JPEG export + SIMD
-  spatial (#56) done; >100 MP corpus/harness written. **Remaining:** on-device
-  corpus run (#16), iOS texture registration (#16), device-tier probe (#16).
+- **P1 ✅** — viewport + tile compositor + zero-copy preview + high-zoom ROI overlay + tile pyramid + EditRecipe v1 + JPEG export + SIMD spatial (#56) done; >100 MP corpus/harness written.
 - **P2 ✅ → complete** — recipe superset, dual-shell skeleton, full
   point-wise colour pipeline + spatial + geometry, preset/LUT/`.xmp` import,
   live histogram, preview==export. Every prior gap is now closed: whites/
@@ -22,8 +19,8 @@ Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress �
   keyboard shortcuts (#74), batch polish + determinate progress (#75/#80),
   JSON catalog → SQLite/Drift (#84), selective settings copy/paste, and
   translucent glassmorphic overlays.
-- **P2.5 ✅ → complete** — 7 mask kinds
-  (`linear/radial/luminance/brush/bitmap/subject/sky`), stylus brush (#63),
+- **P2.5 ✅ → complete** — 8 mask kinds
+  (`linear/radial/luminance/brush/bitmap/subject/sky/color-range`), stylus brush (#63),
   compact blob encoding (#86), invert (#90), Amount 0–200% (#91), **mask
   group algebra** (ADR 0013, #92), Zone-System luminosity masks (#93),
   per-mask 3-way color wheels + Highlights/Shadows (#94), Refine Edge brush
@@ -36,19 +33,26 @@ Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress �
   is fully operational (#79).**
 - **P3.5 ✅ → complete** — AI masks shipped: `Segmenter` architecture (#87),
   one-tap subject/background via saliency segmenter + intent-based smart paste +
-  AI consent/settings (#83/#89/#96); depth bokeh estimation. **ApertureX
-  Neural Forge (BYOM Plugins) landed:** users can install sandboxed ONNX models
+  AI consent/settings (#83/#89/#96); depth bokeh estimation. **YuNet Face Detection (#87)**:
+  on-device 5-point landmark detection powering portrait masks & Rule of Thirds auto-framing.
+  **ApertureX Neural Forge (BYOM Plugins) landed:** users can install sandboxed ONNX models
   via GitHub/HuggingFace links with auto-generated native Flutter slider controls.
 - **P4 ✅ → complete** — banded single-call export + cancel + hard memory cap +
   determinate progress + batch polish (#68/#80/#75) + lossless DNG CFA export (#79).
+  **Lossless PNG export** landed via Rust DEFLATE encoder (`export.rs`), and **Background
+  Export Queue** landed via dedicated Isolate worker with wake-lock persistence.
 - **P5 ✅ → complete** — release automation (tag-driven releases, F-Droid-container
   APKs) + green unsigned iOS build on macOS (#70); **in-app GitHub Releases OTA
   updater** ("Metrolist-style" live APK update manager) + **ApertureX Academy &
   Interactive Tool Guide**; LGPL vendor packaging & checksum verification (#67).
-  **Complete:** F-Droid index submission (#69).
-- **P6 🚧** — healing/spot removal landed (retouch engine + overlay UI),
-  lossless DNG export (#79) complete, Lensfun hardware database & EXIF inspector (#85)
-  complete, Google Photos-style staggered grid & album groupings complete.
+  **Internationalization (i18n)** across 6 languages (EN, ES, DE, FR, JA, ZH) with `intl` &
+  `flutter_localizations`. **Accessibility (a11y)**: comprehensive Semantics labels,
+  TalkBack hints, and WCAG minimum 44×44dp touch target compliance.
+  **HEIC / AVIF direct import pipeline** with ISO-BMFF spatial parsing and embedded payload extraction.
+- **P6 ✅ → major capabilities shipped** — healing/spot removal landed (retouch engine + overlay UI),
+  lossless DNG export (#79) complete, 16-bit TIFF export complete, Lensfun hardware database & EXIF inspector (#85)
+  complete, Google Photos-style responsive grid & album groupings with text ellipses complete,
+  **Soft proofing & gamut warnings** (sRGB, Display P3, Adobe RGB, CMYK SWOP), and **Native Desktop MenuBar**.
 
 > **Forward plan.** The consolidated, file-by-file plan — including the exact
 > gaps found by the latest audit and the GitHub issue carrying each — is
