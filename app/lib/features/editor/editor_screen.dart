@@ -17,6 +17,7 @@ import '../../color/spatial_spec.dart';
 import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
+import 'background_export_worker.dart';
 import 'editor_shortcuts.dart';
 import 'export_progress.dart';
 import '../../edit/geometry_spec.dart';
@@ -236,6 +237,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       case ExportAction.sharePresetCard:
         _exportPresetCard();
         break;
+      case ExportAction.backgroundExport:
+        await _queueBackgroundExport();
+        break;
     }
   }
 
@@ -259,6 +263,41 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       tool: tool,
       previewImageBytes: _bytes,
     );
+  }
+
+  Future<void> _queueBackgroundExport() async {
+    final previewBytes = _bytes;
+    if (previewBytes == null) return;
+    try {
+      final decoded = await AxEngine.decodeAnalysisProxy(previewBytes);
+      final recipe = ref.read(recipeControllerProvider).recipe;
+      final tempDir = await getTemporaryDirectory();
+      final targetPath =
+          '${tempDir.path}/export_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final worker = ref.read(backgroundExportWorkerProvider.notifier);
+      final taskId = worker.enqueue(
+        rgba: decoded.rgba,
+        width: decoded.width,
+        height: decoded.height,
+        recipe: recipe,
+        targetPath: targetPath,
+        format: ExportFormat.jpeg,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Export queued in background ($taskId)'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to queue export: $e')),
+      );
+    }
   }
 
   /// Shared JPEG export pipeline: load → decode → token+poller → exportJpegFull
@@ -1044,19 +1083,25 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       );
     });
 
-    final undo = Tooltip(
-      message: 'Undo',
-      triggerMode: TooltipTriggerMode.manual,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onLongPress: () {
-          HapticFeedback.mediumImpact();
-          HistoryTreeSheet.show(context);
-        },
-        child: IconButton(
-          tooltip: null,
-          onPressed: canUndo ? notifier.undo : null,
-          icon: const Icon(Icons.undo),
+    final undo = Semantics(
+      label: 'Undo',
+      hint: 'Double tap to undo, long press to open edit history tree',
+      button: true,
+      enabled: canUndo,
+      child: Tooltip(
+        message: 'Undo',
+        triggerMode: TooltipTriggerMode.manual,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onLongPress: () {
+            HapticFeedback.mediumImpact();
+            HistoryTreeSheet.show(context);
+          },
+          child: IconButton(
+            tooltip: null,
+            onPressed: canUndo ? notifier.undo : null,
+            icon: const Icon(Icons.undo),
+          ),
         ),
       ),
     );
@@ -1065,25 +1110,39 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       onPressed: canRedo ? notifier.redo : null,
       icon: const Icon(Icons.redo),
     );
-    final more = IconButton(
-      tooltip: 'More',
-      onPressed: () => _openSettings(context),
-      icon: const Icon(Icons.more_vert),
+    final more = Semantics(
+      label: 'More options and photo details',
+      button: true,
+      child: IconButton(
+        tooltip: 'More',
+        onPressed: () => _openSettings(context),
+        icon: const Icon(Icons.more_vert),
+      ),
     );
-    final export = FilledButton.tonalIcon(
-      onPressed: _bytes == null
-          ? null
-          : _exporting
-              ? _cancelExport
-              : _export,
-      icon: _exporting
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.ios_share, size: 18),
-      label: Text(_exporting ? 'Exporting…' : 'Export'),
+    final export = Semantics(
+      label: _exporting ? 'Cancel export' : 'Export photo',
+      hint: _exporting
+          ? 'Double tap to cancel the current export'
+          : 'Double tap to open export options',
+      button: true,
+      child: FilledButton.tonalIcon(
+        onPressed: _bytes == null
+            ? null
+            : _exporting
+                ? _cancelExport
+                : _export,
+        icon: _exporting
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  semanticsLabel: 'Exporting in progress',
+                ),
+              )
+            : const Icon(Icons.ios_share, size: 18),
+        label: Text(_exporting ? 'Cancel' : 'Export'),
+      ),
     );
 
     return EditorShortcuts(
@@ -1095,36 +1154,39 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             opacity: active ? 0 : 1,
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
-            child: IgnorePointer(
-              ignoring: active,
-              child: AppBar(
-                leading: const BackButton(),
-                centerTitle: true,
-                title: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    undo,
+            child: ExcludeSemantics(
+              excluding: active,
+              child: IgnorePointer(
+                ignoring: active,
+                child: AppBar(
+                  leading: const BackButton(),
+                  centerTitle: true,
+                  title: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      undo,
+                      const SizedBox(width: 8),
+                      redo,
+                    ],
+                  ),
+                  actions: [
+                    export,
                     const SizedBox(width: 4),
-                    redo,
+                    more,
+                    const SizedBox(width: Insets.xs),
                   ],
+                  backgroundColor: glassmorphic
+                      ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.70)
+                      : null,
+                  flexibleSpace: glassmorphic
+                      ? ClipRect(
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                            child: const SizedBox.expand(),
+                          ),
+                        )
+                      : null,
                 ),
-                actions: [
-                  export,
-                  const SizedBox(width: 4),
-                  more,
-                  const SizedBox(width: Insets.xs),
-                ],
-                backgroundColor: glassmorphic
-                    ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.70)
-                    : null,
-                flexibleSpace: glassmorphic
-                    ? ClipRect(
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                          child: const SizedBox.expand(),
-                        ),
-                      )
-                    : null,
               ),
             ),
           ),

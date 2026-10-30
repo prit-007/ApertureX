@@ -26,6 +26,39 @@ enum CatalogEntryKind {
   virtualCopy,
 }
 
+/// Lightroom/Bridge pro color label classification (#12).
+enum ColorLabel {
+  red,
+  yellow,
+  green,
+  blue,
+  purple;
+
+  static ColorLabel? tryParse(String? value) {
+    if (value == null) return null;
+    return ColorLabel.values.cast<ColorLabel?>().firstWhere(
+      (c) => c?.name == value,
+      orElse: () => null,
+    );
+  }
+
+  String get displayName => switch (this) {
+    ColorLabel.red => 'Red',
+    ColorLabel.yellow => 'Yellow',
+    ColorLabel.green => 'Green',
+    ColorLabel.blue => 'Blue',
+    ColorLabel.purple => 'Purple',
+  };
+
+  int get colorValue => switch (this) {
+    ColorLabel.red => 0xFFEF4444,
+    ColorLabel.yellow => 0xFFF59E0B,
+    ColorLabel.green => 0xFF10B981,
+    ColorLabel.blue => 0xFF3B82F6,
+    ColorLabel.purple => 0xFF8B5CF6,
+  };
+}
+
 /// One row of `library.json`: enough to rebuild the gallery and every
 /// recipe after a relaunch without touching a single image byte.
 class CatalogEntry {
@@ -38,6 +71,8 @@ class CatalogEntry {
     this.label,
     this.rating = 0,
     this.flag = false,
+    this.colorLabel,
+    this.keywords = const [],
   });
 
   /// The original-photo entry for [entryId] (see [originalEntryId]).
@@ -62,6 +97,11 @@ class CatalogEntry {
       throw FormatException('unknown entry kind: $kindName');
     }
     final recipeJson = json['recipe'];
+    final rawKeywords = json['keywords'];
+    final keywords = rawKeywords is List
+        ? rawKeywords.whereType<String>().toList()
+        : const <String>[];
+
     return CatalogEntry(
       entryId: entryId,
       sourceAssetId:
@@ -73,6 +113,8 @@ class CatalogEntry {
           : EditRecipe.neutral,
       rating: (json['rating'] as num?)?.toInt() ?? 0,
       flag: json['flag'] as bool? ?? false,
+      colorLabel: ColorLabel.tryParse(json['colorLabel'] as String?),
+      keywords: keywords,
       created: DateTime.tryParse(json['created'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
     );
@@ -85,18 +127,27 @@ class CatalogEntry {
   final EditRecipe recipe;
   final int rating;
   final bool flag;
+  final ColorLabel? colorLabel;
+  final List<String> keywords;
   final DateTime created;
 
   /// True once the entry carries anything a neutral-recipe original would
   /// lose: dropping it on a neutral recipe must keep metadata alive.
   bool get hasMetadata =>
-      (label?.isNotEmpty ?? false) || rating != 0 || flag;
+      (label?.isNotEmpty ?? false) ||
+      rating != 0 ||
+      flag ||
+      colorLabel != null ||
+      keywords.isNotEmpty;
 
   CatalogEntry copyWith({
     EditRecipe? recipe,
     String? label,
     int? rating,
     bool? flag,
+    ColorLabel? colorLabel,
+    bool clearColorLabel = false,
+    List<String>? keywords,
   }) => CatalogEntry(
     entryId: entryId,
     sourceAssetId: sourceAssetId,
@@ -105,6 +156,8 @@ class CatalogEntry {
     recipe: recipe ?? this.recipe,
     rating: rating ?? this.rating,
     flag: flag ?? this.flag,
+    colorLabel: clearColorLabel ? null : (colorLabel ?? this.colorLabel),
+    keywords: keywords ?? this.keywords,
     created: created,
   );
 
@@ -116,6 +169,8 @@ class CatalogEntry {
     'recipe': recipe.toJson(),
     'rating': rating,
     'flag': flag,
+    if (colorLabel != null) 'colorLabel': colorLabel!.name,
+    if (keywords.isNotEmpty) 'keywords': keywords,
     'created': created.toIso8601String(),
   };
 }
@@ -376,6 +431,68 @@ class LibraryCatalog extends Notifier<Map<String, CatalogEntry>> {
     }
     if (entry.flag == flag) return;
     _putMetadataEntry(entryId, entry.copyWith(flag: flag));
+  }
+
+  /// Sets or clears an entry's color label (red, yellow, green, blue, purple).
+  void setColorLabel(String entryId, ColorLabel? colorLabel) {
+    final entry = state[entryId];
+    if (entry == null) {
+      if (entryId.startsWith('vc:') || colorLabel == null) return;
+      _putMetadataEntry(
+        entryId,
+        CatalogEntry.original(entryId: entryId, recipe: EditRecipe.neutral)
+            .copyWith(colorLabel: colorLabel),
+      );
+      return;
+    }
+    if (entry.colorLabel == colorLabel) return;
+    _putMetadataEntry(
+      entryId,
+      entry.copyWith(
+        colorLabel: colorLabel,
+        clearColorLabel: colorLabel == null,
+      ),
+    );
+  }
+
+  /// Sets an entry's keyword tags.
+  void setKeywords(String entryId, List<String> keywords) {
+    final cleanKeywords = keywords
+        .map((k) => k.trim())
+        .where((k) => k.isNotEmpty)
+        .toSet()
+        .toList();
+    final entry = state[entryId];
+    if (entry == null) {
+      if (entryId.startsWith('vc:') || cleanKeywords.isEmpty) return;
+      _putMetadataEntry(
+        entryId,
+        CatalogEntry.original(entryId: entryId, recipe: EditRecipe.neutral)
+            .copyWith(keywords: cleanKeywords),
+      );
+      return;
+    }
+    _putMetadataEntry(entryId, entry.copyWith(keywords: cleanKeywords));
+  }
+
+  /// Appends a keyword tag to an entry.
+  void addKeyword(String entryId, String keyword) {
+    final trimmed = keyword.trim();
+    if (trimmed.isEmpty) return;
+    final entry = state[entryId];
+    final current = entry?.keywords ?? const <String>[];
+    if (current.contains(trimmed)) return;
+    setKeywords(entryId, [...current, trimmed]);
+  }
+
+  /// Removes a keyword tag from an entry.
+  void removeKeyword(String entryId, String keyword) {
+    final entry = state[entryId];
+    if (entry == null || !entry.keywords.contains(keyword)) return;
+    setKeywords(
+      entryId,
+      entry.keywords.where((k) => k != keyword).toList(),
+    );
   }
 
   /// Commits a metadata/rating/flag change: a neutral original that ends up

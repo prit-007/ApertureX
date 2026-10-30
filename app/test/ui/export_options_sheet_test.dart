@@ -127,10 +127,41 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Export as Preset Card (QR)'), findsOneWidget);
+    await tester.ensureVisible(find.text('Export as Preset Card (QR)'));
     await tester.tap(find.text('Export as Preset Card (QR)'));
     await tester.pumpAndSettle();
 
     expect(selected, ExportAction.sharePresetCard);
+  });
+
+  testWidgets('ExportOptionsSheet shows and selects Background Queue Export', (
+    tester,
+  ) async {
+    ExportAction? selected;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                selected = await ExportOptionsSheet.show(context, isRaw: false);
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Background Queue Export'), findsOneWidget);
+    await tester.ensureVisible(find.text('Background Queue Export'));
+    await tester.tap(find.text('Background Queue Export'));
+    await tester.pumpAndSettle();
+
+    expect(selected, ExportAction.backgroundExport);
   });
 
   testWidgets('ExportOptionsSheet interacts with branding accordion and C2PA toggle', (

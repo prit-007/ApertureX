@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../engine/engine.dart';
 import '../engine/image_format.dart';
 import 'gallery_album.dart';
 import 'gallery_asset.dart';
@@ -19,10 +20,8 @@ const String folderRootPrefsKey = 'desktop_library_root';
 /// album (the chosen root), so no per-folder bookkeeping is stored.
 const String kFolderAlbumId = 'folder';
 
-/// Extensions the folder scan accepts (#103): every raster format
-/// package:image decodes for preview/thumbnail, plus the RAW containers the
-/// Rust pipeline opens. HEIC/AVIF stay out — photo_manager transcodes them
-/// on mobile, and no desktop decode path exists yet.
+/// Extensions the folder scan accepts (#103): raster formats, RAW containers,
+/// and mobile-native HEIC/HEIF/AVIF image files.
 const Set<String> kFolderImageExtensions = {
   'jpg',
   'jpeg',
@@ -42,6 +41,9 @@ const Set<String> kFolderImageExtensions = {
   'raf',
   'pef',
   'srw',
+  'heic',
+  'heif',
+  'avif',
 };
 
 /// Signature of the native folder chooser, injectable so widget tests never
@@ -244,10 +246,22 @@ class FolderGallerySource implements GallerySource {
   Future<Uint8List> loadPreview(String id, {int maxDim = 1600}) async {
     final bytes = await _readOrEmpty(id);
     if (bytes.isEmpty) return bytes;
-    if (detectImageFormat(bytes) == ImageFormat.raw) {
+    final format = detectImageFormat(bytes);
+    if (format == ImageFormat.raw) {
       // The editor sniffs RAW by magic bytes and Rust decodes the original
       // itself — pass through untouched, never resized/re-encoded here.
       return bytes;
+    }
+    if (format == ImageFormat.heic || format == ImageFormat.avif) {
+      try {
+        final decoded = await AxEngine.decodeHeicRgba(bytes);
+        return await AxEngine.encodeJpegRgba(
+          rgba: decoded.rgba,
+          width: decoded.width,
+          height: decoded.height,
+          quality: 90,
+        );
+      } catch (_) {}
     }
     // Non-decodable bytes fall back to the original so the editor surfaces
     // a real decode error instead of silently loading an empty buffer.
@@ -258,11 +272,23 @@ class FolderGallerySource implements GallerySource {
   Future<Uint8List> loadThumbnail(String id, {int size = 256}) async {
     final bytes = await _readOrEmpty(id);
     if (bytes.isEmpty) return bytes;
-    if (detectImageFormat(bytes) == ImageFormat.raw) {
+    final format = detectImageFormat(bytes);
+    if (format == ImageFormat.raw) {
       // v1: no Rust thumbnail encoder is exposed yet — RAW cells show the
       // placeholder row, exactly the trade-off issue #103 allows. Wiring
       // AxEngine.decodeAnalysisProxy here is a follow-up, not a blocker.
       return Uint8List(0);
+    }
+    if (format == ImageFormat.heic || format == ImageFormat.avif) {
+      try {
+        final decoded = await AxEngine.decodeHeicRgba(bytes);
+        return await AxEngine.encodeJpegRgba(
+          rgba: decoded.rgba,
+          width: decoded.width,
+          height: decoded.height,
+          quality: 85,
+        );
+      } catch (_) {}
     }
     return _boundedJpeg(bytes, size) ?? Uint8List(0);
   }

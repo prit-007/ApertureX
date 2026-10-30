@@ -251,7 +251,7 @@ class GalleryExporter {
       width = decoded.width;
       height = decoded.height;
     } else {
-      final decoded = await AxEngine.decodeJpegRgba(src);
+      final decoded = await AxEngine.decodeImageRgba(src);
       exif = await AxEngine.extractExif(src);
       // Normalize wide-gamut input (Display P3 -> sRGB) so colours are faithful.
       final space = await AxEngine.detectColorspace(src);

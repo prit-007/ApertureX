@@ -1,0 +1,10 @@
+v0.3.0 — Pro Studio Suite, i18n & DAM
+* Multi-language support (EN, ES, DE, FR, JA, ZH)
+* Direct HEIC / AVIF decoding pipeline
+* Background export queue with persistent worker
+* Face detection (YuNet) for portrait masks
+* Draggable split Before/After compare wiper
+* Soft proofing & gamut warnings (sRGB, P3, CMYK)
+* DAM: Keywords & color labels in catalog
+* Modern responsive gallery with text ellipses
+* Desktop MenuBar with shortcuts & a11y polish

@@ -39,6 +39,7 @@ import 'preview_surface.dart';
 import 'roi_decoder.dart';
 import 'roi_overlay.dart';
 import 'shader_warmup.dart';
+import 'soft_proofing.dart';
 import 'tile_grid.dart';
 import 'tile_lru.dart';
 
@@ -1101,6 +1102,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 final wiper = ref.watch(wiperCompareProvider);
                 final zoneMask = ref.watch(zoneMaskProvider);
                 final exposureAssist = ref.watch(exposureAssistProvider);
+                final softProof = ref.watch(softProofingProvider);
                 if (exposureAssist.mode == ExposureAssistMode.zebras) {
                   if (!_reduceMotion && !_zebraTicker.isAnimating) {
                     _zebraTicker.repeat();
@@ -1120,12 +1122,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                   // Issue #54: actually display the texture Rust is
                   // writing into; the shader paint is the fallback
                   // (imported LUTs, iOS/tests, compare/peek fades,
-                  // tile overlay, geometry edits, wiper split curtain, exposure assist).
+                  // tile overlay, geometry edits, wiper split curtain, exposure assist, soft proofing).
                   textureId:
                       zeroCopy &&
                           !zoneMask.isTargeting &&
                           !wiper.isActive &&
-                          !exposureAssist.isActive
+                          !exposureAssist.isActive &&
+                          !softProof.enabled
                       ? _textureId
                       : null,
                   fallback: (_) => CustomPaint(
@@ -1150,6 +1153,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                       time: _zebraTicker.value * 1.0,
                       zebraHigh: exposureAssist.zebraHigh,
                       zebraLow: exposureAssist.zebraLow,
+                      softProof: softProof,
                       tiles: tiles,
                     ),
                   ),
@@ -1655,6 +1659,7 @@ class _CanvasPainter extends CustomPainter {
     this.time = 0.0,
     this.zebraHigh = 0.98,
     this.zebraLow = 0.02,
+    this.softProof = const SoftProofState(),
     this.tiles = const [],
   });
 
@@ -1675,6 +1680,7 @@ class _CanvasPainter extends CustomPainter {
   final double time;
   final double zebraHigh;
   final double zebraLow;
+  final SoftProofState softProof;
 
   /// High-zoom tiles (#16): baked level-0 tiles of the original frame, drawn
   /// through the same uniforms over the proxy at their fitted-space rects.
@@ -1805,6 +1811,14 @@ class _CanvasPainter extends CustomPainter {
           textDirection: TextDirection.ltr,
         )..layout();
         tp.paint(canvas, handleCenter - Offset(tp.width / 2, tp.height / 2));
+
+        // 5. Before / After label badges
+        if (splitX > dst.left + 50) {
+          _drawCompareBadge(canvas, 'BEFORE', Offset(dst.left + 12, dst.top + 12));
+        }
+        if (dst.right - splitX > 50) {
+          _drawCompareBadge(canvas, 'AFTER', Offset(dst.right - 62, dst.top + 12));
+        }
       } else {
         // Horizontal split
         final splitY = dst.top + dst.height * wiperPosition.clamp(0.0, 1.0);
@@ -1907,6 +1921,14 @@ class _CanvasPainter extends CustomPainter {
           textAlign: TextAlign.center,
         )..layout();
         tp.paint(canvas, handleCenter - Offset(tp.width / 2, tp.height / 2));
+
+        // 5. Before / After label badges
+        if (splitY > dst.top + 35) {
+          _drawCompareBadge(canvas, 'BEFORE', Offset(dst.left + 12, dst.top + 12));
+        }
+        if (dst.bottom - splitY > 35) {
+          _drawCompareBadge(canvas, 'AFTER', Offset(dst.left + 12, dst.bottom - 32));
+        }
       }
       return;
     }
@@ -1961,6 +1983,13 @@ class _CanvasPainter extends CustomPainter {
       }
       canvas.restore();
     }
+
+    if (softProof.enabled) {
+      final label = softProof.gamutWarning
+          ? 'PROOF: ${softProof.profile.displayName} [GAMUT WARNING]'
+          : 'PROOF: ${softProof.profile.displayName}';
+      _drawCompareBadge(canvas, label, Offset(dst.left + 12, dst.top + 12));
+    }
   }
 
   @override
@@ -1979,6 +2008,7 @@ class _CanvasPainter extends CustomPainter {
       old.time != time ||
       old.zebraHigh != zebraHigh ||
       old.zebraLow != zebraLow ||
+      old.softProof != softProof ||
       old.dst != dst ||
       !_sameTiles(old.tiles, tiles);
 
@@ -1988,5 +2018,31 @@ class _CanvasPainter extends CustomPainter {
       if (a[i].image != b[i].image || a[i].dst != b[i].dst) return false;
     }
     return true;
+  }
+
+  void _drawCompareBadge(Canvas canvas, String label, Offset pos) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.0,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final badgeRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(pos.dx, pos.dy, tp.width + 12, tp.height + 6),
+      const Radius.circular(4),
+    );
+
+    canvas.drawRRect(
+      badgeRect,
+      Paint()..color = const Color(0x99000000),
+    );
+    tp.paint(canvas, Offset(pos.dx + 6, pos.dy + 3));
   }
 }

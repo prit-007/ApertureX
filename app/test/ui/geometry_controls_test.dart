@@ -51,6 +51,10 @@ void main() {
 
     expect(find.text('No photo loaded for auto-straighten'), findsOneWidget);
 
+    // Wait for first snackbar to dismiss before tapping the second button
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
     final autoFrameBtn = find.byKey(const Key('geometry-auto-frame'));
     expect(autoFrameBtn, findsOneWidget);
 

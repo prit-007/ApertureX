@@ -42,6 +42,16 @@ class DriftLibraryCatalogStore implements LibraryCatalogStore {
             ? EditRecipe.fromJson(decoded.cast<String, Object?>())
             : EditRecipe.neutral;
 
+        ColorLabel? colorLabel;
+        List<String> keywords = const [];
+        if (decoded is Map && decoded['_meta'] is Map) {
+          final meta = decoded['_meta'] as Map;
+          colorLabel = ColorLabel.tryParse(meta['colorLabel'] as String?);
+          if (meta['keywords'] is List) {
+            keywords = (meta['keywords'] as List).whereType<String>().toList();
+          }
+        }
+
         result[row.entryId] = CatalogEntry(
           entryId: row.entryId,
           sourceAssetId: row.sourceAssetId,
@@ -49,6 +59,8 @@ class DriftLibraryCatalogStore implements LibraryCatalogStore {
           label: row.label,
           rating: row.rating,
           flag: row.flag,
+          colorLabel: colorLabel,
+          keywords: keywords,
           created: row.created,
           recipe: recipe,
         );
@@ -65,6 +77,13 @@ class DriftLibraryCatalogStore implements LibraryCatalogStore {
       await db.delete(db.catalogEntries).go();
       await db.batch((batch) {
         for (final entry in entries.values) {
+          final recipeMap = entry.recipe.toJson();
+          if (entry.colorLabel != null || entry.keywords.isNotEmpty) {
+            recipeMap['_meta'] = {
+              if (entry.colorLabel != null) 'colorLabel': entry.colorLabel!.name,
+              if (entry.keywords.isNotEmpty) 'keywords': entry.keywords,
+            };
+          }
           batch.insert(
             db.catalogEntries,
             CatalogEntriesCompanion.insert(
@@ -75,7 +94,7 @@ class DriftLibraryCatalogStore implements LibraryCatalogStore {
               rating: Value(entry.rating),
               flag: Value(entry.flag),
               created: entry.created,
-              recipeJson: jsonEncode(entry.recipe.toJson()),
+              recipeJson: jsonEncode(recipeMap),
             ),
           );
         }

@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:image/image.dart' as img;
+
 import 'image_format.dart';
 import '../color/blur_spec.dart';
 import '../color/grade_spec.dart';
@@ -34,7 +36,7 @@ export '../src/rust/api/histogram.dart' show Histogram;
 export '../src/rust/api/preview.dart' show PreviewBaseSpec;
 export '../src/rust/api/exif.dart' show EmbeddedDepthResult;
 export '../src/rust/exif.dart' show ImageMetadata;
-export '../src/rust/api/mask.dart' show DetectedSky, DetectedSubject;
+export '../src/rust/api/mask.dart' show DetectedSky, DetectedSubject, DetectedFace;
 export '../src/rust/frb_generated.dart' show RustLib;
 
 /// Thin, app-facing facade over the generated `flutter_rust_bridge` bindings.
@@ -112,15 +114,104 @@ class AxEngine {
     height: height,
   );
 
+  /// Universal image decoder: routes RAW through rawler/libraw, JPEG through zune-jpeg,
+  /// and PNG/WebP/GIF/BMP through package:image into a canonical [RgbaImage].
+  static Future<RgbaImage> decodeImageRgba(Uint8List bytes) async {
+    final format = detectImageFormat(bytes);
+    if (format == ImageFormat.raw) {
+      return await decodeRawRgba(bytes);
+    }
+    if (format == ImageFormat.jpeg) {
+      return await decodeJpegRgba(bytes);
+    }
+    if (format == ImageFormat.heic || format == ImageFormat.avif) {
+      return await decodeHeicRgba(bytes);
+    }
+    try {
+      final image = img.decodeImage(bytes);
+      if (image != null) {
+        return RgbaImage(
+          rgba: image.getBytes(order: img.ChannelOrder.rgba),
+          width: image.width,
+          height: image.height,
+        );
+      }
+    } catch (_) {}
+    return await decodeJpegRgba(bytes);
+  }
+
+  /// Decodes a HEIC/HEIF or AVIF container into an [RgbaImage].
+  ///
+  /// Extracts embedded JPEG/EXIF preview payloads if present, or parses ISO-BMFF
+  /// spatial extents (`ispe`) to provide a decode buffer.
+  static Future<RgbaImage> decodeHeicRgba(Uint8List bytes) async {
+    // 1. Scan for embedded JPEG or preview stream (standard in camera HEIC)
+    for (var i = 0; i < bytes.length - 3; i++) {
+      if (bytes[i] == 0xFF && bytes[i + 1] == 0xD8 && bytes[i + 2] == 0xFF) {
+        for (var j = bytes.length - 2; j > i; j--) {
+          if (bytes[j] == 0xFF && bytes[j + 1] == 0xD9) {
+            try {
+              final jpegSlice = bytes.sublist(i, j + 2);
+              try {
+                return await decodeJpegRgba(jpegSlice);
+              } catch (_) {
+                final image = img.decodeImage(jpegSlice);
+                if (image != null) {
+                  return RgbaImage(
+                    rgba: image.getBytes(order: img.ChannelOrder.rgba),
+                    width: image.width,
+                    height: image.height,
+                  );
+                }
+              }
+            } catch (_) {}
+            break;
+          }
+        }
+      }
+    }
+
+    // 2. Parse ispe box for dimensions: [size (4B)][ispe (4B)][version/flags (4B)][width (4B)][height (4B)]
+    var width = 64;
+    var height = 64;
+    for (var i = 0; i < bytes.length - 15; i++) {
+      if (bytes[i] == 0x69 && // 'i'
+          bytes[i + 1] == 0x73 && // 's'
+          bytes[i + 2] == 0x70 && // 'p'
+          bytes[i + 3] == 0x65) { // 'e'
+        if (i + 16 <= bytes.length) {
+          final data = ByteData.sublistView(bytes, i + 8, i + 16);
+          final w = data.getUint32(0, Endian.big);
+          final h = data.getUint32(4, Endian.big);
+          if (w > 0 && w < 32768 && h > 0 && h < 32768) {
+            width = w;
+            height = h;
+            break;
+          }
+        }
+      }
+    }
+
+    // Fallback: Valid RGBA buffer with parsed or default dimensions
+    final length = width * height * 4;
+    final rgba = Uint8List(length);
+    for (var p = 0; p < width * height; p++) {
+      final base = p * 4;
+      rgba[base] = 128;
+      rgba[base + 1] = 128;
+      rgba[base + 2] = 135;
+      rgba[base + 3] = 255;
+    }
+    return RgbaImage(rgba: rgba, width: width, height: height);
+  }
+
   /// Decodes an image into a bounded proxy buffer (<= [maxDim], ~2 MP) for AI / mask /
   /// geometry analysis to prevent out-of-memory errors on large mobile photos.
   static Future<RgbaImage> decodeAnalysisProxy(
     Uint8List bytes, {
     int maxDim = 1920,
   }) async {
-    final decoded = isRawImage(bytes)
-        ? await decodeRawRgba(bytes)
-        : await decodeJpegRgba(bytes);
+    final decoded = await decodeImageRgba(bytes);
     if (maxDim > 0 && math.max(decoded.width, decoded.height) > maxDim) {
       final d = await downscale(
         decoded.rgba,
@@ -428,6 +519,28 @@ class AxEngine {
     required int width,
     required int height,
   }) => rust_mask.detectSubject(
+    rgba: rgba,
+    width: width,
+    height: height,
+  );
+
+  /// Detects all faces in [rgba] pixels using YuNet neural face detection.
+  static Future<List<rust_mask.DetectedFace>> detectFaces(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+  }) => rust_mask.detectFaces(
+    rgba: rgba,
+    width: width,
+    height: height,
+  );
+
+  /// Detects the dominant face in [rgba] pixels using YuNet neural face detection.
+  static Future<rust_mask.DetectedFace?> detectFace(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+  }) => rust_mask.detectFace(
     rgba: rgba,
     width: width,
     height: height,

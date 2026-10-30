@@ -20,6 +20,7 @@ import '../../features/presets/community_presets_provider.dart';
 import '../../viewport/compare_hold.dart';
 import '../../viewport/exposure_assist.dart';
 import '../../viewport/mask_peek.dart' show rubyPeeksEnabledProvider;
+import '../../viewport/soft_proofing.dart';
 import '../../viewport/wiper_compare.dart';
 import '../common/blur_controls.dart';
 import '../common/color_grading_editor.dart';
@@ -616,6 +617,18 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     icon: const Icon(Icons.wb_iridescent_outlined),
                     selectedIcon: Icon(Icons.wb_iridescent, color: scheme.primary),
                   ),
+                  IconButton(
+                    key: const Key('tray-soft-proofing'),
+                    tooltip: 'Soft Proofing: simulate printer ICC profiles and gamut clipping',
+                    visualDensity: VisualDensity.compact,
+                    isSelected: ref.watch(softProofingProvider).enabled,
+                    onPressed: () {
+                      _showSoftProofingSheet(context);
+                      HapticFeedback.selectionClick();
+                    },
+                    icon: const Icon(Icons.print_outlined),
+                    selectedIcon: Icon(Icons.print, color: scheme.primary),
+                  ),
                   VerticalDivider(
                     width: 12,
                     indent: 8,
@@ -1022,6 +1035,96 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             const SizedBox(width: 6),
           ],
         ],
+      ),
+    );
+  }
+
+  void _showSoftProofingSheet(BuildContext context) {
+    showAppSheet(
+      context,
+      Consumer(
+        builder: (context, ref, _) {
+          final proof = ref.watch(softProofingProvider);
+          final notifier = ref.read(softProofingProvider.notifier);
+          final theme = Theme.of(context);
+
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Soft Proofing',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Switch(
+                      key: const Key('soft-proofing-toggle'),
+                      value: proof.enabled,
+                      onChanged: (val) => notifier.setEnabled(val),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text('Target Profile', style: theme.textTheme.labelMedium),
+                DropdownButton<ProofProfile>(
+                  key: const Key('soft-proofing-profile-dropdown'),
+                  value: proof.profile,
+                  isExpanded: true,
+                  items: ProofProfile.values.map((p) {
+                    return DropdownMenuItem(
+                      value: p,
+                      child: Text(p.displayName),
+                    );
+                  }).toList(),
+                  onChanged: proof.enabled
+                      ? (p) {
+                          if (p != null) notifier.setProfile(p);
+                        }
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                Text('Rendering Intent', style: theme.textTheme.labelMedium),
+                DropdownButton<ProofIntent>(
+                  key: const Key('soft-proofing-intent-dropdown'),
+                  value: proof.intent,
+                  isExpanded: true,
+                  items: ProofIntent.values.map((i) {
+                    return DropdownMenuItem(
+                      value: i,
+                      child: Text(i.displayName),
+                    );
+                  }).toList(),
+                  onChanged: proof.enabled
+                      ? (i) {
+                          if (i != null) notifier.setIntent(i);
+                        }
+                      : null,
+                ),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  key: const Key('soft-proofing-paper-ink'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Simulate Paper & Ink (DMax Black Floor)'),
+                  value: proof.simulatePaperAndInk,
+                  onChanged: proof.enabled ? (_) => notifier.togglePaperAndInk() : null,
+                ),
+                CheckboxListTile(
+                  key: const Key('soft-proofing-gamut-warning'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Highlight Out-of-Gamut Pixels'),
+                  value: proof.gamutWarning,
+                  onChanged: proof.enabled ? (_) => notifier.toggleGamutWarning() : null,
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

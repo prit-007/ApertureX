@@ -91,6 +91,21 @@ void main() {
       });
     });
 
+    test('accepts HEIC, HEIF, and AVIF containers', () async {
+      write('photo1.heic', [0, 0, 0, 20, 102, 116, 121, 112, 104, 101, 105, 99]);
+      write('photo2.heif', [0, 0, 0, 20, 102, 116, 121, 112, 109, 105, 102, 49]);
+      write('photo3.avif', [0, 0, 0, 20, 102, 116, 121, 112, 97, 118, 105, 102]);
+
+      final src = sourceWith();
+      await src.pickRoot();
+      final images = await src.listImages();
+      expect(images.map((a) => a.id).toSet(), {
+        'photo1.heic',
+        'photo2.heif',
+        'photo3.avif',
+      });
+    });
+
     test('limits results and filters by the folder album id', () async {
       write('a.jpg', _pngBytes, modified: DateTime(2024, 1, 1));
       write('b.jpg', _pngBytes, modified: DateTime(2024, 1, 2));

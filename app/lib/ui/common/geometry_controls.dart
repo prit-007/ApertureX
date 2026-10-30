@@ -41,6 +41,7 @@ class GeometryControls extends ConsumerWidget {
       onPressed: () async {
         final bytes = ref.read(activeImageBytesProvider);
         if (bytes == null) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No photo loaded for auto-straighten')),
           );
@@ -98,6 +99,7 @@ class GeometryControls extends ConsumerWidget {
       onPressed: () async {
         final bytes = ref.read(activeImageBytesProvider);
         if (bytes == null) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No photo loaded for auto-frame')),
           );
@@ -105,13 +107,26 @@ class GeometryControls extends ConsumerWidget {
         }
         try {
           final decoded = await AxEngine.decodeAnalysisProxy(bytes);
-          final subject = await AxEngine.detectSubject(
+          // Try YuNet face detection first for portrait composition priority
+          final face = await AxEngine.detectFace(
             decoded.rgba,
             width: decoded.width,
             height: decoded.height,
           );
-          if (subject == null) {
+          final subject = face != null
+              ? null
+              : await AxEngine.detectSubject(
+                  decoded.rgba,
+                  width: decoded.width,
+                  height: decoded.height,
+                );
+          final cx = face?.cx ?? subject?.cx;
+          final cy = face?.cy ?? subject?.cy;
+          final rx = face != null ? face.rx * 1.3 : subject?.rx;
+          final ry = face != null ? face.ry * 1.5 : subject?.ry;
+          if (cx == null || cy == null || rx == null || ry == null) {
             if (context.mounted) {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('No distinct subject detected to frame'),
@@ -121,23 +136,27 @@ class GeometryControls extends ConsumerWidget {
             return;
           }
           final crop = calculateAutoFrameCrop(
-            cx: subject.cx,
-            cy: subject.cy,
-            rx: subject.rx,
-            ry: subject.ry,
+            cx: cx,
+            cy: cy,
+            rx: rx,
+            ry: ry,
           );
           notifier.applyCrop(crop: crop);
-          notifier.commit(label: 'Auto Frame (Rule of Thirds)');
+          notifier.commit(label: face != null ? 'Auto Frame (Face Portrait)' : 'Auto Frame (Rule of Thirds)');
           HapticFeedback.lightImpact();
           if (context.mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Auto-framed composition (Rule of Thirds)'),
+              SnackBar(
+                content: Text(face != null
+                    ? 'Auto-framed portrait composition (Face Priority)'
+                    : 'Auto-framed composition (Rule of Thirds)'),
               ),
             );
           }
         } catch (e) {
           if (context.mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Auto-frame failed: $e')),
             );
