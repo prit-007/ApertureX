@@ -567,11 +567,28 @@ pub struct DetectedSubject {
     pub feather: f32,
 }
 
+/// Normalized skin-tone chromaticity prior for portrait subject detection.
+#[inline]
+fn skin_tone_prior(r: f32, g: f32, b: f32) -> f32 {
+    let sum = r + g + b;
+    if sum < 0.12 || r < g || g < b * 0.75 {
+        return 0.0;
+    }
+    let rn = r / sum;
+    let gn = g / sum;
+    // Human skin tone cluster in normalized chromaticity
+    if rn > 0.35 && rn < 0.65 && gn > 0.24 && gn < 0.40 && (rn - gn) > 0.04 {
+        1.0
+    } else {
+        0.0
+    }
+}
+
 /// Automatically detects dominant subject center, radii, and feather.
 ///
 /// With the optional `ai` feature, YuNet face detection runs first so portrait
-/// focus lands on the face; otherwise this uses spatial saliency and
-/// boundary-contrast priors.
+/// focus lands on the face; otherwise this uses spatial saliency, skin-tone
+/// chromaticity, and boundary-contrast priors.
 pub fn detect_subject(rgba: &[u8], width: usize, height: usize) -> Option<DetectedSubject> {
     if width < 8 || height < 8 || rgba.len() < width * height * 4 {
         return None;
@@ -679,8 +696,10 @@ pub fn detect_subject(rgba: &[u8], width: usize, height: usize) -> Option<Detect
             let du = u - 0.5;
             let dv = v - 0.5;
             let center_falloff = (-2.0 * (du * du + dv * dv)).exp();
+            let skin = skin_tone_prior(r, g, b);
 
-            let saliency = (color_diff * 0.65 + (grad_x + grad_y) * 0.35) * center_falloff;
+            let saliency =
+                (color_diff * 0.60 + (grad_x + grad_y) * 0.30 + skin * 0.35) * center_falloff;
             sum_w += saliency;
             sum_x += u * saliency;
             sum_y += v * saliency;
@@ -701,7 +720,7 @@ pub fn detect_subject(rgba: &[u8], width: usize, height: usize) -> Option<Detect
     let cx = (sum_x / sum_w).clamp(0.15, 0.85);
     let cy = (sum_y / sum_w).clamp(0.15, 0.85);
 
-    // Second central moments for rx and ry
+    // Second central moments for rx and ry with consistent saliency weighting
     let mut sum_var_x = 0.0f32;
     let mut sum_var_y = 0.0f32;
 
@@ -720,11 +739,33 @@ pub fn detect_subject(rgba: &[u8], width: usize, height: usize) -> Option<Detect
             let db = b - bg_b;
             let color_diff = (dr * dr + dg * dg + db * db).sqrt();
 
+            let grad_x = if x + 1 < width {
+                let next = px + 4;
+                ((rgba[next] as f32 - rgba[px] as f32).abs()
+                    + (rgba[next + 1] as f32 - rgba[px + 1] as f32).abs()
+                    + (rgba[next + 2] as f32 - rgba[px + 2] as f32).abs())
+                    / (3.0 * 255.0)
+            } else {
+                0.0
+            };
+
+            let grad_y = if y + 1 < height {
+                let next = (y + 1) * width * 4 + x * 4;
+                ((rgba[next] as f32 - rgba[px] as f32).abs()
+                    + (rgba[next + 1] as f32 - rgba[px + 1] as f32).abs()
+                    + (rgba[next + 2] as f32 - rgba[px + 2] as f32).abs())
+                    / (3.0 * 255.0)
+            } else {
+                0.0
+            };
+
             let du = u - 0.5;
             let dv = v - 0.5;
             let center_falloff = (-2.0 * (du * du + dv * dv)).exp();
+            let skin = skin_tone_prior(r, g, b);
 
-            let saliency = color_diff * center_falloff;
+            let saliency =
+                (color_diff * 0.60 + (grad_x + grad_y) * 0.30 + skin * 0.35) * center_falloff;
             let dx = u - cx;
             let dy = v - cy;
             sum_var_x += dx * dx * saliency;
@@ -732,8 +773,13 @@ pub fn detect_subject(rgba: &[u8], width: usize, height: usize) -> Option<Detect
         }
     }
 
-    let rx = ((sum_var_x / sum_w).sqrt() * 2.2).clamp(0.12, 0.45);
-    let ry = ((sum_var_y / sum_w).sqrt() * 2.2).clamp(0.15, 0.48);
+    let (scale_x, scale_y) = if height > width {
+        (2.1, 2.4)
+    } else {
+        (2.2, 2.2)
+    };
+    let rx = ((sum_var_x / sum_w).sqrt() * scale_x).clamp(0.12, 0.45);
+    let ry = ((sum_var_y / sum_w).sqrt() * scale_y).clamp(0.15, 0.50);
 
     Some(DetectedSubject {
         cx,
@@ -2232,5 +2278,41 @@ mod tests {
         let detected = detect_subject(&rgba, w, h).expect("fallback detected");
         assert_eq!(detected.cx, 0.5);
         assert_eq!(detected.cy, 0.5);
+    }
+
+    #[test]
+    fn test_detect_subject_portrait_skin_tone() {
+        let w = 30;
+        let h = 45; // portrait aspect ratio
+        let mut rgba = vec![60u8; w * h * 4]; // Neutral background
+
+        // Add skin-tone face/torso region in upper-mid center
+        for y in 10..30 {
+            for x in 9..21 {
+                let idx = (y * w + x) * 4;
+                rgba[idx] = 215; // R
+                rgba[idx + 1] = 160; // G
+                rgba[idx + 2] = 120; // B
+                rgba[idx + 3] = 255;
+            }
+        }
+
+        let detected = detect_subject(&rgba, w, h).expect("subject detected");
+        assert!(
+            (detected.cx - 0.5).abs() < 0.08,
+            "cx near center: {}",
+            detected.cx
+        );
+        assert!(
+            detected.cy > 0.35 && detected.cy < 0.55,
+            "cy in portrait region: {}",
+            detected.cy
+        );
+        assert!(
+            detected.ry > detected.rx,
+            "portrait subject elongated vertically: rx={}, ry={}",
+            detected.rx,
+            detected.ry
+        );
     }
 }
