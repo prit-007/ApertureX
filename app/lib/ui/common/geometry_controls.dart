@@ -87,6 +87,67 @@ class GeometryControls extends ConsumerWidget {
       label: const Text('Auto', style: TextStyle(fontWeight: FontWeight.w600)),
     );
 
+    final autoFrameBtn = FilledButton.tonalIcon(
+      key: const Key('geometry-auto-frame'),
+      style: FilledButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        backgroundColor: scheme.tertiary.withValues(alpha: 0.15),
+        foregroundColor: scheme.tertiary,
+        side: BorderSide(color: scheme.tertiary.withValues(alpha: 0.4)),
+      ),
+      onPressed: () async {
+        final bytes = ref.read(activeImageBytesProvider);
+        if (bytes == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No photo loaded for auto-frame')),
+          );
+          return;
+        }
+        try {
+          final decoded = await AxEngine.decodeAnalysisProxy(bytes);
+          final subject = await AxEngine.detectSubject(
+            decoded.rgba,
+            width: decoded.width,
+            height: decoded.height,
+          );
+          if (subject == null) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('No distinct subject detected to frame'),
+                ),
+              );
+            }
+            return;
+          }
+          final crop = calculateAutoFrameCrop(
+            cx: subject.cx,
+            cy: subject.cy,
+            rx: subject.rx,
+            ry: subject.ry,
+          );
+          notifier.applyCrop(crop: crop);
+          notifier.commit(label: 'Auto Frame (Rule of Thirds)');
+          HapticFeedback.lightImpact();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Auto-framed composition (Rule of Thirds)'),
+              ),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Auto-frame failed: $e')),
+            );
+          }
+        }
+      },
+      icon: const Icon(Icons.crop_rotate, size: 16),
+      label: const Text('Auto Frame', style: TextStyle(fontWeight: FontWeight.w600)),
+    );
+
     // Aspect Ratio Presets
     void applyAspect(double? aspect) {
       HapticFeedback.selectionClick();
@@ -235,6 +296,8 @@ class GeometryControls extends ConsumerWidget {
             children: [
               autoStraightenBtn,
               const SizedBox(width: 8),
+              autoFrameBtn,
+              const SizedBox(width: 8),
               if (recipe.straighten.abs() >= 0.05)
                 TextButton.icon(
                   style: TextButton.styleFrom(
@@ -369,6 +432,10 @@ class GeometryControls extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: autoFrameBtn,
+            ),
             aspectPresets,
             const SizedBox(height: 8),
             transformButtons,

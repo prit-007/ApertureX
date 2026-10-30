@@ -58,4 +58,49 @@ void main() {
     expect(isFullCrop([0, 0, 1, 1]), isTrue);
     expect(isFullCrop([0, 0, 1, 0.9]), isFalse);
   });
+
+  group('calculateAutoFrameCrop', () {
+    test('frames centered portrait subject nicely within unit square', () {
+      final crop = calculateAutoFrameCrop(
+        cx: 0.5,
+        cy: 0.5,
+        rx: 0.18,
+        ry: 0.28,
+      );
+      expect(crop.length, 4);
+      expect(crop[0], greaterThanOrEqualTo(0.0));
+      expect(crop[1], greaterThanOrEqualTo(0.0));
+      expect(crop[2], lessThanOrEqualTo(1.0));
+      expect(crop[3], lessThanOrEqualTo(1.0));
+      expect(crop[2], greaterThan(crop[0]));
+      expect(crop[3], greaterThan(crop[1]));
+      // The subject (0.5 - 0.18 = 0.32, 0.5 + 0.18 = 0.68) is contained
+      expect(crop[0], lessThanOrEqualTo(0.32));
+      expect(crop[2], greaterThanOrEqualTo(0.68));
+    });
+
+    test('aligns left-weighted subject towards Rule of Thirds power line', () {
+      final crop = calculateAutoFrameCrop(
+        cx: 0.30,
+        cy: 0.40,
+        rx: 0.12,
+        ry: 0.18,
+      );
+      expect(crop[0], closeTo(0.0, 0.1));
+      expect(crop[2], greaterThan(0.42)); // Provides look room to the right
+    });
+
+    test('respects targetAspect ratio when provided', () {
+      final crop = calculateAutoFrameCrop(
+        cx: 0.5,
+        cy: 0.5,
+        rx: 0.15,
+        ry: 0.20,
+        targetAspect: 1.0,
+      );
+      final w = crop[2] - crop[0];
+      final h = crop[3] - crop[1];
+      expect(w / h, closeTo(1.0, 0.05));
+    });
+  });
 }
