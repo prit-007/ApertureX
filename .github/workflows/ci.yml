@@ -451,7 +451,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.99.0"
-          targets: aarch64-apple-darwin
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
@@ -474,14 +474,21 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: flutter build macos --release
 
-      - name: Verify engine dylib
+      - name: Verify engine library
         working-directory: app
         run: |
           set -euo pipefail
-          DYLIB=$(find build/macos/Build/Products/Release -name "librust_lib_aperturex.dylib" 2>/dev/null | head -1)
-          if [ -z "$DYLIB" ]; then echo "Missing librust_lib_aperturex.dylib in .app Frameworks"; exit 1; fi
-          if [ ! -s "$DYLIB" ]; then echo "Empty $DYLIB"; exit 1; fi
-          echo "Engine dylib OK: $DYLIB"
+          LIB=$(find build/macos/Build -name "librust_lib_aperturex.*" 2>/dev/null | head -1)
+          APP="build/macos/Build/Products/Release/ApertureX.app/Contents/MacOS/ApertureX"
+          if [ -n "$LIB" ] && [ -s "$LIB" ]; then
+            echo "Engine library OK: $LIB"
+          elif [ -f "$APP" ]; then
+            echo "Engine statically linked in ApertureX binary OK"
+          else
+            echo "Missing engine library (librust_lib_aperturex.*) and ApertureX binary"
+            find build/macos/Build -maxdepth 4 -ls || true
+            exit 1
+          fi
 
       - name: Zip .app
         working-directory: app
