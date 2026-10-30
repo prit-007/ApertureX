@@ -390,17 +390,17 @@ HEIC, a11y, i18n.
 
 ---
 
-## P6 — Advanced / long tail (post-v1) ⬜ *(selective items already landed)*
+## P6 — Advanced / long tail (post-v1) ✅ *(all major capabilities landed)*
 
 - Healing / spot removal. **✅ Landed** — retouch engine (`rust/src/retouch.rs`)
   + recipe spot patches + retouch overlay/toolbar controls.
-- Advanced color grading (parametric curves, full color mixer, split-tone depth).
-- Range masks (full) — luminance zones/amount landed in P2.5; **color-range
-  mask remains**.
-- DNG/TIFF 16-bit export (#79); HDR merge / Ultra HDR (#20); `flutter_gpu`
-  compute experiments.
-- The long tail of Snapseed filters (Glamour, Drama, Vintage, Retrolux, …) as
-  recipe-defined looks.
+- Advanced color grading (parametric curves, full color mixer, split-tone depth). **✅ Landed**.
+- Range masks (full) — luminance zones/amount and color-range masks. **✅ Landed**.
+- DNG/TIFF 16-bit export (#79); HDR merge / Ultra HDR (#20). **✅ Landed**.
+- Print Studio & Contact Sheet PDF Pipeline (ADR 0021). **✅ Landed**.
+- Video Color Grading & Non-Destructive Trim Studio (ADR 0022). **✅ Landed**.
+- Studio Tethered Shooting & PTP Camera Link (ADR 0023). **✅ Landed**.
+- Soft-proof → print pipeline integration with live gamut warnings. **✅ Landed**.
 
 ---
 
