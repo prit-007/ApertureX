@@ -36,6 +36,7 @@ import '../common/tone_curve_editor.dart';
 import '../common/looks_sheet.dart';
 import '../common/app_primitives.dart';
 import '../common/app_sheet.dart' show showAppSheet;
+import '../common/preset_preview_thumbnail.dart';
 import '../../edit/tool_definition.dart';
 
 /// Function signature for the Auto Tone analyzer, overridable in tests.
@@ -1364,9 +1365,9 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
               return Card(
                 margin: const EdgeInsets.only(bottom: Insets.xs),
                 child: ListTile(
-                  leading: Icon(
-                    Icons.style,
-                    color: isApplied ? scheme.primary : scheme.onSurfaceVariant,
+                  leading: PresetThumbnail(
+                    params: tool.params,
+                    size: 42,
                   ),
                   title: Text(
                     tool.name,
@@ -1412,9 +1413,9 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
               return Card(
                 margin: const EdgeInsets.only(bottom: Insets.xs),
                 child: ListTile(
-                  leading: Icon(
-                    Icons.auto_awesome,
-                    color: isApplied ? scheme.primary : scheme.onSurfaceVariant,
+                  leading: PresetThumbnail(
+                    params: preset.params ?? const {},
+                    size: 42,
                   ),
                   title: Row(
                     children: [

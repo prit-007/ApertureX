@@ -13,6 +13,7 @@ import '../common/blur_controls.dart';
 import '../common/editor_guide_sheet.dart';
 import '../common/film_controls.dart';
 import '../common/lab_controls.dart';
+import '../common/mask_controls.dart';
 import '../common/optics_controls.dart';
 import '../common/retouch_controls.dart';
 import '../common/tone_curve_editor.dart';
@@ -28,6 +29,7 @@ enum SnapseedToolType {
   brush,
   healing,
   lensBlur,
+  masking,
   vignette,
   film,
   optics,
@@ -108,6 +110,11 @@ const List<SnapseedToolDef> snapseedToolsList = [
     icon: Icons.blur_on,
   ),
   SnapseedToolDef(
+    id: SnapseedToolType.masking,
+    label: 'Masks & Layers',
+    icon: Icons.layers_outlined,
+  ),
+  SnapseedToolDef(
     id: SnapseedToolType.vignette,
     label: 'Vignette',
     icon: Icons.vignette,
@@ -140,7 +147,7 @@ final Map<String, List<SnapseedToolDef>> snapseedCategorizedTools = {
   ],
   'Details & Optics': [
     snapseedToolsList[1], // Details
-    snapseedToolsList[12], // Optics
+    snapseedToolsList[13], // Optics
   ],
   'Composition': [
     snapseedToolsList[4], // Crop & Rotate
@@ -151,9 +158,10 @@ final Map<String, List<SnapseedToolDef>> snapseedCategorizedTools = {
     snapseedToolsList[7], // Brush
     snapseedToolsList[8], // Healing
     snapseedToolsList[9], // Lens Blur
-    snapseedToolsList[10], // Vignette
-    snapseedToolsList[11], // Film & Grain
-    snapseedToolsList[13], // Shader Lab
+    snapseedToolsList[10], // Masks & Layers
+    snapseedToolsList[11], // Vignette
+    snapseedToolsList[12], // Film & Grain
+    snapseedToolsList[14], // Shader Lab
   ],
 };
 
@@ -197,6 +205,8 @@ class SnapseedToolsSheet extends ConsumerWidget {
         _showToolPanel(context, 'Curves', const ToneCurveEditor());
       case SnapseedToolType.lensBlur:
         _showToolPanel(context, 'Lens Blur', const BlurControls());
+      case SnapseedToolType.masking:
+        _showToolPanel(context, 'Masks & Layers', const MaskControls());
       case SnapseedToolType.film:
         _showToolPanel(context, 'Film & Grain', const FilmControls());
       case SnapseedToolType.optics:
@@ -412,6 +422,7 @@ bool isSnapseedToolModified(EditRecipe recipe, SnapseedToolType id) => switch (i
   SnapseedToolType.brush => recipe.layers.any((l) => l.maskKind == MaskKind.brush),
   SnapseedToolType.healing => recipe.retouchPatches.isNotEmpty,
   SnapseedToolType.lensBlur => isSectionModified(recipe, RecipeSection.blur),
+  SnapseedToolType.masking => recipe.layers.isNotEmpty,
   SnapseedToolType.vignette => recipe.vignette != 0,
   SnapseedToolType.film => isSectionModified(recipe, RecipeSection.film),
   SnapseedToolType.optics => isSectionModified(recipe, RecipeSection.optics),

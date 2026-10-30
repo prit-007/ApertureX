@@ -1406,44 +1406,48 @@ pub fn vignette_tile_advanced(
     let inner_start = (midpoint * 0.8).clamp(0.0, 0.9);
     let span = (feather * 0.8 + 0.1).max(0.05);
 
-    for y in 0..th {
-        let py = (y0 + y) as f32;
-        let dy = py - cy;
-        let ny = dy / cy.max(1.0);
-        for x in 0..tw {
-            let px = (x0 + x) as f32;
-            let dx = px - cx;
-            let nx = dx / cx.max(1.0);
+    use rayon::prelude::*;
+    band.par_chunks_exact_mut(tw * 4)
+        .enumerate()
+        .take(th)
+        .for_each(|(y, row)| {
+            let py = (y0 + y) as f32;
+            let dy = py - cy;
+            let ny = dy / cy.max(1.0);
+            for x in 0..tw {
+                let px = (x0 + x) as f32;
+                let dx = px - cx;
+                let nx = dx / cx.max(1.0);
 
-            let d_circ = (dx * dx + dy * dy).sqrt() / maxd;
-            let d_rect = (nx * nx + ny * ny).sqrt() / std::f32::consts::SQRT_2;
-            let d = if roundness < 0.0 {
-                d_circ * (1.0 + roundness) - d_rect * roundness
-            } else {
-                d_circ * (1.0 - 0.25 * roundness)
-            };
+                let d_circ = (dx * dx + dy * dy).sqrt() / maxd;
+                let d_rect = (nx * nx + ny * ny).sqrt() / std::f32::consts::SQRT_2;
+                let d = if roundness < 0.0 {
+                    d_circ * (1.0 + roundness) - d_rect * roundness
+                } else {
+                    d_circ * (1.0 - 0.25 * roundness)
+                };
 
-            let t = ((d - inner_start) / span).clamp(0.0, 1.0);
-            let falloff = t * t * (3.0 - 2.0 * t);
+                let t = ((d - inner_start) / span).clamp(0.0, 1.0);
+                let falloff = t * t * (3.0 - 2.0 * t);
 
-            let i = (y * tw + x) * 4;
-            let r = band[i] as f32;
-            let g = band[i + 1] as f32;
-            let b = band[i + 2] as f32;
-            let luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
+                let i = x * 4;
+                let r = row[i] as f32;
+                let g = row[i + 1] as f32;
+                let b = row[i + 2] as f32;
+                let luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
 
-            let protect = if amount > 0.0 && highlights > 0.0 {
-                (luma * luma) * highlights
-            } else {
-                0.0
-            };
+                let protect = if amount > 0.0 && highlights > 0.0 {
+                    (luma * luma) * highlights
+                } else {
+                    0.0
+                };
 
-            let f = (1.0 - amount * falloff * (1.0 - protect)).max(0.0);
-            band[i] = (r * f).clamp(0.0, 255.0) as u8;
-            band[i + 1] = (g * f).clamp(0.0, 255.0) as u8;
-            band[i + 2] = (b * f).clamp(0.0, 255.0) as u8;
-        }
-    }
+                let f = (1.0 - amount * falloff * (1.0 - protect)).max(0.0);
+                row[i] = (r * f).clamp(0.0, 255.0) as u8;
+                row[i + 1] = (g * f).clamp(0.0, 255.0) as u8;
+                row[i + 2] = (b * f).clamp(0.0, 255.0) as u8;
+            }
+        });
 }
 
 /// In-place radial vignette for a `tw x th` rect whose top-left pixel sits at
@@ -1483,45 +1487,49 @@ pub fn grain_tile_advanced(
     let rows = band.len() / (tw * 4);
     let scale = 1.0 + size.clamp(0.0, 1.0) * 3.0;
 
-    for y in 0..rows {
-        let py = (y0 + y) as f32;
-        let gy = py / scale;
-        let gy0 = gy.floor() as u32;
-        let gy1 = gy0.wrapping_add(1);
-        let fy = gy - gy.floor();
+    use rayon::prelude::*;
+    band.par_chunks_exact_mut(tw * 4)
+        .enumerate()
+        .take(rows)
+        .for_each(|(y, row)| {
+            let py = (y0 + y) as f32;
+            let gy = py / scale;
+            let gy0 = gy.floor() as u32;
+            let gy1 = gy0.wrapping_add(1);
+            let fy = gy - gy.floor();
 
-        for x in 0..tw {
-            let px = (x0 + x) as f32;
-            let gx = px / scale;
-            let gx0 = gx.floor() as u32;
-            let gx1 = gx0.wrapping_add(1);
-            let fx = gx - gx.floor();
+            for x in 0..tw {
+                let px = (x0 + x) as f32;
+                let gx = px / scale;
+                let gx0 = gx.floor() as u32;
+                let gx1 = gx0.wrapping_add(1);
+                let fx = gx - gx.floor();
 
-            let n00 = hash_noise(gx0, gy0);
-            let n10 = hash_noise(gx1, gy0);
-            let n01 = hash_noise(gx0, gy1);
-            let n11 = hash_noise(gx1, gy1);
+                let n00 = hash_noise(gx0, gy0);
+                let n10 = hash_noise(gx1, gy0);
+                let n01 = hash_noise(gx0, gy1);
+                let n11 = hash_noise(gx1, gy1);
 
-            let nx0 = n00 * (1.0 - fx) + n10 * fx;
-            let nx1 = n01 * (1.0 - fx) + n11 * fx;
-            let coarse = nx0 * (1.0 - fy) + nx1 * fy;
+                let nx0 = n00 * (1.0 - fx) + n10 * fx;
+                let nx1 = n01 * (1.0 - fx) + n11 * fx;
+                let coarse = nx0 * (1.0 - fy) + nx1 * fy;
 
-            let fine = hash_noise((x0 + x) as u32, (y0 + y) as u32);
-            let n = coarse * (1.0 - roughness * 0.4) + fine * (roughness * 0.5);
+                let fine = hash_noise((x0 + x) as u32, (y0 + y) as u32);
+                let n = coarse * (1.0 - roughness * 0.4) + fine * (roughness * 0.5);
 
-            let i = (y * tw + x) * 4;
-            let r = band[i] as f32;
-            let g = band[i + 1] as f32;
-            let b = band[i + 2] as f32;
-            let luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
-            let tonal_weight = (1.0 - (2.0 * luma - 1.0) * (2.0 * luma - 1.0)).clamp(0.2, 1.0);
+                let i = x * 4;
+                let r = row[i] as f32;
+                let g = row[i + 1] as f32;
+                let b = row[i + 2] as f32;
+                let luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
+                let tonal_weight = (1.0 - (2.0 * luma - 1.0) * (2.0 * luma - 1.0)).clamp(0.2, 1.0);
 
-            let d = n * strength * tonal_weight;
-            band[i] = (r + d).clamp(0.0, 255.0) as u8;
-            band[i + 1] = (g + d).clamp(0.0, 255.0) as u8;
-            band[i + 2] = (b + d).clamp(0.0, 255.0) as u8;
-        }
-    }
+                let d = n * strength * tonal_weight;
+                row[i] = (r + d).clamp(0.0, 255.0) as u8;
+                row[i + 1] = (g + d).clamp(0.0, 255.0) as u8;
+                row[i + 2] = (b + d).clamp(0.0, 255.0) as u8;
+            }
+        });
 }
 
 /// In-place film grain for a `tw`-wide rect whose top-left sits at `(x0, y0)`

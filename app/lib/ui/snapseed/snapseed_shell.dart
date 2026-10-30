@@ -13,9 +13,13 @@ import '../../edit/node_editor.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/recipe_mapping.dart';
+import '../../edit/tool_definition.dart';
 import '../../gesture/gesture_interpreter.dart';
 import '../../gesture/zone_mask.dart';
+import '../common/blur_controls.dart';
+import '../common/mask_controls.dart';
 import '../common/precision_rotation_dial.dart';
+import '../common/preset_preview_thumbnail.dart';
 import 'edit_hud.dart';
 import 'snapseed_gesture_hud.dart';
 import 'snapseed_tools_sheet.dart';
@@ -83,6 +87,7 @@ String _categoryLabel(ToolCategory c) => switch (c) {
 class _SnapseedShellState extends ConsumerState<SnapseedShell> {
   bool _radialOpen = false;
   bool _straightenOpen = false;
+  bool _looksOpen = false;
   Timer? _scrubFadeTimer;
   bool _scrubVisible = false;
 
@@ -161,6 +166,108 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           onOpenStraighten: () {
             setState(() => _straightenOpen = true);
           },
+        ),
+      ),
+    );
+  }
+
+  void _openMasksSheet(BuildContext context) {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Material(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.lg)),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.70,
+          child: const SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                SizedBox(height: Insets.xs),
+                Center(
+                  child: SizedBox(
+                    width: 36,
+                    height: 4,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.all(Radius.circular(2)),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: Insets.md, vertical: Insets.xs),
+                  child: Row(
+                    children: [
+                      Icon(Icons.layers_outlined, size: 20),
+                      SizedBox(width: Insets.sm),
+                      Text(
+                        'Masks & Layers',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1),
+                Expanded(child: MaskControls()),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openLensBlurSheet(BuildContext context) {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Material(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.lg)),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.70,
+          child: const SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                SizedBox(height: Insets.xs),
+                Center(
+                  child: SizedBox(
+                    width: 36,
+                    height: 4,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.all(Radius.circular(2)),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: Insets.md, vertical: Insets.xs),
+                  child: Row(
+                    children: [
+                      Icon(Icons.blur_on, size: 20),
+                      SizedBox(width: Insets.sm),
+                      Text(
+                        'Lens Blur & Bokeh',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1),
+                Expanded(child: BlurControls()),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -399,6 +506,38 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                 icon: const Icon(Icons.grid_view, size: 17),
                               ),
                               IconButton(
+                                key: const Key('snapseed-looks-toggle'),
+                                tooltip: 'Looks & Presets',
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                isSelected: _looksOpen,
+                                onPressed: () {
+                                  HapticFeedback.lightImpact();
+                                  setState(() => _looksOpen = !_looksOpen);
+                                },
+                                icon: const Icon(Icons.style_outlined, size: 17),
+                                selectedIcon: Icon(Icons.style, size: 17, color: scheme.primary),
+                              ),
+                              IconButton(
+                                key: const Key('snapseed-mask-toggle'),
+                                tooltip: 'Masks & Layers',
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                onPressed: () => _openMasksSheet(context),
+                                icon: const Icon(Icons.layers_outlined, size: 17),
+                              ),
+                              IconButton(
+                                key: const Key('snapseed-lens-blur-toggle'),
+                                tooltip: 'Lens Blur & Bokeh',
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                onPressed: () => _openLensBlurSheet(context),
+                                icon: const Icon(Icons.blur_on, size: 17),
+                              ),
+                              IconButton(
                                 key: const Key('snapseed-straighten-toggle'),
                                 tooltip: 'Straighten & Rotate',
                                 visualDensity: VisualDensity.compact,
@@ -563,6 +702,125 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
             ),
           ),
         ),
+
+        // Live Photo Preset/Looks Carousel
+        if (_looksOpen && !nodeMode)
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 74, left: 16, right: 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    child: Container(
+                      key: const Key('snapseed-looks-carousel'),
+                      constraints: BoxConstraints(
+                        maxWidth: math.min(500.0, MediaQuery.sizeOf(context).width - 24.0),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest.withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.5),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: scheme.onSurface.withValues(alpha: 0.16),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.auto_awesome, size: 16, color: scheme.primary),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Looks & Presets',
+                                      style: themeStyle(context, FontWeight.bold).copyWith(
+                                        fontSize: 13,
+                                        color: scheme.onSurface,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                  icon: const Icon(Icons.close, size: 16),
+                                  tooltip: 'Close Presets',
+                                  onPressed: () => setState(() => _looksOpen = false),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          SizedBox(
+                            height: 76,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: ToolLibrary.builtins.length,
+                              separatorBuilder: (_, _) => const SizedBox(width: 10),
+                              itemBuilder: (context, index) {
+                                final tool = ToolLibrary.builtins[index];
+                                return InkWell(
+                                  key: Key('snapseed-preset-${tool.name}'),
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () {
+                                    HapticFeedback.lightImpact();
+                                    ref.read(recipeControllerProvider.notifier).applyTool(tool);
+                                    ref.read(recipeControllerProvider.notifier).commit(label: tool.name);
+                                  },
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      PresetThumbnail(
+                                        params: tool.params,
+                                        size: 46,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      SizedBox(
+                                        width: 58,
+                                        child: Text(
+                                          tool.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500,
+                                            color: scheme.onSurface,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
 
         // Floating straighten & rotation dial HUD
         if (_straightenOpen && !nodeMode)

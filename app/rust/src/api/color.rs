@@ -136,11 +136,12 @@ pub fn grade_rgba(
     curves: CurveParams,
     hsl: Vec<f32>,
 ) -> Vec<u8> {
+    use rayon::prelude::*;
     let p = params.to_core();
     let set = curves.to_set();
     let hsl = to_hsl24(&hsl);
     let mut out = rgba;
-    for px in out.as_chunks_mut::<4>().0 {
+    out.par_chunks_exact_mut(4).for_each(|px| {
         let c = color::grade_pixel_c(
             px[0] as f32 / 255.0,
             px[1] as f32 / 255.0,
@@ -152,7 +153,7 @@ pub fn grade_rgba(
         px[0] = (c[0] * 255.0 + 0.5) as u8;
         px[1] = (c[1] * 255.0 + 0.5) as u8;
         px[2] = (c[2] * 255.0 + 0.5) as u8;
-    }
+    });
     out
 }
 

@@ -660,31 +660,36 @@ pub fn bake_lut3d_curves(
     curves: Option<&CurveSet>,
     hsl: &[f32; 24],
 ) -> Vec<u8> {
+    use rayon::prelude::*;
     let n = size.clamp(2, 256) as usize;
     let (w, h) = (n * n, n);
     let inv = 1.0 / (n - 1) as f32;
     let mut rgba = vec![0u8; w * h * 4];
 
-    for bi in 0..n {
-        for gi in 0..n {
-            for ri in 0..n {
-                let out = grade_pixel_c(
-                    ri as f32 * inv,
-                    gi as f32 * inv,
-                    bi as f32 * inv,
-                    params,
-                    curves,
-                    hsl,
-                );
-                let x = bi * n + ri;
-                let idx = (gi * w + x) * 4;
-                rgba[idx] = (out[0] * 255.0 + 0.5) as u8;
-                rgba[idx + 1] = (out[1] * 255.0 + 0.5) as u8;
-                rgba[idx + 2] = (out[2] * 255.0 + 0.5) as u8;
-                rgba[idx + 3] = 255;
+    rgba.par_chunks_exact_mut(w * 4)
+        .enumerate()
+        .for_each(|(gi, row)| {
+            for bi in 0..n {
+                let bi_n = bi * n;
+                for ri in 0..n {
+                    let out = grade_pixel_c(
+                        ri as f32 * inv,
+                        gi as f32 * inv,
+                        bi as f32 * inv,
+                        params,
+                        curves,
+                        hsl,
+                    );
+                    let x = bi_n + ri;
+                    let idx = x * 4;
+                    row[idx] = (out[0] * 255.0 + 0.5) as u8;
+                    row[idx + 1] = (out[1] * 255.0 + 0.5) as u8;
+                    row[idx + 2] = (out[2] * 255.0 + 0.5) as u8;
+                    row[idx + 3] = 255;
+                }
             }
-        }
-    }
+        });
+
     rgba
 }
 
