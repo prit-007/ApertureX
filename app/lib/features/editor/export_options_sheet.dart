@@ -295,15 +295,18 @@ class _ExportOptionsSheetContentState
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const Spacer(),
-                          Text(
-                            exportSettings.formatFilename(original: 'IMG_4021', preset: 'graded'),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontFamily: 'monospace',
-                            ),
-                          ),
                         ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Preview: ${exportSettings.formatFilename(original: 'IMG_4021', preset: 'graded')}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       TextField(
