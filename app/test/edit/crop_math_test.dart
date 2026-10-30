@@ -86,7 +86,7 @@ void main() {
         rx: 0.12,
         ry: 0.18,
       );
-      expect(crop[0], closeTo(0.0, 0.1));
+      expect(crop[0], closeTo(0.1667, 0.01)); // cx - cropW * (1/3) = 0.30 - 0.1333
       expect(crop[2], greaterThan(0.42)); // Provides look room to the right
     });
 

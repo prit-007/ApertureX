@@ -4,6 +4,26 @@ All notable changes to ApertureX are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-10-30
+
+Pro Studio Editing Suite, Internationalization (i18n), HEIC Import, Background Export & DAM.
+
+### Added
+- **Internationalization (i18n)** — Full multi-lingual localization across 6 languages (English, Spanish, German, French, Japanese, Chinese) using `flutter_localizations` and `intl`.
+- **HEIC / AVIF Import Pipeline** — ISO-BMFF spatial parsing (`ispe`) with embedded JPEG/EXIF thumbnail and preview extraction in `AxEngine.decodeHeicRgba()` and `FolderGallerySource`.
+- **Background Export Worker** — Dedicated Isolate worker with wake-lock persistence, queueing, and notification progress for uninterrupted background exports.
+- **Face Detection (YuNet AI)** — On-device face detection powering one-tap portrait masks and face-aware portrait auto-framing composition.
+- **Draggable Split Curtain Compare** — Interactive Before/After wiper curtain with draggable vertical/horizontal divider.
+- **Soft Proofing & Gamut Warnings** — Target color profile simulation (sRGB, Display P3, Adobe RGB, CMYK SWOP) with customizable out-of-gamut false color overlays.
+- **Digital Asset Management (DAM)** — Keywords tagging and Lightroom-compatible color labels (Red, Yellow, Green, Blue, Purple) integrated into Drift database catalog.
+- **Google Photos-Style Modern Gallery** — Streamlined responsive layout, album picker with text truncation/ellipses, and batch sync edits.
+- **Desktop Menu Bar** — Native macOS, Linux, and Windows `PlatformMenuBar` supporting File, Edit, and View menus with standard keyboard shortcuts.
+- **Accessibility (a11y) Polish** — Comprehensive Semantics labels and hints across Editor and Gallery, with WCAG 44×44dp minimum touch targets.
+
+### Changed
+- **Version bumped to 0.3.0 across pubspec.yaml, Cargo.toml, and documentation.**
+- **Top bar ergonomics** — Enhanced Undo/Redo button semantics with long-press history inspection and active mode immersion.
+
 ## [0.2.5] - 2026-10-20
 
 HDR multi-exposure merge and Ultra HDR export engine.

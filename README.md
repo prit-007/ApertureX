@@ -1,7 +1,7 @@
 # ApertureX
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Status](https://img.shields.io/badge/status-v0.2.5-blue.svg)](docs/ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-v0.3.0-blue.svg)](docs/ROADMAP.md)
 [![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-lightgrey.svg)](#)
 [![Website](https://img.shields.io/badge/website-prit--007.github.io%2FApertureX-6BEAF7)](https://prit-007.github.io/ApertureX/)
 [![100% Offline](https://img.shields.io/badge/100%25-Offline-green.svg)](#privacy)
@@ -14,7 +14,7 @@
   <img src="app/icons/app_icon.png" alt="ApertureX app icon — a camera-aperture shutter mark on a dark field" width="192">
 </p>
 
-> **Status: v0.2.5 (Release).** Both UI shells
+> **Status: v0.3.0 (Release).** Both UI shells
 > (Lightroom panels + Snapseed gestures) run over one shared recipe; the Rust
 > engine carries the full color/spatial/geometry pipeline plus the **complete
 > local-adjustment stack**: 8 mask kinds (linear/radial/luminance/brush/bitmap/

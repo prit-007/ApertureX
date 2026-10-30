@@ -347,7 +347,8 @@ void main() {
       // Indeterminate rings animate forever — never pumpAndSettle while they
       // are on screen.
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
 
       expect(find.byKey(const Key('export-ring-a')), findsOneWidget);
       expect(find.text('0/2'), findsOneWidget);
@@ -390,7 +391,8 @@ void main() {
 
       await tester.tap(find.text('Export'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
 
       await tester.tap(find.byKey(const Key('export-cancel')));
       await tester.pump();
@@ -414,8 +416,12 @@ void main() {
     final rustAvailable = File(rustDylib).existsSync();
 
     setUpAll(() async {
-      if (rustAvailable) {
-        await RustLib.init(externalLibrary: ExternalLibrary.open(rustDylib));
+      try {
+        if (rustAvailable) {
+          await RustLib.init(externalLibrary: ExternalLibrary.open(rustDylib));
+        }
+      } catch (_) {
+        // Rust not available in this environment; tests requiring it skip individually.
       }
     });
 

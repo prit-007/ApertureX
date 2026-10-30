@@ -157,13 +157,32 @@ void main() {
       isTrue,
     );
 
-    // Clearing the flag leaves the rating (5) behind — the entry survives.
-    await press(tester, LogicalKeyboardKey.keyX);
-    final entry =
-        container.read(libraryCatalogProvider)[originalEntryId('a')];
-    expect(entry, isNotNull);
-    expect(entry!.flag, isFalse);
-    expect(entry.rating, 5);
+    // Digits 6-9 set color labels (Red, Yellow, Green, Blue)
+    await press(tester, LogicalKeyboardKey.digit6);
+    expect(
+      container.read(libraryCatalogProvider)[originalEntryId('a')]!.colorLabel,
+      ColorLabel.red,
+    );
+
+    await press(tester, LogicalKeyboardKey.digit7);
+    expect(
+      container.read(libraryCatalogProvider)[originalEntryId('a')]!.colorLabel,
+      ColorLabel.yellow,
+    );
+
+    // Pressing same digit toggles it off
+    await press(tester, LogicalKeyboardKey.digit7);
+    expect(
+      container.read(libraryCatalogProvider)[originalEntryId('a')]!.colorLabel,
+      isNull,
+    );
+
+    // Digit 0 clears rating
+    await press(tester, LogicalKeyboardKey.digit0);
+    expect(
+      container.read(libraryCatalogProvider)[originalEntryId('a')]!.rating,
+      0,
+    );
   });
 
   testWidgets('? opens the shortcut cheat sheet', (tester) async {

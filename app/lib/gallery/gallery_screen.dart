@@ -32,6 +32,20 @@ import 'staggered_photo_grid.dart';
 /// Which gallery scope is displayed (#85).
 enum GalleryScope { photos, edits }
 
+/// Returns true if the asset filename/id indicates a RAW photo camera format.
+bool isRawAsset(GalleryAsset asset) {
+  final lower = asset.id.toLowerCase();
+  return lower.endsWith('.dng') ||
+      lower.endsWith('.raw') ||
+      lower.endsWith('.cr2') ||
+      lower.endsWith('.cr3') ||
+      lower.endsWith('.nef') ||
+      lower.endsWith('.arw') ||
+      lower.endsWith('.orf') ||
+      lower.endsWith('.rw2') ||
+      lower.endsWith('.pef');
+}
+
 /// The app home: the device gallery, grouped by date (newest first) with album
 /// switching — Google-Photos style. Tap a photo to edit it; long-press to
 /// multi-select, then batch-paste a recipe or export (#12, #13). Every photo
@@ -59,6 +73,12 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   int _exportTotal = 0;
   final Set<String> _exportingIds = <String>{};
   final Set<String> _exportedIds = <String>{};
+
+  ColorLabel? _filterColorLabel;
+  int _filterMinRating = 0;
+  bool _filterFlaggedOnly = false;
+  bool _filterRawOnly = false;
+  bool _isCompactGrid = false;
 
   /// Fades the AppBar + SelectionBar out during the hero flight into the
   /// editor so only the photo moves (issue: buttery gallery→editor transition).
@@ -228,6 +248,107 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     _snack('Created $created virtual ${created == 1 ? 'copy' : 'copies'}');
   }
 
+  Future<void> _showColorLabelSheet() async {
+    final state = ref.read(galleryControllerProvider);
+    if (state.selected.isEmpty) return;
+    final catalogNotifier = ref.read(libraryCatalogProvider.notifier);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Insets.sm, horizontal: Insets.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Set Color Label (${state.selectedCount} selected)',
+                style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: Insets.sm),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final label in ColorLabel.values)
+                    ActionChip(
+                      key: Key('color-label-chip-${label.name}'),
+                      avatar: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Color(label.colorValue),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      label: Text(label.displayName),
+                      onPressed: () {
+                        for (final id in state.selected) {
+                          catalogNotifier.setColorLabel(originalEntryId(id), label);
+                        }
+                        Navigator.of(sheetContext).pop();
+                        _snack('Applied ${label.displayName} label to ${state.selectedCount} photo(s)');
+                      },
+                    ),
+                  ActionChip(
+                    key: const Key('color-label-chip-none'),
+                    avatar: const Icon(Icons.close, size: 14),
+                    label: const Text('None'),
+                    onPressed: () {
+                      for (final id in state.selected) {
+                        catalogNotifier.setColorLabel(originalEntryId(id), null);
+                      }
+                      Navigator.of(sheetContext).pop();
+                      _snack('Cleared color label on ${state.selectedCount} photo(s)');
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: Insets.sm),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showKeywordsSheet() async {
+    final state = ref.read(galleryControllerProvider);
+    if (state.selected.isEmpty) return;
+    final catalogNotifier = ref.read(libraryCatalogProvider.notifier);
+    final catalog = ref.read(libraryCatalogProvider);
+
+    final existingKeywords = <String>{};
+    for (final id in state.selected) {
+      final entry = catalog[originalEntryId(id)];
+      if (entry != null) {
+        existingKeywords.addAll(entry.keywords);
+      }
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => _KeywordsSheet(
+        selectedCount: state.selectedCount,
+        initialKeywords: existingKeywords.toList()..sort(),
+        onAddKeyword: (kw) {
+          for (final id in state.selected) {
+            catalogNotifier.addKeyword(originalEntryId(id), kw);
+          }
+        },
+        onRemoveKeyword: (kw) {
+          for (final id in state.selected) {
+            catalogNotifier.removeKeyword(originalEntryId(id), kw);
+          }
+        },
+      ),
+    );
+  }
+
   Future<void> _vcMenu(CatalogEntry entry, Offset position) async {
     final action = await showMenu<String>(
       context: context,
@@ -365,16 +486,29 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             duration: const Duration(milliseconds: 180),
             child: AppBar(
               title: state.selectionMode
-                  ? Text('${state.selectedCount} selected')
+                  ? Text(
+                      '${state.selectedCount} selected',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    )
                   : _AlbumTitle(title: state.title, onTap: _openAlbumPicker),
               actions: [
-                if (state.selectionMode)
+                if (state.selectionMode) ...[
+                  IconButton(
+                    tooltip: 'Select all',
+                    onPressed: controller.selectAll,
+                    icon: const Icon(Icons.select_all),
+                  ),
                   IconButton(
                     tooltip: 'Clear selection',
                     onPressed: controller.clearSelection,
                     icon: const Icon(Icons.close),
-                  )
-                else ...[
+                  ),
+                ] else ...[
+                  IconButton(
+                    tooltip: _isCompactGrid ? 'Comfort grid' : 'Compact grid',
+                    onPressed: () => setState(() => _isCompactGrid = !_isCompactGrid),
+                    icon: Icon(_isCompactGrid ? Icons.grid_view : Icons.view_comfy_alt_outlined),
+                  ),
                   IconButton(
                     tooltip: 'Select',
                     onPressed: controller.selectAll,
@@ -425,6 +559,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   onExport: _export,
                   canMerge: state.selectedCount >= 2,
                   onMergeHdr: _mergeHdr,
+                  onColorLabel: _showColorLabelSheet,
+                  onKeywords: _showKeywordsSheet,
                 )
               : null,
         ),
@@ -463,12 +599,124 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               ),
             ),
           ),
+        if (!state.selectionMode && _scope == GalleryScope.photos) _buildFilterBar(),
         Expanded(
           child: _scope == GalleryScope.photos
               ? _body(state, controller)
               : _editsBody(state),
         ),
       ],
+    );
+  }
+
+  bool _matchesFilter(CatalogEntry? entry, [GalleryAsset? asset]) {
+    if (_filterRawOnly && asset != null && !isRawAsset(asset)) {
+      return false;
+    }
+    if (_filterColorLabel != null && entry?.colorLabel != _filterColorLabel) {
+      return false;
+    }
+    if (_filterMinRating > 0 && (entry?.rating ?? 0) < _filterMinRating) {
+      return false;
+    }
+    if (_filterFlaggedOnly && !(entry?.flag ?? false)) {
+      return false;
+    }
+    return true;
+  }
+
+  Widget _buildFilterBar() {
+    final hasActiveFilter = _filterColorLabel != null ||
+        _filterMinRating > 0 ||
+        _filterFlaggedOnly ||
+        _filterRawOnly;
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: 2),
+        children: [
+          FilterChip(
+            key: const Key('filter-all'),
+            label: const Text('All', style: TextStyle(fontSize: 12)),
+            selected: !hasActiveFilter,
+            onSelected: (_) {
+              setState(() {
+                _filterColorLabel = null;
+                _filterMinRating = 0;
+                _filterFlaggedOnly = false;
+                _filterRawOnly = false;
+              });
+            },
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 6),
+          FilterChip(
+            key: const Key('filter-raw'),
+            avatar: const Icon(Icons.camera_outlined, size: 12),
+            label: const Text('RAW', style: TextStyle(fontSize: 12)),
+            selected: _filterRawOnly,
+            onSelected: (val) {
+              setState(() => _filterRawOnly = val);
+            },
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 6),
+          FilterChip(
+            key: const Key('filter-flagged'),
+            avatar: const Icon(Icons.flag, size: 12),
+            label: const Text('Flagged', style: TextStyle(fontSize: 12)),
+            selected: _filterFlaggedOnly,
+            onSelected: (val) {
+              setState(() => _filterFlaggedOnly = val);
+            },
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 6),
+          FilterChip(
+            key: const Key('filter-rating-1'),
+            avatar: const Icon(Icons.star, size: 12, color: Colors.amber),
+            label: const Text('1+ ★', style: TextStyle(fontSize: 12)),
+            selected: _filterMinRating == 1,
+            onSelected: (val) {
+              setState(() => _filterMinRating = val ? 1 : 0);
+            },
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 6),
+          FilterChip(
+            key: const Key('filter-rating-3'),
+            avatar: const Icon(Icons.star, size: 12, color: Colors.amber),
+            label: const Text('3+ ★', style: TextStyle(fontSize: 12)),
+            selected: _filterMinRating == 3,
+            onSelected: (val) {
+              setState(() => _filterMinRating = val ? 3 : 0);
+            },
+            visualDensity: VisualDensity.compact,
+          ),
+          for (final label in ColorLabel.values) ...[
+            const SizedBox(width: 6),
+            FilterChip(
+              key: Key('filter-color-${label.name}'),
+              avatar: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: Color(label.colorValue),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              label: Text(label.displayName, style: const TextStyle(fontSize: 12)),
+              selected: _filterColorLabel == label,
+              onSelected: (val) {
+                setState(() => _filterColorLabel = val ? label : null);
+              },
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -491,13 +739,16 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           );
         }
 
+        final catalog = ref.watch(libraryCatalogProvider);
+
         final grouped = <String, List<EditPreview>>{};
         for (final p in previews) {
-          final label = dateHeaderLabel(p.created);
-          (grouped[label] ??= []).add(p);
+          final catalogEntry = catalog[p.entryId];
+          if (_matchesFilter(catalogEntry)) {
+            final label = dateHeaderLabel(p.created);
+            (grouped[label] ??= []).add(p);
+          }
         }
-
-        final catalog = ref.watch(libraryCatalogProvider);
 
         final slivers = <Widget>[];
         for (final entry in grouped.entries) {
@@ -505,6 +756,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           final items = entry.value;
           slivers.add(
             StaggeredPhotoGrid(
+              crossAxisCount: _isCompactGrid ? 4 : null,
               spacing: 2,
               itemCount: items.length,
               itemBuilder: (context, idx) {
@@ -752,7 +1004,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final recipes = ref.watch(recipeStoreProvider);
     // Watch the catalog so creating/deleting a copy rebuilds the grid, and
     // resolve the per-photo copy lists (sorted oldest-first) once per build.
-    ref.watch(libraryCatalogProvider);
+    final catalog = ref.watch(libraryCatalogProvider);
     final vcsBySource = ref
         .read(libraryCatalogProvider.notifier)
         .virtualCopiesBySource();
@@ -761,11 +1013,14 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     while (i < rows.length) {
       final row = rows[i];
       if (row is GalleryDateHeader) {
-        slivers.add(SliverToBoxAdapter(child: _DateHeader(label: row.label)));
         i++;
         final photos = <GalleryAsset>[];
         while (i < rows.length && rows[i] is GalleryPhoto) {
-          photos.add((rows[i] as GalleryPhoto).asset);
+          final asset = (rows[i] as GalleryPhoto).asset;
+          final entry = catalog[originalEntryId(asset.id)];
+          if (_matchesFilter(entry, asset)) {
+            photos.add(asset);
+          }
           i++;
         }
         // Expand each photo into its original cell followed by one cell per
@@ -774,66 +1029,95 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           for (final asset in photos) ...[
             _OriginalItem(asset),
             for (final copy in vcsBySource[asset.id] ?? const <CatalogEntry>[])
-              _VirtualItem(copy, asset),
+              if (_matchesFilter(copy, asset))
+                _VirtualItem(copy, asset),
           ],
         ];
-        slivers.add(
-          StaggeredPhotoGrid(
-            spacing: 2,
-            itemCount: items.length,
-            itemBuilder: (context, j) => switch (items[j]) {
-              _OriginalItem(:final asset) => AspectRatio(
-                aspectRatio: (asset.width > 0 && asset.height > 0)
-                    ? (asset.width / asset.height).clamp(0.65, 1.8)
-                    : 1.0,
-                child: _StaggeredCell(
-                  index: j,
-                  child: _Cell(
-                    source: _source,
-                    asset: asset,
-                    heroTag: 'photo-${asset.id}',
-                    selected: state.isSelected(asset.id),
-                    edited: recipes.containsKey(originalEntryId(asset.id)),
-                    copyCount: vcsBySource[asset.id]?.length ?? 0,
-                    selectionMode: state.selectionMode,
-                    exporting: _exportingIds.contains(asset.id),
-                    exported: _exportedIds.contains(asset.id),
-                    onTap: () => state.selectionMode
-                        ? controller.toggle(asset.id)
-                        : _open(asset),
-                    onLongPress: () => controller.startSelection(asset.id),
+        if (items.isNotEmpty) {
+          slivers.add(SliverToBoxAdapter(child: _DateHeader(label: row.label)));
+          slivers.add(
+            StaggeredPhotoGrid(
+              crossAxisCount: _isCompactGrid ? 4 : null,
+              spacing: 2,
+              itemCount: items.length,
+              itemBuilder: (context, j) => switch (items[j]) {
+                _OriginalItem(:final asset) => AspectRatio(
+                  aspectRatio: (asset.width > 0 && asset.height > 0)
+                      ? (asset.width / asset.height).clamp(0.65, 1.8)
+                      : 1.0,
+                  child: _StaggeredCell(
+                    index: j,
+                    child: _Cell(
+                      source: _source,
+                      asset: asset,
+                      catalogEntry: catalog[originalEntryId(asset.id)],
+                      heroTag: 'photo-${asset.id}',
+                      selected: state.isSelected(asset.id),
+                      edited: recipes.containsKey(originalEntryId(asset.id)),
+                      copyCount: vcsBySource[asset.id]?.length ?? 0,
+                      selectionMode: state.selectionMode,
+                      exporting: _exportingIds.contains(asset.id),
+                      exported: _exportedIds.contains(asset.id),
+                      onTap: () => state.selectionMode
+                          ? controller.toggle(asset.id)
+                          : _open(asset),
+                      onLongPress: () => controller.startSelection(asset.id),
+                    ),
                   ),
                 ),
-              ),
-              _VirtualItem(:final entry, :final asset) => AspectRatio(
-                aspectRatio: (asset.width > 0 && asset.height > 0)
-                    ? (asset.width / asset.height).clamp(0.65, 1.8)
-                    : 1.0,
-                child: _StaggeredCell(
-                  index: j,
-                  child: _VirtualCell(
-                    source: _source,
-                    asset: asset,
-                    entry: entry,
-                    heroTag: 'photo-vc-${entry.entryId}',
-                    selected: state.isSelected(asset.id),
-                    edited: recipes.containsKey(entry.entryId),
-                    selectionMode: state.selectionMode,
-                    onTap: () => state.selectionMode
-                        ? controller.toggle(asset.id)
-                        : _openEntry(asset, entry.entryId),
-                    onLongPressStart: (details) => state.selectionMode
-                        ? controller.startSelection(asset.id)
-                        : _vcMenu(entry, details.globalPosition),
+                _VirtualItem(:final entry, :final asset) => AspectRatio(
+                  aspectRatio: (asset.width > 0 && asset.height > 0)
+                      ? (asset.width / asset.height).clamp(0.65, 1.8)
+                      : 1.0,
+                  child: _StaggeredCell(
+                    index: j,
+                    child: _VirtualCell(
+                      source: _source,
+                      asset: asset,
+                      entry: entry,
+                      heroTag: 'photo-vc-${entry.entryId}',
+                      selected: state.isSelected(asset.id),
+                      edited: recipes.containsKey(entry.entryId),
+                      selectionMode: state.selectionMode,
+                      onTap: () => state.selectionMode
+                          ? controller.toggle(asset.id)
+                          : _openEntry(asset, entry.entryId),
+                      onLongPressStart: (details) => state.selectionMode
+                          ? controller.startSelection(asset.id)
+                          : _vcMenu(entry, details.globalPosition),
+                    ),
                   ),
                 ),
-              ),
-            },
-          ),
-        );
+              },
+            ),
+          );
+        }
       } else {
         i++;
       }
+    }
+    if (slivers.isEmpty && rows.isNotEmpty) {
+      slivers.add(
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: EmptyState(
+            icon: Icons.filter_alt_off_outlined,
+            title: 'No matching photos',
+            message: 'No photos match the selected filter.',
+            action: FilledButton.tonal(
+              onPressed: () {
+                setState(() {
+                  _filterColorLabel = null;
+                  _filterMinRating = 0;
+                  _filterFlaggedOnly = false;
+                  _filterRawOnly = false;
+                });
+              },
+              child: const Text('Clear filters'),
+            ),
+          ),
+        ),
+      );
     }
     slivers.add(const SliverToBoxAdapter(child: SizedBox(height: Insets.lg)));
     return slivers;
@@ -867,37 +1151,55 @@ class _AlbumTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      splashColor: scheme.primary.withValues(alpha: 0.12),
-      highlightColor: scheme.primary.withValues(alpha: 0.06),
-      mouseCursor: WidgetStateMouseCursor.clickable,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    return Semantics(
+      button: true,
+      label: 'Select album, current album: $title',
+      hint: 'Double tap to open album list',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        splashColor: scheme.primary.withValues(alpha: 0.12),
+        highlightColor: scheme.primary.withValues(alpha: 0.06),
+        mouseCursor: WidgetStateMouseCursor.clickable,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 220, minHeight: 36),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+          color: scheme.surfaceContainerHigh.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.35),
+            width: 1.0,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.photo_library_outlined, size: 16, color: scheme.primary),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.1,
+                    ),
+              ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.arrow_drop_down, size: 20),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 18,
+              color: scheme.onSurfaceVariant,
+            ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 /// Wraps a gallery cell with a staggered entrance animation: each cell fades
@@ -1010,6 +1312,7 @@ class _Cell extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     required this.heroTag,
+    this.catalogEntry,
     this.copyCount = 0,
     this.exporting = false,
     this.exported = false,
@@ -1017,6 +1320,7 @@ class _Cell extends StatelessWidget {
 
   final GallerySource source;
   final GalleryAsset asset;
+  final CatalogEntry? catalogEntry;
   final bool selected;
   final bool edited;
   final bool selectionMode;
@@ -1070,6 +1374,90 @@ class _Cell extends StatelessWidget {
                 ),
               ),
             ),
+            if (catalogEntry != null &&
+                (catalogEntry!.rating > 0 ||
+                    catalogEntry!.flag ||
+                    catalogEntry!.colorLabel != null ||
+                    catalogEntry!.keywords.isNotEmpty))
+              Positioned(
+                left: 4,
+                top: 4,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (catalogEntry!.rating > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star, size: 12, color: Colors.amber),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${catalogEntry!.rating}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (catalogEntry!.flag) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          Icons.flag,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                    if (catalogEntry!.colorLabel != null) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        key: Key('color-badge-${asset.id}'),
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(catalogEntry!.colorLabel!.colorValue),
+                          border: Border.all(color: Colors.white, width: 1),
+                        ),
+                      ),
+                    ],
+                    if (catalogEntry!.keywords.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        key: Key('keywords-badge-${asset.id}'),
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          Icons.sell_outlined,
+                          size: 10,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             if (edited && !selectionMode)
               Positioned(
                 left: 4,
@@ -1140,6 +1528,29 @@ class _Cell extends StatelessWidget {
                   selected ? Icons.check_circle : Icons.circle_outlined,
                   size: 22,
                   color: selected ? scheme.primary : Colors.white70,
+                ),
+              )
+            else if (isRawAsset(asset))
+              Positioned(
+                right: 4,
+                top: 4,
+                child: Container(
+                  key: Key('raw-badge-${asset.id}'),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: Colors.white54, width: 0.6),
+                  ),
+                  child: const Text(
+                    'RAW',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -1215,25 +1626,102 @@ class _VirtualCell extends StatelessWidget {
             Positioned(
               left: 4,
               top: 4,
-              child: DecoratedBox(
-                key: Key('vc-badge-${entry.entryId}'),
-                decoration: BoxDecoration(
-                  color: scheme.secondaryContainer.withValues(alpha: 0.95),
-                  borderRadius: Radii.smAll,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  child: Text(
-                    'VC',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: scheme.onSecondaryContainer,
-                      fontWeight: FontWeight.w700,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DecoratedBox(
+                    key: Key('vc-badge-${entry.entryId}'),
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer.withValues(alpha: 0.95),
+                      borderRadius: Radii.smAll,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        'VC',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onSecondaryContainer,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  if (entry.rating > 0) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star, size: 12, color: Colors.amber),
+                          const SizedBox(width: 2),
+                          Text(
+                            '${entry.rating}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (entry.flag) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        Icons.flag,
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                  if (entry.colorLabel != null) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      key: Key('color-badge-${asset.id}'),
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(entry.colorLabel!.colorValue),
+                        border: Border.all(color: Colors.white, width: 1),
+                      ),
+                    ),
+                  ],
+                  if (entry.keywords.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      key: Key('keywords-badge-${asset.id}'),
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        Icons.sell_outlined,
+                        size: 10,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             if (edited && !selectionMode)
@@ -1384,6 +1872,8 @@ class _SelectionBar extends StatelessWidget {
     required this.onExport,
     required this.canMerge,
     required this.onMergeHdr,
+    this.onColorLabel,
+    this.onKeywords,
   });
 
   /// True only when exactly one photo is selected — the copy target must be
@@ -1403,11 +1893,16 @@ class _SelectionBar extends StatelessWidget {
   /// True when two or more photos are selected — HDR merge needs a bracket.
   final bool canMerge;
   final VoidCallback onMergeHdr;
+  final VoidCallback? onColorLabel;
+  final VoidCallback? onKeywords;
 
   @override
   Widget build(BuildContext context) {
-    // Horizontal scroll so actions never overflow a 360dp phone; the viewport
-    // is right-aligned so the actions stay in the thumb zone.
+    // Icon-only secondary actions keep the whole bar on-screen even at 800px
+    // test widths and on 360dp phones (six labeled buttons overflow past
+    // 1100px, pushing Paste off-screen); Paste and Export keep their labels
+    // as the primary actions. The viewport is right-aligned so the actions
+    // stay in the thumb zone.
     return BottomAppBar(
       elevation: 2,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1419,44 +1914,71 @@ class _SelectionBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextButton.icon(
+              TextButton(
+                key: const Key('color-label-action'),
+                onPressed: onColorLabel,
+                child: const Tooltip(
+                  message: 'Color label',
+                  child: Icon(Icons.palette_outlined, size: 18),
+                ),
+              ),
+              const SizedBox(width: Insets.xs),
+              TextButton(
+                key: const Key('keywords-action'),
+                onPressed: onKeywords,
+                child: const Tooltip(
+                  message: 'Keywords',
+                  child: Icon(Icons.sell_outlined, size: 18),
+                ),
+              ),
+              const SizedBox(width: Insets.xs),
+              TextButton(
                 key: const Key('copy-edits-action'),
                 onPressed: canCopy ? onCopy : null,
-                icon: const Icon(Icons.copy, size: 18),
-                label: const Text('Copy edits'),
+                child: const Tooltip(
+                  message: 'Copy edits',
+                  child: Icon(Icons.copy, size: 18),
+                ),
               ),
-              const SizedBox(width: Insets.sm),
-              TextButton.icon(
+              const SizedBox(width: Insets.xs),
+              TextButton(
                 key: const Key('sync-edits-action'),
                 onPressed: canSync ? onSync : null,
-                icon: const Icon(Icons.sync, size: 18),
-                label: const Text('Sync edits'),
+                child: const Tooltip(
+                  message: 'Sync edits',
+                  child: Icon(Icons.sync, size: 18),
+                ),
               ),
-              const SizedBox(width: Insets.sm),
-              TextButton.icon(
+              const SizedBox(width: Insets.xs),
+              TextButton(
                 key: const Key('virtual-copy-action'),
                 onPressed: onVirtualCopy,
-                icon: const Icon(Icons.copy_all_outlined, size: 18),
-                label: const Text('Virtual copy'),
+                child: const Tooltip(
+                  message: 'Virtual copy',
+                  child: Icon(Icons.copy_all_outlined, size: 18),
+                ),
               ),
-              const SizedBox(width: Insets.sm),
+              const SizedBox(width: Insets.xs),
               TextButton.icon(
+                key: const Key('paste-action'),
                 onPressed: onPaste,
                 icon: const Icon(Icons.paste, size: 18),
                 label: const Text('Paste'),
               ),
-              const SizedBox(width: Insets.sm),
+              const SizedBox(width: Insets.xs),
               FilledButton.tonalIcon(
                 onPressed: onExport,
                 icon: const Icon(Icons.ios_share, size: 18),
                 label: const Text('Export'),
               ),
-              const SizedBox(width: Insets.sm),
-              FilledButton.tonalIcon(
+              const SizedBox(width: Insets.xs),
+              TextButton(
                 key: const Key('hdr-merge-action'),
                 onPressed: canMerge ? onMergeHdr : null,
-                icon: const Icon(Icons.auto_awesome, size: 18),
-                label: const Text('HDR Merge'),
+                child: const Tooltip(
+                  message: 'HDR Merge',
+                  child: Icon(Icons.auto_awesome, size: 18),
+                ),
               ),
             ],
           ),
@@ -1554,6 +2076,123 @@ class _RenameVcDialogState extends State<_RenameVcDialog> {
   }
 }
 
+class _KeywordsSheet extends StatefulWidget {
+  const _KeywordsSheet({
+    required this.selectedCount,
+    required this.initialKeywords,
+    required this.onAddKeyword,
+    required this.onRemoveKeyword,
+  });
+
+  final int selectedCount;
+  final List<String> initialKeywords;
+  final ValueChanged<String> onAddKeyword;
+  final ValueChanged<String> onRemoveKeyword;
+
+  @override
+  State<_KeywordsSheet> createState() => _KeywordsSheetState();
+}
+
+class _KeywordsSheetState extends State<_KeywordsSheet> {
+  late final List<String> _keywords = List.of(widget.initialKeywords);
+  final _textController = TextEditingController();
+
+  void _add() {
+    final text = _textController.text.trim();
+    if (text.isNotEmpty && !_keywords.contains(text)) {
+      widget.onAddKeyword(text);
+      setState(() {
+        _keywords.add(text);
+        _keywords.sort();
+      });
+      _textController.clear();
+    }
+  }
+
+  void _remove(String kw) {
+    widget.onRemoveKeyword(kw);
+    setState(() => _keywords.remove(kw));
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: Insets.md,
+        right: Insets.md,
+        top: Insets.md,
+        bottom: MediaQuery.of(context).viewInsets.bottom + Insets.md,
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Manage Keywords (${widget.selectedCount} selected)',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: Insets.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('keyword-input'),
+                    controller: _textController,
+                    decoration: const InputDecoration(
+                      hintText: 'Enter keyword…',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    onSubmitted: (_) => _add(),
+                  ),
+                ),
+                const SizedBox(width: Insets.sm),
+                FilledButton(
+                  key: const Key('add-keyword-button'),
+                  onPressed: _add,
+                  child: const Text('Add'),
+                ),
+              ],
+            ),
+            const SizedBox(height: Insets.sm),
+            if (_keywords.isNotEmpty)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final kw in _keywords)
+                    Chip(
+                      key: Key('keyword-chip-$kw'),
+                      label: Text(kw),
+                      deleteIcon: const Icon(Icons.close, size: 14),
+                      onDeleted: () => _remove(kw),
+                    ),
+                ],
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: Insets.sm),
+                child: Text(
+                  'No keywords assigned to selected photos.',
+                  style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Album picker: the default "Recent" stream plus every device album.
 class _AlbumSheet extends ConsumerWidget {
   const _AlbumSheet();
@@ -1563,58 +2202,126 @@ class _AlbumSheet extends ConsumerWidget {
     final state = ref.watch(galleryControllerProvider);
     final controller = ref.read(galleryControllerProvider.notifier);
     final source = ref.read(gallerySourceProvider);
+    final scheme = Theme.of(context).colorScheme;
 
-    Widget tile(
-      String? id,
-      String name,
-      String? coverAssetId,
-      int count, {
+    Widget albumTile({
+      required String? id,
+      required String name,
+      required String? coverAssetId,
+      required int count,
       required bool selected,
-    }) => ListTile(
-      selected: selected,
-      leading: SizedBox(
-        width: 48,
-        height: 48,
-        child: ClipRRect(
-          borderRadius: Radii.smAll,
-          child: coverAssetId == null
-              ? ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                  child: const Icon(Icons.photo_album_outlined, size: 20),
-                )
-              : GalleryThumbnail(
-                  source: source,
-                  assetId: coverAssetId,
-                  size: 96,
-                ),
+      bool isAllPhotos = false,
+    }) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: 3),
+      child: Material(
+        color: selected
+            ? scheme.primaryContainer.withValues(alpha: 0.35)
+            : Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: selected
+              ? BorderSide(color: scheme.primary.withValues(alpha: 0.5), width: 1.2)
+              : BorderSide.none,
         ),
+        child: ListTile(
+          selected: selected,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: SizedBox(
+          width: 52,
+          height: 52,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: coverAssetId == null
+                ? Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isAllPhotos
+                            ? [scheme.primary, scheme.tertiary]
+                            : [
+                                scheme.surfaceContainerHigh,
+                                scheme.surfaceContainerHighest,
+                              ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Icon(
+                      isAllPhotos ? Icons.photo_library : Icons.folder_outlined,
+                      color: isAllPhotos ? scheme.onPrimary : scheme.onSurfaceVariant,
+                      size: 24,
+                    ),
+                  )
+                : GalleryThumbnail(
+                    source: source,
+                    assetId: coverAssetId,
+                    size: 104,
+                  ),
+          ),
+        ),
+        title: Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            fontSize: 15,
+          ),
+        ),
+        subtitle: Text(
+          count == 1 ? '1 photo' : '$count photos',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            color: selected ? scheme.primary : scheme.onSurfaceVariant,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+        trailing: selected
+            ? Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.check, size: 16, color: scheme.onPrimary),
+              )
+            : null,
+        onTap: () {
+          controller.selectAlbum(id);
+          Navigator.of(context).maybePop();
+        },
       ),
-      title: Text(name),
-      subtitle: Text('$count'),
-      onTap: () {
-        controller.selectAlbum(id);
-        Navigator.of(context).maybePop();
-      },
-    );
+    ),
+  );
 
     return AppSheet(
       title: 'Albums',
       children: [
-        tile(
-          null,
-          'Recent',
-          null,
-          state.assets.length,
+        albumTile(
+          id: null,
+          name: 'Recent & All Photos',
+          coverAssetId: state.assets.isNotEmpty ? state.assets.first.id : null,
+          count: state.assets.length,
           selected: state.selectedAlbumId == null,
+          isAllPhotos: true,
         ),
-        for (final album in state.albums)
-          tile(
-            album.id,
-            album.name,
-            album.coverAssetId,
-            album.count,
-            selected: album.id == state.selectedAlbumId,
+        if (state.albums.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(Insets.md, Insets.sm, Insets.md, Insets.xs),
+            child: Divider(height: 1),
           ),
+          for (final album in state.albums)
+            albumTile(
+              id: album.id,
+              name: album.name,
+              coverAssetId: album.coverAssetId,
+              count: album.count,
+              selected: album.id == state.selectedAlbumId,
+            ),
+        ],
       ],
     );
   }
@@ -1673,10 +2380,14 @@ class _EditPreviewCellState extends State<_EditPreviewCell> {
     final bytes = _bytes;
     final catalogEntry = widget.catalogEntry;
 
-    return GestureDetector(
+    return Semantics(
+      label: 'Edited version: ${widget.preview.entryId}',
+      button: true,
       onTap: widget.onTap,
-      onLongPressStart: (d) => widget.onLongPressStart(d.globalPosition),
-      child: Stack(
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onLongPressStart: (d) => widget.onLongPressStart(d.globalPosition),
+        child: Stack(
         fit: StackFit.expand,
         children: [
           bytes != null && bytes.isNotEmpty
@@ -1744,6 +2455,35 @@ class _EditPreviewCellState extends State<_EditPreviewCell> {
                     ),
                   ),
                 ],
+                if (catalogEntry != null && catalogEntry.colorLabel != null) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    key: Key('color-label-${catalogEntry.colorLabel!.name}'),
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: Color(catalogEntry.colorLabel!.colorValue),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                  ),
+                ],
+                if (catalogEntry != null && catalogEntry.keywords.isNotEmpty) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    key: const Key('photo-keywords-badge'),
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(
+                      Icons.label_outline,
+                      size: 12,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1772,6 +2512,7 @@ class _EditPreviewCellState extends State<_EditPreviewCell> {
             ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }

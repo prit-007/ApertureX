@@ -2,8 +2,9 @@ import 'dart:io';
 
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/services.dart' show SystemChrome, SystemUiMode;
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart' hide GlobalMaterialLocalizations;
 import 'package:path_provider/path_provider.dart';
 
 import 'core/error/boundaries.dart';
@@ -23,7 +24,9 @@ import 'engine/engine.dart';
 import 'gallery/gallery_controller.dart';
 import 'gallery/gallery_screen.dart';
 import 'gallery/gallery_source_factory.dart';
+import 'l10n/app_strings.dart';
 import 'settings/app_settings.dart';
+import 'ui/desktop/desktop_menu_bar.dart';
 import 'ui/precision_gear.dart';
 import 'viewport/shader_warmup.dart';
 
@@ -95,6 +98,14 @@ class ApertureXApp extends ConsumerWidget {
           theme: AppTheme.light(lightDynamic),
           darkTheme: AppTheme.dark(darkDynamic),
           themeMode: themeMode,
+          localizationsDelegates: const [
+            AppStrings.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppStrings.supportedLocales,
+          builder: (context, child) => DesktopMenuBar(child: child ?? const SizedBox.shrink()),
           home: const GalleryScreen(),
         );
       },

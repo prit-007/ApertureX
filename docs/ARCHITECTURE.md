@@ -626,7 +626,7 @@ For open-source distribution outside Google Play (e.g., GitHub Releases, direct 
 - **Release Discovery:** Queries GitHub API `/repos/prit-007/ApertureX/releases/latest`
   using standard library `HttpClient`.
 - **Semantic Version Engine (`AppUpdater.isNewerVersion`):** Compares remote semver against
-  current version (`v0.2.5`), stripping metadata.
+  current version (`v0.3.0`), stripping metadata.
 - **Download & Progress:** Streams the release `.apk` directly into the app's cache directory,
   emitting real-time byte counts and download percentages.
 - **Release Notes Modal (`UpdateDialog`):** Presents markdown changelog and initiates installation.

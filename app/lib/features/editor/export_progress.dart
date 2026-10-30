@@ -95,7 +95,7 @@ class ExportProgressBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onCancel;
 
   @override
-  Size get preferredSize => const Size.fromHeight(36);
+  Size get preferredSize => const Size.fromHeight(48);
 
   @override
   Widget build(BuildContext context) {
@@ -146,8 +146,8 @@ class ExportProgressBar extends StatelessWidget implements PreferredSizeWidget {
               const SizedBox(width: 4),
               IconButton(
                 tooltip: 'Cancel export',
-                visualDensity: VisualDensity.compact,
-                iconSize: 18,
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                iconSize: 20,
                 onPressed: onCancel,
                 icon: const Icon(Icons.close),
               ),

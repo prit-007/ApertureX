@@ -14,6 +14,7 @@ enum ExportAction {
   saveTiff16,
   share,
   sharePresetCard,
+  backgroundExport,
 }
 
 /// Action sheet shown when the user taps "Export" in the editor (#85, #79).
@@ -163,16 +164,18 @@ class _ExportOptionsSheetContentState
                 // Primary Export Actions
                 ListTile(
                   leading: const Icon(Icons.auto_fix_high_outlined),
-                  title: const Text('Save to ApertureX'),
-                  subtitle:
-                      const Text('Render and index in the in-app Edits gallery'),
+                  title: const Text('Save to ApertureX', overflow: TextOverflow.ellipsis),
+                  subtitle: const Text(
+                    'Render and index in the in-app Edits gallery',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   trailing: _formatBadge('LIBRARY', theme),
                   onTap: () =>
                       Navigator.of(context).pop(ExportAction.saveToApertureX),
                 ),
                 ListTile(
                   leading: const Icon(Icons.photo_library_outlined),
-                  title: const Text('Save to Photos'),
+                  title: const Text('Save to Photos', overflow: TextOverflow.ellipsis),
                   subtitle: const Text(
                     'Full-resolution JPEG with XMP sidecar to device',
                   ),
@@ -182,7 +185,10 @@ class _ExportOptionsSheetContentState
                 ),
                 ListTile(
                   leading: const Icon(Icons.photo_size_select_actual_outlined),
-                  title: const Text('Export PNG (Lossless 8-bit)'),
+                  title: const Text(
+                    'Export PNG (Lossless 8-bit)',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   subtitle: const Text(
                     'Lossless compressed PNG for print, web & archival',
                   ),
@@ -193,7 +199,10 @@ class _ExportOptionsSheetContentState
                 if (widget.isRaw)
                   ListTile(
                     leading: const Icon(Icons.raw_on_outlined),
-                    title: const Text('Export DNG (Lossless + Edits)'),
+                    title: const Text(
+                      'Export DNG (Lossless + Edits)',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     subtitle: const Text(
                       'Original raw CFA sensor data with injected XMP recipe',
                     ),
@@ -203,7 +212,7 @@ class _ExportOptionsSheetContentState
                   ),
                 ListTile(
                   leading: const Icon(Icons.image_outlined),
-                  title: const Text('Export TIFF 16-bit'),
+                  title: const Text('Export TIFF 16-bit', overflow: TextOverflow.ellipsis),
                   subtitle: const Text(
                     'Uncompressed 16-bit-per-channel TIFF with full edit bake-in',
                   ),
@@ -212,8 +221,19 @@ class _ExportOptionsSheetContentState
                       Navigator.of(context).pop(ExportAction.saveTiff16),
                 ),
                 ListTile(
+                  leading: const Icon(Icons.schedule_send_outlined),
+                  title: const Text('Background Queue Export', overflow: TextOverflow.ellipsis),
+                  subtitle: const Text(
+                    'Queue export in background so you can continue editing',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: _formatBadge('ASYNC', theme),
+                  onTap: () =>
+                      Navigator.of(context).pop(ExportAction.backgroundExport),
+                ),
+                ListTile(
                   leading: const Icon(Icons.share_outlined),
-                  title: const Text('Share…'),
+                  title: const Text('Share…', overflow: TextOverflow.ellipsis),
                   subtitle: const Text(
                     'Share image and XMP sidecar with other apps',
                   ),
@@ -221,7 +241,10 @@ class _ExportOptionsSheetContentState
                 ),
                 ListTile(
                   leading: const Icon(Icons.qr_code_2),
-                  title: const Text('Export as Preset Card (QR)'),
+                  title: const Text(
+                    'Export as Preset Card (QR)',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   subtitle: const Text(
                     'Share color grade as a watermarked QR card for Instagram & Reddit',
                   ),
@@ -245,10 +268,14 @@ class _ExportOptionsSheetContentState
                         children: [
                           const Icon(Icons.auto_awesome_outlined, size: 16),
                           const SizedBox(width: Insets.xs),
-                          Text(
-                            'Quick Export Profile',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
+                          Flexible(
+                            child: Text(
+                              'Quick Export Profile',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -289,10 +316,14 @@ class _ExportOptionsSheetContentState
                         children: [
                           const Icon(Icons.label_outlined, size: 16),
                           const SizedBox(width: Insets.xs),
-                          Text(
-                            'Filename Template',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
+                          Flexible(
+                            child: Text(
+                              'Filename Template',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -394,26 +425,28 @@ class _ExportOptionsSheetContentState
                 // Color Space (Wide Color Gamut #15)
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: Insets.md,
+                    horizontal: Insets.xs,
                     vertical: Insets.xs,
                   ),
                   child: Wrap(
-                    spacing: Insets.sm,
-                    runSpacing: Insets.xs,
+                    spacing: 4.0,
+                    runSpacing: 4.0,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const Icon(Icons.palette_outlined, size: 18),
-                      const SizedBox(width: Insets.sm),
+                      const Icon(Icons.palette_outlined, size: 14),
+                      const SizedBox(width: 4.0),
                       Text(
                         'Gamut:',
                         style: theme.textTheme.labelMedium?.copyWith(
                           fontWeight: FontWeight.w600,
+                          fontSize: 10,
                         ),
                       ),
-                      const SizedBox(width: Insets.md),
+                      const SizedBox(width: 4.0),
                       ChoiceChip(
                         key: const Key('color_space_srgb_chip'),
                         label: const Text('sRGB'),
+                        labelStyle: const TextStyle(fontSize: 11),
                         selected: exportSettings.colorSpace == 0,
                         onSelected: (selected) {
                           if (selected) exportNotifier.setColorSpace(0);
@@ -423,6 +456,7 @@ class _ExportOptionsSheetContentState
                       ChoiceChip(
                         key: const Key('color_space_p3_chip'),
                         label: const Text('Display-P3 (WCG)'),
+                        labelStyle: const TextStyle(fontSize: 11),
                         selected: exportSettings.colorSpace == 1,
                         onSelected: (selected) {
                           if (selected) exportNotifier.setColorSpace(1);
@@ -456,10 +490,14 @@ class _ExportOptionsSheetContentState
                     ),
                     child: Row(
                       children: [
-                        Text(
-                          'Peak Headroom: +${exportSettings.hdrHeadroom.toStringAsFixed(1)} EV',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Text(
+                            'Peak Headroom: +${exportSettings.hdrHeadroom.toStringAsFixed(1)} EV',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                         Expanded(

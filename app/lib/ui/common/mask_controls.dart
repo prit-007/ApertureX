@@ -70,6 +70,21 @@ final subjectDetectorProvider = Provider<SubjectDetectorFn>((ref) {
   };
 });
 
+/// Function signature for parametric face detection via YuNet.
+typedef FaceDetectorFn = Future<DetectedFace?> Function(Uint8List imageBytes);
+
+/// Riverpod provider for face detection (YuNet), overridable in tests.
+final faceDetectorProvider = Provider<FaceDetectorFn>((ref) {
+  return (Uint8List bytes) async {
+    final decoded = await AxEngine.decodeAnalysisProxy(bytes);
+    return AxEngine.detectFace(
+      decoded.rgba,
+      width: decoded.width,
+      height: decoded.height,
+    );
+  };
+});
+
 /// Function signature for extracting an embedded depth map from original bytes.
 typedef EmbeddedDepthExtractorFn = Future<EmbeddedDepthResult?> Function(
   Uint8List jpeg,
@@ -258,6 +273,24 @@ class MaskControls extends ConsumerWidget {
                       )
                     : const Icon(Icons.wallpaper, size: 16),
                 label: const Text('Background +', style: TextStyle(fontSize: 12)),
+              ),
+              OutlinedButton.icon(
+                key: const Key('mask-add-face'),
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                onPressed: isInferring
+                    ? null
+                    : () {
+                        _addAiFaceMask(context, ref);
+                        HapticFeedback.selectionClick();
+                      },
+                icon: isInferring
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.face_retouching_natural, size: 16),
+                label: const Text('Face +', style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton.icon(
                 key: const Key('mask-add-sky'),
@@ -1629,6 +1662,90 @@ class MaskControls extends ConsumerWidget {
         MaskKind.subject,
         inverted: inverted,
         exposure: inverted ? -0.4 : 0.5,
+      );
+    }
+  }
+
+  Future<void> _addAiFaceMask(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final bytes = ref.read(activeImageBytesProvider);
+    if (bytes == null) {
+      _addMask(
+        context,
+        ref,
+        MaskKind.radial,
+        exposure: 0.35,
+      );
+      return;
+    }
+
+    // 1. Consent check
+    final consent =
+        await ref.read(aiConsentProvider.notifier).requestConsentDialog(context);
+    if (!consent) {
+      if (context.mounted) {
+        _addMask(
+          context,
+          ref,
+          MaskKind.radial,
+          exposure: 0.35,
+        );
+      }
+      return;
+    }
+
+    // 2. Face detection with progress
+    ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+    ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+        'Detecting portrait face on-device… Please wait a moment');
+    try {
+      final detector = ref.read(faceDetectorProvider);
+      final face = await detector(bytes);
+      if (face != null) {
+        final notifier = ref.read(recipeControllerProvider.notifier);
+        final layers = ref.read(recipeControllerProvider).recipe.layers;
+        final idx = layers.length;
+        notifier.addLayer(
+          AdjustmentLayer(
+            maskKind: MaskKind.radial,
+            maskParams: [
+              face.cx.clamp(0.05, 0.95),
+              face.cy.clamp(0.05, 0.95),
+              (face.rx * 1.15).clamp(0.04, 0.45),
+              (face.ry * 1.25).clamp(0.05, 0.50),
+              0.35,
+            ],
+            exposure: 0.35,
+            aiIntent: 'face',
+          ),
+        );
+        ref.read(nodeEditorProvider.notifier).enable();
+        ref.read(nodeEditorProvider.notifier).select(idx);
+        HapticFeedback.selectionClick();
+        return;
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Face detection failed; using fallback face mask'),
+          ),
+        );
+      }
+    } finally {
+      ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+      ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+    }
+
+    // 3. Fallback path
+    if (context.mounted) {
+      _addMask(
+        context,
+        ref,
+        MaskKind.radial,
+        exposure: 0.35,
       );
     }
   }

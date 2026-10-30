@@ -120,6 +120,71 @@ pub fn detect_subject(rgba: Vec<u8>, width: u32, height: u32) -> Option<Detected
     })
 }
 
+/// Detected face from YuNet face detection.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DetectedFace {
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+    pub score: f32,
+    pub landmarks: Vec<f32>,
+    pub cx: f32,
+    pub cy: f32,
+    pub rx: f32,
+    pub ry: f32,
+}
+
+/// Detects all faces in an RGBA proxy image using YuNet.
+#[cfg(feature = "ai")]
+pub fn detect_faces(rgba: Vec<u8>, width: u32, height: u32) -> Vec<DetectedFace> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() || width == 0 || height == 0 {
+        return Vec::new();
+    }
+    match crate::yunet::detect(&rgba, width as usize, height as usize) {
+        Ok(faces) => faces
+            .into_iter()
+            .map(|f| {
+                let fw = width as f32;
+                let fh = height as f32;
+                let cx = (f.x + f.w * 0.5) / fw;
+                let cy = (f.y + f.h * 0.5) / fh;
+                let rx = (f.w * 0.5) / fw;
+                let ry = (f.h * 0.5) / fh;
+                DetectedFace {
+                    x: f.x,
+                    y: f.y,
+                    w: f.w,
+                    h: f.h,
+                    score: f.score,
+                    landmarks: f.landmarks.iter().flat_map(|pt| [pt[0], pt[1]]).collect(),
+                    cx,
+                    cy,
+                    rx,
+                    ry,
+                }
+            })
+            .collect(),
+        Err(_) => Vec::new(),
+    }
+}
+
+/// Fallback when AI feature is not enabled.
+#[cfg(not(feature = "ai"))]
+pub fn detect_faces(_rgba: Vec<u8>, _width: u32, _height: u32) -> Vec<DetectedFace> {
+    Vec::new()
+}
+
+/// Detects the largest face in an RGBA image, if any.
+pub fn detect_face(rgba: Vec<u8>, width: u32, height: u32) -> Option<DetectedFace> {
+    let faces = detect_faces(rgba, width, height);
+    faces.into_iter().max_by(|a, b| {
+        (a.w * a.h)
+            .partial_cmp(&(b.w * b.h))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })
+}
+
 /// Segments dominant subject into an alpha plane of dimensions `target_width x target_height`.
 ///
 /// Uses on-device offline segmentation pipeline (Segmenter trait).

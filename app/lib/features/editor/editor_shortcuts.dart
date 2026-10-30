@@ -23,6 +23,11 @@ enum EditorShortcutAction {
   rate3,
   rate4,
   rate5,
+  rate0,
+  color6Red,
+  color7Yellow,
+  color8Green,
+  color9Blue,
   flag,
   help,
 }
@@ -120,6 +125,21 @@ class EditorShortcuts extends ConsumerWidget {
     SingleActivator(LogicalKeyboardKey.digit5): EditorShortcutIntent(
       EditorShortcutAction.rate5,
     ),
+    SingleActivator(LogicalKeyboardKey.digit0): EditorShortcutIntent(
+      EditorShortcutAction.rate0,
+    ),
+    SingleActivator(LogicalKeyboardKey.digit6): EditorShortcutIntent(
+      EditorShortcutAction.color6Red,
+    ),
+    SingleActivator(LogicalKeyboardKey.digit7): EditorShortcutIntent(
+      EditorShortcutAction.color7Yellow,
+    ),
+    SingleActivator(LogicalKeyboardKey.digit8): EditorShortcutIntent(
+      EditorShortcutAction.color8Green,
+    ),
+    SingleActivator(LogicalKeyboardKey.digit9): EditorShortcutIntent(
+      EditorShortcutAction.color9Blue,
+    ),
     SingleActivator(LogicalKeyboardKey.keyX): EditorShortcutIntent(
       EditorShortcutAction.flag,
     ),
@@ -193,6 +213,16 @@ class EditorShortcuts extends ConsumerWidget {
         _rate(ref, 4);
       case EditorShortcutAction.rate5:
         _rate(ref, 5);
+      case EditorShortcutAction.rate0:
+        _rate(ref, 0);
+      case EditorShortcutAction.color6Red:
+        _setColorLabel(ref, ColorLabel.red);
+      case EditorShortcutAction.color7Yellow:
+        _setColorLabel(ref, ColorLabel.yellow);
+      case EditorShortcutAction.color8Green:
+        _setColorLabel(ref, ColorLabel.green);
+      case EditorShortcutAction.color9Blue:
+        _setColorLabel(ref, ColorLabel.blue);
       case EditorShortcutAction.flag:
         final id = entryId;
         if (id != null) {
@@ -211,6 +241,15 @@ class EditorShortcuts extends ConsumerWidget {
     final id = entryId;
     if (id == null) return;
     ref.read(libraryCatalogProvider.notifier).setRating(id, stars);
+  }
+
+  void _setColorLabel(WidgetRef ref, ColorLabel label) {
+    final id = entryId;
+    if (id == null) return;
+    final current = ref.read(libraryCatalogProvider)[id]?.colorLabel;
+    ref
+        .read(libraryCatalogProvider.notifier)
+        .setColorLabel(id, current == label ? null : label);
   }
 
   /// True while the key press belongs to text input, not the editor: the
@@ -234,7 +273,8 @@ class _ShortcutsSheet extends StatelessWidget {
     'Cmd/Ctrl+Shift+Z — Redo',
     'Cmd/Ctrl+C — Copy settings',
     'Cmd/Ctrl+V — Paste settings',
-    '1-5 — Star rating',
+    '0-5 — Star rating (0 to clear)',
+    '6-9 — Color label (Red, Yellow, Green, Blue)',
     'X — Flag for reject',
     '? — This sheet',
   ];
