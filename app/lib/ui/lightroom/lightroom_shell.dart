@@ -249,15 +249,16 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
           color: selected
               ? scheme.primary
               : isModified
-                  ? scheme.primary.withValues(alpha: 0.45)
-                  : scheme.outlineVariant.withValues(alpha: 0.5),
+                  ? scheme.primary.withValues(alpha: 0.5)
+                  : scheme.outlineVariant.withValues(alpha: 0.4),
+          width: selected ? 1.2 : 1.0,
         ),
-        selectedColor: scheme.primaryContainer,
-        backgroundColor: scheme.surfaceContainerHigh,
+        selectedColor: scheme.primary.withValues(alpha: 0.2),
+        backgroundColor: scheme.surfaceContainerHigh.withValues(alpha: 0.45),
         labelStyle: TextStyle(
           fontSize: 12,
           letterSpacing: 0.4,
-          color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+          color: selected ? scheme.primary : scheme.onSurfaceVariant,
           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         ),
       ),
@@ -956,15 +957,16 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             color: selected
                 ? scheme.primary
                 : isModified
-                    ? scheme.primary.withValues(alpha: 0.45)
-                    : scheme.outlineVariant.withValues(alpha: 0.5),
+                    ? scheme.primary.withValues(alpha: 0.5)
+                    : scheme.outlineVariant.withValues(alpha: 0.4),
+            width: selected ? 1.2 : 1.0,
           ),
-          selectedColor: scheme.primaryContainer,
-          backgroundColor: scheme.surfaceContainerHigh,
+          selectedColor: scheme.primary.withValues(alpha: 0.2),
+          backgroundColor: scheme.surfaceContainerHigh.withValues(alpha: 0.45),
           labelStyle: TextStyle(
             fontSize: 12,
             letterSpacing: 0.4,
-            color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+            color: selected ? scheme.primary : scheme.onSurfaceVariant,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           ),
         ),

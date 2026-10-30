@@ -34,6 +34,13 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
   ToneCurveChannel _channel = ToneCurveChannel.master;
   int? _active;
 
+  static Color _channelColor(ToneCurveChannel ch) => switch (ch) {
+    ToneCurveChannel.master => const Color(0xFFEEEEEE),
+    ToneCurveChannel.red => const Color(0xFFEF5350),
+    ToneCurveChannel.green => const Color(0xFF66BB6A),
+    ToneCurveChannel.blue => const Color(0xFF42A5F5),
+  };
+
   ToneCurve _curveOf(EditRecipe recipe) => switch (_channel) {
     ToneCurveChannel.master => recipe.masterCurve,
     ToneCurveChannel.red => recipe.redCurve,
@@ -108,8 +115,10 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
     final scheme = Theme.of(context).colorScheme;
     final recipe = ref.watch(recipeControllerProvider).recipe;
     final curve = _curveOf(recipe);
+    final pts = _toPoints(curve);
     final histogram = ref.watch(histogramProvider);
     final notifier = ref.read(recipeControllerProvider.notifier);
+    final currentColor = _channelColor(_channel);
 
     void apply(void Function(List<Offset>) change) {
       final pts = _toPoints(_curveOf(ref.read(recipeControllerProvider).recipe));
@@ -117,44 +126,136 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
       notifier.setCurve(_channel, _fromPoints(pts));
     }
 
+    final Offset? activePoint = (_active != null && _active! >= 0 && _active! < pts.length)
+        ? pts[_active!]
+        : null;
+
     return Column(
       children: [
-        Row(
-          children: [
-            for (final channel in ToneCurveChannel.values)
-              Expanded(
-                child: TextButton(
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                  ),
-                  onPressed: () => setState(() {
-                    _channel = channel;
-                    _active = null;
-                  }),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      channel.name.toUpperCase(),
-                      style: TextStyle(
-                        color: channel == _channel
-                            ? scheme.onSurface
-                            : scheme.onSurfaceVariant,
-                        fontSize: 12,
-                        letterSpacing: 1.0,
-                        fontWeight: channel == _channel
-                            ? FontWeight.w700
-                            : FontWeight.w400,
+        // Channel Selection Bar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          child: Row(
+            children: [
+              for (final channel in ToneCurveChannel.values)
+                Expanded(
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      backgroundColor: channel == _channel
+                          ? _channelColor(channel).withValues(alpha: 0.12)
+                          : Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        side: BorderSide(
+                          color: channel == _channel
+                              ? _channelColor(channel).withValues(alpha: 0.5)
+                              : Colors.transparent,
+                        ),
+                      ),
+                    ),
+                    onPressed: () => setState(() {
+                      _channel = channel;
+                      _active = null;
+                    }),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: _channelColor(channel),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            channel.name.toUpperCase(),
+                            style: TextStyle(
+                              color: channel == _channel
+                                  ? _channelColor(channel)
+                                  : scheme.onSurfaceVariant,
+                              fontSize: 11,
+                              letterSpacing: 0.8,
+                              fontWeight: channel == _channel
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
+              const SizedBox(width: 4),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                tooltip: 'Reset Curve',
+                onPressed: () {
+                  notifier.setCurve(_channel, ToneCurve.identity);
+                  notifier.commit(label: 'Reset ${_channel.name} Curve');
+                  setState(() => _active = null);
+                },
+                icon: Icon(
+                  Icons.refresh,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
-          ],
+            ],
+          ),
         ),
+
+        // Live Coordinate Readout / Pro Hint
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+          child: SizedBox(
+            height: 18,
+            child: activePoint != null
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Input: ${(activePoint.dx * 255).round()}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'monospace',
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Output: ${(activePoint.dy * 255).round()}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'monospace',
+                          color: currentColor,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    'Tap to add point · Drag to curve · Double-tap to remove',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+          ),
+        ),
+
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final padding = MediaQuery.of(context).padding;
@@ -204,6 +305,8 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
                           points: _toPoints(curve),
                           histogram: histogram,
                           scheme: scheme,
+                          channelColor: currentColor,
+                          activeIndex: _active,
                         ),
                       ),
                     ),
@@ -223,11 +326,15 @@ class _CurvePainter extends CustomPainter {
     required this.points,
     required this.histogram,
     required this.scheme,
+    required this.channelColor,
+    this.activeIndex,
   });
 
   final List<Offset> points;
   final Histogram? histogram;
   final ColorScheme scheme;
+  final Color channelColor;
+  final int? activeIndex;
 
   static List<double> _toFlat(List<Offset> pts) => [
     for (final p in pts) ...[p.dx, p.dy],
@@ -241,7 +348,17 @@ class _CurvePainter extends CustomPainter {
       Paint()..color = scheme.surfaceContainerLowest,
     );
 
-    // Histogram luma backdrop.
+    // 1. 4x4 Zone Grid (Blacks, Shadows, Midtones, Highlights, Whites)
+    final gridPaint = Paint()
+      ..color = scheme.outlineVariant.withValues(alpha: 0.35)
+      ..strokeWidth = 1.0;
+    for (final frac in const [0.25, 0.50, 0.75]) {
+      final p = frac * side;
+      canvas.drawLine(Offset(p, 0), Offset(p, side), gridPaint);
+      canvas.drawLine(Offset(0, p), Offset(side, p), gridPaint);
+    }
+
+    // 2. Histogram luma backdrop.
     final hist = histogram;
     if (hist != null) {
       final n = hist.luma.length;
@@ -260,24 +377,34 @@ class _CurvePainter extends CustomPainter {
         ..close();
       canvas.drawPath(
         path,
-        Paint()..color = scheme.onSurface.withValues(alpha: 0.13),
+        Paint()..color = scheme.onSurface.withValues(alpha: 0.12),
       );
     }
 
-    // Diagonal reference.
+    // 3. Diagonal neutral reference line.
     canvas.drawLine(
       Offset(0, side),
       Offset(side, 0),
       Paint()
-        ..color = scheme.onSurface.withValues(alpha: 0.13)
-        ..strokeWidth = 1,
+        ..color = scheme.outline.withValues(alpha: 0.25)
+        ..strokeWidth = 1.0,
     );
 
-    // Curve: per-column monotone-cubic sampling of the same Fritsch–Carlson
-    // LUT Rust bakes, so the editor shows the curve the engine grades with
-    // (issue #49).
+    // 4. Outer border
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..color = scheme.outlineVariant
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+
+    // 5. Curve: per-column monotone-cubic sampling of the same Fritsch–Carlson
+    // LUT Rust bakes.
     final lut = curveLut(_toFlat(points));
     final curve = Path();
+    final fillPath = Path()..moveTo(0, side);
+
     for (var px = 0; px <= side; px++) {
       final y = evalCurveLut(lut, px / side);
       final s = Offset(px.toDouble(), (1 - y) * side);
@@ -286,22 +413,77 @@ class _CurvePainter extends CustomPainter {
       } else {
         curve.lineTo(s.dx, s.dy);
       }
+      fillPath.lineTo(s.dx, s.dy);
     }
+    fillPath
+      ..lineTo(side, side)
+      ..close();
+
+    // Subtle area gradient fill under curve
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          channelColor.withValues(alpha: 0.14),
+          channelColor.withValues(alpha: 0.02),
+        ],
+      ).createShader(Offset.zero & size);
+    canvas.drawPath(fillPath, fillPaint);
+
+    // Stroke the curve line
     canvas.drawPath(
       curve,
       Paint()
-        ..color = scheme.primary
-        ..strokeWidth = 2
+        ..color = channelColor
+        ..strokeWidth = 2.2
         ..style = PaintingStyle.stroke,
     );
 
-    // Control points.
-    for (final p in points) {
-      canvas.drawCircle(
-        Offset(p.dx * side, (1 - p.dy) * side),
-        5,
-        Paint()..color = scheme.onSurface,
-      );
+    // 6. Control points with glow & active halo
+    for (var i = 0; i < points.length; i++) {
+      final p = points[i];
+      final pos = Offset(p.dx * side, (1 - p.dy) * side);
+      final isActive = i == activeIndex;
+
+      if (isActive) {
+        // Outer glowing halo on active point
+        canvas.drawCircle(
+          pos,
+          9,
+          Paint()..color = channelColor.withValues(alpha: 0.3),
+        );
+        canvas.drawCircle(
+          pos,
+          6,
+          Paint()..color = const Color(0xFFFFFFFF),
+        );
+        canvas.drawCircle(
+          pos,
+          4,
+          Paint()..color = channelColor,
+        );
+      } else {
+        // Normal point
+        canvas.drawCircle(
+          pos,
+          5.5,
+          Paint()..color = scheme.surface,
+        );
+        canvas.drawCircle(
+          pos,
+          4.5,
+          Paint()..color = channelColor,
+        );
+        canvas.drawCircle(
+          pos,
+          5.5,
+          Paint()
+            ..color = scheme.outline
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.0,
+        );
+      }
     }
   }
 
@@ -309,6 +491,8 @@ class _CurvePainter extends CustomPainter {
   bool shouldRepaint(_CurvePainter old) =>
       old.histogram != histogram ||
       old.scheme != scheme ||
+      old.channelColor != channelColor ||
+      old.activeIndex != activeIndex ||
       !_samePoints(old.points, points);
 
   static bool _samePoints(List<Offset> a, List<Offset> b) {

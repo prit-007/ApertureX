@@ -183,6 +183,21 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                     'Highlights',
                     Icons.highlight,
                   ),
+                  const SizedBox(width: 12),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () {
+                      notifier.setGradeWheel(_zone, hue: 0.0, sat: 0.0, lum: 0.0);
+                      notifier.commit(label: 'Reset ${_zone.name}');
+                    },
+                    icon: const Icon(Icons.refresh, size: 14),
+                    label: const Text('Reset', style: TextStyle(fontSize: 11)),
+                  ),
                 ],
               ),
             ),
@@ -395,14 +410,34 @@ class _WheelPainter extends CustomPainter {
       ).createShader(Rect.fromCircle(center: center, radius: radius));
     canvas.drawCircle(center, radius, radialPaint);
 
-    // 3. Outer circle border
+    // 3. Outer circle border & concentric saturation guides
+    final guidePaint = Paint()
+      ..color = outlineColor.withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawCircle(center, radius * 0.33, guidePaint);
+    canvas.drawCircle(center, radius * 0.66, guidePaint);
+
     final borderPaint = Paint()
       ..color = outlineColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
     canvas.drawCircle(center, radius, borderPaint);
 
-    // 4. Crosshair center mark
+    // 4. Subtle angle ticks (every 60 degrees)
+    final tickPaint = Paint()
+      ..color = outlineColor.withValues(alpha: 0.5)
+      ..strokeWidth = 1.2;
+    for (var deg = 0; deg < 360; deg += 60) {
+      final rad = deg * math.pi / 180.0;
+      final outerX = center.dx + radius * math.cos(rad);
+      final outerY = center.dy + radius * math.sin(rad);
+      final innerX = center.dx + (radius - 6) * math.cos(rad);
+      final innerY = center.dy + (radius - 6) * math.sin(rad);
+      canvas.drawLine(Offset(innerX, innerY), Offset(outerX, outerY), tickPaint);
+    }
+
+    // 5. Crosshair center mark
     final crossPaint = Paint()
       ..color = outlineColor.withValues(alpha: 0.5)
       ..strokeWidth = 1.0;
@@ -417,7 +452,7 @@ class _WheelPainter extends CustomPainter {
       crossPaint,
     );
 
-    // 5. Draw puck at (hue, saturation)
+    // 6. Draw puck at (hue, saturation)
     final puckDist = saturation * radius;
     final rad = hue * math.pi / 180.0;
     final puckPos = Offset(
