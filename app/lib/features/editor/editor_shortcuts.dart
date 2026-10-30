@@ -9,11 +9,14 @@ import '../../edit/recipe_controller.dart';
 import '../../edit/settings_clipboard.dart';
 import '../../ui/common/mask_controls.dart';
 import '../../viewport/compare_hold.dart';
+import '../../viewport/split_compare.dart';
 
 /// What a keyboard shortcut does — mapped 1:1 onto existing Riverpod notifiers
 /// so shortcuts and touch UI always share one source of truth (#74).
 enum EditorShortcutAction {
   toggleCompare,
+  toggleSplitCompare,
+  toggleSplitOrientation,
   undo,
   redo,
   copySettings,
@@ -98,6 +101,13 @@ class EditorShortcuts extends ConsumerWidget {
     SingleActivator(LogicalKeyboardKey.keyY, control: true): EditorShortcutIntent(
       EditorShortcutAction.redo,
     ),
+    SingleActivator(LogicalKeyboardKey.keyY): EditorShortcutIntent(
+      EditorShortcutAction.toggleSplitCompare,
+    ),
+    SingleActivator(
+      LogicalKeyboardKey.keyY,
+      shift: true,
+    ): EditorShortcutIntent(EditorShortcutAction.toggleSplitOrientation),
     SingleActivator(LogicalKeyboardKey.keyC, control: true): EditorShortcutIntent(
       EditorShortcutAction.copySettings,
     ),
@@ -159,6 +169,10 @@ class EditorShortcuts extends ConsumerWidget {
       case EditorShortcutAction.toggleCompare:
         final hold = ref.read(compareHoldProvider);
         ref.read(compareHoldProvider.notifier).set(!hold);
+      case EditorShortcutAction.toggleSplitCompare:
+        ref.read(splitCompareProvider.notifier).toggle();
+      case EditorShortcutAction.toggleSplitOrientation:
+        ref.read(splitCompareProvider.notifier).toggleOrientation();
       case EditorShortcutAction.undo:
         ref.read(recipeControllerProvider.notifier).undo();
       case EditorShortcutAction.redo:

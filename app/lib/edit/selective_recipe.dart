@@ -89,7 +89,10 @@ class CopiedSettings {
     }
 
     // Detail
-    if (r.sharpen != 0 || r.denoiseLuma != 0 || r.denoiseChroma != 0) {
+    if (r.sharpen != 0 ||
+        r.denoiseLuma != 0 ||
+        r.denoiseChroma != 0 ||
+        r.aiDenoise != 0) {
       modified.add(RecipeSection.detail);
     }
 
@@ -199,6 +202,7 @@ class CopiedSettings {
       sharpenMasking: source.sharpenMasking,
       denoiseLuma: source.denoiseLuma,
       denoiseChroma: source.denoiseChroma,
+      aiDenoise: source.aiDenoise,
     ),
     RecipeSection.optics => target.copyWith(
       removeChromaticAberration: source.removeChromaticAberration,

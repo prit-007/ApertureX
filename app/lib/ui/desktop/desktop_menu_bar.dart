@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../edit/recipe_controller.dart';
 import '../../edit/settings_clipboard.dart';
+import '../../viewport/split_compare.dart';
 import '../../viewport/wiper_compare.dart';
 
 /// Wraps [child] with native macOS/desktop [PlatformMenuBar] when running on
@@ -38,6 +39,9 @@ class DesktopMenuBar extends ConsumerWidget {
     );
     final isWiperActive = ref.watch(
       wiperCompareProvider.select((s) => s.isActive),
+    );
+    final isSplitCompareActive = ref.watch(
+      splitCompareProvider.select((s) => s.isEnabled),
     );
 
     return PlatformMenuBar(
@@ -172,6 +176,31 @@ class DesktopMenuBar extends ConsumerWidget {
                       ref
                           .read(wiperCompareProvider.notifier)
                           .resetPosition();
+                    }
+                  : null,
+            ),
+            PlatformMenuItem(
+              label: isSplitCompareActive
+                  ? 'Exit Before/After Split View'
+                  : 'Toggle Before/After Split View',
+              shortcut: const SingleActivator(
+                LogicalKeyboardKey.keyY,
+              ),
+              onSelected: () {
+                ref.read(splitCompareProvider.notifier).toggle();
+              },
+            ),
+            PlatformMenuItem(
+              label: 'Toggle Split View Orientation',
+              shortcut: const SingleActivator(
+                LogicalKeyboardKey.keyY,
+                shift: true,
+              ),
+              onSelected: isSplitCompareActive
+                  ? () {
+                      ref
+                          .read(splitCompareProvider.notifier)
+                          .toggleOrientation();
                     }
                   : null,
             ),

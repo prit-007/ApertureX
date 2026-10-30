@@ -23,4 +23,24 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(restored.read(gestureHintSeenProvider), isTrue);
   });
+
+  test('hasCompletedOnboarding persists and restores', () async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(container.read(hasCompletedOnboardingProvider), isFalse);
+    container.read(hasCompletedOnboardingProvider.notifier).complete();
+    expect(container.read(hasCompletedOnboardingProvider), isTrue);
+
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('has_completed_onboarding'), isTrue);
+
+    container.read(hasCompletedOnboardingProvider.notifier).reset();
+    expect(container.read(hasCompletedOnboardingProvider), isFalse);
+
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(prefs.getBool('has_completed_onboarding'), isFalse);
+  });
 }

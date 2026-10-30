@@ -15,12 +15,15 @@ import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
 import '../../features/ai_plugins/ai_plugin_store.dart';
 import '../../features/ai_plugins/ai_plugins_screen.dart';
+import '../../features/guide/app_guide_screen.dart';
+import '../../features/guide/tool_guide_model.dart';
 import '../../features/presets/community_preset_model.dart';
 import '../../features/presets/community_presets_provider.dart';
 import '../../viewport/compare_hold.dart';
 import '../../viewport/exposure_assist.dart';
 import '../../viewport/mask_peek.dart' show rubyPeeksEnabledProvider;
 import '../../viewport/soft_proofing.dart';
+import '../../viewport/split_compare.dart';
 import '../../viewport/wiper_compare.dart';
 import '../common/blur_controls.dart';
 import '../common/color_grading_editor.dart';
@@ -596,6 +599,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     ),
                   ),
                   IconButton(
+                    key: const Key('tray-wiper-compare'),
                     tooltip: 'Split Curtain Wiper Compare (120 FPS)',
                     visualDensity: VisualDensity.compact,
                     isSelected: ref.watch(wiperCompareProvider).isActive,
@@ -605,6 +609,18 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     },
                     icon: const Icon(Icons.splitscreen),
                     selectedIcon: Icon(Icons.splitscreen, color: scheme.primary),
+                  ),
+                  IconButton(
+                    key: const Key('tray-split-compare'),
+                    tooltip: 'Before/After Split View (Y - long press for orientation)',
+                    visualDensity: VisualDensity.compact,
+                    isSelected: ref.watch(splitCompareProvider).isEnabled,
+                    onPressed: () {
+                      ref.read(splitCompareProvider.notifier).toggle();
+                      HapticFeedback.selectionClick();
+                    },
+                    icon: const Icon(Icons.view_column_outlined),
+                    selectedIcon: Icon(Icons.view_column, color: scheme.primary),
                   ),
                   IconButton(
                     tooltip: 'Exposure Assist: Zebras & False Color Heatmap (ARRI IRE)',
@@ -628,6 +644,27 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     },
                     icon: const Icon(Icons.print_outlined),
                     selectedIcon: Icon(Icons.print, color: scheme.primary),
+                  ),
+                  IconButton(
+                    key: const Key('tray-tool-guide'),
+                    tooltip: 'Tool Guide & Academy',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () {
+                      final category = switch (_activeTab) {
+                        MasterTab.lightColor => ToolCategory.light,
+                        MasterTab.effectsDetail => ToolCategory.detail,
+                        MasterTab.cropGeometry => ToolCategory.geometry,
+                        MasterTab.proTools => ToolCategory.optics,
+                        MasterTab.masks => ToolCategory.masking,
+                        _ => null,
+                      };
+                      AppGuideScreen.showModal(
+                        context,
+                        initialCategory: category,
+                        onSelectTool: _selectToolFromGuide,
+                      );
+                    },
+                    icon: const Icon(Icons.school_outlined),
                   ),
                   VerticalDivider(
                     width: 12,
@@ -1037,6 +1074,63 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         ],
       ),
     );
+  }
+
+  void _selectToolFromGuide(String toolId) {
+    setState(() {
+      switch (toolId) {
+        case 'exposure':
+        case 'contrast':
+        case 'highlights_shadows':
+        case 'whites_blacks':
+          _activeTab = MasterTab.lightColor;
+          _lightColorTab = _LightColorSubTab.light;
+          ref.read(activeSectionProvider.notifier).select(RecipeSection.light);
+          break;
+        case 'temperature_tint':
+        case 'vibrance_saturation':
+          _activeTab = MasterTab.lightColor;
+          _lightColorTab = _LightColorSubTab.color;
+          ref.read(activeSectionProvider.notifier).select(RecipeSection.color);
+          break;
+        case 'tone_curves':
+          _activeTab = MasterTab.lightColor;
+          _lightColorTab = _LightColorSubTab.curve;
+          break;
+        case 'hsl_mixer':
+          _activeTab = MasterTab.lightColor;
+          _lightColorTab = _LightColorSubTab.mix;
+          break;
+        case 'color_grading':
+          _activeTab = MasterTab.lightColor;
+          _lightColorTab = _LightColorSubTab.grade;
+          break;
+        case 'clarity_texture':
+        case 'depth_bokeh':
+          _activeTab = MasterTab.effectsDetail;
+          _effectsDetailTab = _EffectsDetailSubTab.effects;
+          ref.read(activeSectionProvider.notifier).select(RecipeSection.effects);
+          break;
+        case 'ai_denoise':
+        case 'sharpening':
+          _activeTab = MasterTab.effectsDetail;
+          _effectsDetailTab = _EffectsDetailSubTab.detail;
+          ref.read(activeSectionProvider.notifier).select(RecipeSection.detail);
+          break;
+        case 'geometry_crop':
+          _activeTab = MasterTab.cropGeometry;
+          ref.read(activeSectionProvider.notifier).select(RecipeSection.geometry);
+          break;
+        case 'ai_subject_mask':
+        case 'stylus':
+          _activeTab = MasterTab.masks;
+          ref.read(activeSectionProvider.notifier).select(RecipeSection.masking);
+          break;
+        case 'neural_plugins':
+          _activeTab = MasterTab.plugins;
+          break;
+      }
+    });
   }
 
   void _showSoftProofingSheet(BuildContext context) {

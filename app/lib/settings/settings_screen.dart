@@ -7,6 +7,7 @@ import '../core/updater/update_dialog.dart';
 import '../features/ai_plugins/ai_plugins_screen.dart';
 import '../features/guide/app_guide_screen.dart';
 import '../features/logs/logs_screen.dart';
+import '../features/onboarding/onboarding_screen.dart';
 import '../ui/common/app_primitives.dart';
 import '../ui/common/editor_guide_sheet.dart';
 import '../ui/common/settings_sheet.dart' show kOfflineClaim;
@@ -341,6 +342,14 @@ class SettingsScreen extends ConsumerWidget {
                     MaterialPageRoute<void>(builder: (_) => const AppGuideScreen()),
                   );
                 },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.tour_outlined),
+                title: const Text('App Onboarding Tour'),
+                subtitle: const Text('Relaunch the interactive first-run tour and studio setup'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => OnboardingScreen.show(context),
               ),
               const Divider(height: 1),
               ListTile(

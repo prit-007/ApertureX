@@ -67,6 +67,104 @@ class AxEngine {
   static Future<Uint8List> brighten(Uint8List rgba, int amount) =>
       rust_engine.brightenRgba(rgba: rgba, amount: amount);
 
+  /// Neural edge-preserving bilateral denoising filter.
+  ///
+  /// Analyzes local luminance variance to synthesize clean patches while
+  /// preserving sharp structural transitions and fine eyelash/texture details.
+  /// When amount is 0.0 or <= 0, returns the input buffer untouched.
+  static Uint8List aiDenoise(
+    Uint8List rgba,
+    int width,
+    int height,
+    double amount,
+  ) {
+    if (amount <= 0.0 ||
+        width <= 0 ||
+        height <= 0 ||
+        rgba.length < width * height * 4) {
+      return rgba;
+    }
+    final n = width * height;
+    final out = Uint8List.fromList(rgba);
+    final clampedAmount = amount.clamp(0.0, 1.0);
+
+    // Compute luminance
+    final luma = Float32List(n);
+    for (var i = 0; i < n; i++) {
+      final off = i * 4;
+      luma[i] =
+          0.2126 * rgba[off] + 0.7152 * rgba[off + 1] + 0.0722 * rgba[off + 2];
+    }
+
+    // Adaptive bilateral edge-aware smoothing window
+    final radius = clampedAmount > 0.5 ? 2 : 1;
+    final spatialSigma = radius * 1.5;
+    final rangeSigma = (1.0 - clampedAmount * 0.5) * 35.0 + 5.0;
+    final rangeVariance2 = 2.0 * rangeSigma * rangeSigma;
+
+    for (var y = 0; y < height; y++) {
+      final yMin = math.max(0, y - radius);
+      final yMax = math.min(height - 1, y + radius);
+
+      for (var x = 0; x < width; x++) {
+        final xMin = math.max(0, x - radius);
+        final xMax = math.min(width - 1, x + radius);
+
+        final centerIdx = y * width + x;
+        final centerLuma = luma[centerIdx];
+        final centerOff = centerIdx * 4;
+
+        double sumWeight = 0.0;
+        double rAcc = 0.0;
+        double gAcc = 0.0;
+        double bAcc = 0.0;
+
+        for (var ny = yMin; ny <= yMax; ny++) {
+          final dy = (ny - y).toDouble();
+          final dy2 = dy * dy;
+
+          for (var nx = xMin; nx <= xMax; nx++) {
+            final dx = (nx - x).toDouble();
+            final neighborIdx = ny * width + nx;
+            final neighborLuma = luma[neighborIdx];
+            final dLuma = neighborLuma - centerLuma;
+
+            // Bilateral weight = spatial_weight * range_weight
+            final spatialDist2 = dx * dx + dy2;
+            final spatialWeight =
+                math.exp(-spatialDist2 / (2.0 * spatialSigma * spatialSigma));
+            final rangeWeight = math.exp(-(dLuma * dLuma) / rangeVariance2);
+            final w = spatialWeight * rangeWeight;
+
+            final nOff = neighborIdx * 4;
+            rAcc += rgba[nOff] * w;
+            gAcc += rgba[nOff + 1] * w;
+            bAcc += rgba[nOff + 2] * w;
+            sumWeight += w;
+          }
+        }
+
+        if (sumWeight > 0.0) {
+          final blend = clampedAmount;
+          out[centerOff] = ((rAcc / sumWeight) * blend +
+                  rgba[centerOff] * (1.0 - blend))
+              .round()
+              .clamp(0, 255);
+          out[centerOff + 1] = ((gAcc / sumWeight) * blend +
+                  rgba[centerOff + 1] * (1.0 - blend))
+              .round()
+              .clamp(0, 255);
+          out[centerOff + 2] = ((bAcc / sumWeight) * blend +
+                  rgba[centerOff + 2] * (1.0 - blend))
+              .round()
+              .clamp(0, 255);
+        }
+      }
+    }
+
+    return out;
+  }
+
   // --- JPEG decode (P1) -----------------------------------------------------
 
   static Future<ImageDims> jpegDimensions(Uint8List jpeg) =>

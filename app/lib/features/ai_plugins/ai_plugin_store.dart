@@ -67,6 +67,30 @@ const List<AiPluginModel> kCommunityAiPlugins = [
     fileSizeBytes: 16000000,
     version: '0.2.5',
   ),
+  AiPluginModel(
+    id: 'nafnet-denoise',
+    name: 'NAFNet Neural Denoise',
+    description: 'SOTA nonlinear activation-free neural network for RAW & sRGB sensor noise reduction.',
+    author: 'Megvii Research',
+    task: AiTask.denoise,
+    sourceUrl: 'https://github.com/megvii-research/NAFNet',
+    inputWidth: 512,
+    inputHeight: 512,
+    fileSizeBytes: 68000000,
+    version: '1.2.0',
+  ),
+  AiPluginModel(
+    id: 'scunet-color',
+    name: 'SCUNet Deep Denoise',
+    description: 'Swin-Conv-UNet architecture for high-ISO color and Poisson-Gaussian noise suppression.',
+    author: 'Kai Zhang et al.',
+    task: AiTask.denoise,
+    sourceUrl: 'https://github.com/cszn/SCUNet',
+    inputWidth: 512,
+    inputHeight: 512,
+    fileSizeBytes: 54000000,
+    version: '1.0.0',
+  ),
 ];
 
 const String _kPrefsAiPluginsKey = 'aperturex_installed_ai_plugins';

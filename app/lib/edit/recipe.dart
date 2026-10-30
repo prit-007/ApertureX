@@ -54,6 +54,7 @@ class EditRecipe {
     this.sharpenMasking = 0,
     this.denoiseLuma = 0,
     this.denoiseChroma = 0,
+    this.aiDenoise = 0,
     this.temperature = 0,
     this.tint = 0,
     this.vibrance = 0,
@@ -155,6 +156,7 @@ class EditRecipe {
       sharpenMasking: asDouble('sharpenMasking'),
       denoiseLuma: asDouble('denoiseLuma'),
       denoiseChroma: asDouble('denoiseChroma'),
+      aiDenoise: asDouble('aiDenoise'),
       removeChromaticAberration:
           json['removeChromaticAberration'] as bool? ?? false,
       defringePurpleAmount: asDouble('defringePurpleAmount'),
@@ -298,6 +300,7 @@ class EditRecipe {
   final double sharpenMasking; // spatial pass, 0..1, neutral 0.
   final double denoiseLuma; // spatial pass, neutral 0.
   final double denoiseChroma; // spatial pass, neutral 0.
+  final double aiDenoise; // neural spatial pass, 0..1, neutral 0.
 
   // Optics.
   final bool removeChromaticAberration;
@@ -415,6 +418,7 @@ class EditRecipe {
     double? sharpenMasking,
     double? denoiseLuma,
     double? denoiseChroma,
+    double? aiDenoise,
     double? temperature,
     double? tint,
     double? vibrance,
@@ -503,6 +507,7 @@ class EditRecipe {
       sharpenMasking: sharpenMasking ?? this.sharpenMasking,
       denoiseLuma: denoiseLuma ?? this.denoiseLuma,
       denoiseChroma: denoiseChroma ?? this.denoiseChroma,
+      aiDenoise: aiDenoise ?? this.aiDenoise,
       removeChromaticAberration:
           removeChromaticAberration ?? this.removeChromaticAberration,
       defringePurpleAmount: defringePurpleAmount ?? this.defringePurpleAmount,
@@ -595,6 +600,7 @@ class EditRecipe {
     'sharpenMasking': sharpenMasking,
     'denoiseLuma': denoiseLuma,
     'denoiseChroma': denoiseChroma,
+    'aiDenoise': aiDenoise,
     'removeChromaticAberration': removeChromaticAberration,
     'defringePurpleAmount': defringePurpleAmount,
     'defringePurpleHueMin': defringePurpleHueMin,
@@ -686,6 +692,7 @@ class EditRecipe {
       other.sharpenMasking == sharpenMasking &&
       other.denoiseLuma == denoiseLuma &&
       other.denoiseChroma == denoiseChroma &&
+      other.aiDenoise == aiDenoise &&
       other.removeChromaticAberration == removeChromaticAberration &&
       other.defringePurpleAmount == defringePurpleAmount &&
       other.defringePurpleHueMin == defringePurpleHueMin &&
@@ -776,6 +783,7 @@ class EditRecipe {
       sharpenMasking,
       denoiseLuma,
       denoiseChroma,
+      aiDenoise,
     ),
     temperature,
     tint,

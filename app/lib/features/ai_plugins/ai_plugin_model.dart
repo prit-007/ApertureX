@@ -15,6 +15,9 @@ enum AiTask {
   /// On-device super-resolution and neural detail upscaling.
   superResolution,
 
+  /// Deep-learning neural sensor noise removal with edge and texture preservation.
+  denoise,
+
   /// Neural color, film, or artistic style transfer.
   neuralFilter;
 
@@ -30,6 +33,8 @@ enum AiTask {
         return 'Sky Segmentation';
       case AiTask.superResolution:
         return 'Super Resolution';
+      case AiTask.denoise:
+        return 'AI Neural Denoise';
       case AiTask.neuralFilter:
         return 'Neural Style Filter';
     }
