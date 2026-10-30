@@ -44,3 +44,24 @@ ApertureX synthesizes the best UX patterns from Adobe Lightroom Mobile and Googl
 * **Photochemical film physics** baked into the CPU preview base: halation (red highlight fringe with radius/threshold), bloom (glow with radius/threshold), dust flecks, and scratches — each 0–1 with neutral-at-zero defaults.
 * **Shader Lab**: selectable film presets (`shaderLabPreset`) plus three freeform parameters (`shaderParam1..3`, `customGlslCode`) for creative, non-destructive looks.
 * Film parameters live in their own `RecipeSection.film` / `RecipeSection.lab` groups in the versioned recipe schema, so they round-trip through QR shares, presets, and DNG XMP sidecars unchanged.
+
+### 2.6 Interactive Split Curtain A/B Compare
+* **Draggable Split Divider**: Live touch/mouse draggable divider splitting original unedited photo and current edited render with zero latency.
+* **Dual Orientations**: 1-tap toggle between vertical (left-to-right) and horizontal (top-to-bottom) split axes to fit portrait or landscape compositions.
+* **Haptic Snapping**: Snaps smoothly back to 50% center upon double-tap.
+
+### 2.7 Zen Top Bar Ergonomics & Accessibility (a11y)
+* **Active Canvas Immersion**: Touching or scrubbing any image parameter dims out and ignores top bar chrome, giving 100% visual focus to the photo.
+* **Tactile Undo/Redo & History Tree**: Tapping undo reverts the last committed node; long-pressing summons the visual `HistoryTreeSheet` showing the branching edit graph with direct branch switching.
+* **WCAG Minimum Touch Targets**: All export cancel, navigation, and modal buttons adhere to 44×44dp minimum interactive bounding constraints with clear semantic hints for TalkBack / VoiceOver.
+
+### 2.8 Google Photos-Style Gallery & DAM
+* **Fluid Date-Grouped Grid**: Responsive multi-column layout adapting across mobile phones (2–3 columns) up to 14" tablets (5–7 columns) with pinch-to-zoom grid density.
+* **Album Truncation & Text Ellipses**: Custom album sheet safely clamps lengthy folder paths with intelligent mid/tail truncation, avoiding RenderFlex overflows.
+* **Pro DAM Tagging**: Full keywords chip management and Lightroom-compatible color labels (Red, Yellow, Green, Blue, Purple) integrated into Drift SQLite catalog with 1-tap filtering.
+* **Multi-Photo Batch Sync**: Select multiple assets and batch sync entire recipes or selective parameter groups with background job status feedback.
+
+### 2.9 Soft Proofing & Out-of-Gamut Warnings
+* **Target Output Profile Simulation**: Live on-canvas simulation for sRGB (web), Display P3 (wide gamut), Adobe RGB (photography), and US Web Coated SWOP (CMYK print).
+* **Rendering Intents**: Selectable Perceptual and Relative Colorimetric gamut compression mappings.
+* **High-Visibility Gamut Warning**: Customizable false-color overlay (bright cyan default) pinpointing pixels that clip or exceed target printer gamut boundaries.

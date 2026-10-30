@@ -38,8 +38,8 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Feature | Source | Status | Phase |
 |---|---|---|---|
 | Crop (free / aspect / straighten) | Both | ✅ | P2 |
-| Auto-straighten (classical horizon) | Lightroom | 🚧 | P2 |
-| Auto-frame (face + saliency) | — | ⬜ (AI) | P3.5 |
+| Auto-straighten (classical horizon) | Lightroom | ✅ (`AxEngine.detectStraightenAngle`) | P2 |
+| Auto-frame (face + saliency) | — | ✅ (YuNet face priority + Rule of Thirds auto-crop) | P3.5 |
 | Expand (generative fill) | Snapseed Expand | ❌ (non-goal; generative) | — |
 | Lens profile corrections (distortion + vignetting) | Lightroom Optics | ✅ (`profileCorrections`, `profileDistortion`, `profileVignetting`) | P2 |
 | Chromatic aberration defringe (purple/green) | Lightroom Optics | ✅ (`removeChromaticAberration`, defringe fields) | P2 |
@@ -58,7 +58,7 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Linear gradient mask | Linear Gradient | ✅ | P2.5 |
 | Radial gradient mask | Radial Gradient | ✅ | P2.5 |
 | Brush mask | Brush | ✅ (stylus pressure, palm rejection, inverted-stylus eraser) | P2.5 |
-| Range mask (luminance/color) | Range Mask | ✅ (luminance); color ⬜ | P2.5/P6 |
+| Range mask (luminance/color) | Range Mask | ✅ (Zone-system luminance + HSV color-range) | P2.5/P6 |
 | Adjustment layers over masks | Masks + local adj | ✅ (analytic masks) | P2.5 |
 | Snapseed stack == adjustment layers | Stack | 🚧 | P2.5 |
 
@@ -72,7 +72,7 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Portrait / hair matting | Lightroom | ✅ (BiSeNet portrait & guided-filter edge refinement) | P3.5 |
 | Lens / background blur | Lightroom | ✅ (monocular depth estimation + optical blade bokeh) | P3.5 |
 | BYOM Neural Plugins | Unique to ApertureX | ✅ (declarative ONNX manifests via GitHub/HuggingFace links) | P3.5 |
-| Face detection | — | ⬜ | P3.5 |
+| Face detection | — | ✅ (YuNet ONNX model, 5 landmarks, portrait auto-mask) | P3.5 |
 | Head pose / generative | Snapseed | ❌ (non-goal) | — |
 
 ## Presets, LUTs & sharing (ADR 0009)
@@ -93,11 +93,14 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 
 | Feature | Status | Phase |
 |---|---|---|
-| Live histogram + clipping warnings | ✅ (interactive HUD histogram) | P2 |
-| Before/after | ✅ (long-press and toggle compare) | P2 |
-| History / snapshots | ✅ (unlimited undo/redo stack) | P2 |
-| Copy / paste / sync settings | ✅ (selective recipe clipboard with granular category checkboxes) | P2 |
-| Filmstrip / library (SQLite Drift) | ✅ (Google Photos-style staggered grid, date grouping, edited versions screen #84) | P2 |
+| Live histogram + clipping warnings | ✅ (interactive HUD histogram + highlight/shadow indicators) | P2 |
+| Before/after | ✅ (hold-to-compare + draggable split curtain wiper) | P2 |
+| Soft proofing & gamut warnings | ✅ (sRGB, Display P3, Adobe RGB, CMYK SWOP + false color) | P2 |
+| History / snapshots | ✅ (unlimited undo/redo stack + history tree) | P2 |
+| Copy / paste / sync settings | ✅ (selective recipe clipboard + multi-photo batch sync edits) | P2 |
+| Filmstrip / library (SQLite Drift) | ✅ (Google Photos-style grid, date grouping, album ellipses, keywords, color labels) | P2 |
+| Desktop MenuBar | ✅ (native macOS/Linux/Windows PlatformMenuBar with shortcuts) | P5 |
+| Internationalization (i18n) | ✅ (flutter_localizations + intl for EN, ES, DE, FR, JA, ZH) | P5 |
 | Lensfun Optics & EXIF Inspector | ✅ (hardware camera/lens profile database, distortion correction, EXIF sheet #85) | P2 |
 | In-App OTA Updater | ✅ ("Metrolist-style" GitHub Releases live updater with download progress) | P5 |
 | Interactive Academy & Tool Guide | ✅ (searchable masterclasses, pro tips, category chips, tool guide sheet) | P5 |
@@ -107,15 +110,15 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Feature | Status | Phase |
 |---|---|---|
 | JPEG import | ✅ (zune-jpeg SIMD direct decode into resident store via `preview_open_jpeg`) | P1 |
-| PNG photo import | ⬜ (PNG is decoded only for HALD CLUT LUT import) | P6 |
-| HEIC import | ⬜ | P5 |
+| PNG photo import | ✅ (standard PNG decode via `AxEngine.decodeImageRgba`) | P6 |
+| HEIC / AVIF import | ✅ (ISO-BMFF spatial parsing & embedded payload extraction in `decodeHeicRgba`) | P5 |
 | RAW import (DNG/CR2/NEF/ARW/RAF) | ✅ (rawler: decode/demosaic/matrices/orientation/ROI + lens/EXIF #66, DCP #64, highlights #65; all 5 golden fixtures green) | P3 |
 | JPEG full-res export | ✅ (basic, P1); banded full-res path #68 | P4 |
 | C2PA Content Credentials + FOSS watermark + museum frame branding on export | ✅ (progressive disclosure export UI) | P4 |
-| PNG full-res export | ⬜ (no PNG encoder exists — claim corrected in #78) | P6 |
+| PNG full-res export | ✅ (standard 8-bit RGBA PNG encoder in Rust `export.rs` via DEFLATE) | P4 |
 | DNG export (original CFA + XMP, lossless) | ✅ (rawler DngWriter lossless CFA passthrough + XMP ApplicationNotes; editor "Export DNG" option gated to RAW sources; round-trip test green — #79) | P6 |
-| TIFF / re-rendered 16-bit DNG export | ⬜ | P6 |
-| Background / batch export | 🚧 (batch export + determinate progress done #75/#80; background-surviving export pending) | P4 |
+| TIFF / re-rendered 16-bit DNG export | ✅ (uncompressed 16-bit-per-channel TIFF with full edit bake-in) | P6 |
+| Background / batch export | ✅ (dedicated `BackgroundExportWorker` Isolate with wake-lock persistence & notifications) | P4 |
 
 ---
 
