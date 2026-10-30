@@ -54,16 +54,29 @@ enum Parameter {
   gradeBlending,
   gradeBalance,
   // Optics
+  removeChromaticAberration,
+  profileCorrections,
   defringePurpleAmount,
   defringeGreenAmount,
   profileDistortion,
   profileVignetting,
   // Blur
+  blurEnabled,
   blurAmount,
   blurFocalPoint,
   blurFocalRange,
   blurBokehBoost,
+  blurBokehShape,
   blurBackgroundBlur,
+  // Geometry
+  rotation,
+  flipH,
+  flipV,
+  straighten,
+  perspectiveX,
+  perspectiveY,
+  skewX,
+  skewY,
   // Film Emulation
   filmHalation,
   filmHalationRadius,
@@ -405,6 +418,20 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     min: -1,
     max: 1,
   ),
+  Parameter.removeChromaticAberration: ParameterSpec(
+    id: Parameter.removeChromaticAberration,
+    section: RecipeSection.optics,
+    label: 'Remove CA',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.profileCorrections: ParameterSpec(
+    id: Parameter.profileCorrections,
+    section: RecipeSection.optics,
+    label: 'Profile Corrections',
+    min: 0,
+    max: 1,
+  ),
   Parameter.defringePurpleAmount: ParameterSpec(
     id: Parameter.defringePurpleAmount,
     section: RecipeSection.optics,
@@ -434,6 +461,13 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     min: 0,
     max: 2,
     neutral: 1.0,
+  ),
+  Parameter.blurEnabled: ParameterSpec(
+    id: Parameter.blurEnabled,
+    section: RecipeSection.blur,
+    label: 'Lens Blur',
+    min: 0,
+    max: 1,
   ),
   Parameter.blurAmount: ParameterSpec(
     id: Parameter.blurAmount,
@@ -465,6 +499,13 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     min: 0,
     max: 1,
   ),
+  Parameter.blurBokehShape: ParameterSpec(
+    id: Parameter.blurBokehShape,
+    section: RecipeSection.blur,
+    label: 'Bokeh Shape',
+    min: 0,
+    max: 5,
+  ),
   Parameter.blurBackgroundBlur: ParameterSpec(
     id: Parameter.blurBackgroundBlur,
     section: RecipeSection.blur,
@@ -472,6 +513,64 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     min: 0,
     max: 1,
     neutral: 0,
+  ),
+  // Geometry
+  Parameter.rotation: ParameterSpec(
+    id: Parameter.rotation,
+    section: RecipeSection.geometry,
+    label: 'Rotation',
+    min: 0,
+    max: 3,
+  ),
+  Parameter.flipH: ParameterSpec(
+    id: Parameter.flipH,
+    section: RecipeSection.geometry,
+    label: 'Flip Horizontal',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.flipV: ParameterSpec(
+    id: Parameter.flipV,
+    section: RecipeSection.geometry,
+    label: 'Flip Vertical',
+    min: 0,
+    max: 1,
+  ),
+  Parameter.straighten: ParameterSpec(
+    id: Parameter.straighten,
+    section: RecipeSection.geometry,
+    label: 'Straighten',
+    min: -45,
+    max: 45,
+    scale: 10,
+  ),
+  Parameter.perspectiveX: ParameterSpec(
+    id: Parameter.perspectiveX,
+    section: RecipeSection.geometry,
+    label: 'Perspective X',
+    min: -1,
+    max: 1,
+  ),
+  Parameter.perspectiveY: ParameterSpec(
+    id: Parameter.perspectiveY,
+    section: RecipeSection.geometry,
+    label: 'Perspective Y',
+    min: -1,
+    max: 1,
+  ),
+  Parameter.skewX: ParameterSpec(
+    id: Parameter.skewX,
+    section: RecipeSection.geometry,
+    label: 'Skew X',
+    min: -1,
+    max: 1,
+  ),
+  Parameter.skewY: ParameterSpec(
+    id: Parameter.skewY,
+    section: RecipeSection.geometry,
+    label: 'Skew Y',
+    min: -1,
+    max: 1,
   ),
   // Film Emulation
   Parameter.filmHalation: ParameterSpec(
@@ -607,15 +706,28 @@ double valueOf(EditRecipe recipe, Parameter p) => switch (p) {
   Parameter.gradeHighlightLum => recipe.gradeHighlightLum,
   Parameter.gradeBlending => recipe.gradeBlending,
   Parameter.gradeBalance => recipe.gradeBalance,
+  Parameter.removeChromaticAberration =>
+    recipe.removeChromaticAberration ? 1.0 : 0.0,
+  Parameter.profileCorrections => recipe.profileCorrections ? 1.0 : 0.0,
   Parameter.defringePurpleAmount => recipe.defringePurpleAmount,
   Parameter.defringeGreenAmount => recipe.defringeGreenAmount,
   Parameter.profileDistortion => recipe.profileDistortion,
   Parameter.profileVignetting => recipe.profileVignetting,
+  Parameter.blurEnabled => recipe.blurEnabled ? 1.0 : 0.0,
   Parameter.blurAmount => recipe.blurAmount,
   Parameter.blurFocalPoint => recipe.blurFocalPoint,
   Parameter.blurFocalRange => recipe.blurFocalRange,
   Parameter.blurBokehBoost => recipe.blurBokehBoost,
+  Parameter.blurBokehShape => recipe.blurBokehShape.toDouble(),
   Parameter.blurBackgroundBlur => recipe.blurBackgroundBlur ? 1.0 : 0.0,
+  Parameter.rotation => recipe.rotation.toDouble(),
+  Parameter.flipH => recipe.flipH ? 1.0 : 0.0,
+  Parameter.flipV => recipe.flipV ? 1.0 : 0.0,
+  Parameter.straighten => recipe.straighten,
+  Parameter.perspectiveX => recipe.perspectiveX,
+  Parameter.perspectiveY => recipe.perspectiveY,
+  Parameter.skewX => recipe.skewX,
+  Parameter.skewY => recipe.skewY,
   Parameter.filmHalation => recipe.filmHalation,
   Parameter.filmHalationRadius => recipe.filmHalationRadius,
   Parameter.filmHalationThreshold => recipe.filmHalationThreshold,
@@ -671,17 +783,41 @@ EditRecipe withValue(EditRecipe recipe, Parameter p, double value) {
     Parameter.gradeHighlightLum => recipe.copyWith(gradeHighlightLum: v),
     Parameter.gradeBlending => recipe.copyWith(gradeBlending: v),
     Parameter.gradeBalance => recipe.copyWith(gradeBalance: v),
+    Parameter.removeChromaticAberration =>
+      recipe.copyWith(removeChromaticAberration: v > 0.5),
+    Parameter.profileCorrections =>
+      recipe.copyWith(profileCorrections: v > 0.5),
     Parameter.defringePurpleAmount =>
       recipe.copyWith(defringePurpleAmount: v),
     Parameter.defringeGreenAmount => recipe.copyWith(defringeGreenAmount: v),
     Parameter.profileDistortion => recipe.copyWith(profileDistortion: v),
     Parameter.profileVignetting => recipe.copyWith(profileVignetting: v),
+    Parameter.blurEnabled =>
+      recipe.copyWith(blurEnabled: v > 0.5),
     Parameter.blurAmount => recipe.copyWith(blurAmount: v),
     Parameter.blurFocalPoint => recipe.copyWith(blurFocalPoint: v),
     Parameter.blurFocalRange => recipe.copyWith(blurFocalRange: v),
     Parameter.blurBokehBoost => recipe.copyWith(blurBokehBoost: v),
+    Parameter.blurBokehShape =>
+      recipe.copyWith(blurBokehShape: v.round()),
     Parameter.blurBackgroundBlur =>
       recipe.copyWith(blurBackgroundBlur: v > 0.5),
+    Parameter.rotation =>
+      recipe.copyWith(rotation: (v.round() % 4 + 4) % 4),
+    Parameter.flipH =>
+      recipe.copyWith(flipH: v > 0.5),
+    Parameter.flipV =>
+      recipe.copyWith(flipV: v > 0.5),
+    Parameter.straighten =>
+      recipe.copyWith(straighten: v),
+    Parameter.perspectiveX =>
+      recipe.copyWith(perspectiveX: v),
+    Parameter.perspectiveY =>
+      recipe.copyWith(perspectiveY: v),
+    Parameter.skewX =>
+      recipe.copyWith(skewX: v),
+    Parameter.skewY =>
+      recipe.copyWith(skewY: v),
     Parameter.filmHalation => recipe.copyWith(filmHalation: v),
     Parameter.filmHalationRadius => recipe.copyWith(filmHalationRadius: v),
     Parameter.filmHalationThreshold => recipe.copyWith(filmHalationThreshold: v),

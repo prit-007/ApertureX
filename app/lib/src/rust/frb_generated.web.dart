@@ -3,6 +3,7 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
+
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
@@ -32,859 +33,482 @@ import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 import 'watermark.dart';
 
-abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
-  RustLibApiImplPlatform({
-    required super.handler,
-    required super.wire,
-    required super.generalizedFrbRustBinding,
-    required super.portManager,
-  });
 
-  @protected
-  Map<String, double> dco_decode_Map_String_f_64_None(dynamic raw);
 
-  @protected
-  String dco_decode_String(dynamic raw);
 
-  @protected
-  ApiLensBlurParams dco_decode_api_lens_blur_params(dynamic raw);
+                abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
+                  RustLibApiImplPlatform({
+                    required super.handler,
+                    required super.wire,
+                    required super.generalizedFrbRustBinding,
+                    required super.portManager,
+                  });
 
-  @protected
-  ApiRetouchPatch dco_decode_api_retouch_patch(dynamic raw);
+                  
 
-  @protected
-  BokehShape dco_decode_bokeh_shape(dynamic raw);
+                  @protected Map<String, double> dco_decode_Map_String_f_64_None(dynamic raw);
 
-  @protected
-  bool dco_decode_bool(dynamic raw);
+@protected String dco_decode_String(dynamic raw);
 
-  @protected
-  ApiLensBlurParams dco_decode_box_autoadd_api_lens_blur_params(dynamic raw);
+@protected ApiLensBlurParams dco_decode_api_lens_blur_params(dynamic raw);
 
-  @protected
-  bool dco_decode_box_autoadd_bool(dynamic raw);
+@protected ApiRetouchPatch dco_decode_api_retouch_patch(dynamic raw);
 
-  @protected
-  C2paExportSpec dco_decode_box_autoadd_c_2_pa_export_spec(dynamic raw);
+@protected BokehShape dco_decode_bokeh_shape(dynamic raw);
 
-  @protected
-  ColorParams dco_decode_box_autoadd_color_params(dynamic raw);
+@protected bool dco_decode_bool(dynamic raw);
 
-  @protected
-  CurveParams dco_decode_box_autoadd_curve_params(dynamic raw);
+@protected ApiLensBlurParams dco_decode_box_autoadd_api_lens_blur_params(dynamic raw);
 
-  @protected
-  DetectedSky dco_decode_box_autoadd_detected_sky(dynamic raw);
+@protected bool dco_decode_box_autoadd_bool(dynamic raw);
 
-  @protected
-  DetectedSubject dco_decode_box_autoadd_detected_subject(dynamic raw);
+@protected C2paExportSpec dco_decode_box_autoadd_c_2_pa_export_spec(dynamic raw);
 
-  @protected
-  EmbeddedDepthResult dco_decode_box_autoadd_embedded_depth_result(dynamic raw);
+@protected ColorParams dco_decode_box_autoadd_color_params(dynamic raw);
 
-  @protected
-  ExportBrandingSpec dco_decode_box_autoadd_export_branding_spec(dynamic raw);
+@protected CurveParams dco_decode_box_autoadd_curve_params(dynamic raw);
 
-  @protected
-  ExportSpec dco_decode_box_autoadd_export_spec(dynamic raw);
+@protected DetectedSky dco_decode_box_autoadd_detected_sky(dynamic raw);
 
-  @protected
-  double dco_decode_box_autoadd_f_32(dynamic raw);
+@protected DetectedSubject dco_decode_box_autoadd_detected_subject(dynamic raw);
 
-  @protected
-  double dco_decode_box_autoadd_f_64(dynamic raw);
+@protected EmbeddedDepthResult dco_decode_box_autoadd_embedded_depth_result(dynamic raw);
 
-  @protected
-  PreviewBaseSpec dco_decode_box_autoadd_preview_base_spec(dynamic raw);
+@protected ExportBrandingSpec dco_decode_box_autoadd_export_branding_spec(dynamic raw);
 
-  @protected
-  int dco_decode_box_autoadd_u_32(dynamic raw);
+@protected ExportSpec dco_decode_box_autoadd_export_spec(dynamic raw);
 
-  @protected
-  BrandedFrame dco_decode_branded_frame(dynamic raw);
+@protected double dco_decode_box_autoadd_f_32(dynamic raw);
 
-  @protected
-  C2paDeviceInfo dco_decode_c_2_pa_device_info(dynamic raw);
+@protected double dco_decode_box_autoadd_f_64(dynamic raw);
 
-  @protected
-  C2paExportSpec dco_decode_c_2_pa_export_spec(dynamic raw);
+@protected PreviewBaseSpec dco_decode_box_autoadd_preview_base_spec(dynamic raw);
 
-  @protected
-  C2paVerifyResult dco_decode_c_2_pa_verify_result(dynamic raw);
+@protected int dco_decode_box_autoadd_u_32(dynamic raw);
 
-  @protected
-  ColorParams dco_decode_color_params(dynamic raw);
+@protected BrandedFrame dco_decode_branded_frame(dynamic raw);
 
-  @protected
-  CurveParams dco_decode_curve_params(dynamic raw);
+@protected C2paDeviceInfo dco_decode_c_2_pa_device_info(dynamic raw);
 
-  @protected
-  DetectedSky dco_decode_detected_sky(dynamic raw);
+@protected C2paExportSpec dco_decode_c_2_pa_export_spec(dynamic raw);
 
-  @protected
-  DetectedSubject dco_decode_detected_subject(dynamic raw);
+@protected C2paVerifyResult dco_decode_c_2_pa_verify_result(dynamic raw);
 
-  @protected
-  EmbeddedDepthResult dco_decode_embedded_depth_result(dynamic raw);
+@protected ColorParams dco_decode_color_params(dynamic raw);
 
-  @protected
-  ExportBrandingSpec dco_decode_export_branding_spec(dynamic raw);
+@protected CurveParams dco_decode_curve_params(dynamic raw);
 
-  @protected
-  ExportResult dco_decode_export_result(dynamic raw);
+@protected DetectedSky dco_decode_detected_sky(dynamic raw);
 
-  @protected
-  ExportSpec dco_decode_export_spec(dynamic raw);
+@protected DetectedSubject dco_decode_detected_subject(dynamic raw);
 
-  @protected
-  double dco_decode_f_32(dynamic raw);
+@protected EmbeddedDepthResult dco_decode_embedded_depth_result(dynamic raw);
 
-  @protected
-  double dco_decode_f_64(dynamic raw);
+@protected ExportBrandingSpec dco_decode_export_branding_spec(dynamic raw);
 
-  @protected
-  GeometryResult dco_decode_geometry_result(dynamic raw);
+@protected ExportResult dco_decode_export_result(dynamic raw);
 
-  @protected
-  HdrExposureSpec dco_decode_hdr_exposure_spec(dynamic raw);
+@protected ExportSpec dco_decode_export_spec(dynamic raw);
 
-  @protected
-  Histogram dco_decode_histogram(dynamic raw);
+@protected double dco_decode_f_32(dynamic raw);
 
-  @protected
-  int dco_decode_i_32(dynamic raw);
+@protected double dco_decode_f_64(dynamic raw);
 
-  @protected
-  ImageDims dco_decode_image_dims(dynamic raw);
+@protected GeometryResult dco_decode_geometry_result(dynamic raw);
 
-  @protected
-  ImageMetadata dco_decode_image_metadata(dynamic raw);
+@protected HdrExposureSpec dco_decode_hdr_exposure_spec(dynamic raw);
 
-  @protected
-  LensBlurParams dco_decode_lens_blur_params(dynamic raw);
+@protected Histogram dco_decode_histogram(dynamic raw);
 
-  @protected
-  List<String> dco_decode_list_String(dynamic raw);
+@protected int dco_decode_i_32(dynamic raw);
 
-  @protected
-  List<ApiRetouchPatch> dco_decode_list_api_retouch_patch(dynamic raw);
+@protected ImageDims dco_decode_image_dims(dynamic raw);
 
-  @protected
-  List<HdrExposureSpec> dco_decode_list_hdr_exposure_spec(dynamic raw);
+@protected ImageMetadata dco_decode_image_metadata(dynamic raw);
 
-  @protected
-  List<MaskLayer> dco_decode_list_mask_layer(dynamic raw);
+@protected LensBlurParams dco_decode_lens_blur_params(dynamic raw);
 
-  @protected
-  List<double> dco_decode_list_prim_f_32_loose(dynamic raw);
+@protected List<String> dco_decode_list_String(dynamic raw);
 
-  @protected
-  Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
+@protected List<ApiRetouchPatch> dco_decode_list_api_retouch_patch(dynamic raw);
 
-  @protected
-  Uint32List dco_decode_list_prim_u_32_strict(dynamic raw);
+@protected List<HdrExposureSpec> dco_decode_list_hdr_exposure_spec(dynamic raw);
 
-  @protected
-  List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
+@protected List<MaskLayer> dco_decode_list_mask_layer(dynamic raw);
 
-  @protected
-  Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+@protected List<double> dco_decode_list_prim_f_32_loose(dynamic raw);
 
-  @protected
-  List<(String, double)> dco_decode_list_record_string_f_64(dynamic raw);
+@protected Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
 
-  @protected
-  LutData dco_decode_lut_data(dynamic raw);
+@protected Uint32List dco_decode_list_prim_u_32_strict(dynamic raw);
 
-  @protected
-  MaskLayer dco_decode_mask_layer(dynamic raw);
+@protected List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
 
-  @protected
-  MuseumFrameTheme dco_decode_museum_frame_theme(dynamic raw);
+@protected Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
-  @protected
-  Map<String, double>? dco_decode_opt_Map_String_f_64_None(dynamic raw);
+@protected List<(String,double)> dco_decode_list_record_string_f_64(dynamic raw);
 
-  @protected
-  String? dco_decode_opt_String(dynamic raw);
+@protected LutData dco_decode_lut_data(dynamic raw);
 
-  @protected
-  bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+@protected MaskLayer dco_decode_mask_layer(dynamic raw);
 
-  @protected
-  DetectedSky? dco_decode_opt_box_autoadd_detected_sky(dynamic raw);
+@protected MuseumFrameTheme dco_decode_museum_frame_theme(dynamic raw);
 
-  @protected
-  DetectedSubject? dco_decode_opt_box_autoadd_detected_subject(dynamic raw);
+@protected Map<String, double>? dco_decode_opt_Map_String_f_64_None(dynamic raw);
 
-  @protected
-  EmbeddedDepthResult? dco_decode_opt_box_autoadd_embedded_depth_result(
-    dynamic raw,
-  );
+@protected String? dco_decode_opt_String(dynamic raw);
 
-  @protected
-  double? dco_decode_opt_box_autoadd_f_32(dynamic raw);
+@protected bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
 
-  @protected
-  double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
+@protected DetectedSky? dco_decode_opt_box_autoadd_detected_sky(dynamic raw);
 
-  @protected
-  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
+@protected DetectedSubject? dco_decode_opt_box_autoadd_detected_subject(dynamic raw);
 
-  @protected
-  Float32List? dco_decode_opt_list_prim_f_32_strict(dynamic raw);
+@protected EmbeddedDepthResult? dco_decode_opt_box_autoadd_embedded_depth_result(dynamic raw);
 
-  @protected
-  Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
+@protected double? dco_decode_opt_box_autoadd_f_32(dynamic raw);
 
-  @protected
-  PreviewBaseSpec dco_decode_preview_base_spec(dynamic raw);
+@protected double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
 
-  @protected
-  (String, double) dco_decode_record_string_f_64(dynamic raw);
+@protected int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
-  @protected
-  RenderedSize dco_decode_rendered_size(dynamic raw);
+@protected Float32List? dco_decode_opt_list_prim_f_32_strict(dynamic raw);
 
-  @protected
-  RgbaImage dco_decode_rgba_image(dynamic raw);
+@protected Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
 
-  @protected
-  int dco_decode_u_32(dynamic raw);
+@protected PreviewBaseSpec dco_decode_preview_base_spec(dynamic raw);
 
-  @protected
-  BigInt dco_decode_u_64(dynamic raw);
+@protected (String,double) dco_decode_record_string_f_64(dynamic raw);
 
-  @protected
-  int dco_decode_u_8(dynamic raw);
+@protected RenderedSize dco_decode_rendered_size(dynamic raw);
 
-  @protected
-  void dco_decode_unit(dynamic raw);
+@protected RgbaImage dco_decode_rgba_image(dynamic raw);
 
-  @protected
-  WatermarkAnchor dco_decode_watermark_anchor(dynamic raw);
+@protected int dco_decode_u_32(dynamic raw);
 
-  @protected
-  WatermarkSpec dco_decode_watermark_spec(dynamic raw);
+@protected BigInt dco_decode_u_64(dynamic raw);
 
-  @protected
-  Map<String, double> sse_decode_Map_String_f_64_None(
-    SseDeserializer deserializer,
-  );
+@protected int dco_decode_u_8(dynamic raw);
 
-  @protected
-  String sse_decode_String(SseDeserializer deserializer);
+@protected void dco_decode_unit(dynamic raw);
 
-  @protected
-  ApiLensBlurParams sse_decode_api_lens_blur_params(
-    SseDeserializer deserializer,
-  );
+@protected WatermarkAnchor dco_decode_watermark_anchor(dynamic raw);
 
-  @protected
-  ApiRetouchPatch sse_decode_api_retouch_patch(SseDeserializer deserializer);
+@protected WatermarkSpec dco_decode_watermark_spec(dynamic raw);
 
-  @protected
-  BokehShape sse_decode_bokeh_shape(SseDeserializer deserializer);
+@protected Map<String, double> sse_decode_Map_String_f_64_None(SseDeserializer deserializer);
 
-  @protected
-  bool sse_decode_bool(SseDeserializer deserializer);
+@protected String sse_decode_String(SseDeserializer deserializer);
 
-  @protected
-  ApiLensBlurParams sse_decode_box_autoadd_api_lens_blur_params(
-    SseDeserializer deserializer,
-  );
+@protected ApiLensBlurParams sse_decode_api_lens_blur_params(SseDeserializer deserializer);
 
-  @protected
-  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
+@protected ApiRetouchPatch sse_decode_api_retouch_patch(SseDeserializer deserializer);
 
-  @protected
-  C2paExportSpec sse_decode_box_autoadd_c_2_pa_export_spec(
-    SseDeserializer deserializer,
-  );
+@protected BokehShape sse_decode_bokeh_shape(SseDeserializer deserializer);
 
-  @protected
-  ColorParams sse_decode_box_autoadd_color_params(SseDeserializer deserializer);
+@protected bool sse_decode_bool(SseDeserializer deserializer);
 
-  @protected
-  CurveParams sse_decode_box_autoadd_curve_params(SseDeserializer deserializer);
+@protected ApiLensBlurParams sse_decode_box_autoadd_api_lens_blur_params(SseDeserializer deserializer);
 
-  @protected
-  DetectedSky sse_decode_box_autoadd_detected_sky(SseDeserializer deserializer);
+@protected bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
 
-  @protected
-  DetectedSubject sse_decode_box_autoadd_detected_subject(
-    SseDeserializer deserializer,
-  );
+@protected C2paExportSpec sse_decode_box_autoadd_c_2_pa_export_spec(SseDeserializer deserializer);
 
-  @protected
-  EmbeddedDepthResult sse_decode_box_autoadd_embedded_depth_result(
-    SseDeserializer deserializer,
-  );
+@protected ColorParams sse_decode_box_autoadd_color_params(SseDeserializer deserializer);
 
-  @protected
-  ExportBrandingSpec sse_decode_box_autoadd_export_branding_spec(
-    SseDeserializer deserializer,
-  );
+@protected CurveParams sse_decode_box_autoadd_curve_params(SseDeserializer deserializer);
 
-  @protected
-  ExportSpec sse_decode_box_autoadd_export_spec(SseDeserializer deserializer);
+@protected DetectedSky sse_decode_box_autoadd_detected_sky(SseDeserializer deserializer);
 
-  @protected
-  double sse_decode_box_autoadd_f_32(SseDeserializer deserializer);
+@protected DetectedSubject sse_decode_box_autoadd_detected_subject(SseDeserializer deserializer);
 
-  @protected
-  double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
+@protected EmbeddedDepthResult sse_decode_box_autoadd_embedded_depth_result(SseDeserializer deserializer);
 
-  @protected
-  PreviewBaseSpec sse_decode_box_autoadd_preview_base_spec(
-    SseDeserializer deserializer,
-  );
+@protected ExportBrandingSpec sse_decode_box_autoadd_export_branding_spec(SseDeserializer deserializer);
 
-  @protected
-  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
+@protected ExportSpec sse_decode_box_autoadd_export_spec(SseDeserializer deserializer);
 
-  @protected
-  BrandedFrame sse_decode_branded_frame(SseDeserializer deserializer);
+@protected double sse_decode_box_autoadd_f_32(SseDeserializer deserializer);
 
-  @protected
-  C2paDeviceInfo sse_decode_c_2_pa_device_info(SseDeserializer deserializer);
+@protected double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
 
-  @protected
-  C2paExportSpec sse_decode_c_2_pa_export_spec(SseDeserializer deserializer);
+@protected PreviewBaseSpec sse_decode_box_autoadd_preview_base_spec(SseDeserializer deserializer);
 
-  @protected
-  C2paVerifyResult sse_decode_c_2_pa_verify_result(
-    SseDeserializer deserializer,
-  );
+@protected int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
-  @protected
-  ColorParams sse_decode_color_params(SseDeserializer deserializer);
+@protected BrandedFrame sse_decode_branded_frame(SseDeserializer deserializer);
 
-  @protected
-  CurveParams sse_decode_curve_params(SseDeserializer deserializer);
+@protected C2paDeviceInfo sse_decode_c_2_pa_device_info(SseDeserializer deserializer);
 
-  @protected
-  DetectedSky sse_decode_detected_sky(SseDeserializer deserializer);
+@protected C2paExportSpec sse_decode_c_2_pa_export_spec(SseDeserializer deserializer);
 
-  @protected
-  DetectedSubject sse_decode_detected_subject(SseDeserializer deserializer);
+@protected C2paVerifyResult sse_decode_c_2_pa_verify_result(SseDeserializer deserializer);
 
-  @protected
-  EmbeddedDepthResult sse_decode_embedded_depth_result(
-    SseDeserializer deserializer,
-  );
+@protected ColorParams sse_decode_color_params(SseDeserializer deserializer);
 
-  @protected
-  ExportBrandingSpec sse_decode_export_branding_spec(
-    SseDeserializer deserializer,
-  );
+@protected CurveParams sse_decode_curve_params(SseDeserializer deserializer);
 
-  @protected
-  ExportResult sse_decode_export_result(SseDeserializer deserializer);
+@protected DetectedSky sse_decode_detected_sky(SseDeserializer deserializer);
 
-  @protected
-  ExportSpec sse_decode_export_spec(SseDeserializer deserializer);
+@protected DetectedSubject sse_decode_detected_subject(SseDeserializer deserializer);
 
-  @protected
-  double sse_decode_f_32(SseDeserializer deserializer);
+@protected EmbeddedDepthResult sse_decode_embedded_depth_result(SseDeserializer deserializer);
 
-  @protected
-  double sse_decode_f_64(SseDeserializer deserializer);
+@protected ExportBrandingSpec sse_decode_export_branding_spec(SseDeserializer deserializer);
 
-  @protected
-  GeometryResult sse_decode_geometry_result(SseDeserializer deserializer);
+@protected ExportResult sse_decode_export_result(SseDeserializer deserializer);
 
-  @protected
-  HdrExposureSpec sse_decode_hdr_exposure_spec(SseDeserializer deserializer);
+@protected ExportSpec sse_decode_export_spec(SseDeserializer deserializer);
 
-  @protected
-  Histogram sse_decode_histogram(SseDeserializer deserializer);
+@protected double sse_decode_f_32(SseDeserializer deserializer);
 
-  @protected
-  int sse_decode_i_32(SseDeserializer deserializer);
+@protected double sse_decode_f_64(SseDeserializer deserializer);
 
-  @protected
-  ImageDims sse_decode_image_dims(SseDeserializer deserializer);
+@protected GeometryResult sse_decode_geometry_result(SseDeserializer deserializer);
 
-  @protected
-  ImageMetadata sse_decode_image_metadata(SseDeserializer deserializer);
+@protected HdrExposureSpec sse_decode_hdr_exposure_spec(SseDeserializer deserializer);
 
-  @protected
-  LensBlurParams sse_decode_lens_blur_params(SseDeserializer deserializer);
+@protected Histogram sse_decode_histogram(SseDeserializer deserializer);
 
-  @protected
-  List<String> sse_decode_list_String(SseDeserializer deserializer);
+@protected int sse_decode_i_32(SseDeserializer deserializer);
 
-  @protected
-  List<ApiRetouchPatch> sse_decode_list_api_retouch_patch(
-    SseDeserializer deserializer,
-  );
+@protected ImageDims sse_decode_image_dims(SseDeserializer deserializer);
 
-  @protected
-  List<HdrExposureSpec> sse_decode_list_hdr_exposure_spec(
-    SseDeserializer deserializer,
-  );
+@protected ImageMetadata sse_decode_image_metadata(SseDeserializer deserializer);
 
-  @protected
-  List<MaskLayer> sse_decode_list_mask_layer(SseDeserializer deserializer);
+@protected LensBlurParams sse_decode_lens_blur_params(SseDeserializer deserializer);
 
-  @protected
-  List<double> sse_decode_list_prim_f_32_loose(SseDeserializer deserializer);
+@protected List<String> sse_decode_list_String(SseDeserializer deserializer);
 
-  @protected
-  Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
+@protected List<ApiRetouchPatch> sse_decode_list_api_retouch_patch(SseDeserializer deserializer);
 
-  @protected
-  Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer);
+@protected List<HdrExposureSpec> sse_decode_list_hdr_exposure_spec(SseDeserializer deserializer);
 
-  @protected
-  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
+@protected List<MaskLayer> sse_decode_list_mask_layer(SseDeserializer deserializer);
 
-  @protected
-  Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+@protected List<double> sse_decode_list_prim_f_32_loose(SseDeserializer deserializer);
 
-  @protected
-  List<(String, double)> sse_decode_list_record_string_f_64(
-    SseDeserializer deserializer,
-  );
+@protected Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
 
-  @protected
-  LutData sse_decode_lut_data(SseDeserializer deserializer);
+@protected Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer);
 
-  @protected
-  MaskLayer sse_decode_mask_layer(SseDeserializer deserializer);
+@protected List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
 
-  @protected
-  MuseumFrameTheme sse_decode_museum_frame_theme(SseDeserializer deserializer);
+@protected Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
-  @protected
-  Map<String, double>? sse_decode_opt_Map_String_f_64_None(
-    SseDeserializer deserializer,
-  );
+@protected List<(String,double)> sse_decode_list_record_string_f_64(SseDeserializer deserializer);
 
-  @protected
-  String? sse_decode_opt_String(SseDeserializer deserializer);
+@protected LutData sse_decode_lut_data(SseDeserializer deserializer);
 
-  @protected
-  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+@protected MaskLayer sse_decode_mask_layer(SseDeserializer deserializer);
 
-  @protected
-  DetectedSky? sse_decode_opt_box_autoadd_detected_sky(
-    SseDeserializer deserializer,
-  );
+@protected MuseumFrameTheme sse_decode_museum_frame_theme(SseDeserializer deserializer);
 
-  @protected
-  DetectedSubject? sse_decode_opt_box_autoadd_detected_subject(
-    SseDeserializer deserializer,
-  );
+@protected Map<String, double>? sse_decode_opt_Map_String_f_64_None(SseDeserializer deserializer);
 
-  @protected
-  EmbeddedDepthResult? sse_decode_opt_box_autoadd_embedded_depth_result(
-    SseDeserializer deserializer,
-  );
+@protected String? sse_decode_opt_String(SseDeserializer deserializer);
 
-  @protected
-  double? sse_decode_opt_box_autoadd_f_32(SseDeserializer deserializer);
+@protected bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
 
-  @protected
-  double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
+@protected DetectedSky? sse_decode_opt_box_autoadd_detected_sky(SseDeserializer deserializer);
 
-  @protected
-  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
+@protected DetectedSubject? sse_decode_opt_box_autoadd_detected_subject(SseDeserializer deserializer);
 
-  @protected
-  Float32List? sse_decode_opt_list_prim_f_32_strict(
-    SseDeserializer deserializer,
-  );
+@protected EmbeddedDepthResult? sse_decode_opt_box_autoadd_embedded_depth_result(SseDeserializer deserializer);
 
-  @protected
-  Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
+@protected double? sse_decode_opt_box_autoadd_f_32(SseDeserializer deserializer);
 
-  @protected
-  PreviewBaseSpec sse_decode_preview_base_spec(SseDeserializer deserializer);
+@protected double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
 
-  @protected
-  (String, double) sse_decode_record_string_f_64(SseDeserializer deserializer);
+@protected int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
-  @protected
-  RenderedSize sse_decode_rendered_size(SseDeserializer deserializer);
+@protected Float32List? sse_decode_opt_list_prim_f_32_strict(SseDeserializer deserializer);
 
-  @protected
-  RgbaImage sse_decode_rgba_image(SseDeserializer deserializer);
+@protected Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
 
-  @protected
-  int sse_decode_u_32(SseDeserializer deserializer);
+@protected PreviewBaseSpec sse_decode_preview_base_spec(SseDeserializer deserializer);
 
-  @protected
-  BigInt sse_decode_u_64(SseDeserializer deserializer);
+@protected (String,double) sse_decode_record_string_f_64(SseDeserializer deserializer);
 
-  @protected
-  int sse_decode_u_8(SseDeserializer deserializer);
+@protected RenderedSize sse_decode_rendered_size(SseDeserializer deserializer);
 
-  @protected
-  void sse_decode_unit(SseDeserializer deserializer);
+@protected RgbaImage sse_decode_rgba_image(SseDeserializer deserializer);
 
-  @protected
-  WatermarkAnchor sse_decode_watermark_anchor(SseDeserializer deserializer);
+@protected int sse_decode_u_32(SseDeserializer deserializer);
 
-  @protected
-  WatermarkSpec sse_decode_watermark_spec(SseDeserializer deserializer);
+@protected BigInt sse_decode_u_64(SseDeserializer deserializer);
 
-  @protected
-  void sse_encode_Map_String_f_64_None(
-    Map<String, double> self,
-    SseSerializer serializer,
-  );
+@protected int sse_decode_u_8(SseDeserializer deserializer);
 
-  @protected
-  void sse_encode_String(String self, SseSerializer serializer);
+@protected void sse_decode_unit(SseDeserializer deserializer);
 
-  @protected
-  void sse_encode_api_lens_blur_params(
-    ApiLensBlurParams self,
-    SseSerializer serializer,
-  );
+@protected WatermarkAnchor sse_decode_watermark_anchor(SseDeserializer deserializer);
 
-  @protected
-  void sse_encode_api_retouch_patch(
-    ApiRetouchPatch self,
-    SseSerializer serializer,
-  );
+@protected WatermarkSpec sse_decode_watermark_spec(SseDeserializer deserializer);
 
-  @protected
-  void sse_encode_bokeh_shape(BokehShape self, SseSerializer serializer);
+@protected void sse_encode_Map_String_f_64_None(Map<String, double> self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer);
+@protected void sse_encode_String(String self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_api_lens_blur_params(
-    ApiLensBlurParams self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_api_lens_blur_params(ApiLensBlurParams self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+@protected void sse_encode_api_retouch_patch(ApiRetouchPatch self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_c_2_pa_export_spec(
-    C2paExportSpec self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_bokeh_shape(BokehShape self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_color_params(
-    ColorParams self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_bool(bool self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_curve_params(
-    CurveParams self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_box_autoadd_api_lens_blur_params(ApiLensBlurParams self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_detected_sky(
-    DetectedSky self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_detected_subject(
-    DetectedSubject self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_box_autoadd_c_2_pa_export_spec(C2paExportSpec self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_embedded_depth_result(
-    EmbeddedDepthResult self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_box_autoadd_color_params(ColorParams self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_export_branding_spec(
-    ExportBrandingSpec self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_box_autoadd_curve_params(CurveParams self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_export_spec(
-    ExportSpec self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_box_autoadd_detected_sky(DetectedSky self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_f_32(double self, SseSerializer serializer);
+@protected void sse_encode_box_autoadd_detected_subject(DetectedSubject self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
+@protected void sse_encode_box_autoadd_embedded_depth_result(EmbeddedDepthResult self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_preview_base_spec(
-    PreviewBaseSpec self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_box_autoadd_export_branding_spec(ExportBrandingSpec self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
+@protected void sse_encode_box_autoadd_export_spec(ExportSpec self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_branded_frame(BrandedFrame self, SseSerializer serializer);
+@protected void sse_encode_box_autoadd_f_32(double self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_c_2_pa_device_info(
-    C2paDeviceInfo self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_c_2_pa_export_spec(
-    C2paExportSpec self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_box_autoadd_preview_base_spec(PreviewBaseSpec self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_c_2_pa_verify_result(
-    C2paVerifyResult self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_color_params(ColorParams self, SseSerializer serializer);
+@protected void sse_encode_branded_frame(BrandedFrame self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_curve_params(CurveParams self, SseSerializer serializer);
+@protected void sse_encode_c_2_pa_device_info(C2paDeviceInfo self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_detected_sky(DetectedSky self, SseSerializer serializer);
+@protected void sse_encode_c_2_pa_export_spec(C2paExportSpec self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_detected_subject(
-    DetectedSubject self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_c_2_pa_verify_result(C2paVerifyResult self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_embedded_depth_result(
-    EmbeddedDepthResult self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_color_params(ColorParams self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_export_branding_spec(
-    ExportBrandingSpec self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_curve_params(CurveParams self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_export_result(ExportResult self, SseSerializer serializer);
+@protected void sse_encode_detected_sky(DetectedSky self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_export_spec(ExportSpec self, SseSerializer serializer);
+@protected void sse_encode_detected_subject(DetectedSubject self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_f_32(double self, SseSerializer serializer);
+@protected void sse_encode_embedded_depth_result(EmbeddedDepthResult self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_f_64(double self, SseSerializer serializer);
+@protected void sse_encode_export_branding_spec(ExportBrandingSpec self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_geometry_result(
-    GeometryResult self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_export_result(ExportResult self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_hdr_exposure_spec(
-    HdrExposureSpec self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_export_spec(ExportSpec self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_histogram(Histogram self, SseSerializer serializer);
+@protected void sse_encode_f_32(double self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_i_32(int self, SseSerializer serializer);
+@protected void sse_encode_f_64(double self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_image_dims(ImageDims self, SseSerializer serializer);
+@protected void sse_encode_geometry_result(GeometryResult self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_image_metadata(ImageMetadata self, SseSerializer serializer);
+@protected void sse_encode_hdr_exposure_spec(HdrExposureSpec self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_lens_blur_params(
-    LensBlurParams self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_histogram(Histogram self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_list_String(List<String> self, SseSerializer serializer);
+@protected void sse_encode_i_32(int self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_list_api_retouch_patch(
-    List<ApiRetouchPatch> self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_image_dims(ImageDims self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_list_hdr_exposure_spec(
-    List<HdrExposureSpec> self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_image_metadata(ImageMetadata self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_list_mask_layer(
-    List<MaskLayer> self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_lens_blur_params(LensBlurParams self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_list_prim_f_32_loose(
-    List<double> self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_list_prim_f_32_strict(
-    Float32List self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_list_api_retouch_patch(List<ApiRetouchPatch> self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_list_prim_u_32_strict(
-    Uint32List self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_list_hdr_exposure_spec(List<HdrExposureSpec> self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
+@protected void sse_encode_list_mask_layer(List<MaskLayer> self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_list_prim_u_8_strict(
-    Uint8List self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_list_prim_f_32_loose(List<double> self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_list_record_string_f_64(
-    List<(String, double)> self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_list_prim_f_32_strict(Float32List self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_lut_data(LutData self, SseSerializer serializer);
+@protected void sse_encode_list_prim_u_32_strict(Uint32List self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_mask_layer(MaskLayer self, SseSerializer serializer);
+@protected void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_museum_frame_theme(
-    MuseumFrameTheme self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_list_prim_u_8_strict(Uint8List self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_opt_Map_String_f_64_None(
-    Map<String, double>? self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_list_record_string_f_64(List<(String,double)> self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_opt_String(String? self, SseSerializer serializer);
+@protected void sse_encode_lut_data(LutData self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+@protected void sse_encode_mask_layer(MaskLayer self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_opt_box_autoadd_detected_sky(
-    DetectedSky? self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_museum_frame_theme(MuseumFrameTheme self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_opt_box_autoadd_detected_subject(
-    DetectedSubject? self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_opt_Map_String_f_64_None(Map<String, double>? self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_opt_box_autoadd_embedded_depth_result(
-    EmbeddedDepthResult? self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_opt_String(String? self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_opt_box_autoadd_f_32(double? self, SseSerializer serializer);
+@protected void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
+@protected void sse_encode_opt_box_autoadd_detected_sky(DetectedSky? self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
+@protected void sse_encode_opt_box_autoadd_detected_subject(DetectedSubject? self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_opt_list_prim_f_32_strict(
-    Float32List? self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_opt_box_autoadd_embedded_depth_result(EmbeddedDepthResult? self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_opt_list_prim_u_8_strict(
-    Uint8List? self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_opt_box_autoadd_f_32(double? self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_preview_base_spec(
-    PreviewBaseSpec self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_record_string_f_64(
-    (String, double) self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_rendered_size(RenderedSize self, SseSerializer serializer);
+@protected void sse_encode_opt_list_prim_f_32_strict(Float32List? self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_rgba_image(RgbaImage self, SseSerializer serializer);
+@protected void sse_encode_opt_list_prim_u_8_strict(Uint8List? self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_u_32(int self, SseSerializer serializer);
+@protected void sse_encode_preview_base_spec(PreviewBaseSpec self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_u_64(BigInt self, SseSerializer serializer);
+@protected void sse_encode_record_string_f_64((String,double) self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_u_8(int self, SseSerializer serializer);
+@protected void sse_encode_rendered_size(RenderedSize self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_unit(void self, SseSerializer serializer);
+@protected void sse_encode_rgba_image(RgbaImage self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_watermark_anchor(
-    WatermarkAnchor self,
-    SseSerializer serializer,
-  );
+@protected void sse_encode_u_32(int self, SseSerializer serializer);
 
-  @protected
-  void sse_encode_watermark_spec(WatermarkSpec self, SseSerializer serializer);
-}
+@protected void sse_encode_u_64(BigInt self, SseSerializer serializer);
+
+@protected void sse_encode_u_8(int self, SseSerializer serializer);
+
+@protected void sse_encode_unit(void self, SseSerializer serializer);
+
+@protected void sse_encode_watermark_anchor(WatermarkAnchor self, SseSerializer serializer);
+
+@protected void sse_encode_watermark_spec(WatermarkSpec self, SseSerializer serializer);
+                }
+                
+
 
 // Section: wire_class
 
 class RustLibWire implements BaseWire {
-  RustLibWire.fromExternalLibrary(ExternalLibrary lib);
-}
+            RustLibWire.fromExternalLibrary(ExternalLibrary lib);
 
-@JS('wasm_bindgen')
-external RustLibWasmModule get wasmModule;
+            
+        }
+        @JS('wasm_bindgen') external RustLibWasmModule get wasmModule;
 
-@JS()
-@anonymous
-extension type RustLibWasmModule._(JSObject _) implements JSObject {}
+        @JS() @anonymous extension type RustLibWasmModule._(JSObject _) implements JSObject {
+            
+        }
+        

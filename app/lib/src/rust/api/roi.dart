@@ -10,20 +10,14 @@ import 'mask.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'preview.dart';
 
-// These functions are ignored because they are not marked as `pub`: `spatial_params`
 
-/// Rows of context ([`spatial::spatial_local_margin`]) Dart must decode above
+            // These functions are ignored because they are not marked as `pub`: `spatial_params`
+
+
+            /// Rows of context ([`spatial::spatial_local_margin`]) Dart must decode above
 /// and below the requested output so [`bake_roi_band`] sees true neighbours.
 /// Geometry never affects the halo — ROI bands are geometry-identity only.
-Future<int> roiHalo({
-  required PreviewBaseSpec spec,
-  required int fullWidth,
-  required int fullHeight,
-}) => RustLib.instance.api.crateApiRoiRoiHalo(
-  spec: spec,
-  fullWidth: fullWidth,
-  fullHeight: fullHeight,
-);
+Future<int>  roiHalo({required PreviewBaseSpec spec , required int fullWidth , required int fullHeight }) => RustLib.instance.api.crateApiRoiRoiHalo(spec: spec, fullWidth: fullWidth, fullHeight: fullHeight);
 
 /// Bakes the preview base chain (spatial → mask layers) onto a decoded
 /// full-width band of the **original** frame.
@@ -35,25 +29,7 @@ Future<int> roiHalo({
 ///   baked into the proxy and would misalign a raw band — the viewport gates
 ///   this); a non-identity spec is an error, never a silent misalignment;
 /// * the grade (exposure/LUT) is shader-side for preview and not applied here.
-Future<RgbaImage> bakeRoiBand({
-  required List<int> band,
-  required int decodeTop,
-  required int outTop,
-  required int outRows,
-  required int fullWidth,
-  required int fullHeight,
-  required PreviewBaseSpec spec,
-  required List<MaskLayer> layers,
-}) => RustLib.instance.api.crateApiRoiBakeRoiBand(
-  band: band,
-  decodeTop: decodeTop,
-  outTop: outTop,
-  outRows: outRows,
-  fullWidth: fullWidth,
-  fullHeight: fullHeight,
-  spec: spec,
-  layers: layers,
-);
+Future<RgbaImage>  bakeRoiBand({required List<int> band , required int decodeTop , required int outTop , required int outRows , required int fullWidth , required int fullHeight , required PreviewBaseSpec spec , required List<MaskLayer> layers }) => RustLib.instance.api.crateApiRoiBakeRoiBand(band: band, decodeTop: decodeTop, outTop: outTop, outRows: outRows, fullWidth: fullWidth, fullHeight: fullHeight, spec: spec, layers: layers);
 
 /// Bakes the preview base chain (spatial → mask layers) onto a decoded
 /// **rect (tile)** of the **original** frame — the tiled viewport bake (#16),
@@ -66,32 +42,7 @@ Future<RgbaImage> bakeRoiBand({
 /// * `spec`'s geometry fields **must be identity** (same contract as the band
 ///   path — the viewport gates on crop/rotate/flip);
 /// * the grade is shader-side for preview and not applied here.
-Future<RgbaImage> bakeRoiRect({
-  required List<int> rect,
-  required int decodeX,
-  required int decodeY,
-  required int decodeW,
-  required int decodeH,
-  required int outX,
-  required int outY,
-  required int outW,
-  required int outH,
-  required int fullWidth,
-  required int fullHeight,
-  required PreviewBaseSpec spec,
-  required List<MaskLayer> layers,
-}) => RustLib.instance.api.crateApiRoiBakeRoiRect(
-  rect: rect,
-  decodeX: decodeX,
-  decodeY: decodeY,
-  decodeW: decodeW,
-  decodeH: decodeH,
-  outX: outX,
-  outY: outY,
-  outW: outW,
-  outH: outH,
-  fullWidth: fullWidth,
-  fullHeight: fullHeight,
-  spec: spec,
-  layers: layers,
-);
+Future<RgbaImage>  bakeRoiRect({required List<int> rect , required int decodeX , required int decodeY , required int decodeW , required int decodeH , required int outX , required int outY , required int outW , required int outH , required int fullWidth , required int fullHeight , required PreviewBaseSpec spec , required List<MaskLayer> layers }) => RustLib.instance.api.crateApiRoiBakeRoiRect(rect: rect, decodeX: decodeX, decodeY: decodeY, decodeW: decodeW, decodeH: decodeH, outX: outX, outY: outY, outW: outW, outH: outH, fullWidth: fullWidth, fullHeight: fullHeight, spec: spec, layers: layers);
+
+            
+            

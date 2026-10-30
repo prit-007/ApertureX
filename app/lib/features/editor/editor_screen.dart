@@ -221,6 +221,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       case ExportAction.saveToPhotos:
         await _exportToPhotos();
         break;
+      case ExportAction.savePng:
+        await _exportPngToPhotos();
+        break;
       case ExportAction.saveDngWithXmp:
         await _exportDngToPhotos();
         break;
@@ -785,6 +788,100 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('TIFF16 export failed: $e')),
         );
+      },
+    );
+  }
+
+  Future<void> _exportPngToPhotos() async {
+    await _runJpegExportPipeline(
+      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+        final settings = ref.read(exportSettingsProvider);
+        return await AxEngine.exportJpegFull(
+          rgba: decoded.rgba,
+          width: decoded.width,
+          height: decoded.height,
+          spec: GradeSpec.fromRecipe(recipe),
+          spatial: SpatialSpec.fromRecipe(recipe),
+          geometry: GeometrySpec.fromRecipe(recipe),
+          optics: OpticsSpec.fromRecipe(recipe),
+          blur: LensBlurSpec.fromRecipe(recipe),
+          layers: recipe.layers,
+          maskGroups: recipe.maskGroups,
+          exif: exif,
+          branding: null,
+          c2pa: null,
+          quality: settings.quality,
+          maxDim: settings.maxDim == 0 ? null : settings.maxDim,
+          cancelToken: token,
+          colorSpace: settings.colorSpace,
+          ultraHdr: false,
+          hdrHeadroom: settings.hdrHeadroom,
+        );
+      },
+      onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
+        if (!mounted) return;
+        setState(() => _exportPhase = ExportPhase.saving);
+
+        final baked = await AxEngine.decodeJpegRgba(jpeg);
+        final png = await AxEngine.exportPng(
+          rgba: baked.rgba,
+          width: baked.width,
+          height: baked.height,
+        );
+
+        if (!mounted) return;
+        final settings = ref.read(exportSettingsProvider);
+        final baseName =
+            widget.asset?.id.split('/').last.split('\\').last ?? 'photo';
+        final outName =
+            settings.formatFilename(original: baseName, preset: 'lossless');
+
+        final outcome = await ref
+            .read(photoSaverProvider)
+            .saveFile(png, name: outName, extension: 'png');
+        if (outcome == null) {
+          axLog(LogDomain.export, 'PNG save cancelled at the file dialog');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Save cancelled')),
+            );
+          }
+          return;
+        }
+
+        await emitXmpSidecar(
+          ref.read(exportSidecarSinkProvider),
+          outName,
+          recipe,
+        );
+
+        axLog(LogDomain.export, 'Exported PNG lossless (${png.length} bytes)');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: outcome is SavedToFile
+                  ? Text('PNG saved to ${outcome.file.path}')
+                  : const Text('PNG saved to your photos'),
+            ),
+          );
+        }
+      },
+      onCancelled: () {
+        axLog(LogDomain.export, 'PNG export cancelled');
+      },
+      onError: (e) {
+        axLog(LogDomain.export, 'PNG export failed: $e', level: LogLevel.error);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('PNG export failed: $e'),
+              action: SnackBarAction(
+                label: 'Retry',
+                onPressed: () => _exportPngToPhotos(),
+              ),
+            ),
+          );
+        }
       },
     );
   }

@@ -6,62 +6,56 @@
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-/// Bokeh aperture blade shape.
-enum BokehShape { circle, pentagon, hexagon, septagon, swirl }
+
+            
+
+            
+
+            /// Bokeh aperture blade shape.
+enum BokehShape {
+                    circle,
+pentagon,
+hexagon,
+septagon,
+swirl,
+                    ;
+                    
+                }
 
 /// Parameters for depth-guided optical lens blur.
-class LensBlurParams {
+class LensBlurParams  {
+                final bool enabled;
+/// Amount of aperture blur (`0..1`, where 1.0 = wide open f/1.2).
+final double amount;
+/// Focal depth plane in focus (`0..1`).
+final double focalPoint;
+/// Depth of field range in sharp focus (`0..1`).
+final double focalRange;
+/// Bokeh aperture blade shape.
+final BokehShape bokehShape;
+/// Specular highlight boost (`0..1`).
+final double bokehBoost;
+/// When true, applies background-only blur using AI subject segmentation:
+/// the subject stays sharp while the background is blurred.
+final bool backgroundBlur;
 
-  const LensBlurParams({
-    required this.enabled,
-    required this.amount,
-    required this.focalPoint,
-    required this.focalRange,
-    required this.bokehShape,
-    required this.bokehBoost,
-    required this.backgroundBlur,
-  });
-  final bool enabled;
+                const LensBlurParams({required this.enabled ,required this.amount ,required this.focalPoint ,required this.focalRange ,required this.bokehShape ,required this.bokehBoost ,required this.backgroundBlur ,});
 
-  /// Amount of aperture blur (`0..1`, where 1.0 = wide open f/1.2).
-  final double amount;
 
-  /// Focal depth plane in focus (`0..1`).
-  final double focalPoint;
 
-  /// Depth of field range in sharp focus (`0..1`).
-  final double focalRange;
 
-  /// Bokeh aperture blade shape.
-  final BokehShape bokehShape;
 
-  /// Specular highlight boost (`0..1`).
-  final double bokehBoost;
+        @override
+        int get hashCode => enabled.hashCode^amount.hashCode^focalPoint.hashCode^focalRange.hashCode^bokehShape.hashCode^bokehBoost.hashCode^backgroundBlur.hashCode;
 
-  /// When true, applies background-only blur using AI subject segmentation:
-  /// the subject stays sharp while the background is blurred.
-  final bool backgroundBlur;
 
-  @override
-  int get hashCode =>
-      enabled.hashCode ^
-      amount.hashCode ^
-      focalPoint.hashCode ^
-      focalRange.hashCode ^
-      bokehShape.hashCode ^
-      bokehBoost.hashCode ^
-      backgroundBlur.hashCode;
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is LensBlurParams &&
-          runtimeType == other.runtimeType &&
-          enabled == other.enabled &&
-          amount == other.amount &&
-          focalPoint == other.focalPoint &&
-          focalRange == other.focalRange &&
-          bokehShape == other.bokehShape &&
-          bokehBoost == other.bokehBoost &&
-          backgroundBlur == other.backgroundBlur;
-}
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is LensBlurParams &&
+                runtimeType == other.runtimeType
+                && enabled == other.enabled&& amount == other.amount&& focalPoint == other.focalPoint&& focalRange == other.focalRange&& bokehShape == other.bokehShape&& bokehBoost == other.bokehBoost&& backgroundBlur == other.backgroundBlur;
+
+            }
+            

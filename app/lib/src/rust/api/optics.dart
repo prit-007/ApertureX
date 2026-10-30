@@ -6,82 +6,20 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-/// The full optics pass (lateral CA removal → longitudinal defringe).
-Future<Uint8List> opticsApply({
-  required List<int> rgba,
-  required int width,
-  required int height,
-  required bool removeChromaticAberration,
-  required double defringePurpleAmount,
-  required double defringePurpleHueMin,
-  required double defringePurpleHueMax,
-  required double defringeGreenAmount,
-  required double defringeGreenHueMin,
-  required double defringeGreenHueMax,
-  required bool profileCorrections,
-  required double profileDistortion,
-  required double profileVignetting,
-}) => RustLib.instance.api.crateApiOpticsOpticsApply(
-  rgba: rgba,
-  width: width,
-  height: height,
-  removeChromaticAberration: removeChromaticAberration,
-  defringePurpleAmount: defringePurpleAmount,
-  defringePurpleHueMin: defringePurpleHueMin,
-  defringePurpleHueMax: defringePurpleHueMax,
-  defringeGreenAmount: defringeGreenAmount,
-  defringeGreenHueMin: defringeGreenHueMin,
-  defringeGreenHueMax: defringeGreenHueMax,
-  profileCorrections: profileCorrections,
-  profileDistortion: profileDistortion,
-  profileVignetting: profileVignetting,
-);
+
+            
+
+            /// The full optics pass (lateral CA removal → longitudinal defringe).
+Future<Uint8List>  opticsApply({required List<int> rgba , required int width , required int height , required bool removeChromaticAberration , required double defringePurpleAmount , required double defringePurpleHueMin , required double defringePurpleHueMax , required double defringeGreenAmount , required double defringeGreenHueMin , required double defringeGreenHueMax , required bool profileCorrections , required double profileDistortion , required double profileVignetting }) => RustLib.instance.api.crateApiOpticsOpticsApply(rgba: rgba, width: width, height: height, removeChromaticAberration: removeChromaticAberration, defringePurpleAmount: defringePurpleAmount, defringePurpleHueMin: defringePurpleHueMin, defringePurpleHueMax: defringePurpleHueMax, defringeGreenAmount: defringeGreenAmount, defringeGreenHueMin: defringeGreenHueMin, defringeGreenHueMax: defringeGreenHueMax, profileCorrections: profileCorrections, profileDistortion: profileDistortion, profileVignetting: profileVignetting);
 
 /// Applies longitudinal defringe alone.
-Future<Uint8List> opticsDefringe({
-  required List<int> rgba,
-  required int width,
-  required int height,
-  required double purpleAmount,
-  required double purpleMin,
-  required double purpleMax,
-  required double greenAmount,
-  required double greenMin,
-  required double greenMax,
-}) => RustLib.instance.api.crateApiOpticsOpticsDefringe(
-  rgba: rgba,
-  width: width,
-  height: height,
-  purpleAmount: purpleAmount,
-  purpleMin: purpleMin,
-  purpleMax: purpleMax,
-  greenAmount: greenAmount,
-  greenMin: greenMin,
-  greenMax: greenMax,
-);
+Future<Uint8List>  opticsDefringe({required List<int> rgba , required int width , required int height , required double purpleAmount , required double purpleMin , required double purpleMax , required double greenAmount , required double greenMin , required double greenMax }) => RustLib.instance.api.crateApiOpticsOpticsDefringe(rgba: rgba, width: width, height: height, purpleAmount: purpleAmount, purpleMin: purpleMin, purpleMax: purpleMax, greenAmount: greenAmount, greenMin: greenMin, greenMax: greenMax);
 
 /// Applies lateral chromatic aberration correction alone.
-Future<Uint8List> opticsLateralCa({
-  required List<int> rgba,
-  required int width,
-  required int height,
-}) => RustLib.instance.api.crateApiOpticsOpticsLateralCa(
-  rgba: rgba,
-  width: width,
-  height: height,
-);
+Future<Uint8List>  opticsLateralCa({required List<int> rgba , required int width , required int height }) => RustLib.instance.api.crateApiOpticsOpticsLateralCa(rgba: rgba, width: width, height: height);
 
 /// Applies lens profile geometric distortion and vignetting correction alone.
-Future<Uint8List> opticsLensProfile({
-  required List<int> rgba,
-  required int width,
-  required int height,
-  required double distortion,
-  required double vignetting,
-}) => RustLib.instance.api.crateApiOpticsOpticsLensProfile(
-  rgba: rgba,
-  width: width,
-  height: height,
-  distortion: distortion,
-  vignetting: vignetting,
-);
+Future<Uint8List>  opticsLensProfile({required List<int> rgba , required int width , required int height , required double distortion , required double vignetting }) => RustLib.instance.api.crateApiOpticsOpticsLensProfile(rgba: rgba, width: width, height: height, distortion: distortion, vignetting: vignetting);
+
+            
+            

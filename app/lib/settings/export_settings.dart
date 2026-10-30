@@ -4,6 +4,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
 
+/// Named export preset for quick 1-tap configuration (Phase 1 Pro export presets).
+enum ExportPresetKind {
+  fullRes('Full Res JPEG', 'Original size, JPEG 92%, sRGB'),
+  webSocial('Web & Social', 'Max 2048px, JPEG 85%, sRGB'),
+  printLossless('Print / Lossless', 'Full resolution, Lossless PNG or 16-bit TIFF'),
+  proDisplay('Pro HDR (P3)', 'Display-P3 with Ultra HDR gain map');
+
+  const ExportPresetKind(this.title, this.description);
+  final String title;
+  final String description;
+}
+
 /// Export preferences, persisted on-device.
 class ExportSettings {
   const ExportSettings({
@@ -12,6 +24,7 @@ class ExportSettings {
     this.colorSpace = 0,
     this.ultraHdr = false,
     this.hdrHeadroom = 2.0,
+    this.filenamePattern = '{original}_{date}',
   });
 
   /// JPEG quality `60..100`.
@@ -29,18 +42,46 @@ class ExportSettings {
   /// HDR peak headroom in EV stops (1.0..4.0, default 2.0 = 400% SDR brightness).
   final double hdrHeadroom;
 
+  /// Filename template pattern with tokens: {original}, {date}, {preset}, {counter}.
+  final String filenamePattern;
+
+  /// Formats output filename by replacing supported tokens.
+  String formatFilename({
+    String original = 'photo',
+    String preset = 'edit',
+    int counter = 1,
+    DateTime? date,
+  }) {
+    final now = date ?? DateTime.now();
+    final dateStr =
+        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_'
+        '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+    final counterStr = counter.toString().padLeft(3, '0');
+    final cleanOriginal = original.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+
+    var result = filenamePattern;
+    if (result.isEmpty) result = '{original}_{date}';
+    result = result.replaceAll('{original}', cleanOriginal);
+    result = result.replaceAll('{date}', dateStr);
+    result = result.replaceAll('{preset}', preset);
+    result = result.replaceAll('{counter}', counterStr);
+    return result.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+  }
+
   ExportSettings copyWith({
     int? quality,
     int? maxDim,
     int? colorSpace,
     bool? ultraHdr,
     double? hdrHeadroom,
+    String? filenamePattern,
   }) => ExportSettings(
     quality: quality ?? this.quality,
     maxDim: maxDim ?? this.maxDim,
     colorSpace: colorSpace ?? this.colorSpace,
     ultraHdr: ultraHdr ?? this.ultraHdr,
     hdrHeadroom: hdrHeadroom ?? this.hdrHeadroom,
+    filenamePattern: filenamePattern ?? this.filenamePattern,
   );
 }
 
@@ -50,6 +91,7 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
   static const _colorSpaceKey = 'export_color_space';
   static const _ultraHdrKey = 'export_ultra_hdr';
   static const _hdrHeadroomKey = 'export_hdr_headroom';
+  static const _filenamePatternKey = 'export_filename_pattern';
   bool _userSet = false;
 
   @override
@@ -102,6 +144,54 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
     axLog(LogDomain.export, 'Export HDR headroom set to +${clamped.toStringAsFixed(1)} EV');
   }
 
+  void setFilenamePattern(String pattern) {
+    _userSet = true;
+    state = state.copyWith(filenamePattern: pattern.trim());
+    _persist();
+    axLog(LogDomain.export, 'Export filename pattern set to "$pattern"');
+  }
+
+  void applyPreset(ExportPresetKind preset) {
+    _userSet = true;
+    switch (preset) {
+      case ExportPresetKind.fullRes:
+        state = state.copyWith(
+          quality: 92,
+          maxDim: 0,
+          colorSpace: 0,
+          ultraHdr: false,
+        );
+        break;
+      case ExportPresetKind.webSocial:
+        state = state.copyWith(
+          quality: 85,
+          maxDim: 2048,
+          colorSpace: 0,
+          ultraHdr: false,
+        );
+        break;
+      case ExportPresetKind.printLossless:
+        state = state.copyWith(
+          quality: 100,
+          maxDim: 0,
+          colorSpace: 0,
+          ultraHdr: false,
+        );
+        break;
+      case ExportPresetKind.proDisplay:
+        state = state.copyWith(
+          quality: 95,
+          maxDim: 0,
+          colorSpace: 1,
+          ultraHdr: true,
+          hdrHeadroom: 2.0,
+        );
+        break;
+    }
+    _persist();
+    axLog(LogDomain.export, 'Applied export preset "${preset.title}"');
+  }
+
   Future<void> _restore() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -112,6 +202,8 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
         colorSpace: prefs.getInt(_colorSpaceKey) ?? 0,
         ultraHdr: prefs.getBool(_ultraHdrKey) ?? false,
         hdrHeadroom: prefs.getDouble(_hdrHeadroomKey) ?? 2.0,
+        filenamePattern:
+            prefs.getString(_filenamePatternKey) ?? '{original}_{date}',
       );
     } catch (_) {
       // No storage available (e.g. tests) — keep defaults.
@@ -126,6 +218,7 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
       await prefs.setInt(_colorSpaceKey, state.colorSpace);
       await prefs.setBool(_ultraHdrKey, state.ultraHdr);
       await prefs.setDouble(_hdrHeadroomKey, state.hdrHeadroom);
+      await prefs.setString(_filenamePatternKey, state.filenamePattern);
     } catch (_) {
       // best effort
     }

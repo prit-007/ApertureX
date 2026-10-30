@@ -45,7 +45,7 @@ void main() {
     });
 
     test('the catalog covers exactly the renderable fields today', () {
-      expect(Parameter.values.length, 58);
+      expect(Parameter.values.length, 70);
     });
 
     test('grade hue specs are degrees (0..360), not 0..1', () {

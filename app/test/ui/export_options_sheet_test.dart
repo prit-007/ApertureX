@@ -41,6 +41,35 @@ void main() {
     expect(selected, ExportAction.saveToPhotos);
   });
 
+  testWidgets('ExportOptionsSheet shows PNG option and selects it', (
+    tester,
+  ) async {
+    ExportAction? selected;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                selected = await ExportOptionsSheet.show(context, isRaw: false);
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Export PNG (Lossless 8-bit)'), findsOneWidget);
+    await tester.tap(find.text('Export PNG (Lossless 8-bit)'));
+    await tester.pumpAndSettle();
+
+    expect(selected, ExportAction.savePng);
+  });
+
   testWidgets('ExportOptionsSheet shows DNG option for raw image and selects it', (
     tester,
   ) async {

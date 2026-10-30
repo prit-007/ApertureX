@@ -52,6 +52,89 @@ pub fn encode_jpeg(
     Ok(crate::exif::inject_app1(out, &final_exif))
 }
 
+const CRC_TABLE: [u32; 256] = {
+    let mut table = [0u32; 256];
+    let mut i = 0;
+    while i < 256 {
+        let mut c = i as u32;
+        let mut k = 0;
+        while k < 8 {
+            if c & 1 != 0 {
+                c = 0xEDB88320 ^ (c >> 1);
+            } else {
+                c >>= 1;
+            }
+            k += 1;
+        }
+        table[i] = c;
+        i += 1;
+    }
+    table
+};
+
+fn crc32(tag: &[u8; 4], data: &[u8]) -> u32 {
+    let mut crc = 0xFFFFFFFFu32;
+    for &b in tag {
+        crc = CRC_TABLE[((crc ^ (b as u32)) & 0xFF) as usize] ^ (crc >> 8);
+    }
+    for &b in data {
+        crc = CRC_TABLE[((crc ^ (b as u32)) & 0xFF) as usize] ^ (crc >> 8);
+    }
+    !crc
+}
+
+fn write_png_chunk(out: &mut Vec<u8>, tag: &[u8; 4], data: &[u8]) {
+    out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+    out.extend_from_slice(tag);
+    out.extend_from_slice(data);
+    let crc = crc32(tag, data);
+    out.extend_from_slice(&crc.to_be_bytes());
+}
+
+/// Encodes an RGBA8 buffer (`width * height * 4`) as a lossless PNG.
+///
+/// Uses `miniz_oxide` deflate compression with 0 external dependencies.
+pub fn encode_png(rgba: &[u8], width: u32, height: u32) -> Result<Vec<u8>, String> {
+    if width == 0 || height == 0 {
+        return Err("export dimensions must be at least 1x1".to_string());
+    }
+    let expected = width as usize * height as usize * 4;
+    if rgba.len() != expected {
+        return Err(format!(
+            "rgba buffer has {} bytes, expected {expected} for {width}x{height}",
+            rgba.len()
+        ));
+    }
+
+    let row_len = width as usize * 4;
+    let mut raw_data = Vec::with_capacity(height as usize * (row_len + 1));
+    for y in 0..height as usize {
+        raw_data.push(0); // Filter type 0 (None)
+        let start = y * row_len;
+        raw_data.extend_from_slice(&rgba[start..start + row_len]);
+    }
+
+    let compressed = miniz_oxide::deflate::compress_to_vec_zlib(&raw_data, 6);
+
+    let mut out = Vec::with_capacity(compressed.len() + 64);
+    out.extend_from_slice(b"\x89PNG\r\n\x1a\n");
+
+    let mut ihdr = Vec::with_capacity(13);
+    ihdr.extend_from_slice(&width.to_be_bytes());
+    ihdr.extend_from_slice(&height.to_be_bytes());
+    ihdr.push(8); // Bit depth: 8
+    ihdr.push(6); // Color type: 6 (RGBA)
+    ihdr.push(0); // Compression: 0 (deflate)
+    ihdr.push(0); // Filter: 0
+    ihdr.push(0); // Interlace: 0
+    write_png_chunk(&mut out, b"IHDR", &ihdr);
+
+    write_png_chunk(&mut out, b"IDAT", &compressed);
+    write_png_chunk(&mut out, b"IEND", &[]);
+
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,5 +218,24 @@ mod tests {
 
         let jpeg = encode_jpeg(&solid_rgba(8, 8, 100, 100, 100), 8, 8, 90, &app1).unwrap();
         assert_eq!(crate::exif::parse_orientation(&jpeg), Some(1));
+    }
+
+    #[test]
+    fn encode_png_produces_decodable_png_with_exact_pixels() {
+        let rgba = solid_rgba(16, 12, 120, 200, 250);
+        let png = encode_png(&rgba, 16, 12).expect("encode_png should succeed");
+        assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
+
+        let (decoded, w, h) = crate::watermark::decode_png_rgba(&png).expect("decodable png");
+        assert_eq!((w, h), (16, 12));
+        assert_eq!(decoded.len(), 16 * 12 * 4);
+        assert_eq!(decoded, rgba);
+    }
+
+    #[test]
+    fn encode_png_rejects_invalid_dimensions() {
+        assert!(encode_png(&[], 0, 10).is_err());
+        assert!(encode_png(&[], 10, 0).is_err());
+        assert!(encode_png(&[0u8; 10], 4, 4).is_err());
     }
 }

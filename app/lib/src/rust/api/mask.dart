@@ -7,217 +7,130 @@ import '../frb_generated.dart';
 import 'color.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`
 
-/// Composites [layers] over [rgba] (RGBA8, `width*height*4`), in order.
-Future<Uint8List> applyMasks({
-  required List<int> rgba,
-  required int width,
-  required int height,
-  required List<MaskLayer> layers,
-}) => RustLib.instance.api.crateApiMaskApplyMasks(
-  rgba: rgba,
-  width: width,
-  height: height,
-  layers: layers,
-);
+            // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`
+
+
+            /// Composites [layers] over [rgba] (RGBA8, `width*height*4`), in order.
+Future<Uint8List>  applyMasks({required List<int> rgba , required int width , required int height , required List<MaskLayer> layers }) => RustLib.instance.api.crateApiMaskApplyMasks(rgba: rgba, width: width, height: height, layers: layers);
 
 /// Automatically detects sky horizon, transition feather, and blue chromaticity weight.
-Future<DetectedSky?> detectSky({
-  required List<int> rgba,
-  required int width,
-  required int height,
-}) => RustLib.instance.api.crateApiMaskDetectSky(
-  rgba: rgba,
-  width: width,
-  height: height,
-);
+Future<DetectedSky?>  detectSky({required List<int> rgba , required int width , required int height }) => RustLib.instance.api.crateApiMaskDetectSky(rgba: rgba, width: width, height: height);
 
 /// Automatically detects dominant subject center, radii, and feather.
-Future<DetectedSubject?> detectSubject({
-  required List<int> rgba,
-  required int width,
-  required int height,
-}) => RustLib.instance.api.crateApiMaskDetectSubject(
-  rgba: rgba,
-  width: width,
-  height: height,
-);
+Future<DetectedSubject?>  detectSubject({required List<int> rgba , required int width , required int height }) => RustLib.instance.api.crateApiMaskDetectSubject(rgba: rgba, width: width, height: height);
 
 /// Segments dominant subject into an alpha plane of dimensions `target_width x target_height`.
 ///
 /// Uses on-device offline segmentation pipeline (Segmenter trait).
-Future<Float32List> segmentSubject({
-  required List<int> rgba,
-  required int width,
-  required int height,
-  required int targetWidth,
-  required int targetHeight,
-}) => RustLib.instance.api.crateApiMaskSegmentSubject(
-  rgba: rgba,
-  width: width,
-  height: height,
-  targetWidth: targetWidth,
-  targetHeight: targetHeight,
-);
+Future<Float32List>  segmentSubject({required List<int> rgba , required int width , required int height , required int targetWidth , required int targetHeight }) => RustLib.instance.api.crateApiMaskSegmentSubject(rgba: rgba, width: width, height: height, targetWidth: targetWidth, targetHeight: targetHeight);
 
 /// Refines a mask alpha channel using guided-filter re-matting against image RGBA.
 ///
 /// Returns the refined alpha map (length `width * height`, values in `0.0..1.0`).
-Future<Float32List> refineMask({
-  required List<int> rgba,
-  required int width,
-  required int height,
-  required int kind,
-  required List<double> params,
-  required List<double> strokePoints,
-  required double brushRadius,
-  required int filterRadius,
-  required double eps,
-}) => RustLib.instance.api.crateApiMaskRefineMask(
-  rgba: rgba,
-  width: width,
-  height: height,
-  kind: kind,
-  params: params,
-  strokePoints: strokePoints,
-  brushRadius: brushRadius,
-  filterRadius: filterRadius,
-  eps: eps,
-);
+Future<Float32List>  refineMask({required List<int> rgba , required int width , required int height , required int kind , required List<double> params , required List<double> strokePoints , required double brushRadius , required int filterRadius , required double eps }) => RustLib.instance.api.crateApiMaskRefineMask(rgba: rgba, width: width, height: height, kind: kind, params: params, strokePoints: strokePoints, brushRadius: brushRadius, filterRadius: filterRadius, eps: eps);
 
-/// Detected sky parameters from a proxy image.
-class DetectedSky {
+            /// Detected sky parameters from a proxy image.
+class DetectedSky  {
+                final double horizonY;
+final double feather;
+final double blueWeight;
 
-  const DetectedSky({
-    required this.horizonY,
-    required this.feather,
-    required this.blueWeight,
-  });
-  final double horizonY;
-  final double feather;
-  final double blueWeight;
+                const DetectedSky({required this.horizonY ,required this.feather ,required this.blueWeight ,});
 
-  @override
-  int get hashCode =>
-      horizonY.hashCode ^ feather.hashCode ^ blueWeight.hashCode;
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is DetectedSky &&
-          runtimeType == other.runtimeType &&
-          horizonY == other.horizonY &&
-          feather == other.feather &&
-          blueWeight == other.blueWeight;
-}
+
+
+
+        @override
+        int get hashCode => horizonY.hashCode^feather.hashCode^blueWeight.hashCode;
+
+
+
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is DetectedSky &&
+                runtimeType == other.runtimeType
+                && horizonY == other.horizonY&& feather == other.feather&& blueWeight == other.blueWeight;
+
+            }
 
 /// Detected subject parameters from a proxy image.
-class DetectedSubject {
+class DetectedSubject  {
+                final double cx;
+final double cy;
+final double rx;
+final double ry;
+final double feather;
 
-  const DetectedSubject({
-    required this.cx,
-    required this.cy,
-    required this.rx,
-    required this.ry,
-    required this.feather,
-  });
-  final double cx;
-  final double cy;
-  final double rx;
-  final double ry;
-  final double feather;
+                const DetectedSubject({required this.cx ,required this.cy ,required this.rx ,required this.ry ,required this.feather ,});
 
-  @override
-  int get hashCode =>
-      cx.hashCode ^ cy.hashCode ^ rx.hashCode ^ ry.hashCode ^ feather.hashCode;
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is DetectedSubject &&
-          runtimeType == other.runtimeType &&
-          cx == other.cx &&
-          cy == other.cy &&
-          rx == other.rx &&
-          ry == other.ry &&
-          feather == other.feather;
-}
+
+
+
+        @override
+        int get hashCode => cx.hashCode^cy.hashCode^rx.hashCode^ry.hashCode^feather.hashCode;
+
+
+
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is DetectedSubject &&
+                runtimeType == other.runtimeType
+                && cx == other.cx&& cy == other.cy&& rx == other.rx&& ry == other.ry&& feather == other.feather;
+
+            }
 
 /// One adjustment layer: a parametric mask + a point-wise sub-grade.
-class MaskLayer {
+class MaskLayer  {
+                /// Mask kind:
+/// 0 linear, 1 radial, 2 luminance, 3 brush, 4 subject, 5 sky, 6 bitmap.
+final int kind;
+/// Parameter payload:
+/// - linear: `[x0, y0, x1, y1]`
+/// - radial: `[cx, cy, rx, ry, feather]`
+/// - luminance: `[lo, hi]`
+/// - brush: `[radius, feather, count, ...stroke_points_with_sentinels]`
+/// - subject: `[cx, cy, rx, ry, feather]`
+/// - sky: `[horizon_y, feather, blue_weight]`
+/// - bitmap: `[w, h, ...unpacked_alphas]`
+final Float32List mask;
+final ColorParams params;
+/// When true, inverts the mask coverage (`1.0 - coverage`).
+final bool inverted;
+/// Global amount scalar for this layer (0.0–2.0, default 1.0 = 100%).
+final double amount;
+/// Parent group ID (if part of a mask group; null for ungrouped layers).
+final String? groupId;
+/// Join operation (0: add, 1: subtract, 2: intersect) within group.
+final int joinOp;
+/// Group-level invert flag.
+final bool groupInverted;
+/// Group-level amount scalar (0.0–2.0, default 1.0 = 100%).
+final double groupAmount;
 
-  const MaskLayer({
-    required this.kind,
-    required this.mask,
-    required this.params,
-    required this.inverted,
-    required this.amount,
-    this.groupId,
-    required this.joinOp,
-    required this.groupInverted,
-    required this.groupAmount,
-  });
-  /// Mask kind:
-  /// 0 linear, 1 radial, 2 luminance, 3 brush, 4 subject, 5 sky, 6 bitmap.
-  final int kind;
+                const MaskLayer({required this.kind ,required this.mask ,required this.params ,required this.inverted ,required this.amount ,this.groupId ,required this.joinOp ,required this.groupInverted ,required this.groupAmount ,});
 
-  /// Parameter payload:
-  /// - linear: `[x0, y0, x1, y1]`
-  /// - radial: `[cx, cy, rx, ry, feather]`
-  /// - luminance: `[lo, hi]`
-  /// - brush: `[radius, feather, count, ...stroke_points_with_sentinels]`
-  /// - subject: `[cx, cy, rx, ry, feather]`
-  /// - sky: `[horizon_y, feather, blue_weight]`
-  /// - bitmap: `[w, h, ...unpacked_alphas]`
-  final Float32List mask;
-  final ColorParams params;
+                static Future<MaskLayer>  default_()=>RustLib.instance.api.crateApiMaskMaskLayerDefault();
 
-  /// When true, inverts the mask coverage (`1.0 - coverage`).
-  final bool inverted;
 
-  /// Global amount scalar for this layer (0.0–2.0, default 1.0 = 100%).
-  final double amount;
 
-  /// Parent group ID (if part of a mask group; null for ungrouped layers).
-  final String? groupId;
 
-  /// Join operation (0: add, 1: subtract, 2: intersect) within group.
-  final int joinOp;
 
-  /// Group-level invert flag.
-  final bool groupInverted;
+        @override
+        int get hashCode => kind.hashCode^mask.hashCode^params.hashCode^inverted.hashCode^amount.hashCode^groupId.hashCode^joinOp.hashCode^groupInverted.hashCode^groupAmount.hashCode;
 
-  /// Group-level amount scalar (0.0–2.0, default 1.0 = 100%).
-  final double groupAmount;
 
-  static Future<MaskLayer> default_() =>
-      RustLib.instance.api.crateApiMaskMaskLayerDefault();
 
-  @override
-  int get hashCode =>
-      kind.hashCode ^
-      mask.hashCode ^
-      params.hashCode ^
-      inverted.hashCode ^
-      amount.hashCode ^
-      groupId.hashCode ^
-      joinOp.hashCode ^
-      groupInverted.hashCode ^
-      groupAmount.hashCode;
+        @override
+        bool operator ==(Object other) =>
+            identical(this, other) ||
+            other is MaskLayer &&
+                runtimeType == other.runtimeType
+                && kind == other.kind&& mask == other.mask&& params == other.params&& inverted == other.inverted&& amount == other.amount&& groupId == other.groupId&& joinOp == other.joinOp&& groupInverted == other.groupInverted&& groupAmount == other.groupAmount;
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is MaskLayer &&
-          runtimeType == other.runtimeType &&
-          kind == other.kind &&
-          mask == other.mask &&
-          params == other.params &&
-          inverted == other.inverted &&
-          amount == other.amount &&
-          groupId == other.groupId &&
-          joinOp == other.joinOp &&
-          groupInverted == other.groupInverted &&
-          groupAmount == other.groupAmount;
-}
+            }
+            

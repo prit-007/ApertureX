@@ -9,6 +9,7 @@ import '../../ui/common/app_sheet.dart';
 enum ExportAction {
   saveToApertureX,
   saveToPhotos,
+  savePng,
   saveDngWithXmp,
   saveTiff16,
   share,
@@ -85,15 +86,18 @@ class _ExportOptionsSheetContentState
   late final TextEditingController _signatureController;
   late final TextEditingController _exifLine1Controller;
   late final TextEditingController _exifLine2Controller;
+  late final TextEditingController _patternController;
   bool _brandingExpanded = false;
 
   @override
   void initState() {
     super.initState();
     final branding = ref.read(exportBrandingProvider);
+    final settings = ref.read(exportSettingsProvider);
     _signatureController = TextEditingController(text: branding.signatureText);
     _exifLine1Controller = TextEditingController(text: branding.exifLine1);
     _exifLine2Controller = TextEditingController(text: branding.exifLine2);
+    _patternController = TextEditingController(text: settings.filenamePattern);
   }
 
   @override
@@ -101,6 +105,7 @@ class _ExportOptionsSheetContentState
     _signatureController.dispose();
     _exifLine1Controller.dispose();
     _exifLine2Controller.dispose();
+    _patternController.dispose();
     super.dispose();
   }
 
@@ -175,6 +180,16 @@ class _ExportOptionsSheetContentState
                   onTap: () =>
                       Navigator.of(context).pop(ExportAction.saveToPhotos),
                 ),
+                ListTile(
+                  leading: const Icon(Icons.photo_size_select_actual_outlined),
+                  title: const Text('Export PNG (Lossless 8-bit)'),
+                  subtitle: const Text(
+                    'Lossless compressed PNG for print, web & archival',
+                  ),
+                  trailing: _formatBadge('PNG', theme),
+                  onTap: () =>
+                      Navigator.of(context).pop(ExportAction.savePng),
+                ),
                 if (widget.isRaw)
                   ListTile(
                     leading: const Icon(Icons.raw_on_outlined),
@@ -213,6 +228,131 @@ class _ExportOptionsSheetContentState
                   trailing: _formatBadge('PRESET', theme),
                   onTap: () =>
                       Navigator.of(context).pop(ExportAction.sharePresetCard),
+                ),
+
+                const Divider(height: 1),
+
+                // Export Presets Quick Profile Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Insets.md,
+                    vertical: Insets.xs,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.auto_awesome_outlined, size: 16),
+                          const SizedBox(width: Insets.xs),
+                          Text(
+                            'Quick Export Profile',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: Insets.xs),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            for (final preset in ExportPresetKind.values)
+                              Padding(
+                                padding: const EdgeInsets.only(right: Insets.xs),
+                                child: ActionChip(
+                                  label: Text(preset.title),
+                                  tooltip: preset.description,
+                                  onPressed: () {
+                                    exportNotifier.applyPreset(preset);
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Filename Pattern Template Section
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Insets.md,
+                    vertical: Insets.xs,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.label_outlined, size: 16),
+                          const SizedBox(width: Insets.xs),
+                          Text(
+                            'Filename Template',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            exportSettings.formatFilename(original: 'IMG_4021', preset: 'graded'),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: _patternController,
+                        style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
+                        decoration: const InputDecoration(
+                          hintText: '{original}_{date}',
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: Insets.sm,
+                            vertical: 8,
+                          ),
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (val) => exportNotifier.setFilenamePattern(val),
+                      ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 4,
+                        children: [
+                          for (final token in ['{original}', '{date}', '{preset}', '{counter}'])
+                            InkWell(
+                              onTap: () {
+                                final text = _patternController.text;
+                                final newText = text.isEmpty ? token : '$text-$token';
+                                _patternController.text = newText;
+                                exportNotifier.setFilenamePattern(newText);
+                              },
+                              borderRadius: BorderRadius.circular(4),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  token,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontFamily: 'monospace',
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
 
                 const Divider(height: 1),
