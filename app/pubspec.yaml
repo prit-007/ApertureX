@@ -134,6 +134,7 @@ flutter:
   assets:
     - icons/app_icon_monochrome.png
     - icons/app_icon.png
+    - rust/assets/models/depth_anything_v2_vits.onnx
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

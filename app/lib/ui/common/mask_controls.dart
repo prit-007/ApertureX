@@ -110,6 +110,44 @@ final depthEstimatorProvider = Provider<DepthEstimatorFn>((ref) {
   );
 });
 
+/// Function signature for generating a false-color depth heatmap.
+typedef DepthVisualizerFn = Future<Uint8List> Function(
+  List<double> depth,
+  int width,
+  int height,
+  double focalPoint,
+  double focalRange,
+);
+
+/// Riverpod provider for depth-map visualizer (false-color heatmap), overridable in tests.
+final depthVisualizerProvider = Provider<DepthVisualizerFn>((ref) {
+  return (List<double> depth, int width, int height, double focalPoint,
+          double focalRange) =>
+      AxEngine.generateDepthVisualizerRgba(
+        depth: depth,
+        width: width,
+        height: height,
+        focalPoint: focalPoint,
+        focalRange: focalRange,
+      );
+});
+
+/// Notifier for configuring the active ML model path per task kind.
+class ActiveMlModelNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  Future<bool> setModel(String task, String path) async {
+    final ok = await AxEngine.setActiveMlModel(task: task, path: path);
+    state = ok;
+    return ok;
+  }
+}
+
+/// Riverpod provider for setting the active ML model (e.g. depth, segmentation, face).
+final activeMlModelProvider =
+    NotifierProvider<ActiveMlModelNotifier, bool>(ActiveMlModelNotifier.new);
+
 /// Notifier tracking in-flight AI mask inference.
 class AiMaskInferringNotifier extends Notifier<bool> {
   @override
