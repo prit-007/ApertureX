@@ -65,3 +65,24 @@ ApertureX synthesizes the best UX patterns from Adobe Lightroom Mobile and Googl
 * **Target Output Profile Simulation**: Live on-canvas simulation for sRGB (web), Display P3 (wide gamut), Adobe RGB (photography), and US Web Coated SWOP (CMYK print).
 * **Rendering Intents**: Selectable Perceptual and Relative Colorimetric gamut compression mappings.
 * **High-Visibility Gamut Warning**: Customizable false-color overlay (bright cyan default) pinpointing pixels that clip or exceed target printer gamut boundaries.
+
+### 2.10 Output Sharpening & Media Profiling (ADR 0024)
+* **Dedicated Output Medium Profiling**: Distinct high-boost convolution profiles separating capture/input sharpening from output publishing destinations.
+* **Media Targets**:
+  - `Screen`: 3×3 unsharp mask tuned for modern high-DPI smartphone, tablet, and desktop panels.
+  - `PrintMatte`: 5×5 broader convolution ($R=2$, $\times 1.4$ boost) specifically formulated to counter physical ink absorption and fiber dot gain on fine-art rag paper.
+  - `PrintGlossy`: 3×3 micro-contrast edge kernel matching smooth ink holdout on resin-coated glossy media.
+  - `Web`: Compact thresholded edge sharpening preventing downsampling blur.
+
+### 2.11 Upright Geometry & Auto-Convergence (ADR 0024)
+* **Single-Tap Vertical Correction**: Architectural upright button in `GeometryControls` calculating Sobel edge divergence and automatically applying horizon auto-straighten and keystone vertical perspective without manual grid guessing.
+
+### 2.12 Edge-Aware Auto Masking & Depth Range Slicing (ADR 0024)
+* **Smart Edge-Aware Brush (`MASK_AUTO_BRUSH`)**: Evaluates color contrast against the initial stroke touch point, letting users brush quickly near boundaries while the mask halts cleanly at contrasting edges.
+* **Depth Plane Slicing (`MASK_DEPTH_RANGE`)**: Isolate foreground objects, subject planes, or backgrounds across depth thresholds with feathering controls.
+
+### 2.13 Smart Collections, Perceptual Duplicate Culling & Folder Watching (ADR 0025)
+* **Multi-Rule Dynamic Collections**: Instant query filtering based on ratings, flags, color labels, keywords, camera models, dates, and edit state with built-in presets (*5 Star Picks*, *Flagged Favorites*, *Needs Review*).
+* **64-bit Perceptual Hash Duplicate Culling**: Rapid dHash scanning with popcount Hamming distance clustering ($d \le 6$) to identify, inspect, and bulk-select burst shots and redundant files.
+* **Optical Sharpness & Closed-Eye Detection**: Laplacian variance blur scoring and YuNet eye openness detection flagging blinks on group shots directly on gallery tiles.
+* **Debounced Auto-Import Folder Watching**: Background file monitoring automatically ingesting photos dropped into target directories.

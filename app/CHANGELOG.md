@@ -4,11 +4,23 @@ All notable changes to ApertureX are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [0.3.0] - 2026-10-30
+## [0.3.0] - 2026-10-31
 
-Pro Studio Editing Suite, Internationalization (i18n), HEIC Import, Background Export & DAM.
+Pro Studio Editing Suite, Output Sharpening, Auto Upright, Smart Collections & Culling.
 
 ### Added
+- **Targeted Output Sharpening** — Media-specific convolution profiles for Screen (3×3 unsharp), Print Matte (5×5 broad high-boost), Print Glossy (3×3 micro-contrast), and Web Compression (`outputSharpenMedia`, `outputSharpen` — ADR 0024).
+- **Auto Upright Perspective Geometry** — Sobel vertical divergence gradient analysis automatically leveling horizon tilt and rectifying architectural keystone perspective (ADR 0024).
+- **Edge-Aware Auto Mask Brush** — `MASK_AUTO_BRUSH` dynamically measuring Euclidean color distance to constrain brush strokes to subject boundaries (ADR 0024).
+- **Depth Range Mask** — `MASK_DEPTH_RANGE` slicing monocular depth map planes with smooth feathering (ADR 0024).
+- **Skin-Aware Auto Tone Refinement** — Chromatic skin prior protection ($10^\circ \le H \le 45^\circ$, $R > G > B$) preserving facial warmth, coupled with continuous $p_{99}/p_{99.9}$ highlight clipping recovery and $p_1/p_{0.1}$ shadow lift.
+- **Dynamic Smart Collections** — Multi-rule catalog query engine supporting ratings, flags, color labels, keywords, camera models, dates, and edit state with built-in presets (ADR 0025).
+- **Perceptual Duplicate Detection & Culling** — 64-bit dHash perceptual hashing with popcount Hamming distance clustering for duplicate and burst cleanup (ADR 0025).
+- **Photo Quality Sharpness & Closed-Eye Culling** — Laplacian variance sharpness scoring and YuNet facial landmark eye openness confidence badges (ADR 0025).
+- **Debounced Auto-Import Folder Watcher** — Continuous background directory watcher for tethering and desktop file ingestion with 500ms write debouncing (ADR 0025).
+- **Print Studio & Contact Sheets** — Pure-Dart vector PDF 1.4 generator with custom margins, paper sizes, contact sheet grids, and printer ICC simulation (ADR 0021).
+- **Video Color Studio & Timeline** — Multi-clip sequencing, Razor split, transitions, audio gain/fade envelopes, and Hollywood 3D `.CUBE` LUT export (ADR 0022).
+- **Studio Tethered Shooting** — USB/PTP live telemetry streaming, remote shutter release, and automatic recipe application (ADR 0023).
 - **Internationalization (i18n)** — Full multi-lingual localization across 6 languages (English, Spanish, German, French, Japanese, Chinese) using `flutter_localizations` and `intl`.
 - **HEIC / AVIF Import Pipeline** — ISO-BMFF spatial parsing (`ispe`) with embedded JPEG/EXIF thumbnail and preview extraction in `AxEngine.decodeHeicRgba()` and `FolderGallerySource`.
 - **Background Export Worker** — Dedicated Isolate worker with wake-lock persistence, queueing, and notification progress for uninterrupted background exports.

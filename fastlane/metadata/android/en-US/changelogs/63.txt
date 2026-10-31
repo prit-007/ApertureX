@@ -1,4 +1,13 @@
-v0.3.0 — Pro Studio Suite, i18n & DAM
+v0.3.0 — Pro Studio Suite, Output Sharpening, Upright & Smart Collections
+* Output sharpening profiles: Screen, Matte, Glossy, Web
+* Upright auto geometry: vertical convergence & keystone fix
+* Edge-aware auto brush & depth range masking
+* Skin-aware auto tone with percentile highlight/shadow recovery
+* Smart Collections dynamic query engine with built-in presets
+* Perceptual duplicate detection (64-bit dHash + Hamming)
+* Photo quality sharpness & closed-eye blink culling badges
+* Debounced folder watcher for continuous auto-import
+* Print Studio PDF 1.4 & Video Color Studio 3D .CUBE LUT export
 * Multi-language support (EN, ES, DE, FR, JA, ZH)
 * Direct HEIC / AVIF decoding pipeline
 * Background export queue with persistent worker
@@ -6,5 +15,4 @@ v0.3.0 — Pro Studio Suite, i18n & DAM
 * Draggable split Before/After compare wiper
 * Soft proofing & gamut warnings (sRGB, P3, CMYK)
 * DAM: Keywords & color labels in catalog
-* Modern responsive gallery with text ellipses
 * Desktop MenuBar with shortcuts & a11y polish

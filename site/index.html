@@ -28,12 +28,12 @@
   "name": "ApertureX",
   "applicationCategory": "PhotographyApplication",
   "operatingSystem": "Android, iOS",
-  "softwareVersion": "0.2.4",
+  "softwareVersion": "0.3.0",
   "license": "https://www.gnu.org/licenses/gpl-3.0.html",
   "url": "https://prit-007.github.io/ApertureX/",
   "downloadUrl": "https://github.com/prit-007/ApertureX/releases/latest",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-  "description": "A mobile-native, non-destructive FOSS photo editor with dual Lightroom-style and Snapseed-style shells over one shared recipe."
+  "description": "A mobile-native, non-destructive FOSS photo editor with dual Lightroom-style and Snapseed-style shells, output sharpening, auto upright geometry, and dynamic smart collections over one shared recipe."
 }
 </script>
 
@@ -1629,8 +1629,8 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
 
 <!-- Announcement Bar -->
 <div class="announcement-bar">
-  <span class="announcement-pill">v0.2.4 RELEASED</span>
-  <span><strong>ApertureX v0.2.4 is live!</strong> On-device AI subject detection, embedded depth, 16-bit TIFF export &amp; Android 16 crash fix.</span>
+  <span class="announcement-pill">v0.3.0 RELEASED</span>
+  <span><strong>ApertureX v0.3.0 is live!</strong> Output Sharpening, Upright Auto-Geometry, Smart Collections, 64-bit Perceptual Dedup &amp; Video Color Studio.</span>
   <a href="#changelog" style="color: var(--cyan); font-weight:700; text-decoration:underline;">View Notes &rarr;</a>
 </div>
 
@@ -1651,7 +1651,7 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
     </div>
     
     <div class="nav-actions">
-      <span class="nav-version-badge" id="navVersion">v0.2.4</span>
+      <span class="nav-version-badge" id="navVersion">v0.3.0</span>
       <a class="btn btn-primary" id="navDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK</a>
       <button type="button" class="menu-toggle-btn" id="menuBtn" aria-label="Open navigation menu" aria-controls="mobileDrawer" aria-expanded="false">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -1668,7 +1668,7 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
   <a href="#screens">Interactive Studio Tour</a>
   <a href="#pipeline">Zero-Copy Architecture</a>
   <a href="#changelog">Release Changelog</a>
-  <a class="btn btn-primary" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK (<span id="drawerDlText">v0.2.4</span>)</a>
+  <a class="btn btn-primary" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK (<span id="drawerDlText">v0.3.0</span>)</a>
 </nav>
 
 <main id="main">
@@ -1690,12 +1690,12 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
       <span class="gradient-text">Zero Cloud. Zero Subscriptions.</span>
     </h1>
       <p class="lead">
-      The open-source alternative to Adobe Lightroom &amp; Snapseed. Dual UI shells over one non-destructive recipe, a high-performance <strong>compiled Rust engine</strong>, <strong>on-device AI masks</strong>, <strong>16-bit TIFF export</strong>, and cryptographic <strong>C2PA provenance</strong>.
+      The open-source alternative to Adobe Lightroom &amp; Snapseed. Dual UI shells over one non-destructive recipe, a high-performance <strong>compiled Rust engine</strong>, <strong>output sharpening</strong>, <strong>smart collections</strong>, <strong>on-device AI masks</strong>, <strong>16-bit TIFF export</strong>, and cryptographic <strong>C2PA provenance</strong>.
     </p>
       <div class="hero-cta">
       <a class="btn btn-primary" id="heroDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
-        <span id="heroDlText">Download Universal APK (v0.2.4)</span>
+        <span id="heroDlText">Download Universal APK (v0.3.0)</span>
       </a>
       <a class="btn btn-ghost" href="#screens">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
@@ -1715,24 +1715,24 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
 <section class="hero-specs"><div class="wrap">
 <div class="hero-specs-row">
       <div class="hero-spec-card">
-        <div class="val" style="color:var(--cyan);">6 Master Tabs</div>
-        <div class="label">Zen Progressive Inspector</div>
+        <div class="val" style="color:var(--cyan);">Smart Collections</div>
+        <div class="label">Dynamic Rule Catalog Search</div>
       </div>
       <div class="hero-spec-card">
-        <div class="val" style="color:var(--coral-soft);">Look QR Code</div>
-        <div class="label">Zero-Cloud Preset Standard</div>
+        <div class="val" style="color:var(--coral-soft);">Output Sharpen</div>
+        <div class="label">Screen, Matte, Glossy &amp; Web</div>
       </div>
       <div class="hero-spec-card">
-        <div class="val" style="color:var(--amber);">YuNet + U&sup2;-NetP</div>
-        <div class="label">On-Device AI Subject Masks</div>
+        <div class="val" style="color:var(--amber);">Auto Upright</div>
+        <div class="label">Sobel Perspective Convergence</div>
       </div>
       <div class="hero-spec-card">
         <div class="val" style="color:var(--emerald);">C2PA Verified</div>
         <div class="label">On-Device Provenance Signing</div>
       </div>
       <div class="hero-spec-card">
-        <div class="val" style="color:var(--cyan);">120 FPS GPU</div>
-        <div class="label">Impeller 65³ 3D LUT Atlas</div>
+        <div class="val" style="color:var(--cyan);">64-bit dHash</div>
+        <div class="label">Perceptual Dedup &amp; Culling</div>
       </div>
       <div class="hero-spec-card">
         <div class="val" style="color:var(--text);">200 MP RAM</div>
@@ -1964,6 +1964,78 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
         <div class="bento-tag-row">
           <span class="hud-tag hud-tag-coral">Hardware Filtering</span>
           <span class="hud-tag">Ruby Heatmap</span>
+        </div>
+      </div>
+
+      <!-- Card 11: Output Sharpening & Auto Upright Geometry -->
+      <div class="bento-card glass-card bento-span-6">
+        <div>
+          <div class="bento-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/></svg>
+          </div>
+          <div class="bento-title">Targeted Output Sharpening &amp; Auto Upright</div>
+          <div class="bento-desc">
+            Separate output-stage sharpening from input capture sharpening with targeted radius and halo suppression tuned for <strong>Screen</strong>, <strong>Print Matte</strong>, <strong>Print Glossy</strong>, and <strong>Web</strong>. Paired with Sobel gradient line detection that automatically calculates and corrects keystone divergence in architectural photos.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag">Output Sharpen</span>
+          <span class="hud-tag hud-tag-amber">Sobel Upright Geometry</span>
+          <span class="hud-tag hud-tag-emerald">Print vs. Screen</span>
+        </div>
+      </div>
+
+      <!-- Card 12: Smart Collections & 64-Bit Perceptual Dedup -->
+      <div class="bento-card glass-card bento-span-6">
+        <div>
+          <div class="bento-icon" style="background: rgba(16, 185, 129, 0.12); color: var(--emerald);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polygon points="12 11 14 15 10 15"/></svg>
+          </div>
+          <div class="bento-title">Smart Collections, 64-Bit Dedup &amp; Quality Culling</div>
+          <div class="bento-desc">
+            Build dynamic query collections matching ratings, flags, focal lengths, apertures, ISO, and camera models. Cull thousands of shots effortlessly with 64-bit dHash perceptual fingerprinting, Hamming duplicate clustering, Laplacian variance blur detection, and YuNet eye openness analysis.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-emerald">Smart Rules Query</span>
+          <span class="hud-tag">64-bit dHash Hamming</span>
+          <span class="hud-tag hud-tag-coral">Laplacian Sharpness</span>
+        </div>
+      </div>
+
+      <!-- Card 13: Edge-Aware Auto Mask & Depth Range Slicing -->
+      <div class="bento-card glass-card bento-span-6">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 42, 85, 0.12); color: var(--coral-soft);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
+          </div>
+          <div class="bento-title">Edge-Aware Auto Mask &amp; Depth Range Slicing</div>
+          <div class="bento-desc">
+            Local adjustments snap directly to real subject contours using color contrast Euclidean distance gating. Isolate subjects, backgrounds, or foreground layers cleanly with depth map range masking and feathered falloff transitions.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-coral">Auto-Mask Edge Brush</span>
+          <span class="hud-tag">Depth Range Slicing</span>
+          <span class="hud-tag hud-tag-amber">Feathered Falloff</span>
+        </div>
+      </div>
+
+      <!-- Card 14: Print Studio & Video Color Studio -->
+      <div class="bento-card glass-card bento-span-6">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 179, 0, 0.12); color: var(--amber);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          </div>
+          <div class="bento-title">Pro Print Studio &amp; Video Color Studio</div>
+          <div class="bento-desc">
+            Prepare exhibitions and client deliveries with multi-up contact sheets, printer ICC profile soft-proofing, and high-DPI vector PDF export. Grade video clips with the exact same non-destructive 3D LUT pipeline and trim controls.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-amber">Contact Sheets</span>
+          <span class="hud-tag">ICC Soft-Proof</span>
+          <span class="hud-tag hud-tag-cyan">Video 3D LUT Grading</span>
         </div>
       </div>
     </div>
@@ -2243,22 +2315,29 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
           <!-- Detail 5: Gallery -->
           <div id="demoTextGallery" style="display:none;">
             <span class="hud-tag">STUDIO ASSET MANAGEMENT</span>
-            <h3 style="margin-top:14px;">Fast photo catalog with RAW badges &amp; batch ops</h3>
-            <p>Organize, rate, and filter entire photo libraries smoothly. View RAW, HDR, and edited versions, copy-paste settings recipes across multiple photos, and batch export in seconds.</p>
+            <h3 style="margin-top:14px;">Smart collections, perceptual dedup &amp; quality culling</h3>
+            <p>Organize, rate, and filter entire photo libraries smoothly. Run dynamic multi-rule Smart Collections, detect bursts and near-duplicates via 64-bit dHash, flag blurry shots and closed eyes with YuNet AI, and auto-import new captures directly from watched folders.</p>
             
             <div class="feature-checklist">
               <div class="check-item">
                 <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
                 <div class="check-text">
-                  <strong>Batch Copy &amp; Paste Recipes</strong>
-                  <span>Grade one photo to perfection and instantly apply the exact adjustments across an entire photoshoot.</span>
+                  <strong>Dynamic Smart Collections</strong>
+                  <span>Auto-populate albums with rule queries based on star rating, pick flags, ISO, focal length, aperture, and camera make/model.</span>
                 </div>
               </div>
               <div class="check-item">
                 <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
                 <div class="check-text">
-                  <strong>Non-Destructive Versions</strong>
-                  <span>Keep multiple artistic edits of the same capture without duplicating multi-megabyte storage files.</span>
+                  <strong>64-bit dHash Dedup &amp; AI Culling</strong>
+                  <span>Find duplicate and burst photos with Hamming distance clustering; score sharpness with Laplacian variance and blink detection via YuNet.</span>
+                </div>
+              </div>
+              <div class="check-item">
+                <div class="check-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="check-text">
+                  <strong>Folder Watching &amp; Batch Presets</strong>
+                  <span>Background folder watcher automatically imports studio tether drops; batch copy-paste recipes across hundreds of captures instantly.</span>
                 </div>
               </div>
             </div>
@@ -2344,7 +2423,7 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
       <div class="download-actions">
         <a class="btn btn-primary" id="dlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
-          <span id="dlBtnText">Download APK (v0.2.4)</span>
+          <span id="dlBtnText">Download APK (v0.3.0)</span>
         </a>
         <a class="btn btn-ghost" href="https://github.com/prit-007/ApertureX/releases" target="_blank" rel="noopener">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5 5-5M12 4v12"/></svg>
@@ -2352,7 +2431,7 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
         </a>
       </div>
       
-      <div class="version-badge-lg">Latest Release: <b id="latestVersion">v0.2.4</b> &bull; Signed Universal APK</div>
+      <div class="version-badge-lg">Latest Release: <b id="latestVersion">v0.3.0</b> &bull; Signed Universal APK</div>
       
       <div class="arch-strip">
         <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Android 8.0+ (ARM64, ARMv7, x86_64)</span>
@@ -2380,9 +2459,39 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
     </div>
     
     <div id="changelogFallback" style="display:none;">
-      <!-- v0.2.4 Entry -->
+      <!-- v0.3.0 Entry -->
       <div class="cl-entry">
         <details open>
+          <summary class="cl-toggle">
+            <span>v0.3.0 &mdash; Oct 31, 2026</span>
+            <span class="arrow">&#9662;</span>
+          </summary>
+          <div class="cl-body">
+            <ul class="cl-items cl-added">
+              <li><strong>Targeted Output Sharpening:</strong> Medium-specific unsharp mask (Screen, Print Matte, Print Glossy, Web) with independent radius, halo suppression, and strength separate from capture sharpening.</li>
+              <li><strong>Upright Auto-Geometry:</strong> Sobel gradient line detection automatically detects vertical divergence and levels perspective distortion.</li>
+              <li><strong>Auto Mask (Edge-Aware Brush):</strong> Euclidean color contrast boundary gating prevents brush strokes from bleeding across subject edges.</li>
+              <li><strong>Depth Range Mask:</strong> Sliced 3D depth isolation with feathered transitions using embedded GDepth or monocular depth estimation.</li>
+              <li><strong>Skin-Aware Auto Tone:</strong> Preserves natural human complexions, computes percentile histogram recovery (p99/p99.9 highlights, p1/p0.1 shadows), and applies smart vibrance.</li>
+              <li><strong>Smart Collections:</strong> Dynamic multi-rule catalog query engine (ratings, flags, ISO, focal length, aperture, shutter speed, cameras) with instant presets.</li>
+              <li><strong>64-bit Perceptual Duplicate Detection:</strong> Gradient dHash fingerprinting and Hamming distance clustering for duplicate and burst culling.</li>
+              <li><strong>Photo Quality Culling:</strong> Laplacian variance blur scoring and YuNet facial landmark eye openness analysis.</li>
+              <li><strong>Folder Watching &amp; Auto-Import:</strong> Debounced background directory watcher for tethered ingest and desktop drops.</li>
+              <li><strong>Pro Print Studio:</strong> Multi-up contact sheets, printer ICC profile soft-proofing, page layouts, and high-DPI PDF export.</li>
+              <li><strong>Video Color Studio:</strong> Video trimming and playback with unified 3D LUT grading engine.</li>
+              <li><strong>Studio Camera Tethering:</strong> Sony, Canon, and Nikon PTP/IP and USB tethered shooting with live capture.</li>
+            </ul>
+            <ul class="cl-items cl-fixed" style="margin-top:12px;">
+              <li><strong>Color Engine Precision:</strong> Strict zero-division guards in auto-tone percentile luminance scaling.</li>
+              <li><strong>Memory Safety:</strong> Edge-aware brush contrast masks run in Rust zero-copy scratch buffers without heap allocations.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <!-- v0.2.4 Entry -->
+      <div class="cl-entry">
+        <details>
           <summary class="cl-toggle">
             <span>v0.2.4 &mdash; Oct 20, 2026</span>
             <span class="arrow">&#9662;</span>
@@ -2682,13 +2791,13 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
       filter: (v1, v2) => 'contrast(' + (1 + v1 * 0.004) + ')'
     },
     Detail: {
-      submenus: ['Sharpening', 'Denoise', 'Retouch Healing'],
+      submenus: ['Sharpening', 'Output Sharpen', 'Denoise', 'Retouch Healing'],
       s1: { name: 'Sharpening', min: 0, max: 150, val: 40, format: (v) => Math.round(v) },
       s2: { name: 'Luminance Denoise', min: 0, max: 100, val: 20, format: (v) => Math.round(v) },
       filter: (v1, v2) => 'contrast(' + (1 + v1 * 0.002) + ')'
     },
     Geometry: {
-      submenus: ['Crop & Aspect', 'Auto-Straighten', 'Keystone'],
+      submenus: ['Crop & Aspect', 'Auto Upright', 'Keystone'],
       s1: { name: 'Auto-Straighten', min: -10, max: 10, val: 0.4, format: (v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '° (Hough)' },
       s2: { name: 'Perspective Skew', min: -40, max: 40, val: 0, format: (v) => (v >= 0 ? '+' : '') + Math.round(v) + '°' },
       filter: () => 'none'
@@ -3124,11 +3233,11 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
     } catch (_) {
       if (loading) loading.style.display = 'none';
       if (fallback) fallback.style.display = 'block';
-      if (navVersion) navVersion.textContent = 'v0.2.4';
-      if (latestVersion) latestVersion.textContent = 'v0.2.4';
-      if (heroDlText) heroDlText.textContent = 'Download Universal APK (v0.2.4)';
-      if (dlBtnText) dlBtnText.textContent = 'Download APK (v0.2.4)';
-      if (drawerDlText) drawerDlText.textContent = 'v0.2.4';
+      if (navVersion) navVersion.textContent = 'v0.3.0';
+      if (latestVersion) latestVersion.textContent = 'v0.3.0';
+      if (heroDlText) heroDlText.textContent = 'Download Universal APK (v0.3.0)';
+      if (dlBtnText) dlBtnText.textContent = 'Download APK (v0.3.0)';
+      if (drawerDlText) drawerDlText.textContent = 'v0.3.0';
     }
   }
   fetchReleases();
