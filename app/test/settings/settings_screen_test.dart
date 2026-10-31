@@ -68,11 +68,11 @@ void main() {
     expect(find.text('HELP & ACADEMY'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('ABOUT'),
+      find.text('ABOUT & DEVELOPERS'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('ABOUT'), findsOneWidget);
+    expect(find.text('ABOUT & DEVELOPERS'), findsOneWidget);
   });
 
   testWidgets('SettingsScreen glassmorphic and stylus toggles update providers', (tester) async {
