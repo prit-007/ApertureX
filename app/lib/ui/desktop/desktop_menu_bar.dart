@@ -69,6 +69,26 @@ class DesktopMenuBar extends ConsumerWidget {
                 // Triggered in editor screen
               },
             ),
+            PlatformMenuItem(
+              label: 'Print / Contact Sheet…',
+              shortcut: const SingleActivator(
+                LogicalKeyboardKey.keyP,
+                meta: true,
+              ),
+              onSelected: () {},
+            ),
+            PlatformMenuItem(
+              label: 'Studio Tethered Capture…',
+              shortcut: const SingleActivator(
+                LogicalKeyboardKey.keyT,
+                meta: true,
+              ),
+              onSelected: () {},
+            ),
+            PlatformMenuItem(
+              label: 'Video Color Studio…',
+              onSelected: () {},
+            ),
             const PlatformMenuItemGroup(
               members: [
                 PlatformMenuItem(

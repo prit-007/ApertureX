@@ -18,6 +18,10 @@ import '../features/editor/editor_screen.dart';
 import '../settings/settings_screen.dart';
 import '../ui/common/app_primitives.dart';
 import '../features/onboarding/onboarding_screen.dart';
+import '../features/print/print_model.dart';
+import '../features/print/print_screen.dart';
+import '../features/tether/tether_screen.dart';
+import '../features/video/video_editor_screen.dart';
 import '../settings/onboarding.dart';
 import '../ui/common/app_sheet.dart';
 import 'edit_preview_store.dart';
@@ -248,6 +252,27 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final created = state.selectedCount;
     ref.read(galleryControllerProvider.notifier).clearSelection();
     _snack('Created $created virtual ${created == 1 ? 'copy' : 'copies'}');
+  }
+
+  void _openPrintStudio() {
+    final state = ref.read(galleryControllerProvider);
+    final items = state.selected.map((id) {
+      final matches = state.assets.where((a) => a.id == id);
+      final asset = matches.isNotEmpty ? matches.first : null;
+      return PrintPhotoItem(
+        id: id,
+        filename: id.contains('/') ? id.split('/').last : id,
+        aspectRatio: (asset != null && asset.height > 0)
+            ? asset.width / asset.height
+            : 1.5,
+      );
+    }).toList();
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PrintScreen(items: items),
+      ),
+    );
   }
 
   Future<void> _showColorLabelSheet() async {
@@ -534,6 +559,55 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                     ),
                     icon: const Icon(Icons.settings_outlined),
                   ),
+                  PopupMenuButton<String>(
+                    tooltip: 'Pro Studios',
+                    icon: const Icon(Icons.more_vert),
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'tether',
+                        child: Row(
+                          children: [
+                            Icon(Icons.camera_alt_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Studio Tethered Shooting'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'video',
+                        child: Row(
+                          children: [
+                            Icon(Icons.movie_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Video Color Studio'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'print',
+                        child: Row(
+                          children: [
+                            Icon(Icons.print_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Print & Contact Sheet'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    onSelected: (val) {
+                      if (val == 'tether') {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(builder: (_) => const TetherScreen()),
+                        );
+                      } else if (val == 'video') {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(builder: (_) => const VideoEditorScreen()),
+                        );
+                      } else if (val == 'print') {
+                        _openPrintStudio();
+                      }
+                    },
+                  ),
                 ],
               ],
             ),
@@ -563,6 +637,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   onMergeHdr: _mergeHdr,
                   onColorLabel: _showColorLabelSheet,
                   onKeywords: _showKeywordsSheet,
+                  onPrint: _openPrintStudio,
                 )
               : null,
         ),
@@ -1949,6 +2024,7 @@ class _SelectionBar extends StatelessWidget {
     required this.onMergeHdr,
     this.onColorLabel,
     this.onKeywords,
+    this.onPrint,
   });
 
   /// True only when exactly one photo is selected — the copy target must be
@@ -1970,6 +2046,7 @@ class _SelectionBar extends StatelessWidget {
   final VoidCallback onMergeHdr;
   final VoidCallback? onColorLabel;
   final VoidCallback? onKeywords;
+  final VoidCallback? onPrint;
 
   @override
   Widget build(BuildContext context) {
@@ -2053,6 +2130,15 @@ class _SelectionBar extends StatelessWidget {
                 child: const Tooltip(
                   message: 'HDR Merge',
                   child: Icon(Icons.auto_awesome, size: 18),
+                ),
+              ),
+              const SizedBox(width: Insets.xs),
+              TextButton(
+                key: const Key('print-action'),
+                onPressed: onPrint,
+                child: const Tooltip(
+                  message: 'Print / Contact Sheet',
+                  child: Icon(Icons.print_outlined, size: 18),
                 ),
               ),
             ],

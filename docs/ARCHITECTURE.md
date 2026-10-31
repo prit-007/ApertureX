@@ -1,20 +1,18 @@
 # ApertureX — Architecture
 
-> Status: design + partial implementation (P1/P2 in progress). This document
-> specifies the system the phases build. It now covers the **dual-UI /
-> Lightroom-parity direction** (ADR 0008–0010): two UI shells over one
-> Lightroom-aligned recipe, preset/LUT import, masking, and an optional on-device
-> ML module. It is implementation-guiding, not an implementation. For the
-> **current build status and the gap between this design and the tree**, see
-> [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
+> Status: Production-grade architecture (P0–P6 shipped). This document
+> specifies the ApertureX system: dual-UI shells over one Lightroom-aligned
+> recipe, 3D LUT shader pipeline, rawler-based RAW engine, on-device AI Neural
+> Forge, Print & Contact Sheet Studio, Video Color Studio, and Studio Tethered Shooting.
 
-> **Implementation snapshot (kept intentionally short).** The point-wise colour
-> pipeline, dual-shell skeleton, geometry (CPU + GPU live warp), spatial passes,
-> preset/LUT import, histogram, and rawler-based RAW decode are **built**. The
-> banded full-res export is **built and wired** (single `exportFull` bridge call,
-> cancellable; streamed encode still pending). The zero-copy texture display and
-> native ROI decoders/tile pyramid are **built but not yet wired end-to-end**.
-> See the plan for the issue-tracked breakdown.
+> **Implementation snapshot.** The point-wise color pipeline, dual-shell skeleton,
+> geometry (CPU + GPU live warp), spatial passes, preset/LUT import, live histogram,
+> and rawler-based RAW engine are **built and shipped**. The banded full-res export
+> is **built and wired** (single `exportFull` bridge call with tile-streamed encoding,
+> cancellable, with strict RAM caps). Zero-copy texture rendering via `SurfaceProducer` /
+> `bindPreviewSurface` is **wired into the viewport engine**. Professional studio modules
+> (Print & Contact Sheet PDF engine, Video Color Studio with 3D .CUBE LUT export, and
+> Studio Tethered Shooting with live PTP camera telemetry) are **fully operational**.
 
 ---
 
@@ -667,6 +665,25 @@ For open-source distribution outside Google Play (e.g., GitHub Releases, direct 
 ## 29. Desktop Platform MenuBar & Native System Integration
 
 - **Native Menus (`DesktopMenuBar`):** Automatically injects native `PlatformMenuBar` when running on macOS, Linux, or Windows.
-- **Keyboard Shortcuts:** Integrates macOS Cmd and Windows/Linux Ctrl keybindings for File (Open, Export), Edit (Undo, Redo, Copy/Paste Settings), and View (Curtain Wiper Compare, Reset Zoom).
+- **Keyboard Shortcuts:** Integrates macOS Cmd and Windows/Linux Ctrl keybindings for File (Open, Export, Print, Tether), Edit (Undo, Redo, Copy/Paste Settings), and View (Curtain Wiper Compare, Reset Zoom).
+
+## 30. Print Studio & Contact Sheet PDF Pipeline (ADR 0021)
+
+- **Pure-Dart Binary PDF 1.4 Generator (`PrintPdfGenerator`):** Multi-page PDF generator embedding lossless JPEG streams (`/DCTDecode`), custom page sizes (A4, A3, Letter, Legal, 4×6, 5×7, 8×10, 11×14, Super B), millimeter margins, and vector crop marks.
+- **Contact Sheet Layout Engine:** Multi-row/column grids with vector cell borders, pagination, and EXIF metadata captions.
+- **Soft-Proof Integration:** Directly linked to `SoftProofState` for simulated paper white point, ink DMax black limitation, and gamut warning overlay.
+
+## 31. Video Color Grading & Non-Destructive Trim Studio (ADR 0022)
+
+- **Video Transport & SMPTE Timecode (`VideoClip`, `VideoPlaybackState`):** Sub-frame accurate trim in/out markers, frame stepping, looping, and variable speed playback.
+- **Unified 3D LUT Shader Engine:** Evaluates the `EditRecipe` pipeline over video frames using the Impeller shader chain.
+- **Industry NLE Interoperability:** Generates standard 3D `.CUBE` LUT files (17³, 33³ Pro, 65³ Master) directly compatible with DaVinci Resolve, Adobe Premiere Pro, and Final Cut Pro.
+
+## 32. Studio Tethered Shooting & PTP Camera Link (ADR 0023)
+
+- **Live Camera Telemetry (`CameraTelemetry`):** Real-time USB / PTP/IP telemetry streaming shutter speed, aperture, ISO, battery %, remaining card capacity, and lens model.
+- **Remote Shutter Release:** Software trigger with tactile haptic pulse and high-speed asset transfer.
+- **Automated Studio Session Workflow:** Automatic sequence numbering (`[Session]_[Seq4].ARW`), destination routing, auto-selection of latest incoming capture, and automatic recipe/look application.
+
 
 
