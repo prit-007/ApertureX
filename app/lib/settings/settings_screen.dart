@@ -378,12 +378,12 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.info_outline),
                 title: const Text('About ApertureX'),
-                subtitle: const Text('Version 0.2.0 · Pro-level FOSS Photo Editor'),
+                subtitle: const Text('Version 0.3.5 · Pro-level FOSS Photo Editor'),
                 onTap: () {
                   showAboutDialog(
                     context: context,
                     applicationName: 'ApertureX',
-                    applicationVersion: '0.2.0',
+                    applicationVersion: '0.3.5',
                     applicationLegalese: 'Copyright © 2026 ApertureX Contributors\n\n$kOfflineClaim',
                   );
                 },
@@ -397,7 +397,7 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => showLicensePage(
                   context: context,
                   applicationName: 'ApertureX',
-                  applicationVersion: '0.2.0',
+                  applicationVersion: '0.3.5',
                 ),
               ),
               const Divider(height: 1),

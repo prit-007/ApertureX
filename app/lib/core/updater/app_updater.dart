@@ -4,7 +4,7 @@ import 'app_update_model.dart';
 
 /// Client for checking GitHub Releases and downloading OTA updates for ApertureX.
 class AppUpdater {
-  static const String currentVersion = '0.2.0';
+  static const String currentVersion = '0.3.5';
   static const String githubRepo = 'prit-007/ApertureX';
 
   /// Compares two semantic version strings (e.g., 'v0.2.0' vs '0.1.0').

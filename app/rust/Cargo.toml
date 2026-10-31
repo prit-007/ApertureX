@@ -1,6 +1,6 @@
 [package]
 name = "rust_lib_aperturex"
-version = "0.3.0"
+version = "0.3.5"
 edition = "2021"
 
 [lib]

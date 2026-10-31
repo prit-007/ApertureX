@@ -5,7 +5,7 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status (2026-10-30 — v0.3.0 Release):**
+**Current status (2026-10-31 — v0.3.5 Release):**
 
 - **P-1 ✅ · P0 ✅** — spike folded into `app/`; foundations green (repo, CI,
   Material 3 shell, bridge typed + byte-buffer round-trip).

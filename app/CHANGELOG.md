@@ -4,9 +4,9 @@ All notable changes to ApertureX are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [0.3.0] - 2026-10-31
+## [0.3.5] - 2026-10-31
 
-Pro Studio Editing Suite, Output Sharpening, Auto Upright, Smart Collections & Culling.
+Pro Studio Editing Suite, Output Sharpening, Auto Upright, Smart Collections, Video Suite & Culling.
 
 ### Added
 - **Targeted Output Sharpening** — Media-specific convolution profiles for Screen (3×3 unsharp), Print Matte (5×5 broad high-boost), Print Glossy (3×3 micro-contrast), and Web Compression (`outputSharpenMedia`, `outputSharpen` — ADR 0024).
@@ -33,7 +33,7 @@ Pro Studio Editing Suite, Output Sharpening, Auto Upright, Smart Collections & C
 - **Accessibility (a11y) Polish** — Comprehensive Semantics labels and hints across Editor and Gallery, with WCAG 44×44dp minimum touch targets.
 
 ### Changed
-- **Version bumped to 0.3.0 across pubspec.yaml, Cargo.toml, and documentation.**
+- **Version bumped to 0.3.5 across pubspec.yaml, Cargo.toml, and documentation.**
 - **Top bar ergonomics** — Enhanced Undo/Redo button semantics with long-press history inspection and active mode immersion.
 
 ## [0.2.5] - 2026-10-20
