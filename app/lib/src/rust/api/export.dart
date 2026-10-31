@@ -401,6 +401,8 @@ class ExportSpec {
   final double shaderParam1;
   final double shaderParam2;
   final double shaderParam3;
+  final int outputSharpenMedia;
+  final double outputSharpen;
   final bool removeChromaticAberration;
   final double defringePurpleAmount;
   final double defringePurpleHueMin;
@@ -494,6 +496,8 @@ class ExportSpec {
     required this.shaderParam1,
     required this.shaderParam2,
     required this.shaderParam3,
+    required this.outputSharpenMedia,
+    required this.outputSharpen,
     required this.removeChromaticAberration,
     required this.defringePurpleAmount,
     required this.defringePurpleHueMin,
@@ -569,6 +573,8 @@ class ExportSpec {
       shaderParam1.hashCode ^
       shaderParam2.hashCode ^
       shaderParam3.hashCode ^
+      outputSharpenMedia.hashCode ^
+      outputSharpen.hashCode ^
       removeChromaticAberration.hashCode ^
       defringePurpleAmount.hashCode ^
       defringePurpleHueMin.hashCode ^
@@ -642,6 +648,8 @@ class ExportSpec {
           shaderParam1 == other.shaderParam1 &&
           shaderParam2 == other.shaderParam2 &&
           shaderParam3 == other.shaderParam3 &&
+          outputSharpenMedia == other.outputSharpenMedia &&
+          outputSharpen == other.outputSharpen &&
           removeChromaticAberration == other.removeChromaticAberration &&
           defringePurpleAmount == other.defringePurpleAmount &&
           defringePurpleHueMin == other.defringePurpleHueMin &&

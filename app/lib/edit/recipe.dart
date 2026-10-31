@@ -52,6 +52,8 @@ class EditRecipe {
     this.sharpenRadius = 1.0,
     this.sharpenDetail = 0.25,
     this.sharpenMasking = 0,
+    this.outputSharpenMedia = 0,
+    this.outputSharpen = 0,
     this.denoiseLuma = 0,
     this.denoiseChroma = 0,
     this.aiDenoise = 0,
@@ -154,6 +156,8 @@ class EditRecipe {
       sharpenRadius: (json['sharpenRadius'] as num?)?.toDouble() ?? 1.0,
       sharpenDetail: (json['sharpenDetail'] as num?)?.toDouble() ?? 0.25,
       sharpenMasking: asDouble('sharpenMasking'),
+      outputSharpenMedia: (json['outputSharpenMedia'] as num?)?.toInt() ?? 0,
+      outputSharpen: asDouble('outputSharpen'),
       denoiseLuma: asDouble('denoiseLuma'),
       denoiseChroma: asDouble('denoiseChroma'),
       aiDenoise: asDouble('aiDenoise'),
@@ -298,6 +302,8 @@ class EditRecipe {
   final double sharpenRadius; // spatial pass, 0.5..3.0, neutral 1.0.
   final double sharpenDetail; // spatial pass, 0..1, neutral 0.25.
   final double sharpenMasking; // spatial pass, 0..1, neutral 0.
+  final int outputSharpenMedia; // 0=screen, 1=printMatte, 2=printGlossy, 3=web
+  final double outputSharpen; // output sharpening amount, 0..1, neutral 0.
   final double denoiseLuma; // spatial pass, neutral 0.
   final double denoiseChroma; // spatial pass, neutral 0.
   final double aiDenoise; // neural spatial pass, 0..1, neutral 0.
@@ -416,6 +422,8 @@ class EditRecipe {
     double? sharpenRadius,
     double? sharpenDetail,
     double? sharpenMasking,
+    int? outputSharpenMedia,
+    double? outputSharpen,
     double? denoiseLuma,
     double? denoiseChroma,
     double? aiDenoise,
@@ -505,6 +513,8 @@ class EditRecipe {
       sharpenRadius: sharpenRadius ?? this.sharpenRadius,
       sharpenDetail: sharpenDetail ?? this.sharpenDetail,
       sharpenMasking: sharpenMasking ?? this.sharpenMasking,
+      outputSharpenMedia: outputSharpenMedia ?? this.outputSharpenMedia,
+      outputSharpen: outputSharpen ?? this.outputSharpen,
       denoiseLuma: denoiseLuma ?? this.denoiseLuma,
       denoiseChroma: denoiseChroma ?? this.denoiseChroma,
       aiDenoise: aiDenoise ?? this.aiDenoise,
@@ -598,6 +608,8 @@ class EditRecipe {
     'sharpenRadius': sharpenRadius,
     'sharpenDetail': sharpenDetail,
     'sharpenMasking': sharpenMasking,
+    'outputSharpenMedia': outputSharpenMedia,
+    'outputSharpen': outputSharpen,
     'denoiseLuma': denoiseLuma,
     'denoiseChroma': denoiseChroma,
     'aiDenoise': aiDenoise,
@@ -690,6 +702,8 @@ class EditRecipe {
       other.sharpenRadius == sharpenRadius &&
       other.sharpenDetail == sharpenDetail &&
       other.sharpenMasking == sharpenMasking &&
+      other.outputSharpenMedia == outputSharpenMedia &&
+      other.outputSharpen == outputSharpen &&
       other.denoiseLuma == denoiseLuma &&
       other.denoiseChroma == denoiseChroma &&
       other.aiDenoise == aiDenoise &&
@@ -781,6 +795,8 @@ class EditRecipe {
       sharpenRadius,
       sharpenDetail,
       sharpenMasking,
+      outputSharpenMedia,
+      outputSharpen,
       denoiseLuma,
       denoiseChroma,
       aiDenoise,

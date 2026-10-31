@@ -230,6 +230,13 @@ class MaskControls extends ConsumerWidget {
                 label: const Text('Brush +', style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton.icon(
+                key: const Key('mask-add-autobrush'),
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                onPressed: () => _addMask(context, ref, MaskKind.autoBrush),
+                icon: const Icon(Icons.auto_fix_normal, size: 16),
+                label: const Text('Auto Brush +', style: TextStyle(fontSize: 12)),
+              ),
+              OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                 onPressed: () => _addMask(context, ref, MaskKind.linear),
                 icon: const Icon(Icons.gradient, size: 16),
@@ -344,6 +351,13 @@ class MaskControls extends ConsumerWidget {
                 onPressed: () => _addMask(context, ref, MaskKind.luminance),
                 icon: const Icon(Icons.dark_mode, size: 16),
                 label: const Text('Darks +', style: TextStyle(fontSize: 12)),
+              ),
+              OutlinedButton.icon(
+                key: const Key('mask-add-depth-range'),
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                onPressed: () => _addMask(context, ref, MaskKind.depthRange),
+                icon: const Icon(Icons.layers_outlined, size: 16),
+                label: const Text('Depth Range +', style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton.icon(
                 key: const Key('mask-add-depth'),
@@ -772,6 +786,8 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.sky, child: Text('Sky')),
                     PopupMenuItem(value: MaskKind.luminance, child: Text('Luminance')),
                     PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
+                    PopupMenuItem(value: MaskKind.autoBrush, child: Text('Auto Brush')),
+                    PopupMenuItem(value: MaskKind.depthRange, child: Text('Depth Range')),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.add),
                   child: const Chip(
@@ -792,6 +808,8 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.sky, child: Text('Sky')),
                     PopupMenuItem(value: MaskKind.luminance, child: Text('Luminance')),
                     PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
+                    PopupMenuItem(value: MaskKind.autoBrush, child: Text('Auto Brush')),
+                    PopupMenuItem(value: MaskKind.depthRange, child: Text('Depth Range')),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.subtract),
                   child: const Chip(
@@ -812,6 +830,8 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.sky, child: Text('Sky')),
                     PopupMenuItem(value: MaskKind.luminance, child: Text('Luminance')),
                     PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
+                    PopupMenuItem(value: MaskKind.autoBrush, child: Text('Auto Brush')),
+                    PopupMenuItem(value: MaskKind.depthRange, child: Text('Depth Range')),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.intersect),
                   child: const Chip(
@@ -1834,6 +1854,22 @@ class MaskControls extends ConsumerWidget {
         joinOp: joinOp,
         saturation: 0.2,
       ),
+      MaskKind.autoBrush => AdjustmentLayer(
+        maskKind: MaskKind.autoBrush,
+        maskParams: const [0.06, 0.25, 0.25, 0.5, 0.5, 0.5, 0],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        exposure: exposure ?? 0.6,
+      ),
+      MaskKind.depthRange => AdjustmentLayer(
+        maskKind: MaskKind.depthRange,
+        maskParams: const [0.2, 0.6, 0.1],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        exposure: exposure ?? 0.5,
+      ),
     };
 
     final idx = ref.read(recipeControllerProvider).recipe.layers.length;
@@ -1869,6 +1905,8 @@ class MaskControls extends ConsumerWidget {
     MaskKind.luminance => Icons.dark_mode,
     MaskKind.bitmap => Icons.auto_awesome,
     MaskKind.colorRange => Icons.color_lens,
+    MaskKind.autoBrush => Icons.auto_fix_normal,
+    MaskKind.depthRange => Icons.layers_outlined,
   };
 
   static const List<String> _zoneRomans = [

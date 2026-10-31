@@ -202,6 +202,9 @@ pub fn auto_tone(jpeg: Vec<u8>) -> Option<HashMap<String, f64>> {
     let mut r_sum = 0.0f64;
     let mut g_sum = 0.0f64;
     let mut b_sum = 0.0f64;
+    let mut sat_sum = 0.0f64;
+    let mut skin_luma_sum = 0.0f64;
+    let mut skin_count = 0usize;
     let mut count = 0usize;
 
     let mut lumas = Vec::with_capacity(n / step);
@@ -216,6 +219,31 @@ pub fn auto_tone(jpeg: Vec<u8>) -> Option<HashMap<String, f64>> {
         r_sum += r;
         g_sum += g;
         b_sum += b;
+
+        let max_c = r.max(g).max(b);
+        let min_c = r.min(g).min(b);
+        let sat = if max_c > 0.0 {
+            (max_c - min_c) / max_c
+        } else {
+            0.0
+        };
+        sat_sum += sat;
+
+        // Skin-tone detection prior (warm reddish-golden tones)
+        if r > 0.25
+            && g > 0.12
+            && b > 0.08
+            && r > g
+            && g > b
+            && (r - g) >= 0.03
+            && (r - g) <= 0.40
+            && (g - b) >= 0.015
+            && (g - b) <= 0.30
+        {
+            skin_luma_sum += luma;
+            skin_count += 1;
+        }
+
         count += 1;
     }
 
@@ -227,34 +255,70 @@ pub fn auto_tone(jpeg: Vec<u8>) -> Option<HashMap<String, f64>> {
     let variance = luma_sq_sum / count as f64 - mean_luma * mean_luma;
     let std_luma = variance.max(0.0).sqrt();
 
-    // Percentiles for whites/blacks
+    // Percentiles for clipping and whites/blacks
     lumas.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let p1_idx = (count as f64 * 0.01).round() as usize - 1;
-    let p99_idx = (count as f64 * 0.99).round() as usize - 1;
-    let p1 = lumas.get(p1_idx.min(count - 1)).copied().unwrap_or(0.0);
-    let p99 = lumas.get(p99_idx.min(count - 1)).copied().unwrap_or(1.0);
+    let p0_1_idx = ((count as f64 * 0.001).round() as usize).min(count - 1);
+    let p1_idx = ((count as f64 * 0.01).round() as usize).min(count - 1);
+    let p99_idx = ((count as f64 * 0.99).round() as usize).min(count - 1);
+    let p99_9_idx = ((count as f64 * 0.999).round() as usize).min(count - 1);
+
+    let p0_1 = lumas.get(p0_1_idx).copied().unwrap_or(0.0);
+    let p1 = lumas.get(p1_idx).copied().unwrap_or(0.0);
+    let p99 = lumas.get(p99_idx).copied().unwrap_or(1.0);
+    let p99_9 = lumas.get(p99_9_idx).copied().unwrap_or(1.0);
 
     // Target mean luminance ~0.18 (mid-gray)
     let target_luma = 0.18;
-    let exposure = (target_luma / mean_luma.max(0.001)).log2().clamp(-2.0, 2.0);
+    let mut exposure = (target_luma / mean_luma.max(0.001)).log2().clamp(-2.0, 2.0);
+
+    // Skin-tone awareness: protect portrait highlights from blowing out
+    let has_skin = skin_count > (count / 100);
+    if has_skin {
+        let skin_mean = skin_luma_sum / skin_count as f64;
+        let skin_target_exposure = (0.52 / skin_mean.max(0.05)).log2().clamp(-1.5, 1.5);
+        // Blend general exposure with skin-safe exposure
+        exposure = exposure * 0.4 + skin_target_exposure * 0.6;
+    }
 
     // Contrast based on std deviation
     let contrast = (std_luma * 2.0 - 0.3).clamp(-0.5, 0.5);
 
-    // Whites/blacks from percentiles
-    let whites = ((p99 - 0.9) * 2.0).clamp(-1.0, 1.0);
-    let blacks = ((0.1 - p1) * 2.0).clamp(-1.0, 1.0);
+    // Whites and blacks recovery from clipping percentiles
+    let whites = ((p99_9 - 0.96) * 2.5).clamp(-1.0, 0.5);
+    let blacks = ((0.04 - p0_1) * 2.5).clamp(-0.5, 1.0);
 
-    // Highlights/shadows recovery
-    let highlights = if p99 > 0.95 { -0.3 } else { 0.0 };
-    let shadows = if p1 < 0.05 { 0.3 } else { 0.0 };
+    // Continuous highlight/shadow recovery based on histogram clipping
+    let highlights = if p99 > 0.90 || p99_9 > 0.98 {
+        (-((p99 - 0.88).max(0.0) * 4.0)).clamp(-1.0, 0.0)
+    } else {
+        0.0
+    };
+    let shadows = if p1 < 0.08 || p0_1 < 0.02 {
+        ((0.10 - p1).max(0.0) * 4.0).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
 
-    // Temperature/tint from color balance
+    // Temperature/tint from color balance with skin tone protection
     let mean_r = r_sum / count as f64;
     let mean_g = g_sum / count as f64;
     let mean_b = b_sum / count as f64;
-    let temperature = ((mean_r - mean_b) * 2.0).clamp(-0.5, 0.5);
-    let tint = ((mean_g - (mean_r + mean_b) / 2.0) * 2.0).clamp(-0.5, 0.5);
+    let mut temperature = ((mean_r - mean_b) * 2.0).clamp(-0.5, 0.5);
+    let mut tint = ((mean_g - (mean_r + mean_b) / 2.0) * 2.0).clamp(-0.5, 0.5);
+
+    if has_skin {
+        // Prevent skin tones from turning sickly green or cold blue
+        temperature = (temperature * 0.5 + 0.04).clamp(-0.3, 0.4);
+        tint = tint.clamp(-0.15, 0.15);
+    }
+
+    // Vibrance boost for muted scenes
+    let mean_sat = sat_sum / count as f64;
+    let vibrance = if mean_sat < 0.30 {
+        ((0.30 - mean_sat) * 1.5).clamp(0.0, 0.4)
+    } else {
+        0.0
+    };
 
     let mut map = HashMap::new();
     map.insert("exposure".to_string(), exposure);
@@ -263,6 +327,9 @@ pub fn auto_tone(jpeg: Vec<u8>) -> Option<HashMap<String, f64>> {
     map.insert("shadows".to_string(), shadows);
     map.insert("whites".to_string(), whites);
     map.insert("blacks".to_string(), blacks);
+    map.insert("temperature".to_string(), temperature);
+    map.insert("tint".to_string(), tint);
+    map.insert("vibrance".to_string(), vibrance);
     map.insert("temperature".to_string(), temperature);
     map.insert("tint".to_string(), tint);
 

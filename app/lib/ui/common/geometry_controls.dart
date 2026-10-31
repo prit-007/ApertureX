@@ -88,6 +88,71 @@ class GeometryControls extends ConsumerWidget {
       label: const Text('Auto', style: TextStyle(fontWeight: FontWeight.w600)),
     );
 
+    final autoUprightBtn = FilledButton.tonalIcon(
+      key: const Key('geometry-auto-upright'),
+      style: FilledButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        backgroundColor: scheme.secondary.withValues(alpha: 0.15),
+        foregroundColor: scheme.secondary,
+        side: BorderSide(color: scheme.secondary.withValues(alpha: 0.4)),
+      ),
+      onPressed: () async {
+        final bytes = ref.read(activeImageBytesProvider);
+        if (bytes == null) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No photo loaded for auto-upright')),
+          );
+          return;
+        }
+        try {
+          final decoded = await AxEngine.decodeAnalysisProxy(bytes);
+          final upright = await AxEngine.detectUpright(
+            decoded.rgba,
+            width: decoded.width,
+            height: decoded.height,
+          );
+          final hasStraighten = upright.straightenAngle.abs() >= 0.1;
+          final hasPerspective = upright.verticalPerspective.abs() >= 0.02;
+          if (hasStraighten || hasPerspective) {
+            HapticFeedback.selectionClick();
+            if (hasStraighten) {
+              notifier.setStraighten(upright.straightenAngle.clamp(-45.0, 45.0));
+            }
+            if (hasPerspective) {
+              notifier.setPerspectiveY(upright.verticalPerspective.clamp(-1.0, 1.0));
+            }
+            notifier.commit(label: 'Auto Upright');
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Upright: ${upright.straightenAngle > 0 ? '+' : ''}${upright.straightenAngle.toStringAsFixed(1)}° straighten, ${(upright.verticalPerspective * 100).toStringAsFixed(0)}% vert perspective',
+                  ),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          } else if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Geometry is already aligned'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Auto-upright failed: $e')),
+            );
+          }
+        }
+      },
+      icon: const Icon(Icons.architecture, size: 16),
+      label: const Text('Upright', style: TextStyle(fontWeight: FontWeight.w600)),
+    );
+
     final autoFrameBtn = FilledButton.tonalIcon(
       key: const Key('geometry-auto-frame'),
       style: FilledButton.styleFrom(
@@ -314,6 +379,8 @@ class GeometryControls extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               autoStraightenBtn,
+              const SizedBox(width: 8),
+              autoUprightBtn,
               const SizedBox(width: 8),
               autoFrameBtn,
               const SizedBox(width: 8),

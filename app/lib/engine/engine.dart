@@ -600,6 +600,17 @@ class AxEngine {
     height: height,
   );
 
+  /// Automatically detects upright perspective corrections (straighten + keystone tilt).
+  static Future<rust_geometry.UprightResult> detectUpright(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+  }) => rust_geometry.geometryDetectUpright(
+    rgba: rgba,
+    width: width,
+    height: height,
+  );
+
   /// Automatically detects sky horizon, transition feather, and blue chromaticity weight from [rgba] pixels.
   static Future<rust_mask.DetectedSky?> detectSky(
     Uint8List rgba, {
@@ -1063,6 +1074,8 @@ class AxEngine {
       sharpenRadius: spatial.sharpenRadius,
       sharpenDetail: spatial.sharpenDetail,
       sharpenMasking: spatial.sharpenMasking,
+      outputSharpenMedia: spatial.outputSharpenMedia,
+      outputSharpen: spatial.outputSharpen,
       denoiseLuma: spatial.denoiseLuma,
       denoiseChroma: spatial.denoiseChroma,
       dehaze: spatial.dehaze,

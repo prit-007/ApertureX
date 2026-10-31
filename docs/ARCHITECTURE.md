@@ -690,5 +690,25 @@ For open-source distribution outside Google Play (e.g., GitHub Releases, direct 
 - **Remote Shutter Release:** Software trigger with tactile haptic pulse and high-speed asset transfer.
 - **Automated Studio Session Workflow:** Automatic sequence numbering (`[Session]_[Seq4].ARW`), destination routing, auto-selection of latest incoming capture, and automatic recipe/look application.
 
+## 33. Output Sharpening, Upright Geometry & Advanced Masking (ADR 0024)
+
+- **Targeted Output Sharpening (`OutputSharpenMedia`):** Media-specific spatial kernels separate from capture/detail sharpening:
+  - `Screen`: 3×3 unsharp mask with halo suppression for high-DPI displays.
+  - `PrintMatte`: 5×5 high-boost convolution ($R=2$, $\times 1.4$ gain) compensating for paper fiber ink bleed and absorption.
+  - `PrintGlossy`: 3×3 high-frequency micro-contrast kernel with threshold masking for sharp ink holdout.
+  - `Web`: Sub-pixel edge crisping optimized for post-downsampling compression resilience.
+- **Upright Auto Geometry (`AxEngine.detectUpright`):** Sobel gradient convergence analysis measuring vertical divergence angles ($\theta_{left}, \theta_{right}$), automatically leveling horizon tilt and rectifying architectural keystone perspective.
+- **Edge-Aware Auto Mask (`MASK_AUTO_BRUSH`):** Euclidean RGB color-distance gating against stroke seed pixels ($1.0 - \text{smoothstep}(0.4 \tau, \tau, \Delta_{rgb})$), cleanly constraining brush adjustments to subject boundaries.
+- **Depth Range Masking (`MASK_DEPTH_RANGE`):** Slices depth map planes ($d_{min} \le z \le d_{max}$) with configurable feathering for subject isolation.
+- **Skin-Aware Auto Tone:** Hue-constrained skin-tone detection priors ($10^\circ \le H \le 45^\circ$, $R > G > B$) preserving facial warmth, coupled with continuous $p_{99}/p_{99.9}$ highlight clipping recovery and $p_1/p_{0.1}$ shadow lift.
+
+## 34. Library Organization, Perceptual Culling & Folder Watching (ADR 0025)
+
+- **Dynamic Smart Collections (`SmartCollection`, `SmartRule`):** Query-driven collections supporting multi-field predicates (`rating`, `flag`, `colorLabel`, `keyword`, `cameraModel`, `dateRange`, `hasEdits`) evaluated in pure Dart over catalog entries with `all` (AND) and `any` (OR) combinators.
+- **Perceptual Difference Hashing (`DuplicateDetector`):** 64-bit dHash generated via 9×8 grayscale box downsampling and adjacent horizontal gradient comparison. Fast popcount Hamming distance clustering groups exact copies and burst sequences ($d \le 6$) into `DuplicateGroup` records for one-tap batch culling.
+- **Photo Quality Sharpness & Closed-Eye Culling (`PhotoQualityEvaluator`):** Laplacian variance $\sigma^2(\nabla^2 I)$ detects out-of-focus captures below threshold ($45.0$). Facial landmark aspect ratio analysis detects closed eyes and blinks ($< 0.2$), badging photo tiles and enabling bulk culling.
+- **Debounced Folder Watcher (`AutoImportFolderWatcher`):** Background filesystem watcher (`Directory.watch`) filtering supported RAW and raster formats with 500ms write-settle debouncing, automatically notifying the gallery controller and auto-importing new files.
+
+
 
 

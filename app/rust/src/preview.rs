@@ -664,6 +664,8 @@ fn bake_base(
         shader_param1: spec.shader_param1,
         shader_param2: spec.shader_param2,
         shader_param3: spec.shader_param3,
+        output_sharpen_media: spec.output_sharpen_media,
+        output_sharpen: spec.output_sharpen,
     };
     let optics_params = OpticsParams {
         remove_chromatic_aberration: spec.remove_chromatic_aberration,

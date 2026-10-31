@@ -1005,7 +1005,43 @@ class _NodesPainter extends CustomPainter {
 
         case MaskKind.luminance:
         case MaskKind.colorRange:
+        case MaskKind.depthRange:
           break;
+
+        case MaskKind.autoBrush:
+          final p = l.maskParams;
+          if (p.length >= 7) {
+            final baseR = p[0] * t.fitted.width * t.scale;
+            final count = p[6].toInt();
+            if (count > 0 && p.length >= 7 + count * 3) {
+              final pts = p.sublist(7, 7 + count * 3);
+              final ruby = rubyColor.withValues(alpha: selected ? 0.35 : 0.20);
+              final strokePaint = Paint()
+                ..color = ruby
+                ..style = PaintingStyle.stroke
+                ..strokeCap = StrokeCap.round
+                ..strokeJoin = StrokeJoin.round;
+
+              for (var j = 0; j < pts.length; j += 3) {
+                final x0 = pts[j];
+                final y0 = pts[j + 1];
+                final pr0 = pts[j + 2];
+                if (x0 < 0 || y0 < 0) continue;
+                final p0 = t.toScreen(Offset(x0, y0));
+
+                if (j + 3 < pts.length && pts[j + 3] >= 0 && pts[j + 4] >= 0) {
+                  final p1 = t.toScreen(Offset(pts[j + 3], pts[j + 4]));
+                  final pr1 = pts[j + 5];
+                  final pr = (pr0 + pr1) / 2;
+                  strokePaint.strokeWidth = math.max(4.0, baseR * 2 * pr.clamp(0.2, 1.0));
+                  canvas.drawLine(p0, p1, strokePaint);
+                } else {
+                  final effR = math.max(2.0, baseR * pr0.clamp(0.2, 1.0));
+                  canvas.drawCircle(p0, effR, Paint()..color = ruby);
+                }
+              }
+            }
+          }
 
         case MaskKind.bitmap:
           final blob = l.maskBlob;

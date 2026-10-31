@@ -331,6 +331,8 @@ class NodeControls extends ConsumerWidget {
     MaskKind.luminance => Icons.dark_mode,
     MaskKind.bitmap => Icons.auto_awesome,
     MaskKind.colorRange => Icons.color_lens_outlined,
+    MaskKind.autoBrush => Icons.auto_fix_normal,
+    MaskKind.depthRange => Icons.layers_outlined,
   };
 }
 

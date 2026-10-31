@@ -32,6 +32,8 @@ int baseKeyOf(EditRecipe r) => Object.hash(
     r.sharpenRadius,
     r.sharpenDetail,
     r.sharpenMasking,
+    r.outputSharpenMedia,
+    r.outputSharpen,
     r.denoiseLuma,
     r.denoiseChroma,
     r.removeChromaticAberration,

@@ -6,6 +6,8 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `eq`, `fmt`
+
 /// Flips horizontally/vertically.
 Future<GeometryResult> geometryFlip({
   required List<int> rgba,
@@ -143,6 +145,17 @@ Future<double> geometryDetectStraightenAngle({
   height: height,
 );
 
+/// Automatically detects upright perspective corrections (straighten + keystone tilt).
+Future<UprightResult> geometryDetectUpright({
+  required List<int> rgba,
+  required int width,
+  required int height,
+}) => RustLib.instance.api.crateApiGeometryGeometryDetectUpright(
+  rgba: rgba,
+  width: width,
+  height: height,
+);
+
 /// Rotated/cropped result: pixels plus the new dimensions.
 class GeometryResult {
   final int width;
@@ -166,4 +179,32 @@ class GeometryResult {
           width == other.width &&
           height == other.height &&
           rgba == other.rgba;
+}
+
+/// Upright correction result: straighten angle in degrees, vertical perspective correction, horizontal perspective.
+class UprightResult {
+  final double straightenAngle;
+  final double verticalPerspective;
+  final double horizontalPerspective;
+
+  const UprightResult({
+    required this.straightenAngle,
+    required this.verticalPerspective,
+    required this.horizontalPerspective,
+  });
+
+  @override
+  int get hashCode =>
+      straightenAngle.hashCode ^
+      verticalPerspective.hashCode ^
+      horizontalPerspective.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UprightResult &&
+          runtimeType == other.runtimeType &&
+          straightenAngle == other.straightenAngle &&
+          verticalPerspective == other.verticalPerspective &&
+          horizontalPerspective == other.horizontalPerspective;
 }

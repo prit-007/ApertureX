@@ -471,6 +471,112 @@ pub fn detect_straighten_angle(rgba: &[u8], w: usize, h: usize) -> f32 {
     -detected_tilt
 }
 
+/// Upright perspective correction angles and pitch estimates.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct UprightCorrection {
+    /// Corrective rotation / straighten angle in degrees.
+    pub straighten_angle: f32,
+    /// Vertical perspective keystone correction pitch in [-1.0, 1.0].
+    pub vertical_perspective: f32,
+    /// Horizontal perspective keystone correction yaw in [-1.0, 1.0].
+    pub horizontal_perspective: f32,
+}
+
+/// Automatically detects vertical line convergence (keystoning from tilting the camera).
+/// Compares vertical edge line angles on the left vs right sides of the frame.
+/// Returns vertical perspective correction pitch in range [-1.0, 1.0] (0.0 = parallel verticals).
+pub fn detect_vertical_convergence(rgba: &[u8], w: usize, h: usize) -> f32 {
+    if w < 16 || h < 16 || rgba.len() < w * h * 4 {
+        return 0.0;
+    }
+
+    let scale = (w.max(h) as f32 / 256.0).max(1.0);
+    let sw = (w as f32 / scale).round() as usize;
+    let sh = (h as f32 / scale).round() as usize;
+    if sw < 16 || sh < 16 {
+        return 0.0;
+    }
+
+    // Extract grayscale luma
+    let mut luma = Vec::with_capacity(sw * sh);
+    for y in 0..sh {
+        let sy = (((y as f32 + 0.5) * scale) as usize).min(h - 1);
+        for x in 0..sw {
+            let sx = (((x as f32 + 0.5) * scale) as usize).min(w - 1);
+            let idx = (sy * w + sx) * 4;
+            let y_val = 0.2126 * rgba[idx] as f32
+                + 0.7152 * rgba[idx + 1] as f32
+                + 0.0722 * rgba[idx + 2] as f32;
+            luma.push(y_val);
+        }
+    }
+
+    let mid_x = sw / 2;
+    let margin_x = (sw / 10).max(1);
+    let margin_y = (sh / 10).max(1);
+
+    let mut left_angle_weighted_sum = 0.0f32;
+    let mut left_weight_sum = 0.0f32;
+    let mut right_angle_weighted_sum = 0.0f32;
+    let mut right_weight_sum = 0.0f32;
+
+    for y in margin_y..(sh - margin_y) {
+        for x in margin_x..(sw - margin_x) {
+            let p00 = luma[(y - 1) * sw + (x - 1)];
+            let p02 = luma[(y - 1) * sw + (x + 1)];
+            let p10 = luma[y * sw + (x - 1)];
+            let p12 = luma[y * sw + (x + 1)];
+            let p20 = luma[(y + 1) * sw + (x - 1)];
+            let p22 = luma[(y + 1) * sw + (x + 1)];
+
+            let gx = (p02 + 2.0 * p12 + p22) - (p00 + 2.0 * p10 + p20);
+            let gy = (luma[(y + 1) * sw + x] - luma[(y - 1) * sw + x]) * 2.0;
+
+            let mag_sq = gx * gx + gy * gy;
+            // Strong vertical edge: horizontal gradient dominates
+            if mag_sq < 25.0 * 25.0 || gx.abs() < gy.abs() * 1.5 {
+                continue;
+            }
+
+            // Normal angle to vertical gradient (tilt away from 90 degrees)
+            let angle_rad = (-gy).atan2(gx);
+            let angle_deg = angle_rad.to_degrees();
+
+            if x < mid_x - margin_x / 2 {
+                left_angle_weighted_sum += angle_deg * mag_sq;
+                left_weight_sum += mag_sq;
+            } else if x > mid_x + margin_x / 2 {
+                right_angle_weighted_sum += angle_deg * mag_sq;
+                right_weight_sum += mag_sq;
+            }
+        }
+    }
+
+    if left_weight_sum < 100.0 || right_weight_sum < 100.0 {
+        return 0.0;
+    }
+
+    let left_avg = left_angle_weighted_sum / left_weight_sum;
+    let right_avg = right_angle_weighted_sum / right_weight_sum;
+
+    let convergence_deg = (left_avg - right_avg) * 0.5;
+    (convergence_deg / 15.0).clamp(-1.0, 1.0)
+}
+
+/// Automatically detects upright geometry correction:
+/// - Horizon tilt (rotation degrees)
+/// - Vertical keystone perspective
+/// - Horizontal skew
+pub fn detect_upright_correction(rgba: &[u8], w: usize, h: usize) -> UprightCorrection {
+    let straighten = detect_straighten_angle(rgba, w, h);
+    let vert_persp = detect_vertical_convergence(rgba, w, h);
+    UprightCorrection {
+        straighten_angle: straighten,
+        vertical_perspective: vert_persp,
+        horizontal_perspective: 0.0,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

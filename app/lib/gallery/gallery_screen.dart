@@ -14,6 +14,7 @@ import '../edit/library_catalog.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_store.dart';
 import '../edit/settings_clipboard.dart';
+import '../engine/engine.dart';
 import '../features/editor/editor_screen.dart';
 import '../settings/settings_screen.dart';
 import '../ui/common/app_primitives.dart';
@@ -27,6 +28,10 @@ import '../ui/common/app_sheet.dart';
 import 'edit_preview_store.dart';
 import 'edited_versions_screen.dart';
 import 'folder_gallery_source.dart';
+import 'duplicate_detector.dart';
+import 'folder_watcher.dart';
+import 'photo_quality_evaluator.dart';
+import 'smart_collection.dart';
 import 'gallery_asset.dart';
 import 'gallery_controller.dart';
 import 'gallery_export.dart';
@@ -85,6 +90,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   bool _filterFlaggedOnly = false;
   bool _filterRawOnly = false;
   bool _isCompactGrid = false;
+  SmartCollection? _activeSmartCollection;
+  AutoImportFolderWatcher? _folderWatcher;
 
   /// Fades the AppBar + SelectionBar out during the hero flight into the
   /// editor so only the photo moves (issue: buttery gallery→editor transition).
@@ -108,6 +115,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
   @override
   void dispose() {
+    _folderWatcher?.dispose();
     _navFade.dispose();
     super.dispose();
   }
@@ -273,6 +281,374 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         builder: (_) => PrintScreen(items: items),
       ),
     );
+  }
+
+  void _showSmartCollectionsSheet() {
+    final collections = SmartCollection.builtInCollections();
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Insets.md, horizontal: Insets.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Smart Collections',
+                    style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  if (_activeSmartCollection != null)
+                    TextButton(
+                      onPressed: () {
+                        setState(() => _activeSmartCollection = null);
+                        Navigator.of(sheetContext).pop();
+                      },
+                      child: const Text('Clear'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: Insets.xs),
+              ...collections.map((col) {
+                final isSelected = _activeSmartCollection?.id == col.id;
+                return ListTile(
+                  leading: Icon(
+                    Icons.auto_awesome_motion,
+                    color: isSelected ? Theme.of(sheetContext).colorScheme.primary : null,
+                  ),
+                  title: Text(col.name, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                  subtitle: col.description != null ? Text(col.description!, style: const TextStyle(fontSize: 12)) : null,
+                  selected: isSelected,
+                  onTap: () {
+                    setState(() => _activeSmartCollection = col);
+                    Navigator.of(sheetContext).pop();
+                  },
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDuplicateFinderSheet() async {
+    final state = ref.read(galleryControllerProvider);
+    if (state.assets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No photos loaded in gallery')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Scanning for duplicates using perceptual hashing…'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    // Compute hashes for up to 100 recent photos
+    final hashes = <String, int>{};
+    final source = _source;
+    final sampleAssets = state.assets.take(100).toList();
+
+    for (final asset in sampleAssets) {
+      try {
+        final thumb = await source.loadThumbnail(asset.id, size: 64);
+        if (thumb.isNotEmpty) {
+          final decoded = await AxEngine.decodeAnalysisProxy(thumb);
+          final h = DuplicateDetector.computeDHash(decoded.rgba, decoded.width, decoded.height);
+          hashes[asset.id] = h;
+        }
+      } catch (_) {
+        // Skip unreadable assets
+      }
+    }
+
+    final duplicates = DuplicateDetector.findDuplicates(hashes, maxDistance: 6);
+
+    if (!mounted) return;
+
+    if (duplicates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Scanned ${hashes.length} photos: No duplicates found!'),
+        ),
+      );
+      return;
+    }
+
+    final totalDupes = duplicates.fold<int>(0, (sum, g) => sum + g.duplicateAssetIds.length);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.7,
+          ),
+          padding: const EdgeInsets.all(Insets.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Duplicate Groups ($totalDupes duplicates)',
+                    style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.select_all, size: 16),
+                    label: const Text('Select Duplicates'),
+                    onPressed: () {
+                      final controller = ref.read(galleryControllerProvider.notifier);
+                      for (final g in duplicates) {
+                        for (final dupId in g.duplicateAssetIds) {
+                          if (!ref.read(galleryControllerProvider).isSelected(dupId)) {
+                            controller.toggle(dupId);
+                          }
+                        }
+                      }
+                      Navigator.of(sheetContext).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Selected $totalDupes duplicates for review/action')),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const Divider(),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: duplicates.length,
+                  itemBuilder: (ctx, idx) {
+                    final group = duplicates[idx];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Cluster #${idx + 1} (${group.totalCount} shots)',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              children: [
+                                Chip(
+                                  avatar: const Icon(Icons.star, size: 12),
+                                  label: Text('Primary: ${group.primaryAssetId.split('/').last}'),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                for (final dupId in group.duplicateAssetIds)
+                                  Chip(
+                                    avatar: const Icon(Icons.copy, size: 12),
+                                    label: Text(
+                                      '${dupId.split('/').last} (diff: ${group.distances[dupId]})',
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showQualityCullingSheet() async {
+    final state = ref.read(galleryControllerProvider);
+    if (state.assets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No photos loaded in gallery')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Scanning photos for blur & eye quality…'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    final source = _source;
+    final cullResults = <String, QualityScore>{};
+    final sampleAssets = state.assets.take(100).toList();
+
+    for (final asset in sampleAssets) {
+      try {
+        final thumb = await source.loadThumbnail(asset.id, size: 64);
+        if (thumb.isNotEmpty) {
+          final decoded = await AxEngine.decodeAnalysisProxy(thumb);
+          final score = PhotoQualityEvaluator.evaluateQuality(
+            decoded.rgba,
+            decoded.width,
+            decoded.height,
+          );
+          if (score.isBlurry || score.hasClosedEyes) {
+            cullResults[asset.id] = score;
+          }
+        }
+      } catch (_) {
+        // Skip unreadable assets
+      }
+    }
+
+    if (!mounted) return;
+
+    if (cullResults.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Scan complete: All scanned photos look sharp!')),
+      );
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.7,
+          ),
+          padding: const EdgeInsets.all(Insets.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Quality Culling (${cullResults.length} flagged)',
+                    style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.label, size: 16),
+                    label: const Text('Tag in Catalog'),
+                    onPressed: () {
+                      final catalogNotifier = ref.read(libraryCatalogProvider.notifier);
+                      for (final entry in cullResults.entries) {
+                        final tag = entry.value.cullingBadge;
+                        if (tag != null) {
+                          catalogNotifier.addKeyword(originalEntryId(entry.key), tag);
+                        }
+                      }
+                      Navigator.of(sheetContext).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Tagged ${cullResults.length} photos in catalog')),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const Divider(),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: cullResults.length,
+                  itemBuilder: (ctx, idx) {
+                    final assetId = cullResults.keys.elementAt(idx);
+                    final score = cullResults[assetId]!;
+                    return ListTile(
+                      dense: true,
+                      leading: Icon(
+                        score.hasClosedEyes ? Icons.visibility_off : Icons.blur_on,
+                        color: score.hasClosedEyes ? Colors.orange : Colors.red,
+                      ),
+                      title: Text(assetId.split('/').last),
+                      subtitle: Text(
+                        score.hasClosedEyes
+                            ? 'Closed eyes detected'
+                            : 'Blurry (sharpness: ${score.sharpnessScore.toStringAsFixed(1)})',
+                      ),
+                      trailing: TextButton(
+                        child: const Text('Select'),
+                        onPressed: () {
+                          ref.read(galleryControllerProvider.notifier).toggle(assetId);
+                          Navigator.of(sheetContext).pop();
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleFolderWatcher() async {
+    if (_folderWatcher != null && _folderWatcher!.isWatching) {
+      await _folderWatcher!.stop();
+      _folderWatcher = null;
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Auto-import folder watcher stopped')),
+        );
+      }
+      return;
+    }
+
+    final source = _source;
+    final String targetPath;
+    if (source is FolderGallerySource && source.rootPath != null) {
+      targetPath = source.rootPath!;
+    } else {
+      targetPath = Directory.current.path;
+    }
+
+    _folderWatcher = AutoImportFolderWatcher(
+      directoryPath: targetPath,
+      onPhotoDiscovered: (file) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Auto-imported new photo: ${file.path.split('/').last}'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          ref.read(galleryControllerProvider.notifier).load();
+        }
+      },
+    );
+
+    await _folderWatcher!.start();
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Watching folder for auto-import: $targetPath')),
+      );
+    }
   }
 
   Future<void> _showColorLabelSheet() async {
@@ -593,6 +969,46 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                           ],
                         ),
                       ),
+                      PopupMenuItem(
+                        value: 'smart_collections',
+                        child: Row(
+                          children: [
+                            Icon(Icons.auto_awesome_motion_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Smart Collections'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'duplicates',
+                        child: Row(
+                          children: [
+                            Icon(Icons.copy_all_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Find & Clean Duplicates'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'quality_culling',
+                        child: Row(
+                          children: [
+                            Icon(Icons.auto_fix_high_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Cull Blurry / Closed Eyes'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'auto_import',
+                        child: Row(
+                          children: [
+                            Icon(Icons.folder_shared_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Auto-Import Folder Watcher'),
+                          ],
+                        ),
+                      ),
                     ],
                     onSelected: (val) {
                       if (val == 'tether') {
@@ -605,6 +1021,14 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                         );
                       } else if (val == 'print') {
                         _openPrintStudio();
+                      } else if (val == 'smart_collections') {
+                        _showSmartCollectionsSheet();
+                      } else if (val == 'duplicates') {
+                        _showDuplicateFinderSheet();
+                      } else if (val == 'quality_culling') {
+                        _showQualityCullingSheet();
+                      } else if (val == 'auto_import') {
+                        _toggleFolderWatcher();
                       }
                     },
                   ),
@@ -687,6 +1111,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   }
 
   bool _matchesFilter(CatalogEntry? entry, [GalleryAsset? asset]) {
+    if (_activeSmartCollection != null) {
+      if (entry == null) return false;
+      return _activeSmartCollection!.matches(entry, assetDate: asset?.latestDate);
+    }
     if (_filterRawOnly && asset != null && !isRawAsset(asset)) {
       return false;
     }
@@ -703,7 +1131,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   }
 
   Widget _buildFilterBar() {
-    final hasActiveFilter = _filterColorLabel != null ||
+    final hasActiveFilter = _activeSmartCollection != null ||
+        _filterColorLabel != null ||
         _filterMinRating > 0 ||
         _filterFlaggedOnly ||
         _filterRawOnly;
@@ -720,6 +1149,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             selected: !hasActiveFilter,
             onSelected: (_) {
               setState(() {
+                _activeSmartCollection = null;
                 _filterColorLabel = null;
                 _filterMinRating = 0;
                 _filterFlaggedOnly = false;
@@ -792,6 +1222,18 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               visualDensity: VisualDensity.compact,
             ),
           ],
+          const SizedBox(width: 6),
+          FilterChip(
+            key: const Key('filter-smart-collection'),
+            avatar: const Icon(Icons.auto_awesome_motion, size: 12),
+            label: Text(
+              _activeSmartCollection?.name ?? 'Smart Collections',
+              style: const TextStyle(fontSize: 12),
+            ),
+            selected: _activeSmartCollection != null,
+            onSelected: (_) => _showSmartCollectionsSheet(),
+            visualDensity: VisualDensity.compact,
+          ),
         ],
       ),
     );
@@ -1605,6 +2047,38 @@ class _Cell extends StatelessWidget {
                         ),
                       ),
                     ],
+                    if (catalogEntry?.keywords.contains('blurry') ?? false) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        key: Key('blurry-badge-${asset.id}'),
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          Icons.blur_on,
+                          size: 10,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                    if (catalogEntry?.keywords.contains('closed_eyes') ?? false) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        key: Key('closed-eyes-badge-${asset.id}'),
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          Icons.visibility_off_outlined,
+                          size: 10,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1866,6 +2340,38 @@ class _VirtualCell extends StatelessWidget {
                       ),
                       child: const Icon(
                         Icons.sell_outlined,
+                        size: 10,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                  if (entry.keywords.contains('blurry')) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      key: Key('blurry-badge-list-${asset.id}'),
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        Icons.blur_on,
+                        size: 10,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                  if (entry.keywords.contains('closed_eyes')) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      key: Key('closed-eyes-badge-list-${asset.id}'),
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        Icons.visibility_off_outlined,
                         size: 10,
                         color: Colors.white,
                       ),
@@ -2640,6 +3146,38 @@ class _EditPreviewCellState extends State<_EditPreviewCell> {
                     ),
                     child: const Icon(
                       Icons.label_outline,
+                      size: 12,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+                if (catalogEntry != null && catalogEntry.keywords.contains('blurry')) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    key: const Key('photo-blurry-badge'),
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(
+                      Icons.blur_on,
+                      size: 12,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+                if (catalogEntry != null && catalogEntry.keywords.contains('closed_eyes')) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    key: const Key('photo-closed-eyes-badge'),
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(
+                      Icons.visibility_off_outlined,
                       size: 12,
                       color: Colors.white,
                     ),

@@ -274,6 +274,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void dco_decode_unit(dynamic raw);
 
   @protected
+  UprightResult dco_decode_upright_result(dynamic raw);
+
+  @protected
   WatermarkAnchor dco_decode_watermark_anchor(dynamic raw);
 
   @protected
@@ -553,6 +556,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_decode_unit(SseDeserializer deserializer);
+
+  @protected
+  UprightResult sse_decode_upright_result(SseDeserializer deserializer);
 
   @protected
   WatermarkAnchor sse_decode_watermark_anchor(SseDeserializer deserializer);
@@ -916,6 +922,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_upright_result(UprightResult self, SseSerializer serializer);
 
   @protected
   void sse_encode_watermark_anchor(

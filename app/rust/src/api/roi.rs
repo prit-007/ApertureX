@@ -228,6 +228,8 @@ fn spatial_params(spec: &PreviewBaseSpec) -> SpatialParams {
         shader_param1: spec.shader_param1,
         shader_param2: spec.shader_param2,
         shader_param3: spec.shader_param3,
+        output_sharpen_media: spec.output_sharpen_media,
+        output_sharpen: spec.output_sharpen,
     }
 }
 
@@ -292,6 +294,8 @@ mod tests {
             shader_param1: 0.0,
             shader_param2: 0.0,
             shader_param3: 0.0,
+            output_sharpen_media: 0,
+            output_sharpen: 0.0,
             remove_chromatic_aberration: false,
             defringe_purple_amount: 0.0,
             defringe_purple_hue_min: 0.70,
