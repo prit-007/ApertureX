@@ -62,5 +62,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No photo loaded for auto-frame'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    final autoUprightBtn = find.byKey(const Key('geometry-auto-upright'));
+    expect(autoUprightBtn, findsOneWidget);
+
+    await tester.tap(autoUprightBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('No photo loaded for auto-upright'), findsOneWidget);
   });
 }

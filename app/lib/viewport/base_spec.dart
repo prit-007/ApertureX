@@ -28,6 +28,8 @@ PreviewBaseSpec baseSpecFromRecipe(EditRecipe recipe) {
     sharpenRadius: spatial.sharpenRadius,
     sharpenDetail: spatial.sharpenDetail,
     sharpenMasking: spatial.sharpenMasking,
+    outputSharpenMedia: spatial.outputSharpenMedia,
+    outputSharpen: spatial.outputSharpen,
     denoiseLuma: spatial.denoiseLuma,
     denoiseChroma: spatial.denoiseChroma,
     dehaze: spatial.dehaze,

@@ -45,7 +45,7 @@ void main() {
     });
 
     test('the catalog covers exactly the renderable fields today', () {
-      expect(Parameter.values.length, 71);
+      expect(Parameter.values.length, 73);
     });
 
     test('grade hue specs are degrees (0..360), not 0..1', () {
@@ -98,6 +98,8 @@ void main() {
         blurFocalPoint: 0.45,
         blurFocalRange: 0.15,
         blurBokehBoost: 0.6,
+        outputSharpenMedia: 2,
+        outputSharpen: 0.65,
       );
       expect(valueOf(r, Parameter.exposure), 1);
       expect(valueOf(r, Parameter.contrast), 2);
@@ -132,6 +134,8 @@ void main() {
       expect(valueOf(r, Parameter.blurFocalPoint), 0.45);
       expect(valueOf(r, Parameter.blurFocalRange), 0.15);
       expect(valueOf(r, Parameter.blurBokehBoost), 0.6);
+      expect(valueOf(r, Parameter.outputSharpenMedia), 2);
+      expect(valueOf(r, Parameter.outputSharpen), 0.65);
     });
   });
 

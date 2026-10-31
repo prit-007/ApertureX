@@ -1,0 +1,9 @@
+v0.3.5 — Pro Expansion & Video Editing Suite
+* Output Sharpening for Screen, Print & Web
+* Upright auto-geometry vertical keystone leveling
+* Edge-aware brush auto-masking & depth slicing
+* Skin-aware Auto Tone with percentile recovery
+* Dynamic Smart Collections & 64-bit dHash dedup
+* Laplacian blur & YuNet closed-eye culling
+* Folder watching auto-import for tether drops
+* Expanded video tools: multi-clip, transitions & titles

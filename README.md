@@ -1,7 +1,7 @@
 # ApertureX
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Status](https://img.shields.io/badge/status-v0.3.0-blue.svg)](docs/ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-v0.3.5-blue.svg)](docs/ROADMAP.md)
 [![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-lightgrey.svg)](#)
 [![Website](https://img.shields.io/badge/website-prit--007.github.io%2FApertureX-6BEAF7)](https://prit-007.github.io/ApertureX/)
 [![100% Offline](https://img.shields.io/badge/100%25-Offline-green.svg)](#privacy)
@@ -14,16 +14,28 @@
   <img src="app/icons/app_icon.png" alt="ApertureX app icon — a camera-aperture shutter mark on a dark field" width="192">
 </p>
 
-> **Status: v0.3.0 (Release).** Both UI shells
+> **Status: v0.3.5 (Release).** Both UI shells
 > (Lightroom panels + Snapseed gestures) run over one shared recipe; the Rust
 > engine carries the full color/spatial/geometry pipeline plus the **complete
-> local-adjustment stack**: 8 mask kinds (linear/radial/luminance/brush/bitmap/
-> color-range + AI subject/sky), **mask group algebra** (Add/Subtract/
+> local-adjustment stack**: 10 mask kinds (linear/radial/luminance/brush/bitmap/
+> color-range/auto-brush/depth-range + AI subject/sky), **mask group algebra** (Add/Subtract/
 > Intersect, ADR 0013),
 > Amount 0–200%, Zone-System luminosity masks, per-mask 3-way color wheels +
 > Highlights/Shadows, and a guided-filter **Refine Edge brush**.
 >
 > **Industry-Grade Pro Capabilities:**
+> - **Targeted Output Sharpening (ADR 0024):** Media-specific high-boost convolution profiles for Screen, Print Matte, Print Glossy, and Web Compression.
+> - **Upright Auto Geometry (ADR 0024):** Sobel vertical convergence detection with one-tap horizon auto-straighten and keystone perspective rectification.
+> - **Edge-Aware Auto Mask Brush & Depth Slicing (ADR 0024):** Euclidean color-distance gated brush strokes and monocular depth map thresholding with feathering.
+> - **Skin-Aware Auto Tone Refinement:** Chromatic skin prior protection, continuous percentile highlight/shadow recovery, and adaptive vibrance.
+> - **Dynamic Smart Collections (ADR 0025):** Multi-rule catalog query engine supporting ratings, flags, color labels, keywords, camera models, dates, and edit state.
+> - **Perceptual Duplicate Detection & Culling (ADR 0025):** 64-bit dHash perceptual hashing with Hamming distance clustering for duplicate and burst cleanup.
+> - **Photo Quality Sharpness & Closed-Eye Culling (ADR 0025):** Laplacian variance sharpness scoring and YuNet facial landmark eye openness confidence badges.
+> - **Debounced Auto-Import Folder Watcher (ADR 0025):** Continuous background directory watcher for tethering and desktop file ingestion.
+> - **Print Studio & Contact Sheets (ADR 0021):** Pure-Dart vector PDF 1.4 generator with custom margins, paper sizes, contact sheet grids, and printer ICC simulation.
+> - **Video Color Studio & Timeline (ADR 0022):** Multi-clip sequencing, Razor split, transitions, audio gain/fade envelopes, and Hollywood 3D `.CUBE` LUT export.
+> - **Studio Tethered Shooting (ADR 0023):** USB/PTP live telemetry streaming, remote shutter release, and automatic recipe application.
+> - **Soft-Proofing & Gamut Mapping (ADR 0020):** sRGB, Display P3, Adobe RGB, and CMYK SWOP simulation with out-of-gamut false color overlays.
 > - **ApertureX Neural Forge (BYOM Plugins):** Declarative ONNX plugins via GitHub/HuggingFace links with auto-generated native parameter sliders.
 > - **Lossless DNG & CFA Passthrough + 16-bit TIFF (#79):** Zero-loss Bayer CFA raw preservation with injected non-destructive XMP metadata, plus full-edit 16-bit TIFF export.
 > - **Lensfun Optics Database & EXIF Inspector (#85):** Hardware camera/lens profile matching with distortion/vignette compensation and deep EXIF shooting telemetry.
@@ -35,7 +47,7 @@
 > - **Translucent Glassmorphism:** Real-time backdrop-blur HUD overlays that preserve uninhibited photo viewing.
 > - **Zero-Telemetry Offline Integrity:** 100% local SQLite/Drift database, zero network calls unless explicitly requested by the user.
 >
-> Verified across 1047 Dart tests, 353 Rust tests (including 7 golden fixture corpus tests), and 0 analyzer lints. See [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`docs/PARITY.md`](docs/PARITY.md).
+> Verified across 1,321 Dart tests, 356 Rust tests (including 7 golden fixture corpus tests), and 0 analyzer lints. See [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`docs/PARITY.md`](docs/PARITY.md).
 
 > **Naming:** the product is **ApertureX** and every identifier is canonical:
 > Dart package `aperturex`, applicationId/bundle id `com.devparadise.aperturex`,
@@ -116,7 +128,7 @@ Full detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 | [`docs/RISKS.md`](docs/RISKS.md) | The four walls, each risk, and its mitigation |
 | [`docs/GOLDEN.md`](docs/GOLDEN.md) | Golden-image corpus, delta E tolerance gates, update workflow |
 | [`docs/FORK-STRATEGY.md`](docs/FORK-STRATEGY.md) | How we fork and maintain `pro_image_editor` |
-| [`docs/adr/`](docs/adr/) | Architecture Decision Records 0001–0014 |
+| [`docs/adr/`](docs/adr/) | Architecture Decision Records 0001–0025 |
 | [`THIRD_PARTY.md`](THIRD_PARTY.md) | Third-party components, licenses, ML-model ledger, notices |
 
 ---

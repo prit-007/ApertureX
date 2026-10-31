@@ -534,6 +534,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                             Parameter.temperature, auto['temperature'] as double);
                         notifier.update(
                             Parameter.tint, auto['tint'] as double);
+                        if (auto.containsKey('vibrance')) {
+                          notifier.update(
+                              Parameter.vibrance, auto['vibrance'] as double);
+                        }
                         notifier.commit(label: 'Auto Tone');
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(

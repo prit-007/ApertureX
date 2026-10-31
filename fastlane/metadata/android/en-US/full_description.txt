@@ -9,13 +9,17 @@ Two interfaces over one edit recipe:
 
 A real color engine in Rust, fast enough to feel instant:
 * Light, Color, Effects and Detail groups; split toning; curves; HSL mixer.
-* Crop with aspect presets, rotate, flip, straighten, and keystone correction.
+* Output sharpening profiles tailored for Screen, Matte Paper, Glossy, and Web.
+* Crop with aspect presets, rotate, flip, and Upright auto perspective correction.
 * Clarity, texture, sharpen, denoise, dehaze, vignette, and film grain.
-* Local adjustments with linear, radial, luminance, colour-range, and AI
-  subject masks.
+* Local adjustments with linear, radial, luminance, colour-range, depth-range,
+  edge-aware auto brush, and AI subject masks.
 
 Built for a photographer's workflow:
-* A date-grouped gallery with albums, batch editing, and a searchable library.
+* Smart Collections, date-grouped gallery with albums, batch editing, and search.
+* 64-bit perceptual duplicate detection and photo quality blur/blink culling.
+* Debounced folder watcher for continuous auto-import.
+* Print Studio PDF 1.4 generator and Video Color Studio 3D .CUBE LUT export.
 * Non-destructive recipes stored per photo; import .cube LUTs, Lightroom .xmp
   presets, and shareable JSON looks.
 * Full-resolution JPEG, PNG, and 16-bit TIFF export with EXIF preserved.

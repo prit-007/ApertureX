@@ -173,6 +173,9 @@ pub struct ExportSpec {
     pub shader_param1: f32,
     pub shader_param2: f32,
     pub shader_param3: f32,
+    // output sharpening
+    pub output_sharpen_media: u8,
+    pub output_sharpen: f32,
     // optics
     pub remove_chromatic_aberration: bool,
     pub defringe_purple_amount: f32,
@@ -504,6 +507,8 @@ pub fn export_full_with_branding(
             shader_param1: spec.shader_param1,
             shader_param2: spec.shader_param2,
             shader_param3: spec.shader_param3,
+            output_sharpen_media: spec.output_sharpen_media,
+            output_sharpen: spec.output_sharpen,
         },
         layers: layers
             .iter()
@@ -732,6 +737,8 @@ mod tests {
             shader_param1: 0.0,
             shader_param2: 0.0,
             shader_param3: 0.0,
+            output_sharpen_media: 0,
+            output_sharpen: 0.0,
             remove_chromatic_aberration: false,
             defringe_purple_amount: 0.0,
             defringe_purple_hue_min: 0.70,

@@ -214,6 +214,31 @@ pub fn geometry_detect_straighten_angle(rgba: Vec<u8>, width: u32, height: u32) 
     crate::geometry::detect_straighten_angle(&rgba, width as usize, height as usize)
 }
 
+/// Upright correction result: straighten angle in degrees, vertical perspective correction, horizontal perspective.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct UprightResult {
+    pub straighten_angle: f32,
+    pub vertical_perspective: f32,
+    pub horizontal_perspective: f32,
+}
+
+/// Automatically detects upright perspective corrections (straighten + keystone tilt).
+pub fn geometry_detect_upright(rgba: Vec<u8>, width: u32, height: u32) -> UprightResult {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return UprightResult {
+            straighten_angle: 0.0,
+            vertical_perspective: 0.0,
+            horizontal_perspective: 0.0,
+        };
+    }
+    let res = crate::geometry::detect_upright_correction(&rgba, width as usize, height as usize);
+    UprightResult {
+        straighten_angle: res.straighten_angle,
+        vertical_perspective: res.vertical_perspective,
+        horizontal_perspective: res.horizontal_perspective,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

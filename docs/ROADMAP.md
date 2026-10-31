@@ -5,7 +5,7 @@ ordered to retire the highest-risk assumptions earliest.
 
 Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-**Current status (2026-10-30 — v0.3.0 Release):**
+**Current status (2026-10-31 — v0.3.5 Release):**
 
 - **P-1 ✅ · P0 ✅** — spike folded into `app/`; foundations green (repo, CI,
   Material 3 shell, bridge typed + byte-buffer round-trip).
@@ -53,6 +53,16 @@ Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress �
   lossless DNG export (#79) complete, 16-bit TIFF export complete, Lensfun hardware database & EXIF inspector (#85)
   complete, Google Photos-style responsive grid & album groupings with text ellipses complete,
   **Soft proofing & gamut warnings** (sRGB, Display P3, Adobe RGB, CMYK SWOP), and **Native Desktop MenuBar**.
+  **Pro Feature Expansion (Phases 1 & 2 complete):**
+  - **Output Sharpening**: Screen, Print Matte, Print Glossy, and Web target profiles (`outputSharpenMedia`, `outputSharpen` — ADR 0024).
+  - **Auto Upright Geometry**: Sobel edge vertical convergence detection, horizon auto-straighten, and keystone perspective correction (ADR 0024).
+  - **Edge-Aware Auto Mask (`MASK_AUTO_BRUSH`)**: Contrast-gated brush stops automatically at edges (ADR 0024).
+  - **Depth Range Mask (`MASK_DEPTH_RANGE`)**: Monocular depth plane slicing with smooth feathering (ADR 0024).
+  - **Skin-Aware Auto Tone Refinement**: Color prior histogram balancing, highlight/shadow recovery, and vibrance.
+  - **Smart Collections**: Multi-rule dynamic catalog queries (ratings, flags, color labels, keywords, camera, dates, edits — ADR 0025).
+  - **Duplicate Detection**: 64-bit perceptual difference hashing (dHash) with popcount Hamming distance clustering (ADR 0025).
+  - **Photo Quality & Closed-Eye Culling**: Laplacian variance sharpness evaluation and YuNet eye openness confidence scoring (ADR 0025).
+  - **Auto-Import Folder Watcher**: Debounced background directory watcher for continuous ingestion (ADR 0025).
 
 > **Forward plan.** The consolidated, file-by-file plan — including the exact
 > gaps found by the latest audit and the GitHub issue carrying each — is

@@ -72,6 +72,15 @@ tracking-new, not a carryover from this plan.
 | Inverted mask end-to-end | #90 | `a9ba50c9` inverted mask wiring |
 | Classical Select Sky detection | — | `909f6e60` horizon + chromaticity sky detection |
 | Ultra HDR / gain maps | #20 | `UltraHdrMetadata`, `generate_gain_map`, `encode_gain_map_jpeg`, etc. in `app/rust/src/ultrahdr.rs` |
+| Output sharpening (Screen, Matte, Glossy, Web) | ADR 0024 | `OutputSharpenMedia`, `apply_output_sharpen` in `spatial.rs`, `recipe.dart`, `spatial_spec.dart` |
+| Upright auto geometry (vertical convergence detection) | ADR 0024 | `detect_vertical_convergence`, `AxEngine.detectUpright` in `geometry.rs`, `geometry_controls.dart` |
+| Auto mask (edge-aware brush) | ADR 0024 | `MASK_AUTO_BRUSH` Euclidean color contrast gating in `mask.rs`, `AdjustmentLayer.autoBrush` |
+| Depth range mask | ADR 0024 | `MASK_DEPTH_RANGE` monocular depth slicing in `mask.rs`, `AdjustmentLayer.depthRange` |
+| Skin-aware auto tone refinement | ADR 0024 | `auto_tone` skin prior, percentile highlight/shadow recovery, and vibrance in `api/color.rs` |
+| Dynamic smart collections | ADR 0025 | `SmartCollection`, `SmartRule` query engine with built-in presets in `smart_collection.dart` |
+| Perceptual duplicate detection | ADR 0025 | 64-bit dHash and Hamming distance clustering in `duplicate_detector.dart` |
+| Photo quality sharpness & closed-eye culling | ADR 0025 | Laplacian variance $\sigma^2$ and YuNet eye openness in `photo_quality_evaluator.dart` |
+| Debounced folder watching / auto-import | ADR 0025 | `AutoImportFolderWatcher` debounced `Directory.watch` in `folder_watcher.dart` |
 
 ### 🟡 Partial — none
 

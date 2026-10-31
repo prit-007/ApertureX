@@ -22,6 +22,8 @@ class SpatialSpec {
     this.sharpenRadius = 1.0,
     this.sharpenDetail = 0.25,
     this.sharpenMasking = 0,
+    this.outputSharpenMedia = 0,
+    this.outputSharpen = 0,
     this.denoiseLuma = 0,
     this.denoiseChroma = 0,
     this.aiDenoise = 0,
@@ -54,6 +56,8 @@ class SpatialSpec {
     sharpenRadius: recipe.sharpenRadius,
     sharpenDetail: recipe.sharpenDetail,
     sharpenMasking: recipe.sharpenMasking,
+    outputSharpenMedia: recipe.outputSharpenMedia,
+    outputSharpen: recipe.outputSharpen,
     denoiseLuma: recipe.denoiseLuma,
     denoiseChroma: recipe.denoiseChroma,
     aiDenoise: recipe.aiDenoise,
@@ -84,6 +88,8 @@ class SpatialSpec {
   final double sharpenRadius;
   final double sharpenDetail;
   final double sharpenMasking;
+  final int outputSharpenMedia;
+  final double outputSharpen;
   final double denoiseLuma;
   final double denoiseChroma;
   final double aiDenoise;
@@ -106,6 +112,7 @@ class SpatialSpec {
       vignette == 0 &&
       grain == 0 &&
       sharpen == 0 &&
+      outputSharpen == 0 &&
       denoiseLuma == 0 &&
       denoiseChroma == 0 &&
       aiDenoise == 0 &&

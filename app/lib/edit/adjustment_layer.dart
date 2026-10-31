@@ -5,7 +5,7 @@ import 'dart:ui' show Offset;
 import 'package:flutter/foundation.dart' show listEquals;
 
 /// Mask kinds (must match the Rust `MASK_*` constants).
-enum MaskKind { linear, radial, luminance, brush, subject, sky, bitmap, colorRange }
+enum MaskKind { linear, radial, luminance, brush, subject, sky, bitmap, colorRange, autoBrush, depthRange }
 
 /// Mask boolean operations (ADR 0013, matches Rust `JOIN_*` constants).
 enum MaskJoinOp { add, subtract, intersect }
@@ -505,6 +505,90 @@ class AdjustmentLayer {
     );
   }
 
+  /// Creates an edge-aware brush mask that stops at contrasting boundaries.
+  factory AdjustmentLayer.autoBrush({
+    double radius = 0.05,
+    double feather = 0.2,
+    double tolerance = 0.25,
+    List<double> sampleRgb = const [0.5, 0.5, 0.5],
+    List<double> points = const [],
+    bool inverted = false,
+    double amount = 1.0,
+    String? groupId,
+    MaskJoinOp joinOp = MaskJoinOp.add,
+    double exposure = 0,
+    double contrast = 0,
+    double saturation = 0,
+    double temperature = 0,
+    double tint = 0,
+    double highlights = 0,
+    double shadows = 0,
+  }) {
+    final pointCount = points.length ~/ 3;
+    final r = sampleRgb.isNotEmpty ? sampleRgb[0] : 0.5;
+    final g = sampleRgb.length > 1 ? sampleRgb[1] : 0.5;
+    final b = sampleRgb.length > 2 ? sampleRgb[2] : 0.5;
+    final params = <double>[
+      radius,
+      feather,
+      tolerance,
+      r,
+      g,
+      b,
+      pointCount.toDouble(),
+      ...points,
+    ];
+    return AdjustmentLayer(
+      maskKind: MaskKind.autoBrush,
+      maskParams: params,
+      inverted: inverted,
+      amount: amount,
+      groupId: groupId,
+      joinOp: joinOp,
+      exposure: exposure,
+      contrast: contrast,
+      saturation: saturation,
+      temperature: temperature,
+      tint: tint,
+      highlights: highlights,
+      shadows: shadows,
+    );
+  }
+
+  /// Creates a depth range mask based on estimated/embedded depth.
+  factory AdjustmentLayer.depthRange({
+    double depthMin = 0.2,
+    double depthMax = 0.6,
+    double feather = 0.1,
+    bool inverted = false,
+    double amount = 1.0,
+    String? groupId,
+    MaskJoinOp joinOp = MaskJoinOp.add,
+    double exposure = 0,
+    double contrast = 0,
+    double saturation = 0,
+    double temperature = 0,
+    double tint = 0,
+    double highlights = 0,
+    double shadows = 0,
+  }) {
+    return AdjustmentLayer(
+      maskKind: MaskKind.depthRange,
+      maskParams: <double>[depthMin, depthMax, feather],
+      inverted: inverted,
+      amount: amount,
+      groupId: groupId,
+      joinOp: joinOp,
+      exposure: exposure,
+      contrast: contrast,
+      saturation: saturation,
+      temperature: temperature,
+      tint: tint,
+      highlights: highlights,
+      shadows: shadows,
+    );
+  }
+
   final MaskKind maskKind;
 
   /// linear `[x0,y0,x1,y1]`, radial `[cx,cy,rx,ry,feather]`, luminance `[lo,hi]`,
@@ -936,6 +1020,29 @@ class AdjustmentLayer {
         newLumMax,
         newSoftness,
       ],
+    );
+  }
+
+  /// For depthRange masks: min depth threshold.
+  double get depthMin =>
+      maskKind == MaskKind.depthRange && maskParams.isNotEmpty ? maskParams[0] : 0.2;
+
+  /// For depthRange masks: max depth threshold.
+  double get depthMax =>
+      maskKind == MaskKind.depthRange && maskParams.length > 1 ? maskParams[1] : 0.6;
+
+  /// For depthRange masks: transition feather.
+  double get depthFeather =>
+      maskKind == MaskKind.depthRange && maskParams.length > 2 ? maskParams[2] : 0.1;
+
+  /// Returns a copy with updated depth range parameters.
+  AdjustmentLayer withDepthRange({double? min, double? max, double? feather}) {
+    final dMin = (min ?? depthMin).clamp(0.0, 1.0);
+    final dMax = (max ?? depthMax).clamp(0.0, 1.0);
+    final f = (feather ?? depthFeather).clamp(0.001, 0.5);
+    return copyWith(
+      maskKind: MaskKind.depthRange,
+      maskParams: [math.min(dMin, dMax), math.max(dMin, dMax), f],
     );
   }
 

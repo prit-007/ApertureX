@@ -293,6 +293,54 @@ pub fn apply_sharpen(rgba: &[u8], w: usize, h: usize, amount: f32, radius: usize
     apply_sharpen_advanced(rgba, w, h, amount, radius as f32, 0.5, 0.0)
 }
 
+/// Media target for output-specific sharpening.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutputSharpenMedia {
+    Screen = 0,
+    PrintMatte = 1,
+    PrintGlossy = 2,
+    Web = 3,
+}
+
+impl OutputSharpenMedia {
+    pub fn from_u8(val: u8) -> Self {
+        match val {
+            1 => OutputSharpenMedia::PrintMatte,
+            2 => OutputSharpenMedia::PrintGlossy,
+            3 => OutputSharpenMedia::Web,
+            _ => OutputSharpenMedia::Screen,
+        }
+    }
+}
+
+/// Output-specific sharpening targeting screen, print (matte/glossy), or web delivery.
+pub fn apply_output_sharpen(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    media: OutputSharpenMedia,
+    amount: f32,
+) -> Vec<u8> {
+    if amount <= 0.0 || w == 0 || h == 0 {
+        return rgba.to_vec();
+    }
+    let (radius, detail, gain) = match media {
+        OutputSharpenMedia::Screen => (0.8, 0.35, 0.85),
+        OutputSharpenMedia::PrintMatte => (2.2, 0.65, 1.40),
+        OutputSharpenMedia::PrintGlossy => (1.3, 0.55, 1.10),
+        OutputSharpenMedia::Web => (0.7, 0.25, 0.70),
+    };
+    apply_sharpen_advanced(
+        rgba,
+        w,
+        h,
+        (amount * gain).clamp(0.0, 2.0),
+        radius,
+        detail,
+        0.05,
+    )
+}
+
 /// Edge-aware shadows/highlights: split into a large-radius base and a detail
 /// layer, adjust the base's luminance by tonal zone, then re-add the detail —
 /// so shadows lift without halos.
@@ -457,6 +505,10 @@ pub struct SpatialParams {
     pub shader_param1: f32,
     pub shader_param2: f32,
     pub shader_param3: f32,
+    /// Output-specific sharpening media: 0=Screen, 1=PrintMatte, 2=PrintGlossy, 3=Web.
+    pub output_sharpen_media: u8,
+    /// Output sharpening amount (0..1).
+    pub output_sharpen: f32,
 }
 
 impl SpatialParams {
@@ -477,6 +529,7 @@ impl SpatialParams {
             && self.film_dust == 0.0
             && self.film_scratches == 0.0
             && self.shader_lab_preset == 0
+            && self.output_sharpen == 0.0
     }
 }
 
@@ -1025,6 +1078,10 @@ pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u
             p.shader_param3,
         );
     }
+    if p.output_sharpen > 0.0 {
+        let media = OutputSharpenMedia::from_u8(p.output_sharpen_media);
+        out = apply_output_sharpen(&out, w, h, media, p.output_sharpen);
+    }
     out
 }
 
@@ -1081,6 +1138,10 @@ pub fn apply_spatial_local_ctx(
     if p.dehaze != 0.0 {
         out = dehaze(&out, w, h, p.dehaze);
     }
+    if p.output_sharpen > 0.0 {
+        let media = OutputSharpenMedia::from_u8(p.output_sharpen_media);
+        out = apply_output_sharpen(&out, w, h, media, p.output_sharpen);
+    }
     out
 }
 
@@ -1118,6 +1179,9 @@ pub fn spatial_local_margin(p: SpatialParams, w: usize, h: usize) -> usize {
             p.sharpen_radius
         };
         margin += (r.ceil() as usize).max(2) + 1;
+    }
+    if p.output_sharpen > 0.0 {
+        margin += 3;
     }
     if p.dehaze != 0.0 {
         margin += 3 * 24;
@@ -2467,5 +2531,27 @@ mod tests {
         };
         let out = apply_spatial(&img, w, h, p);
         assert_ne!(out, img, "VHS shader must apply analog effect");
+    }
+
+    #[test]
+    fn output_sharpen_enhances_contrast_across_media_profiles() {
+        let (w, h) = (32, 32);
+        let mut img = vec![128u8; w * h * 4];
+        // Create an edge in the center
+        for y in 0..h {
+            for x in 16..w {
+                img[(y * w + x) * 4] = 200;
+                img[(y * w + x) * 4 + 1] = 200;
+                img[(y * w + x) * 4 + 2] = 200;
+                img[(y * w + x) * 4 + 3] = 255;
+            }
+        }
+
+        let screen_sharpened = apply_output_sharpen(&img, w, h, OutputSharpenMedia::Screen, 0.8);
+        let print_sharpened = apply_output_sharpen(&img, w, h, OutputSharpenMedia::PrintMatte, 0.8);
+        assert_ne!(screen_sharpened, img);
+        assert_ne!(print_sharpened, img);
+        // Print matte has broader radius/gain than screen
+        assert_ne!(screen_sharpened, print_sharpened);
     }
 }

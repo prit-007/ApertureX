@@ -261,5 +261,5 @@ VercodeOperation:
   - 10*%c+2
   - 10*%c+3
 UpdateCheckData: app/pubspec.yaml|version:\s.+\+(\d+)|.|version:\s(.+)\+
-CurrentVersion: 0.3.0
-CurrentVersionCode: 63
+CurrentVersion: 0.3.5
+CurrentVersionCode: 73

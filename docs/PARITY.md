@@ -29,8 +29,11 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Film emulation: halation, bloom, dust flecks, scratches | — | Effects / Film panel | ✅ (photochemical physics in Rust preview base + grade.frag) | P2 |
 | Shader Lab: custom presets + 3 user params + custom GLSL | — | Effects / Lab panel | ✅ (`shaderLabPreset`, `shaderParam1..3`, `customGlslCode`) | P2 |
 | Sharpening (radius/detail/masking) | Details | Detail panel | ✅ | P2 |
+| Output sharpening (Screen, Matte, Glossy, Web) | — | Export / Output Sharpening | ✅ (`outputSharpen`, `outputSharpenMedia` — ADR 0024) | P6 |
 | Noise reduction | Details | Detail panel | ✅ | P2 |
+| Auto-tone refinement (skin-aware, clipping recovery) | Auto | Basic panel | ✅ (`auto_tone` percentile histogram + skin prior) | P6 |
 | Crop / rotate / skew / perspective | Crop | Geometry | ✅ | P2 |
+| Upright / Auto Geometry (vertical convergence) | — | Geometry / Upright | ✅ (`AxEngine.detectUpright`, Sobel convergence — ADR 0024) | P6 |
 | Retouch: healing brush & clone stamp (patches) | Healing / Clone | Spot Healing | ✅ (`retouchPatches`, applied in CPU preview base) | P2 |
 
 ## Geometry & framing
@@ -58,7 +61,9 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Linear gradient mask | Linear Gradient | ✅ | P2.5 |
 | Radial gradient mask | Radial Gradient | ✅ | P2.5 |
 | Brush mask | Brush | ✅ (stylus pressure, palm rejection, inverted-stylus eraser) | P2.5 |
+| Auto Mask (Edge-aware brush) | Auto Mask | ✅ (`MASK_AUTO_BRUSH` Euclidean color contrast gating — ADR 0024) | P6 |
 | Range mask (luminance/color) | Range Mask | ✅ (Zone-system luminance + HSV color-range) | P2.5/P6 |
+| Depth range mask | Depth Range | ✅ (`MASK_DEPTH_RANGE` monocular depth plane slicing — ADR 0024) | P6 |
 | Adjustment layers over masks | Masks + local adj | ✅ (analytic masks) | P2.5 |
 | Snapseed stack == adjustment layers | Stack | 🚧 | P2.5 |
 
@@ -99,6 +104,10 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | History / snapshots | ✅ (unlimited undo/redo stack + history tree) | P2 |
 | Copy / paste / sync settings | ✅ (selective recipe clipboard + multi-photo batch sync edits) | P2 |
 | Filmstrip / library (SQLite Drift) | ✅ (Google Photos-style grid, date grouping, album ellipses, keywords, color labels) | P2 |
+| Smart Collections | ✅ (dynamic multi-rule query engine: rating, flag, color, keywords, edits — ADR 0025) | P6 |
+| Perceptual Duplicate Detection | ✅ (64-bit dHash + Hamming distance burst clustering — ADR 0025) | P6 |
+| Quality Culling (Sharpness & Closed-Eye) | ✅ (Laplacian variance + YuNet facial eye openness score — ADR 0025) | P6 |
+| Folder Watching / Auto-Import | ✅ (debounced `Directory.watch` background ingestion — ADR 0025) | P6 |
 | Desktop MenuBar | ✅ (native macOS/Linux/Windows PlatformMenuBar with shortcuts) | P5 |
 | Internationalization (i18n) | ✅ (flutter_localizations + intl for EN, ES, DE, FR, JA, ZH) | P5 |
 | Lensfun Optics & EXIF Inspector | ✅ (hardware camera/lens profile database, distortion correction, EXIF sheet #85) | P2 |

@@ -16,6 +16,8 @@ pub const MASK_SUBJECT: u32 = 4;
 pub const MASK_SKY: u32 = 5;
 pub const MASK_BITMAP: u32 = 6;
 pub const MASK_COLOR_RANGE: u32 = 7;
+pub const MASK_AUTO_BRUSH: u32 = 8;
+pub const MASK_DEPTH_RANGE: u32 = 9;
 
 /// A parametric or bitmap mask.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -85,6 +87,39 @@ impl MaskSpec {
             params: vec![
                 target_hue, hue_width, sat_min, sat_max, lum_min, lum_max, softness,
             ],
+        }
+    }
+
+    pub fn auto_brush(
+        radius: f32,
+        feather: f32,
+        tolerance: f32,
+        sample_rgb: [f32; 3],
+        points: &[(f32, f32, f32)],
+    ) -> Self {
+        let mut params = Vec::with_capacity(7 + points.len() * 3);
+        params.push(radius);
+        params.push(feather);
+        params.push(tolerance);
+        params.push(sample_rgb[0]);
+        params.push(sample_rgb[1]);
+        params.push(sample_rgb[2]);
+        params.push(points.len() as f32);
+        for &(x, y, p) in points {
+            params.push(x);
+            params.push(y);
+            params.push(p);
+        }
+        MaskSpec {
+            kind: MASK_AUTO_BRUSH,
+            params,
+        }
+    }
+
+    pub fn depth_range(depth_min: f32, depth_max: f32, feather: f32) -> Self {
+        MaskSpec {
+            kind: MASK_DEPTH_RANGE,
+            params: vec![depth_min, depth_max, feather],
         }
     }
 }
@@ -181,6 +216,88 @@ pub fn dist_to_segment(u: f32, v: f32, x0: f32, y0: f32, x1: f32, y1: f32) -> (f
     (dist, t)
 }
 
+/// Evaluates geometric stroke coverage across brush points and segments.
+fn evaluate_brush_points(
+    points: &[f32],
+    count: usize,
+    radius: f32,
+    feather: f32,
+    u: f32,
+    v: f32,
+) -> f32 {
+    let mut min_x = f32::MAX;
+    let mut max_x = f32::MIN;
+    let mut min_y = f32::MAX;
+    let mut max_y = f32::MIN;
+    for chunk in points.as_chunks::<3>().0 {
+        if chunk[0] >= 0.0 && chunk[1] >= 0.0 {
+            min_x = min_x.min(chunk[0]);
+            max_x = max_x.max(chunk[0]);
+            min_y = min_y.min(chunk[1]);
+            max_y = max_y.max(chunk[1]);
+        }
+    }
+    if min_x > max_x
+        || u < min_x - radius
+        || u > max_x + radius
+        || v < min_y - radius
+        || v > max_y + radius
+    {
+        return 0.0;
+    }
+
+    let mut max_cov = 0.0f32;
+    for i in 0..count {
+        let (x0, y0, pr0) = (
+            points[i * 3],
+            points[i * 3 + 1],
+            points[i * 3 + 2].clamp(0.0, 1.0),
+        );
+        if x0 < 0.0 || y0 < 0.0 {
+            continue;
+        }
+        let eff_r_pt = radius * pr0.max(0.1);
+        let dx = (u - x0).abs();
+        let dy = (v - y0).abs();
+        if dx <= eff_r_pt && dy <= eff_r_pt {
+            let dist_sq = dx * dx + dy * dy;
+            let eff_r_pt_sq = eff_r_pt * eff_r_pt;
+            if dist_sq < eff_r_pt_sq {
+                let dist_pt = dist_sq.sqrt();
+                let cov_pt =
+                    (1.0 - smoothstep(eff_r_pt * (1.0 - feather), eff_r_pt, dist_pt)) * pr0;
+                max_cov = max_cov.max(cov_pt);
+            }
+        }
+
+        if i + 1 < count {
+            let (x1, y1, pr1) = (
+                points[(i + 1) * 3],
+                points[(i + 1) * 3 + 1],
+                points[(i + 1) * 3 + 2].clamp(0.0, 1.0),
+            );
+            if x1 >= 0.0 && y1 >= 0.0 {
+                let max_pr = pr0.max(pr1).max(0.1);
+                let eff_r_seg = radius * max_pr;
+                let min_seg_x = x0.min(x1) - eff_r_seg;
+                let max_seg_x = x0.max(x1) + eff_r_seg;
+                let min_seg_y = y0.min(y1) - eff_r_seg;
+                let max_seg_y = y0.max(y1) + eff_r_seg;
+                if u >= min_seg_x && u <= max_seg_x && v >= min_seg_y && v <= max_seg_y {
+                    let (dist, t) = dist_to_segment(u, v, x0, y0, x1, y1);
+                    let pr = pr0 + t * (pr1 - pr0);
+                    let eff_r = radius * pr.max(0.1);
+                    if dist < eff_r {
+                        let cov = (1.0 - smoothstep(eff_r * (1.0 - feather), eff_r, dist)) * pr;
+                        max_cov = max_cov.max(cov);
+                    }
+                }
+            }
+        }
+    }
+    max_cov
+}
+
 /// Mask coverage in `[0,1]` at normalised `(u,v)` (0..1) with luminance [luma].
 pub fn coverage(kind: u32, p: &[f32], u: f32, v: f32, luma: f32) -> f32 {
     coverage_rgb(kind, p, u, v, luma, [luma, luma, luma])
@@ -238,83 +355,41 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
             if count == 0 || p.len() < required_len {
                 return 0.0;
             }
-            let points = &p[3..required_len];
-
-            // Fast bounding box check (filtering out stroke-break sentinels < 0.0)
-            let mut min_x = f32::MAX;
-            let mut max_x = f32::MIN;
-            let mut min_y = f32::MAX;
-            let mut max_y = f32::MIN;
-            for chunk in points.as_chunks::<3>().0 {
-                if chunk[0] >= 0.0 && chunk[1] >= 0.0 {
-                    min_x = min_x.min(chunk[0]);
-                    max_x = max_x.max(chunk[0]);
-                    min_y = min_y.min(chunk[1]);
-                    max_y = max_y.max(chunk[1]);
-                }
-            }
-            if min_x > max_x
-                || u < min_x - radius
-                || u > max_x + radius
-                || v < min_y - radius
-                || v > max_y + radius
-            {
+            evaluate_brush_points(&p[3..required_len], count, radius, feather, u, v)
+        }
+        MASK_AUTO_BRUSH => {
+            // [radius, feather, tolerance, sample_r, sample_g, sample_b, count, x0, y0, p0, ...]
+            if p.len() < 7 || p[6] < 0.0 {
                 return 0.0;
             }
-
-            let mut max_cov = 0.0f32;
-            for i in 0..count {
-                let (x0, y0, pr0) = (
-                    points[i * 3],
-                    points[i * 3 + 1],
-                    points[i * 3 + 2].clamp(0.0, 1.0),
-                );
-                if x0 < 0.0 || y0 < 0.0 {
-                    continue;
-                }
-                // Check distance to point itself (covers single taps and stroke endpoints)
-                let eff_r_pt = radius * pr0.max(0.1);
-                let dx = (u - x0).abs();
-                let dy = (v - y0).abs();
-                if dx <= eff_r_pt && dy <= eff_r_pt {
-                    let dist_sq = dx * dx + dy * dy;
-                    let eff_r_pt_sq = eff_r_pt * eff_r_pt;
-                    if dist_sq < eff_r_pt_sq {
-                        let dist_pt = dist_sq.sqrt();
-                        let cov_pt =
-                            (1.0 - smoothstep(eff_r_pt * (1.0 - feather), eff_r_pt, dist_pt)) * pr0;
-                        max_cov = max_cov.max(cov_pt);
-                    }
-                }
-
-                // Check distance to segment connecting to next point if not break
-                if i + 1 < count {
-                    let (x1, y1, pr1) = (
-                        points[(i + 1) * 3],
-                        points[(i + 1) * 3 + 1],
-                        points[(i + 1) * 3 + 2].clamp(0.0, 1.0),
-                    );
-                    if x1 >= 0.0 && y1 >= 0.0 {
-                        let max_pr = pr0.max(pr1).max(0.1);
-                        let eff_r_seg = radius * max_pr;
-                        let min_seg_x = x0.min(x1) - eff_r_seg;
-                        let max_seg_x = x0.max(x1) + eff_r_seg;
-                        let min_seg_y = y0.min(y1) - eff_r_seg;
-                        let max_seg_y = y0.max(y1) + eff_r_seg;
-                        if u >= min_seg_x && u <= max_seg_x && v >= min_seg_y && v <= max_seg_y {
-                            let (dist, t) = dist_to_segment(u, v, x0, y0, x1, y1);
-                            let pr = pr0 + t * (pr1 - pr0);
-                            let eff_r = radius * pr.max(0.1);
-                            if dist < eff_r {
-                                let cov =
-                                    (1.0 - smoothstep(eff_r * (1.0 - feather), eff_r, dist)) * pr;
-                                max_cov = max_cov.max(cov);
-                            }
-                        }
-                    }
-                }
+            let radius = p[0].max(1e-4);
+            let feather = p[1].clamp(1e-3, 1.0);
+            let tolerance = p[2].clamp(0.01, 1.0);
+            let sample_r = p[3];
+            let sample_g = p[4];
+            let sample_b = p[5];
+            let count = p[6] as usize;
+            let required_len = match count.checked_mul(3).and_then(|c| 7usize.checked_add(c)) {
+                Some(len) => len,
+                None => return 0.0,
+            };
+            if count == 0 || p.len() < required_len {
+                return 0.0;
             }
-            max_cov
+            let geo_cov = evaluate_brush_points(&p[7..required_len], count, radius, feather, u, v);
+            if geo_cov <= 0.0 {
+                return 0.0;
+            }
+            if sample_r >= 0.0 && sample_g >= 0.0 && sample_b >= 0.0 {
+                let dr = (rgb[0] - sample_r).abs();
+                let dg = (rgb[1] - sample_g).abs();
+                let db = (rgb[2] - sample_b).abs();
+                let color_dist = (0.299 * dr * dr + 0.587 * dg * dg + 0.114 * db * db).sqrt();
+                let edge_factor = 1.0 - smoothstep(tolerance * 0.4, tolerance, color_dist);
+                geo_cov * edge_factor
+            } else {
+                geo_cov
+            }
         }
         MASK_SUBJECT => {
             // [cx, cy, rx, ry, feather]
@@ -416,6 +491,56 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
                 ((u - x0) * dx + (v - y0) * dy) / len2
             };
             smoothstep(0.0, 1.0, t)
+        }
+        // MASK_DEPTH_RANGE: selects pixels whose depth falls within [depth_min, depth_max].
+        MASK_DEPTH_RANGE => {
+            if p.len() < 3 {
+                return 0.0;
+            }
+            let depth_min = p[0].clamp(0.0, 1.0);
+            let depth_max = p[1].clamp(0.0, 1.0).max(depth_min);
+            let feather = p[2].max(1e-4);
+
+            let depth_val = if p.len() >= 5 {
+                let dw = p[3].round() as usize;
+                let dh = p[4].round() as usize;
+                let required_len = match dw.checked_mul(dh).and_then(|px| 5usize.checked_add(px)) {
+                    Some(len) => len,
+                    None => return 0.0,
+                };
+                if dw > 0 && dh > 0 && p.len() >= required_len {
+                    let ddata = &p[5..required_len];
+                    let uf = (u.clamp(0.0, 1.0) * (dw.saturating_sub(1) as f32)).max(0.0);
+                    let vf = (v.clamp(0.0, 1.0) * (dh.saturating_sub(1) as f32)).max(0.0);
+                    let x0 = uf.floor() as usize;
+                    let y0 = vf.floor() as usize;
+                    let x1 = (x0 + 1).min(dw - 1);
+                    let y1 = (y0 + 1).min(dh - 1);
+                    let fx = uf - x0 as f32;
+                    let fy = vf - y0 as f32;
+
+                    let d00 = ddata[y0 * dw + x0];
+                    let d10 = ddata[y0 * dw + x1];
+                    let d01 = ddata[y1 * dw + x0];
+                    let d11 = ddata[y1 * dw + x1];
+
+                    let d0 = d00 + (d10 - d00) * fx;
+                    let d1 = d01 + (d11 - d01) * fx;
+                    (d0 + (d1 - d0) * fy).clamp(0.0, 1.0)
+                } else {
+                    (1.0 - 0.7 * v).clamp(0.0, 1.0)
+                }
+            } else {
+                (1.0 - 0.7 * v).clamp(0.0, 1.0)
+            };
+
+            if depth_val < depth_min {
+                smoothstep(depth_min - feather, depth_min, depth_val)
+            } else if depth_val > depth_max {
+                1.0 - smoothstep(depth_max, depth_max + feather, depth_val)
+            } else {
+                1.0
+            }
         }
         _ => 0.0,
     }
@@ -826,6 +951,34 @@ pub fn rasterize_mask(
             };
             out[idx] = coverage_rgb(kind, params, u, v, luma, rgb);
         }
+    }
+    out
+}
+
+/// Generates depth range mask coverage from an explicit depth map plane.
+pub fn generate_depth_range_mask(
+    depth_map: &[f32],
+    width: usize,
+    height: usize,
+    depth_min: f32,
+    depth_max: f32,
+    feather: f32,
+) -> Vec<f32> {
+    if width == 0 || height == 0 || depth_map.len() < width * height {
+        return Vec::new();
+    }
+    let feather = feather.max(1e-4);
+    let n = width * height;
+    let mut out = vec![0.0f32; n];
+    for i in 0..n {
+        let d = depth_map[i];
+        out[i] = if d < depth_min {
+            smoothstep(depth_min - feather, depth_min, d)
+        } else if d > depth_max {
+            1.0 - smoothstep(depth_max, depth_max + feather, d)
+        } else {
+            1.0
+        };
     }
     out
 }
@@ -2314,5 +2467,40 @@ mod tests {
             detected.rx,
             detected.ry
         );
+    }
+
+    #[test]
+    fn auto_brush_stops_at_contrasting_edges() {
+        let mask = MaskSpec::auto_brush(
+            0.2,
+            0.1,
+            0.20,
+            [1.0, 0.0, 0.0], // sampled red
+            &[(0.5, 0.5, 1.0)],
+        );
+
+        // At center with red color: coverage is high
+        let cov_red = coverage_rgb(mask.kind, &mask.params, 0.5, 0.5, 0.5, [1.0, 0.0, 0.0]);
+        assert!(cov_red > 0.8, "red coverage high: {}", cov_red);
+
+        // At center with contrasting blue color: coverage stops/drops to ~0
+        let cov_blue = coverage_rgb(mask.kind, &mask.params, 0.5, 0.5, 0.5, [0.0, 0.0, 1.0]);
+        assert!(
+            cov_blue < 0.1,
+            "blue coverage suppressed by auto-mask edge: {}",
+            cov_blue
+        );
+    }
+
+    #[test]
+    fn depth_range_mask_filters_by_depth_threshold() {
+        let depth_map = vec![0.1f32, 0.3, 0.5, 0.8, 0.95];
+        let alphas = generate_depth_range_mask(&depth_map, 5, 1, 0.25, 0.60, 0.05);
+        assert_eq!(alphas.len(), 5);
+        assert!(alphas[0] < 0.1, "far foreground out of range");
+        assert!(alphas[1] > 0.9, "in-range depth has full coverage");
+        assert!(alphas[2] > 0.9, "in-range depth has full coverage");
+        assert!(alphas[3] < 0.1, "background out of range");
+        assert!(alphas[4] < 0.1, "deep background out of range");
     }
 }
