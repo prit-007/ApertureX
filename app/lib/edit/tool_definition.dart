@@ -4,6 +4,8 @@ import 'look_qr_codec.dart';
 import 'parameter.dart';
 import 'recipe.dart';
 
+import '../features/presets/movie_presets.dart';
+
 /// A shareable **look**: a named patch of recipe parameters. Because it is just
 /// JSON, looks can be imported/exported/shared (file, QR) — community "tools"
 /// without arbitrary shader execution (#14; Flutter can't compile GLSL at
@@ -279,14 +281,20 @@ class ToolLibrary {
     ),
   ];
 
+  /// All built-in looks including movie-reference presets with depth.
+  static List<ToolDefinition> get allBuiltins => [
+        ...builtins,
+        ...movieLookTools(),
+      ];
+
   static List<ToolDefinition> search(String query) {
     final q = query.trim().toLowerCase();
-    if (q.isEmpty) return builtins;
+    if (q.isEmpty) return allBuiltins;
     return [
-      for (final t in builtins)
+      for (final t in allBuiltins)
         if (t.name.toLowerCase().contains(q) ||
             t.description.toLowerCase().contains(q))
-          t,
+        t,
     ];
   }
 }
