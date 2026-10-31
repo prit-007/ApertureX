@@ -190,4 +190,22 @@ void main() {
     expect(find.text('Editor Guide'), findsOneWidget);
     expect(find.text('Image Info & EXIF'), findsOneWidget);
   });
+
+  testWidgets('settings sheet version is dynamic, not hardcoded', (tester) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: SettingsSheet())),
+      ),
+    );
+
+    await tester.scrollUntilVisible(
+      find.textContaining('· P2'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    // Before the dynamic-version fix, this was hardcoded to '0.3.5 · P2'.
+    expect(find.text('ApertureX 0.3.5 · P2'), findsNothing);
+  });
 }

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
@@ -606,11 +607,19 @@ class SettingsSheet extends ConsumerWidget {
 
         const SizedBox(height: Insets.xs),
         Center(
-          child: Text(
-            'ApertureX 0.3.5 · P2',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          child: FutureBuilder<PackageInfo>(
+            future: PackageInfo.fromPlatform(),
+            builder: (context, snapshot) {
+              final version = snapshot.data != null
+                  ? '${snapshot.data!.appName} ${snapshot.data!.version} · P2'
+                  : 'ApertureX · P2';
+              return Text(
+                version,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              );
+            },
           ),
         ),
         const SizedBox(height: Insets.xs),
