@@ -709,6 +709,21 @@ For open-source distribution outside Google Play (e.g., GitHub Releases, direct 
 - **Photo Quality Sharpness & Closed-Eye Culling (`PhotoQualityEvaluator`):** Laplacian variance $\sigma^2(\nabla^2 I)$ detects out-of-focus captures below threshold ($45.0$). Facial landmark aspect ratio analysis detects closed eyes and blinks ($< 0.2$), badging photo tiles and enabling bulk culling.
 - **Debounced Folder Watcher (`AutoImportFolderWatcher`):** Background filesystem watcher (`Directory.watch`) filtering supported RAW and raster formats with 500ms write-settle debouncing, automatically notifying the gallery controller and auto-importing new files.
 
+## 35. Curated Master Preset Catalog & Depth Anything V2 Integration
+
+- **Comprehensive Multi-Category Catalog (`PresetCatalog`, `PresetItem`):** 55+ master-grade looks organized across:
+  - `Cinema & Movies`: Cinematic references (*Oppenheimer*, *Interstellar*, *Pulp Fiction*, *Fight Club*, *La La Land*, *Blade Runner 1982/2049*, *Grand Budapest*, *Inception*, *Amélie*, *The Godfather*, *Dunkirk*, *Moonlight*, *Mad Max: Fury Road*, *Her*, *The Matrix*, *Ready Player One*, *Avatar*, *The Terminator*, *John Wick 1–4*, *The Dark Knight*, *The Batman*, *Batman v Superman*).
+  - `Anime Styles`: Studio aesthetics (*Anime: Shinkai Sky*, *Anime: Spirited Away*, *Anime: Ghibli Garden*, *Anime: Neo-Tokyo Akira*, *Anime: 90s Retro Cel*, *Anime: Cyberpunk Edgerunners*).
+  - `Nature & Landscapes`: Scenario-tuned looks (*Greenery Forest*, *Alpine Mountains*, *Beach & Ocean*, *Golden Outdoors*, *Dramatic Backlight*).
+  - `Indian & Festive`: Cultural ceremonies and festivals (*Royal Indian Wedding*, *Desi Festive: Diwali & Holi*, *Royal Heritage: Rajasthan*, *Kerala Monsoon & Backwaters*, *Bollywood Golden Hour*).
+  - `Travel & Tourism`: Destination photography (*Tourist Travel Postcard*, *Wanderlust Sunset*, *Bazaar & Spice Market*, *Ancient Monuments*).
+  - `Portraits & People`: Skin-tuned portraiture (*Universal Brilliance*, *Clean Editorial Pop*, *Natural Portrait*, *Moody Indoor*).
+  - `Analog & Film`: Emulations of historical film stocks (*Leica M Monochrom*, *Vintage Kodachrome 64*, *Fuji Velvia 50*, *Cinestill 800T*, *Kodak Portra*, *Ilford HP5*, *Agfa Vista*).
+- **Subject-Aware Depth Integration (`MovieLook`, `CulturalTravelLook`, `NatureLook`):** Every preset defines optical depth parameters (`blurFocalPoint`, `blurFocalRange`, `blurBokehShape`, `blurBokehBoost`, `blurAmount`) and a `depthHint` (e.g. `'face'`, `'subject center'`, `'eyes'`). Presets automatically route through the bundled Depth Anything V2 ONNX INT8 neural network (`estimateDepthMapWithModel`), driving a physical Circle-of-Confusion thin-lens bokeh kernel in Rust.
+- **7 Optical Bokeh Apertures (`BokehShape`):** Full parametric simulation of iris blade geometry: Circle (0), Pentagon (1), Hexagon (2), Septagon (3), Cat's Eye anamorphic (4), Soap Bubble optical bloom (5), and Swirl petzval (6).
+- **Precision 3-Way Color Grading Wheels & 8-Band HSL Mix:** Full 24-entry HSL array (`[r_h, r_s, r_l, o_h, o_s, o_l, ...]`) and master colorist wheel parameters (`gradeShadow*`, `gradeMid*`, `gradeHighlight*`, `gradeBlending`, `gradeBalance`) applied losslessly to `EditRecipe`.
+- **Searchable Looks Sheet:** Category chip filtering (`Wrap` of `FilterChip`), real-time query searching across titles, directors, scenarios, and tags, visual thumbnail preview, and one-tap QR sharing.
+
 
 
 

@@ -63,6 +63,7 @@ Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress �
   - **Duplicate Detection**: 64-bit perceptual difference hashing (dHash) with popcount Hamming distance clustering (ADR 0025).
   - **Photo Quality & Closed-Eye Culling**: Laplacian variance sharpness evaluation and YuNet eye openness confidence scoring (ADR 0025).
   - **Auto-Import Folder Watcher**: Debounced background directory watcher for continuous ingestion (ADR 0025).
+  - **Master Preset Catalog & Depth Anything V2 Integration**: 55+ master presets with 3-way color wheels, 8-band HSL, categorized search in Looks Sheet, and physical optical bokeh (7 shapes: Circle, Pentagon, Hexagon, Septagon, Cat's Eye, Soap Bubble, Swirl).
 
 > **Forward plan.** The consolidated, file-by-file plan — including the exact
 > gaps found by the latest audit and the GitHub issue carrying each — is

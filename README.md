@@ -24,6 +24,9 @@
 > Highlights/Shadows, and a guided-filter **Refine Edge brush**.
 >
 > **Industry-Grade Pro Capabilities:**
+> - **Curated Master Preset Catalog & Looks Sheet:** 55+ master-grade looks organized across Cinema (*Oppenheimer*, *Interstellar*, *Pulp Fiction*, *Fight Club*, *La La Land*, *Blade Runner*, *The Batman trilogy*, *John Wick 1–4*, *Avatar*, *The Terminator*), Anime Styles (*Shinkai Sky*, *Spirited Away*, *Ghibli Garden*, *Neo-Tokyo Akira*, *90s Retro Cel*, *Cyberpunk Edgerunners*), Nature Scenarios (*Greenery Forest*, *Alpine Mountains*, *Beach & Ocean*, *Golden Outdoors*), Indian Heritage & Festive (*Royal Indian Wedding*, *Desi Festive: Diwali & Holi*, *Royal Heritage Rajasthan*, *Kerala Monsoon*, *Bollywood Golden Hour*), Travel Postcards, and Legendary Analog Film (*Leica M Monochrom*, *Vintage Kodachrome 64*, *Fuji Velvia 50*, *Cinestill 800T*, *Kodak Portra*, *Ilford HP5*).
+> - **Depth Anything V2 Subject-Aware Bokeh:** Presets route through monocular depth maps with physical thin-lens Circle-of-Confusion simulation, custom optical blade bokeh shapes (Circle, Pentagon, Hexagon, Septagon, Cat's Eye, Soap Bubble, Swirl), and focal plane guidance.
+> - **Precision 3-Way Color Wheels & 8-Band HSL Mix:** Full professional colorist control over shadows, midtones, and highlights (Hue, Saturation, Luminance, Blending, Balance) plus 8-band HSL hue shifting and saturation.
 > - **Targeted Output Sharpening (ADR 0024):** Media-specific high-boost convolution profiles for Screen, Print Matte, Print Glossy, and Web Compression.
 > - **Upright Auto Geometry (ADR 0024):** Sobel vertical convergence detection with one-tap horizon auto-straighten and keystone perspective rectification.
 > - **Edge-Aware Auto Mask Brush & Depth Slicing (ADR 0024):** Euclidean color-distance gated brush strokes and monocular depth map thresholding with feathering.

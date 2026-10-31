@@ -140,6 +140,8 @@ IconData _bokehIcon(BokehShape shape) => switch (shape) {
       BokehShape.pentagon => Icons.pentagon_outlined,
       BokehShape.hexagon => Icons.hexagon_outlined,
       BokehShape.septagon => Icons.filter_tilt_shift,
+      BokehShape.catsEye => Icons.remove_red_eye_outlined,
+      BokehShape.soapBubble => Icons.bubble_chart_outlined,
       BokehShape.swirl => Icons.cyclone,
     };
 

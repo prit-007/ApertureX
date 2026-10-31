@@ -52,7 +52,8 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Feature | Source | Status | Phase |
 |---|---|---|---|
 | Depth-aware lens blur (bokeh, focal plane, focal range) | Lightroom Lens Blur | ✅ (monocular depth + optical blade bokeh, baked in CPU base) | P2 |
-| Bokeh shapes / boost | Lens blur tools | ✅ (`blurBokehShape`, `blurBokehBoost`) | P2 |
+| Bokeh shapes / boost | Lens blur tools | ✅ (`blurBokehShape` 7 shapes: Circle, Pentagon, Hexagon, Septagon, Cat's Eye, Soap Bubble, Swirl) | P2 |
+| Depth visualizer heatmap | Lightroom Lens Blur | ✅ (`generate_depth_visualizer_rgba` colormap heatmap overlay) | P6 |
 
 ## Masking & local adjustments
 
@@ -91,6 +92,9 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | ApertureX Look (recipe JSON) save/apply | ✅ | P2 |
 | Look share via QR (open standard) | ✅ (`docs/LOOK_QR_STANDARD.md`, `apx://look/v1`, creator cards, zxing2 decoder) | P2 |
 | Pre-installed FOSS film simulation core | ✅ (Pat David profiles: Portra 160/400, Fuji Pro 400H, HP5, CineStill 800T, Tri-X) | P2 |
+| Master Preset Catalog (Cinema, Anime, Nature, Indian Heritage, Travel, Film) | ✅ (55+ curated presets with 3-way color wheels, 8-band HSL, Depth Anything V2 bokeh) | P6 |
+| Category filtering & Searchable Looks Sheet | ✅ (Multi-category chip filter + live query search across titles, directors & tags) | P6 |
+| Subject-aware depth parameters in presets | ✅ (Optical blade bokeh shapes, focal plane & depth range mapped to Depth Anything V2) | P6 |
 | Community Preset Hub | ✅ (GitHub-backed plugin repository, category filtering, one-tap preview & save) | P2 |
 | Snapseed Look import | ❌ (no portable format) | — |
 
