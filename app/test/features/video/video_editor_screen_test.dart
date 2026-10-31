@@ -46,7 +46,7 @@ void main() {
     await tester.pumpWidget(buildSubject());
     await tester.pumpAndSettle();
 
-    expect(find.text('Test Reel 4K'), findsOneWidget);
+    expect(find.text('Test Reel 4K'), findsWidgets);
     expect(find.byKey(const Key('play-pause-btn')), findsOneWidget);
     expect(find.byKey(const Key('step-back-btn')), findsOneWidget);
     expect(find.byKey(const Key('step-fwd-btn')), findsOneWidget);
@@ -54,6 +54,9 @@ void main() {
     expect(find.byKey(const Key('mark-out-btn')), findsOneWidget);
     expect(find.text('Grading'), findsOneWidget);
     expect(find.text('Wheels'), findsOneWidget);
+    expect(find.text('Transform'), findsOneWidget);
+    expect(find.text('Audio'), findsOneWidget);
+    expect(find.text('Titles / Text'), findsOneWidget);
     expect(find.text('Export / Info'), findsOneWidget);
   });
 
@@ -109,5 +112,69 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Exported 33³ .CUBE LUT to clipboard'), findsOneWidget);
+  });
+
+  testWidgets('splits and duplicates clips from timeline toolbar', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(buildSubject());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('split-clip-btn')), findsOneWidget);
+    expect(find.byKey(const Key('duplicate-clip-btn')), findsOneWidget);
+
+    // Duplicate clip
+    await tester.tap(find.byKey(const Key('duplicate-clip-btn')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Copy'), findsWidgets);
+
+    // Ripple delete duplicate
+    await tester.tap(find.byKey(const Key('delete-clip-btn')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Copy'), findsNothing);
+  });
+
+  testWidgets('navigates to Transform, Audio, and Text tabs and modifies state', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(buildSubject());
+    await tester.pumpAndSettle();
+
+    // Tap Transform Tab
+    await tester.tap(find.byKey(const Key('transform-tab')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Aspect Ratio & Canvas Framing'), findsOneWidget);
+    expect(find.byKey(const Key('rotate-clip-btn')), findsOneWidget);
+
+    // Rotate 90°
+    await tester.tap(find.byKey(const Key('rotate-clip-btn')));
+    await tester.pumpAndSettle();
+    expect(find.text('Rotate 90° (90°)'), findsOneWidget);
+
+    // Tap Audio Tab
+    await tester.tap(find.byKey(const Key('audio-tab')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('mute-toggle-btn')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('mute-toggle-btn')));
+    await tester.pumpAndSettle();
+    expect(find.text('Track Gain: Muted'), findsOneWidget);
+
+    // Tap Text / Titles Tab
+    await tester.tap(find.byKey(const Key('text-tab')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('add-text-overlay-btn')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('add-text-overlay-btn')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Scene Title'), findsWidgets);
   });
 }

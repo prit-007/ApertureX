@@ -105,7 +105,7 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | In-App OTA Updater | ✅ ("Metrolist-style" GitHub Releases live updater with download progress) | P5 |
 | Interactive Academy & Tool Guide | ✅ (searchable masterclasses, pro tips, category chips, tool guide sheet) | P5 |
 | Print Studio & Contact Sheets | ✅ (A4/A3/Letter/Legal/Photo paper, PDF 1.4 generator, margins, contact sheet grids — ADR 0021) | P6 |
-| Video Color Grading & Trim | ✅ (SMPTE timecode transport, In/Out trim markers, 3D LUT grading, .CUBE export — ADR 0022) | P6 |
+| Video Color Studio & Multi-Clip Editing | ✅ (Multi-clip sequencing, Razor split, ripple delete, duplicate, transitions, audio gain/fade, 16:9/9:16/1:1/4:5/21:9 framing, text overlays, 3D LUT grading, .CUBE export — ADR 0022) | P6 |
 | Studio Tethered Shooting | ✅ (USB/PTP live telemetry, remote shutter release, auto-import, auto-recipe — ADR 0023) | P6 |
 | Soft-Proofing & Gamut Mapping | ✅ (sRGB, Display P3, Adobe RGB, CMYK SWOP, paper & ink simulation, gamut overlay — ADR 0020) | P6 |
 
