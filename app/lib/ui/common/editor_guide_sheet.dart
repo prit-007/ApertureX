@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../features/guide/app_guide_screen.dart';
+import '../../features/guide/gesture_animation_player.dart';
 
 /// Interactive in-app guide sheet demonstrating editor gestures, pro tools,
 /// stylus workflows, and shortcuts.
@@ -177,6 +178,7 @@ class _GesturesTab extends StatelessWidget {
           description:
               'Drag vertically on the image to switch between parameters '
               '(Exposure, Contrast, Highlights, Shadows, Temperature, Saturation).',
+          demo: const GestureAnimationPlayer(type: GestureDemoType.verticalDrag),
           scheme: scheme,
           theme: theme,
         ),
@@ -188,6 +190,7 @@ class _GesturesTab extends StatelessWidget {
           description:
               'Drag horizontally to smoothly dial parameter values up or down. '
               'Subtle haptic clicks fire as you cross zero or step through thresholds.',
+          demo: const GestureAnimationPlayer(type: GestureDemoType.horizontalScrub),
           scheme: scheme,
           theme: theme,
         ),
@@ -199,6 +202,7 @@ class _GesturesTab extends StatelessWidget {
           description:
               'Touch with a second finger while scrubbing to engage the 10x '
               'precision gear ratio. Perfect for micro-contrast and delicate skin tone adjustments.',
+          demo: const GestureAnimationPlayer(type: GestureDemoType.twoFingerPrecisionGear),
           scheme: scheme,
           theme: theme,
         ),
@@ -243,6 +247,7 @@ class _GesturesTab extends StatelessWidget {
           description:
               'Press and hold anywhere on the photo or tap the Compare button '
               'to instantly view the unedited original. Release to return to your edit.',
+          demo: const GestureAnimationPlayer(type: GestureDemoType.splitWiper),
           scheme: scheme,
           theme: theme,
         ),
@@ -461,6 +466,7 @@ class _GuideCard extends StatelessWidget {
     required this.description,
     required this.scheme,
     required this.theme,
+    this.demo,
   });
 
   final IconData icon;
@@ -469,6 +475,7 @@ class _GuideCard extends StatelessWidget {
   final String description;
   final ColorScheme scheme;
   final ThemeData theme;
+  final Widget? demo;
 
   @override
   Widget build(BuildContext context) {
@@ -479,62 +486,71 @@ class _GuideCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(Insets.sm),
-            decoration: BoxDecoration(
-              color: scheme.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: scheme.primary, size: 22),
-          ),
-          const SizedBox(width: Insets.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(Insets.sm),
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: scheme.primary, size: 22),
+              ),
+              const SizedBox(width: Insets.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
-                      ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Insets.xs + 2,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: scheme.secondaryContainer,
+                            borderRadius: Radii.pillAll,
+                          ),
+                          child: Text(
+                            badge,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: scheme.onSecondaryContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Insets.xs + 2,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scheme.secondaryContainer,
-                        borderRadius: Radii.pillAll,
-                      ),
-                      child: Text(
-                        badge,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: scheme.onSecondaryContainer,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    const SizedBox(height: Insets.xs),
+                    Text(
+                      description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.35,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: Insets.xs),
-                Text(
-                  description,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+          if (demo != null) ...[
+            const SizedBox(height: Insets.md),
+            demo!,
+          ],
         ],
       ),
     );

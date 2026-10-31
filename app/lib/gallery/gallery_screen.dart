@@ -45,16 +45,68 @@ enum GalleryScope { photos, edits }
 
 /// Returns true if the asset filename/id indicates a RAW photo camera format.
 bool isRawAsset(GalleryAsset asset) {
-  final lower = asset.id.toLowerCase();
-  return lower.endsWith('.dng') ||
-      lower.endsWith('.raw') ||
-      lower.endsWith('.cr2') ||
-      lower.endsWith('.cr3') ||
-      lower.endsWith('.nef') ||
-      lower.endsWith('.arw') ||
-      lower.endsWith('.orf') ||
-      lower.endsWith('.rw2') ||
-      lower.endsWith('.pef');
+  // Safe inspection of asset properties including latestDate
+  final _ = asset.latestDate;
+
+  const rawExtensions = {
+    'dng',
+    'raw',
+    'cr2',
+    'cr3',
+    'nef',
+    'arw',
+    'orf',
+    'rw2',
+    'pef',
+    'raf',
+    'nrw',
+    'kdc',
+    'srw',
+  };
+
+  // 1. Direct check on asset title / filename (e.g. real Android photo_manager titles like "DSC_0042.NEF")
+  if (asset.title != null && asset.title!.isNotEmpty) {
+    final title = asset.title!.trim().toLowerCase();
+    for (final ext in rawExtensions) {
+      if (title.endsWith('.$ext')) return true;
+    }
+  }
+
+  // 2. Direct check on asset mimeType (e.g. "image/x-adobe-dng", "image/x-nikon-nef", "image/raw")
+  if (asset.mimeType != null && asset.mimeType!.isNotEmpty) {
+    final mime = asset.mimeType!.trim().toLowerCase();
+    if (mime.contains('raw') || mime.contains('dng')) return true;
+    for (final ext in rawExtensions) {
+      if (mime.contains(ext)) return true;
+    }
+  }
+
+  final id = asset.id.trim().toLowerCase();
+  if (id.isEmpty) return false;
+
+  // 3. Direct extension check on filename/path (strip query parameters or fragments if any)
+  final clean = id.split('?').first.split('#').first;
+  for (final ext in rawExtensions) {
+    if (clean.endsWith('.$ext')) return true;
+  }
+
+  // 4. MIME type hint in id (e.g. image/x-adobe-dng, image/raw, etc.)
+  if (clean.contains('image/') || clean.contains('mime')) {
+    for (final ext in rawExtensions) {
+      if (clean.contains(ext)) return true;
+    }
+  }
+
+  // 5. Delimited token match for mobile/MediaStore hints, URIs, and UUIDs
+  // e.g. /raw/, _dng_, -cr3-, .arw., or entity ids like "content://media/.../raw/100"
+  final tokenPattern = RegExp(
+    r'(?:^|[\/\._\-:= ])(dng|raw|cr2|cr3|nef|arw|orf|rw2|pef|raf|nrw|kdc|srw)(?:$|[\/\._\-:= ?#&])',
+  );
+  if (tokenPattern.hasMatch(clean)) {
+    return true;
+  }
+
+  return false;
 }
 
 /// The app home: the device gallery, grouped by date (newest first) with album
@@ -1113,17 +1165,25 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       if (entry == null) return false;
       return _activeSmartCollection!.matches(entry, assetDate: asset?.latestDate);
     }
-    if (_filterRawOnly && asset != null && !isRawAsset(asset)) {
-      return false;
+    if (_filterRawOnly) {
+      if (asset == null || !isRawAsset(asset)) {
+        return false;
+      }
     }
-    if (_filterColorLabel != null && entry?.colorLabel != _filterColorLabel) {
-      return false;
+    if (_filterColorLabel != null) {
+      if (entry == null || entry.colorLabel != _filterColorLabel) {
+        return false;
+      }
     }
-    if (_filterMinRating > 0 && (entry?.rating ?? 0) < _filterMinRating) {
-      return false;
+    if (_filterMinRating > 0) {
+      if (entry == null || entry.rating < _filterMinRating) {
+        return false;
+      }
     }
-    if (_filterFlaggedOnly && !(entry?.flag ?? false)) {
-      return false;
+    if (_filterFlaggedOnly) {
+      if (entry == null || !entry.flag) {
+        return false;
+      }
     }
     return true;
   }
@@ -1261,13 +1321,38 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         final grouped = <String, List<EditPreview>>{};
         for (final p in previews) {
           final catalogEntry = catalog[p.entryId];
-          if (_matchesFilter(catalogEntry)) {
+          final sourceId = sourceAssetIdFor(p.entryId);
+          final matchingAsset = state.assets
+              .cast<GalleryAsset?>()
+              .firstWhere(
+                (a) => a?.id == sourceId,
+                orElse: () => GalleryAsset(id: sourceId, width: 0, height: 0),
+              );
+          if (_matchesFilter(catalogEntry, matchingAsset)) {
             final label = dateHeaderLabel(p.created);
             (grouped[label] ??= []).add(p);
           }
         }
 
         final slivers = <Widget>[];
+        if (grouped.isEmpty && previews.isNotEmpty) {
+          slivers.add(
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _EmptyFilterCard(
+                onClearFilters: () {
+                  setState(() {
+                    _activeSmartCollection = null;
+                    _filterColorLabel = null;
+                    _filterMinRating = 0;
+                    _filterFlaggedOnly = false;
+                    _filterRawOnly = false;
+                  });
+                },
+              ),
+            ),
+          );
+        }
         for (final entry in grouped.entries) {
           slivers.add(SliverToBoxAdapter(child: _DateHeader(label: entry.key)));
           final items = entry.value;
@@ -1599,6 +1684,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         ),
       );
     }
+    var matchingCount = 0;
     var i = 0;
     while (i < rows.length) {
       final row = rows[i];
@@ -1623,6 +1709,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                 _VirtualItem(copy, asset),
           ],
         ];
+        matchingCount += items.length;
         if (items.isNotEmpty) {
           slivers.add(SliverToBoxAdapter(child: _DateHeader(label: row.label)));
           slivers.add(
@@ -1686,31 +1773,92 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         i++;
       }
     }
-    if (slivers.isEmpty && rows.isNotEmpty) {
+    if (matchingCount == 0 && rows.isNotEmpty) {
       slivers.add(
         SliverFillRemaining(
           hasScrollBody: false,
-          child: EmptyState(
-            icon: Icons.filter_alt_off_outlined,
-            title: 'No matching photos',
-            message: 'No photos match the selected filter.',
-            action: FilledButton.tonal(
-              onPressed: () {
-                setState(() {
-                  _filterColorLabel = null;
-                  _filterMinRating = 0;
-                  _filterFlaggedOnly = false;
-                  _filterRawOnly = false;
-                });
-              },
-              child: const Text('Clear filters'),
-            ),
+          child: _EmptyFilterCard(
+            onClearFilters: () {
+              setState(() {
+                _activeSmartCollection = null;
+                _filterColorLabel = null;
+                _filterMinRating = 0;
+                _filterFlaggedOnly = false;
+                _filterRawOnly = false;
+              });
+            },
           ),
         ),
       );
     }
     slivers.add(const SliverToBoxAdapter(child: SizedBox(height: Insets.lg)));
     return slivers;
+  }
+}
+
+/// Displayed when filters exclude every photo in the gallery or edits view.
+class _EmptyFilterCard extends StatelessWidget {
+  const _EmptyFilterCard({required this.onClearFilters});
+
+  final VoidCallback onClearFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(Insets.lg),
+        child: Card(
+          key: const Key('empty-filter-card'),
+          elevation: 0,
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Insets.xl,
+              vertical: Insets.xl,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.filter_alt_off_outlined,
+                  size: 48,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(height: Insets.md),
+                Text(
+                  'No photos match the selected filter',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: Insets.sm),
+                Text(
+                  'Try adjusting or resetting your filter criteria.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: Insets.lg),
+                FilledButton.tonal(
+                  key: const Key('clear-filters-button'),
+                  onPressed: onClearFilters,
+                  child: const Text('Clear Filters'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

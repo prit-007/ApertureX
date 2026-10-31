@@ -6,6 +6,8 @@ enum BokehShape {
   pentagon('5 Blade'),
   hexagon('6 Blade'),
   septagon('7 Blade'),
+  catsEye("Cat's Eye"),
+  soapBubble('Soap Bubble'),
   swirl('Swirl');
 
   const BokehShape(this.label);

@@ -14,17 +14,22 @@ pub enum BokehShape {
     Hexagon,
     Septagon,
     Swirl,
+    CatsEye,
+    SoapBubble,
 }
 
 impl BokehShape {
-    /// Bridge-facing index (`0..4`, matching the Dart `BokehShape` enum order).
+    /// Bridge-facing index matching UI / Dart enum order.
     pub fn from_index(index: u8) -> Self {
         match index {
             0 => BokehShape::Circle,
             1 => BokehShape::Pentagon,
             2 => BokehShape::Hexagon,
             3 => BokehShape::Septagon,
-            _ => BokehShape::Swirl,
+            4 => BokehShape::CatsEye,
+            5 => BokehShape::SoapBubble,
+            6 => BokehShape::Swirl,
+            _ => BokehShape::Circle,
         }
     }
 }
@@ -90,24 +95,50 @@ impl LensBlurParams {
     }
 }
 
-/// Computes the Circle of Confusion (CoC) radius `0..1` for a given pixel depth.
+/// Computes the optical thin-lens Circle of Confusion (CoC) radius in `[0.0, 1.0]`.
+///
+/// Formula: CoC(x, y) = Aperture * | 1/Z(x, y) - 1/Z_focus | * scale
+/// Points within the focal depth range remain sharp (CoC = 0.0);
+/// points outside blur with radius proportional to CoC.
 #[inline(always)]
 pub fn circle_of_confusion(depth: f32, focal_point: f32, focal_range: f32, amount: f32) -> f32 {
-    let diff = (depth - focal_point).abs();
-    let half_range = (focal_range * 0.5).max(1e-4);
-    if diff <= half_range {
-        0.0
-    } else {
-        let t = ((diff - half_range) / (1.0 - half_range).max(1e-4)).clamp(0.0, 1.0);
-        t * amount
+    if amount <= 1e-4 {
+        return 0.0;
     }
+
+    let half_range = (focal_range.abs() * 0.5).max(1e-4);
+    let diff = (depth - focal_point).abs();
+    if diff <= half_range {
+        return 0.0;
+    }
+
+    // Map normalized depth [0.0, 1.0] to physical optical distance Z [0.10, 1.0]
+    let z = (0.10 + 0.90 * depth.clamp(0.0, 1.0)).max(0.05);
+    let z_focus = (0.10 + 0.90 * focal_point.clamp(0.0, 1.0)).max(0.05);
+
+    let inv_z = 1.0 / z;
+    let inv_focus = 1.0 / z_focus;
+
+    // Optical in-focus boundaries in diopter space
+    let z_near = (0.10 + 0.90 * (focal_point - half_range).clamp(0.0, 1.0)).max(0.05);
+    let z_far = (0.10 + 0.90 * (focal_point + half_range).clamp(0.0, 1.0)).max(0.05);
+
+    let delta_diopter = if inv_z > inv_focus {
+        (inv_z - 1.0 / z_near).max(0.0)
+    } else {
+        (1.0 / z_far - inv_z).max(0.0)
+    };
+
+    let aperture = amount;
+    let scale = 1.25;
+    (aperture * delta_diopter * scale).clamp(0.0, 1.0)
 }
 
 /// Evaluates aperture blade distance threshold at polar angle `theta`.
 #[inline(always)]
 fn aperture_radius_limit(theta: f32, shape: BokehShape) -> f32 {
     match shape {
-        BokehShape::Circle => 1.0,
+        BokehShape::Circle | BokehShape::SoapBubble => 1.0,
         BokehShape::Pentagon => {
             let n = 5.0;
             let segment = std::f32::consts::TAU / n;
@@ -126,9 +157,15 @@ fn aperture_radius_limit(theta: f32, shape: BokehShape) -> f32 {
             let alpha = (theta % segment + segment) % segment - (segment * 0.5);
             (std::f32::consts::PI / n).cos() / alpha.cos().max(1e-3)
         }
-        BokehShape::Swirl => {
-            // Anamorphic/Petzval swirl: elliptical compression with radial twist
-            1.0 + 0.25 * (2.0 * theta).sin()
+        BokehShape::CatsEye | BokehShape::Swirl => {
+            // Optical vignetting pupil deformation (cat's eye):
+            // Elliptical compression with radial twist
+            let a = 0.65;
+            let b = 1.0;
+            let cos_t = theta.cos();
+            let sin_t = theta.sin();
+            let r_ellipse = 1.0 / ((cos_t / a).powi(2) + (sin_t / b).powi(2)).sqrt().max(1e-3);
+            r_ellipse * (1.0 + 0.15 * (2.0 * theta).sin())
         }
     }
 }
@@ -145,10 +182,14 @@ fn build_bokeh_kernel(shape: BokehShape, sample_count: usize) -> Vec<BokehSample
     let n = sample_count;
     let mut samples = Vec::with_capacity(n + 1);
     // Center sample
+    let center_weight = match shape {
+        BokehShape::SoapBubble => 0.30,
+        _ => 1.0,
+    };
     samples.push(BokehSample {
         dx: 0.0,
         dy: 0.0,
-        weight: 1.0,
+        weight: center_weight,
     });
     // Golden angle spiral distribution
     for i in 0..n {
@@ -156,10 +197,16 @@ fn build_bokeh_kernel(shape: BokehShape, sample_count: usize) -> Vec<BokehSample
         let r = ((i as f32 + 0.5) / n as f32).sqrt();
         let limit = aperture_radius_limit(theta, shape);
         if r <= limit {
-            let norm_r = r / limit;
+            let norm_r = (r / limit).clamp(0.0, 1.0);
             let sample_dx = norm_r * theta.cos();
             let sample_dy = norm_r * theta.sin();
-            let weight = 1.0 - norm_r * norm_r * 0.3;
+            let weight = match shape {
+                BokehShape::SoapBubble => {
+                    // Overcorrected spherical aberration: bright outer ring
+                    0.25 + 1.75 * norm_r.powi(4)
+                }
+                _ => 1.0 - norm_r * norm_r * 0.25,
+            };
             samples.push(BokehSample {
                 dx: sample_dx,
                 dy: sample_dy,
@@ -168,6 +215,62 @@ fn build_bokeh_kernel(shape: BokehShape, sample_count: usize) -> Vec<BokehSample
         }
     }
     samples
+}
+
+/// Converts a relative depth plane [0.0, 1.0] to a false-color RGBA heatmap:
+/// - Warm Amber (RGB 255, 179, 0) for near foreground (depth < focal_point)
+/// - Neutral Gray (RGB 180, 180, 180) for the in-focus plane (|depth - focal_point| <= focal_range * 0.5)
+/// - Cool Teal (RGB 0, 180, 200) for far background (depth > focal_point)
+pub fn generate_depth_visualizer_rgba(
+    depth: &[f32],
+    w: usize,
+    h: usize,
+    focal_point: f32,
+    focal_range: f32,
+) -> Vec<u8> {
+    if w == 0 || h == 0 || depth.len() < w * h {
+        return Vec::new();
+    }
+
+    let mut rgba = vec![0u8; w * h * 4];
+    let fp = focal_point.clamp(0.0, 1.0);
+    let half_range = (focal_range.abs() * 0.5).max(1e-4);
+
+    const WARM_AMBER: [f32; 3] = [255.0, 179.0, 0.0];
+    const NEUTRAL_FOCUS: [f32; 3] = [180.0, 180.0, 180.0];
+    const COOL_TEAL: [f32; 3] = [0.0, 180.0, 200.0];
+
+    for (i, &raw_d) in depth.iter().take(w * h).enumerate() {
+        let d = raw_d.clamp(0.0, 1.0);
+        let out_idx = i * 4;
+
+        let [r, g, b] = if (d - fp).abs() <= half_range {
+            NEUTRAL_FOCUS
+        } else if d < fp - half_range {
+            let span = (fp - half_range).max(1e-4);
+            let t = ((fp - half_range - d) / span).clamp(0.0, 1.0);
+            [
+                NEUTRAL_FOCUS[0] + t * (WARM_AMBER[0] - NEUTRAL_FOCUS[0]),
+                NEUTRAL_FOCUS[1] + t * (WARM_AMBER[1] - NEUTRAL_FOCUS[1]),
+                NEUTRAL_FOCUS[2] + t * (WARM_AMBER[2] - NEUTRAL_FOCUS[2]),
+            ]
+        } else {
+            let span = (1.0 - (fp + half_range)).max(1e-4);
+            let t = ((d - (fp + half_range)) / span).clamp(0.0, 1.0);
+            [
+                NEUTRAL_FOCUS[0] + t * (COOL_TEAL[0] - NEUTRAL_FOCUS[0]),
+                NEUTRAL_FOCUS[1] + t * (COOL_TEAL[1] - NEUTRAL_FOCUS[1]),
+                NEUTRAL_FOCUS[2] + t * (COOL_TEAL[2] - NEUTRAL_FOCUS[2]),
+            ]
+        };
+
+        rgba[out_idx] = r.round().clamp(0.0, 255.0) as u8;
+        rgba[out_idx + 1] = g.round().clamp(0.0, 255.0) as u8;
+        rgba[out_idx + 2] = b.round().clamp(0.0, 255.0) as u8;
+        rgba[out_idx + 3] = 255;
+    }
+
+    rgba
 }
 
 fn generate_synthetic_depth_map(w: usize, h: usize) -> Vec<f32> {
@@ -565,9 +668,10 @@ mod tests {
                             continue;
                         }
 
-                        let kernel_r = (coc
-                            * (params.amount * w.min(h) as f32 * 0.08).clamp(1.0, 24.0))
-                        .max(1.0);
+                        let min_dim = w.min(h) as f32;
+                        let max_radius =
+                            (params.amount.powf(2.0) * min_dim * 0.12).clamp(1.0, 60.0);
+                        let kernel_r = (coc * max_radius).max(1.0);
                         let mut r_acc = 0.0f32;
                         let mut g_acc = 0.0f32;
                         let mut b_acc = 0.0f32;
@@ -625,5 +729,121 @@ mod tests {
             });
 
         assert_eq!(out, seq, "parallel blur must match sequential blur");
+    }
+
+    #[test]
+    fn test_thin_lens_optical_coc_behavior() {
+        let focal_point = 0.50;
+        let focal_range = 0.10; // in focus between 0.45 and 0.55
+        let amount = 0.80;
+
+        // Inside focal zone: must be 0.0 (sharp)
+        assert_eq!(
+            circle_of_confusion(0.50, focal_point, focal_range, amount),
+            0.0
+        );
+        assert_eq!(
+            circle_of_confusion(0.48, focal_point, focal_range, amount),
+            0.0
+        );
+        assert_eq!(
+            circle_of_confusion(0.52, focal_point, focal_range, amount),
+            0.0
+        );
+
+        // Outside focal zone: CoC strictly positive
+        let near_coc = circle_of_confusion(0.10, focal_point, focal_range, amount);
+        let far_coc = circle_of_confusion(0.90, focal_point, focal_range, amount);
+        assert!(near_coc > 0.0, "Near CoC must be positive");
+        assert!(far_coc > 0.0, "Far CoC must be positive");
+
+        // Zero amount produces zero CoC
+        assert_eq!(
+            circle_of_confusion(0.10, focal_point, focal_range, 0.0),
+            0.0
+        );
+    }
+
+    #[test]
+    fn test_optical_bokeh_shapes_kernel_synthesis() {
+        let shapes = [
+            BokehShape::Circle,
+            BokehShape::Pentagon,
+            BokehShape::Hexagon,
+            BokehShape::Septagon,
+            BokehShape::CatsEye,
+            BokehShape::SoapBubble,
+        ];
+
+        for shape in shapes {
+            let kernel = build_bokeh_kernel(shape, 36);
+            assert!(
+                !kernel.is_empty(),
+                "Kernel for shape {:?} must not be empty",
+                shape
+            );
+            assert!(
+                kernel.len() <= 37,
+                "Kernel for shape {:?} exceeded max 37 samples",
+                shape
+            );
+            for s in &kernel {
+                assert!(s.weight > 0.0, "Sample weight must be positive");
+                let dist = (s.dx * s.dx + s.dy * s.dy).sqrt();
+                assert!(
+                    dist <= 1.05,
+                    "Sample offset exceeded normalized aperture bounds"
+                );
+            }
+        }
+
+        // Soap bubble bokeh specific property: outer perimeter is brighter than center
+        let bubble_kernel = build_bokeh_kernel(BokehShape::SoapBubble, 36);
+        let center_sample = bubble_kernel[0];
+        let outer_sample = bubble_kernel
+            .iter()
+            .max_by(|a, b| {
+                let da = a.dx * a.dx + a.dy * a.dy;
+                let db = b.dx * b.dx + b.dy * b.dy;
+                da.partial_cmp(&db).unwrap()
+            })
+            .unwrap();
+
+        assert!(
+            outer_sample.weight > center_sample.weight,
+            "Soap bubble outer ring ({}) must be brighter than center ({})",
+            outer_sample.weight,
+            center_sample.weight
+        );
+    }
+
+    #[test]
+    fn test_generate_depth_visualizer_rgba() {
+        let (w, h) = (3, 1);
+        // 3 pixels: near (0.0), in-focus (0.5), far (1.0)
+        let depth = vec![0.0, 0.5, 1.0];
+        let visualizer = generate_depth_visualizer_rgba(&depth, w, h, 0.5, 0.1);
+        assert_eq!(visualizer.len(), 3 * 4);
+
+        // Pixel 0 (Near, 0.0): Warm Amber (RGB 255, 179, 0)
+        let p0 = &visualizer[0..4];
+        assert_eq!(p0[0], 255, "Warm Amber red");
+        assert_eq!(p0[1], 179, "Warm Amber green");
+        assert_eq!(p0[2], 0, "Warm Amber blue");
+        assert_eq!(p0[3], 255, "Opaque alpha");
+
+        // Pixel 1 (Focus plane, 0.5): Neutral (RGB 180, 180, 180)
+        let p1 = &visualizer[4..8];
+        assert_eq!(p1[0], 180, "Neutral red");
+        assert_eq!(p1[1], 180, "Neutral green");
+        assert_eq!(p1[2], 180, "Neutral blue");
+        assert_eq!(p1[3], 255, "Opaque alpha");
+
+        // Pixel 2 (Far, 1.0): Cool Teal (RGB 0, 180, 200)
+        let p2 = &visualizer[8..12];
+        assert_eq!(p2[0], 0, "Cool Teal red");
+        assert_eq!(p2[1], 180, "Cool Teal green");
+        assert_eq!(p2[2], 200, "Cool Teal blue");
+        assert_eq!(p2[3], 255, "Opaque alpha");
     }
 }

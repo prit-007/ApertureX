@@ -53,6 +53,20 @@ void main() {
         return const EditRecipe().copyWith(grainSize: value);
       case 'filmHalation':
         return const EditRecipe().copyWith(filmHalation: value);
+      case 'filmBloom':
+        return const EditRecipe().copyWith(filmBloom: value);
+      case 'filmDust':
+        return const EditRecipe().copyWith(filmDust: value);
+      case 'filmScratches':
+        return const EditRecipe().copyWith(filmScratches: value);
+      case 'shaderLabPreset':
+        return const EditRecipe().copyWith(shaderLabPreset: value.toInt() > 0 ? value.toInt() : 1);
+      case 'shaderParam1':
+        return const EditRecipe().copyWith(shaderParam1: value);
+      case 'shaderParam2':
+        return const EditRecipe().copyWith(shaderParam2: value);
+      case 'shaderParam3':
+        return const EditRecipe().copyWith(shaderParam3: value);
       default:
         throw ArgumentError('unknown field $field');
     }
@@ -101,13 +115,29 @@ void main() {
       'vignetteMidpoint',
       'grainSize',
       'filmHalation',
+      'filmBloom',
+      'filmDust',
+      'filmScratches',
+      'shaderLabPreset',
+      'shaderParam1',
+      'shaderParam2',
+      'shaderParam3',
     ]) {
       test('$field perturbs the base key (rebake trigger)', () {
         final base = baseKeyOf(const EditRecipe());
-        expect(baseKeyOf(withGrade(field, 0.4)), isNot(base),
+        expect(baseKeyOf(withGrade(field, field == 'shaderLabPreset' ? 2.0 : 0.4)), isNot(base),
             reason: '$field missing from baseKeyOf — slider would be dead');
       });
     }
+
+    test('customGlslCode perturbs the base key', () {
+      final base = baseKeyOf(const EditRecipe());
+      expect(
+        baseKeyOf(const EditRecipe().copyWith(customGlslCode: 'void main() {}')),
+        isNot(base),
+        reason: 'customGlslCode missing from baseKeyOf — custom shader would be dead',
+      );
+    });
 
     test('blur enable/focal plane perturbs the base key', () {
       final base = baseKeyOf(const EditRecipe());

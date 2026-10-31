@@ -483,19 +483,23 @@ class _ToolGuideCardState extends State<_ToolGuideCard> {
                             duration: const Duration(milliseconds: 150),
                             height: 36,
                             decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: scheme.outlineVariant.withValues(alpha: 0.4),
+                              ),
                               gradient: LinearGradient(
                                 colors: [
-                                  Colors.black.withValues(
+                                  scheme.surface.withValues(
                                     alpha: (0.4 + (_demoValue / (guide.demoMax! * 2)))
-                                        .clamp(0.1, 0.9),
+                                        .clamp(0.15, 0.95),
                                   ),
                                   scheme.primary.withValues(
-                                    alpha: (0.5 + (_demoValue / (guide.demoMax! * 2)))
-                                        .clamp(0.1, 0.95),
+                                    alpha: (0.4 + (_demoValue / (guide.demoMax! * 2)))
+                                        .clamp(0.2, 0.95),
                                   ),
-                                  Colors.white.withValues(
-                                    alpha: (0.3 + (_demoValue / (guide.demoMax! * 2)))
-                                        .clamp(0.05, 0.95),
+                                  scheme.surfaceContainerHighest.withValues(
+                                    alpha: (0.4 + (_demoValue / (guide.demoMax! * 2)))
+                                        .clamp(0.15, 0.95),
                                   ),
                                 ],
                               ),
@@ -506,9 +510,12 @@ class _ToolGuideCardState extends State<_ToolGuideCard> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  shadows: const [
-                                    Shadow(color: Colors.black, blurRadius: 4),
+                                  color: scheme.onSurface,
+                                  shadows: [
+                                    Shadow(
+                                      color: scheme.surface.withValues(alpha: 0.6),
+                                      blurRadius: 4,
+                                    ),
                                   ],
                                 ),
                               ),

@@ -700,12 +700,17 @@ class _AppShellState extends ConsumerState<AppShell> {
                                         setOpen: (v) =>
                                             setState(() => _histogramOpen = v),
                                       ),
-                                    if (!_panelCollapsed)
-                                      const Expanded(
-                                        child: RepaintBoundary(
-                                          child: LightroomShell(),
+                                    Expanded(
+                                      child: Offstage(
+                                        offstage: _panelCollapsed,
+                                        child: TickerMode(
+                                          enabled: !_panelCollapsed,
+                                          child: const RepaintBoundary(
+                                            child: LightroomShell(),
+                                          ),
                                         ),
                                       ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -991,63 +996,71 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
               onDoubleTap: _onDoubleTap,
             ),
           ),
-          AnimatedContainer(
-            key: const Key('lightroom-sheet-body'),
-            duration: _dragging
-                ? Duration.zero
-                : AppMotion.sheetDuration,
-            curve: AppMotion.sheetCurve,
-            height: contentHeight,
-            child: contentHeight <= 0.5
-                ? const SizedBox.shrink()
-                : ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(Radii.md),
-                    ),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(
-                        sigmaX: glassmorphic ? 20 : 0,
-                        sigmaY: glassmorphic ? 20 : 0,
-                      ),
-                      child: Material(
-                        color: glassmorphic
-                            ? scheme.surface.withValues(alpha: 0.72)
-                            : scheme.surface,
-                        shape: glassmorphic
-                            ? Border(
-                                top: BorderSide(
-                                  color: scheme.outlineVariant.withValues(
-                                    alpha: 0.35,
-                                  ),
-                                ),
-                              )
-                            : null,
-                        child: OverflowBox(
-                          minHeight: 0,
-                          maxHeight: double.infinity,
-                          alignment: Alignment.topCenter,
-                          child: SizedBox(
-                            height: math.max(
-                              contentHeight,
-                              widget.histogramOpen ? 260.0 : 190.0,
-                            ),
-                            child: Column(
-                              children: [
-                                if (widget.hasHistogram)
-                                  _HistogramDrawer(
-                                    open: widget.histogramOpen,
-                                    setOpen: widget.setHistogramOpen,
-                                  ),
-                                const Expanded(child: LightroomShell()),
-                              ],
+          ClipRect(
+            child: AnimatedContainer(
+              key: const Key('lightroom-sheet-body'),
+              duration: _dragging
+                  ? Duration.zero
+                  : AppMotion.sheetDuration,
+              curve: AppMotion.sheetCurve,
+              height: contentHeight,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(Radii.md),
+                ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: (glassmorphic && contentHeight > 0.5) ? 20 : 0,
+                  sigmaY: (glassmorphic && contentHeight > 0.5) ? 20 : 0,
+                ),
+                child: Material(
+                  color: glassmorphic
+                      ? scheme.surface.withValues(alpha: 0.72)
+                      : scheme.surface,
+                  shape: glassmorphic
+                      ? Border(
+                          top: BorderSide(
+                            color: scheme.outlineVariant.withValues(
+                              alpha: 0.35,
                             ),
                           ),
-                        ),
+                        )
+                      : null,
+                  child: OverflowBox(
+                    minHeight: 0,
+                    maxHeight: double.infinity,
+                    alignment: Alignment.topCenter,
+                    child: SizedBox(
+                      height: math.max(
+                        contentHeight,
+                        widget.histogramOpen ? 260.0 : 190.0,
+                      ),
+                      child: Column(
+                        children: [
+                          if (widget.hasHistogram)
+                            _HistogramDrawer(
+                              open: widget.histogramOpen,
+                              setOpen: widget.setHistogramOpen,
+                            ),
+                          Expanded(
+                            child: Offstage(
+                              offstage: contentHeight <= 0.5,
+                              child: TickerMode(
+                                enabled: contentHeight > 0.5,
+                                child: const LightroomShell(),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
+                ),
+              ),
+            ),
           ),
-        ],
+        ),
+      ],
       ),
     );
   }

@@ -11,6 +11,7 @@ import '../../edit/tool_definition.dart';
 import '../../features/presets/community_preset_model.dart';
 import '../../features/presets/community_presets_provider.dart';
 import '../../features/presets/preset_card_dialog.dart';
+import '../../features/presets/preset_catalog.dart';
 import '../../features/presets/qr_scanner_sheet.dart';
 import 'app_sheet.dart';
 import 'paste_button.dart';
@@ -28,6 +29,9 @@ class LooksSheet extends ConsumerStatefulWidget {
 class _LooksSheetState extends ConsumerState<LooksSheet> {
   final _controller = TextEditingController();
   final _searchController = TextEditingController();
+  final _catalogSearchController = TextEditingController();
+  PresetCategory _selectedCatalogCategory = PresetCategory.all;
+  bool _showCatalogSearch = false;
   String? _importError;
   int _selectedTab = 0; // 0: My Looks & QR, 1: Community Hub
 
@@ -35,6 +39,7 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
   void dispose() {
     _controller.dispose();
     _searchController.dispose();
+    _catalogSearchController.dispose();
     super.dispose();
   }
 
@@ -129,28 +134,10 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
               ),
             ],
           ),
-          const SizedBox(height: Insets.md),
-          for (final tool in ToolLibrary.builtins)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: PresetThumbnail(
-                params: tool.params,
-                size: 40,
-              ),
-              title: Text(tool.name),
-              subtitle: Text(tool.description),
-              trailing: IconButton(
-                key: Key('share-look-qr-${tool.name}'),
-                icon: const Icon(Icons.qr_code, size: 20),
-                tooltip: 'Share as QR Card',
-                onPressed: () => showPresetCardDialog(context, tool: tool),
-              ),
-              onTap: () => _apply(tool),
-            ),
-          const SizedBox(height: Insets.lg),
+          const SizedBox(height: Insets.sm),
           TextField(
             controller: _controller,
-            maxLines: 3,
+            maxLines: 2,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             decoration: InputDecoration(
               hintText: 'Paste a shared look (JSON or apx:// URI)…',
@@ -158,13 +145,165 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
               suffixIcon: PasteButton(controller: _controller),
             ),
           ),
-          const SizedBox(height: Insets.md),
+          const SizedBox(height: Insets.xs),
           Align(
             alignment: Alignment.centerRight,
-            child: FilledButton(
+            child: FilledButton.tonal(
               onPressed: _import,
               child: const Text('Import look'),
             ),
+          ),
+          const SizedBox(height: Insets.sm),
+          const Divider(),
+          const SizedBox(height: Insets.xs),
+          // ─── Category filter chips with Search Toggle ──────────────
+          Wrap(
+            spacing: Insets.xs,
+            runSpacing: Insets.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              IconButton(
+                key: const Key('toggle-catalog-search-button'),
+                icon: Icon(_showCatalogSearch ? Icons.close : Icons.search, size: 18),
+                tooltip: 'Search Presets',
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
+                  setState(() {
+                    _showCatalogSearch = !_showCatalogSearch;
+                    if (!_showCatalogSearch) {
+                      _catalogSearchController.clear();
+                    }
+                  });
+                },
+              ),
+              for (final cat in PresetCategory.values)
+                FilterChip(
+                  key: Key('filter-preset-category-${cat.name}'),
+                  label: Text(cat.label, style: const TextStyle(fontSize: 12)),
+                  selected: _selectedCatalogCategory == cat,
+                  onSelected: (_) =>
+                      setState(() => _selectedCatalogCategory = cat),
+                  visualDensity: VisualDensity.compact,
+                ),
+            ],
+          ),
+          if (_showCatalogSearch) ...[
+            const SizedBox(height: Insets.xs),
+            TextField(
+              key: const Key('catalog-search-field'),
+              controller: _catalogSearchController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search presets…',
+                prefixIcon: const Icon(Icons.search, size: 18),
+                suffixIcon: _catalogSearchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 16),
+                        onPressed: () {
+                          _catalogSearchController.clear();
+                          setState(() {});
+                        },
+                      )
+                    : null,
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
+          const SizedBox(height: Insets.sm),
+          Builder(
+            builder: (context) {
+              final catalogPresets = PresetCatalog.search(
+                _catalogSearchController.text,
+                category: _selectedCatalogCategory,
+              );
+              if (catalogPresets.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Insets.xl),
+                  child: Center(
+                    child: Text(
+                      'No presets match "${_catalogSearchController.text}"',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                );
+              }
+              return Column(
+                children: [
+                  for (final item in catalogPresets)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: PresetThumbnail(
+                        params: item.tool.params,
+                        size: 40,
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          if (item.hasDepth) ...[
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.blur_on,
+                                    size: 11,
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    item.depthHint ?? 'Depth',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.onPrimaryContainer,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      subtitle: Text(
+                        '${item.description} • ${item.reference}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: IconButton(
+                        key: Key('share-look-qr-${item.name}'),
+                        icon: const Icon(Icons.qr_code, size: 20),
+                        tooltip: 'Share as QR Card',
+                        onPressed: () =>
+                            showPresetCardDialog(context, tool: item.tool),
+                      ),
+                      onTap: () => _apply(item.tool),
+                    ),
+                ],
+              );
+            },
           ),
         ] else ...[
           // ─── Community Hub Tab ──────────────────────────────────────
@@ -232,6 +371,11 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
                 onDownload: () => communityNotifier.downloadPreset(preset),
                 onShareQr: () => showPresetCardDialog(context, tool: preset.toToolDefinition()),
               ),
+          const SafeArea(
+            top: false,
+            bottom: true,
+            child: SizedBox(height: Insets.lg),
+          ),
         ],
       ],
     );

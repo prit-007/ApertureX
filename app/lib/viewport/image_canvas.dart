@@ -22,6 +22,7 @@ import '../engine/engine.dart';
 import '../engine/image_format.dart';
 import '../engine/preview_texture.dart';
 import '../gallery/gallery_controller.dart' show gallerySourceProvider;
+import '../ui/edit_activity.dart';
 import '../core/haptics.dart';
 import '../core/theme/design_tokens.dart';
 import '../gesture/gesture_interpreter.dart';
@@ -114,6 +115,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   /// Asset whose embedded GDepth map is already loaded into [_previewHandle].
   String? _embeddedDepthAssetId;
+
+  /// Handle of the 50% downscaled proxy resident in Rust for active scrubbing.
+  int? _fastProxyHandle;
+  bool _isBaseProxy = false;
+  int? _lastProxyBaseKey;
+  Timer? _settleDebounce;
+  bool _pendingForceFullRes = false;
 
   ui.Image? _baseImage; // geometry + spatial + masks applied
   Uint8List? _baseRgba;
@@ -276,11 +284,22 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         jpegBytes: jpeg,
         maxDim: _maxPreviewDim,
       );
+      int? fastHandle;
+      try {
+        fastHandle = await AxEngine.previewOpenJpeg(
+          jpegBytes: jpeg,
+          maxDim: _maxPreviewDim ~/ 2,
+        );
+      } catch (_) {
+        fastHandle = null;
+      }
       if (!mounted) {
         unawaited(AxEngine.previewClose(handle));
+        if (fastHandle != null) unawaited(AxEngine.previewClose(fastHandle));
         return;
       }
       _previewHandle = handle;
+      _fastProxyHandle = fastHandle;
       // Spike B: prefer zero-copy texture delivery when the platform supports
       // it (Android). Any failure leaves `_textureId` null and we keep the
       // spike-A return-frame path.
@@ -291,6 +310,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _renderRecipe(ref.read(recipeControllerProvider).recipe),
         baseChanged: true,
         gradeChanged: true,
+        forceFullRes: true,
       );
       if (mounted && (_baseImage != null || _useTexture)) setState(() {});
       if (ref.read(recipeControllerProvider).recipe.blurEnabled) {
@@ -655,6 +675,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         width: depth.width,
         height: depth.height,
       );
+      if (_fastProxyHandle != null) {
+        await AxEngine.previewSetEmbeddedDepth(
+          _fastProxyHandle!,
+          depth.depth,
+          width: depth.width,
+          height: depth.height,
+        );
+      }
       if (!mounted || handle != _previewHandle) return;
       _lastBaseKey = null;
       _scheduleBake(ref.read(recipeControllerProvider).recipe);
@@ -663,7 +691,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
   }
 
-  void _scheduleBake(EditRecipe recipe) {
+  bool get _isScrubbing =>
+      ref.read(editActivityProvider) ||
+      _editing ||
+      (_settleDebounce?.isActive ?? false);
+
+  void _scheduleBake(EditRecipe recipe, {bool forceFullRes = false}) {
     if (_program == null || _previewHandle == null) return;
     recipe = _renderRecipe(recipe);
     final imported = ref.read(importedLutProvider)?.hashCode ?? 0;
@@ -673,32 +706,59 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final useTexture = _computeUseTexture();
     final modeChanged = useTexture != _useTexture;
     _useTexture = useTexture;
-    final baseChanged = modeChanged || _baseKey(recipe) != _lastBaseKey;
+    final currentBaseKey = _baseKey(recipe);
+    final baseChanged = modeChanged ||
+        forceFullRes ||
+        currentBaseKey != _lastBaseKey ||
+        (_isBaseProxy && currentBaseKey != _lastProxyBaseKey);
     final gradeChanged =
         modeChanged ||
         _gradeKey(recipe) != _lastGradeKey ||
         imported != _importedKey;
     if (!baseChanged && !gradeChanged) return;
 
+    if (baseChanged && !forceFullRes) {
+      _settleDebounce?.cancel();
+      _settleDebounce = Timer(const Duration(milliseconds: 120), () {
+        if (!_disposed && mounted) {
+          _settleFullRes();
+        }
+      });
+    }
+
     if (_baking) {
       _pendingRecipe = recipe;
       _pendingBaseChanged |= baseChanged;
       _pendingGradeChanged |= gradeChanged;
+      _pendingForceFullRes = forceFullRes;
       return;
     }
 
     _debounce?.cancel();
     _debounce = Timer(
-      const Duration(milliseconds: 40),
-      () =>
-          _rebake(recipe, baseChanged: baseChanged, gradeChanged: gradeChanged),
+      const Duration(milliseconds: 30),
+      () => _rebake(
+        recipe,
+        baseChanged: baseChanged,
+        gradeChanged: gradeChanged,
+        forceFullRes: forceFullRes,
+      ),
     );
+  }
+
+  void _settleFullRes() {
+    if (_disposed || !mounted || _program == null || _previewHandle == null) return;
+    final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
+    if (_isBaseProxy || _lastBaseKey != _baseKey(recipe)) {
+      _scheduleBake(recipe, forceFullRes: true);
+    }
   }
 
   Future<void> _rebake(
     EditRecipe recipe, {
     required bool baseChanged,
     required bool gradeChanged,
+    bool forceFullRes = false,
   }) async {
     if (_program == null || _previewHandle == null) return;
     _baking = true;
@@ -716,7 +776,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       } else {
         if (baseChanged) {
           _setBusy(true);
-          await _rebuildBase(recipe, token);
+          await _rebuildBase(recipe, token, forceFullRes: forceFullRes);
         }
         if (gradeChanged) await _rebuildLut(recipe, token);
       }
@@ -729,12 +789,19 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         final nextRecipe = _pendingRecipe!;
         final nextBase = _pendingBaseChanged;
         final nextGrade = _pendingGradeChanged;
+        final nextForce = _pendingForceFullRes;
         _pendingRecipe = null;
         _pendingBaseChanged = false;
         _pendingGradeChanged = false;
+        _pendingForceFullRes = false;
         scheduleMicrotask(() {
           if (mounted && !_disposed) {
-            _rebake(nextRecipe, baseChanged: nextBase, gradeChanged: nextGrade);
+            _rebake(
+              nextRecipe,
+              baseChanged: nextBase,
+              gradeChanged: nextGrade,
+              forceFullRes: nextForce,
+            );
           }
         });
       }
@@ -749,8 +816,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (!_disposed) _busy.value = value;
   }
 
-  Future<void> _rebuildBase(EditRecipe recipe, int token) async {
-    final handle = _previewHandle;
+  Future<void> _rebuildBase(
+    EditRecipe recipe,
+    int token, {
+    bool forceFullRes = false,
+  }) async {
+    final useFastProxy = !forceFullRes &&
+        _fastProxyHandle != null &&
+        (_isScrubbing || ref.read(editActivityProvider));
+    final handle = useFastProxy ? _fastProxyHandle! : _previewHandle;
     if (handle == null) return;
 
     final frame = await AxEngine.previewBase(
@@ -771,8 +845,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _baseRgba = frame.rgba;
       _baseW = frame.width;
       _baseH = frame.height;
-      _lastBaseKey = _baseKey(recipe);
-      if (dimsChanged) _needsReset = true;
+      _isBaseProxy = useFastProxy;
+      if (useFastProxy) {
+        _lastProxyBaseKey = _baseKey(recipe);
+      } else {
+        _lastBaseKey = _baseKey(recipe);
+      }
+      if (dimsChanged && !useFastProxy) _needsReset = true;
     });
     _updatePixelSampler();
   }
@@ -903,6 +982,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   void dispose() {
     _disposed = true;
     _debounce?.cancel();
+    _settleDebounce?.cancel();
     _histogramDebounce?.cancel();
     _compare.dispose();
     _maskPeek.dispose();
@@ -919,6 +999,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final handle = _previewHandle;
     if (handle != null) {
       unawaited(AxEngine.previewClose(handle));
+    }
+    final fastHandle = _fastProxyHandle;
+    if (fastHandle != null) {
+      unawaited(AxEngine.previewClose(fastHandle));
     }
     super.dispose();
   }
@@ -950,6 +1034,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       mutedParametersProvider,
       (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
     );
+    // Universal fast-proxy scrub settling: on pointer release / gesture end,
+    // settle to tack-sharp full-res frame immediately.
+    ref.listen<bool>(editActivityProvider, (previous, active) {
+      if (previous == true && !active) {
+        _settleDebounce?.cancel();
+        _settleFullRes();
+      }
+    });
     // Auto-peeking mask view (issue #27): crossfade while a detail slider is
     // held, back to the graded image on release.
     ref.listen(maskPeekProvider, (previous, next) {
@@ -1398,6 +1490,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
     // Releasing the photo ends the gesture-shell mask peek (#27).
     ref.read(maskPeekProvider.notifier).set(false);
+    if (_isBaseProxy) {
+      _settleDebounce?.cancel();
+      _settleFullRes();
+    }
     // The viewport settled → maybe a sharp band replaces the upscaled proxy.
     _scheduleRoi();
   }

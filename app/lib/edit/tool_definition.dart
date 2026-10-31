@@ -4,6 +4,10 @@ import 'look_qr_codec.dart';
 import 'parameter.dart';
 import 'recipe.dart';
 
+import '../features/presets/cultural_travel_presets.dart';
+import '../features/presets/movie_presets.dart';
+import '../features/presets/nature_presets.dart';
+
 /// A shareable **look**: a named patch of recipe parameters. Because it is just
 /// JSON, looks can be imported/exported/shared (file, QR) — community "tools"
 /// without arbitrary shader execution (#14; Flutter can't compile GLSL at
@@ -13,6 +17,7 @@ class ToolDefinition {
     required this.name,
     this.description = '',
     required this.params,
+    this.hsl,
   });
 
   factory ToolDefinition.fromJson(Map<String, Object?> json) => ToolDefinition(
@@ -22,6 +27,7 @@ class ToolDefinition {
       for (final e in (json['params'] as Map? ?? {}).entries)
         e.key.toString(): (e.value as num).toDouble(),
     },
+    hsl: (json['hsl'] as List?)?.map((e) => (e as num).toDouble()).toList(),
   );
 
   final String name;
@@ -29,6 +35,9 @@ class ToolDefinition {
 
   /// `Parameter.name → value`.
   final Map<String, double> params;
+
+  /// Optional HSL 8-band color mix `[r_h, r_s, r_l, ...]`.
+  final List<double>? hsl;
 
   /// Applies this look onto [base] (unknown parameter names are ignored).
   EditRecipe applyTo(EditRecipe base) {
@@ -38,6 +47,9 @@ class ToolDefinition {
       if (parameter != null) {
         recipe = withValue(recipe, parameter, entry.value);
       }
+    }
+    if (hsl != null && hsl!.isNotEmpty) {
+      recipe = recipe.copyWith(hsl: List<double>.from(hsl!));
     }
     return recipe;
   }
@@ -50,6 +62,7 @@ class ToolDefinition {
     'name': name,
     'description': description,
     'params': params,
+    if (hsl != null) 'hsl': hsl,
   };
 
   String encode() => const JsonEncoder.withIndent('  ').convert(toJson());
@@ -75,6 +88,31 @@ Parameter? _parameterByName(String name) {
     if (p.name == name) return p;
   }
   return null;
+}
+
+/// Helper to construct 8-band HSL list from individual band offsets.
+/// Bands: 0:Red, 1:Orange, 2:Yellow, 3:Green, 4:Aqua, 5:Blue, 6:Purple, 7:Magenta.
+/// Each band has hue, saturation, luminance in [-1.0, 1.0].
+List<double> createHslBands({
+  double redHue = 0, double redSat = 0, double redLum = 0,
+  double orangeHue = 0, double orangeSat = 0, double orangeLum = 0,
+  double yellowHue = 0, double yellowSat = 0, double yellowLum = 0,
+  double greenHue = 0, double greenSat = 0, double greenLum = 0,
+  double aquaHue = 0, double aquaSat = 0, double aquaLum = 0,
+  double blueHue = 0, double blueSat = 0, double blueLum = 0,
+  double purpleHue = 0, double purpleSat = 0, double purpleLum = 0,
+  double magentaHue = 0, double magentaSat = 0, double magentaLum = 0,
+}) {
+  return [
+    redHue, redSat, redLum,
+    orangeHue, orangeSat, orangeLum,
+    yellowHue, yellowSat, yellowLum,
+    greenHue, greenSat, greenLum,
+    aquaHue, aquaSat, aquaLum,
+    blueHue, blueSat, blueLum,
+    purpleHue, purpleSat, purpleLum,
+    magentaHue, magentaSat, magentaLum,
+  ];
 }
 
 /// Built-in looks (the "tool gallery").
@@ -279,14 +317,22 @@ class ToolLibrary {
     ),
   ];
 
+  /// All built-in looks including movie, anime, nature, Indian cultural, travel, and film presets.
+  static List<ToolDefinition> get allBuiltins => [
+        ...builtins,
+        ...movieLookTools(),
+        ...natureLookTools(),
+        ...culturalTravelLookTools(),
+      ];
+
   static List<ToolDefinition> search(String query) {
     final q = query.trim().toLowerCase();
-    if (q.isEmpty) return builtins;
+    if (q.isEmpty) return allBuiltins;
     return [
-      for (final t in builtins)
+      for (final t in allBuiltins)
         if (t.name.toLowerCase().contains(q) ||
             t.description.toLowerCase().contains(q))
-          t,
+        t,
     ];
   }
 }

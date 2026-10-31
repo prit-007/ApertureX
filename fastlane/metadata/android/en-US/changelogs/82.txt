@@ -1,0 +1,9 @@
+v0.3.7 — Master Preset Catalog & Pro Color Grading
+* 55+ Curated Cinema, Anime, Nature, Indian & Film Presets
+* 3-Way Color Wheels & 8-Band HSL Mix Vectors
+* Depth Anything V2 Bokeh with 7 Optical Aperture Shapes
+* Real-time Depth Visualizer Heatmap Overlay
+* Rubylith Mask Overlay Custom Color & Opacity
+* Fast-Proxy Viewport Scrubbing at 120 FPS
+* Community Hub FAB Safe Area & Bottom Padding
+* Structured Settings & Live App Version from Pubspec

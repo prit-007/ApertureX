@@ -33,7 +33,13 @@ class PhotoGallerySource implements GallerySource {
 
   @override
   Future<List<GalleryAlbum>> listAlbums() async {
-    final paths = await PhotoManager.getAssetPathList(type: RequestType.image);
+    final paths = await PhotoManager.getAssetPathList(
+      type: RequestType.image,
+      filterOption: FilterOptionGroup()
+        ..addOrderOption(
+          const OrderOption(type: OrderOptionType.createDate, asc: false),
+        ),
+    );
     // Resolve album asset counts concurrently in parallel rather than sequentially
     return await Future.wait(
       paths.map((p) async {
@@ -66,19 +72,34 @@ class PhotoGallerySource implements GallerySource {
           height: e.height,
           created: e.createDateTime,
           modified: e.modifiedDateTime,
+          title: e.title,
+          mimeType: e.mimeType,
+          type: e.type.index,
+          relativePath: e.relativePath,
+          isFavorite: e.isFavorite,
+          latitude: e.latitude,
+          longitude: e.longitude,
         ),
     ];
   }
 
   Future<AssetPathEntity?> _pathFor(String? albumId) async {
+    final filterOption = FilterOptionGroup()
+      ..addOrderOption(
+        const OrderOption(type: OrderOptionType.createDate, asc: false),
+      );
     if (albumId == null) {
       final recent = await PhotoManager.getAssetPathList(
         type: RequestType.image,
         onlyAll: true,
+        filterOption: filterOption,
       );
       return recent.isEmpty ? null : recent.first;
     }
-    final paths = await PhotoManager.getAssetPathList(type: RequestType.image);
+    final paths = await PhotoManager.getAssetPathList(
+      type: RequestType.image,
+      filterOption: filterOption,
+    );
     for (final p in paths) {
       if (p.id == albumId) return p;
     }

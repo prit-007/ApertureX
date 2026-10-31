@@ -26,7 +26,8 @@ pub fn blur_apply(
         1 => BokehShape::Pentagon,
         2 => BokehShape::Hexagon,
         3 => BokehShape::Septagon,
-        4 => BokehShape::Swirl,
+        4 => BokehShape::CatsEye,
+        5 => BokehShape::SoapBubble,
         _ => BokehShape::Circle,
     };
 
@@ -50,47 +51,73 @@ pub fn blur_apply(
     )
 }
 
-/// Computes an on-device monocular depth map from RGBA pixels using saliency
-/// and perspective priors. Returns a `width * height` plane of `f32` values
-/// in `[0.0, 1.0]` where lower = closer (more in focus).
+/// Computes an on-device monocular depth map from RGBA pixels.
+/// Returns a `width * height` plane of `f32` values in `[0.0, 1.0]`
+/// where lower = closer (more in focus).
 pub fn estimate_depth_map(rgba: Vec<u8>, width: u32, height: u32) -> Result<Vec<f32>, String> {
-    let subject_mask = crate::ml::segment_subject_mask(
+    crate::ml::estimate_depth_map(
         &rgba,
         width as usize,
         height as usize,
         width as usize,
         height as usize,
     )
-    .map_err(|e| format!("segmentation failed: {e}"))?;
+}
 
-    let mut depth = vec![0.0f32; (width * height) as usize];
-    for y in 0..height as usize {
-        let v = y as f32 / (height as f32 - 1.0).max(1.0);
-        let perspective = 0.25 + 0.55 * v;
-        let row_offset = y * width as usize;
-        for x in 0..width as usize {
-            let u = x as f32 / (width as f32 - 1.0).max(1.0);
-            let du = u - 0.5;
-            let dv = v - 0.5;
-            let radial_dist = (du * du + dv * dv).sqrt();
+/// Computes an on-device monocular depth map, optionally using an external plugin ONNX model path.
+pub fn estimate_depth_map_with_model(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    model_path: Option<String>,
+) -> Result<Vec<f32>, String> {
+    crate::ml::estimate_depth_map_with_plugin(
+        &rgba,
+        width as usize,
+        height as usize,
+        width as usize,
+        height as usize,
+        model_path.as_deref(),
+    )
+}
 
-            let subject_alpha = subject_mask[row_offset + x];
-            let subject_depth = 0.35;
-            let background_depth = (perspective + 0.35 * radial_dist).clamp(0.2, 1.0);
+/// Generates a false-color RGBA heatmap visualizing a relative depth map:
+/// - Warm Amber (RGB 255, 179, 0) for near foreground
+/// - Neutral Gray (RGB 180, 180, 180) for in-focus focal plane
+/// - Cool Teal (RGB 0, 180, 200) for far background
+pub fn generate_depth_visualizer_rgba(
+    depth: Vec<f32>,
+    width: u32,
+    height: u32,
+    focal_point: f32,
+    focal_range: f32,
+) -> Vec<u8> {
+    blur::generate_depth_visualizer_rgba(
+        &depth,
+        width as usize,
+        height as usize,
+        focal_point,
+        focal_range,
+    )
+}
 
-            let pixel_depth =
-                subject_alpha * subject_depth + (1.0 - subject_alpha) * background_depth;
-            depth[row_offset + x] = pixel_depth.clamp(0.0, 1.0);
-        }
-    }
-
-    Ok(depth)
+/// Configures the active ML model path for a task kind (e.g. "depth", "segmentation", "face").
+pub fn set_active_ml_model(task: String, path: String) -> bool {
+    crate::ml::set_active_model(&task, &path)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::blur::apply_lens_blur;
+
+    #[test]
+    fn test_set_active_ml_model_rejects_non_existent_file() {
+        assert!(!set_active_ml_model(
+            "depth".to_string(),
+            "/non_existent_dir/model.onnx".to_string(),
+        ));
+    }
 
     #[test]
     fn depth_map_protects_subject_from_blur() {
@@ -140,5 +167,49 @@ mod tests {
             out[bg_idx] != src[bg_idx],
             "Background should be blurred differently from original"
         );
+    }
+
+    #[test]
+    fn api_estimate_depth_map_produces_valid_depth_plane() {
+        let (w, h) = (16, 16);
+        let src = vec![128u8; w * h * 4];
+        let depth = estimate_depth_map(src.clone(), w as u32, h as u32)
+            .expect("depth estimation must succeed");
+        assert_eq!(depth.len(), w * h);
+        for &d in &depth {
+            assert!((0.0..=1.0).contains(&d));
+        }
+
+        let depth_with_model =
+            estimate_depth_map_with_model(src, w as u32, h as u32, Some("nonexistent.onnx".into()))
+                .expect("depth estimation fallback must succeed");
+        assert_eq!(depth_with_model.len(), w * h);
+    }
+
+    #[test]
+    fn api_generate_depth_visualizer_heatmap() {
+        let depth = vec![0.0, 0.5, 1.0];
+        let heatmap = generate_depth_visualizer_rgba(depth, 3, 1, 0.5, 0.1);
+        assert_eq!(heatmap.len(), 12);
+        // Near (Warm Amber: 255, 179, 0)
+        assert_eq!(heatmap[0], 255);
+        assert_eq!(heatmap[1], 179);
+        assert_eq!(heatmap[2], 0);
+        // Focus (Neutral: 180, 180, 180)
+        assert_eq!(heatmap[4], 180);
+        assert_eq!(heatmap[5], 180);
+        assert_eq!(heatmap[6], 180);
+        // Far (Cool Teal: 0, 180, 200)
+        assert_eq!(heatmap[8], 0);
+        assert_eq!(heatmap[9], 180);
+        assert_eq!(heatmap[10], 200);
+    }
+
+    #[test]
+    fn test_bundled_depth_model_found_when_present() {
+        if let Some(path) = crate::ml::find_bundled_depth_model() {
+            assert!(std::path::Path::new(&path).is_file());
+            assert!(path.contains("depth_anything_v2_vits.onnx"));
+        }
     }
 }

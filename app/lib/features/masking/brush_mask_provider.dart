@@ -1,5 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// The rubylith overlay color used when visualizing an active brush mask.
+enum RubyMaskColor {
+  red,
+  green,
+  blue,
+  white,
+}
+
 /// Interactive settings for the manual brush masking tool.
 class BrushMaskSettings {
   const BrushMaskSettings({
@@ -8,6 +16,8 @@ class BrushMaskSettings {
     this.flow = 1.0,
     this.isEraser = false,
     this.showRubyMask = true,
+    this.rubyColor = RubyMaskColor.red,
+    this.rubyOpacity = 0.5,
   });
 
   /// Base brush radius in normalized canvas coordinates [0.005..0.3].
@@ -22,8 +32,14 @@ class BrushMaskSettings {
   /// True when erasing from the active mask.
   final bool isEraser;
 
-  /// True when the semi-transparent ruby/red mask overlay should be visible.
+  /// True when the semi-transparent rubylith mask overlay should be visible.
   final bool showRubyMask;
+
+  /// Overlay tint color.
+  final RubyMaskColor rubyColor;
+
+  /// Overlay opacity [0.0..1.0].
+  final double rubyOpacity;
 
   BrushMaskSettings copyWith({
     double? radius,
@@ -31,12 +47,16 @@ class BrushMaskSettings {
     double? flow,
     bool? isEraser,
     bool? showRubyMask,
+    RubyMaskColor? rubyColor,
+    double? rubyOpacity,
   }) => BrushMaskSettings(
     radius: radius ?? this.radius,
     feather: feather ?? this.feather,
     flow: flow ?? this.flow,
     isEraser: isEraser ?? this.isEraser,
     showRubyMask: showRubyMask ?? this.showRubyMask,
+    rubyColor: rubyColor ?? this.rubyColor,
+    rubyOpacity: rubyOpacity ?? this.rubyOpacity,
   );
 
   @override
@@ -47,10 +67,20 @@ class BrushMaskSettings {
           other.feather == feather &&
           other.flow == flow &&
           other.isEraser == isEraser &&
-          other.showRubyMask == showRubyMask;
+          other.showRubyMask == showRubyMask &&
+          other.rubyColor == rubyColor &&
+          other.rubyOpacity == rubyOpacity;
 
   @override
-  int get hashCode => Object.hash(radius, feather, flow, isEraser, showRubyMask);
+  int get hashCode => Object.hash(
+    radius,
+    feather,
+    flow,
+    isEraser,
+    showRubyMask,
+    rubyColor,
+    rubyOpacity,
+  );
 }
 
 class BrushMaskNotifier extends Notifier<BrushMaskSettings> {
@@ -79,6 +109,14 @@ class BrushMaskNotifier extends Notifier<BrushMaskSettings> {
 
   void toggleRubyMask() {
     state = state.copyWith(showRubyMask: !state.showRubyMask);
+  }
+
+  void setRubyColor(RubyMaskColor color) {
+    state = state.copyWith(rubyColor: color);
+  }
+
+  void setRubyOpacity(double value) {
+    state = state.copyWith(rubyOpacity: value.clamp(0.0, 1.0));
   }
 }
 

@@ -21,6 +21,51 @@ pub trait Segmenter: Send + Sync {
     ) -> Result<Vec<f32>, String>;
 }
 
+#[cfg(feature = "ai")]
+fn try_plugin_segmentation(
+    rgba: &[u8],
+    src_w: usize,
+    src_h: usize,
+    target_w: usize,
+    target_h: usize,
+    model_path: &str,
+) -> Result<Vec<f32>, String> {
+    if !std::path::Path::new(model_path).is_file() {
+        return Err(format!(
+            "Segmentation plugin model not found at '{model_path}'"
+        ));
+    }
+    let bytes =
+        std::fs::read(model_path).map_err(|e| format!("Failed to read '{model_path}': {e}"))?;
+    const SEG_IN_W: usize = 320;
+    const SEG_IN_H: usize = 320;
+    const MEAN: [f32; 3] = [0.485, 0.456, 0.406];
+    const STD: [f32; 3] = [0.229, 0.224, 0.225];
+    let input = preprocess_image_chw(rgba, src_w, src_h, SEG_IN_W, SEG_IN_H, &MEAN, &STD);
+    let mut session = crate::ort_runtime::create_session(&bytes)?;
+    let raw = crate::ort_runtime::run_session(&mut session, &input, &[1, 3, SEG_IN_W, SEG_IN_H])?;
+    if raw.len() != SEG_IN_W * SEG_IN_H {
+        return Err("Unexpected segmentation model output shape".into());
+    }
+    let min = raw.iter().copied().fold(f32::INFINITY, f32::min);
+    let max = raw.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let range = max - min;
+    let normalized: Vec<f32> = if range > 1e-6 {
+        raw.iter()
+            .map(|v| ((v - min) / range).clamp(0.0, 1.0))
+            .collect()
+    } else {
+        raw.iter().map(|v| v.clamp(0.0, 1.0)).collect()
+    };
+    Ok(resize_mask(
+        &normalized,
+        SEG_IN_W,
+        SEG_IN_H,
+        target_w,
+        target_h,
+    ))
+}
+
 /// Segments the dominant subject, preferring the bundled U²-NetP model when
 /// the optional `ai` feature is enabled and falling back to the deterministic
 /// saliency segmenter if inference is unavailable.
@@ -33,6 +78,15 @@ pub fn segment_subject_mask(
 ) -> Result<Vec<f32>, String> {
     #[cfg(feature = "ai")]
     {
+        if let Some(active) = get_active_model("segmentation") {
+            match try_plugin_segmentation(rgba, src_w, src_h, target_w, target_h, &active) {
+                Ok(mask) => return Ok(mask),
+                Err(err) => crate::api::logging::record_engine_error(
+                    "Active plugin segmentation failed; falling back to U²-NetP",
+                    &err,
+                ),
+            }
+        }
         match crate::u2netp::U2NetpSegmenter.segment(rgba, src_w, src_h, target_w, target_h) {
             Ok(mask) => return Ok(mask),
             Err(err) => crate::api::logging::record_engine_error(
@@ -333,14 +387,271 @@ pub fn compute_iou(mask_a: &[f32], mask_b: &[f32], threshold: f32) -> f32 {
     }
 }
 
-/// Estimates an on-device monocular depth map from RGBA pixels using
-/// boundary priors, saliency, and perspective gradients.
+use std::collections::HashMap;
+use std::sync::{LazyLock, Mutex};
+
+static ACTIVE_MODELS: LazyLock<Mutex<HashMap<String, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Sets the active model path for a task kind (e.g. "depth", "segmentation", "face").
+pub fn set_active_model(task: &str, path: &str) -> bool {
+    let task_key = task.to_lowercase();
+    if path.is_empty() || path == "default" || path == "builtin" {
+        if let Ok(mut map) = ACTIVE_MODELS.lock() {
+            map.remove(&task_key);
+            return true;
+        }
+        return false;
+    }
+    let p = std::path::Path::new(path);
+    if !p.is_file() {
+        return false;
+    }
+    if let Ok(mut map) = ACTIVE_MODELS.lock() {
+        map.insert(task_key, path.to_string());
+        true
+    } else {
+        false
+    }
+}
+
+/// Retrieves the active model path for a task kind if configured.
+pub fn get_active_model(task: &str) -> Option<String> {
+    if let Ok(map) = ACTIVE_MODELS.lock() {
+        map.get(&task.to_lowercase()).cloned()
+    } else {
+        None
+    }
+}
+
+/// Searches standard paths for a bundled monocular depth model.
+pub fn find_bundled_depth_model() -> Option<String> {
+    if let Ok(env_path) = std::env::var("APERTUREX_DEPTH_MODEL") {
+        if std::path::Path::new(&env_path).is_file() {
+            return Some(env_path);
+        }
+    }
+    let candidates = [
+        "assets/models/depth_anything_v2_vits.onnx",
+        "../assets/models/depth_anything_v2_vits.onnx",
+        "app/rust/assets/models/depth_anything_v2_vits.onnx",
+        "assets/models/depth_model.onnx",
+    ];
+    for candidate in &candidates {
+        if std::path::Path::new(candidate).is_file() {
+            return Some((*candidate).to_string());
+        }
+    }
+    None
+}
+
+#[cfg(feature = "ai")]
+const BUNDLED_DEPTH_MODEL: &[u8] = include_bytes!("../assets/models/depth_anything_v2_vits.onnx");
+
+#[cfg(feature = "ai")]
+static BUNDLED_DEPTH_SESSION: std::sync::OnceLock<
+    Result<std::sync::Mutex<ort::session::Session>, String>,
+> = std::sync::OnceLock::new();
+
+#[cfg(feature = "ai")]
+fn try_neural_depth_inference(
+    rgba: &[u8],
+    src_w: usize,
+    src_h: usize,
+    target_w: usize,
+    target_h: usize,
+    plugin_model_path: Option<&str>,
+) -> Result<Vec<f32>, String> {
+    const DEPTH_IN_W: usize = 518;
+    const DEPTH_IN_H: usize = 518;
+    const MEAN: [f32; 3] = [0.485, 0.456, 0.406];
+    const STD: [f32; 3] = [0.229, 0.224, 0.225];
+
+    let input_tensor =
+        preprocess_image_chw(rgba, src_w, src_h, DEPTH_IN_W, DEPTH_IN_H, &MEAN, &STD);
+    if input_tensor.len() != 3 * DEPTH_IN_W * DEPTH_IN_H {
+        return Err("Depth model tensor preprocessing failed".into());
+    }
+
+    let raw_output = if let Some(p) = plugin_model_path {
+        if !std::path::Path::new(p).is_file() {
+            return Err(format!("Plugin depth model file not found at '{p}'"));
+        }
+        let bytes = std::fs::read(p)
+            .map_err(|e| format!("Failed to read plugin depth model '{p}': {e}"))?;
+        let mut session = crate::ort_runtime::create_session(&bytes)?;
+        crate::ort_runtime::run_session(
+            &mut session,
+            &input_tensor,
+            &[1, 3, DEPTH_IN_W, DEPTH_IN_H],
+        )?
+    } else if let Some(active) = get_active_model("depth") {
+        let bytes = std::fs::read(&active)
+            .map_err(|e| format!("Failed to read active depth model '{active}': {e}"))?;
+        let mut session = crate::ort_runtime::create_session(&bytes)?;
+        crate::ort_runtime::run_session(
+            &mut session,
+            &input_tensor,
+            &[1, 3, DEPTH_IN_W, DEPTH_IN_H],
+        )?
+    } else {
+        // Use cached bundled Depth Anything V2 session
+        let lock = BUNDLED_DEPTH_SESSION
+            .get_or_init(|| {
+                crate::ort_runtime::create_session(BUNDLED_DEPTH_MODEL).map(std::sync::Mutex::new)
+            })
+            .as_ref()
+            .map_err(Clone::clone)?;
+        let mut session = lock
+            .lock()
+            .map_err(|_| "Bundled depth session lock poisoned".to_string())?;
+        crate::ort_runtime::run_session(
+            &mut session,
+            &input_tensor,
+            &[1, 3, DEPTH_IN_W, DEPTH_IN_H],
+        )?
+    };
+
+    if raw_output.len() != DEPTH_IN_W * DEPTH_IN_H {
+        return Err(format!(
+            "Depth model output shape mismatch: got {} values, expected {}",
+            raw_output.len(),
+            DEPTH_IN_W * DEPTH_IN_H
+        ));
+    }
+
+    // Normalize raw depth / disparity to [0.0, 1.0] (lower = closer)
+    let mut min_val = f32::INFINITY;
+    let mut max_val = f32::NEG_INFINITY;
+    for &v in &raw_output {
+        if v.is_finite() {
+            if v < min_val {
+                min_val = v;
+            }
+            if v > max_val {
+                max_val = v;
+            }
+        }
+    }
+
+    let span = (max_val - min_val).max(1e-5);
+    // Depth Anything V2 raw output has lower values for closer objects and higher values for distant objects.
+    // ApertureX depth convention: lower = closer (0.0 near, 1.0 far).
+    let normalized_depth: Vec<f32> = raw_output
+        .iter()
+        .map(|&d| ((d - min_val) / span).clamp(0.0, 1.0))
+        .collect();
+
+    let resized = resize_mask(
+        &normalized_depth,
+        DEPTH_IN_W,
+        DEPTH_IN_H,
+        target_w,
+        target_h,
+    );
+    Ok(resized)
+}
+
+/// Computes a high-order continuous optical depth gradient with C2 smoothness,
+/// subject focal plane estimation, and radial lens curvature.
+fn estimate_high_order_depth_gradient(
+    rgba: &[u8],
+    src_w: usize,
+    src_h: usize,
+    target_w: usize,
+    target_h: usize,
+) -> Result<Vec<f32>, String> {
+    let subject_mask = segment_subject_mask(rgba, src_w, src_h, target_w, target_h)?;
+
+    // Compute subject centroid to identify subject's focal depth
+    let mut sum_v = 0.0f32;
+    let mut sum_alpha = 0.0f32;
+    let inv_w = if target_w > 1 {
+        1.0 / (target_w - 1) as f32
+    } else {
+        0.5
+    };
+    let inv_h = if target_h > 1 {
+        1.0 / (target_h - 1) as f32
+    } else {
+        0.5
+    };
+
+    for y in 0..target_h {
+        let v = y as f32 * inv_h;
+        let row_offset = y * target_w;
+        for x in 0..target_w {
+            let alpha = subject_mask[row_offset + x];
+            if alpha > 0.1 {
+                sum_v += v * alpha;
+                sum_alpha += alpha;
+            }
+        }
+    }
+
+    let centroid_v = if sum_alpha > 1e-3 {
+        (sum_v / sum_alpha).clamp(0.0, 1.0)
+    } else {
+        0.5
+    };
+
+    // Cubic smoothstep optical perspective curve P(v):
+    // Distant background / horizon near top (0.85), closer foreground near bottom (0.20)
+    let p_curve = |v: f32| -> f32 {
+        let t = 1.0 - v.clamp(0.0, 1.0);
+        let s = t * t * (3.0 - 2.0 * t);
+        0.20 + 0.65 * s
+    };
+
+    let subject_depth = (p_curve(centroid_v) * 0.70).clamp(0.20, 0.45);
+
+    let mut depth = vec![0.0f32; target_w * target_h];
+
+    for y in 0..target_h {
+        let v = y as f32 * inv_h;
+        let pv = p_curve(v);
+        let dv = v - 0.5;
+        let row_offset = y * target_w;
+        for x in 0..target_w {
+            let u = x as f32 * inv_w;
+            let du = u - 0.5;
+
+            // Optical radial field curvature
+            let radial_curvature = 0.25 * (du * du + dv * dv);
+            let background_depth = (pv + radial_curvature).clamp(0.20, 1.0);
+
+            let subject_alpha = subject_mask[row_offset + x];
+            let pixel_depth =
+                subject_alpha * subject_depth + (1.0 - subject_alpha) * background_depth;
+            depth[row_offset + x] = pixel_depth.clamp(0.0, 1.0);
+        }
+    }
+
+    Ok(depth)
+}
+
+/// Estimates an on-device monocular depth map from RGBA pixels.
+///
+/// Uses the active monocular neural depth model (e.g. Depth Anything V2) via ONNX Runtime
+/// if available, or seamlessly falls back to the high-order optical depth gradient.
 pub fn estimate_depth_map(
     rgba: &[u8],
     src_w: usize,
     src_h: usize,
     target_w: usize,
     target_h: usize,
+) -> Result<Vec<f32>, String> {
+    estimate_depth_map_with_plugin(rgba, src_w, src_h, target_w, target_h, None)
+}
+
+/// Estimates depth map with optional external plugin model path.
+pub fn estimate_depth_map_with_plugin(
+    rgba: &[u8],
+    src_w: usize,
+    src_h: usize,
+    target_w: usize,
+    target_h: usize,
+    plugin_model_path: Option<&str>,
 ) -> Result<Vec<f32>, String> {
     if src_w < 4
         || src_h < 4
@@ -355,47 +666,24 @@ pub fn estimate_depth_map(
     }
     crate::validate::validate_rgba(rgba, src_w as u32, src_h as u32)?;
 
-    // 1. Compute the best available subject segmentation
-    let subject_mask = segment_subject_mask(rgba, src_w, src_h, target_w, target_h)?;
-
-    let mut depth = vec![0.0f32; target_w * target_h];
-    let inv_w = if target_w > 1 {
-        1.0 / (target_w - 1) as f32
-    } else {
-        0.5
-    };
-    let inv_h = if target_h > 1 {
-        1.0 / (target_h - 1) as f32
-    } else {
-        0.5
-    };
-
-    for y in 0..target_h {
-        let v = y as f32 * inv_h;
-        // Perspective baseline: foreground near bottom (0.2), horizon/background near top/horizon (0.8)
-        let perspective = 0.25 + 0.55 * v;
-        let row_offset = y * target_w;
-        for x in 0..target_w {
-            let u = x as f32 * inv_w;
-            let du = u - 0.5;
-            let dv = v - 0.5;
-            let radial_dist = (du * du + dv * dv).sqrt();
-
-            let subject_alpha = subject_mask[row_offset + x];
-
-            // Subject plane sits at focused focal depth ~0.35
-            let subject_depth = 0.35;
-            // Background depth increases with distance from center and horizon
-            let background_depth = (perspective + 0.35 * radial_dist).clamp(0.2, 1.0);
-
-            // Blend subject depth and background depth based on AI saliency
-            let pixel_depth =
-                subject_alpha * subject_depth + (1.0 - subject_alpha) * background_depth;
-            depth[row_offset + x] = pixel_depth.clamp(0.0, 1.0);
+    #[cfg(feature = "ai")]
+    {
+        match try_neural_depth_inference(rgba, src_w, src_h, target_w, target_h, plugin_model_path)
+        {
+            Ok(depth) => return Ok(depth),
+            Err(err) => {
+                crate::api::logging::record_engine_error(
+                    "Neural depth inference unavailable; falling back to optical depth gradient",
+                    &err,
+                );
+            }
         }
     }
 
-    Ok(depth)
+    #[cfg(not(feature = "ai"))]
+    let _ = plugin_model_path;
+
+    estimate_high_order_depth_gradient(rgba, src_w, src_h, target_w, target_h)
 }
 
 #[cfg(test)]

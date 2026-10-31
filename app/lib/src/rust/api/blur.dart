@@ -23,9 +23,9 @@ Future<Uint8List> blurApply({
   depthMap: depthMap,
 );
 
-/// Computes an on-device monocular depth map from RGBA pixels using saliency
-/// and perspective priors. Returns a `width * height` plane of `f32` values
-/// in `[0.0, 1.0]` where lower = closer (more in focus).
+/// Computes an on-device monocular depth map from RGBA pixels.
+/// Returns a `width * height` plane of `f32` values in `[0.0, 1.0]`
+/// where lower = closer (more in focus).
 Future<Float32List> estimateDepthMap({
   required List<int> rgba,
   required int width,
@@ -35,6 +35,41 @@ Future<Float32List> estimateDepthMap({
   width: width,
   height: height,
 );
+
+/// Computes an on-device monocular depth map, optionally using an external plugin ONNX model path.
+Future<Float32List> estimateDepthMapWithModel({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  String? modelPath,
+}) => RustLib.instance.api.crateApiBlurEstimateDepthMapWithModel(
+  rgba: rgba,
+  width: width,
+  height: height,
+  modelPath: modelPath,
+);
+
+/// Generates a false-color RGBA heatmap visualizing a relative depth map:
+/// - Warm Amber (RGB 255, 179, 0) for near foreground
+/// - Neutral Gray (RGB 180, 180, 180) for in-focus focal plane
+/// - Cool Teal (RGB 0, 180, 200) for far background
+Future<Uint8List> generateDepthVisualizerRgba({
+  required List<double> depth,
+  required int width,
+  required int height,
+  required double focalPoint,
+  required double focalRange,
+}) => RustLib.instance.api.crateApiBlurGenerateDepthVisualizerRgba(
+  depth: depth,
+  width: width,
+  height: height,
+  focalPoint: focalPoint,
+  focalRange: focalRange,
+);
+
+/// Configures the active ML model path for a task kind (e.g. "depth", "segmentation", "face").
+Future<bool> setActiveMlModel({required String task, required String path}) =>
+    RustLib.instance.api.crateApiBlurSetActiveMlModel(task: task, path: path);
 
 /// Lens Blur parameters across the FFI boundary.
 class ApiLensBlurParams {

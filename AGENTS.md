@@ -135,6 +135,15 @@ Engine (Rust via flutter_rust_bridge)
 - All external dependencies tracked in `THIRD_PARTY.md`
 - New dependencies require THIRD_PARTY.md entry
 
+### Preset & Color Grading Conventions
+- Preset families are modularized under `app/lib/features/presets/`:
+  - `movie_presets.dart` (Cinema & Anime reference looks)
+  - `nature_presets.dart` (Scenario-tuned landscape, forest, portrait, outdoor looks)
+  - `cultural_travel_presets.dart` (Indian wedding, festive, travel, and analog film looks)
+  - `preset_catalog.dart` (Unified catalog, category taxonomy, search engine)
+- Every preset must supply complete 3-way color grading wheels (`gradeShadow*`, `gradeMid*`, `gradeHighlight*`), 8-band HSL mixes, and Depth Anything V2 optical parameters (`blurFocalPoint`, `blurFocalRange`, `blurBokehShape`, `blurAmount`).
+- `BokehShape` enum indices are strictly synchronized between Dart (`app/lib/color/blur_spec.dart`) and Rust (`app/rust/src/blur.rs`): 0: circle, 1: pentagon, 2: hexagon, 3: septagon, 4: catsEye, 5: soapBubble, 6: swirl.
+
 ### Testing Gotchas
 - **Memory budget**: Tile LRU respects ~512MB device limit
 - **Performance**: The Cargo `dev` profile sets `opt-level = 3` (see `app/rust/Cargo.toml`), so debug/`flutter run` builds are usable; only a truly unoptimized profile shows the 10-50x color/spatial penalty.

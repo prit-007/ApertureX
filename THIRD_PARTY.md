@@ -116,6 +116,12 @@ plain Cargo builds ship none, while Flutter release builds enable `ai`.
 |---|---|---|---|---|---|---|
 | U²-NetP | Salient object / subject mask | ONNX RT / in-tree | Apache-2.0 | Apache-2.0 | [xuebinqin/U-2-Net](https://github.com/xuebinqin/U-2-Net) | Bundled in `ai` builds (#87) |
 | YuNet (2023mar) | Face detection for subject placement | ONNX RT / in-tree | MIT | MIT | [opencv/opencv_zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) | Bundled in `ai` builds (#87) |
+| Depth Anything V2 (ViT-S INT8) | Monocular depth estimation for lens blur | ONNX RT / in-tree | Apache-2.0 | Apache-2.0 | [Depth-Anything/Depth-Anything-V2](https://github.com/Depth-Anything/Depth-Anything-V2) | Bundled in `ai` builds / plugin downloadable |
+
+Bundled file: `app/rust/assets/models/depth_anything_v2_vits.onnx` (27,258,801 bytes,
+SHA-256 `fcf51f1b230362b28690bb9d1809bf0431f29cad20534e3f589bd7285547f20d`, Apache-2.0).
+Input is RGB `[1,3,518,518]` with ImageNet normalization; output is single relative depth plane `[1,1,518,518]`.
+Additional models can be downloaded via the in-app AI Plugin Store.
 
 Bundled file: `app/rust/assets/models/u2netp.onnx` (4,574,861 bytes,
 SHA-256 `309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8`).
