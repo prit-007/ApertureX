@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aperturex/core/updater/app_update_model.dart';
 import 'package:aperturex/core/updater/update_dialog.dart';
