@@ -104,89 +104,137 @@ class _InstalledTab extends StatelessWidget {
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: Insets.sm),
-        for (final plugin in installed)
-          Card.outlined(
-            margin: const EdgeInsets.only(bottom: Insets.sm),
-            child: Padding(
-              padding: const EdgeInsets.all(Insets.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+        for (final plugin in installed) ...[
+          Builder(
+            builder: (context) {
+              final isActive = state.activePluginPerTask[plugin.task] == plugin.id;
+              return Card.outlined(
+                margin: const EdgeInsets.only(bottom: Insets.sm),
+                child: Padding(
+                  padding: const EdgeInsets.all(Insets.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          plugin.task.label,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.bold,
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? theme.colorScheme.primaryContainer
+                                  : theme.colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isActive) ...[
+                                  const Icon(Icons.check_circle_rounded, size: 12, color: Colors.green),
+                                  const SizedBox(width: 4),
+                                ],
+                                Text(
+                                  isActive ? 'Active for ${plugin.task.label}' : plugin.task.label,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: isActive
+                                        ? theme.colorScheme.onPrimaryContainer
+                                        : theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: Insets.xs),
-                      if (plugin.isBuiltIn)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(4),
+                          const SizedBox(width: Insets.xs),
+                          if (plugin.isBuiltIn)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('Built-in', style: TextStyle(fontSize: 10)),
+                            )
+                          else if (isActive)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'Ready in Editor',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          const Spacer(),
+                          Switch.adaptive(
+                            value: plugin.isEnabled,
+                            onChanged: (val) => notifier.togglePlugin(plugin.id, val),
                           ),
-                          child: const Text('Built-in', style: TextStyle(fontSize: 10)),
-                        ),
-                      const Spacer(),
-                      Switch.adaptive(
-                        value: plugin.isEnabled,
-                        onChanged: (val) => notifier.togglePlugin(plugin.id, val),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: Insets.xs),
-                  Text(
-                    plugin.name,
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    plugin.description,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const Divider(height: Insets.md),
-                  Row(
-                    children: [
-                      Icon(Icons.memory, size: 14, color: theme.colorScheme.primary),
-                      const SizedBox(width: 4),
+                      const SizedBox(height: Insets.xs),
                       Text(
-                        'Tensor: ${plugin.tensorShapeLabel}',
-                        style: theme.textTheme.labelSmall,
+                        plugin.name,
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(width: Insets.md),
-                      Icon(Icons.person_outline, size: 14, color: theme.colorScheme.primary),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          plugin.author,
-                          style: theme.textTheme.labelSmall,
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        plugin.description,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      if (!plugin.isBuiltIn)
-                        IconButton(
-                          tooltip: 'Delete model',
-                          icon: const Icon(Icons.delete_outline, size: 18),
-                          onPressed: () => notifier.deletePlugin(plugin.id),
-                        ),
+                      const Divider(height: Insets.md),
+                      Row(
+                        children: [
+                          Icon(Icons.memory, size: 14, color: theme.colorScheme.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Tensor: ${plugin.tensorShapeLabel}',
+                            style: theme.textTheme.labelSmall,
+                          ),
+                          const SizedBox(width: Insets.md),
+                          Icon(Icons.person_outline, size: 14, color: theme.colorScheme.primary),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              plugin.author,
+                              style: theme.textTheme.labelSmall,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (!isActive && plugin.isEnabled)
+                            TextButton.icon(
+                              onPressed: () {
+                                notifier.setActivePluginForTask(plugin.task, plugin.id);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('${plugin.name} is now active for ${plugin.task.label}!'),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.check_circle_outline, size: 16),
+                              label: const Text('Set Active'),
+                            ),
+                          if (!plugin.isBuiltIn)
+                            IconButton(
+                              tooltip: 'Delete model',
+                              icon: const Icon(Icons.delete_outline, size: 18),
+                              onPressed: () => notifier.deletePlugin(plugin.id),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
+        ],
         ],
       ),
     );
@@ -223,12 +271,30 @@ class _CommunityTab extends StatelessWidget {
         ),
         const SizedBox(height: Insets.md),
         for (final plugin in community) ...[
-          _CommunityPluginCard(
-            plugin: plugin,
-            isInstalled: state.installedPlugins.any((p) => p.id == plugin.id),
-            isDownloading: state.downloadingId == plugin.id,
-            progress: state.downloadProgress,
-            onInstall: () => notifier.installCommunityPlugin(plugin),
+          Builder(
+            builder: (context) {
+              final isInstalled = state.installedPlugins.any((p) => p.id == plugin.id);
+              final isActive = state.activePluginPerTask[plugin.task] == plugin.id;
+              return _CommunityPluginCard(
+                plugin: plugin,
+                isInstalled: isInstalled,
+                isActive: isActive,
+                isDownloading: state.downloadingId == plugin.id,
+                progress: state.downloadProgress,
+                onInstall: () async {
+                  await notifier.installCommunityPlugin(plugin);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '${plugin.name} downloaded & ready! Active for ${plugin.task.label} in Masks & Editor.',
+                        ),
+                      ),
+                    );
+                  }
+                },
+              );
+            },
           ),
           const SizedBox(height: Insets.sm),
         ],
@@ -242,6 +308,7 @@ class _CommunityPluginCard extends StatelessWidget {
   const _CommunityPluginCard({
     required this.plugin,
     required this.isInstalled,
+    required this.isActive,
     required this.isDownloading,
     required this.progress,
     required this.onInstall,
@@ -249,6 +316,7 @@ class _CommunityPluginCard extends StatelessWidget {
 
   final AiPluginModel plugin;
   final bool isInstalled;
+  final bool isActive;
   final bool isDownloading;
   final double progress;
   final VoidCallback onInstall;
@@ -302,8 +370,12 @@ class _CommunityPluginCard extends StatelessWidget {
                 else if (isInstalled)
                   FilledButton.tonalIcon(
                     onPressed: null,
-                    icon: const Icon(Icons.check, size: 16),
-                    label: const Text('Installed'),
+                    icon: Icon(
+                      isActive ? Icons.check_circle_rounded : Icons.check,
+                      size: 16,
+                      color: isActive ? Colors.green : null,
+                    ),
+                    label: Text(isActive ? 'Active' : 'Installed'),
                   )
                 else
                   FilledButton.icon(

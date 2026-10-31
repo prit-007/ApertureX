@@ -21,6 +21,51 @@ pub trait Segmenter: Send + Sync {
     ) -> Result<Vec<f32>, String>;
 }
 
+#[cfg(feature = "ai")]
+fn try_plugin_segmentation(
+    rgba: &[u8],
+    src_w: usize,
+    src_h: usize,
+    target_w: usize,
+    target_h: usize,
+    model_path: &str,
+) -> Result<Vec<f32>, String> {
+    if !std::path::Path::new(model_path).is_file() {
+        return Err(format!(
+            "Segmentation plugin model not found at '{model_path}'"
+        ));
+    }
+    let bytes =
+        std::fs::read(model_path).map_err(|e| format!("Failed to read '{model_path}': {e}"))?;
+    const SEG_IN_W: usize = 320;
+    const SEG_IN_H: usize = 320;
+    const MEAN: [f32; 3] = [0.485, 0.456, 0.406];
+    const STD: [f32; 3] = [0.229, 0.224, 0.225];
+    let input = preprocess_image_chw(rgba, src_w, src_h, SEG_IN_W, SEG_IN_H, &MEAN, &STD);
+    let mut session = crate::ort_runtime::create_session(&bytes)?;
+    let raw = crate::ort_runtime::run_session(&mut session, &input, &[1, 3, SEG_IN_W, SEG_IN_H])?;
+    if raw.len() != SEG_IN_W * SEG_IN_H {
+        return Err("Unexpected segmentation model output shape".into());
+    }
+    let min = raw.iter().copied().fold(f32::INFINITY, f32::min);
+    let max = raw.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let range = max - min;
+    let normalized: Vec<f32> = if range > 1e-6 {
+        raw.iter()
+            .map(|v| ((v - min) / range).clamp(0.0, 1.0))
+            .collect()
+    } else {
+        raw.iter().map(|v| v.clamp(0.0, 1.0)).collect()
+    };
+    Ok(resize_mask(
+        &normalized,
+        SEG_IN_W,
+        SEG_IN_H,
+        target_w,
+        target_h,
+    ))
+}
+
 /// Segments the dominant subject, preferring the bundled U²-NetP model when
 /// the optional `ai` feature is enabled and falling back to the deterministic
 /// saliency segmenter if inference is unavailable.
@@ -33,6 +78,15 @@ pub fn segment_subject_mask(
 ) -> Result<Vec<f32>, String> {
     #[cfg(feature = "ai")]
     {
+        if let Some(active) = get_active_model("segmentation") {
+            match try_plugin_segmentation(rgba, src_w, src_h, target_w, target_h, &active) {
+                Ok(mask) => return Ok(mask),
+                Err(err) => crate::api::logging::record_engine_error(
+                    "Active plugin segmentation failed; falling back to U²-NetP",
+                    &err,
+                ),
+            }
+        }
         match crate::u2netp::U2NetpSegmenter.segment(rgba, src_w, src_h, target_w, target_h) {
             Ok(mask) => return Ok(mask),
             Err(err) => crate::api::logging::record_engine_error(
@@ -341,12 +395,20 @@ static ACTIVE_MODELS: LazyLock<Mutex<HashMap<String, String>>> =
 
 /// Sets the active model path for a task kind (e.g. "depth", "segmentation", "face").
 pub fn set_active_model(task: &str, path: &str) -> bool {
+    let task_key = task.to_lowercase();
+    if path.is_empty() || path == "default" || path == "builtin" {
+        if let Ok(mut map) = ACTIVE_MODELS.lock() {
+            map.remove(&task_key);
+            return true;
+        }
+        return false;
+    }
     let p = std::path::Path::new(path);
     if !p.is_file() {
         return false;
     }
     if let Ok(mut map) = ACTIVE_MODELS.lock() {
-        map.insert(task.to_lowercase(), path.to_string());
+        map.insert(task_key, path.to_string());
         true
     } else {
         false
@@ -384,6 +446,14 @@ pub fn find_bundled_depth_model() -> Option<String> {
 }
 
 #[cfg(feature = "ai")]
+const BUNDLED_DEPTH_MODEL: &[u8] = include_bytes!("../assets/models/depth_anything_v2_vits.onnx");
+
+#[cfg(feature = "ai")]
+static BUNDLED_DEPTH_SESSION: std::sync::OnceLock<
+    Result<std::sync::Mutex<ort::session::Session>, String>,
+> = std::sync::OnceLock::new();
+
+#[cfg(feature = "ai")]
 fn try_neural_depth_inference(
     rgba: &[u8],
     src_w: usize,
@@ -392,23 +462,6 @@ fn try_neural_depth_inference(
     target_h: usize,
     plugin_model_path: Option<&str>,
 ) -> Result<Vec<f32>, String> {
-    let model_path = if let Some(p) = plugin_model_path {
-        if std::path::Path::new(p).is_file() {
-            Some(p.to_string())
-        } else {
-            return Err(format!("Plugin depth model file not found at '{p}'"));
-        }
-    } else if let Some(active) = get_active_model("depth") {
-        Some(active)
-    } else {
-        find_bundled_depth_model()
-    };
-
-    let path =
-        model_path.ok_or_else(|| "No bundled or plugin depth model available".to_string())?;
-    let model_bytes =
-        std::fs::read(&path).map_err(|e| format!("Failed to read depth model '{path}': {e}"))?;
-
     const DEPTH_IN_W: usize = 518;
     const DEPTH_IN_H: usize = 518;
     const MEAN: [f32; 3] = [0.485, 0.456, 0.406];
@@ -420,12 +473,44 @@ fn try_neural_depth_inference(
         return Err("Depth model tensor preprocessing failed".into());
     }
 
-    let mut session = crate::ort_runtime::create_session(&model_bytes)?;
-    let raw_output = crate::ort_runtime::run_session(
-        &mut session,
-        &input_tensor,
-        &[1, 3, DEPTH_IN_W, DEPTH_IN_H],
-    )?;
+    let raw_output = if let Some(p) = plugin_model_path {
+        if !std::path::Path::new(p).is_file() {
+            return Err(format!("Plugin depth model file not found at '{p}'"));
+        }
+        let bytes = std::fs::read(p)
+            .map_err(|e| format!("Failed to read plugin depth model '{p}': {e}"))?;
+        let mut session = crate::ort_runtime::create_session(&bytes)?;
+        crate::ort_runtime::run_session(
+            &mut session,
+            &input_tensor,
+            &[1, 3, DEPTH_IN_W, DEPTH_IN_H],
+        )?
+    } else if let Some(active) = get_active_model("depth") {
+        let bytes = std::fs::read(&active)
+            .map_err(|e| format!("Failed to read active depth model '{active}': {e}"))?;
+        let mut session = crate::ort_runtime::create_session(&bytes)?;
+        crate::ort_runtime::run_session(
+            &mut session,
+            &input_tensor,
+            &[1, 3, DEPTH_IN_W, DEPTH_IN_H],
+        )?
+    } else {
+        // Use cached bundled Depth Anything V2 session
+        let lock = BUNDLED_DEPTH_SESSION
+            .get_or_init(|| {
+                crate::ort_runtime::create_session(BUNDLED_DEPTH_MODEL).map(std::sync::Mutex::new)
+            })
+            .as_ref()
+            .map_err(Clone::clone)?;
+        let mut session = lock
+            .lock()
+            .map_err(|_| "Bundled depth session lock poisoned".to_string())?;
+        crate::ort_runtime::run_session(
+            &mut session,
+            &input_tensor,
+            &[1, 3, DEPTH_IN_W, DEPTH_IN_H],
+        )?
+    };
 
     if raw_output.len() != DEPTH_IN_W * DEPTH_IN_H {
         return Err(format!(
@@ -450,11 +535,11 @@ fn try_neural_depth_inference(
     }
 
     let span = (max_val - min_val).max(1e-5);
-    // Depth Anything V2 outputs inverse relative depth / disparity (higher = closer).
+    // Depth Anything V2 raw output has lower values for closer objects and higher values for distant objects.
     // ApertureX depth convention: lower = closer (0.0 near, 1.0 far).
     let normalized_depth: Vec<f32> = raw_output
         .iter()
-        .map(|&d| (1.0 - (d - min_val) / span).clamp(0.0, 1.0))
+        .map(|&d| ((d - min_val) / span).clamp(0.0, 1.0))
         .collect();
 
     let resized = resize_mask(

@@ -11,6 +11,7 @@ import '../../features/guide/app_guide_screen.dart';
 import '../../features/logs/logs_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../gallery/edited_versions_screen.dart';
+import '../../settings/about_screen.dart';
 import '../../settings/ai_consent.dart';
 import '../../settings/app_settings.dart';
 import '../../settings/export_settings.dart';
@@ -598,6 +599,11 @@ class SettingsSheet extends ConsumerWidget {
               onTap: () => _openAbout(context),
             ),
             _Action(
+              icon: Icons.people_outline,
+              title: 'About the developers',
+              onTap: () => _openDevelopers(context),
+            ),
+            _Action(
               icon: Icons.article_outlined,
               title: 'Open-source licenses',
               onTap: () => _openLicenses(context),
@@ -686,14 +692,34 @@ Future<void> _openAbout(BuildContext context) async {
     context: navContext,
     applicationName: 'ApertureX',
     applicationVersion: AppUpdater.currentVersion,
-    children: const [
-      SizedBox(height: Insets.md),
-      Text(
-        'A mobile-native, non-destructive, free and open-source photo editor.',
+    children: [
+      const SizedBox(height: Insets.md),
+      const Text(
+        "A mobile-native, non-destructive, free and open-source photo editor by Developer's Paradise & Prit Vasani.",
       ),
-      SizedBox(height: Insets.sm),
-      Text(kOfflineClaim),
+      const SizedBox(height: Insets.sm),
+      const Text(kOfflineClaim),
+      const SizedBox(height: Insets.md),
+      FilledButton.tonalIcon(
+        icon: const Icon(Icons.people_outline),
+        label: const Text('About Developers & Third-Party Credits'),
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const AboutScreen()),
+          );
+        },
+      ),
     ],
+  );
+}
+
+Future<void> _openDevelopers(BuildContext context) async {
+  final navigator = Navigator.of(context);
+  final navContext = navigator.context;
+  if (!navContext.mounted) return;
+  navigator.maybePop();
+  navigator.push(
+    MaterialPageRoute<void>(builder: (_) => const AboutScreen()),
   );
 }
 

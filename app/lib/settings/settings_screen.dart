@@ -12,20 +12,21 @@ import '../features/onboarding/onboarding_screen.dart';
 import '../ui/common/app_primitives.dart';
 import '../ui/common/editor_guide_sheet.dart';
 import '../ui/common/settings_sheet.dart' show kOfflineClaim;
+import 'about_screen.dart';
 import 'ai_consent.dart';
 import 'app_settings.dart';
 import 'export_settings.dart';
 import 'shell_preference.dart';
 
-/// Provider to dynamically extract the app version from [PackageInfo] with fallback to '0.3.5+7'.
+/// Provider to dynamically extract the app version from [PackageInfo] with fallback to '0.3.7+8'.
 final appVersionProvider = FutureProvider<String>((ref) async {
   try {
     final info = await PackageInfo.fromPlatform();
     final build = info.buildNumber.isNotEmpty ? '+${info.buildNumber}' : '';
     final ver = '${info.version}$build';
-    return ver.isNotEmpty ? ver : '0.3.5+7';
+    return ver.isNotEmpty ? ver : '0.3.7+8';
   } catch (_) {
-    return '0.3.5+7';
+    return '0.3.7+8';
   }
 });
 
@@ -71,7 +72,7 @@ class SettingsScreen extends ConsumerWidget {
     final tileLimit = ref.watch(tileCacheSettingsProvider);
     final export = ref.watch(exportSettingsProvider);
     final aiConsent = ref.watch(aiConsentProvider);
-    final appVersion = ref.watch(appVersionProvider).asData?.value ?? '0.3.5+7';
+    final appVersion = ref.watch(appVersionProvider).asData?.value ?? '0.3.7+8';
 
     return Scaffold(
       appBar: AppBar(
@@ -406,7 +407,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
 
           // ─── 9. About, Version & Updates ────────────────────────────
-          const SectionHeader('About'),
+          const SectionHeader('About & Developers'),
           _cardSection(
             context: context,
             children: [
@@ -420,27 +421,24 @@ class SettingsScreen extends ConsumerWidget {
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.info_outline),
-                title: const Text('About ApertureX'),
-                subtitle: Text('Version $appVersion · Pro-level FOSS Photo Editor'),
-                onTap: () {
-                  showAboutDialog(
-                    context: context,
-                    applicationName: 'ApertureX',
-                    applicationVersion: appVersion,
-                    applicationLegalese: 'Copyright © 2026 ApertureX Contributors\n\n$kOfflineClaim',
-                  );
-                },
+                title: const Text('About ApertureX & Developers'),
+                subtitle: Text("Developer's Paradise · Prit Vasani · Version $appVersion"),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const AboutScreen()),
+                ),
               ),
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.article_outlined),
                 title: const Text('Open-Source Licenses'),
-                subtitle: const Text('Material, Riverpod, Drift, and engine dependencies'),
+                subtitle: const Text('GPL-3.0, MIT, Apache-2.0, BSD-3, and engine dependencies'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => showLicensePage(
                   context: context,
                   applicationName: 'ApertureX',
                   applicationVersion: appVersion,
+                  applicationLegalese: 'GPL-3.0-or-later',
                 ),
               ),
               const Divider(height: 1),

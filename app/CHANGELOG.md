@@ -4,6 +4,31 @@ All notable changes to ApertureX are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.7] - 2026-10-31
+
+Curated Master Preset Catalog, 3-Way Color Grading Wheels, 8-Band HSL Mix, Depth Anything V2 Bokeh & UI Ergonomics Polish.
+
+### Added
+- **Curated Master Preset Catalog (`PresetCatalog`)** — 55+ master-grade color grading presets categorized across Cinema, Anime, Nature, Indian Heritage, Travel, Portraits, and Analog Film.
+- **Precision 3-Way Color Grading Wheels** — Full professional colorist control over shadows, midtones, and highlights (Hue, Saturation, Luminance, Blending, and Balance) across all presets and tools.
+- **8-Band HSL Mix Vectors** — Dedicated Hue, Saturation, and Luminance shifts per primary/secondary color band (Red, Orange, Yellow, Green, Aqua, Blue, Purple, Magenta) integrated into `ToolDefinition` and `EditRecipe`.
+- **Iconic Cinema & Anime Expansion** — 34 cinematic presets including *Oppenheimer*, *Interstellar*, *Pulp Fiction*, *Fight Club*, *La La Land*, *The Revenant*, *Drive*, *The Batman trilogy* (Bale, Pattinson, Affleck), *John Wick 1–4*, *The Terminator*, *Avatar*, *Ready Player One*, *Anime: Shinkai Sky*, *Anime: Spirited Away*, *Anime: Ghibli Garden*, *Anime: Neo-Tokyo Akira*, *Anime: 90s Retro Cel*, and *Anime: Cyberpunk Edgerunners*.
+- **Indian Weddings, Cultural Festivals & Legendary Analog Film** — *Universal Brilliance*, *Royal Indian Wedding*, *Desi Festive: Diwali & Holi*, *Royal Heritage: Rajasthan*, *Kerala Monsoon & Backwaters*, *Bollywood Golden Hour*, *Leica M Monochrom*, *Vintage Kodachrome 64*, *Fuji Velvia 50*, and *Cinestill 800T*.
+- **Dedicated About App & Developers Screen** — Dedicated screen celebrating Developer's Paradise and Prit Vasani, complete GPL-3.0 license viewer, and categorized third-party open-source components breakdown.
+- **AI Neural Forge & Downloaded Plugin Lifecycle** — Automatic on-device model file persistence, multi-task engine synchronization (`AxEngine.setActiveMlModel`), and instant active status for community and custom AI models across Depth, Subject Masking, Portrait Hair, Sky Segmentation, and Denoise.
+- **Depth Anything V2 Monocular Depth Bokeh Integration** — Optical thin-lens Circle-of-Confusion physical blur with 7 iris aperture blades: Circle, Pentagon, Hexagon, Septagon, Cat's Eye (anamorphic), Soap Bubble (optical bloom), and Swirl (petzval).
+- **Calibrated Depth Convention Synchronization** — Synchronized monocular depth plane disparity calculations so near foreground objects accurately map to 0.0 and distant backgrounds map to 1.0, matching the thin-lens optical physics engine.
+- **Depth Visualizer Heatmap** — Real-time false color depth map visualizer overlay (`generate_depth_visualizer_rgba`) aiding focal plane inspection.
+- **Rubylith Mask Overlay Customization** — Adjustable mask inspection overlay color (Red, Green, Blue, Magenta) and opacity sliders in `BrushMaskSettings`.
+- **Fast-Proxy Viewport Scrubbing** — Sub-sampled fast proxy routing (`_fastProxyHandle`) providing silky 120 FPS slider scrub responsiveness with seamless full-res switch on release.
+- **Searchable Looks Sheet UI** — Multi-category filter chips (`Wrap` of `FilterChip`), instant search field, depth indicators, and one-tap open-standard QR code sharing.
+
+### Changed
+- **Version bumped to 0.3.7 across pubspec.yaml, Cargo.toml, and documentation.**
+- **Community Hub & Navigation Polish** — Extended bottom padding and `SafeArea` for FAB buttons on Community Presets and Plugins tabs, preventing content obstruction.
+- **Structured Settings UI** — Card-grouped sections in Settings Sheet with detailed image shooting telemetry (lens make, bit depth, 35mm equivalent focal length, altitude).
+- **Dynamic Live App Versioning** — App version dynamically injected from `PackageInfo` / `pubspec.yaml` with automatic fallback.
+
 ## [0.3.5] - 2026-10-31
 
 Pro Studio Editing Suite, Output Sharpening, Auto Upright, Smart Collections, Video Suite & Culling.

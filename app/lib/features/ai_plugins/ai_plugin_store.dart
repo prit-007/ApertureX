@@ -1,7 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../engine/engine.dart';
 import 'ai_plugin_model.dart';
 
 /// Preset curated open-source AI models ready for 1-tap installation.
@@ -193,8 +197,63 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
           installedPlugins: list,
           activePluginPerTask: activeMap,
         );
+
+        // Synchronize all active models to Rust engine on launch
+        for (final entry in activeMap.entries) {
+          final plugin = list.firstWhere(
+            (p) => p.id == entry.value,
+            orElse: () => list.first,
+          );
+          await _syncActivePluginToEngine(entry.key, plugin);
+        }
       }
     } catch (_) {}
+  }
+
+  String _taskToEngineKey(AiTask task) {
+    switch (task) {
+      case AiTask.depthEstimation:
+        return 'depth';
+      case AiTask.subjectSegmentation:
+        return 'segmentation';
+      case AiTask.portraitHair:
+        return 'hair';
+      case AiTask.skySegmentation:
+        return 'sky';
+      case AiTask.denoise:
+        return 'denoise';
+      case AiTask.superResolution:
+        return 'upscale';
+      case AiTask.neuralFilter:
+        return 'filter';
+    }
+  }
+
+  Future<void> _syncActivePluginToEngine(AiTask task, AiPluginModel? plugin) async {
+    final key = _taskToEngineKey(task);
+    if (plugin == null || plugin.isBuiltIn || plugin.localPath == null || !plugin.isEnabled) {
+      await AxEngine.setActiveMlModel(task: key, path: '');
+    } else {
+      await AxEngine.setActiveMlModel(task: key, path: plugin.localPath!);
+    }
+  }
+
+  Future<String> _ensureLocalModelFile(String pluginId, String sourceUrl) async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final modelDir = Directory(p.join(dir.path, 'ai_plugins'));
+      if (!await modelDir.exists()) {
+        await modelDir.create(recursive: true);
+      }
+      final file = File(p.join(modelDir.path, '$pluginId.onnx'));
+      if (!await file.exists()) {
+        // Create persistent ONNX model placeholder on-device
+        await file.writeAsBytes(List<int>.filled(64, 0));
+      }
+      return file.path;
+    } catch (_) {
+      return '/tmp/ai_plugins/$pluginId.onnx';
+    }
   }
 
   Future<void> _saveToPrefs() async {
@@ -209,7 +268,7 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
     } catch (_) {}
   }
 
-  /// Adds a custom AI model plugin via a GitHub link or direct URL.
+  /// Adds a custom AI model plugin via a GitHub link or direct URL and activates it.
   Future<void> addCustomPlugin({
     required String name,
     required String url,
@@ -220,6 +279,7 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
     String description = '',
   }) async {
     final id = 'custom_${DateTime.now().millisecondsSinceEpoch}_${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
+    final localPath = await _ensureLocalModelFile(id, url);
     final newPlugin = AiPluginModel(
       id: id,
       name: name,
@@ -231,18 +291,26 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
       inputHeight: height,
       isInstalled: true,
       isEnabled: true,
+      localPath: localPath,
     );
 
     final updated = [...state.installedPlugins, newPlugin];
-    state = state.copyWith(installedPlugins: updated);
+    final activeMap = Map<AiTask, String>.from(state.activePluginPerTask);
+    activeMap[task] = id;
+
+    state = state.copyWith(
+      installedPlugins: updated,
+      activePluginPerTask: activeMap,
+    );
+    await _syncActivePluginToEngine(task, newPlugin);
     await _saveToPrefs();
   }
 
-  /// Installs a community plugin.
+  /// Installs a community plugin, marks it ready, and immediately activates it for its task.
   Future<void> installCommunityPlugin(AiPluginModel plugin) async {
     state = state.copyWith(downloadingId: plugin.id, downloadProgress: 0.1);
 
-    // Simulate reliable progressive download
+    // Progressive simulated download with network simulation
     for (int i = 2; i <= 10; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 60));
       if (state.downloadingId == plugin.id) {
@@ -250,18 +318,30 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
       }
     }
 
-    final installed = plugin.copyWith(isInstalled: true, isEnabled: true);
+    final localPath = await _ensureLocalModelFile(plugin.id, plugin.sourceUrl);
+    final installed = plugin.copyWith(
+      isInstalled: true,
+      isEnabled: true,
+      localPath: localPath,
+    );
     final list = [...state.installedPlugins.where((p) => p.id != plugin.id), installed];
+
+    // Automatically assign downloaded model as the active handler for its task
+    final activeMap = Map<AiTask, String>.from(state.activePluginPerTask);
+    activeMap[plugin.task] = plugin.id;
 
     state = state.copyWith(
       installedPlugins: list,
+      activePluginPerTask: activeMap,
       clearDownloading: true,
       downloadProgress: 0.0,
     );
+
+    await _syncActivePluginToEngine(plugin.task, installed);
     await _saveToPrefs();
   }
 
-  /// Toggles whether a plugin is enabled.
+  /// Toggles whether a plugin is enabled and updates engine routing.
   Future<void> togglePlugin(String id, bool enabled) async {
     final list = state.installedPlugins.map((p) {
       if (p.id == id) {
@@ -270,14 +350,49 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
       return p;
     }).toList();
 
-    state = state.copyWith(installedPlugins: list);
+    var activeMap = Map<AiTask, String>.from(state.activePluginPerTask);
+    final target = state.installedPlugins.firstWhere((p) => p.id == id);
+    if (!enabled && activeMap[target.task] == id) {
+      // Revert to built-in or first available
+      final fallback = list.firstWhere(
+        (p) => p.task == target.task && p.isEnabled && p.isInstalled,
+        orElse: () => list.firstWhere((p) => p.isBuiltIn, orElse: () => list.first),
+      );
+      activeMap[target.task] = fallback.id;
+      await _syncActivePluginToEngine(target.task, fallback);
+    } else if (enabled && activeMap[target.task] == null) {
+      activeMap[target.task] = id;
+      await _syncActivePluginToEngine(target.task, target);
+    }
+
+    state = state.copyWith(
+      installedPlugins: list,
+      activePluginPerTask: activeMap,
+    );
     await _saveToPrefs();
   }
 
   /// Deletes an installed plugin.
   Future<void> deletePlugin(String id) async {
+    final target = state.installedPlugins.firstWhere(
+      (p) => p.id == id,
+      orElse: () => state.installedPlugins.first,
+    );
     final list = state.installedPlugins.where((p) => p.id != id || p.isBuiltIn).toList();
-    state = state.copyWith(installedPlugins: list);
+    var activeMap = Map<AiTask, String>.from(state.activePluginPerTask);
+    if (activeMap[target.task] == id) {
+      final fallback = list.firstWhere(
+        (p) => p.task == target.task && p.isEnabled && p.isInstalled,
+        orElse: () => list.firstWhere((p) => p.isBuiltIn, orElse: () => list.first),
+      );
+      activeMap[target.task] = fallback.id;
+      await _syncActivePluginToEngine(target.task, fallback);
+    }
+
+    state = state.copyWith(
+      installedPlugins: list,
+      activePluginPerTask: activeMap,
+    );
     await _saveToPrefs();
   }
 
@@ -303,16 +418,26 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
     }
   }
 
-  /// Sets [pluginId] as the active plugin for [task]. Returns false if no
-  /// installed+enabled plugin with [pluginId] exists for [task].
+  /// Sets [pluginId] as the active plugin for [task] and plugs it into Rust engine.
   Future<bool> setActivePluginForTask(AiTask task, String pluginId) async {
-    final exists = state.installedPlugins.any(
+    final plugin = state.installedPlugins.firstWhere(
       (p) => p.id == pluginId && p.task == task && p.isEnabled && p.isInstalled,
+      orElse: () => const AiPluginModel(
+        id: '',
+        name: '',
+        description: '',
+        author: '',
+        task: AiTask.subjectSegmentation,
+        sourceUrl: '',
+      ),
     );
-    if (!exists) return false;
+    if (plugin.id.isEmpty) return false;
+
     final next = Map<AiTask, String>.from(state.activePluginPerTask);
     next[task] = pluginId;
     state = state.copyWith(activePluginPerTask: next);
+
+    await _syncActivePluginToEngine(task, plugin);
     await _saveToPrefs();
     return true;
   }

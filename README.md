@@ -1,56 +1,87 @@
 # ApertureX
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Status](https://img.shields.io/badge/status-v0.3.5-blue.svg)](docs/ROADMAP.md)
-[![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-lightgrey.svg)](#)
+[![Status](https://img.shields.io/badge/status-v0.3.7-blue.svg)](docs/ROADMAP.md)
+[![Latest Release](https://img.shields.io/badge/release-v0.3.7-brightgreen.svg)](https://github.com/prit-007/ApertureX/releases/latest)
+[![F-Droid](https://img.shields.io/badge/F--Droid-Ready%20for%20Publish-blue?logo=fdroid)](https://github.com/prit-007/ApertureX/releases/latest)
+[![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20Desktop-lightgrey.svg)](#)
 [![Website](https://img.shields.io/badge/website-prit--007.github.io%2FApertureX-6BEAF7)](https://prit-007.github.io/ApertureX/)
 [![100% Offline](https://img.shields.io/badge/100%25-Offline-green.svg)](#privacy)
 
-**A mobile-native, non-destructive, free-and-open-source photo editor — the Snapseed/Lightroom replacement the FOSS world never built.**
+**The mobile-native, non-destructive, 100% offline FOSS photo editor & darkroom — the Snapseed and Lightroom replacement the open-source community deserved.**
 
-> *ApertureX* — a photo editor that opens like a camera aperture and edits like a darkroom. It ships **two UIs over one recipe**: a Lightroom-style precision panel UI (default) and a Snapseed-style gesture UI. Internally, every large photo is still edited as a field of **tiles**, never one giant bitmap — the engine's atomic unit.
+> *ApertureX* opens like a camera aperture and edits like a professional darkroom. It unifies **two swappable UIs over one non-destructive recipe**: a Lightroom-style precision panel inspector for studio fine-tuning and a Snapseed-style gesture HUD for lightning-fast thumb edits. Large RAWs and 200MP phone captures are processed through a **tile-based viewport with a zero-copy Rust engine**, delivering 120 FPS slider response without memory crashes.
+>
+> **100% on-device. Zero telemetry. Zero accounts. Zero subscriptions. You own your photos and your edits.**
 
 <p align="center">
   <img src="app/icons/app_icon.png" alt="ApertureX app icon — a camera-aperture shutter mark on a dark field" width="192">
 </p>
 
-> **Status: v0.3.5 (Release).** Both UI shells
-> (Lightroom panels + Snapseed gestures) run over one shared recipe; the Rust
-> engine carries the full color/spatial/geometry pipeline plus the **complete
-> local-adjustment stack**: 10 mask kinds (linear/radial/luminance/brush/bitmap/
-> color-range/auto-brush/depth-range + AI subject/sky), **mask group algebra** (Add/Subtract/
-> Intersect, ADR 0013),
-> Amount 0–200%, Zone-System luminosity masks, per-mask 3-way color wheels +
-> Highlights/Shadows, and a guided-filter **Refine Edge brush**.
->
-> **Industry-Grade Pro Capabilities:**
-> - **Curated Master Preset Catalog & Looks Sheet:** 55+ master-grade looks organized across Cinema (*Oppenheimer*, *Interstellar*, *Pulp Fiction*, *Fight Club*, *La La Land*, *Blade Runner*, *The Batman trilogy*, *John Wick 1–4*, *Avatar*, *The Terminator*), Anime Styles (*Shinkai Sky*, *Spirited Away*, *Ghibli Garden*, *Neo-Tokyo Akira*, *90s Retro Cel*, *Cyberpunk Edgerunners*), Nature Scenarios (*Greenery Forest*, *Alpine Mountains*, *Beach & Ocean*, *Golden Outdoors*), Indian Heritage & Festive (*Royal Indian Wedding*, *Desi Festive: Diwali & Holi*, *Royal Heritage Rajasthan*, *Kerala Monsoon*, *Bollywood Golden Hour*), Travel Postcards, and Legendary Analog Film (*Leica M Monochrom*, *Vintage Kodachrome 64*, *Fuji Velvia 50*, *Cinestill 800T*, *Kodak Portra*, *Ilford HP5*).
-> - **Depth Anything V2 Subject-Aware Bokeh:** Presets route through monocular depth maps with physical thin-lens Circle-of-Confusion simulation, custom optical blade bokeh shapes (Circle, Pentagon, Hexagon, Septagon, Cat's Eye, Soap Bubble, Swirl), and focal plane guidance.
-> - **Precision 3-Way Color Wheels & 8-Band HSL Mix:** Full professional colorist control over shadows, midtones, and highlights (Hue, Saturation, Luminance, Blending, Balance) plus 8-band HSL hue shifting and saturation.
-> - **Targeted Output Sharpening (ADR 0024):** Media-specific high-boost convolution profiles for Screen, Print Matte, Print Glossy, and Web Compression.
-> - **Upright Auto Geometry (ADR 0024):** Sobel vertical convergence detection with one-tap horizon auto-straighten and keystone perspective rectification.
-> - **Edge-Aware Auto Mask Brush & Depth Slicing (ADR 0024):** Euclidean color-distance gated brush strokes and monocular depth map thresholding with feathering.
-> - **Skin-Aware Auto Tone Refinement:** Chromatic skin prior protection, continuous percentile highlight/shadow recovery, and adaptive vibrance.
-> - **Dynamic Smart Collections (ADR 0025):** Multi-rule catalog query engine supporting ratings, flags, color labels, keywords, camera models, dates, and edit state.
-> - **Perceptual Duplicate Detection & Culling (ADR 0025):** 64-bit dHash perceptual hashing with Hamming distance clustering for duplicate and burst cleanup.
-> - **Photo Quality Sharpness & Closed-Eye Culling (ADR 0025):** Laplacian variance sharpness scoring and YuNet facial landmark eye openness confidence badges.
-> - **Debounced Auto-Import Folder Watcher (ADR 0025):** Continuous background directory watcher for tethering and desktop file ingestion.
-> - **Print Studio & Contact Sheets (ADR 0021):** Pure-Dart vector PDF 1.4 generator with custom margins, paper sizes, contact sheet grids, and printer ICC simulation.
-> - **Video Color Studio & Timeline (ADR 0022):** Multi-clip sequencing, Razor split, transitions, audio gain/fade envelopes, and Hollywood 3D `.CUBE` LUT export.
-> - **Studio Tethered Shooting (ADR 0023):** USB/PTP live telemetry streaming, remote shutter release, and automatic recipe application.
-> - **Soft-Proofing & Gamut Mapping (ADR 0020):** sRGB, Display P3, Adobe RGB, and CMYK SWOP simulation with out-of-gamut false color overlays.
-> - **ApertureX Neural Forge (BYOM Plugins):** Declarative ONNX plugins via GitHub/HuggingFace links with auto-generated native parameter sliders.
-> - **Lossless DNG & CFA Passthrough + 16-bit TIFF (#79):** Zero-loss Bayer CFA raw preservation with injected non-destructive XMP metadata, plus full-edit 16-bit TIFF export.
-> - **Lensfun Optics Database & EXIF Inspector (#85):** Hardware camera/lens profile matching with distortion/vignette compensation and deep EXIF shooting telemetry.
-> - **YuNet + U²-NetP AI Subject Detection:** Face-first auto-subject placement runs entirely on-device through ONNX Runtime 1.24.3, with saliency fallback.
-> - **ApertureX Academy & Interactive Guide:** Full tool-by-tool masterclasses, search filter, and pro workflow tips.
-> - **In-App GitHub Releases OTA Updater:** Seamless automatic updates with live progress bar and release notes changelog.
-> - **Staggered Media Gallery & Virtual Copies:** Google Photos-style date-grouped staggered layout with dedicated edited-versions catalog.
-> - **Selective Recipe Copy/Paste:** Granular control over which adjustment categories to batch paste across photos.
-> - **Translucent Glassmorphism:** Real-time backdrop-blur HUD overlays that preserve uninhibited photo viewing.
-> - **Zero-Telemetry Offline Integrity:** 100% local SQLite/Drift database, zero network calls unless explicitly requested by the user.
->
-> Verified across 1,321 Dart tests, 356 Rust tests (including 7 golden fixture corpus tests), and 0 analyzer lints. See [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`docs/PARITY.md`](docs/PARITY.md).
+<p align="center">
+  <a href="https://github.com/prit-007/ApertureX/releases/latest"><b>📥 Download Latest APK (v0.3.7)</b></a> •
+  <a href="https://prit-007.github.io/ApertureX/"><b>🌐 Interactive Website &amp; Studio Tour</b></a> •
+  <a href="docs/ROADMAP.md"><b>🗺️ Roadmap &amp; Features</b></a> •
+  <a href="THIRD_PARTY.md"><b>📜 Open-Source Licenses</b></a>
+</p>
+
+---
+
+## 🚀 Quick Install (Ready to Use Right Now)
+
+ApertureX is production-ready for Android devices and available for sideloading, direct APK install, and F-Droid:
+
+| Package | Architecture | Description | Download |
+|---------|--------------|-------------|----------|
+| **Universal APK** | ARM64 + ARMv7 + x86_64 | All-in-one signed APK compatible with any Android 8.0+ device | [**Download `app-release.apk`**](https://github.com/prit-007/ApertureX/releases/latest/download/app-release.apk) |
+| **ARM64 APK** | `arm64-v8a` | Smallest download size optimized for modern phones and tablets | [**Download `app-arm64-v8a-release.apk`**](https://github.com/prit-007/ApertureX/releases/latest/download/app-arm64-v8a-release.apk) |
+| **ARMv7 APK** | `armeabi-v7a` | Compatible with legacy 32-bit Android hardware | [**Download `app-armeabi-v7a-release.apk`**](https://github.com/prit-007/ApertureX/releases/latest/download/app-armeabi-v7a-release.apk) |
+| **x86_64 APK** | `x86_64` | Intel/AMD Chromebooks and Android virtual device emulators | [**Download `app-x86_64-release.apk`**](https://github.com/prit-007/ApertureX/releases/latest/download/app-x86_64-release.apk) |
+| **F-Droid** | Multi-ABI | Verified container build metadata (`docs/fdroid-metadata.yml`) | [Track F-Droid Publish #69](https://github.com/prit-007/ApertureX/issues/69) |
+
+*iOS and Desktop (Linux GTK, macOS, Windows) can be compiled directly from source in minutes using standard Flutter and Cargo tooling.*
+
+---
+
+## 🌟 Why Photographers Choose ApertureX
+
+### 1. Dual-UI Shells Over One Non-Destructive Recipe
+- **Lightroom Panel Shell (Default):** Precision numeric sliders, tap-to-type input, RGB tone curves, per-channel tone curves, 3-way color grading wheels, and split-toning.
+- **Snapseed Gesture Shell:** Vertical swipe to select parameters, horizontal drag to adjust, clean HUD overlay, and zero screen clutter.
+- **Switch mid-edit with zero penalty:** Both shells read and write the exact same versioned `EditRecipe`.
+
+### 2. 55+ Curated Master Presets & Searchable Looks Sheet
+- **Cinema Masterworks:** *Oppenheimer*, *Interstellar*, *Pulp Fiction*, *Fight Club*, *La La Land*, *Blade Runner (1982 & 2049)*, *The Batman trilogy* (Bale, Pattinson, Affleck), *John Wick 1–4*, *The Terminator*, *Avatar*, *Ready Player One*, *The Matrix*, *Dunkirk*, *Inception*, *The Godfather*.
+- **Anime & Studio Styles:** *Anime: Shinkai Sky*, *Anime: Spirited Away*, *Anime: Ghibli Garden*, *Anime: Neo-Tokyo Akira*, *Anime: 90s Retro Cel*, *Anime: Cyberpunk Edgerunners*.
+- **Nature & Landscape Scenarios:** *Greenery Forest*, *Beach & Ocean*, *Alpine Mountains*, *Golden Outdoors*, *Dramatic Backlight*, *Action & Sports*.
+- **Indian Cultural Heritage & Festive:** *Universal Brilliance*, *Royal Indian Wedding*, *Desi Festive: Diwali & Holi*, *Royal Heritage: Rajasthan*, *Kerala Monsoon & Backwaters*, *Bollywood Golden Hour*.
+- **Legendary Analog Film Stocks:** *Leica M Monochrom*, *Vintage Kodachrome 64*, *Fuji Velvia 50*, *Cinestill 800T*, *Kodak Portra 160/400*, *Ilford HP5 Plus*.
+- **Every preset includes:** Complete 3-way color grading wheels, 8-band HSL vectors, film grain/bloom, and Depth Anything V2 optical parameters.
+
+### 3. Depth Anything V2 Monocular Bokeh & 7 Optical Apertures
+- Powered by bundled **Depth Anything V2 ONNX INT8** monocular depth estimation.
+- Physical thin-lens **Circle-of-Confusion (CoC)** simulation baked in Rust.
+- 7 parametric iris blade bokeh apertures: **Circle**, **Pentagon**, **Hexagon**, **Septagon**, **Cat's Eye (Anamorphic)**, **Soap Bubble (Optical Bloom)**, and **Swirl (Petzval)**.
+- Real-time false color **Depth Visualizer Heatmap** overlay for focal plane inspection.
+
+### 4. Complete Local Masking Stack with Boolean Algebra
+- **10 Mask Kinds:** AI Subject, AI Sky, Inverted Background, Brush, Auto-Brush, Linear Gradient, Radial Gradient, Zone-System Luminance, Color-Range (HSV), and Depth Range.
+- **Stylus & Palm Rejection:** Full pressure sensitivity (`event.pressure` 0.0–1.0), hardware device filtering, and inverted-stylus eraser mode.
+- **Auto-Brush Edge Snapping:** Euclidean color-distance gating stops strokes automatically at subject boundaries.
+- **Mask Group Algebra:** Add, Subtract, and Intersect masks with 0–200% Amount scaling and per-mask 3-way color wheels.
+
+### 5. Pro Studio Tools & Colorist Workflows
+- **Targeted Output Sharpening:** Media-specific convolution kernels for Screen (3×3 unsharp), Print Matte (5×5 broad high-boost), Print Glossy (3×3 micro-contrast), and Web Compression.
+- **Upright Auto Geometry:** Sobel vertical convergence detection automatically straightens horizons and rectifies architectural keystone perspective.
+- **Smart Collections & Perceptual Culling:** Multi-rule catalog queries (ratings, flags, EXIF telemetry), 64-bit dHash duplicate clustering, Laplacian variance blur detection, and YuNet closed-eye culling.
+- **Pro Print Studio:** Pure-Dart vector PDF 1.4 generator with multi-up contact sheets and printer ICC profile soft-proofing.
+- **Video Color Studio:** Non-destructive 3D LUT video grading and Hollywood `.CUBE` LUT export for DaVinci Resolve and Premiere Pro.
+- **C2PA Cryptographic Provenance:** On-device Content Credentials embedding verifiable digital authorship and edit transparency manifests.
+- **Studio Tethered Shooting:** USB/PTP live telemetry streaming, remote shutter release, and automatic recipe application.
+
+---
+
+> **Status: v0.3.7 (Release).** Verified across 1,360+ Dart tests, 363 Rust tests (including 7 golden fixture corpus tests), and 0 analyzer issues. See [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`docs/PARITY.md`](docs/PARITY.md).
 
 > **Naming:** the product is **ApertureX** and every identifier is canonical:
 > Dart package `aperturex`, applicationId/bundle id `com.devparadise.aperturex`,
@@ -216,16 +247,18 @@ modelled on [`nook`](https://github.com/prit-007/nook)):
 
 ---
 
-## Team — Developer's Paradise
+## Creators & Organization — Developer's Paradise
 
-| Name | Role |
-|------|------|
-| **Prit Vasani** | Builder |
-| **Nilay** | AI/ML |
-| **Rajvi Adesara** | UX |
-| **Vivek Khunt** | Game Dev |
-| **Bhargav** | Animation |
-| **Meet** | UI |
+ApertureX is engineered and maintained by **Developer's Paradise**, an open-source software collective dedicated to building professional-grade creative software with zero compromises on privacy, performance, or user ownership.
+
+| Contributor | Focus & Contribution |
+|-------------|----------------------|
+| **Prit Vasani** | **Lead Architect & Creator** — Dual-UI shells, zero-copy Rust engine, Depth Anything V2 monocular bokeh, 55+ master preset catalog, and Look QR open standard. |
+| **Nilay** | AI/ML Models & Neural Inference |
+| **Rajvi Adesara** | User Experience & Design Ergonomics |
+| **Vivek Khunt** | Graphics & Shaders Pipeline |
+| **Bhargav** | Motion & Interactive Animations |
+| **Meet** | Material 3 Component Systems |
 
 ---
 

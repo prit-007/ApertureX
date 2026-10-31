@@ -11,6 +11,8 @@ import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
+import '../../features/ai_plugins/ai_plugin_model.dart';
+import '../../features/ai_plugins/ai_plugin_store.dart';
 import '../../gallery/gallery_controller.dart' show gallerySourceProvider;
 import '../../settings/ai_consent.dart';
 import '../../viewport/canvas_transform.dart';
@@ -1652,9 +1654,12 @@ class MaskControls extends ConsumerWidget {
 
     // 2. Segmenter with progress & cancellation handling
     ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+    final activeSeg =
+        ref.read(aiPluginProvider.notifier).getActivePluginForTask(AiTask.subjectSegmentation);
+    final segSuffix = (activeSeg != null && !activeSeg.isBuiltIn) ? ' via ${activeSeg.name}' : '';
     ref.read(aiMaskStatusMessageProvider.notifier).setMessage(inverted
-        ? 'Segmenting background on-device… Please wait a moment'
-        : 'Finding subject on-device… Please wait a moment');
+        ? 'Segmenting background on-device$segSuffix… Please wait a moment'
+        : 'Finding subject on-device$segSuffix… Please wait a moment');
     try {
       final segmenter = ref.read(subjectSegmenterProvider);
       final alphas =
@@ -1877,8 +1882,11 @@ class MaskControls extends ConsumerWidget {
           );
         }
       } else {
+        final activeDepth =
+            ref.read(aiPluginProvider.notifier).getActivePluginForTask(AiTask.depthEstimation);
+        final modelName = activeDepth?.name ?? 'Depth Anything V2';
         ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
-            'Synthesizing AI monocular depth map…');
+            'Synthesizing AI monocular depth map via $modelName…');
         final decoded = await AxEngine.decodeAnalysisProxy(bytes);
         final estimated = await ref.read(depthEstimatorProvider)(
           decoded.rgba,
@@ -1900,7 +1908,7 @@ class MaskControls extends ConsumerWidget {
         HapticFeedback.selectionClick();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Generated AI neural depth mask')),
+            SnackBar(content: Text('Generated AI neural depth mask via $modelName')),
           );
         }
       }

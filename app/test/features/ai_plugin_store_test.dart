@@ -89,5 +89,47 @@ void main() {
       final activeDepth = notifier.getActivePluginForTask(AiTask.depthEstimation);
       expect(activeDepth, isNull);
     });
+
+    test('installCommunityPlugin installs, writes local file, and activates for task', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(aiPluginProvider.notifier);
+
+      final depthPlugin = kCommunityAiPlugins.firstWhere((p) => p.id == 'depth-anything-v2-small');
+      await notifier.installCommunityPlugin(depthPlugin);
+
+      final state = container.read(aiPluginProvider);
+      final installedDepth = state.installedPlugins.firstWhere((p) => p.id == 'depth-anything-v2-small');
+      expect(installedDepth.isInstalled, isTrue);
+      expect(installedDepth.isEnabled, isTrue);
+      expect(installedDepth.localPath, isNotNull);
+      expect(state.activePluginPerTask[AiTask.depthEstimation], 'depth-anything-v2-small');
+
+      final active = notifier.getActivePluginForTask(AiTask.depthEstimation);
+      expect(active, isNotNull);
+      expect(active!.id, 'depth-anything-v2-small');
+      expect(active.task, AiTask.depthEstimation);
+    });
+
+    test('setActivePluginForTask switches handler and synchronizes active plugin', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(aiPluginProvider.notifier);
+
+      await notifier.addCustomPlugin(
+        name: 'Custom Segmenter',
+        url: 'https://github.com/custom/seg.onnx',
+        task: AiTask.subjectSegmentation,
+      );
+
+      final state = container.read(aiPluginProvider);
+      final customPlugin = state.installedPlugins.last;
+      expect(state.activePluginPerTask[AiTask.subjectSegmentation], customPlugin.id);
+
+      // Switch back to built-in
+      final switched = await notifier.setActivePluginForTask(AiTask.subjectSegmentation, 'builtin-saliency');
+      expect(switched, isTrue);
+      expect(notifier.getActivePluginForTask(AiTask.subjectSegmentation)!.id, 'builtin-saliency');
+    });
   });
 }

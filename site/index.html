@@ -28,7 +28,7 @@
   "name": "ApertureX",
   "applicationCategory": "PhotographyApplication",
   "operatingSystem": "Android, iOS",
-  "softwareVersion": "0.3.5",
+  "softwareVersion": "0.3.7",
   "license": "https://www.gnu.org/licenses/gpl-3.0.html",
   "url": "https://prit-007.github.io/ApertureX/",
   "downloadUrl": "https://github.com/prit-007/ApertureX/releases/latest",
@@ -1719,8 +1719,8 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
 
 <!-- Announcement Bar -->
 <div class="announcement-bar">
-  <span class="announcement-pill">v0.3.5 RELEASED</span>
-  <span><strong>ApertureX v0.3.5 is live!</strong> Output Sharpening, Upright Auto-Geometry, Smart Collections, 64-bit Perceptual Dedup &amp; Video Color Studio.</span>
+  <span class="announcement-pill">v0.3.7 RELEASED</span>
+  <span><strong>ApertureX v0.3.7 is live!</strong> Curated Master Presets (Cinema, Anime, Nature, Indian Heritage), 3-Way Color Wheels, 8-Band HSL &amp; Depth Anything V2 Bokeh.</span>
   <a href="#changelog" style="color: var(--cyan); font-weight:700; text-decoration:underline;">View Notes &rarr;</a>
 </div>
 
@@ -1738,10 +1738,11 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
       <a href="#screens" data-nav="screens">Studio Tour</a>
       <a href="#pipeline" data-nav="pipeline">Architecture</a>
       <a href="#changelog" data-nav="changelog">Changelog</a>
+      <a href="#developers" data-nav="developers">Developers</a>
     </div>
     
     <div class="nav-actions">
-      <span class="nav-version-badge" id="navVersion">v0.3.5</span>
+      <span class="nav-version-badge" id="navVersion">v0.3.7</span>
       <a class="btn btn-primary" id="navDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK</a>
       <button type="button" class="menu-toggle-btn" id="menuBtn" aria-label="Open navigation menu" aria-controls="mobileDrawer" aria-expanded="false">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -1758,7 +1759,8 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
   <a href="#screens">Interactive Studio Tour</a>
   <a href="#pipeline">Zero-Copy Architecture</a>
   <a href="#changelog">Release Changelog</a>
-  <a class="btn btn-primary" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK (<span id="drawerDlText">v0.3.5</span>)</a>
+  <a href="#developers">About Developers</a>
+  <a class="btn btn-primary" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">Download APK (<span id="drawerDlText">v0.3.7</span>)</a>
 </nav>
 
 <main id="main">
@@ -1774,18 +1776,19 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
       <span class="hud-tag">TRUE FOSS CREATIVE SUITE</span>
       <span class="hud-tag hud-tag-amber">GPL-3.0</span>
       <span class="hud-tag hud-tag-emerald">100% ON-DEVICE</span>
+      <span class="hud-tag hud-tag-cyan">F-DROID READY</span>
     </div>
       <h1>
       Pro Photo Editing.<br>
       <span class="gradient-text">Zero Cloud. Zero Subscriptions.</span>
     </h1>
       <p class="lead">
-      The open-source alternative to Adobe Lightroom &amp; Snapseed. Dual UI shells over one non-destructive recipe, a high-performance <strong>compiled Rust engine</strong>, <strong>output sharpening</strong>, <strong>smart collections</strong>, <strong>on-device AI masks</strong>, <strong>16-bit TIFF export</strong>, and cryptographic <strong>C2PA provenance</strong>.
+      The open-source alternative to Adobe Lightroom &amp; Snapseed. Dual swappable UI shells over one non-destructive recipe, <strong>55+ curated master presets</strong> (Cinema, Anime, Nature, Indian Heritage), a compiled <strong>Rust engine</strong>, <strong>Depth Anything V2 optical bokeh</strong>, <strong>10 professional mask kinds</strong>, and cryptographic <strong>C2PA provenance</strong>.
     </p>
       <div class="hero-cta">
       <a class="btn btn-primary" id="heroDlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
-        <span id="heroDlText">Download Universal APK (v0.3.5)</span>
+        <span id="heroDlText">Download Universal APK (v0.3.7)</span>
       </a>
       <a class="btn btn-ghost" href="#screens">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
@@ -1795,7 +1798,7 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
         GitHub (FOSS)
       </a>
-      <p class="hero-note">Android 8.0+ &bull; Signed APK &bull; No account required</p>
+      <p class="hero-note">Android 8.0+ &bull; Signed Universal APK &bull; F-Droid Ready &bull; 100% Offline</p>
     </div>
     </div>
     <div class="rev2" id="rev2" aria-hidden="true"><p class="big">Every pixel stays yours.</p><div class="ch"><span>200 MP tiles</span><span>16-bit TIFF</span><span>Zero trackers</span></div></div>
@@ -2532,7 +2535,7 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
       <div class="download-actions">
         <a class="btn btn-primary" id="dlBtn" href="https://github.com/prit-007/ApertureX/releases/latest" target="_blank" rel="noopener">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>
-          <span id="dlBtnText">Download APK (v0.3.5)</span>
+          <span id="dlBtnText">Download APK (v0.3.7)</span>
         </a>
         <a class="btn btn-ghost" href="https://github.com/prit-007/ApertureX/releases" target="_blank" rel="noopener">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5 5-5M12 4v12"/></svg>
@@ -2540,7 +2543,7 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
         </a>
       </div>
       
-      <div class="version-badge-lg">Latest Release: <b id="latestVersion">v0.3.5</b> &bull; Signed Universal APK</div>
+      <div class="version-badge-lg">Latest Release: <b id="latestVersion">v0.3.7</b> &bull; Signed Universal APK</div>
       
       <div class="arch-strip">
         <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Android 8.0+ (ARM64, ARMv7, x86_64)</span>
@@ -2679,7 +2682,7 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
         </a>
 
         <!-- 9. Source & Verification -->
-        <a class="build-card" id="build-src" href="https://github.com/prit-007/ApertureX/archive/refs/tags/v0.3.5.tar.gz" target="_blank" rel="noopener">
+        <a class="build-card" id="build-src" href="https://github.com/prit-007/ApertureX/archive/refs/tags/v0.3.7.tar.gz" target="_blank" rel="noopener">
           <div>
             <div class="build-card-head">
               <div class="build-card-platform">
@@ -2688,7 +2691,7 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
               </div>
               <span class="build-card-badge">GPL-3.0 / Git</span>
             </div>
-            <div class="build-card-name">Source code (v0.3.5.tar.gz)</div>
+            <div class="build-card-name">Source code (v0.3.7.tar.gz)</div>
             <div class="build-card-desc">Full 100% auditable source code with zero analytics, verifiable SHA-256 sums, and build scripts.</div>
           </div>
           <span class="build-card-action">Download Source Archive <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg></span>
@@ -2715,9 +2718,37 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
     </div>
     
     <div id="changelogFallback" style="display:none;">
-      <!-- v0.3.5 Entry -->
+      <!-- v0.3.7 Entry -->
       <div class="cl-entry">
         <details open>
+          <summary class="cl-toggle">
+            <span>v0.3.7 &mdash; Oct 31, 2026</span>
+            <span class="arrow">&#9662;</span>
+          </summary>
+          <div class="cl-body">
+            <ul class="cl-items cl-added">
+              <li><strong>Curated Master Preset Catalog:</strong> 55+ master-grade color grading presets categorized across Cinema, Anime, Nature, Indian Heritage, Travel, Portraits, and Analog Film.</li>
+              <li><strong>Precision 3-Way Color Grading Wheels:</strong> Shadow, midtone, and highlight Hue, Saturation, Luminance, Blending, and Balance wheels mapped losslessly into recipes.</li>
+              <li><strong>8-Band HSL Color Mix Vectors:</strong> Granular primary/secondary color band shifts (Red, Orange, Yellow, Green, Aqua, Blue, Purple, Magenta) with instant real-time shader feedback.</li>
+              <li><strong>Iconic Cinema &amp; Anime Collection:</strong> 34 cinematic presets including <em>Oppenheimer, Interstellar, Pulp Fiction, Fight Club, La La Land, Blade Runner, John Wick 1–4, The Batman trilogy, Shinkai Sky, Spirited Away, Ghibli, Akira Neo-Tokyo,</em> and <em>Cyberpunk Edgerunners</em>.</li>
+              <li><strong>Indian Weddings &amp; Iconic Film Stocks:</strong> <em>Royal Indian Wedding, Desi Festive: Diwali &amp; Holi, Royal Rajasthan, Kerala Monsoon, Bollywood Golden Hour, Leica M Monochrom, Vintage Kodachrome 64, Fuji Velvia 50,</em> and <em>Cinestill 800T</em>.</li>
+              <li><strong>Depth Anything V2 Monocular Bokeh:</strong> Physical thin-lens Circle-of-Confusion blur with 7 optical aperture blade shapes (Circle, Pentagon, Hexagon, Septagon, Cat's Eye, Soap Bubble, Swirl).</li>
+              <li><strong>Depth Visualizer Heatmap:</strong> Real-time false color depth map colormap overlay inspecting focal plane separation.</li>
+              <li><strong>Rubylith Mask Overlay Customization:</strong> Configurable mask color (Red, Green, Blue, Magenta) and opacity sliders.</li>
+              <li><strong>Fast-Proxy Viewport Scrubbing:</strong> 120 FPS slider scrub responsiveness powered by sub-sampled fast-proxy caching with seamless full-res switch on release.</li>
+              <li><strong>Searchable Looks Sheet:</strong> Responsive multi-category chip filtering, keyword search, and open-standard QR code sharing.</li>
+            </ul>
+            <ul class="cl-items cl-fixed" style="margin-top:12px;">
+              <li><strong>Community Hub Safe Area:</strong> Added bottom padding and safe area margins preventing FAB buttons from obstructing community preset and plugin cards.</li>
+              <li><strong>Structured Settings UI:</strong> Organized settings panels with detailed lens make, bit depth, 35mm focal length, and altitude telemetry.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <!-- v0.3.5 Entry -->
+      <div class="cl-entry">
+        <details>
           <summary class="cl-toggle">
             <span>v0.3.5 &mdash; Oct 31, 2026</span>
             <span class="arrow">&#9662;</span>
@@ -2832,6 +2863,74 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
   </div>
 </section>
 
+<!-- ============ ABOUT THE DEVELOPERS ============ -->
+<section id="developers">
+  <div class="wrap">
+    <div class="section-head center">
+      <span class="hud-tag hud-tag-emerald">PEOPLE &amp; PHILOSOPHY</span>
+      <h2>About the Developers &amp; Creators</h2>
+      <p>ApertureX is built by passionate open-source artisans dedicated to reclaiming creator independence from monopolistic subscription ecosystems.</p>
+    </div>
+
+    <div class="bento-grid" style="margin-top: 32px;">
+      <!-- Developer's Paradise -->
+      <div class="bento-card glass-card bento-span-6">
+        <div>
+          <div class="bento-icon" style="background: rgba(0, 229, 255, 0.12); color: var(--cyan);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          <div class="bento-title">Developer's Paradise</div>
+          <div class="bento-desc">
+            Open-source software studio and collective committed to building pro-grade, privacy-respecting creative tools. Developer's Paradise champions <strong>100% on-device computing</strong>, user data sovereignty, zero cloud lock-in, and ethical free software under the GNU General Public License v3.0.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-cyan">Open-Source Studio</span>
+          <span class="hud-tag hud-tag-emerald">100% Offline Integrity</span>
+          <span class="hud-tag">GPL-3.0</span>
+        </div>
+      </div>
+
+      <!-- Prit Vasani -->
+      <div class="bento-card glass-card bento-span-6">
+        <div>
+          <div class="bento-icon" style="background: rgba(255, 179, 0, 0.12); color: var(--amber);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg>
+          </div>
+          <div class="bento-title">Prit Vasani</div>
+          <div class="bento-desc">
+            Lead Architect &amp; Creator of ApertureX. Designed the core architectural foundations: dual-UI shells over unified non-destructive recipes, high-performance compiled Rust engine (<code>rust_lib_aperturex</code>), Depth Anything V2 monocular depth integration, 55+ master preset catalog, and open Look QR standard.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag hud-tag-amber">Lead Architect &amp; Developer</span>
+          <span class="hud-tag">Engine &amp; UI Design</span>
+          <span class="hud-tag hud-tag-coral">FOSS Advocate</span>
+        </div>
+      </div>
+
+      <!-- Third-Party Ecosystem & Open Standards -->
+      <div class="bento-card glass-card bento-span-12">
+        <div>
+          <div class="bento-icon" style="background: rgba(16, 185, 129, 0.12); color: var(--emerald);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+          <div class="bento-title">Third-Party Attribution &amp; Standing on Giants' Shoulders</div>
+          <div class="bento-desc">
+            ApertureX is powered by foundational open-source engineering: <strong>Rust</strong>, <strong>Flutter &amp; Dart</strong>, <strong>rawler</strong> (LGPL-2.1 RAW decoding), <strong>jpeg-encoder</strong> (MIT/IJG), <strong>zune-jpeg</strong>, <strong>miniz_oxide</strong>, <strong>Drift &amp; SQLite</strong> (reactive local storage), <strong>Depth Anything V2</strong> (Apache-2.0 monocular depth), <strong>YuNet</strong> (MIT face detection), <strong>U&sup2;-NetP</strong> (Apache-2.0 salient segmentation), <strong>ONNX Runtime Mobile</strong>, <strong>extended_image</strong>, and the <strong>pro_image_editor</strong> fork (BSD-3-Clause). Full licensing and audit details are documented in <a href="https://github.com/prit-007/ApertureX/blob/main/THIRD_PARTY.md" target="_blank" rel="noopener" style="color:var(--cyan); font-weight:600; text-decoration:underline;">THIRD_PARTY.md</a>.
+          </div>
+        </div>
+        <div class="bento-tag-row">
+          <span class="hud-tag">FOSS Components</span>
+          <span class="hud-tag hud-tag-cyan">THIRD_PARTY.md</span>
+          <span class="hud-tag hud-tag-amber">Zero Closed Blobs</span>
+          <span class="hud-tag hud-tag-emerald">GPL-3.0-or-later</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 </main>
 
 <!-- ============ FOOTER ============ -->
@@ -2848,12 +2947,13 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
         <a href="https://github.com/prit-007/ApertureX/blob/main/docs/ROADMAP.md" target="_blank" rel="noopener">Roadmap</a>
         <a href="https://github.com/prit-007/ApertureX/blob/main/docs/PARITY.md" target="_blank" rel="noopener">Parity Ledger</a>
         <a href="https://github.com/prit-007/ApertureX/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+        <a href="https://github.com/prit-007/ApertureX/blob/main/THIRD_PARTY.md" target="_blank" rel="noopener">Third-Party</a>
         <a href="https://github.com/prit-007/ApertureX/blob/main/LICENSE" target="_blank" rel="noopener">GPL-3.0 License</a>
       </div>
     </div>
     <div class="foot-bottom">
-      <div>&copy; 2026 Developer's Paradise &bull; Released under the GNU General Public License v3.0</div>
-      <div>Designed for creators &bull; 100% on-device &bull; Zero telemetry</div>
+      <div>&copy; 2026 Developer's Paradise &bull; Architected by Prit Vasani &bull; Released under the GNU General Public License v3.0</div>
+      <div>Designed for creators &bull; 100% on-device &bull; Zero telemetry &bull; Free &amp; Open Source</div>
     </div>
   </div>
 </footer>
@@ -3505,11 +3605,11 @@ body::before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none
     } catch (_) {
       if (loading) loading.style.display = 'none';
       if (fallback) fallback.style.display = 'block';
-      if (navVersion) navVersion.textContent = 'v0.3.5';
-      if (latestVersion) latestVersion.textContent = 'v0.3.5';
-      if (heroDlText) heroDlText.textContent = 'Download Universal APK (v0.3.5)';
-      if (dlBtnText) dlBtnText.textContent = 'Download APK (v0.3.5)';
-      if (drawerDlText) drawerDlText.textContent = 'v0.3.5';
+      if (navVersion) navVersion.textContent = 'v0.3.7';
+      if (latestVersion) latestVersion.textContent = 'v0.3.7';
+      if (heroDlText) heroDlText.textContent = 'Download Universal APK (v0.3.7)';
+      if (dlBtnText) dlBtnText.textContent = 'Download APK (v0.3.7)';
+      if (drawerDlText) drawerDlText.textContent = 'v0.3.7';
     }
   }
   fetchReleases();
