@@ -8,36 +8,56 @@ import '../../edit/recipe.dart';
 import '../../engine/engine.dart';
 import 'video_model.dart';
 
-/// Combined state for video playback and color grading.
+/// Combined state for video playback, timeline sequence, and color grading.
 class VideoGradingState {
   const VideoGradingState({
-    required this.clip,
+    required this.sequence,
+    this.activeClipIndex = 0,
     this.playback = const VideoPlaybackState(),
     this.recipe = EditRecipe.neutral,
     this.isScrubbing = false,
+    this.selectedOverlayId,
   });
 
-  final VideoClip clip;
+  final VideoSequence sequence;
+  final int activeClipIndex;
   final VideoPlaybackState playback;
   final EditRecipe recipe;
   final bool isScrubbing;
+  final String? selectedOverlayId;
+
+  /// Convenience getter for currently active clip in the sequence.
+  VideoClip get clip {
+    if (sequence.clips.isEmpty) {
+      return const VideoClip(id: 'empty', path: '');
+    }
+    final index = activeClipIndex.clamp(0, sequence.clips.length - 1);
+    return sequence.clips[index];
+  }
 
   VideoGradingState copyWith({
-    VideoClip? clip,
+    VideoSequence? sequence,
+    int? activeClipIndex,
     VideoPlaybackState? playback,
     EditRecipe? recipe,
     bool? isScrubbing,
+    String? selectedOverlayId,
+    bool clearSelectedOverlay = false,
   }) {
     return VideoGradingState(
-      clip: clip ?? this.clip,
+      sequence: sequence ?? this.sequence,
+      activeClipIndex: activeClipIndex ?? this.activeClipIndex,
       playback: playback ?? this.playback,
       recipe: recipe ?? this.recipe,
       isScrubbing: isScrubbing ?? this.isScrubbing,
+      selectedOverlayId: clearSelectedOverlay
+          ? null
+          : (selectedOverlayId ?? this.selectedOverlayId),
     );
   }
 }
 
-/// Provider managing video playback, timeline trim, and color grading.
+/// Provider managing multi-clip video playback, timeline trim, transitions, and color grading.
 final videoGradingProvider =
     NotifierProvider<VideoGradingController, VideoGradingState>(
   VideoGradingController.new,
@@ -62,17 +82,31 @@ class VideoGradingController extends Notifier<VideoGradingState> {
       height: 1080,
     );
 
-    return const VideoGradingState(
-      clip: defaultClip,
-      playback: VideoPlaybackState(outPointMs: 15000),
+    final defaultSequence = VideoSequence(
+      id: 'seq_demo',
+      title: 'Demo Reel Project',
+      clips: const [defaultClip],
+    );
+
+    return VideoGradingState(
+      sequence: defaultSequence,
+      activeClipIndex: 0,
+      playback: const VideoPlaybackState(outPointMs: 15000),
       recipe: EditRecipe.neutral,
     );
   }
 
   void loadClip(VideoClip clip) {
     _playbackTimer?.cancel();
+    final newSequence = VideoSequence(
+      id: 'seq_${clip.id}',
+      title: clip.title.isNotEmpty ? clip.title : 'Project Sequence',
+      clips: [clip],
+    );
+
     state = state.copyWith(
-      clip: clip,
+      sequence: newSequence,
+      activeClipIndex: 0,
       playback: VideoPlaybackState(
         positionMs: clip.inPointMs,
         inPointMs: clip.inPointMs,
@@ -80,6 +114,192 @@ class VideoGradingController extends Notifier<VideoGradingState> {
       ),
     );
   }
+
+  void loadSequence(VideoSequence sequence) {
+    _playbackTimer?.cancel();
+    state = state.copyWith(
+      sequence: sequence,
+      activeClipIndex: 0,
+      playback: VideoPlaybackState(
+        positionMs: 0,
+        inPointMs: 0,
+        outPointMs: sequence.totalDurationMs,
+      ),
+    );
+  }
+
+  void selectClip(int index) {
+    if (index < 0 || index >= state.sequence.clips.length) return;
+    state = state.copyWith(activeClipIndex: index);
+  }
+
+  void addClip(VideoClip clip) {
+    final updatedSeq = state.sequence.addClip(clip);
+    state = state.copyWith(
+      sequence: updatedSeq,
+      playback: state.playback.copyWith(outPointMs: updatedSeq.totalDurationMs),
+    );
+  }
+
+  void splitActiveClip() {
+    if (state.sequence.clips.isEmpty) return;
+    final timeMap = state.sequence.mapSequenceTimeToClip(state.playback.positionMs);
+    final clip = state.sequence.clips[timeMap.clipIndex];
+    final localMs = timeMap.localMs;
+
+    // Must be strictly within clip bounds
+    if (localMs <= clip.inPointMs || localMs >= clip.outPointMs) return;
+
+    final updatedSeq = state.sequence.splitClip(timeMap.clipIndex, localMs);
+    state = state.copyWith(
+      sequence: updatedSeq,
+      activeClipIndex: (timeMap.clipIndex + 1).clamp(0, updatedSeq.clips.length - 1),
+    );
+  }
+
+  void deleteActiveClip() {
+    if (state.sequence.clips.length <= 1) return;
+    final currentIndex = state.activeClipIndex;
+    final updatedSeq = state.sequence.removeClip(currentIndex);
+    final newIndex = currentIndex >= updatedSeq.clips.length
+        ? updatedSeq.clips.length - 1
+        : currentIndex;
+
+    state = state.copyWith(
+      sequence: updatedSeq,
+      activeClipIndex: newIndex,
+      playback: state.playback.copyWith(
+        outPointMs: updatedSeq.totalDurationMs,
+        positionMs: state.playback.positionMs.clamp(0, updatedSeq.totalDurationMs),
+      ),
+    );
+  }
+
+  void duplicateActiveClip() {
+    if (state.sequence.clips.isEmpty) return;
+    final currentIndex = state.activeClipIndex;
+    final updatedSeq = state.sequence.duplicateClip(currentIndex);
+    state = state.copyWith(
+      sequence: updatedSeq,
+      activeClipIndex: currentIndex + 1,
+      playback: state.playback.copyWith(outPointMs: updatedSeq.totalDurationMs),
+    );
+  }
+
+  void reorderClip(int oldIndex, int newIndex) {
+    final updatedSeq = state.sequence.reorderClip(oldIndex, newIndex);
+    state = state.copyWith(
+      sequence: updatedSeq,
+      activeClipIndex: newIndex.clamp(0, updatedSeq.clips.length - 1),
+    );
+  }
+
+  void setTransition(int index, VideoTransition transition) {
+    final updatedSeq = state.sequence.setTransition(index, transition);
+    state = state.copyWith(sequence: updatedSeq);
+  }
+
+  // --- Audio Tools ---
+
+  void updateActiveClipAudio(VideoAudioSettings audio) {
+    final updatedClip = state.clip.copyWith(audio: audio);
+    final updatedSeq = state.sequence.updateClip(state.activeClipIndex, updatedClip);
+    state = state.copyWith(sequence: updatedSeq);
+  }
+
+  void setVolume(double volume) {
+    final clamped = volume.clamp(0.0, 2.0);
+    updateActiveClipAudio(state.clip.audio.copyWith(volume: clamped));
+  }
+
+  void toggleMute() {
+    updateActiveClipAudio(state.clip.audio.copyWith(isMuted: !state.clip.audio.isMuted));
+  }
+
+  void setFadeIn(int ms) {
+    updateActiveClipAudio(state.clip.audio.copyWith(fadeInMs: ms.clamp(0, 5000)));
+  }
+
+  void setFadeOut(int ms) {
+    updateActiveClipAudio(state.clip.audio.copyWith(fadeOutMs: ms.clamp(0, 5000)));
+  }
+
+  // --- Transform & Spatial Tools ---
+
+  void updateActiveClipTransform(VideoTransform transform) {
+    final updatedClip = state.clip.copyWith(transform: transform);
+    final updatedSeq = state.sequence.updateClip(state.activeClipIndex, updatedClip);
+    state = state.copyWith(sequence: updatedSeq);
+  }
+
+  void rotateActiveClip() {
+    updateActiveClipTransform(state.clip.transform.rotateClockwise());
+  }
+
+  void toggleFlipH() {
+    updateActiveClipTransform(state.clip.transform.toggleFlipH());
+  }
+
+  void toggleFlipV() {
+    updateActiveClipTransform(state.clip.transform.toggleFlipV());
+  }
+
+  void setFraming(VideoFramingPreset preset) {
+    final updatedSeq = state.sequence.copyWith(globalFraming: preset);
+    state = state.copyWith(sequence: updatedSeq);
+  }
+
+  void setFitMode(VideoFitMode fitMode) {
+    updateActiveClipTransform(state.clip.transform.copyWith(fitMode: fitMode));
+  }
+
+  void setScale(double scale) {
+    updateActiveClipTransform(state.clip.transform.copyWith(scale: scale.clamp(0.5, 3.0)));
+  }
+
+  // --- Text Overlay Tools ---
+
+  void addTextOverlay(VideoTextOverlay overlay) {
+    final updatedSeq = state.sequence.addOverlay(overlay);
+    state = state.copyWith(sequence: updatedSeq, selectedOverlayId: overlay.id);
+  }
+
+  void updateTextOverlay(VideoTextOverlay overlay) {
+    final updatedSeq = state.sequence.updateOverlay(overlay);
+    state = state.copyWith(sequence: updatedSeq);
+  }
+
+  void removeTextOverlay(String id) {
+    final updatedSeq = state.sequence.removeOverlay(id);
+    state = state.copyWith(
+      sequence: updatedSeq,
+      clearSelectedOverlay: state.selectedOverlayId == id,
+    );
+  }
+
+  void selectOverlay(String? id) {
+    state = state.copyWith(selectedOverlayId: id, clearSelectedOverlay: id == null);
+  }
+
+  // --- Speed & Reverse ---
+
+  void setActiveClipSpeed(double speed) {
+    final clamped = speed.clamp(0.25, 8.0);
+    final updatedClip = state.clip.copyWith(speed: clamped);
+    final updatedSeq = state.sequence.updateClip(state.activeClipIndex, updatedClip);
+    state = state.copyWith(
+      sequence: updatedSeq,
+      playback: state.playback.copyWith(outPointMs: updatedSeq.totalDurationMs),
+    );
+  }
+
+  void toggleActiveClipReverse() {
+    final updatedClip = state.clip.copyWith(isReversed: !state.clip.isReversed);
+    final updatedSeq = state.sequence.updateClip(state.activeClipIndex, updatedClip);
+    state = state.copyWith(sequence: updatedSeq);
+  }
+
+  // --- Playback & Transport ---
 
   void togglePlay() {
     if (state.playback.isPlaying) {
@@ -95,7 +315,11 @@ class VideoGradingController extends Notifier<VideoGradingState> {
 
     // If at or past outPoint, wrap to inPoint
     var pos = state.playback.positionMs;
-    if (pos >= state.clip.outPointMs) {
+    final maxDuration = state.sequence.totalDurationMs > 0
+        ? state.sequence.totalDurationMs
+        : state.clip.outPointMs;
+
+    if (pos >= maxDuration) {
       pos = state.clip.inPointMs;
     }
 
@@ -121,26 +345,37 @@ class VideoGradingController extends Notifier<VideoGradingState> {
     if (!state.playback.isPlaying) return;
 
     var newPos = state.playback.positionMs + elapsedMs;
-    final outPt = state.clip.outPointMs;
+    final maxDuration = state.sequence.totalDurationMs > 0
+        ? state.sequence.totalDurationMs
+        : state.clip.outPointMs;
     final inPt = state.clip.inPointMs;
 
-    if (newPos >= outPt) {
+    if (newPos >= maxDuration) {
       if (state.playback.isLooping) {
         newPos = inPt;
       } else {
-        newPos = outPt;
+        newPos = maxDuration;
         pause();
       }
     }
 
+    final timeMap = state.sequence.mapSequenceTimeToClip(newPos);
+
     state = state.copyWith(
+      activeClipIndex: timeMap.clipIndex,
       playback: state.playback.copyWith(positionMs: newPos),
     );
   }
 
   void seekTo(int positionMs) {
-    final clamped = positionMs.clamp(0, state.clip.durationMs);
+    final maxDuration = state.sequence.totalDurationMs > 0
+        ? state.sequence.totalDurationMs
+        : state.clip.durationMs;
+    final clamped = positionMs.clamp(0, maxDuration);
+    final timeMap = state.sequence.mapSequenceTimeToClip(clamped);
+
     state = state.copyWith(
+      activeClipIndex: timeMap.clipIndex,
       playback: state.playback.copyWith(positionMs: clamped),
     );
   }
@@ -160,12 +395,13 @@ class VideoGradingController extends Notifier<VideoGradingState> {
   void setInPoint(int ms) {
     final clamped = ms.clamp(0, state.clip.outPointMs);
     final updatedClip = state.clip.copyWith(inPointMs: clamped);
+    final updatedSeq = state.sequence.updateClip(state.activeClipIndex, updatedClip);
     final currentPos = state.playback.positionMs < clamped
         ? clamped
         : state.playback.positionMs;
 
     state = state.copyWith(
-      clip: updatedClip,
+      sequence: updatedSeq,
       playback: state.playback.copyWith(
         inPointMs: clamped,
         positionMs: currentPos,
@@ -176,12 +412,13 @@ class VideoGradingController extends Notifier<VideoGradingState> {
   void setOutPoint(int ms) {
     final clamped = ms.clamp(state.clip.inPointMs, state.clip.durationMs);
     final updatedClip = state.clip.copyWith(outPointMs: clamped);
+    final updatedSeq = state.sequence.updateClip(state.activeClipIndex, updatedClip);
     final currentPos = state.playback.positionMs > clamped
         ? clamped
         : state.playback.positionMs;
 
     state = state.copyWith(
-      clip: updatedClip,
+      sequence: updatedSeq,
       playback: state.playback.copyWith(
         outPointMs: clamped,
         positionMs: currentPos,

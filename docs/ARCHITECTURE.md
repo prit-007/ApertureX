@@ -673,9 +673,14 @@ For open-source distribution outside Google Play (e.g., GitHub Releases, direct 
 - **Contact Sheet Layout Engine:** Multi-row/column grids with vector cell borders, pagination, and EXIF metadata captions.
 - **Soft-Proof Integration:** Directly linked to `SoftProofState` for simulated paper white point, ink DMax black limitation, and gamut warning overlay.
 
-## 31. Video Color Grading & Non-Destructive Trim Studio (ADR 0022)
+## 31. Video Color Studio & Multi-Clip Sequence Editing (ADR 0022)
 
-- **Video Transport & SMPTE Timecode (`VideoClip`, `VideoPlaybackState`):** Sub-frame accurate trim in/out markers, frame stepping, looping, and variable speed playback.
+- **Multi-Clip Sequence Assembly (`VideoSequence`, `VideoClip`):** Sequential clip arrangement, playhead time mapping, Razor split tool (`splitActiveClip`), ripple deletion, duplicate clip, and clip reordering.
+- **Non-Destructive Clip Transitions (`VideoTransition`):** Real-time transition engine supporting Cut, Cross Dissolve, Dip to Black, Dip to White, Wipe Left, and Wipe Right with configurable millisecond duration.
+- **Audio Studio Track Control (`VideoAudioSettings`):** Linear volume gain control (0%–200%, -60dB to +6dB), mute toggle, audio fade-in and fade-out envelope curves, and peak dBFS metering.
+- **Framing & 2D Spatial Transforms (`VideoTransform`):** Universal aspect ratio canvas framing presets (16:9 YouTube, 9:16 TikTok/Reels/Shorts, 1:1 Square, 4:5 Portrait, 21:9 Cinemascope), Fit/Fill/Stretch modes, 90° clockwise rotation, and horizontal/vertical mirroring.
+- **Text & Title Overlay Studio (`VideoTextOverlay`):** Insert animated title cards, lower thirds, and subtitles with configurable screen positioning (Top, Center, Lower Third, Bottom), timing windows, font size, and background pill badges.
+- **Speed Ramping & Reverse Playback:** Variable speed multipliers (0.25x super slow-mo, 0.5x, 0.75x, 1.0x, 1.5x, 2.0x, 4.0x hyperlapse) and instant reverse playback toggle.
 - **Unified 3D LUT Shader Engine:** Evaluates the `EditRecipe` pipeline over video frames using the Impeller shader chain.
 - **Industry NLE Interoperability:** Generates standard 3D `.CUBE` LUT files (17³, 33³ Pro, 65³ Master) directly compatible with DaVinci Resolve, Adobe Premiere Pro, and Final Cut Pro.
 
