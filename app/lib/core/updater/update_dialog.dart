@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/theme/design_tokens.dart';
 import 'app_update_model.dart';
@@ -25,8 +25,8 @@ class UpdateDialog extends StatefulWidget {
 
   /// Convenience checker: triggers update query and either prompts dialog or shows confirmation.
   static Future<void> checkAndShow(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(
       const SnackBar(
         content: Text('Checking for updates…'),
         duration: Duration(seconds: 2),
@@ -37,11 +37,11 @@ class UpdateDialog extends StatefulWidget {
     if (!context.mounted) return;
 
     if (release != null) {
-      messenger.hideCurrentSnackBar();
+      messenger?.hideCurrentSnackBar();
       await UpdateDialog.show(context, release);
     } else {
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
+      messenger?.hideCurrentSnackBar();
+      messenger?.showSnackBar(
         const SnackBar(
           content: Text('ApertureX is up to date (v${AppUpdater.currentVersion})'),
           duration: Duration(seconds: 3),

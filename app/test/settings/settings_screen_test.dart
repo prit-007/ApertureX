@@ -119,4 +119,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(container.read(aiConsentProvider), AiConsentStatus.granted);
   });
+
+  testWidgets('SettingsScreen check for updates does not throw ScaffoldMessenger error', (tester) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final updateFinder = find.text('Check for Updates');
+    await tester.scrollUntilVisible(
+      updateFinder,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(updateFinder, findsOneWidget);
+    await tester.tap(updateFinder);
+    await tester.pump();
+  });
 }

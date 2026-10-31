@@ -96,13 +96,13 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   /// Fades the AppBar + SelectionBar out during the hero flight into the
   /// editor so only the photo moves (issue: buttery gallery→editor transition).
   late final AnimationController _navFade;
-  double get _navOpacity => _navFade.value;
 
   @override
   void initState() {
     super.initState();
     _navFade = AnimationController(
       vsync: this,
+      value: 1.0,
       duration: const Duration(milliseconds: 180),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -138,7 +138,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   Future<void> _open(GalleryAsset asset) async {
     axLog(LogDomain.editor, 'Opened photo ${asset.id}');
     // Fade chrome out as the photo begins its hero flight into the editor.
-    await _navFade.forward();
+    await _navFade.reverse();
     if (!mounted) return;
     final navigator = Navigator.of(context);
     final res = await navigator.push<dynamic>(
@@ -158,7 +158,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       ),
     );
     // Fade chrome back in when returning from the editor.
-    if (mounted) await _navFade.reverse();
+    if (mounted) await _navFade.forward();
     if (res == 'show_edits' && mounted) {
       setState(() => _scope = GalleryScope.edits);
     }
@@ -884,9 +884,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       child: Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size(double.infinity, kToolbarHeight),
-          child: AnimatedOpacity(
-            opacity: _navOpacity,
-            duration: const Duration(milliseconds: 180),
+          child: FadeTransition(
+            opacity: _navFade,
             child: AppBar(
               title: state.selectionMode
                   ? Text(
@@ -1038,9 +1037,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           ),
         ),
         body: _buildBody(state, controller),
-        bottomNavigationBar: AnimatedOpacity(
-          opacity: _navOpacity,
-          duration: const Duration(milliseconds: 180),
+        bottomNavigationBar: FadeTransition(
+          opacity: _navFade,
           child: _exportCancel != null
               ? _ExportProgressBar(
                   done: _exportDone,
