@@ -711,6 +711,46 @@ class AxEngine {
         height: height,
       );
 
+  /// Computes an on-device monocular depth map, optionally using an external plugin ONNX model path.
+  static Future<Float32List> estimateDepthMapWithModel({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    String? modelPath,
+  }) =>
+      rust_blur.estimateDepthMapWithModel(
+        rgba: rgba,
+        width: width,
+        height: height,
+        modelPath: modelPath,
+      );
+
+  /// Generates a false-color RGBA heatmap visualizing a relative depth map:
+  /// - Warm Amber (RGB 255, 179, 0) for near foreground
+  /// - Neutral Gray (RGB 180, 180, 180) for in-focus focal plane
+  /// - Cool Teal (RGB 0, 180, 200) for far background
+  static Future<Uint8List> generateDepthVisualizerRgba({
+    required List<double> depth,
+    required int width,
+    required int height,
+    required double focalPoint,
+    required double focalRange,
+  }) =>
+      rust_blur.generateDepthVisualizerRgba(
+        depth: depth,
+        width: width,
+        height: height,
+        focalPoint: focalPoint,
+        focalRange: focalRange,
+      );
+
+  /// Configures the active ML model path for a task kind (e.g. "depth", "segmentation", "face").
+  static Future<bool> setActiveMlModel({
+    required String task,
+    required String path,
+  }) =>
+      rust_blur.setActiveMlModel(task: task, path: path);
+
   // --- masking / local adjustments (P2.5) -----------------------------------
 
   static rust_color.ColorParams _localParams(AdjustmentLayer l) =>

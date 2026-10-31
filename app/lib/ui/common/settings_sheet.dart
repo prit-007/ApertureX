@@ -28,6 +28,7 @@ import 'mask_controls.dart';
 import 'xmp_import_sheet.dart';
 import 'editor_guide_sheet.dart';
 import '../../features/editor/image_info_sheet.dart';
+import '../../core/updater/app_updater.dart';
 import '../../features/crop/crop_screen.dart';
 import '../../viewport/exposure_assist.dart';
 import 'history_tree_sheet.dart';
@@ -668,14 +669,16 @@ void _openLogs(BuildContext context) {
   );
 }
 
-void _openAbout(BuildContext context) {
+Future<void> _openAbout(BuildContext context) async {
   final navigator = Navigator.of(context);
+  final navContext = navigator.context;
+  final version = await AppUpdater.getAppVersion();
   navigator.maybePop();
+  if (!navContext.mounted) return;
   showAboutDialog(
-    context: navigator.context,
+    context: navContext,
     applicationName: 'ApertureX',
-    applicationVersion: '0.3.5',
-    applicationLegalese: '© 2026 ApertureX contributors · GPL-3.0-or-later',
+    applicationVersion: version,
     children: const [
       SizedBox(height: Insets.md),
       Text(
@@ -687,13 +690,16 @@ void _openAbout(BuildContext context) {
   );
 }
 
-void _openLicenses(BuildContext context) {
+Future<void> _openLicenses(BuildContext context) async {
   final navigator = Navigator.of(context);
+  final navContext = navigator.context;
+  final version = await AppUpdater.getAppVersion();
   navigator.maybePop();
+  if (!navContext.mounted) return;
   showLicensePage(
-    context: navigator.context,
+    context: navContext,
     applicationName: 'ApertureX',
-    applicationVersion: '0.3.5',
+    applicationVersion: version,
     applicationLegalese: 'GPL-3.0-or-later',
   );
 }

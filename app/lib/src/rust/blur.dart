@@ -7,7 +7,15 @@ import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 /// Bokeh aperture blade shape.
-enum BokehShape { circle, pentagon, hexagon, septagon, swirl }
+enum BokehShape {
+  circle,
+  pentagon,
+  hexagon,
+  septagon,
+  swirl,
+  catsEye,
+  soapBubble,
+}
 
 /// Parameters for depth-guided optical lens blur.
 class LensBlurParams {

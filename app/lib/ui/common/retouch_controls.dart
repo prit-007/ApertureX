@@ -6,6 +6,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/retouch_patch.dart';
 import '../../viewport/canvas_transform.dart';
+import 'parameter_slider_row.dart';
 
 /// Currently selected retouch patch index for inspector/editing (null = none).
 class SelectedRetouchPatchIndex extends Notifier<int?> {
@@ -463,81 +464,22 @@ class _RetouchSliderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onDoubleTap: () {
-              HapticFeedback.lightImpact();
-              onChanged(defaultValue);
-            },
-            child: SizedBox(
-              width: 60,
-              child: Text(
-                label,
-                style: textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onDoubleTap: () {
-                HapticFeedback.lightImpact();
-                onChanged(defaultValue);
-              },
-              child: SliderTheme(
-                data: SliderThemeData(
-                  activeTrackColor: scheme.primary,
-                  inactiveTrackColor: scheme.surfaceContainerHighest,
-                  thumbColor: scheme.primary,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                  trackHeight: 3,
-                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                ),
-                child: Slider(
-                  value: value.clamp(min, max),
-                  min: min,
-                  max: max,
-                  onChanged: (val) {
-                    final oldP = (value * 100).round();
-                    final newP = (val * 100).round();
-                    if (oldP != newP && newP % 5 == 0) {
-                      HapticFeedback.selectionClick();
-                    }
-                    onChanged(val);
-                  },
-                ),
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => _promptNumber(context),
-            style: TextButton.styleFrom(
-              minimumSize: const Size(48, 28),
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              backgroundColor: isDefault
-                  ? null
-                  : scheme.primaryContainer.withValues(alpha: 0.28),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              foregroundColor: isDefault ? scheme.onSurfaceVariant : scheme.primary,
-            ),
-            child: Text(
-              '$displayPercent%',
-              style: textTheme.bodySmall?.copyWith(
-                color: isDefault ? scheme.onSurfaceVariant : scheme.primary,
-                fontWeight: isDefault ? FontWeight.w600 : FontWeight.w700,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-        ],
-      ),
+    return ParameterSliderRow(
+      label: label,
+      value: value,
+      defaultValue: defaultValue,
+      min: min,
+      max: max,
+      displayValue: '$displayPercent%',
+      onChanged: (val) {
+        final oldP = (value * 100).round();
+        final newP = (val * 100).round();
+        if (oldP != newP && newP % 5 == 0) {
+          HapticFeedback.selectionClick();
+        }
+        onChanged(val);
+      },
+      onTapValue: () => _promptNumber(context),
     );
   }
 }

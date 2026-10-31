@@ -72,6 +72,13 @@ class PhotoGallerySource implements GallerySource {
           height: e.height,
           created: e.createDateTime,
           modified: e.modifiedDateTime,
+          title: e.title,
+          mimeType: e.mimeType,
+          type: e.type.index,
+          relativePath: e.relativePath,
+          isFavorite: e.isFavorite,
+          latitude: e.latitude,
+          longitude: e.longitude,
         ),
     ];
   }

@@ -333,6 +333,35 @@ pub fn compute_iou(mask_a: &[f32], mask_b: &[f32], threshold: f32) -> f32 {
     }
 }
 
+use std::collections::HashMap;
+use std::sync::{LazyLock, Mutex};
+
+static ACTIVE_MODELS: LazyLock<Mutex<HashMap<String, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Sets the active model path for a task kind (e.g. "depth", "segmentation", "face").
+pub fn set_active_model(task: &str, path: &str) -> bool {
+    let p = std::path::Path::new(path);
+    if !p.is_file() {
+        return false;
+    }
+    if let Ok(mut map) = ACTIVE_MODELS.lock() {
+        map.insert(task.to_lowercase(), path.to_string());
+        true
+    } else {
+        false
+    }
+}
+
+/// Retrieves the active model path for a task kind if configured.
+pub fn get_active_model(task: &str) -> Option<String> {
+    if let Ok(map) = ACTIVE_MODELS.lock() {
+        map.get(&task.to_lowercase()).cloned()
+    } else {
+        None
+    }
+}
+
 /// Searches standard paths for a bundled monocular depth model.
 pub fn find_bundled_depth_model() -> Option<String> {
     if let Ok(env_path) = std::env::var("APERTUREX_DEPTH_MODEL") {
@@ -369,6 +398,8 @@ fn try_neural_depth_inference(
         } else {
             return Err(format!("Plugin depth model file not found at '{p}'"));
         }
+    } else if let Some(active) = get_active_model("depth") {
+        Some(active)
     } else {
         find_bundled_depth_model()
     };

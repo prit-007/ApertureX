@@ -101,10 +101,23 @@ pub fn generate_depth_visualizer_rgba(
     )
 }
 
+/// Configures the active ML model path for a task kind (e.g. "depth", "segmentation", "face").
+pub fn set_active_ml_model(task: String, path: String) -> bool {
+    crate::ml::set_active_model(&task, &path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::blur::apply_lens_blur;
+
+    #[test]
+    fn test_set_active_ml_model_rejects_non_existent_file() {
+        assert!(!set_active_ml_model(
+            "depth".to_string(),
+            "/non_existent_dir/model.onnx".to_string(),
+        ));
+    }
 
     #[test]
     fn depth_map_protects_subject_from_blur() {
@@ -190,5 +203,13 @@ mod tests {
         assert_eq!(heatmap[8], 0);
         assert_eq!(heatmap[9], 180);
         assert_eq!(heatmap[10], 200);
+    }
+
+    #[test]
+    fn test_bundled_depth_model_found_when_present() {
+        if let Some(path) = crate::ml::find_bundled_depth_model() {
+            assert!(std::path::Path::new(&path).is_file());
+            assert!(path.contains("depth_anything_v2_vits.onnx"));
+        }
     }
 }

@@ -16,6 +16,7 @@ import '../../settings/ai_consent.dart';
 import '../../viewport/canvas_transform.dart';
 import '../../viewport/mask_peek.dart';
 import 'color_grading_editor.dart';
+import 'parameter_slider_row.dart';
 
 /// Function signature for sky detection from photo bytes.
 typedef SkyDetectorFn = Future<DetectedSky?> Function(Uint8List imageBytes);
@@ -2088,50 +2089,15 @@ class _MaskSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 38,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 75,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(label, style: const TextStyle(fontSize: 12)),
-            ),
-          ),
-          Expanded(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 2,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-              ),
-              child: Slider(
-                key: sliderKey,
-                value: value.clamp(min, max),
-                min: min,
-                max: max,
-                onChanged: onChanged,
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 44,
-            child: Text(
-              displayValue ?? '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                fontSize: 11,
-                fontFeatures: const [FontFeature.tabularFigures()],
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return ParameterSliderRow(
+      label: label,
+      sliderKey: sliderKey,
+      value: value,
+      defaultValue: 0.0,
+      min: min,
+      max: max,
+      onChanged: onChanged,
+      displayValue: displayValue,
     );
   }
 }

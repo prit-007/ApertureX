@@ -47,8 +47,6 @@ enum GalleryScope { photos, edits }
 bool isRawAsset(GalleryAsset asset) {
   // Safe inspection of asset properties including latestDate
   final _ = asset.latestDate;
-  final id = asset.id.trim().toLowerCase();
-  if (id.isEmpty) return false;
 
   const rawExtensions = {
     'dng',
@@ -61,25 +59,48 @@ bool isRawAsset(GalleryAsset asset) {
     'rw2',
     'pef',
     'raf',
+    'nrw',
+    'kdc',
+    'srw',
   };
 
-  // 1. Direct extension check on filename/path (strip query parameters or fragments if any)
+  // 1. Direct check on asset title / filename (e.g. real Android photo_manager titles like "DSC_0042.NEF")
+  if (asset.title != null && asset.title!.isNotEmpty) {
+    final title = asset.title!.trim().toLowerCase();
+    for (final ext in rawExtensions) {
+      if (title.endsWith('.$ext')) return true;
+    }
+  }
+
+  // 2. Direct check on asset mimeType (e.g. "image/x-adobe-dng", "image/x-nikon-nef", "image/raw")
+  if (asset.mimeType != null && asset.mimeType!.isNotEmpty) {
+    final mime = asset.mimeType!.trim().toLowerCase();
+    if (mime.contains('raw') || mime.contains('dng')) return true;
+    for (final ext in rawExtensions) {
+      if (mime.contains(ext)) return true;
+    }
+  }
+
+  final id = asset.id.trim().toLowerCase();
+  if (id.isEmpty) return false;
+
+  // 3. Direct extension check on filename/path (strip query parameters or fragments if any)
   final clean = id.split('?').first.split('#').first;
   for (final ext in rawExtensions) {
     if (clean.endsWith('.$ext')) return true;
   }
 
-  // 2. MIME type hint (e.g. image/x-adobe-dng, image/raw, etc.)
+  // 4. MIME type hint in id (e.g. image/x-adobe-dng, image/raw, etc.)
   if (clean.contains('image/') || clean.contains('mime')) {
     for (final ext in rawExtensions) {
       if (clean.contains(ext)) return true;
     }
   }
 
-  // 3. Delimited token match for mobile/MediaStore hints, URIs, and UUIDs
+  // 5. Delimited token match for mobile/MediaStore hints, URIs, and UUIDs
   // e.g. /raw/, _dng_, -cr3-, .arw., or entity ids like "content://media/.../raw/100"
   final tokenPattern = RegExp(
-    r'(?:^|[\/\._\-:= ])(dng|raw|cr2|cr3|nef|arw|orf|rw2|pef|raf)(?:$|[\/\._\-:= ?#&])',
+    r'(?:^|[\/\._\-:= ])(dng|raw|cr2|cr3|nef|arw|orf|rw2|pef|raf|nrw|kdc|srw)(?:$|[\/\._\-:= ?#&])',
   );
   if (tokenPattern.hasMatch(clean)) {
     return true;
