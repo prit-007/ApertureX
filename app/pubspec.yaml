@@ -51,6 +51,7 @@ dependencies:
   cupertino_ui: ^1.0.2
   dynamic_color: ^2.1.0
   path_provider: ^2.1.4
+  package_info_plus: ^10.2.2
   rust_lib_aperturex:
     path: rust_builder
   flutter_rust_bridge: 2.13.0

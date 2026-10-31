@@ -39,7 +39,7 @@ import '../common/retouch_controls.dart';
 import '../common/tone_curve_editor.dart';
 import '../common/looks_sheet.dart';
 import '../common/app_primitives.dart';
-import '../common/app_sheet.dart' show showAppSheet;
+import '../common/app_sheet.dart' show AppSheet, showAppSheet;
 import '../common/preset_preview_thumbnail.dart';
 import '../../edit/tool_definition.dart';
 
@@ -1146,81 +1146,79 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
           final notifier = ref.read(softProofingProvider.notifier);
           final theme = Theme.of(context);
 
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Soft Proofing',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+          return AppSheet(
+            title: 'Soft Proofing',
+            subtitle: 'Simulate printer ICC profiles and gamut clipping',
+            scrollable: true,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Enabled',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
-                    Switch(
-                      key: const Key('soft-proofing-toggle'),
-                      value: proof.enabled,
-                      onChanged: (val) => notifier.setEnabled(val),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text('Target Profile', style: theme.textTheme.labelMedium),
-                DropdownButton<ProofProfile>(
-                  key: const Key('soft-proofing-profile-dropdown'),
-                  value: proof.profile,
-                  isExpanded: true,
-                  items: ProofProfile.values.map((p) {
-                    return DropdownMenuItem(
-                      value: p,
-                      child: Text(p.displayName),
-                    );
-                  }).toList(),
-                  onChanged: proof.enabled
-                      ? (p) {
-                          if (p != null) notifier.setProfile(p);
-                        }
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                Text('Rendering Intent', style: theme.textTheme.labelMedium),
-                DropdownButton<ProofIntent>(
-                  key: const Key('soft-proofing-intent-dropdown'),
-                  value: proof.intent,
-                  isExpanded: true,
-                  items: ProofIntent.values.map((i) {
-                    return DropdownMenuItem(
-                      value: i,
-                      child: Text(i.displayName),
-                    );
-                  }).toList(),
-                  onChanged: proof.enabled
-                      ? (i) {
-                          if (i != null) notifier.setIntent(i);
-                        }
-                      : null,
-                ),
-                const SizedBox(height: 8),
-                CheckboxListTile(
-                  key: const Key('soft-proofing-paper-ink'),
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Simulate Paper & Ink (DMax Black Floor)'),
-                  value: proof.simulatePaperAndInk,
-                  onChanged: proof.enabled ? (_) => notifier.togglePaperAndInk() : null,
-                ),
-                CheckboxListTile(
-                  key: const Key('soft-proofing-gamut-warning'),
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Highlight Out-of-Gamut Pixels'),
-                  value: proof.gamutWarning,
-                  onChanged: proof.enabled ? (_) => notifier.toggleGamutWarning() : null,
-                ),
-              ],
-            ),
+                  ),
+                  Switch(
+                    key: const Key('soft-proofing-toggle'),
+                    value: proof.enabled,
+                    onChanged: (val) => notifier.setEnabled(val),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text('Target Profile', style: theme.textTheme.labelMedium),
+              DropdownButton<ProofProfile>(
+                key: const Key('soft-proofing-profile-dropdown'),
+                value: proof.profile,
+                isExpanded: true,
+                items: ProofProfile.values.map((p) {
+                  return DropdownMenuItem(
+                    value: p,
+                    child: Text(p.displayName),
+                  );
+                }).toList(),
+                onChanged: proof.enabled
+                    ? (p) {
+                        if (p != null) notifier.setProfile(p);
+                      }
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              Text('Rendering Intent', style: theme.textTheme.labelMedium),
+              DropdownButton<ProofIntent>(
+                key: const Key('soft-proofing-intent-dropdown'),
+                value: proof.intent,
+                isExpanded: true,
+                items: ProofIntent.values.map((i) {
+                  return DropdownMenuItem(
+                    value: i,
+                    child: Text(i.displayName),
+                  );
+                }).toList(),
+                onChanged: proof.enabled
+                    ? (i) {
+                        if (i != null) notifier.setIntent(i);
+                      }
+                    : null,
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                key: const Key('soft-proofing-paper-ink'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Simulate Paper & Ink (DMax Black Floor)'),
+                value: proof.simulatePaperAndInk,
+                onChanged: proof.enabled ? (_) => notifier.togglePaperAndInk() : null,
+              ),
+              CheckboxListTile(
+                key: const Key('soft-proofing-gamut-warning'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Highlight Out-of-Gamut Pixels'),
+                value: proof.gamutWarning,
+                onChanged: proof.enabled ? (_) => notifier.toggleGamutWarning() : null,
+              ),
+            ],
           );
         },
       ),

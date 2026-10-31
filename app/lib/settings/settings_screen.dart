@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../core/log/log_providers.dart';
 import '../core/theme/design_tokens.dart';
@@ -16,17 +17,32 @@ import 'app_settings.dart';
 import 'export_settings.dart';
 import 'shell_preference.dart';
 
+/// Provider to dynamically extract the app version from [PackageInfo] with fallback to '0.3.5+7'.
+final appVersionProvider = FutureProvider<String>((ref) async {
+  try {
+    final info = await PackageInfo.fromPlatform();
+    final build = info.buildNumber.isNotEmpty ? '+${info.buildNumber}' : '';
+    final ver = '${info.version}$build';
+    return ver.isNotEmpty ? ver : '0.3.5+7';
+  } catch (_) {
+    return '0.3.5+7';
+  }
+});
+
 /// App-wide comprehensive settings screen.
 ///
 /// Centralizes appearance, interface shell, stylus controls, engine performance,
-/// export presets, local AI privacy, and diagnostics so three-dot menus remain lean.
+/// export presets, local AI privacy, and diagnostics into clean Material 3 card sections.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
-  Widget _cardSection({required BuildContext context, required List<Widget> children}) {
+  Widget _cardSection({
+    required BuildContext context,
+    required List<Widget> children,
+  }) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: 2),
       child: Card(
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -55,21 +71,22 @@ class SettingsScreen extends ConsumerWidget {
     final tileLimit = ref.watch(tileCacheSettingsProvider);
     final export = ref.watch(exportSettingsProvider);
     final aiConsent = ref.watch(aiConsentProvider);
+    final appVersion = ref.watch(appVersionProvider).asData?.value ?? '0.3.5+7';
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: Insets.md),
+        padding: const EdgeInsets.only(top: Insets.xs, bottom: Insets.xxl),
         children: [
-          // ─── 1. Appearance ──────────────────────────────────────────
+          // ─── 1. Appearance & Theme ──────────────────────────────────
           const SectionHeader('Appearance'),
           _cardSection(
             context: context,
             children: [
               Padding(
-                padding: const EdgeInsets.all(Insets.md),
+                padding: const EdgeInsets.fromLTRB(Insets.md, Insets.sm, Insets.md, Insets.xs),
                 child: SegmentedButton<ThemeMode>(
                   segments: const [
                     ButtonSegment(value: ThemeMode.system, label: Text('System')),
@@ -82,6 +99,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               SwitchListTile.adaptive(
+                dense: true,
                 key: const Key('settings-screen-glassmorphic-toggle'),
                 title: const Text('Glassmorphic UI'),
                 subtitle: const Text(
@@ -94,13 +112,13 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
 
-          // ─── 2. Interface Shell ─────────────────────────────────────
+          // ─── 2. Interface Shell & Layout ────────────────────────────
           const SectionHeader('Interface Shell'),
           _cardSection(
             context: context,
             children: [
               Padding(
-                padding: const EdgeInsets.all(Insets.md),
+                padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: Insets.sm),
                 child: SegmentedButton<AppShellKind>(
                   segments: const [
                     ButtonSegment(
@@ -122,12 +140,13 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
 
-          // ─── 3. Stylus & Touch Input ────────────────────────────────
+          // ─── 3. Stylus & Touch Controls ─────────────────────────────
           const SectionHeader('Stylus & Input'),
           _cardSection(
             context: context,
             children: [
               SwitchListTile.adaptive(
+                dense: true,
                 key: const Key('settings-screen-palm-rejection'),
                 title: const Text('Palm Rejection'),
                 subtitle: const Text('Filter touch events when using an active stylus pen'),
@@ -137,6 +156,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const Divider(height: 1),
               SwitchListTile.adaptive(
+                dense: true,
                 key: const Key('settings-screen-pressure-sensitivity'),
                 title: const Text('Pressure Sensitivity'),
                 subtitle: const Text('Vary brush flow and stroke thickness with pen pressure'),
@@ -144,10 +164,17 @@ class SettingsScreen extends ConsumerWidget {
                 onChanged: (val) =>
                     ref.read(stylusSettingsProvider.notifier).setPressureSensitivity(val),
               ),
+              const Divider(height: 1),
+              const ListTile(
+                dense: true,
+                leading: Icon(Icons.cleaning_services_outlined),
+                title: Text('Inverted Stylus Eraser'),
+                subtitle: Text('Flip active pen to eraser mode for mask removal'),
+              ),
             ],
           ),
 
-          // ─── 4. Engine & Performance ────────────────────────────────
+          // ─── 4. Engine & Hardware Acceleration ──────────────────────
           const SectionHeader('Engine & Performance'),
           _cardSection(
             context: context,
@@ -176,21 +203,37 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const Divider(height: 1),
-              const ListTile(
-                leading: Icon(Icons.speed),
-                title: Text('60 FPS Zero-Copy Pipeline'),
-                subtitle: Text('Direct Impeller GPU 3D LUT fragment shader chain enabled'),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.speed_rounded),
+                title: const Text('Zero-Copy Texture Pipeline (60 FPS)'),
+                subtitle: const Text('Direct Impeller GPU 3D LUT fragment shader chain enabled'),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'ACTIVE',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ),
               const Divider(height: 1),
               const ListTile(
+                dense: true,
                 leading: Icon(Icons.color_lens_outlined),
-                title: Text('Color Accuracy'),
-                subtitle: Text('Wide-gamut Display-P3 to sRGB accurate preview & export'),
+                title: Text('Wide-Gamut Color Accuracy'),
+                subtitle: Text('Display-P3 to sRGB accurate preview & export'),
               ),
             ],
           ),
 
-          // ─── 5. Export Defaults ─────────────────────────────────────
+          // ─── 5. Export Presets & Quality Defaults ───────────────────
           const SectionHeader('Export Defaults'),
           _cardSection(
             context: context,
@@ -238,7 +281,7 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
 
-          // ─── 6. Privacy & Local AI ──────────────────────────────────
+          // ─── 6. Privacy & Offline Guarantee ─────────────────────────
           const SectionHeader('Privacy & Local AI'),
           _cardSection(
             context: context,
@@ -327,7 +370,7 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
 
-          // ─── 8. Help & Masterclasses ─────────────────────────────────
+          // ─── 8. Help & Academy ──────────────────────────────────────
           const SectionHeader('Help & Academy'),
           _cardSection(
             context: context,
@@ -362,7 +405,7 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
 
-          // ─── 9. About & Updates ──────────────────────────────────────
+          // ─── 9. About, Version & Updates ────────────────────────────
           const SectionHeader('About'),
           _cardSection(
             context: context,
@@ -378,12 +421,12 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.info_outline),
                 title: const Text('About ApertureX'),
-                subtitle: const Text('Version 0.3.5 · Pro-level FOSS Photo Editor'),
+                subtitle: Text('Version $appVersion · Pro-level FOSS Photo Editor'),
                 onTap: () {
                   showAboutDialog(
                     context: context,
                     applicationName: 'ApertureX',
-                    applicationVersion: '0.3.5',
+                    applicationVersion: appVersion,
                     applicationLegalese: 'Copyright © 2026 ApertureX Contributors\n\n$kOfflineClaim',
                   );
                 },
@@ -397,7 +440,7 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => showLicensePage(
                   context: context,
                   applicationName: 'ApertureX',
-                  applicationVersion: '0.3.5',
+                  applicationVersion: appVersion,
                 ),
               ),
               const Divider(height: 1),

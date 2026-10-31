@@ -1,11 +1,24 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'app_update_model.dart';
 
 /// Client for checking GitHub Releases and downloading OTA updates for ApertureX.
 class AppUpdater {
-  static const String currentVersion = '0.3.5';
+  static const String currentVersion = '0.3.5+7';
   static const String githubRepo = 'prit-007/ApertureX';
+
+  /// Dynamically extracts the app version from [PackageInfo] with fallback.
+  static Future<String> getAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final build = info.buildNumber.isNotEmpty ? '+${info.buildNumber}' : '';
+      final ver = '${info.version}$build';
+      return ver.isNotEmpty ? ver : currentVersion;
+    } catch (_) {
+      return currentVersion;
+    }
+  }
 
   /// Compares two semantic version strings (e.g., 'v0.2.0' vs '0.1.0').
   /// Returns true if [remote] is strictly higher than [current].
@@ -49,6 +62,7 @@ class AppUpdater {
     HttpClient? client,
     String? repoOverride,
   }) async {
+    final curVer = await getAppVersion();
     final repo = repoOverride ?? githubRepo;
     final uri = Uri.parse('https://api.github.com/repos/$repo/releases/latest');
 
@@ -67,7 +81,7 @@ class AppUpdater {
       final json = jsonDecode(body) as Map<String, dynamic>;
       final release = AppReleaseInfo.fromJson(json);
 
-      if (isNewerVersion(release.version, currentVersion)) {
+      if (isNewerVersion(release.version, curVer)) {
         return release;
       }
       return null;

@@ -75,9 +75,16 @@ class _InstalledTab extends StatelessWidget {
       return const Center(child: Text('No AI models installed.'));
     }
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: Insets.md, horizontal: Insets.md),
-      children: [
+    return SafeArea(
+      bottom: true,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          Insets.md,
+          Insets.md,
+          Insets.md,
+          kFloatingActionButtonMargin + 88,
+        ),
+        children: [
         _BannerCard(
           theme: theme,
           title: 'ApertureX Neural Forge',
@@ -180,7 +187,8 @@ class _InstalledTab extends StatelessWidget {
               ),
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -196,9 +204,16 @@ class _CommunityTab extends StatelessWidget {
     final theme = Theme.of(context);
     final community = state.communityPlugins;
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: Insets.md, horizontal: Insets.md),
-      children: [
+    return SafeArea(
+      bottom: true,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          Insets.md,
+          Insets.md,
+          Insets.md,
+          kFloatingActionButtonMargin + 88,
+        ),
+        children: [
         _BannerCard(
           theme: theme,
           title: 'Verified Open-Source Models',
@@ -217,7 +232,8 @@ class _CommunityTab extends StatelessWidget {
           ),
           const SizedBox(height: Insets.sm),
         ],
-      ],
+        ],
+      ),
     );
   }
 }

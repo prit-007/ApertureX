@@ -4,6 +4,8 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/theme/design_tokens.dart';
+
 import '../../edit/active_image.dart';
 import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
@@ -165,6 +167,56 @@ final maskRefinerProvider = Provider<MaskRefinerFn>((ref) {
   };
 });
 
+/// Rubylith mask overlay display colors.
+enum RubylithColor {
+  red(Color(0xFFE53935), 'Red'),
+  green(Color(0xFF43A047), 'Green'),
+  blue(Color(0xFF1E88E5), 'Blue'),
+  white(Color(0xFFFFFFFF), 'White');
+
+  const RubylithColor(this.color, this.label);
+  final Color color;
+  final String label;
+}
+
+/// Settings for persistent Rubylith overlay bar (ADR 0013 / pro parity).
+class RubylithOverlaySettings {
+  const RubylithOverlaySettings({
+    this.showOverlay = true,
+    this.color = RubylithColor.red,
+    this.opacity = 0.5,
+  });
+
+  final bool showOverlay;
+  final RubylithColor color;
+  final double opacity;
+
+  RubylithOverlaySettings copyWith({
+    bool? showOverlay,
+    RubylithColor? color,
+    double? opacity,
+  }) => RubylithOverlaySettings(
+    showOverlay: showOverlay ?? this.showOverlay,
+    color: color ?? this.color,
+    opacity: opacity ?? this.opacity,
+  );
+}
+
+class RubylithOverlayNotifier extends Notifier<RubylithOverlaySettings> {
+  @override
+  RubylithOverlaySettings build() => const RubylithOverlaySettings();
+
+  void toggleShowOverlay() => state = state.copyWith(showOverlay: !state.showOverlay);
+  void setShowOverlay(bool value) => state = state.copyWith(showOverlay: value);
+  void setColor(RubylithColor color) => state = state.copyWith(color: color);
+  void setOpacity(double opacity) => state = state.copyWith(opacity: opacity);
+}
+
+final rubylithOverlayProvider =
+    NotifierProvider<RubylithOverlayNotifier, RubylithOverlaySettings>(
+  RubylithOverlayNotifier.new,
+);
+
 /// Local-adjustment (masking) controls: add analytic masks and manage the
 /// layer stack. Masks are parametric, so no brush data is stored (#18).
 /// Supports mask groups with Boolean Add/Subtract/Intersect coverage algebra (ADR 0013 / #92).
@@ -184,37 +236,46 @@ class MaskControls extends ConsumerWidget {
     final isInferring = ref.watch(aiMaskInferringProvider);
     final scheme = Theme.of(context).colorScheme;
 
+    final isEmpty = layers.isEmpty && maskGroups.isEmpty;
+
     return ListView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.only(bottom: 32),
       children: [
-        // Mask creation toolbar
+        // 1. Persistent Rubylith Overlay Bar
+        const _RubylithOverlayBar(),
+
+        // 2. Primary Action Bar
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: Insets.xs),
           child: Wrap(
-            spacing: 6,
-            runSpacing: 6,
+            spacing: Insets.xs,
+            runSpacing: Insets.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              OutlinedButton.icon(
-                key: const Key('edit-on-canvas'),
-                style: OutlinedButton.styleFrom(
-                  backgroundColor: nodeMode ? scheme.primaryContainer : null,
-                  foregroundColor: nodeMode ? scheme.onPrimaryContainer : null,
-                  side: BorderSide(
-                    color: nodeMode ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.6),
-                  ),
-                  visualDensity: VisualDensity.compact,
+              FilledButton.tonalIcon(
+                key: const Key('mask-create-primary'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: scheme.primary.withValues(alpha: 0.16),
+                  foregroundColor: scheme.primary,
+                  side: BorderSide(color: scheme.primary.withValues(alpha: 0.35)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  shape: const RoundedRectangleBorder(borderRadius: Radii.smAll),
                 ),
-                onPressed: () => ref.read(nodeEditorProvider.notifier).toggle(),
-                icon: Icon(nodeMode ? Icons.check : Icons.touch_app, size: 16),
-                label: Text(
-                  nodeMode ? 'Done placing' : 'Edit on canvas',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                onPressed: () => _showCreateMaskSheet(context, ref),
+                icon: const Icon(Icons.add_circle_outline, size: 18),
+                label: const Text(
+                  '+ Create Mask',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
               ),
               OutlinedButton.icon(
                 key: const Key('mask-new-group'),
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  shape: const RoundedRectangleBorder(borderRadius: Radii.smAll),
+                ),
                 onPressed: () {
                   final gid = 'group_${DateTime.now().microsecondsSinceEpoch}';
                   final num = maskGroups.length + 1;
@@ -223,243 +284,76 @@ class MaskControls extends ConsumerWidget {
                 icon: const Icon(Icons.create_new_folder_outlined, size: 16),
                 label: const Text('New Group +', style: TextStyle(fontSize: 12)),
               ),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: () => _addMask(context, ref, MaskKind.brush),
-                icon: const Icon(Icons.brush, size: 16),
-                label: const Text('Brush +', style: TextStyle(fontSize: 12)),
+              OutlinedButton(
+                key: const Key('edit-on-canvas'),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: nodeMode ? scheme.primaryContainer : null,
+                  foregroundColor: nodeMode ? scheme.onPrimaryContainer : null,
+                  side: BorderSide(
+                    color: nodeMode ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  shape: const RoundedRectangleBorder(borderRadius: Radii.smAll),
+                ),
+                onPressed: () => ref.read(nodeEditorProvider.notifier).toggle(),
+                child: Icon(nodeMode ? Icons.check : Icons.touch_app, size: 16),
               ),
-              OutlinedButton.icon(
-                key: const Key('mask-add-autobrush'),
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: () => _addMask(context, ref, MaskKind.autoBrush),
-                icon: const Icon(Icons.auto_fix_normal, size: 16),
-                label: const Text('Auto Brush +', style: TextStyle(fontSize: 12)),
-              ),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: () => _addMask(context, ref, MaskKind.linear),
-                icon: const Icon(Icons.gradient, size: 16),
-                label: const Text('Linear +', style: TextStyle(fontSize: 12)),
-              ),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: () => _addMask(context, ref, MaskKind.radial),
-                icon: const Icon(Icons.brightness_5, size: 16),
-                label: const Text('Radial +', style: TextStyle(fontSize: 12)),
-              ),
-              OutlinedButton.icon(
-                key: const Key('mask-add-subject'),
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: isInferring
-                    ? null
-                    : () => _addAiSubjectMask(context, ref, inverted: false),
-                icon: isInferring
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.person, size: 16),
-                label: const Text('Subject +', style: TextStyle(fontSize: 12)),
-              ),
-              OutlinedButton.icon(
-                key: const Key('mask-add-background'),
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: isInferring
-                    ? null
-                    : () {
-                        _addAiSubjectMask(context, ref, inverted: true);
-                        HapticFeedback.selectionClick();
-                      },
-                icon: isInferring
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.wallpaper, size: 16),
-                label: const Text('Background +', style: TextStyle(fontSize: 12)),
-              ),
-              OutlinedButton.icon(
-                key: const Key('mask-add-face'),
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: isInferring
-                    ? null
-                    : () {
-                        _addAiFaceMask(context, ref);
-                        HapticFeedback.selectionClick();
-                      },
-                icon: isInferring
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.face_retouching_natural, size: 16),
-                label: const Text('Face +', style: TextStyle(fontSize: 12)),
-              ),
-              OutlinedButton.icon(
-                key: const Key('mask-add-sky'),
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: isInferring
-                    ? null
-                    : () async {
-                        final idx = layers.length;
-                        var horizon = 0.5;
-                        var feather = 0.15;
-                        var blueWeight = 0.6;
-
-                        final bytes = ref.read(activeImageBytesProvider);
-                        if (bytes != null) {
-                          ref.read(aiMaskInferringProvider.notifier).setInferring(true);
-                          ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
-                              'Detecting sky boundary… Please wait a moment');
-                          try {
-                            final detector = ref.read(skyDetectorProvider);
-                            final detected = await detector(bytes);
-                            if (detected != null) {
-                              horizon = detected.horizonY;
-                              feather = detected.feather;
-                              blueWeight = detected.blueWeight;
-                            }
-                          } catch (_) {
-                            // Fallback to default params
-                          } finally {
-                            ref.read(aiMaskInferringProvider.notifier).setInferring(false);
-                            ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
-                          }
-                        }
-
-                        notifier.addLayer(
-                          AdjustmentLayer(
-                            maskKind: MaskKind.sky,
-                            maskParams: [horizon, feather, blueWeight],
-                            highlights: -0.6,
-                            saturation: 0.2,
-                            aiIntent: 'sky',
-                          ),
-                        );
-                        ref.read(nodeEditorProvider.notifier).enable();
-                        ref.read(nodeEditorProvider.notifier).select(idx);
-                      },
-                icon: const Icon(Icons.cloud_outlined, size: 16),
-                label: const Text('Sky +', style: TextStyle(fontSize: 12)),
-              ),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: () => _addMask(context, ref, MaskKind.luminance),
-                icon: const Icon(Icons.dark_mode, size: 16),
-                label: const Text('Darks +', style: TextStyle(fontSize: 12)),
-              ),
-              OutlinedButton.icon(
-                key: const Key('mask-add-depth-range'),
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: () => _addMask(context, ref, MaskKind.depthRange),
-                icon: const Icon(Icons.layers_outlined, size: 16),
-                label: const Text('Depth Range +', style: TextStyle(fontSize: 12)),
-              ),
-              OutlinedButton.icon(
-                key: const Key('mask-add-depth'),
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: isInferring
-                    ? null
-                    : () async {
-                        Uint8List? bytes = ref.read(activeImageBytesProvider);
-                        final asset = ref.read(currentEditingAssetProvider);
-                        if (asset != null) {
-                          try {
-                            final original =
-                                await ref.read(gallerySourceProvider).loadImage(asset.id);
-                            if (original.isNotEmpty) bytes = original;
-                          } catch (_) {
-                            // Fall back to the preview bytes when the original is unavailable.
-                          }
-                        }
-                        if (!context.mounted) return;
-                        if (bytes == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('No photo loaded for depth extraction')),
-                          );
-                          return;
-                        }
-                        ref.read(aiMaskInferringProvider.notifier).setInferring(true);
-                        ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
-                            'Extracting portrait depth map… Please wait a moment');
-                        try {
-                          final depthResult =
-                              await ref.read(embeddedDepthExtractorProvider)(bytes);
-                          if (depthResult != null) {
-                            final alphas = depthResult.depth.map((b) => b / 255.0).toList();
-                            final idx = layers.length;
-                            notifier.addLayer(
-                              AdjustmentLayer.bitmap(
-                                width: depthResult.width,
-                                height: depthResult.height,
-                                alphas: alphas,
-                                exposure: 0.3,
-                                aiIntent: 'depth',
-                              ),
-                            );
-                            ref.read(nodeEditorProvider.notifier).enable();
-                            ref.read(nodeEditorProvider.notifier).select(idx);
-                            HapticFeedback.selectionClick();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Loaded embedded portrait depth mask')),
-                              );
-                            }
-                          } else {
-                            ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
-                                'Synthesizing AI monocular depth map…');
-                            final decoded = await AxEngine.decodeAnalysisProxy(bytes);
-                            final estimated = await ref.read(depthEstimatorProvider)(
-                              decoded.rgba,
-                              decoded.width,
-                              decoded.height,
-                            );
-                            final idx = layers.length;
-                            notifier.addLayer(
-                              AdjustmentLayer.bitmap(
-                                width: decoded.width,
-                                height: decoded.height,
-                                alphas: estimated.toList(),
-                                exposure: 0.3,
-                                aiIntent: 'depth',
-                              ),
-                            );
-                            ref.read(nodeEditorProvider.notifier).enable();
-                            ref.read(nodeEditorProvider.notifier).select(idx);
-                            HapticFeedback.selectionClick();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Generated AI neural depth mask')),
-                              );
-                            }
-                          }
-                        } catch (_) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Could not generate depth mask')),
-                            );
-                          }
-                        } finally {
-                          ref.read(aiMaskInferringProvider.notifier).setInferring(false);
-                          ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
-                        }
-                      },
-                icon: const Icon(Icons.blur_on, size: 16),
-                label: const Text('Depth +', style: TextStyle(fontSize: 12)),
-              ),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: stylusOnly ? 'Touch mode' : 'Stylus mode',
+                icon: Icon(Icons.gesture, size: 18, color: stylusOnly ? scheme.primary : null),
                 onPressed: () => _toggleStylusOnly(ref, !stylusOnly),
-                icon: Icon(Icons.gesture, size: 16, color: stylusOnly ? scheme.primary : null),
-                label: stylusOnly ? const Text('Touch mode', style: TextStyle(fontSize: 12)) : const Text('Stylus mode', style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
         ),
+
+        // 3. Categorized Creation Panel (Prompt & Grouped Hierarchy)
+        if (isEmpty)
+          _CreateMaskCategorizedSection(
+            context: context,
+            ref: ref,
+            isInferring: isInferring,
+            onAddMask: (kind, {inverted = false, exposure}) =>
+                _addMask(context, ref, kind, inverted: inverted, exposure: exposure),
+            onAddAiSubject: ({required inverted}) =>
+                _addAiSubjectMask(context, ref, inverted: inverted),
+            onAddAiFace: () => _addAiFaceMask(context, ref),
+            onAddSky: () => _addSkyMask(context, ref),
+            onAddDepthMap: () => _addDepthMapMask(context, ref),
+            onToolTap: null,
+          )
+        else
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              key: const Key('mask-add-tools-expansion'),
+              initiallyExpanded: false,
+              tilePadding: const EdgeInsets.symmetric(horizontal: Insets.sm),
+              childrenPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.add_circle_outline, size: 18),
+              title: const Text(
+                'Add Mask Tool',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              children: [
+                _CreateMaskCategorizedSection(
+                  context: context,
+                  ref: ref,
+                  isInferring: isInferring,
+                  onAddMask: (kind, {inverted = false, exposure}) =>
+                      _addMask(context, ref, kind, inverted: inverted, exposure: exposure),
+                  onAddAiSubject: ({required inverted}) =>
+                      _addAiSubjectMask(context, ref, inverted: inverted),
+                  onAddAiFace: () => _addAiFaceMask(context, ref),
+                  onAddSky: () => _addSkyMask(context, ref),
+                  onAddDepthMap: () => _addDepthMapMask(context, ref),
+                  onToolTap: null,
+                ),
+              ],
+            ),
+          ),
 
         // Animated AI Progress Indicator (#83, #89, #96)
         AnimatedSize(
@@ -604,7 +498,7 @@ class MaskControls extends ConsumerWidget {
             // Group Header
             Row(
               children: [
-                Icon(Icons.layers, size: 20, color: theme.colorScheme.primary),
+                _GroupThumbnail(group: group),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
@@ -631,7 +525,28 @@ class MaskControls extends ConsumerWidget {
                 ],
                 const Spacer(),
                 IconButton(
+                  key: Key('group-visibility-${group.id}'),
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                  tooltip: group.amount > 0 ? 'Hide group' : 'Show group',
+                  icon: Icon(
+                    group.amount > 0 ? Icons.visibility : Icons.visibility_off,
+                    color: group.amount > 0 ? null : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    size: 20,
+                  ),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    notifier.updateMaskGroup(
+                      group.copyWith(amount: group.amount > 0 ? 0.0 : 1.0),
+                    );
+                  },
+                ),
+                IconButton(
                   key: Key('group-invert-${group.id}'),
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
                   tooltip: 'Invert Group Coverage',
                   icon: Icon(
                     group.inverted ? Icons.swap_horiz : Icons.swap_horizontal_circle_outlined,
@@ -642,6 +557,9 @@ class MaskControls extends ConsumerWidget {
                 ),
                 IconButton(
                   key: Key('group-delete-${group.id}'),
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
                   tooltip: 'Delete Group and Members',
                   icon: const Icon(Icons.delete_outline, size: 20),
                   onPressed: () => notifier.removeMaskGroup(group.id),
@@ -905,150 +823,188 @@ class MaskControls extends ConsumerWidget {
         child: ListTile(
           dense: true,
           selected: isSelected,
-          leading: Icon(_maskIcon(layer.maskKind), size: 18),
-          title: Row(
+          leading: _MaskThumbnail(
+            kind: layer.maskKind,
+            isSelected: isSelected,
+            inverted: layer.inverted,
+          ),
+          title: Text(
+            '${layer.maskKind.name.toUpperCase()} layer ${i + 1}  '
+            'EV ${ev >= 0 ? '+' : ''}${ev.toStringAsFixed(2)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Text(
-                  '${layer.maskKind.name.toUpperCase()} layer ${i + 1}  '
-                  'EV ${ev >= 0 ? '+' : ''}${ev.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              if (layer.inverted)
+                const Text(
+                  'Inverted (Reversed)',
+                  style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.w600),
                 ),
-              ),
-              if (layer.aiIntent != null) ...[
-                Tooltip(
-                  message: 'AI masks run on-device; no image leaves your device',
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.auto_awesome, size: 10),
-                        const SizedBox(width: 2),
-                        Text(
-                          'AI ${layer.aiIntent} ✓',
-                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+              if (layer.aiIntent != null || showJoinOp)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (layer.aiIntent != null) ...[
+                        Tooltip(
+                          message: 'AI masks run on-device; no image leaves your device',
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.auto_awesome, size: 10),
+                                const SizedBox(width: 2),
+                                Text(
+                                  'AI ${layer.aiIntent} ✓',
+                                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
-                    ),
+                      if (showJoinOp) ...[
+                        ChoiceChip(
+                          key: Key('mask-join-add-$i'),
+                          label: const Text('+', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          selected: layer.joinOp == MaskJoinOp.add,
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          showCheckmark: false,
+                          onSelected: (val) {
+                            if (val) notifier.updateLayerAt(i, layer.copyWith(joinOp: MaskJoinOp.add));
+                          },
+                        ),
+                        ChoiceChip(
+                          key: Key('mask-join-subtract-$i'),
+                          label: const Text('-', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          selected: layer.joinOp == MaskJoinOp.subtract,
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          showCheckmark: false,
+                          onSelected: (val) {
+                            if (val) notifier.updateLayerAt(i, layer.copyWith(joinOp: MaskJoinOp.subtract));
+                          },
+                        ),
+                        ChoiceChip(
+                          key: Key('mask-join-intersect-$i'),
+                          label: const Text('⋂', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          selected: layer.joinOp == MaskJoinOp.intersect,
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          showCheckmark: false,
+                          onSelected: (val) {
+                            if (val) notifier.updateLayerAt(i, layer.copyWith(joinOp: MaskJoinOp.intersect));
+                          },
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(width: 4),
-              ],
-              if (showJoinOp) ...[
-                Wrap(
-                  spacing: 4,
-                children: [
-                  ChoiceChip(
-                    key: Key('mask-join-add-$i'),
-                    label: const Text('+', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    selected: layer.joinOp == MaskJoinOp.add,
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    showCheckmark: false,
-                    onSelected: (val) {
-                      if (val) notifier.updateLayerAt(i, layer.copyWith(joinOp: MaskJoinOp.add));
-                    },
-                  ),
-                  ChoiceChip(
-                    key: Key('mask-join-subtract-$i'),
-                    label: const Text('-', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    selected: layer.joinOp == MaskJoinOp.subtract,
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    showCheckmark: false,
-                    onSelected: (val) {
-                      if (val) notifier.updateLayerAt(i, layer.copyWith(joinOp: MaskJoinOp.subtract));
-                    },
-                  ),
-                  ChoiceChip(
-                    key: Key('mask-join-intersect-$i'),
-                    label: const Text('⋂', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    selected: layer.joinOp == MaskJoinOp.intersect,
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    showCheckmark: false,
-                    onSelected: (val) {
-                      if (val) notifier.updateLayerAt(i, layer.copyWith(joinOp: MaskJoinOp.intersect));
-                    },
-                  ),
-                ],
+            ],
+          ),
+          onTap: () {
+            ref.read(nodeEditorProvider.notifier).select(i);
+            ref.read(nodeEditorProvider.notifier).enable();
+          },
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                key: Key('mask-visibility-$i'),
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                padding: EdgeInsets.zero,
+                tooltip: layer.amount > 0 ? 'Hide mask' : 'Show mask',
+                icon: Icon(
+                  layer.amount > 0 ? Icons.visibility : Icons.visibility_off,
+                  size: 18,
+                  color: layer.amount > 0 ? null : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  notifier.updateLayerAt(i, layer.copyWith(amount: layer.amount > 0 ? 0.0 : 1.0));
+                },
+              ),
+              IconButton(
+                key: Key('mask-refine-$i'),
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                padding: EdgeInsets.zero,
+                tooltip: 'Refine mask edges',
+                icon: const Icon(Icons.auto_fix_high, size: 18),
+                onPressed: () async {
+                  final bytes = ref.read(activeImageBytesProvider);
+                  if (bytes == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('No photo loaded to refine mask')),
+                    );
+                    return;
+                  }
+                  final refiner = ref.read(maskRefinerProvider);
+                  final refined = await refiner(layer, bytes);
+                  if (refined != null) {
+                    notifier.updateLayerAt(i, refined);
+                    HapticFeedback.selectionClick();
+                  }
+                },
+              ),
+              IconButton(
+                key: Key('mask-invert-$i'),
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                padding: EdgeInsets.zero,
+                tooltip: 'Invert / Reverse mask',
+                icon: Icon(
+                  layer.inverted ? Icons.swap_horiz : Icons.swap_horizontal_circle_outlined,
+                  size: 18,
+                ),
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  notifier.updateLayerAt(i, layer.copyWith(inverted: !layer.inverted));
+                },
+              ),
+              IconButton(
+                key: Key('mask-duplicate-$i'),
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                padding: EdgeInsets.zero,
+                tooltip: 'Duplicate mask',
+                icon: const Icon(Icons.copy, size: 18),
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  notifier.addLayer(layer.copyWith());
+                },
+              ),
+              IconButton(
+                key: Key('mask-delete-$i'),
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                padding: EdgeInsets.zero,
+                tooltip: 'Remove layer',
+                icon: const Icon(Icons.delete_outline, size: 18),
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  notifier.removeLayerAt(i);
+                  if (ref.read(nodeEditorProvider).selected == i) {
+                    ref.read(nodeEditorProvider.notifier).select(null);
+                  }
+                },
               ),
             ],
-          ],
-        ),
-        subtitle: layer.inverted
-            ? const Text(
-                'Inverted (Reversed)',
-                style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.w600),
-              )
-            : null,
-        onTap: () {
-          ref.read(nodeEditorProvider.notifier).select(i);
-          ref.read(nodeEditorProvider.notifier).enable();
-        },
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              key: Key('mask-refine-$i'),
-              tooltip: 'Refine mask edges',
-              icon: const Icon(Icons.auto_fix_high, size: 18),
-              onPressed: () async {
-                final bytes = ref.read(activeImageBytesProvider);
-                if (bytes == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('No photo loaded to refine mask')),
-                  );
-                  return;
-                }
-                final refiner = ref.read(maskRefinerProvider);
-                final refined = await refiner(layer, bytes);
-                if (refined != null) {
-                  notifier.updateLayerAt(i, refined);
-                  HapticFeedback.selectionClick();
-                }
-              },
-            ),
-            IconButton(
-              key: Key('mask-invert-$i'),
-              tooltip: 'Invert / Reverse mask',
-              icon: Icon(
-                layer.inverted ? Icons.swap_horiz : Icons.swap_horizontal_circle_outlined,
-                size: 18,
-              ),
-              onPressed: () {
-                HapticFeedback.selectionClick();
-                notifier.updateLayerAt(i, layer.copyWith(inverted: !layer.inverted));
-              },
-            ),
-            IconButton(
-              key: Key('mask-duplicate-$i'),
-              tooltip: 'Duplicate mask',
-              icon: const Icon(Icons.copy, size: 18),
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                notifier.addLayer(layer.copyWith());
-              },
-            ),
-            IconButton(
-              key: Key('mask-delete-$i'),
-              tooltip: 'Remove layer',
-              icon: const Icon(Icons.delete_outline, size: 18),
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-                notifier.removeLayerAt(i);
-                if (ref.read(nodeEditorProvider).selected == i) {
-                  ref.read(nodeEditorProvider.notifier).select(null);
-                }
-              },
-            ),
-          ],
-        ),
+          ),
       ),
       ),
     );
@@ -1116,6 +1072,19 @@ class MaskControls extends ConsumerWidget {
                       showCheckmark: false,
                       onSelected: (val) {
                         if (val) ref.read(nodeEditorProvider.notifier).setEraserMode(true);
+                      },
+                    ),
+                    FilterChip(
+                      key: const Key('mask-inline-auto-mask'),
+                      label: const Text('Auto Mask', style: TextStyle(fontSize: 11)),
+                      selected: layer.maskKind == MaskKind.autoBrush,
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      onSelected: (val) {
+                        notifier.updateLayerAt(
+                          i,
+                          layer.copyWith(maskKind: val ? MaskKind.autoBrush : MaskKind.brush),
+                        );
                       },
                     ),
                   ] else ...[
@@ -1228,7 +1197,7 @@ class MaskControls extends ConsumerWidget {
                   ),
                 ],
               ),
-              if (layer.maskKind == MaskKind.brush) ...[
+              if (layer.maskKind == MaskKind.brush || layer.maskKind == MaskKind.autoBrush) ...[
                 _MaskSlider(
                   label: 'Brush Size',
                   sliderKey: const Key('mask-inline-brush-size-slider'),
@@ -1244,6 +1213,15 @@ class MaskControls extends ConsumerWidget {
                   min: 0.0,
                   max: 1.0,
                   onChanged: (val) => notifier.updateLayerAt(i, layer.withBrushFeather(val)),
+                ),
+                _MaskSlider(
+                  label: 'Flow',
+                  sliderKey: const Key('mask-inline-brush-flow-slider'),
+                  value: layer.amount.clamp(0.0, 1.0),
+                  min: 0.0,
+                  max: 1.0,
+                  displayValue: '${(layer.amount.clamp(0.0, 1.0) * 100).round()}%',
+                  onChanged: (val) => notifier.updateLayerAt(i, layer.copyWith(amount: val)),
                 ),
               ],
               if (layer.maskKind == MaskKind.sky) ...[
@@ -1770,6 +1748,188 @@ class MaskControls extends ConsumerWidget {
     }
   }
 
+  Future<void> _addSkyMask(BuildContext context, WidgetRef ref) async {
+    final notifier = ref.read(recipeControllerProvider.notifier);
+    final layers = ref.read(recipeControllerProvider).recipe.layers;
+    final idx = layers.length;
+    var horizon = 0.5;
+    var feather = 0.15;
+    var blueWeight = 0.6;
+
+    final bytes = ref.read(activeImageBytesProvider);
+    if (bytes != null) {
+      ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+      ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+          'Detecting sky boundary… Please wait a moment');
+      try {
+        final detector = ref.read(skyDetectorProvider);
+        final detected = await detector(bytes);
+        if (detected != null) {
+          horizon = detected.horizonY;
+          feather = detected.feather;
+          blueWeight = detected.blueWeight;
+        }
+      } catch (_) {
+        // Fallback to default params
+      } finally {
+        ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+        ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+      }
+    }
+
+    notifier.addLayer(
+      AdjustmentLayer(
+        maskKind: MaskKind.sky,
+        maskParams: [horizon, feather, blueWeight],
+        highlights: -0.6,
+        saturation: 0.2,
+        aiIntent: 'sky',
+      ),
+    );
+    ref.read(nodeEditorProvider.notifier).enable();
+    ref.read(nodeEditorProvider.notifier).select(idx);
+  }
+
+  Future<void> _addDepthMapMask(BuildContext context, WidgetRef ref) async {
+    final notifier = ref.read(recipeControllerProvider.notifier);
+    final layers = ref.read(recipeControllerProvider).recipe.layers;
+    Uint8List? bytes = ref.read(activeImageBytesProvider);
+    final asset = ref.read(currentEditingAssetProvider);
+    if (asset != null) {
+      try {
+        final original =
+            await ref.read(gallerySourceProvider).loadImage(asset.id);
+        if (original.isNotEmpty) bytes = original;
+      } catch (_) {
+        // Fall back to the preview bytes when the original is unavailable.
+      }
+    }
+    if (!context.mounted) return;
+    if (bytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No photo loaded for depth extraction')),
+      );
+      return;
+    }
+    ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+    ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+        'Extracting portrait depth map… Please wait a moment');
+    try {
+      final depthResult =
+          await ref.read(embeddedDepthExtractorProvider)(bytes);
+      if (depthResult != null) {
+        final alphas = depthResult.depth.map((b) => b / 255.0).toList();
+        final idx = layers.length;
+        notifier.addLayer(
+          AdjustmentLayer.bitmap(
+            width: depthResult.width,
+            height: depthResult.height,
+            alphas: alphas,
+            exposure: 0.3,
+            aiIntent: 'depth',
+          ),
+        );
+        ref.read(nodeEditorProvider.notifier).enable();
+        ref.read(nodeEditorProvider.notifier).select(idx);
+        HapticFeedback.selectionClick();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Loaded embedded portrait depth mask')),
+          );
+        }
+      } else {
+        ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+            'Synthesizing AI monocular depth map…');
+        final decoded = await AxEngine.decodeAnalysisProxy(bytes);
+        final estimated = await ref.read(depthEstimatorProvider)(
+          decoded.rgba,
+          decoded.width,
+          decoded.height,
+        );
+        final idx = layers.length;
+        notifier.addLayer(
+          AdjustmentLayer.bitmap(
+            width: decoded.width,
+            height: decoded.height,
+            alphas: estimated.toList(),
+            exposure: 0.3,
+            aiIntent: 'depth',
+          ),
+        );
+        ref.read(nodeEditorProvider.notifier).enable();
+        ref.read(nodeEditorProvider.notifier).select(idx);
+        HapticFeedback.selectionClick();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Generated AI neural depth mask')),
+          );
+        }
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not generate depth mask')),
+        );
+      }
+    } finally {
+      ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+      ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+    }
+  }
+
+  void _showCreateMaskSheet(BuildContext context, WidgetRef ref) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (modalCtx) {
+        final isInferring = ref.watch(aiMaskInferringProvider);
+        return Padding(
+          padding: Insets.sheet,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Add New Mask',
+                      style: Theme.of(modalCtx).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.of(modalCtx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Insets.xs),
+                _CreateMaskCategorizedSection(
+                  context: modalCtx,
+                  ref: ref,
+                  isInferring: isInferring,
+                  onAddMask: (kind, {inverted = false, exposure}) =>
+                      _addMask(context, ref, kind, inverted: inverted, exposure: exposure),
+                  onAddAiSubject: ({required inverted}) =>
+                      _addAiSubjectMask(context, ref, inverted: inverted),
+                  onAddAiFace: () => _addAiFaceMask(context, ref),
+                  onAddSky: () => _addSkyMask(context, ref),
+                  onAddDepthMap: () => _addDepthMapMask(context, ref),
+                  onToolTap: () => Navigator.of(modalCtx).pop(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _addMask(
     BuildContext context,
     WidgetRef ref,
@@ -1895,19 +2055,6 @@ class MaskControls extends ConsumerWidget {
     ref.read(nodeEditorProvider.notifier).enable();
     ref.read(nodeEditorProvider.notifier).select(idx);
   }
-
-  IconData _maskIcon(MaskKind kind) => switch (kind) {
-    MaskKind.brush => Icons.brush,
-    MaskKind.linear => Icons.gradient,
-    MaskKind.radial => Icons.brightness_5,
-    MaskKind.subject => Icons.person,
-    MaskKind.sky => Icons.cloud_outlined,
-    MaskKind.luminance => Icons.dark_mode,
-    MaskKind.bitmap => Icons.auto_awesome,
-    MaskKind.colorRange => Icons.color_lens,
-    MaskKind.autoBrush => Icons.auto_fix_normal,
-    MaskKind.depthRange => Icons.layers_outlined,
-  };
 
   static const List<String> _zoneRomans = [
     '0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'
@@ -2144,6 +2291,592 @@ class _MaskColorGradingSectionState extends State<_MaskColorGradingSection> {
           min: -1.0,
           max: 1.0,
           onChanged: (val) => widget.onGlobalChanged(balance: val),
+        ),
+      ],
+    );
+  }
+}
+
+/// Persistent Rubylith Overlay Bar docked at the top of masking controls.
+class _RubylithOverlayBar extends ConsumerWidget {
+  const _RubylithOverlayBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final rubylith = ref.watch(rubylithOverlayProvider);
+    final notifier = ref.read(rubylithOverlayProvider.notifier);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: Insets.xs),
+      padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 6),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh.withValues(alpha: 0.45),
+        borderRadius: Radii.mdAll,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              InkWell(
+                key: const Key('mask-overlay-toggle'),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  notifier.toggleShowOverlay();
+                },
+                borderRadius: Radii.smAll,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        rubylith.showOverlay ? Icons.visibility : Icons.visibility_off,
+                        size: 16,
+                        color: rubylith.showOverlay ? scheme.primary : scheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Show Overlay [O]',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: rubylith.showOverlay ? scheme.onSurface : scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final rc in RubylithColor.values)
+                    GestureDetector(
+                      key: Key('mask-rubylith-${rc.name}'),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        notifier.setColor(rc);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: rc.color,
+                          border: Border.all(
+                            color: rubylith.color == rc ? scheme.onSurface : scheme.outlineVariant,
+                            width: rubylith.color == rc ? 2 : 1,
+                          ),
+                          boxShadow: rubylith.color == rc
+                              ? [BoxShadow(color: rc.color.withValues(alpha: 0.6), blurRadius: 4)]
+                              : null,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              SizedBox(
+                width: 52,
+                child: Text(
+                  'Opacity',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    trackHeight: 2,
+                    activeTrackColor: rubylith.color.color,
+                    inactiveTrackColor: scheme.surfaceContainerHighest,
+                    thumbColor: rubylith.color.color,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                  ),
+                  child: Slider(
+                    key: const Key('mask-rubylith-opacity'),
+                    value: rubylith.opacity,
+                    min: 0.0,
+                    max: 1.0,
+                    onChanged: (v) => notifier.setOpacity(v),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 36,
+                child: Text(
+                  '${(rubylith.opacity * 100).round()}%',
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// High-contrast miniature thumbnail for individual mask layer cards.
+class _MaskThumbnail extends StatelessWidget {
+  const _MaskThumbnail({
+    required this.kind,
+    required this.isSelected,
+    this.inverted = false,
+  });
+
+  final MaskKind kind;
+  final bool isSelected;
+  final bool inverted;
+
+  IconData _iconForKind(MaskKind k) {
+    return switch (k) {
+      MaskKind.radial => Icons.brightness_5,
+      MaskKind.linear => Icons.gradient,
+      MaskKind.luminance => Icons.brightness_6,
+      MaskKind.brush => Icons.brush,
+      MaskKind.autoBrush => Icons.auto_fix_normal,
+      MaskKind.subject => Icons.person,
+      MaskKind.sky => Icons.cloud_outlined,
+      MaskKind.bitmap => Icons.grain,
+      MaskKind.colorRange => Icons.colorize,
+      MaskKind.depthRange => Icons.layers_outlined,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLowest,
+        borderRadius: Radii.smAll,
+        border: Border.all(
+          color: isSelected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4),
+          width: isSelected ? 1.5 : 1.0,
+        ),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: scheme.primary.withValues(alpha: inverted ? 0.08 : 0.18),
+            ),
+          ),
+          Icon(
+            _iconForKind(kind),
+            size: 18,
+            color: isSelected ? scheme.primary : scheme.onSurface,
+          ),
+          if (inverted)
+            Positioned(
+              right: 2,
+              bottom: 2,
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.orange,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// High-contrast miniature thumbnail for mask group cards.
+class _GroupThumbnail extends StatelessWidget {
+  const _GroupThumbnail({required this.group});
+
+  final MaskGroup group;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLowest,
+        borderRadius: Radii.smAll,
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.4),
+          width: 1.0,
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.layers,
+          size: 18,
+          color: group.amount > 0 ? scheme.primary : scheme.onSurfaceVariant.withValues(alpha: 0.5),
+        ),
+      ),
+    );
+  }
+}
+
+/// Categorized creation section grouped into AI Masks, Manual Tools, and Range Masks.
+class _CreateMaskCategorizedSection extends StatelessWidget {
+  const _CreateMaskCategorizedSection({
+    required this.context,
+    required this.ref,
+    required this.isInferring,
+    required this.onAddMask,
+    required this.onAddAiSubject,
+    required this.onAddAiFace,
+    required this.onAddSky,
+    required this.onAddDepthMap,
+    this.onToolTap,
+  });
+
+  final BuildContext context;
+  final WidgetRef ref;
+  final bool isInferring;
+  final void Function(MaskKind kind, {bool inverted, double? exposure}) onAddMask;
+  final void Function({required bool inverted}) onAddAiSubject;
+  final VoidCallback onAddAiFace;
+  final VoidCallback onAddSky;
+  final VoidCallback onAddDepthMap;
+  final VoidCallback? onToolTap;
+
+  Widget _buildToolTile({
+    Key? key,
+    required BuildContext ctx,
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+    bool isTonal = false,
+  }) {
+    final scheme = Theme.of(ctx).colorScheme;
+    return OutlinedButton(
+      key: key,
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        backgroundColor: isTonal ? scheme.primary.withValues(alpha: 0.08) : null,
+        foregroundColor: isTonal ? scheme.primary : scheme.onSurface,
+        side: BorderSide(
+          color: isTonal ? scheme.primary.withValues(alpha: 0.35) : scheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        shape: const RoundedRectangleBorder(borderRadius: Radii.smAll),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: isTonal ? scheme.primary : scheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext buildContext) {
+    final scheme = Theme.of(buildContext).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 1. AI MASKS
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
+          padding: const EdgeInsets.all(Insets.sm),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHigh.withValues(alpha: 0.45),
+            borderRadius: Radii.mdAll,
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.auto_awesome, size: 14, color: scheme.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'AI MASKS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
+                      color: scheme.primary,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'On-Device AI',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Insets.xs),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _buildToolTile(
+                    key: const Key('mask-add-subject'),
+                    ctx: buildContext,
+                    icon: Icons.person,
+                    label: 'Subject +',
+                    isTonal: true,
+                    onPressed: isInferring
+                        ? null
+                        : () {
+                            onToolTap?.call();
+                            onAddAiSubject(inverted: false);
+                          },
+                  ),
+                  _buildToolTile(
+                    key: const Key('mask-add-sky'),
+                    ctx: buildContext,
+                    icon: Icons.cloud_outlined,
+                    label: 'Sky +',
+                    isTonal: true,
+                    onPressed: isInferring
+                        ? null
+                        : () {
+                            onToolTap?.call();
+                            onAddSky();
+                          },
+                  ),
+                  _buildToolTile(
+                    key: const Key('mask-add-background'),
+                    ctx: buildContext,
+                    icon: Icons.wallpaper,
+                    label: 'Background +',
+                    isTonal: true,
+                    onPressed: isInferring
+                        ? null
+                        : () {
+                            onToolTap?.call();
+                            onAddAiSubject(inverted: true);
+                            HapticFeedback.selectionClick();
+                          },
+                  ),
+                  _buildToolTile(
+                    key: const Key('mask-add-face'),
+                    ctx: buildContext,
+                    icon: Icons.face_retouching_natural,
+                    label: 'Face +',
+                    isTonal: true,
+                    onPressed: isInferring
+                        ? null
+                        : () {
+                            onToolTap?.call();
+                            onAddAiFace();
+                            HapticFeedback.selectionClick();
+                          },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // 2. MANUAL TOOLS
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
+          padding: const EdgeInsets.all(Insets.sm),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHigh.withValues(alpha: 0.35),
+            borderRadius: Radii.mdAll,
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.gesture, size: 14, color: scheme.onSurfaceVariant),
+                  const SizedBox(width: 6),
+                  Text(
+                    'MANUAL TOOLS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Insets.xs),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _buildToolTile(
+                    key: const Key('mask-add-brush'),
+                    ctx: buildContext,
+                    icon: Icons.brush,
+                    label: 'Brush +',
+                    onPressed: () {
+                      onToolTap?.call();
+                      onAddMask(MaskKind.brush);
+                    },
+                  ),
+                  _buildToolTile(
+                    key: const Key('mask-add-autobrush'),
+                    ctx: buildContext,
+                    icon: Icons.auto_fix_normal,
+                    label: 'Auto Brush +',
+                    onPressed: () {
+                      onToolTap?.call();
+                      onAddMask(MaskKind.autoBrush);
+                    },
+                  ),
+                  _buildToolTile(
+                    key: const Key('mask-add-linear'),
+                    ctx: buildContext,
+                    icon: Icons.gradient,
+                    label: 'Linear +',
+                    onPressed: () {
+                      onToolTap?.call();
+                      onAddMask(MaskKind.linear);
+                    },
+                  ),
+                  _buildToolTile(
+                    key: const Key('mask-add-radial'),
+                    ctx: buildContext,
+                    icon: Icons.brightness_5,
+                    label: 'Radial +',
+                    onPressed: () {
+                      onToolTap?.call();
+                      onAddMask(MaskKind.radial);
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // 3. RANGE MASKS
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
+          padding: const EdgeInsets.all(Insets.sm),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHigh.withValues(alpha: 0.35),
+            borderRadius: Radii.mdAll,
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.tune, size: 14, color: scheme.onSurfaceVariant),
+                  const SizedBox(width: 6),
+                  Text(
+                    'RANGE MASKS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Insets.xs),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _buildToolTile(
+                    key: const Key('mask-add-color-range'),
+                    ctx: buildContext,
+                    icon: Icons.colorize,
+                    label: 'Color Range +',
+                    onPressed: () {
+                      onToolTap?.call();
+                      onAddMask(MaskKind.colorRange);
+                    },
+                  ),
+                  _buildToolTile(
+                    key: const Key('mask-add-luminance'),
+                    ctx: buildContext,
+                    icon: Icons.brightness_6,
+                    label: 'Darks +',
+                    onPressed: () {
+                      onToolTap?.call();
+                      onAddMask(MaskKind.luminance);
+                    },
+                  ),
+                  _buildToolTile(
+                    key: const Key('mask-add-depth-range'),
+                    ctx: buildContext,
+                    icon: Icons.layers_outlined,
+                    label: 'Depth Range +',
+                    onPressed: () {
+                      onToolTap?.call();
+                      onAddMask(MaskKind.depthRange);
+                    },
+                  ),
+                  _buildToolTile(
+                    key: const Key('mask-add-depth'),
+                    ctx: buildContext,
+                    icon: Icons.blur_on,
+                    label: 'Depth +',
+                    onPressed: isInferring
+                        ? null
+                        : () {
+                            onToolTap?.call();
+                            onAddDepthMap();
+                          },
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ],
     );

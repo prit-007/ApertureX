@@ -232,6 +232,11 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
                 onDownload: () => communityNotifier.downloadPreset(preset),
                 onShareQr: () => showPresetCardDialog(context, tool: preset.toToolDefinition()),
               ),
+          const SafeArea(
+            top: false,
+            bottom: true,
+            child: SizedBox(height: Insets.lg),
+          ),
         ],
       ],
     );

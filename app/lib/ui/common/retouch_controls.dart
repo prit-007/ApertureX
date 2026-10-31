@@ -130,9 +130,9 @@ class RetouchControls extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(Insets.sm),
             decoration: BoxDecoration(
-              color: scheme.surfaceContainerHigh.withValues(alpha: 0.65),
-              borderRadius: const BorderRadius.all(Radius.circular(Radii.md)),
-              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+              color: scheme.surfaceContainerHigh.withValues(alpha: 0.45),
+              borderRadius: Radii.mdAll,
+              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -274,9 +274,9 @@ class RetouchControls extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(Insets.sm),
             decoration: BoxDecoration(
-              color: scheme.surfaceContainerHigh.withValues(alpha: 0.4),
-              borderRadius: const BorderRadius.all(Radius.circular(Radii.md)),
-              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+              color: scheme.surfaceContainerHigh.withValues(alpha: 0.35),
+              borderRadius: Radii.mdAll,
+              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -315,6 +315,7 @@ class RetouchControls extends ConsumerWidget {
                 _RetouchSliderRow(
                   label: 'Size',
                   value: currentRadius.clamp(0.01, 0.25),
+                  defaultValue: 0.05,
                   min: 0.01,
                   max: 0.25,
                   displayPercent: (currentRadius * 100).round(),
@@ -335,6 +336,7 @@ class RetouchControls extends ConsumerWidget {
                 _RetouchSliderRow(
                   label: 'Feather',
                   value: currentFeather.clamp(0.0, 1.0),
+                  defaultValue: 0.5,
                   min: 0.0,
                   max: 1.0,
                   displayPercent: (currentFeather * 100).round(),
@@ -355,6 +357,7 @@ class RetouchControls extends ConsumerWidget {
                 _RetouchSliderRow(
                   label: 'Opacity',
                   value: currentOpacity.clamp(0.0, 1.0),
+                  defaultValue: 1.0,
                   min: 0.0,
                   max: 1.0,
                   displayPercent: (currentOpacity * 100).round(),
@@ -418,6 +421,7 @@ class _RetouchSliderRow extends StatelessWidget {
   const _RetouchSliderRow({
     required this.label,
     required this.value,
+    required this.defaultValue,
     required this.min,
     required this.max,
     required this.displayPercent,
@@ -428,6 +432,7 @@ class _RetouchSliderRow extends StatelessWidget {
 
   final String label;
   final double value;
+  final double defaultValue;
   final double min;
   final double max;
   final int displayPercent;
@@ -435,52 +440,196 @@ class _RetouchSliderRow extends StatelessWidget {
   final TextTheme textTheme;
   final ValueChanged<double> onChanged;
 
+  bool get isDefault => (value - defaultValue).abs() < 0.005;
+
+  Future<void> _promptNumber(BuildContext context) async {
+    HapticFeedback.selectionClick();
+    final result = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _RetouchValueSheet(
+        label: label,
+        initial: displayPercent.toString(),
+        min: (min * 100).round(),
+        max: (max * 100).round(),
+      ),
+    );
+    if (result != null) {
+      onChanged((result / 100.0).clamp(min, max));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 58,
-          child: Text(
-            label,
-            style: textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onDoubleTap: () {
+              HapticFeedback.lightImpact();
+              onChanged(defaultValue);
+            },
+            child: SizedBox(
+              width: 60,
+              child: Text(
+                label,
+                style: textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
-        ),
-        Expanded(
-          child: SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: scheme.primary,
-              inactiveTrackColor: scheme.surfaceContainerHighest,
-              thumbColor: scheme.primary,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-              trackHeight: 3,
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-            ),
-            child: Slider(
-              value: value,
-              min: min,
-              max: max,
-              onChanged: onChanged,
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onDoubleTap: () {
+                HapticFeedback.lightImpact();
+                onChanged(defaultValue);
+              },
+              child: SliderTheme(
+                data: SliderThemeData(
+                  activeTrackColor: scheme.primary,
+                  inactiveTrackColor: scheme.surfaceContainerHighest,
+                  thumbColor: scheme.primary,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  trackHeight: 3,
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                ),
+                child: Slider(
+                  value: value.clamp(min, max),
+                  min: min,
+                  max: max,
+                  onChanged: (val) {
+                    final oldP = (value * 100).round();
+                    final newP = (val * 100).round();
+                    if (oldP != newP && newP % 5 == 0) {
+                      HapticFeedback.selectionClick();
+                    }
+                    onChanged(val);
+                  },
+                ),
+              ),
             ),
           ),
-        ),
-        Container(
-          width: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          alignment: Alignment.centerRight,
-          child: Text(
-            '$displayPercent%',
-            style: textTheme.bodySmall?.copyWith(
-              color: scheme.onSurface,
-              fontWeight: FontWeight.w600,
-              fontFeatures: const [FontFeature.tabularFigures()],
+          TextButton(
+            onPressed: () => _promptNumber(context),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(48, 28),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              backgroundColor: isDefault
+                  ? null
+                  : scheme.primaryContainer.withValues(alpha: 0.28),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              foregroundColor: isDefault ? scheme.onSurfaceVariant : scheme.primary,
+            ),
+            child: Text(
+              '$displayPercent%',
+              style: textTheme.bodySmall?.copyWith(
+                color: isDefault ? scheme.onSurfaceVariant : scheme.primary,
+                fontWeight: isDefault ? FontWeight.w600 : FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RetouchValueSheet extends StatefulWidget {
+  const _RetouchValueSheet({
+    required this.label,
+    required this.initial,
+    required this.min,
+    required this.max,
+  });
+
+  final String label;
+  final String initial;
+  final int min;
+  final int max;
+
+  @override
+  State<_RetouchValueSheet> createState() => _RetouchValueSheetState();
+}
+
+class _RetouchValueSheetState extends State<_RetouchValueSheet> {
+  late final TextEditingController _controller;
+  bool _popped = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initial)
+      ..selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: widget.initial.length,
+      );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _pop(double? value) {
+    if (_popped || !mounted) return;
+    _popped = true;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Padding(
+        padding: Insets.sheet,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Set ${widget.label} (${widget.min}%–${widget.max}%)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: Insets.md),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: false),
+              decoration: const InputDecoration(
+                suffixText: '%',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (t) => _pop(double.tryParse(t)),
+            ),
+            const SizedBox(height: Insets.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => _pop(null),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: Insets.sm),
+                FilledButton(
+                  onPressed: () => _pop(double.tryParse(_controller.text)),
+                  child: const Text('Set'),
+                ),
+              ],
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
