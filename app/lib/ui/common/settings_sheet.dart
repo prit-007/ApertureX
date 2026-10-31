@@ -681,13 +681,11 @@ void _openLogs(BuildContext context) {
 Future<void> _openAbout(BuildContext context) async {
   final navigator = Navigator.of(context);
   final navContext = navigator.context;
-  final version = await AppUpdater.getAppVersion();
-  navigator.maybePop();
   if (!navContext.mounted) return;
   showAboutDialog(
     context: navContext,
     applicationName: 'ApertureX',
-    applicationVersion: version,
+    applicationVersion: AppUpdater.currentVersion,
     children: const [
       SizedBox(height: Insets.md),
       Text(
@@ -702,13 +700,11 @@ Future<void> _openAbout(BuildContext context) async {
 Future<void> _openLicenses(BuildContext context) async {
   final navigator = Navigator.of(context);
   final navContext = navigator.context;
-  final version = await AppUpdater.getAppVersion();
-  navigator.maybePop();
   if (!navContext.mounted) return;
   showLicensePage(
     context: navContext,
     applicationName: 'ApertureX',
-    applicationVersion: version,
+    applicationVersion: AppUpdater.currentVersion,
     applicationLegalese: 'GPL-3.0-or-later',
   );
 }

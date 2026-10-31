@@ -2345,11 +2345,11 @@ class _RubylithOverlayBar extends ConsumerWidget {
                         size: 16,
                         color: rubylith.showOverlay ? scheme.primary : scheme.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       Text(
-                        'Show Overlay [O]',
+                        'Overlay [O]',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: rubylith.showOverlay ? scheme.onSurface : scheme.onSurfaceVariant,
                         ),
@@ -2369,9 +2369,9 @@ class _RubylithOverlayBar extends ConsumerWidget {
                         notifier.setColor(rc);
                       },
                       child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        width: 18,
-                        height: 18,
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        width: 16,
+                        height: 16,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: rc.color,
@@ -2604,6 +2604,8 @@ class _CreateMaskCategorizedSection extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
           ),
         ],
       ),
@@ -2629,10 +2631,12 @@ class _CreateMaskCategorizedSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                runSpacing: 4,
                 children: [
                   Icon(Icons.auto_awesome, size: 14, color: scheme.primary),
-                  const SizedBox(width: 6),
                   Text(
                     'AI MASKS',
                     style: TextStyle(
@@ -2642,7 +2646,7 @@ class _CreateMaskCategorizedSection extends StatelessWidget {
                       color: scheme.primary,
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                     decoration: BoxDecoration(
