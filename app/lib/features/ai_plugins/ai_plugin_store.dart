@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -241,11 +240,11 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
   Future<String> _ensureLocalModelFile(String pluginId, String sourceUrl) async {
     try {
       final dir = await getApplicationSupportDirectory();
-      final modelDir = Directory(p.join(dir.path, 'ai_plugins'));
+      final modelDir = Directory('${dir.path}/ai_plugins');
       if (!await modelDir.exists()) {
         await modelDir.create(recursive: true);
       }
-      final file = File(p.join(modelDir.path, '$pluginId.onnx'));
+      final file = File('${modelDir.path}/$pluginId.onnx');
       if (!await file.exists()) {
         // Create persistent ONNX model placeholder on-device
         await file.writeAsBytes(List<int>.filled(64, 0));
@@ -350,7 +349,7 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
       return p;
     }).toList();
 
-    var activeMap = Map<AiTask, String>.from(state.activePluginPerTask);
+    final activeMap = Map<AiTask, String>.from(state.activePluginPerTask);
     final target = state.installedPlugins.firstWhere((p) => p.id == id);
     if (!enabled && activeMap[target.task] == id) {
       // Revert to built-in or first available
@@ -379,7 +378,7 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
       orElse: () => state.installedPlugins.first,
     );
     final list = state.installedPlugins.where((p) => p.id != id || p.isBuiltIn).toList();
-    var activeMap = Map<AiTask, String>.from(state.activePluginPerTask);
+    final activeMap = Map<AiTask, String>.from(state.activePluginPerTask);
     if (activeMap[target.task] == id) {
       final fallback = list.firstWhere(
         (p) => p.task == target.task && p.isEnabled && p.isInstalled,
