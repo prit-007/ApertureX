@@ -77,4 +77,14 @@ void main() {
     expect(store.containsKey('a'), isFalse);
     expect(store.containsKey('b'), isFalse);
   });
+
+  testWidgets('Gallery top bar has full opacity (visible) on launch', (tester) async {
+    await pump(tester);
+    await tester.pumpAndSettle();
+
+    final fadeTransitions = tester.widgetList<FadeTransition>(find.byType(FadeTransition));
+    final appFades = fadeTransitions.where((f) => f.opacity.value == 1.0);
+    expect(appFades, isNotEmpty);
+    expect(find.byType(AppBar), findsOneWidget);
+  });
 }
