@@ -3,9 +3,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aperturex/features/ai_plugins/ai_plugin_model.dart';
 import 'package:aperturex/features/ai_plugins/ai_plugin_store.dart';
+import 'package:aperturex/src/rust/frb_generated.dart';
+
+/// Mocks the blur API so [AiPluginNotifier] can sync plugins to the engine
+/// without a native Rust library in unit tests.
+class _AiPluginBlurApi extends Fake implements RustLibApi {
+  @override
+  Future<bool> crateApiBlurSetActiveMlModel({
+    required String task,
+    required String path,
+  }) async =>
+      true;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    RustLib.initMock(api: _AiPluginBlurApi());
+  });
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
