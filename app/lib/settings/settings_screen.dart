@@ -18,15 +18,15 @@ import 'app_settings.dart';
 import 'export_settings.dart';
 import 'shell_preference.dart';
 
-/// Provider to dynamically extract the app version from [PackageInfo] with fallback to '0.3.7+8'.
+/// Provider to dynamically extract the app version from [PackageInfo] with fallback to '0.3.9+9'.
 final appVersionProvider = FutureProvider<String>((ref) async {
   try {
     final info = await PackageInfo.fromPlatform();
     final build = info.buildNumber.isNotEmpty ? '+${info.buildNumber}' : '';
     final ver = '${info.version}$build';
-    return ver.isNotEmpty ? ver : '0.3.7+8';
+    return ver.isNotEmpty ? ver : '0.3.9+9';
   } catch (_) {
-    return '0.3.7+8';
+    return '0.3.9+9';
   }
 });
 
@@ -72,7 +72,7 @@ class SettingsScreen extends ConsumerWidget {
     final tileLimit = ref.watch(tileCacheSettingsProvider);
     final export = ref.watch(exportSettingsProvider);
     final aiConsent = ref.watch(aiConsentProvider);
-    final appVersion = ref.watch(appVersionProvider).asData?.value ?? '0.3.7+8';
+    final appVersion = ref.watch(appVersionProvider).asData?.value ?? '0.3.9+9';
 
     return Scaffold(
       appBar: AppBar(

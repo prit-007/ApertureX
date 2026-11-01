@@ -276,7 +276,7 @@
 </template>
 
 <script setup>
-const version = 'v0.3.7'
+const version = 'v0.3.9'
 const dlUrl = 'https://github.com/prit-007/ApertureX/releases/latest/download/app-release.apk'
 </script>
 

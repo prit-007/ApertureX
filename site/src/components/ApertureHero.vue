@@ -142,7 +142,7 @@ const bladesRef = ref(null)
 const fxRef = ref(null)
 const flashRef = ref(null)
 
-const version = 'v0.3.7'
+const version = 'v0.3.9'
 const irisImageSrc = irisImg
 
 const primaryOrb = [

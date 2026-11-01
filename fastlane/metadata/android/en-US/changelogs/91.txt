@@ -1,0 +1,5 @@
+v0.3.9 — AI UX & Youth Presets
+* Dual-model AI: depth confidence, face detection, portrait blur, face-aware auto-tone
+* 15 youth-centric Gen Z presets across all categories
+* Smart preset chips in LooksSheet (tap to apply)
+* Android 10 gallery permission fix

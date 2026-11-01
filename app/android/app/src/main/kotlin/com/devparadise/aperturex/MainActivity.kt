@@ -9,8 +9,7 @@ import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
 import android.view.Surface
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -41,14 +40,6 @@ class MainActivity : FlutterActivity() {
 
     // Android 10 (API 29) and below require READ_EXTERNAL_STORAGE at runtime.
     // Android 13+ (API 33) uses READ_MEDIA_IMAGES via the photo_manager plugin.
-    private val requestStoragePermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted: Boolean ->
-        if (!granted) {
-            NativeLog.record("Storage permission denied", level = "warning")
-        }
-    }
-
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         requestStoragePermissionIfNeeded()
@@ -103,9 +94,24 @@ class MainActivity : FlutterActivity() {
                     Manifest.permission.READ_EXTERNAL_STORAGE
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
-                requestStoragePermissionLauncher.launch(
-                    Manifest.permission.READ_EXTERNAL_STORAGE
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                    REQUEST_STORAGE_PERMISSION
                 )
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_STORAGE_PERMISSION) {
+            if (grantResults.isEmpty() || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                NativeLog.record("Storage permission denied", level = "warning")
             }
         }
     }
@@ -288,6 +294,7 @@ class MainActivity : FlutterActivity() {
         private const val CHANNEL = "aperturex/preview_texture"
         private const val ROI_CHANNEL = "aperturex/roi_decode"
         private const val NATIVE_CHANNEL = "aperturex/native_log"
+        private const val REQUEST_STORAGE_PERMISSION = 1001
 
         init {
             System.loadLibrary("rust_lib_aperturex")
