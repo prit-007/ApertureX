@@ -161,7 +161,7 @@ void main() {
     });
 
     test('AiPluginModel round-trips downloadUrl through toJson/fromJson', () {
-      const original = const AiPluginModel(
+      const original = AiPluginModel(
         id: 'test-plugin',
         name: 'Test Plugin',
         description: 'A test',
