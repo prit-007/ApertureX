@@ -173,4 +173,39 @@ void main() {
       expect(plan.decodeH, 50);
     });
   });
+
+  group('planRoiOverlay mobile & high-DPI scaling', () {
+    test('activates detail tiles on mobile viewport when zoomed in past native threshold', () {
+      const mobileFitted = Size(390, 292.5);
+      const mobileViewport = Size(390, 600);
+      const dpr = 3.0; // 3x retina mobile display
+
+      // At 1.0x fit view, no detail tiles
+      final fit = planRoiOverlay(
+        imageW: 4000,
+        imageH: 3000,
+        proxyW: 1440,
+        fitted: mobileFitted,
+        scale: 1.0,
+        offset: Offset.zero,
+        viewport: mobileViewport,
+        devicePixelRatio: dpr,
+      );
+      expect(fit, isNull);
+
+      // At 1.3x zoom, detail tiles activate to render tack-sharp 1:1 master pixels
+      final zoomed = planRoiOverlay(
+        imageW: 4000,
+        imageH: 3000,
+        proxyW: 1440,
+        fitted: mobileFitted,
+        scale: 1.3,
+        offset: Offset.zero,
+        viewport: mobileViewport,
+        devicePixelRatio: dpr,
+      );
+      expect(zoomed, isNotNull);
+      expect(zoomed!.decodeW, 4000);
+    });
+  });
 }
