@@ -9,42 +9,16 @@
     <Layout>
       <template #default>
         <main id="content">
-          <section id="home" class="hero-section reveal">
-            <div class="wrap hero-inner">
-              <ApertureBlades class="hero-decoration" />
-              <Marquee />
+          <!-- Hero 1: Living Aperture (mouse-responsive blades + app icon) -->
+          <LivingApertureHero />
 
-              <div class="hero-copy">
-                <div class="hero-kicker">ApertureX</div>
-                <h1 class="hero-title">
-                  Pro-grade FOSS photo editor
-                </h1>
-                <p class="hero-lead">
-                  Mobile-native, non-destructive editing with dual Lightroom-style
-                  and Snapseed-style shells over one shared recipe. Look QR open
-                  preset standard, on-device C2PA provenance, and a compiled Rust
-                  engine. 100% offline, zero subscriptions, GPL-3.0.
-                </p>
-                <div class="hero-actions">
-                  <a href="#download" class="btn btn-primary">Download v0.3.7</a>
-                  <a href="#features" class="btn btn-outline">Features</a>
-                </div>
-              </div>
-
-              <div class="hero-visual">
-                <img
-                  src="/assets/app_icon.png"
-                  alt="ApertureX icon"
-                  class="hero-icon"
-                  width="120"
-                  height="120"
-                />
-              </div>
-            </div>
-          </section>
-
+          <!-- Hero specs chips -->
           <HeroSpecs />
 
+          <!-- Hero 2: Immersive Before/After (depth bokeh + split curtain) -->
+          <ImmersiveHero />
+
+          <!-- Interactive compare widget -->
           <CompareSection />
 
           <FeaturesGrid />
@@ -85,8 +59,8 @@
 import { ref, onMounted } from 'vue'
 import Layout from './components/Layout.vue'
 import BokehCanvas from './components/BokehCanvas.vue'
-import ApertureBlades from './components/ApertureBlades.vue'
-import Marquee from './components/Marquee.vue'
+import LivingApertureHero from './components/LivingApertureHero.vue'
+import ImmersiveHero from './components/ImmersiveHero.vue'
 import HeroSpecs from './components/HeroSpecs.vue'
 import CompareSection from './components/CompareSection.vue'
 import FeaturesGrid from './components/FeaturesGrid.vue'
@@ -150,114 +124,6 @@ onMounted(() => {
   box-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
   pointer-events: none;
   transition: width 0.08s linear;
-}
-
-.hero-section {
-  padding: 80px 0 64px 0;
-  background: var(--bg-darkest);
-  position: relative;
-  overflow: hidden;
-}
-
-.hero-inner {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 48px;
-  align-items: center;
-  position: relative;
-  z-index: 2;
-}
-
-@media (max-width: 768px) {
-  .hero-inner {
-    grid-template-columns: 1fr;
-    gap: 32px;
-    text-align: center;
-  }
-}
-
-.hero-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.hero-kicker {
-  display: inline-block;
-  font-family: var(--mono);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--cyan);
-  margin-bottom: 8px;
-}
-
-.hero-title {
-  font-size: 2.5rem;
-  line-height: 1.1;
-  margin: 0;
-  letter-spacing: -0.03em;
-}
-
-.hero-lead {
-  color: var(--text-muted);
-  font-size: 1.05rem;
-  line-height: 1.7;
-  max-width: 560px;
-}
-
-.hero-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.hero-visual {
-  display: flex;
-  justify-content: center;
-}
-
-.hero-icon {
-  border-radius: var(--radius-l);
-  box-shadow: 0 20px 40px rgba(0, 229, 255, 0.15);
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 24px;
-  border-radius: var(--radius-m);
-  font-size: 0.95rem;
-  font-weight: 600;
-  font-family: var(--display);
-  cursor: pointer;
-  transition: all 0.2s;
-  text-decoration: none;
-  border: none;
-}
-
-.btn-primary {
-  background: var(--cyan);
-  color: #040810;
-}
-
-.btn-primary:hover {
-  background: var(--cyan-soft);
-  transform: translateY(-1px);
-}
-
-.btn-outline {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text);
-}
-
-.btn-outline:hover {
-  border-color: var(--cyan);
-  color: var(--cyan);
 }
 
 .site-footer {
