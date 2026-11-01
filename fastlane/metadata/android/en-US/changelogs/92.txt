@@ -1,5 +1,5 @@
-v0.3.9 — Dual-Model AI UX & Youth Presets
-* Dual-Model AI: Depth Confidence, Face Detection Availability, One-Tap Portrait Blur, Face-Aware Auto-Tone
-* 15 Youth-Centric Gen Z Presets (Gen Z Kodachrome, Y2K Bedroom Pop, Soft Core, Indie Sleaze, Main Character, Clean Girl, Dark Academia, VHS Camcorder, Digital Disposable, Cottagecore Youth, Neon Midnight, Sunset Picnic, Beach Day, Rooftop Hangout)
-* Smart Preset Chips in LooksSheet (tap to apply, never auto-apply)
-* Android 10 Gallery Permission Fix (READ_EXTERNAL_STORAGE + android:requestLegacyExternalStorage)
+v0.3.9 — AI UX & Youth Presets
+* Dual-model AI: depth confidence, face detection, portrait blur, face-aware auto-tone
+* 15 youth-centric Gen Z presets across all categories
+* Smart preset chips in LooksSheet (tap to apply)
+* Android 10 gallery permission fix
