@@ -10,6 +10,7 @@ import '../../edit/recipe_controller.dart';
 import '../../edit/tool_definition.dart';
 import '../../features/presets/community_preset_model.dart';
 import '../../features/presets/community_presets_provider.dart';
+import '../../features/presets/content_classifier.dart';
 import '../../features/presets/preset_card_dialog.dart';
 import '../../features/presets/preset_catalog.dart';
 import '../../features/presets/qr_scanner_sheet.dart';
@@ -20,7 +21,11 @@ import 'preset_preview_thumbnail.dart';
 /// The look gallery: apply a built-in look, scan a Look QR, or discover
 /// community-contributed presets from the ApertureX Community Hub.
 class LooksSheet extends ConsumerStatefulWidget {
-  const LooksSheet({super.key});
+  const LooksSheet({super.key, this.classificationResult});
+
+  /// Optional AI content classification result. When provided, a chip row of
+  /// recommended presets is shown at the top of the catalog tab.
+  final ClassificationResult? classificationResult;
 
   @override
   ConsumerState<LooksSheet> createState() => _LooksSheetState();
@@ -212,6 +217,27 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
             ),
           ],
           const SizedBox(height: Insets.sm),
+          if (widget.classificationResult != null) ...[
+            RecommendedPresetsChipRow(
+              result: widget.classificationResult!,
+              onPresetSelected: (presetId) {
+                final preset = PresetCatalog.allPresets.firstWhere(
+                  (p) => p.id == presetId,
+                );
+                ref.read(recipeControllerProvider.notifier).applyTool(
+                  preset.tool,
+                );
+                ref.read(recipeControllerProvider.notifier).commit(
+                  label: 'Applied ${preset.name}',
+                );
+                axLog(
+                  LogDomain.preset,
+                  'Applied recommended look "${preset.name}"',
+                );
+              },
+            ),
+            const SizedBox(height: Insets.sm),
+          ],
           Builder(
             builder: (context) {
               final catalogPresets = PresetCatalog.search(
@@ -516,6 +542,91 @@ class _CommunityPresetCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Recommended preset chips based on AI content classification.
+///
+/// Shows the primary recommended preset and alternate presets as filter chips.
+/// Tapping a chip calls [onPresetSelected] with the preset ID — never auto-applies.
+class RecommendedPresetsChipRow extends StatelessWidget {
+  const RecommendedPresetsChipRow({
+    super.key,
+    required this.result,
+    required this.onPresetSelected,
+  });
+
+  final ClassificationResult result;
+  final ValueChanged<String> onPresetSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final chips = <Widget>[];
+
+    if (result.primaryPresetId.isNotEmpty) {
+      chips.add(
+        FilterChip(
+          key: Key('recommended-primary-${result.primaryPresetId}'),
+          label: Text(result.primaryPresetName, style: const TextStyle(fontSize: 12)),
+          selected: false,
+          onSelected: (_) => onPresetSelected(result.primaryPresetId),
+          visualDensity: VisualDensity.compact,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      );
+    }
+
+    for (final alt in result.alternatePresets) {
+      chips.add(
+        FilterChip(
+          key: Key('recommended-alt-${alt.id}'),
+          label: Text(alt.name, style: const TextStyle(fontSize: 12)),
+          selected: false,
+          onSelected: (_) => onPresetSelected(alt.id),
+          visualDensity: VisualDensity.compact,
+        ),
+      );
+    }
+
+    if (chips.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: Insets.sm, bottom: Insets.xs),
+          child: Text(
+            'Recommended for this photo',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: Insets.xs),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Insets.sm),
+          child: Wrap(
+            spacing: Insets.xs,
+            runSpacing: Insets.xs,
+            children: chips,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: Insets.sm, top: Insets.xs),
+          child: Text(
+            result.reason,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

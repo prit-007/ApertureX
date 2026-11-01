@@ -752,6 +752,57 @@ class AxEngine {
   }) =>
       rust_blur.setActiveMlModel(task: task, path: path);
 
+  /// Computes a depth-map confidence score in `[0.0, 1.0]`.
+  ///
+  /// Higher values indicate the depth map is reliable (textured scene).
+  /// Lower values indicate unreliable depth (textureless surfaces).
+  static Future<double> depthConfidence({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+  }) =>
+      rust_blur.depthConfidence(
+        rgba: rgba,
+        width: width,
+        height: height,
+      );
+
+  /// Returns true if face detection (YuNet) is compiled into this build.
+  static Future<bool> faceDetectionAvailable() =>
+      rust_mask.faceDetectionAvailable();
+
+  /// Applies one-tap AI portrait blur.
+  ///
+  /// Detects faces, estimates depth, places focal plane on the highest-scoring
+  /// face, and applies background blur with the subject protected.
+  /// Default amount is 0.4 (subtle).
+  static Future<Uint8List> blurApplyPortrait({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    required double amount,
+  }) =>
+      rust_blur.blurApplyPortrait(
+        rgba: rgba,
+        width: width,
+        height: height,
+        amount: amount,
+      );
+
+  /// Face-aware auto-tone.
+  ///
+  /// Weights pixels inside detected face boxes more heavily (2x) in luminance
+  /// and color-balance calculations, optimizing exposure and white balance for
+  /// faces rather than the whole scene.
+  static Future<Map<String, double>?> autoToneWithFaces({
+    required Uint8List jpeg,
+    required List<rust_color.FaceBox> faces,
+  }) =>
+      rust_color.autoToneWithFaces(
+        jpeg: jpeg,
+        faces: faces,
+      );
+
   // --- masking / local adjustments (P2.5) -----------------------------------
 
   static rust_color.ColorParams _localParams(AdjustmentLayer l) =>
@@ -1159,6 +1210,7 @@ class AxEngine {
       blurBokehShape: blur.bokehShape.index,
       blurBokehBoost: blur.bokehBoost,
       blurBackgroundBlur: blur.blurBackgroundBlur,
+      blurSampleCount: blur.blurSampleCount,
       quality: quality,
       maxDim: maxDim ?? 0,
       bandRows: 256,

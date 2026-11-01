@@ -40,6 +40,9 @@ class LensBlurParams {
   /// the subject stays sharp while the background is blurred.
   final bool backgroundBlur;
 
+  /// Bokeh kernel sample count: 12 (interactive scrub), 36 (settle), 64 (export).
+  final int sampleCount;
+
   const LensBlurParams({
     required this.enabled,
     required this.amount,
@@ -48,6 +51,7 @@ class LensBlurParams {
     required this.bokehShape,
     required this.bokehBoost,
     required this.backgroundBlur,
+    required this.sampleCount,
   });
 
   @override
@@ -58,7 +62,8 @@ class LensBlurParams {
       focalRange.hashCode ^
       bokehShape.hashCode ^
       bokehBoost.hashCode ^
-      backgroundBlur.hashCode;
+      backgroundBlur.hashCode ^
+      sampleCount.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -71,5 +76,6 @@ class LensBlurParams {
           focalRange == other.focalRange &&
           bokehShape == other.bokehShape &&
           bokehBoost == other.bokehBoost &&
-          backgroundBlur == other.backgroundBlur;
+          backgroundBlur == other.backgroundBlur &&
+          sampleCount == other.sampleCount;
 }

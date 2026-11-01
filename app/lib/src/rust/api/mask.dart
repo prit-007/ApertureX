@@ -55,6 +55,10 @@ Future<List<DetectedFace>> detectFaces({
   height: height,
 );
 
+/// Returns true if face detection (YuNet) is compiled into this build.
+Future<bool> faceDetectionAvailable() =>
+    RustLib.instance.api.crateApiMaskFaceDetectionAvailable();
+
 /// Detects the largest face in an RGBA image, if any.
 Future<DetectedFace?> detectFace({
   required List<int> rgba,

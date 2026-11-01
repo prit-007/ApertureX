@@ -7,6 +7,7 @@ import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `to_core`, `to_hsl24`, `to_set`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `eq`, `fmt`
 
 /// Bakes the grade (tone curves + HSL mix) into a 3D LUT atlas.
 Future<LutData> bakeLut3D({
@@ -64,6 +65,23 @@ Future<String> exportCubeLut({
 ///   - `temperature`/`tint`: based on white balance analysis
 Future<Map<String, double>?> autoTone({required List<int> jpeg}) =>
     RustLib.instance.api.crateApiColorAutoTone(jpeg: jpeg);
+
+/// Face-aware auto-tone.
+///
+/// Like [`auto_tone`] but weights pixels inside detected face boxes more
+/// heavily (2x weight) in luminance and color-balance calculations. This
+/// ensures exposure and white balance are optimized for faces rather than
+/// the whole scene, preventing underexposed portraits against bright
+/// backgrounds or blown-out skin against dark scenes.
+///
+/// Returns `None` if the JPEG cannot be decoded.
+Future<Map<String, double>?> autoToneWithFaces({
+  required List<int> jpeg,
+  required List<FaceBox> faces,
+}) => RustLib.instance.api.crateApiColorAutoToneWithFaces(
+  jpeg: jpeg,
+  faces: faces,
+);
 
 /// Point-wise grade parameters (all neutral at 0).
 class ColorParams {
@@ -199,6 +217,35 @@ class CurveParams {
           red == other.red &&
           green == other.green &&
           blue == other.blue;
+}
+
+/// A normalized face box for face-aware auto-tone.
+/// All values are normalized [0.0, 1.0]: cx/cy = center, rx/ry = radius.
+class FaceBox {
+  final double cx;
+  final double cy;
+  final double rx;
+  final double ry;
+
+  const FaceBox({
+    required this.cx,
+    required this.cy,
+    required this.rx,
+    required this.ry,
+  });
+
+  @override
+  int get hashCode => cx.hashCode ^ cy.hashCode ^ rx.hashCode ^ ry.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FaceBox &&
+          runtimeType == other.runtimeType &&
+          cx == other.cx &&
+          cy == other.cy &&
+          rx == other.rx &&
+          ry == other.ry;
 }
 
 /// A colour pipeline baked into a 2D-packed RGBA8 LUT atlas.

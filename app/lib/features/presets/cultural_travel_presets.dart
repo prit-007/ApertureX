@@ -867,6 +867,214 @@ const List<CulturalTravelLook> culturalTravelLooks = [
       0.08, 0.42, 0.12,  // Magenta: fuchsia festive silk
     ],
   ),
+
+  // ──────────────────────────────────────────────────────────────
+  // Youth-Centric Cultural & Festival Presets — Gen Z celebration aesthetics
+
+  // 17. K-Pop Concert — high-energy neon, saturated primaries, stage-light glow
+  CulturalTravelLook(
+    name: 'K-Pop Concert',
+    description:
+        'K-pop stage energy: high-saturation neon primaries, stage-light glow, vibrant youth concert aesthetic',
+    theme: 'K-Pop & Concert',
+    depthHint: 'stage performer',
+    focalPoint: 0.45,
+    focalRange: 0.22,
+    bokehShape: 4, // cat's eye
+    blurAmount: 0.28,
+    params: {
+      'exposure': 0.06,
+      'contrast': 0.24,
+      'highlights': -0.14,
+      'shadows': 0.12,
+      'whites': 0.10,
+      'blacks': -0.12,
+      'clarity': 0.22,
+      'texture': 0.18,
+      'temperature': 0.02,
+      'tint': -0.06,
+      'vibrance': 0.40,
+      'saturation': 0.22,
+      'gradeShadowHue': 0.60,
+      'gradeShadowSat': 0.38,
+      'gradeShadowLum': -0.08,
+      'gradeHighlightHue': 0.10,
+      'gradeHighlightSat': 0.44,
+      'gradeHighlightLum': 0.08,
+      'gradeMidHue': 0.55,
+      'gradeMidSat': 0.24,
+      'gradeMidLum': 0.0,
+      'gradeBlending': 0.60,
+      'gradeBalance': -0.04,
+      'grain': 0.12,
+      'grainSize': 0.14,
+      'filmBloom': 0.24,
+    },
+    hsl: [
+      0.04, 0.50, 0.10,  // Red: neon stage red
+      0.06, 0.44, 0.12,  // Orange: warm stage wash
+      -0.02, 0.55, 0.16, // Yellow: bright spotlight
+      0.02, 0.30, 0.06,  // Green: saturated stage
+      0.00, 0.42, 0.08,  // Aqua: electric cyan
+      -0.04, 0.36, -0.02,// Blue: deep stage navy
+      0.06, 0.48, 0.10,  // Purple: neon violet
+      0.08, 0.52, 0.12,  // Magenta: hot pink stage
+    ],
+  ),
+
+  // 18. Street Fashion — urban contrast, desaturated moody, high-fashion edge
+  CulturalTravelLook(
+    name: 'Street Fashion',
+    description:
+        'Street fashion: urban contrast, desaturated moody tones, high-fashion editorial edge, youth streetwear',
+    theme: 'Street Fashion & Urban',
+    depthHint: 'outfit subject',
+    focalPoint: 0.40,
+    focalRange: 0.18,
+    bokehShape: 2, // hexagon
+    blurAmount: 0.20,
+    params: {
+      'exposure': -0.02,
+      'contrast': 0.26,
+      'highlights': -0.22,
+      'shadows': -0.06,
+      'whites': 0.08,
+      'blacks': -0.16,
+      'clarity': 0.28,
+      'texture': 0.24,
+      'temperature': -0.04,
+      'tint': -0.02,
+      'vibrance': -0.04,
+      'saturation': -0.08,
+      'gradeShadowHue': 0.62,
+      'gradeShadowSat': 0.32,
+      'gradeShadowLum': -0.10,
+      'gradeHighlightHue': 0.12,
+      'gradeHighlightSat': 0.16,
+      'gradeHighlightLum': -0.02,
+      'gradeMidHue': 0.58,
+      'gradeMidSat': 0.20,
+      'gradeMidLum': -0.04,
+      'gradeBlending': 0.52,
+      'gradeBalance': -0.08,
+      'grain': 0.18,
+      'grainSize': 0.20,
+      'vignette': -0.24,
+    },
+    hsl: [
+      -0.02, 0.08, -0.04, // Red: moody crushed
+      -0.04, 0.06, -0.02, // Orange: muted urban
+      -0.06, 0.04, -0.04, // Yellow: dull city
+      -0.08, -0.02, -0.08,// Green: suppressed
+      -0.04, 0.08, -0.02, // Aqua: cool gray
+      -0.06, 0.12, -0.06, // Blue: steel tone
+      -0.04, 0.06, -0.04, // Purple: neutral gray
+      -0.02, 0.08, -0.02, // Magenta: desaturated
+    ],
+  ),
+
+  // 19. Festival Glow — warm festive lights, radiant skin, jewel saturation
+  CulturalTravelLook(
+    name: 'Festival Glow',
+    description:
+        'Festival celebration: warm festive light glow, radiant youth skin, jewel-tone saturation, cultural celebration energy',
+    theme: 'Festival & Celebration',
+    depthHint: 'portrait face',
+    focalPoint: 0.42,
+    focalRange: 0.24,
+    bokehShape: 5, // soap bubble
+    blurAmount: 0.26,
+    params: {
+      'exposure': 0.04,
+      'contrast': 0.16,
+      'highlights': 0.02,
+      'shadows': 0.10,
+      'whites': 0.10,
+      'blacks': -0.06,
+      'clarity': 0.10,
+      'texture': 0.14,
+      'temperature': 0.14,
+      'tint': 0.08,
+      'vibrance': 0.34,
+      'saturation': 0.16,
+      'gradeShadowHue': 0.08,
+      'gradeShadowSat': 0.22,
+      'gradeShadowLum': -0.02,
+      'gradeHighlightHue': 0.10,
+      'gradeHighlightSat': 0.32,
+      'gradeHighlightLum': 0.08,
+      'gradeMidHue': 0.06,
+      'gradeMidSat': 0.20,
+      'gradeMidLum': 0.02,
+      'gradeBlending': 0.58,
+      'gradeBalance': -0.02,
+      'grain': 0.10,
+      'grainSize': 0.12,
+      'filmBloom': 0.18,
+      'filmHalation': 0.14,
+    },
+    hsl: [
+      0.02, 0.40, 0.08,  // Red: festive vermilion
+      0.04, 0.42, 0.12,  // Orange: glowing festive skin
+      -0.02, 0.46, 0.16, // Yellow: warm festive light
+      0.04, 0.24, 0.04,  // Green: festival foliage
+      0.02, 0.22, 0.02,  // Aqua: soft backdrop
+      -0.02, 0.28, -0.02,// Blue: night festival
+      0.06, 0.36, 0.08,  // Purple: festival purple
+      0.08, 0.40, 0.10,  // Magenta: festive fuchsia
+    ],
+  ),
+
+  // 20. Anime Con — vibrant cosplay colors, high energy, saturated anime aesthetic
+  CulturalTravelLook(
+    name: 'Anime Con',
+    description:
+        'Anime convention: vibrant cosplay colors, high energy, saturated anime-grade look, youth pop-culture energy',
+    theme: 'Anime & Pop Culture',
+    depthHint: 'cosplay subject',
+    focalPoint: 0.44,
+    focalRange: 0.20,
+    bokehShape: 6, // swirl
+    blurAmount: 0.22,
+    params: {
+      'exposure': 0.08,
+      'contrast': 0.20,
+      'highlights': -0.08,
+      'shadows': 0.14,
+      'whites': 0.12,
+      'blacks': -0.08,
+      'clarity': 0.18,
+      'texture': 0.16,
+      'temperature': 0.0,
+      'tint': -0.04,
+      'vibrance': 0.36,
+      'saturation': 0.20,
+      'gradeShadowHue': 0.58,
+      'gradeShadowSat': 0.34,
+      'gradeShadowLum': -0.06,
+      'gradeHighlightHue': 0.10,
+      'gradeHighlightSat': 0.38,
+      'gradeHighlightLum': 0.06,
+      'gradeMidHue': 0.54,
+      'gradeMidSat': 0.22,
+      'gradeMidLum': 0.0,
+      'gradeBlending': 0.58,
+      'gradeBalance': -0.02,
+      'grain': 0.10,
+      'grainSize': 0.12,
+      'filmBloom': 0.20,
+    },
+    hsl: [
+      0.04, 0.46, 0.10,  // Red: cosplay vibrant
+      0.06, 0.40, 0.12,  // Orange: energetic warm
+      -0.02, 0.50, 0.14, // Yellow: bright anime
+      0.02, 0.34, 0.06,  // Green: saturated character
+      0.00, 0.38, 0.06,  // Aqua: electric blue
+      -0.02, 0.32, -0.04,// Blue: deep anime navy
+      0.04, 0.44, 0.08,  // Purple: anime violet
+      0.06, 0.48, 0.10,  // Magenta: hot anime pink
+    ],
+  ),
 ];
 
 /// Helper returning [culturalTravelLooks] as a flat list of [ToolDefinition] instances.

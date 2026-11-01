@@ -1843,6 +1843,566 @@ const List<MovieLook> movieLooks = [
       0.08, 0.58, 0.16,  // Magenta: high-voltage electric discharge
     ],
   ),
+
+  // ──────────────────────────────────────────────────────────────
+  // Youth-Centric Presets — Gen Z / youth aesthetic trends (2025-26)
+
+  // 35. Gen Z Kodachrome — warm vintage film, creamy skin, soft magenta shadows
+  MovieLook(
+    name: 'Gen Z Kodachrome',
+    description:
+        'Youth vintage: creamy film grain, warm skin tones, soft magenta shadow tint, nostalgic 35mm slide look',
+    reference: 'Gen Z film aesthetic · 35mm Kodachrome revival',
+    depthHint: 'portrait face',
+    focalPoint: 0.42,
+    focalRange: 0.28,
+    bokehShape: 0, // circle
+    blurAmount: 0.25,
+    params: {
+      'exposure': 0.05,
+      'contrast': 0.12,
+      'highlights': -0.18,
+      'shadows': 0.14,
+      'whites': 0.06,
+      'blacks': -0.06,
+      'clarity': 0.08,
+      'texture': 0.12,
+      'temperature': 0.10,
+      'tint': 0.04,
+      'vibrance': 0.24,
+      'saturation': 0.10,
+      'gradeShadowHue': 0.02,
+      'gradeShadowSat': 0.22,
+      'gradeShadowLum': -0.04,
+      'gradeHighlightHue': 0.08,
+      'gradeHighlightSat': 0.18,
+      'gradeHighlightLum': 0.06,
+      'gradeMidHue': 0.04,
+      'gradeMidSat': 0.16,
+      'gradeMidLum': 0.02,
+      'gradeBlending': 0.62,
+      'gradeBalance': -0.02,
+      'grain': 0.20,
+      'grainSize': 0.24,
+      'filmBloom': 0.12,
+    },
+    hsl: [
+      0.02, 0.30, 0.06,  // Red: warm vintage skin
+      0.04, 0.34, 0.08,  // Orange: golden hour glow
+      -0.02, 0.28, 0.04, // Yellow: creamy sunlight
+      0.00, 0.18, -0.02, // Green: muted foliage
+      0.00, 0.22, 0.00,  // Aqua: soft water tones
+      -0.02, 0.26, -0.04,// Blue: gentle sky
+      0.02, 0.14, 0.00,  // Purple: neutral
+      0.04, 0.26, 0.06,  // Magenta: soft shadow tint
+    ],
+  ),
+
+  // 36. Y2K Bedroom Pop — oversaturated chrome, cyan shadows, hot pink highlights
+  MovieLook(
+    name: 'Y2K Bedroom Pop',
+    description:
+        'Y2K cyber-pop: oversaturated chrome finishes, cyan-shadowed lows, hot pink highlight glow, early-2000s digital optimism',
+    reference: 'Y2K aesthetic · bedroom pop era',
+    depthHint: 'subject center',
+    focalPoint: 0.50,
+    focalRange: 0.30,
+    bokehShape: 4, // cat's eye
+    blurAmount: 0.20,
+    params: {
+      'exposure': 0.08,
+      'contrast': -0.04,
+      'highlights': -0.10,
+      'shadows': 0.16,
+      'whites': 0.10,
+      'blacks': 0.02,
+      'clarity': -0.06,
+      'texture': 0.04,
+      'temperature': 0.06,
+      'tint': -0.02,
+      'vibrance': 0.48,
+      'saturation': 0.32,
+      'gradeShadowHue': 0.55,
+      'gradeShadowSat': 0.40,
+      'gradeShadowLum': -0.02,
+      'gradeHighlightHue': 0.02,
+      'gradeHighlightSat': 0.50,
+      'gradeHighlightLum': 0.10,
+      'gradeMidHue': 0.10,
+      'gradeMidSat': 0.32,
+      'gradeMidLum': 0.0,
+      'gradeBlending': 0.68,
+      'gradeBalance': -0.12,
+      'grain': 0.14,
+      'grainSize': 0.18,
+      'filmBloom': 0.18,
+    },
+    hsl: [
+      0.00, 0.50, 0.08,  // Red: chrome pop
+      0.02, 0.42, 0.10,  // Orange: neon warmth
+      -0.04, 0.55, 0.14, // Yellow: electric chrome
+      -0.06, -0.20, -0.04,// Green: suppressed sickly
+      -0.02, 0.48, 0.08, // Aqua: cyan shadow lift
+      -0.04, 0.40, -0.02,// Blue: deep digital navy
+      0.04, 0.55, 0.10,  // Purple: hot pink neon
+      0.06, 0.60, 0.12,  // Magenta: intense fuchsia
+    ],
+  ),
+
+  // 37. Soft Core — dreamy pastel, lifted blacks, creamy highlights
+  MovieLook(
+    name: 'Soft Core',
+    description:
+        'Dream-core aesthetic: lifted blacks, creamy pastel highlights, soft-focus glow, gentle desaturated warmth',
+    reference: 'Soft core / dreamcore youth aesthetic',
+    depthHint: 'subject center',
+    focalPoint: 0.48,
+    focalRange: 0.35,
+    bokehShape: 5, // soap bubble
+    blurAmount: 0.30,
+    params: {
+      'exposure': 0.10,
+      'contrast': -0.12,
+      'highlights': 0.14,
+      'shadows': 0.20,
+      'whites': 0.08,
+      'blacks': 0.10,
+      'clarity': -0.16,
+      'texture': 0.0,
+      'temperature': 0.12,
+      'tint': 0.06,
+      'vibrance': 0.18,
+      'saturation': 0.08,
+      'gradeShadowHue': 0.04,
+      'gradeShadowSat': 0.12,
+      'gradeShadowLum': 0.06,
+      'gradeHighlightHue': 0.10,
+      'gradeHighlightSat': 0.10,
+      'gradeHighlightLum': 0.08,
+      'gradeMidHue': 0.02,
+      'gradeMidSat': 0.10,
+      'gradeMidLum': 0.04,
+      'gradeBlending': 0.70,
+      'gradeBalance': -0.08,
+      'filmBloom': 0.20,
+    },
+    hsl: [
+      0.00, 0.20, 0.04,  // Red: soft blush
+      0.02, 0.24, 0.06,  // Orange: peach glow
+      -0.02, 0.28, 0.08, // Yellow: creamy vanilla
+      0.00, 0.16, 0.02,  // Green: mint pastel
+      0.00, 0.20, 0.00,  // Aqua: sky pastel
+      -0.02, 0.18, -0.02,// Blue: lavender soft
+      0.02, 0.12, 0.00,  // Purple: neutral
+      0.04, 0.22, 0.04,  // Magenta: soft petal
+    ],
+  ),
+
+  // 38. Indie Sleaze — high contrast, desaturated, gritty urban
+  MovieLook(
+    name: 'Indie Sleaze',
+    description:
+        'Indie sleaze: crushed contrast, desaturated urban tones, gritty texture, early-2010s underground club energy',
+    reference: 'Indie sleaze · underground youth culture',
+    depthHint: 'subject center',
+    focalPoint: 0.45,
+    focalRange: 0.18,
+    bokehShape: 2, // hexagon
+    blurAmount: 0.15,
+    params: {
+      'exposure': -0.02,
+      'contrast': 0.30,
+      'highlights': -0.28,
+      'shadows': -0.12,
+      'whites': 0.10,
+      'blacks': -0.20,
+      'clarity': 0.32,
+      'texture': 0.28,
+      'temperature': -0.06,
+      'tint': -0.04,
+      'vibrance': -0.10,
+      'saturation': -0.15,
+      'gradeShadowHue': 0.60,
+      'gradeShadowSat': 0.28,
+      'gradeShadowLum': -0.12,
+      'gradeHighlightHue': 0.10,
+      'gradeHighlightSat': 0.12,
+      'gradeHighlightLum': -0.02,
+      'gradeMidHue': 0.55,
+      'gradeMidSat': 0.18,
+      'gradeMidLum': -0.04,
+      'gradeBlending': 0.48,
+      'gradeBalance': -0.10,
+      'grain': 0.28,
+      'grainSize': 0.26,
+      'vignette': -0.28,
+    },
+    hsl: [
+      -0.02, 0.10, -0.04, // Red: suppressed
+      0.00, 0.12, -0.02, // Orange: muted
+      -0.04, 0.06, -0.02, // Yellow: dull
+      -0.02, 0.08, -0.04, // Green: desaturated
+      -0.04, 0.10, -0.02, // Aqua: cool gray
+      -0.02, 0.14, -0.06, // Blue: steel tone
+      0.00, 0.08, -0.04, // Purple: neutral gray
+      -0.02, 0.10, -0.02, // Magenta: desaturated
+    ],
+  ),
+
+  // 39. Main Character — soft focus portrait glow, warm rim light
+  MovieLook(
+    name: 'Main Character',
+    description:
+        'Main character energy: soft-focus portrait glow, warm rim light, creamy skin, shallow depth on subject',
+    reference: 'Main character / protagonist aesthetic',
+    depthHint: 'eyes / face',
+    focalPoint: 0.40,
+    focalRange: 0.20,
+    bokehShape: 0, // circle
+    blurAmount: 0.32,
+    params: {
+      'exposure': 0.06,
+      'contrast': 0.06,
+      'highlights': 0.08,
+      'shadows': 0.10,
+      'whites': 0.04,
+      'blacks': -0.04,
+      'clarity': 0.04,
+      'texture': 0.08,
+      'temperature': 0.10,
+      'tint': 0.06,
+      'vibrance': 0.20,
+      'saturation': 0.06,
+      'gradeShadowHue': 0.02,
+      'gradeShadowSat': 0.16,
+      'gradeShadowLum': -0.02,
+      'gradeHighlightHue': 0.08,
+      'gradeHighlightSat': 0.14,
+      'gradeHighlightLum': 0.08,
+      'gradeMidHue': 0.04,
+      'gradeMidSat': 0.12,
+      'gradeMidLum': 0.02,
+      'gradeBlending': 0.60,
+      'gradeBalance': -0.04,
+      'grain': 0.10,
+      'grainSize': 0.14,
+      'filmBloom': 0.16,
+    },
+    hsl: [
+      0.02, 0.28, 0.06,  // Red: warm skin vitality
+      0.04, 0.32, 0.08,  // Orange: glowing skin
+      -0.02, 0.24, 0.04, // Yellow: warm light
+      0.00, 0.14, 0.00,  // Green: soft foliage
+      0.00, 0.18, 0.02,  // Aqua: gentle backdrop
+      -0.02, 0.16, -0.02,// Blue: soft shadow
+      0.00, 0.10, 0.00,  // Purple: neutral
+      0.04, 0.20, 0.04,  // Magenta: soft rim
+    ],
+  ),
+
+  // 40. Clean Girl — bright airy minimalist, crisp whites, subtle warmth
+  MovieLook(
+    name: 'Clean Girl',
+    description:
+        'Clean girl aesthetic: bright airy whites, crisp micro-contrast, subtle warmth, minimalist polished finish',
+    reference: 'Clean girl / minimalist youth aesthetic',
+    depthHint: 'subject center',
+    focalPoint: 0.50,
+    focalRange: 0.32,
+    bokehShape: 0, // circle
+    blurAmount: 0.18,
+    params: {
+      'exposure': 0.12,
+      'contrast': 0.08,
+      'highlights': -0.06,
+      'shadows': 0.12,
+      'whites': 0.10,
+      'blacks': 0.02,
+      'clarity': 0.14,
+      'texture': 0.10,
+      'temperature': 0.06,
+      'tint': 0.02,
+      'vibrance': 0.14,
+      'saturation': 0.02,
+      'gradeShadowHue': 0.00,
+      'gradeShadowSat': 0.08,
+      'gradeShadowLum': 0.02,
+      'gradeHighlightHue': 0.06,
+      'gradeHighlightSat': 0.08,
+      'gradeHighlightLum': 0.06,
+      'gradeMidHue': 0.02,
+      'gradeMidSat': 0.08,
+      'gradeMidLum': 0.02,
+      'gradeBlending': 0.64,
+      'gradeBalance': -0.02,
+      'sharpen': 0.12,
+      'filmBloom': 0.06,
+    },
+    hsl: [
+      0.00, 0.12, 0.02,  // Red: clean neutral
+      0.02, 0.16, 0.04,  // Orange: soft warmth
+      -0.02, 0.18, 0.06, // Yellow: bright daylight
+      0.00, 0.10, 0.00,  // Green: soft fresh
+      0.00, 0.14, 0.02,  // Aqua: clean backdrop
+      -0.02, 0.12, -0.02,// Blue: crisp sky
+      0.00, 0.06, 0.00,  // Purple: neutral
+      0.02, 0.12, 0.02,  // Magenta: subtle glow
+    ],
+  ),
+
+  // 41. Dark Academia — muted warm browns, lifted shadows, low contrast
+  MovieLook(
+    name: 'Dark Academia',
+    description:
+        'Dark academia: muted warm browns, lifted shadows, low contrast, library-and-tweed intellectual mood',
+    reference: 'Dark academia · youth subculture',
+    depthHint: 'subject center',
+    focalPoint: 0.48,
+    focalRange: 0.30,
+    bokehShape: 3, // septagon
+    blurAmount: 0.22,
+    params: {
+      'exposure': -0.04,
+      'contrast': -0.06,
+      'highlights': -0.12,
+      'shadows': 0.22,
+      'whites': 0.04,
+      'blacks': 0.08,
+      'clarity': 0.06,
+      'texture': 0.10,
+      'temperature': 0.12,
+      'tint': 0.06,
+      'vibrance': -0.08,
+      'saturation': -0.10,
+      'gradeShadowHue': 0.08,
+      'gradeShadowSat': 0.20,
+      'gradeShadowLum': -0.06,
+      'gradeHighlightHue': 0.06,
+      'gradeHighlightSat': 0.10,
+      'gradeHighlightLum': 0.04,
+      'gradeMidHue': 0.06,
+      'gradeMidSat': 0.12,
+      'gradeMidLum': 0.0,
+      'gradeBlending': 0.58,
+      'gradeBalance': -0.06,
+      'grain': 0.24,
+      'grainSize': 0.28,
+      'vignette': -0.22,
+    },
+    hsl: [
+      0.02, 0.16, -0.02, // Red: muted brick
+      0.04, 0.22, 0.02,  // Orange: warm parchment
+      -0.02, 0.18, -0.02,// Yellow: dull gold
+      -0.04, 0.04, -0.06,// Green: suppressed forest
+      -0.06, 0.02, -0.04,// Aqua: desaturated
+      -0.08, 0.06, -0.08,// Blue: cold shadow
+      0.00, 0.02, -0.02, // Purple: neutral
+      0.00, 0.08, -0.04, // Magenta: muted
+    ],
+  ),
+
+  // 42. VHS Camcorder — low saturation, teal/orange crush, heavy grain
+  MovieLook(
+    name: 'VHS Camcorder',
+    description:
+        'Retro VHS: low saturation, teal/orange crush, heavy analog grain, 1990s home-video nostalgia',
+    reference: 'VHS camcorder · retro youth aesthetic',
+    depthHint: 'subject center',
+    focalPoint: 0.45,
+    focalRange: 0.25,
+    bokehShape: 1, // pentagon
+    blurAmount: 0.12,
+    params: {
+      'exposure': 0.0,
+      'contrast': 0.20,
+      'highlights': -0.20,
+      'shadows': -0.08,
+      'whites': 0.06,
+      'blacks': -0.14,
+      'clarity': 0.10,
+      'texture': 0.14,
+      'temperature': 0.06,
+      'tint': -0.06,
+      'vibrance': -0.12,
+      'saturation': -0.20,
+      'gradeShadowHue': 0.58,
+      'gradeShadowSat': 0.32,
+      'gradeShadowLum': -0.12,
+      'gradeHighlightHue': 0.06,
+      'gradeHighlightSat': 0.28,
+      'gradeHighlightLum': -0.04,
+      'gradeMidHue': 0.52,
+      'gradeMidSat': 0.22,
+      'gradeMidLum': -0.06,
+      'gradeBlending': 0.50,
+      'gradeBalance': -0.10,
+      'grain': 0.34,
+      'grainSize': 0.30,
+      'filmHalation': 0.12,
+      'vignette': -0.18,
+    },
+    hsl: [
+      -0.02, 0.06, -0.04, // Red: crushed
+      -0.04, 0.10, -0.02, // Orange: muted tungsten
+      -0.06, 0.04, -0.04, // Yellow: dull
+      -0.08, -0.10, -0.06,// Green: suppressed
+      -0.04, 0.14, -0.02, // Aqua: teal crush
+      -0.06, 0.18, -0.08, // Blue: digital teal
+      -0.04, 0.08, -0.06, // Purple: desaturated
+      -0.04, 0.12, -0.04, // Magenta: crushed
+    ],
+  ),
+
+  // 43. Digital Disposable — flash photography, blown highlights, harsh contrast
+  MovieLook(
+    name: 'Digital Disposable',
+    description:
+        'Disposable camera flash: blown-out highlights, harsh contrast, saturated primaries, spontaneous youth energy',
+    reference: 'Disposable camera · flash photography aesthetic',
+    depthHint: 'subject center',
+    focalPoint: 0.50,
+    focalRange: 0.40,
+    bokehShape: 6, // swirl
+    blurAmount: 0.05,
+    params: {
+      'exposure': 0.15,
+      'contrast': 0.28,
+      'highlights': 0.20,
+      'shadows': -0.10,
+      'whites': 0.18,
+      'blacks': -0.16,
+      'clarity': 0.22,
+      'texture': 0.18,
+      'temperature': 0.04,
+      'tint': -0.04,
+      'vibrance': 0.30,
+      'saturation': 0.18,
+      'gradeShadowHue': 0.62,
+      'gradeShadowSat': 0.24,
+      'gradeShadowLum': -0.08,
+      'gradeHighlightHue': 0.08,
+      'gradeHighlightSat': 0.22,
+      'gradeHighlightLum': 0.12,
+      'gradeMidHue': 0.58,
+      'gradeMidSat': 0.16,
+      'gradeMidLum': 0.0,
+      'gradeBlending': 0.55,
+      'gradeBalance': -0.04,
+      'grain': 0.22,
+      'grainSize': 0.22,
+      'filmBloom': 0.14,
+    },
+    hsl: [
+      0.04, 0.40, 0.10,  // Red: flash-saturated
+      0.06, 0.36, 0.12,  // Orange: bright skin
+      -0.02, 0.44, 0.16, // Yellow: blown flash
+      0.02, 0.28, 0.06,  // Green: saturated
+      0.00, 0.32, 0.04,  // Aqua: harsh light
+      -0.02, 0.26, -0.02,// Blue: deep shadow
+      0.04, 0.30, 0.08,  // Purple: saturated
+      0.06, 0.34, 0.10,  // Magenta: pop
+    ],
+  ),
+
+  // 44. Cottagecore Youth — soft greens, warm glow, creamy highlights
+  MovieLook(
+    name: 'Cottagecore Youth',
+    description:
+        'Cottagecore: soft greens, warm golden glow, creamy highlights, pastoral dream aesthetic',
+    reference: 'Cottagecore · pastoral youth aesthetic',
+    depthHint: 'subject center',
+    focalPoint: 0.48,
+    focalRange: 0.35,
+    bokehShape: 0, // circle
+    blurAmount: 0.28,
+    params: {
+      'exposure': 0.06,
+      'contrast': -0.08,
+      'highlights': 0.14,
+      'shadows': 0.12,
+      'whites': 0.08,
+      'blacks': 0.06,
+      'clarity': -0.04,
+      'texture': 0.06,
+      'temperature': 0.14,
+      'tint': 0.08,
+      'vibrance': 0.20,
+      'saturation': 0.10,
+      'gradeShadowHue': 0.32,
+      'gradeShadowSat': 0.20,
+      'gradeShadowLum': -0.02,
+      'gradeHighlightHue': 0.08,
+      'gradeHighlightSat': 0.14,
+      'gradeHighlightLum': 0.08,
+      'gradeMidHue': 0.28,
+      'gradeMidSat': 0.14,
+      'gradeMidLum': 0.02,
+      'gradeBlending': 0.66,
+      'gradeBalance': -0.04,
+      'filmBloom': 0.16,
+    },
+    hsl: [
+      0.00, 0.14, 0.02,  // Red: soft earth
+      0.02, 0.20, 0.06,  // Orange: warm glow
+      0.00, 0.24, 0.08,  // Yellow: golden light
+      0.04, 0.32, 0.06,  // Green: soft meadow
+      0.02, 0.22, 0.04,  // Aqua: gentle water
+      -0.02, 0.16, 0.00, // Blue: soft sky
+      0.00, 0.10, 0.00,  // Purple: neutral
+      0.02, 0.16, 0.04,  // Magenta: soft floral
+    ],
+  ),
+
+  // 45. Neon Midnight — deep cyberpunk night, magenta shadows, electric highlights
+  MovieLook(
+    name: 'Neon Midnight',
+    description:
+        'Neon midnight: deep cyberpunk night, magenta-crushed shadows, electric cyan highlights, urban youth nightlife',
+    reference: 'Neon nightlife · urban youth culture',
+    depthHint: 'subject center',
+    focalPoint: 0.42,
+    focalRange: 0.20,
+    bokehShape: 2, // hexagon
+    blurAmount: 0.26,
+    params: {
+      'exposure': -0.06,
+      'contrast': 0.28,
+      'highlights': -0.22,
+      'shadows': -0.14,
+      'whites': 0.12,
+      'blacks': -0.20,
+      'clarity': 0.24,
+      'texture': 0.20,
+      'temperature': -0.08,
+      'tint': -0.10,
+      'vibrance': 0.36,
+      'saturation': 0.14,
+      'gradeShadowHue': 0.58,
+      'gradeShadowSat': 0.44,
+      'gradeShadowLum': -0.14,
+      'gradeHighlightHue': 0.12,
+      'gradeHighlightSat': 0.42,
+      'gradeHighlightLum': 0.06,
+      'gradeMidHue': 0.55,
+      'gradeMidSat': 0.26,
+      'gradeMidLum': -0.02,
+      'gradeBlending': 0.58,
+      'gradeBalance': -0.08,
+      'grain': 0.16,
+      'grainSize': 0.18,
+      'filmBloom': 0.20,
+    },
+    hsl: [
+      -0.02, 0.18, -0.06, // Red: crushed night
+      -0.04, 0.22, -0.04, // Orange: neon warmth
+      -0.06, 0.30, -0.02, // Yellow: streetlight
+      -0.08, 0.04, -0.08, // Green: suppressed
+      -0.04, 0.38, 0.02,  // Aqua: electric cyan
+      -0.06, 0.42, -0.06, // Blue: deep midnight
+      -0.02, 0.48, 0.04,  // Purple: neon magenta
+      0.00, 0.52, 0.06,   // Magenta: electric pop
+    ],
+  ),
 ];
 
 /// Helper returning [movieLooks] as a flat list of [ToolDefinition] instances.

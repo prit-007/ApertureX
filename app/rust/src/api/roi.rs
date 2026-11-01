@@ -313,6 +313,7 @@ mod tests {
             blur_bokeh_shape: 0,
             blur_bokeh_boost: 0.0,
             blur_background_blur: false,
+            blur_sample_count: 12,
         }
     }
 
@@ -360,7 +361,8 @@ mod tests {
         let (out_top, out_rows) = (halo + 40, 50);
 
         // Oracle: the actual preview chain over the full frame.
-        let handle = preview_open(src.clone(), w as u32, h as u32);
+        let handle =
+            preview_open(src.clone(), w as u32, h as u32).expect("preview_open must succeed");
         let full =
             preview_base(handle, engaged_spec(), vec![layer()], Vec::new()).expect("preview base");
         preview_close(handle);
@@ -481,7 +483,8 @@ mod tests {
         let halo = roi_halo(spec, w as u32, h as u32) as usize;
         assert!(halo > 0, "engaged ops must demand context");
 
-        let handle = preview_open(src.clone(), w as u32, h as u32);
+        let handle =
+            preview_open(src.clone(), w as u32, h as u32).expect("preview_open must succeed");
         let full = preview_base(handle, spec, vec![layer()], Vec::new()).expect("preview base");
         preview_close(handle);
 

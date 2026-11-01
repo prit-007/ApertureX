@@ -723,7 +723,6 @@ fn bake_base(
             h as usize,
             blur_params,
             depth_map.as_deref(),
-            36,
         ));
     }
     // apply_spatial clones on the neutral path — skip it entirely.

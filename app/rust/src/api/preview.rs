@@ -94,6 +94,8 @@ pub struct PreviewBaseSpec {
     pub blur_bokeh_boost: f32,
     /// When true, applies background-only blur (subject stays sharp).
     pub blur_background_blur: bool,
+    /// Bokeh kernel sample count: 12 (interactive scrub), 36 (settle), 64 (export).
+    pub blur_sample_count: u8,
 }
 
 impl Default for PreviewBaseSpec {
@@ -156,6 +158,7 @@ impl Default for PreviewBaseSpec {
             blur_bokeh_shape: 0,
             blur_bokeh_boost: 0.0,
             blur_background_blur: false,
+            blur_sample_count: 12,
         }
     }
 }
@@ -171,6 +174,7 @@ impl PreviewBaseSpec {
             self.blur_bokeh_shape,
             self.blur_bokeh_boost,
             self.blur_background_blur,
+            self.blur_sample_count.into(),
         )
     }
 }
@@ -180,11 +184,9 @@ impl PreviewBaseSpec {
 /// This is the only point where the source pixels cross the bridge — every
 /// later bake references the handle instead. `Arc::from(Vec)` reuses the
 /// FFI-delivered allocation, so this is O(1).
-pub fn preview_open(rgba: Vec<u8>, width: u32, height: u32) -> u64 {
-    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
-        return 0;
-    }
-    crate::preview::open(rgba, width, height)
+pub fn preview_open(rgba: Vec<u8>, width: u32, height: u32) -> Result<u64, String> {
+    crate::validate::validate_rgba(&rgba, width, height)?;
+    Ok(crate::preview::open(rgba, width, height))
 }
 
 /// Decodes a JPEG directly into the resident store; returns a handle.
@@ -376,6 +378,7 @@ mod tests {
             blur_bokeh_shape: 0,
             blur_bokeh_boost: 0.0,
             blur_background_blur: false,
+            blur_sample_count: 12,
         }
     }
 
@@ -398,7 +401,7 @@ mod tests {
     #[test]
     fn open_then_identity_base_returns_the_source() {
         let src = grid(4, 3);
-        let h = preview_open(src.clone(), 4, 3);
+        let h = preview_open(src.clone(), 4, 3).expect("preview_open must succeed");
         let frame = preview_base(h, identity_spec(), Vec::new(), Vec::new()).unwrap();
         assert_eq!((frame.width, frame.height), (4, 3));
         assert_eq!(frame.rgba, src);
@@ -509,8 +512,9 @@ mod tests {
             blur_bokeh_shape: 0,
             blur_bokeh_boost: 0.0,
             blur_background_blur: false,
+            blur_sample_count: 12,
         };
-        let h = preview_open(src, 8, 6);
+        let h = preview_open(src, 8, 6).expect("preview_open must succeed");
         let fused = preview_base(h, spec, Vec::new(), patches).unwrap();
         assert_eq!((fused.width, fused.height), (geo.width, geo.height));
         assert_eq!(fused.rgba, seq);
@@ -519,7 +523,7 @@ mod tests {
 
     #[test]
     fn histogram_bins_from_the_cached_base_without_a_second_upload() {
-        let h = preview_open(grid(32, 32), 32, 32);
+        let h = preview_open(grid(32, 32), 32, 32).expect("preview_open must succeed");
 
         // Histogram before any base bake is an explicit error, not silent
         // zero bins — Dart always bakes the base first.
@@ -571,7 +575,8 @@ mod tests {
         spec.blur_focal_point = 0.5;
         spec.blur_focal_range = 0.2;
 
-        let h_handle = preview_open(src.clone(), w as u32, h as u32);
+        let h_handle =
+            preview_open(src.clone(), w as u32, h as u32).expect("preview_open must succeed");
         // Explicit depth: the centre is in focus, the rest is background.
         let mut depth = vec![1.0f32; w * h];
         for y in 8..24 {
@@ -596,7 +601,7 @@ mod tests {
 
         // Neutral blur stays byte-identical.
         let neutral = identity_spec();
-        let h2 = preview_open(src.clone(), w as u32, h as u32);
+        let h2 = preview_open(src.clone(), w as u32, h as u32).expect("preview_open must succeed");
         let unchanged = preview_base(h2, neutral, Vec::new(), Vec::new()).unwrap();
         preview_close(h2);
         assert_eq!(unchanged.rgba, src);
@@ -633,7 +638,8 @@ mod tests {
             is_clone: true,
         };
 
-        let handle = preview_open(src.clone(), w as u32, h as u32);
+        let handle =
+            preview_open(src.clone(), w as u32, h as u32).expect("preview_open must succeed");
         let frame = preview_base(handle, identity_spec(), Vec::new(), vec![patch]).unwrap();
         preview_close(handle);
 
@@ -667,7 +673,8 @@ mod tests {
         spec.profile_distortion = 1.0;
         spec.profile_vignetting = 1.0;
 
-        let handle = preview_open(src.clone(), w as u32, h as u32);
+        let handle =
+            preview_open(src.clone(), w as u32, h as u32).expect("preview_open must succeed");
         let frame = preview_base(handle, spec, Vec::new(), Vec::new()).unwrap();
         preview_close(handle);
 
@@ -689,7 +696,7 @@ mod tests {
         );
 
         let neutral = identity_spec();
-        let h2 = preview_open(src.clone(), w as u32, h as u32);
+        let h2 = preview_open(src.clone(), w as u32, h as u32).expect("preview_open must succeed");
         let unchanged = preview_base(h2, neutral, Vec::new(), Vec::new()).unwrap();
         preview_close(h2);
         assert_eq!(unchanged.rgba, src);
@@ -699,7 +706,7 @@ mod tests {
     fn unknown_and_closed_handles_error_instead_of_panicking() {
         assert!(preview_base(9_999, identity_spec(), Vec::new(), Vec::new()).is_err());
 
-        let h = preview_open(grid(2, 2), 2, 2);
+        let h = preview_open(grid(2, 2), 2, 2).expect("preview_open must succeed");
         preview_close(h);
         preview_close(h); // double-close from Dart teardown must be safe
         assert!(preview_histogram(h, neutral_params(), 2, no_curves(), vec![0.0; 24]).is_err());
@@ -707,8 +714,8 @@ mod tests {
 
     #[test]
     fn handles_are_independent() {
-        let a = preview_open(grid(4, 4), 4, 4);
-        let b = preview_open(grid(6, 2), 6, 2);
+        let a = preview_open(grid(4, 4), 4, 4).expect("preview_open must succeed");
+        let b = preview_open(grid(6, 2), 6, 2).expect("preview_open must succeed");
         assert_ne!(a, b);
         let fa = preview_base(a, identity_spec(), Vec::new(), Vec::new()).unwrap();
         let fb = preview_base(b, identity_spec(), Vec::new(), Vec::new()).unwrap();
@@ -728,7 +735,7 @@ mod tests {
         // forever (a lock-held-math regression deadlocks and times out the
         // test process rather than passing silently).
         use std::sync::{Arc, Barrier};
-        let h = preview_open(grid(64, 64), 64, 64);
+        let h = preview_open(grid(64, 64), 64, 64).expect("preview_open must succeed");
         let barrier = Arc::new(Barrier::new(2));
 
         let b_handle = h;

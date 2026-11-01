@@ -466,6 +466,159 @@ const List<NatureLook> natureLooks = [
       0.06, 0.35, 0.08,  // Magenta: athletic shoes
     ],
   ),
+
+  // ──────────────────────────────────────────────────────────────
+  // Youth-Centric Nature Presets — Gen Z outdoor aesthetics
+
+  // 9. Sunset Picnic — warm golden hour, soft cream highlights, dreamy park vibes
+  NatureLook(
+    name: 'Sunset Picnic',
+    description:
+        'Youth hangout: warm golden hour glow, soft cream highlights, dreamy park picnic vibes, gentle skin warmth',
+    scenario: 'Sunset Social',
+    depthHint: 'friends group',
+    focalPoint: 0.45,
+    focalRange: 0.32,
+    bokehShape: 0, // circle
+    blurAmount: 0.24,
+    params: {
+      'exposure': 0.08,
+      'contrast': 0.06,
+      'highlights': 0.10,
+      'shadows': 0.12,
+      'whites': 0.08,
+      'blacks': -0.02,
+      'clarity': 0.04,
+      'texture': 0.08,
+      'temperature': 0.16,
+      'tint': 0.06,
+      'vibrance': 0.22,
+      'saturation': 0.10,
+      'gradeShadowHue': 0.06,
+      'gradeShadowSat': 0.18,
+      'gradeShadowLum': -0.02,
+      'gradeHighlightHue': 0.08,
+      'gradeHighlightSat': 0.16,
+      'gradeHighlightLum': 0.08,
+      'gradeMidHue': 0.04,
+      'gradeMidSat': 0.14,
+      'gradeMidLum': 0.02,
+      'gradeBlending': 0.62,
+      'gradeBalance': -0.02,
+      'filmBloom': 0.14,
+    },
+    hsl: [
+      0.02, 0.28, 0.06,  // Red: warm picnic blankets
+      0.04, 0.32, 0.08,  // Orange: golden hour skin
+      -0.02, 0.30, 0.10, // Yellow: sunset glow
+      0.00, 0.18, 0.02,  // Green: soft grass
+      0.00, 0.20, 0.04,  // Aqua: gentle backdrop
+      -0.02, 0.16, 0.00, // Blue: soft sky
+      0.00, 0.10, 0.00,  // Purple: neutral
+      0.04, 0.20, 0.04,  // Magenta: soft warmth
+    ],
+  ),
+
+  // 10. Beach Day — vibrant tropical cyan, sun-kissed skin, bright summer energy
+  NatureLook(
+    name: 'Beach Day',
+    description:
+        'Summer beach: vibrant tropical cyan water, sun-kissed golden skin, bright high-energy summer youth',
+    scenario: 'Beach & Summer',
+    depthHint: 'subject center',
+    focalPoint: 0.48,
+    focalRange: 0.30,
+    bokehShape: 0, // circle
+    blurAmount: 0.18,
+    params: {
+      'exposure': 0.10,
+      'contrast': 0.10,
+      'highlights': 0.04,
+      'shadows': 0.08,
+      'whites': 0.12,
+      'blacks': -0.04,
+      'clarity': 0.12,
+      'texture': 0.14,
+      'temperature': 0.14,
+      'tint': 0.04,
+      'vibrance': 0.30,
+      'saturation': 0.14,
+      'gradeShadowHue': 0.55,
+      'gradeShadowSat': 0.22,
+      'gradeShadowLum': -0.02,
+      'gradeHighlightHue': 0.08,
+      'gradeHighlightSat': 0.20,
+      'gradeHighlightLum': 0.08,
+      'gradeMidHue': 0.10,
+      'gradeMidSat': 0.16,
+      'gradeMidLum': 0.02,
+      'gradeBlending': 0.60,
+      'gradeBalance': -0.02,
+      'sharpen': 0.10,
+      'filmBloom': 0.10,
+    },
+    hsl: [
+      0.00, 0.18, 0.04,  // Red: sun-kissed skin
+      0.02, 0.24, 0.06,  // Orange: golden tan
+      -0.02, 0.30, 0.12, // Yellow: bright sand
+      0.02, 0.22, 0.04,  // Green: palm foliage
+      0.00, 0.38, 0.08,  // Aqua: tropical cyan water
+      -0.02, 0.26, 0.00, // Blue: deep ocean
+      0.00, 0.12, -0.02, // Purple: neutral
+      0.02, 0.20, 0.04,  // Magenta: soft coral
+    ],
+  ),
+
+  // 11. Rooftop Hangout — urban dusk, cool blue hour, muted city lights
+  NatureLook(
+    name: 'Rooftop Hangout',
+    description:
+        'Urban dusk: cool blue hour, muted city light glow, rooftop hangout aesthetic, youth nightlife',
+    scenario: 'Urban Evening',
+    depthHint: 'subject center',
+    focalPoint: 0.42,
+    focalRange: 0.24,
+    bokehShape: 2, // hexagon
+    blurAmount: 0.22,
+    params: {
+      'exposure': -0.04,
+      'contrast': 0.18,
+      'highlights': -0.16,
+      'shadows': 0.10,
+      'whites': 0.08,
+      'blacks': -0.10,
+      'clarity': 0.16,
+      'texture': 0.12,
+      'temperature': -0.06,
+      'tint': -0.02,
+      'vibrance': 0.18,
+      'saturation': 0.02,
+      'gradeShadowHue': 0.62,
+      'gradeShadowSat': 0.30,
+      'gradeShadowLum': -0.10,
+      'gradeHighlightHue': 0.14,
+      'gradeHighlightSat': 0.18,
+      'gradeHighlightLum': 0.04,
+      'gradeMidHue': 0.58,
+      'gradeMidSat': 0.16,
+      'gradeMidLum': -0.02,
+      'gradeBlending': 0.56,
+      'gradeBalance': -0.06,
+      'grain': 0.14,
+      'grainSize': 0.16,
+      'filmBloom': 0.12,
+    },
+    hsl: [
+      -0.02, 0.08, -0.04, // Red: muted night
+      -0.04, 0.10, -0.02, // Orange: distant streetlight
+      -0.06, 0.08, -0.04, // Yellow: dull city glow
+      -0.08, 0.02, -0.06, // Green: suppressed
+      -0.04, 0.24, 0.00,  // Aqua: blue hour cool
+      -0.06, 0.28, -0.04, // Blue: deep dusk
+      -0.04, 0.18, -0.02, // Purple: muted twilight
+      -0.02, 0.14, -0.04, // Magenta: soft city glow
+    ],
+  ),
 ];
 
 /// Helper returning [natureLooks] as a flat list of [ToolDefinition] instances.

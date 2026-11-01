@@ -528,7 +528,7 @@ const Map<Parameter, ParameterSpec> parameterSpecs = {
     section: RecipeSection.blur,
     label: 'Bokeh Shape',
     min: 0,
-    max: 5,
+    max: 6,
   ),
   Parameter.blurBackgroundBlur: ParameterSpec(
     id: Parameter.blurBackgroundBlur,

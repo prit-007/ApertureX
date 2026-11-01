@@ -24,20 +24,21 @@ class LensBlurSpec {
     this.bokehShape = BokehShape.circle,
     this.bokehBoost = 0.0,
     this.blurBackgroundBlur = false,
+    this.blurSampleCount = 12,
   });
 
-  /// Derives [LensBlurSpec] from [EditRecipe].
+  /// Derives [LensBlurSpec] from [EditRecipe], clamping all fields to valid ranges.
   factory LensBlurSpec.fromRecipe(EditRecipe recipe) {
-    final shapeIdx =
-        recipe.blurBokehShape.clamp(0, BokehShape.values.length - 1);
+    final shapeIdx = recipe.blurBokehShape.clamp(0, BokehShape.values.length - 1);
     return LensBlurSpec(
       enabled: recipe.blurEnabled,
-      amount: recipe.blurAmount,
-      focalPoint: recipe.blurFocalPoint,
-      focalRange: recipe.blurFocalRange,
+      amount: recipe.blurAmount.clamp(0.0, 1.0),
+      focalPoint: recipe.blurFocalPoint.clamp(0.0, 1.0),
+      focalRange: recipe.blurFocalRange.clamp(0.01, 1.0),
       bokehShape: BokehShape.values[shapeIdx],
-      bokehBoost: recipe.blurBokehBoost,
+      bokehBoost: recipe.blurBokehBoost.clamp(0.0, 1.0),
       blurBackgroundBlur: recipe.blurBackgroundBlur,
+      blurSampleCount: recipe.blurSampleCount.clamp(1, 64),
     );
   }
 
@@ -61,10 +62,11 @@ class LensBlurSpec {
 
   /// When true, applies background-only blur (subject stays sharp).
   final bool blurBackgroundBlur;
+  final int blurSampleCount;
 
   /// True when blur is disabled or zero.
   bool get isNeutral =>
-      !enabled || (amount <= 1e-4 && !blurBackgroundBlur);
+      amount <= 1e-4 && !blurBackgroundBlur;
 
   @override
   bool operator ==(Object other) =>
@@ -76,7 +78,8 @@ class LensBlurSpec {
           other.focalRange == focalRange &&
           other.bokehShape == bokehShape &&
           other.bokehBoost == bokehBoost &&
-          other.blurBackgroundBlur == blurBackgroundBlur;
+          other.blurBackgroundBlur == blurBackgroundBlur &&
+          other.blurSampleCount == blurSampleCount;
 
   @override
   int get hashCode => Object.hash(
@@ -85,7 +88,8 @@ class LensBlurSpec {
         focalPoint,
         focalRange,
         bokehShape,
-        bokehBoost,
-        blurBackgroundBlur,
-      );
+          bokehBoost,
+          blurBackgroundBlur,
+          blurSampleCount,
+        );
 }

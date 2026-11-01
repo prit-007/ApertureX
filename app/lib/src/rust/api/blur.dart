@@ -23,6 +23,42 @@ Future<Uint8List> blurApply({
   depthMap: depthMap,
 );
 
+/// Applies depth-guided lens blur with automatic depth estimation.
+/// When no depth map is supplied, estimates one on-device via
+/// [`crate::ml::estimate_depth_map`] instead of falling back to a
+/// synthetic gradient (which assumes a centered portrait).
+Future<Uint8List> blurApplyAutoDepth({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required ApiLensBlurParams params,
+}) => RustLib.instance.api.crateApiBlurBlurApplyAutoDepth(
+  rgba: rgba,
+  width: width,
+  height: height,
+  params: params,
+);
+
+/// Applies one-tap AI portrait blur.
+///
+/// Detects faces via YuNet, estimates depth via Depth Anything V2, places
+/// the focal plane on the highest-scoring face, and applies background
+/// blur with the subject protected. Default amount is 0.4 (subtle).
+///
+/// When no faces are detected, falls back to center-focused depth blur
+/// without background-only masking.
+Future<Uint8List> blurApplyPortrait({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required double amount,
+}) => RustLib.instance.api.crateApiBlurBlurApplyPortrait(
+  rgba: rgba,
+  width: width,
+  height: height,
+  amount: amount,
+);
+
 /// Computes an on-device monocular depth map from RGBA pixels.
 /// Returns a `width * height` plane of `f32` values in `[0.0, 1.0]`
 /// where lower = closer (more in focus).
@@ -31,6 +67,25 @@ Future<Float32List> estimateDepthMap({
   required int width,
   required int height,
 }) => RustLib.instance.api.crateApiBlurEstimateDepthMap(
+  rgba: rgba,
+  width: width,
+  height: height,
+);
+
+/// Computes a depth-map confidence score in `[0.0, 1.0]`.
+///
+/// Higher values indicate the depth map is reliable (textured scene with
+/// clear depth variation). Lower values indicate unreliable depth
+/// (textureless surfaces, uniform color, or monocular model uncertainty).
+///
+/// Computed from the **input image's luminance variance**: a textureless
+/// input cannot yield reliable depth regardless of model output, so input
+/// texture variance is the leading indicator of depth confidence.
+Future<double> depthConfidence({
+  required List<int> rgba,
+  required int width,
+  required int height,
+}) => RustLib.instance.api.crateApiBlurDepthConfidence(
   rgba: rgba,
   width: width,
   height: height,
@@ -81,6 +136,9 @@ class ApiLensBlurParams {
   final double bokehBoost;
   final bool backgroundBlur;
 
+  /// Bokeh kernel sample count: 12 (interactive scrub), 36 (settle), 64 (export).
+  final int sampleCount;
+
   const ApiLensBlurParams({
     required this.enabled,
     required this.amount,
@@ -89,6 +147,7 @@ class ApiLensBlurParams {
     required this.bokehShapeIndex,
     required this.bokehBoost,
     required this.backgroundBlur,
+    required this.sampleCount,
   });
 
   @override
@@ -99,7 +158,8 @@ class ApiLensBlurParams {
       focalRange.hashCode ^
       bokehShapeIndex.hashCode ^
       bokehBoost.hashCode ^
-      backgroundBlur.hashCode;
+      backgroundBlur.hashCode ^
+      sampleCount.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -112,5 +172,6 @@ class ApiLensBlurParams {
           focalRange == other.focalRange &&
           bokehShapeIndex == other.bokehShapeIndex &&
           bokehBoost == other.bokehBoost &&
-          backgroundBlur == other.backgroundBlur;
+          backgroundBlur == other.backgroundBlur &&
+          sampleCount == other.sampleCount;
 }
