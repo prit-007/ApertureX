@@ -99,6 +99,51 @@ pub fn estimate_depth_map(rgba: Vec<u8>, width: u32, height: u32) -> Result<Vec<
     )
 }
 
+/// Computes a depth-map confidence score in `[0.0, 1.0]`.
+///
+/// Higher values indicate the depth map is reliable (textured scene with
+/// clear depth variation). Lower values indicate unreliable depth
+/// (textureless surfaces, uniform color, or monocular model uncertainty).
+///
+/// Computed from the **input image's luminance variance**: a textureless
+/// input cannot yield reliable depth regardless of model output, so input
+/// texture variance is the leading indicator of depth confidence.
+pub fn depth_confidence(rgba: Vec<u8>, width: u32, height: u32) -> Result<f32, String> {
+    let n = (width as usize) * (height as usize);
+    if n == 0 || rgba.len() < n * 4 {
+        return Ok(0.0);
+    }
+
+    // Compute luminance variance of the input image as the leading indicator
+    // of depth-estimate reliability.
+    let mut lum_sum = 0.0f64;
+    let mut lum_sq_sum = 0.0f64;
+    let mut count = 0usize;
+    for i in (0..n * 4).step_by(4) {
+        let r = rgba[i] as f64 / 255.0;
+        let g = rgba[i + 1] as f64 / 255.0;
+        let b = rgba[i + 2] as f64 / 255.0;
+        let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        lum_sum += luma;
+        lum_sq_sum += luma * luma;
+        count += 1;
+    }
+    if count == 0 {
+        return Ok(0.0);
+    }
+
+    let mean = lum_sum / count as f64;
+    let variance = lum_sq_sum / count as f64 - mean * mean;
+
+    // Map variance to [0,1] via saturating exponential:
+    //   conf = 1 - exp(-variance / scale)
+    // Uniform texture (variance ~ 0) → conf ~ 0
+    // High texture variance → conf → 1
+    let scale = 0.005;
+    let confidence = (1.0 - f64::exp(-variance / scale)) as f32;
+    Ok(confidence.clamp(0.0, 1.0))
+}
+
 /// Computes an on-device monocular depth map, optionally using an external plugin ONNX model path.
 pub fn estimate_depth_map_with_model(
     rgba: Vec<u8>,
@@ -247,5 +292,54 @@ mod tests {
             assert!(std::path::Path::new(&path).is_file());
             assert!(path.contains("depth_anything_v2_vits.onnx"));
         }
+    }
+
+    /// Depth confidence must be in [0.0, 1.0].
+    #[test]
+    fn depth_confidence_is_in_unit_range() {
+        let (w, h) = (16, 16);
+        let src = vec![128u8; w * h * 4];
+        let conf = depth_confidence(src.clone(), w as u32, h as u32)
+            .expect("depth confidence must succeed");
+        assert!((0.0..=1.0).contains(&conf));
+    }
+
+    /// Textureless uniform image should produce low depth confidence.
+    #[test]
+    fn depth_confidence_textureless_is_low() {
+        let (w, h) = (32, 32);
+        let src = vec![128u8; w * h * 4];
+        let conf = depth_confidence(src.clone(), w as u32, h as u32)
+            .expect("depth confidence must succeed");
+        assert!(
+            conf < 0.5,
+            "textureless image should have low confidence: {conf}"
+        );
+    }
+
+    /// High-contrast textured image should produce higher depth confidence.
+    #[test]
+    fn depth_confidence_textured_is_higher_than_textureless() {
+        let (w, h) = (32, 32);
+        let textureless = vec![128u8; w * h * 4];
+        let mut textured = vec![0u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                let v = if (x + y) % 2 == 0 { 255 } else { 0 };
+                textured[idx] = v;
+                textured[idx + 1] = v;
+                textured[idx + 2] = v;
+                textured[idx + 3] = 255;
+            }
+        }
+        let conf_textureless = depth_confidence(textureless, w as u32, h as u32)
+            .expect("depth confidence must succeed");
+        let conf_textured =
+            depth_confidence(textured, w as u32, h as u32).expect("depth confidence must succeed");
+        assert!(
+            conf_textured > conf_textureless,
+            "textured ({conf_textured}) > textureless ({conf_textureless})"
+        );
     }
 }

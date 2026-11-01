@@ -752,6 +752,25 @@ class AxEngine {
   }) =>
       rust_blur.setActiveMlModel(task: task, path: path);
 
+  /// Computes a depth-map confidence score in `[0.0, 1.0]`.
+  ///
+  /// Higher values indicate the depth map is reliable (textured scene).
+  /// Lower values indicate unreliable depth (textureless surfaces).
+  static Future<double> depthConfidence({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+  }) =>
+      rust_blur.depthConfidence(
+        rgba: rgba,
+        width: width,
+        height: height,
+      );
+
+  /// Returns true if face detection (YuNet) is compiled into this build.
+  static Future<bool> faceDetectionAvailable() =>
+      rust_mask.faceDetectionAvailable();
+
   // --- masking / local adjustments (P2.5) -----------------------------------
 
   static rust_color.ColorParams _localParams(AdjustmentLayer l) =>

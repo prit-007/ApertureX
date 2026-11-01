@@ -52,6 +52,25 @@ Future<Float32List> estimateDepthMap({
   height: height,
 );
 
+/// Computes a depth-map confidence score in `[0.0, 1.0]`.
+///
+/// Higher values indicate the depth map is reliable (textured scene with
+/// clear depth variation). Lower values indicate unreliable depth
+/// (textureless surfaces, uniform color, or monocular model uncertainty).
+///
+/// Computed from the **input image's luminance variance**: a textureless
+/// input cannot yield reliable depth regardless of model output, so input
+/// texture variance is the leading indicator of depth confidence.
+Future<double> depthConfidence({
+  required List<int> rgba,
+  required int width,
+  required int height,
+}) => RustLib.instance.api.crateApiBlurDepthConfidence(
+  rgba: rgba,
+  width: width,
+  height: height,
+);
+
 /// Computes an on-device monocular depth map, optionally using an external plugin ONNX model path.
 Future<Float32List> estimateDepthMapWithModel({
   required List<int> rgba,
