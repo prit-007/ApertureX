@@ -106,6 +106,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import appIcon from '../assets/app_icon.png'
 
 const drawerOpen = ref(false)
 const version = '0.3.7'
@@ -114,7 +115,7 @@ function toggleDrawer() {
   drawerOpen.value = !drawerOpen.value
 }
 
-const logoSrc = '/assets/app_icon.png'
+const logoSrc = appIcon
 </script>
 
 <style scoped>

@@ -28,7 +28,7 @@
           <!-- Underneath: Raw capture layer -->
           <div class="compare-layer compare-raw">
             <img
-              src="/assets/stock/compare.webp"
+              :src="compareImg"
               alt="Original RAW capture"
               draggable="false"
             />
@@ -37,7 +37,7 @@
           <!-- On top: Graded layer with dynamic clip-path -->
           <div class="compare-layer compare-graded">
             <img
-              src="/assets/stock/compare.webp"
+              :src="compareImg"
               alt="Graded image"
               draggable="false"
             />
@@ -84,6 +84,7 @@
 </template>
 
 <script setup>
+import compareImg from '../assets/stock/compare.webp'
 import { ref, onMounted } from 'vue'
 
 const split = ref(50)

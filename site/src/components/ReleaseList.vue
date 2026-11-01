@@ -80,11 +80,12 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useReleases } from '../composables/useReleases.js'
 
 const { releases, loading, error, latest, fetchReleases } = useReleases()
 
-const older = releases.filter((r) => r !== latest.value)
+const older = computed(() => releases.value.filter((r) => r !== latest.value))
 
 function formattedDate(iso) {
   if (!iso) return ''

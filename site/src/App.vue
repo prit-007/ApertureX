@@ -37,13 +37,13 @@
     <footer class="site-footer">
       <div class="wrap footer-inner">
         <div class="footer-brand">
-          <img
-            src="/assets/app_icon.png"
-            alt="ApertureX"
-            class="brand-img"
-            width="32"
-            height="32"
-          />
+                <img
+                  :src="appIcon"
+                  alt="ApertureX icon"
+                  class="hero-icon"
+                  width="120"
+                  height="120"
+                />
           <span class="brand-text">ApertureX</span>
         </div>
         <p class="footer-copy">
@@ -59,6 +59,7 @@
 import { ref, onMounted } from 'vue'
 import Layout from './components/Layout.vue'
 import BokehCanvas from './components/BokehCanvas.vue'
+import appIcon from './assets/app_icon.png'
 import LivingApertureHero from './components/LivingApertureHero.vue'
 import ImmersiveHero from './components/ImmersiveHero.vue'
 import HeroSpecs from './components/HeroSpecs.vue'

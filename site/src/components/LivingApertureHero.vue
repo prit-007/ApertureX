@@ -74,7 +74,7 @@
         <!-- App icon shining through the aperture center -->
         <image
           class="aperture-icon"
-          href="/assets/app_icon.png"
+          :href="appIcon"
           x="240"
           y="240"
           width="120"
@@ -120,7 +120,7 @@
         <div class="visual-card glass-card">
           <div class="visual-mask">
             <img
-              src="/assets/app_icon.png"
+              :src="appIcon"
               alt="ApertureX"
               class="app-icon"
             />
@@ -155,6 +155,7 @@
 </template>
 
 <script setup>
+import appIcon from '../assets/app_icon.png'
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 
 const heroRef = ref(null)

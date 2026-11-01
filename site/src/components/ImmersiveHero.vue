@@ -17,7 +17,7 @@
         <div class="bg-tint tint-raw"></div>
         <img
           class="hero-bg-img"
-          src="/assets/stock/iris.webp"
+          :src="irisImg"
           alt="RAW capture"
           aria-hidden="true"
           draggable="false"
@@ -31,7 +31,7 @@
         <div class="bg-tint tint-graded"></div>
         <img
           class="hero-bg-img"
-          src="/assets/stock/compare.webp"
+          :src="compareImg"
           alt="ApertureX Grade"
           aria-hidden="true"
           draggable="false"
@@ -101,6 +101,8 @@
 </template>
 
 <script setup>
+import irisImg from '../assets/stock/iris.webp'
+import compareImg from '../assets/stock/compare.webp'
 import { ref, onMounted, onUnmounted } from 'vue'
 
 const heroRef = ref(null)

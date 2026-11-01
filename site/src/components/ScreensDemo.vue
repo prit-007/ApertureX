@@ -202,12 +202,14 @@ onMounted(() => {
   let snT = 0
   let snCanvas = null
 
-  ['pointerdown', 'keydown'].forEach((v) =>
-    screen.addEventListener(v, () => {
-      userInteracted = true
-      stopAutoPlay()
-    }, true)
-  )
+  if (screen) {
+    ['pointerdown', 'keydown'].forEach((v) =>
+      screen.addEventListener(v, () => {
+        userInteracted = true
+        stopAutoPlay()
+      }, true)
+    )
+  }
 
   // Start auto play after mount
   setTimeout(startAutoPlay, 1000)
@@ -224,7 +226,7 @@ onMounted(() => {
     const t2 = document.getElementById('mockSlider2Thumb')
     const v2 = document.getElementById('mockSlider2Val')
     const badge = document.getElementById('mockModeBadge')
-    if (s1 && ms - lr > 70) {
+    if (s1 && t1 && v1 && s2 && t2 && v2 && ms - lr > 70) {
       lr = ms
       const p1 = 0.5 + 0.3 * Math.sin(t * 0.9)
       const p2 = 0.5 + 0.3 * Math.cos(t * 0.7)
