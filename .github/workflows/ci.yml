@@ -594,7 +594,7 @@ jobs:
           fi
           if [ -d release/windows ]; then
             cp release/windows/*.zip release/assets/ 2>/dev/null || true
-            cp release/windows/*.exe release/assets/ 2>/dev/null || true
+            cp release/windows/**/*.exe release/assets/ 2>/dev/null || true
           fi
           if [ -d release/linux ]; then
             cp release/linux/*.tar.gz release/assets/ 2>/dev/null || true
