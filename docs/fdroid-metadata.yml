@@ -262,4 +262,4 @@ VercodeOperation:
   - 10*%c+3
 UpdateCheckData: app/pubspec.yaml|version:\s.+\+(\d+)|.|version:\s(.+)\+
 CurrentVersion: 0.3.9
-CurrentVersionCode: 83
+CurrentVersionCode: 93
