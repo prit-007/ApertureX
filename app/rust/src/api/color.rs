@@ -344,6 +344,199 @@ pub fn auto_tone(jpeg: Vec<u8>) -> Option<HashMap<String, f64>> {
     Some(map)
 }
 
+/// A normalized face box for face-aware auto-tone.
+/// All values are normalized [0.0, 1.0]: cx/cy = center, rx/ry = radius.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FaceBox {
+    pub cx: f32,
+    pub cy: f32,
+    pub rx: f32,
+    pub ry: f32,
+}
+
+/// Face-aware auto-tone.
+///
+/// Like [`auto_tone`] but weights pixels inside detected face boxes more
+/// heavily (2x weight) in luminance and color-balance calculations. This
+/// ensures exposure and white balance are optimized for faces rather than
+/// the whole scene, preventing underexposed portraits against bright
+/// backgrounds or blown-out skin against dark scenes.
+///
+/// Returns `None` if the JPEG cannot be decoded.
+pub fn auto_tone_with_faces(jpeg: Vec<u8>, faces: Vec<FaceBox>) -> Option<HashMap<String, f64>> {
+    // Decode JPEG to RGBA
+    let decoded = match decode_rgba(&jpeg) {
+        Ok(d) => d,
+        Err(_) => return None,
+    };
+
+    let rgba = decoded.rgba;
+    let width = decoded.width;
+    let height = decoded.height;
+    let n = width * height;
+    if n == 0 || rgba.len() < n * 4 {
+        return None;
+    }
+
+    // Helper: check if a pixel is inside any face box
+    let in_face = |px: usize, py: usize| {
+        let cx_norm = px as f32 / (width as f32 - 1.0).max(1.0);
+        let cy_norm = py as f32 / (height as f32 - 1.0).max(1.0);
+        faces.iter().any(|f| {
+            let dx = (cx_norm - f.cx).abs() / f.rx.max(0.01);
+            let dy = (cy_norm - f.cy).abs() / f.ry.max(0.01);
+            (dx * dx + dy * dy) <= 1.0
+        })
+    };
+
+    // Collect luminance samples (downsample for speed)
+    let step = (n / 50000).max(1);
+    let mut luma_sum = 0.0f64;
+    let mut luma_sq_sum = 0.0f64;
+    let mut r_sum = 0.0f64;
+    let mut g_sum = 0.0f64;
+    let mut b_sum = 0.0f64;
+    let mut sat_sum = 0.0f64;
+    let mut skin_luma_sum = 0.0f64;
+    let mut skin_count = 0usize;
+    let mut count = 0usize;
+    let mut weight_sum = 0.0f64;
+
+    let mut lumas = Vec::with_capacity(n / step);
+    for py in (0..height).step_by(step) {
+        for px in (0..width).step_by(step) {
+            let i = (py * width + px) * 4;
+            let r = rgba[i] as f64 / 255.0;
+            let g = rgba[i + 1] as f64 / 255.0;
+            let b = rgba[i + 2] as f64 / 255.0;
+            let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            lumas.push(luma);
+
+            // Face pixels get 2x weight
+            let weight = if in_face(px, py) { 2.0f64 } else { 1.0f64 };
+
+            luma_sum += luma * weight;
+            luma_sq_sum += luma * luma * weight;
+            r_sum += r * weight;
+            g_sum += g * weight;
+            b_sum += b * weight;
+
+            let max_c = r.max(g).max(b);
+            let min_c = r.min(g).min(b);
+            let sat = if max_c > 0.0 {
+                (max_c - min_c) / max_c
+            } else {
+                0.0
+            };
+            sat_sum += sat * weight;
+
+            // Skin-tone detection prior (warm reddish-golden tones)
+            if r > 0.25
+                && g > 0.12
+                && b > 0.08
+                && r > g
+                && g > b
+                && (r - g) >= 0.03
+                && (r - g) <= 0.40
+                && (g - b) >= 0.015
+                && (g - b) <= 0.30
+            {
+                skin_luma_sum += luma * weight;
+                skin_count += 1;
+            }
+
+            count += 1;
+            weight_sum += weight;
+        }
+    }
+
+    if count == 0 {
+        return None;
+    }
+
+    let mean_luma = luma_sum / weight_sum.max(1.0);
+    let variance = luma_sq_sum / weight_sum.max(1.0) - mean_luma * mean_luma;
+    let std_luma = variance.max(0.0).sqrt();
+
+    // Percentiles for clipping and whites/blacks
+    lumas.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let p0_1_idx = ((lumas.len() as f64 * 0.001).round() as usize).min(lumas.len() - 1);
+    let p1_idx = ((lumas.len() as f64 * 0.01).round() as usize).min(lumas.len() - 1);
+    let p99_idx = ((lumas.len() as f64 * 0.99).round() as usize).min(lumas.len() - 1);
+    let p99_9_idx = ((lumas.len() as f64 * 0.999).round() as usize).min(lumas.len() - 1);
+
+    let p0_1 = lumas.get(p0_1_idx).copied().unwrap_or(0.0);
+    let p1 = lumas.get(p1_idx).copied().unwrap_or(0.0);
+    let p99 = lumas.get(p99_idx).copied().unwrap_or(1.0);
+    let p99_9 = lumas.get(p99_9_idx).copied().unwrap_or(1.0);
+
+    // Target mean luminance ~0.18 (mid-gray)
+    let target_luma = 0.18;
+    let mut exposure = (target_luma / mean_luma.max(0.001)).log2().clamp(-2.0, 2.0);
+
+    // Skin-tone awareness: protect portrait highlights from blowing out
+    let has_skin = skin_count > (count / 100);
+    if has_skin {
+        let skin_mean = skin_luma_sum / skin_count as f64;
+        let skin_target_exposure = (0.52 / skin_mean.max(0.05)).log2().clamp(-1.5, 1.5);
+        // Blend general exposure with skin-safe exposure
+        exposure = exposure * 0.4 + skin_target_exposure * 0.6;
+    }
+
+    // Contrast based on std deviation
+    let contrast = (std_luma * 2.0 - 0.3).clamp(-0.5, 0.5);
+
+    // Whites and blacks recovery from clipping percentiles
+    let whites = ((p99_9 - 0.96) * 2.5).clamp(-1.0, 0.5);
+    let blacks = ((0.04 - p0_1) * 2.5).clamp(-0.5, 1.0);
+
+    // Continuous highlight/shadow recovery based on histogram clipping
+    let highlights = if p99 > 0.90 || p99_9 > 0.98 {
+        (-((p99 - 0.88).max(0.0) * 4.0)).clamp(-1.0, 0.0)
+    } else {
+        0.0
+    };
+    let shadows = if p1 < 0.08 || p0_1 < 0.02 {
+        ((0.10 - p1).max(0.0) * 4.0).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    // Temperature/tint from color balance with skin tone protection
+    let mean_r = r_sum / weight_sum.max(1.0);
+    let mean_g = g_sum / weight_sum.max(1.0);
+    let mean_b = b_sum / weight_sum.max(1.0);
+    let mut temperature = ((mean_r - mean_b) * 2.0).clamp(-0.5, 0.5);
+    let mut tint = ((mean_g - (mean_r + mean_b) / 2.0) * 2.0).clamp(-0.5, 0.5);
+
+    if has_skin {
+        // Prevent skin tones from turning sickly green or cold blue
+        temperature = (temperature * 0.5 + 0.04).clamp(-0.3, 0.4);
+        tint = tint.clamp(-0.15, 0.15);
+    }
+
+    // Vibrance boost for muted scenes
+    let mean_sat = sat_sum / weight_sum.max(1.0);
+    let vibrance = if mean_sat < 0.30 {
+        ((0.30 - mean_sat) * 1.5).clamp(0.0, 0.4)
+    } else {
+        0.0
+    };
+
+    let mut map = HashMap::new();
+    map.insert("exposure".to_string(), exposure);
+    map.insert("contrast".to_string(), contrast);
+    map.insert("highlights".to_string(), highlights);
+    map.insert("shadows".to_string(), shadows);
+    map.insert("whites".to_string(), whites);
+    map.insert("blacks".to_string(), blacks);
+    map.insert("temperature".to_string(), temperature);
+    map.insert("tint".to_string(), tint);
+    map.insert("vibrance".to_string(), vibrance);
+
+    Some(map)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -388,5 +581,81 @@ mod tests {
     #[test]
     fn auto_tone_empty_returns_none() {
         assert!(auto_tone(vec![]).is_none());
+    }
+
+    /// Face-aware auto-tone returns Some map with same keys as auto_tone.
+    #[test]
+    fn auto_tone_with_faces_returns_same_keys() {
+        let jpeg = make_gray_jpeg(46u8);
+        let faces = vec![FaceBox {
+            cx: 0.5,
+            cy: 0.5,
+            rx: 0.2,
+            ry: 0.2,
+        }];
+        let result = auto_tone_with_faces(jpeg, faces);
+        assert!(result.is_some());
+        let m = result.unwrap();
+        assert!(m.contains_key("exposure"));
+        assert!(m.contains_key("contrast"));
+        assert!(m.contains_key("temperature"));
+        assert!(m.contains_key("tint"));
+    }
+
+    /// Face-aware auto-tone with no faces falls back to regular auto_tone.
+    #[test]
+    fn auto_tone_with_faces_no_faces_matches_auto_tone() {
+        let jpeg = make_gray_jpeg(46u8);
+        let with_faces = auto_tone_with_faces(jpeg.clone(), vec![]);
+        let without_faces = auto_tone(jpeg);
+        assert_eq!(with_faces, without_faces);
+    }
+
+    /// Face-aware auto-tone weights face pixels more heavily in exposure.
+    /// A dark face region should pull exposure up more than regular auto_tone.
+    #[test]
+    fn auto_tone_with_faces_weights_face_pixels() {
+        // Create an image where the center (face area) is dark but edges are bright
+        let (w, h) = (16, 16);
+        let mut rgba = vec![240u8; w * h * 4]; // bright background
+                                               // Dark center region (simulating a face in shadow)
+        for y in 6..10 {
+            for x in 6..10 {
+                let idx = (y * w + x) * 4;
+                rgba[idx] = 40;
+                rgba[idx + 1] = 40;
+                rgba[idx + 2] = 40;
+                rgba[idx + 3] = 255;
+            }
+        }
+        let jpeg = encode_jpeg(&rgba, w as u32, h as u32, 80, &[]).unwrap();
+
+        let faces = vec![FaceBox {
+            cx: 0.5,
+            cy: 0.5,
+            rx: 0.25,
+            ry: 0.25,
+        }];
+        let result = auto_tone_with_faces(jpeg, faces);
+        assert!(result.is_some());
+        let m = result.unwrap();
+        // Face-aware should give higher exposure (lift the dark face)
+        // than regular auto_tone which would be dominated by bright background
+        let regular = auto_tone(encode_jpeg(&rgba, w as u32, h as u32, 80, &[]).unwrap());
+        assert!(regular.is_some());
+        let rm = regular.unwrap();
+        // Face-aware exposure should be >= regular (lifting dark face)
+        assert!(
+            m["exposure"] >= rm["exposure"],
+            "face-aware exposure ({}) should be >= regular ({}) for dark face",
+            m["exposure"],
+            rm["exposure"]
+        );
+    }
+
+    /// Invalid JPEG returns None.
+    #[test]
+    fn auto_tone_with_faces_invalid_jpeg_returns_none() {
+        assert!(auto_tone_with_faces(vec![], vec![]).is_none());
     }
 }

@@ -789,6 +789,20 @@ class AxEngine {
         amount: amount,
       );
 
+  /// Face-aware auto-tone.
+  ///
+  /// Weights pixels inside detected face boxes more heavily (2x) in luminance
+  /// and color-balance calculations, optimizing exposure and white balance for
+  /// faces rather than the whole scene.
+  static Future<Map<String, double>?> autoToneWithFaces({
+    required Uint8List jpeg,
+    required List<rust_color.FaceBox> faces,
+  }) =>
+      rust_color.autoToneWithFaces(
+        jpeg: jpeg,
+        faces: faces,
+      );
+
   // --- masking / local adjustments (P2.5) -----------------------------------
 
   static rust_color.ColorParams _localParams(AdjustmentLayer l) =>

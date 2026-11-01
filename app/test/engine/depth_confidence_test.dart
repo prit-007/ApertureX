@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:aperturex/engine/engine.dart';
+import 'package:aperturex/src/rust/api/color.dart' show FaceBox;
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -175,6 +176,77 @@ void main() {
         amount: 0.4,
       );
       expect(out.length, 32 * 32 * 4);
+    });
+  });
+
+  group('AxEngine face-aware auto-tone', () {
+    /// Helper: encode RGBA to JPEG via Rust.
+    Future<Uint8List> toJpeg(Uint8List rgba, int w, int h) async {
+      return AxEngine.encodeJpegRgba(
+        rgba: rgba,
+        width: w,
+        height: h,
+        quality: 80,
+        exif: const [],
+      );
+    }
+
+    test('autoToneWithFaces returns map with expected keys', () async {
+      if (!rustAvailable) {
+        return;
+      }
+      final rgba = Uint8List(16 * 16 * 4);
+      for (var i = 0; i < rgba.length; i += 4) {
+        rgba[i] = 46;
+        rgba[i + 1] = 46;
+        rgba[i + 2] = 46;
+        rgba[i + 3] = 255;
+      }
+      final jpeg = await toJpeg(rgba, 16, 16);
+      final faces = <FaceBox>[
+        const FaceBox(cx: 0.5, cy: 0.5, rx: 0.2, ry: 0.2),
+      ];
+      final result = await AxEngine.autoToneWithFaces(
+        jpeg: jpeg,
+        faces: faces,
+      );
+      expect(result, isNotNull);
+      final m = result!;
+      expect(m.containsKey('exposure'), isTrue);
+      expect(m.containsKey('contrast'), isTrue);
+      expect(m.containsKey('temperature'), isTrue);
+      expect(m.containsKey('tint'), isTrue);
+      expect(m.containsKey('vibrance'), isTrue);
+      expect(m.containsKey('whites'), isTrue);
+      expect(m.containsKey('blacks'), isTrue);
+    });
+
+    test('autoToneWithFaces with no faces matches autoTone', () async {
+      if (!rustAvailable) {
+        return;
+      }
+      final rgba = Uint8List(16 * 16 * 4);
+      for (var i = 0; i < rgba.length; i += 4) {
+        rgba[i] = 46;
+        rgba[i + 1] = 46;
+        rgba[i + 2] = 46;
+        rgba[i + 3] = 255;
+      }
+      final jpeg = await toJpeg(rgba, 16, 16);
+      final withFaces = await AxEngine.autoToneWithFaces(jpeg: jpeg, faces: const []);
+      final withoutFaces = await AxEngine.autoTone(jpeg);
+      expect(withFaces, withoutFaces);
+    });
+
+    test('autoToneWithFaces invalid JPEG returns null', () async {
+      if (!rustAvailable) {
+        return;
+      }
+      final result = await AxEngine.autoToneWithFaces(
+        jpeg: Uint8List(0),
+        faces: const [],
+      );
+      expect(result, isNull);
     });
   });
 }

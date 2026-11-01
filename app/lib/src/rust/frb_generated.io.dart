@@ -147,6 +147,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double dco_decode_f_64(dynamic raw);
 
   @protected
+  FaceBox dco_decode_face_box(dynamic raw);
+
+  @protected
   GeometryResult dco_decode_geometry_result(dynamic raw);
 
   @protected
@@ -175,6 +178,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<DetectedFace> dco_decode_list_detected_face(dynamic raw);
+
+  @protected
+  List<FaceBox> dco_decode_list_face_box(dynamic raw);
 
   @protected
   List<HdrExposureSpec> dco_decode_list_hdr_exposure_spec(dynamic raw);
@@ -413,6 +419,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double sse_decode_f_64(SseDeserializer deserializer);
 
   @protected
+  FaceBox sse_decode_face_box(SseDeserializer deserializer);
+
+  @protected
   GeometryResult sse_decode_geometry_result(SseDeserializer deserializer);
 
   @protected
@@ -445,6 +454,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<DetectedFace> sse_decode_list_detected_face(
     SseDeserializer deserializer,
   );
+
+  @protected
+  List<FaceBox> sse_decode_list_face_box(SseDeserializer deserializer);
 
   @protected
   List<HdrExposureSpec> sse_decode_list_hdr_exposure_spec(
@@ -733,6 +745,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_f_64(double self, SseSerializer serializer);
 
   @protected
+  void sse_encode_face_box(FaceBox self, SseSerializer serializer);
+
+  @protected
   void sse_encode_geometry_result(
     GeometryResult self,
     SseSerializer serializer,
@@ -776,6 +791,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     List<DetectedFace> self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_list_face_box(List<FaceBox> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_hdr_exposure_spec(
