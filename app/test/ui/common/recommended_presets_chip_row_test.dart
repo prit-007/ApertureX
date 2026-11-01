@@ -10,11 +10,11 @@ void main() {
   testWidgets('RecommendedPresetsChipRow shows primary and alternate chips', (
     WidgetTester tester,
   ) async {
-    final result = ClassificationResult(
+    const result = ClassificationResult(
       category: PresetCategory.portrait,
       primaryPresetId: PresetIds.mainCharacter,
       primaryPresetName: 'Main Character',
-      alternatePresets: const [
+      alternatePresets: [
         AlternatePreset(id: PresetIds.softCore, name: 'Soft Core'),
         AlternatePreset(id: PresetIds.cleanGirl, name: 'Clean Girl'),
       ],
@@ -45,11 +45,11 @@ void main() {
   testWidgets('RecommendedPresetsChipRow calls onPresetSelected when chip tapped', (
     WidgetTester tester,
   ) async {
-    final result = ClassificationResult(
+    const result = ClassificationResult(
       category: PresetCategory.portrait,
       primaryPresetId: PresetIds.mainCharacter,
       primaryPresetName: 'Main Character',
-      alternatePresets: const [],
+      alternatePresets: [],
       reason: 'Test',
     );
 
@@ -74,11 +74,11 @@ void main() {
   testWidgets('RecommendedPresetsChipRow shows nothing when no presets', (
     WidgetTester tester,
   ) async {
-    final result = ClassificationResult(
+    const result = ClassificationResult(
       category: PresetCategory.all,
       primaryPresetId: '',
       primaryPresetName: '',
-      alternatePresets: const [],
+      alternatePresets: [],
       reason: 'No recommendations',
     );
 

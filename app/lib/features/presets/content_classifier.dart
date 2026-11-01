@@ -40,7 +40,7 @@ class ContentClassifier {
   /// Classifies image content and returns preset suggestions.
   ///
   /// [faceCount] — number of faces detected by YuNet (0+).
-  /// [depthConfidence] — depth map reliability 0..1 (from [AxEngine.depthConfidence]).
+  /// [depthConfidence] — depth map reliability 0..1.
   /// [brightness] — mean luminance 0..1 (0 = dark, 1 = bright).
   static ClassificationResult classify({
     required int faceCount,

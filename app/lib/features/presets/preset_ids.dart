@@ -1,6 +1,6 @@
-/// Canonical preset IDs used by [ContentClassifier] for smart preset suggestions.
+/// Canonical preset IDs used for smart preset suggestions.
 ///
-/// These IDs match the IDs generated in [PresetCatalog._buildCatalog].
+/// These IDs match the IDs generated in PresetCatalog._buildCatalog.
 class PresetIds {
   // Movie / youth presets
   static const mainCharacter = 'movie_main_character';
