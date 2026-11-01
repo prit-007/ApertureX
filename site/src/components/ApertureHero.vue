@@ -3,24 +3,6 @@
     <div class="stick" ref="stickRef">
       <div class="hero-ambient"></div>
       <div class="hero-grid-bg"></div>
-      <canvas id="fx" class="hero-fx" aria-hidden="true"></canvas>
-
-      <!-- Orbiting pills (primary) -->
-      <div class="orb" aria-hidden="true" ref="orbRef">
-        <span style="--a:0deg"><b>Rust engine</b></span>
-        <span style="--a:90deg"><b>RAW</b></span>
-        <span style="--a:180deg"><b>C2PA</b></span>
-        <span style="--a:270deg"><b>Look QR</b></span>
-      </div>
-      <!-- Orbiting pills (secondary, counter-rotating) -->
-      <div class="orb o2" aria-hidden="true">
-        <span style="--a:0deg"><b>65³ LUT</b></span>
-        <span style="--a:60deg"><b>16-bit TIFF</b></span>
-        <span style="--a:120deg"><b>AI masks</b></span>
-        <span style="--a:180deg"><b>0 trackers</b></span>
-        <span style="--a:240deg"><b>GPL-3.0</b></span>
-        <span style="--a:300deg"><b>200 MP</b></span>
-      </div>
 
       <!-- Bokeh particle canvas -->
       <canvas id="fx" class="hero-fx" aria-hidden="true" ref="fxRef"></canvas>
@@ -29,7 +11,7 @@
       <div class="flash" ref="flashRef"></div>
 
       <!-- Iris + aperture blades -->
-      <div class="iris" ref="irisRef" @mousemove="onMouseMove" @mouseleave="onMouseLeave">
+      <div class="iris-wrap" ref="irisRef" @mousemove="onMouseMove" @mouseleave="onMouseLeave">
         <img
           id="photo"
           :src="irisImageSrc"
@@ -41,7 +23,7 @@
 
         <svg
           class="aperture-svg"
-          viewBox="-200 -200 400 400"
+          viewBox="-220 -220 440 440"
           preserveAspectRatio="xMidYMid slice"
         >
           <defs>
@@ -51,22 +33,13 @@
             </linearGradient>
           </defs>
           <g id="blades" ref="bladesRef">
-            <g
+            <blade
               v-for="n in 8"
               :key="n"
-              :transform="`rotate(${n * 45})`"
-            >
-              <polygon
-                class="blade"
-                points="0,-190 190,-90 190,120 0,40"
-                fill="url(#apertureGrad)"
-                stroke="#00E5FF"
-                stroke-opacity="0.3"
-                stroke-width="1.5"
-              />
-            </g>
+              :angle="n * 45"
+            />
           </g>
-          <circle r="196" fill="none" stroke="#00E5FF" stroke-width="2" opacity="0.45" />
+          <circle r="210" fill="none" stroke="#00E5FF" stroke-width="2" opacity="0.35" />
         </svg>
       </div>
 
@@ -145,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import irisImg from '../assets/stock/iris.webp'
 
 const heroRef = ref(null)
@@ -155,7 +128,6 @@ const contentRef = ref(null)
 const rev2Ref = ref(null)
 const fstopRef = ref(null)
 const bladesRef = ref(null)
-const orbRef = ref(null)
 const fxRef = ref(null)
 const flashRef = ref(null)
 
@@ -164,21 +136,18 @@ const irisImageSrc = irisImg
 
 const apertureStops = [16, 11, 8, 5.6, 4, 2.8, 2, 1.4, 1.2]
 
+let heroEl, contentEl, rev2El, fstopEl, photoEl, stickEl, flashEl, irisEl
 let bladeEls = []
-let heroEl = null
-let contentEl = null
-let rev2El = null
-let fstopEl = null
-let photoEl = null
 let ticking = false
 let scrollP = 0
-let fxRaf = null
-let fxVis = true
-let fxTx = 0
-let fxTy = 0
-let lastY = window.scrollY
-let fxVel = 0
-let fxSkew = 0
+
+// Canvas bokeh state
+let fxEl, fxCtx, fxW, fxH, fxD = 1
+let fxPx = 0, fxPy = 0, fxTx = 0, fxTy = 0
+let fxRaf, fxVis = true
+let lastY = window.scrollY, fxVel = 0, fxSkew = 0
+const FX_COL = ['0,229,255', '255,179,0', '255,42,85', '255,255,255']
+const FX_P = []
 
 const currentFStop = (p) => {
   const idx = Math.min(8, Math.round(p * 8))
@@ -195,33 +164,34 @@ const updateScroll = () => {
   const e = smoothstep(p)
   scrollP = p
 
-  // Aperture blades: rotate to position + translate outward + rotate open
+  // ---- Aperture blades (GPU transforms) ----
+  // Each blade rotates to its position, translates outward, rotates open
   bladeEls.forEach((b, k) => {
-    b.setAttribute(
-      'transform',
-      `rotate(${k * 45}) translate(${e * 210}px, 0) rotate(${e * -24}deg)`
-    )
+    const baseRot = k * 45
+    const openRot = e * -20
+    const tx = e * 190
+    b.style.transform = `rotate(${baseRot}deg) translate(${tx}px, 0) rotate(${openRot}deg)`
   })
 
   // Photo scale
   if (photoEl) {
-    photoEl.style.transform = `scale(${0.6 + e * 1.3})`
+    photoEl.style.transform = `scale(${0.6 + e * 1.4})`
   }
 
-  // Hero content (hcopy): lift + fade
+  // Hero content lift + fade
   const hp = Math.min(1, p * 2.2)
   const ho = 1 - Math.max(0, (p - 0.25) * 3)
   if (contentEl) {
     contentEl.style.opacity = ho
     contentEl.style.pointerEvents = ho < 0.15 ? 'none' : ''
-    contentEl.style.transform = `translateY(${-hp * 60}px) scale(${1 - hp * 0.08})`
+    contentEl.style.transform = `translateY(${-hp * 56}px) scale(${1 - hp * 0.06})`
   }
 
   // Rev2 reveal
   const q = Math.max(0, Math.min(1, (p - 0.5) * 3))
   if (rev2El) {
     rev2El.style.opacity = q
-    rev2El.style.transform = `translateY(${(1 - q) * 40}px)`
+    rev2El.style.transform = `translateY(${(1 - q) * 36}px)`
   }
 
   // F-stop readout
@@ -241,17 +211,107 @@ const onScroll = () => {
   })
 }
 
+const onMouseMove = (e) => {
+  if (!heroEl || !irisEl) return
+  const r = heroEl.getBoundingClientRect()
+  const cx = r.left + r.width / 2
+  const cy = r.top + r.height / 2
+  const dx = Math.max(-1, Math.min(1, (e.clientX - cx) / (r.width / 2)))
+  const dy = Math.max(-1, Math.min(1, (e.clientY - cy) / (r.height / 2)))
+  irisEl.style.setProperty('--px', dx.toFixed(4))
+  irisEl.style.setProperty('--py', dy.toFixed(4))
+}
+
+const onMouseLeave = () => {
+  if (irisEl) {
+    irisEl.style.setProperty('--px', '0')
+    irisEl.style.setProperty('--py', '0')
+  }
+}
+
+// Canvas bokeh
+function fxSize() {
+  if (!fxEl) return
+  const r = fxEl.getBoundingClientRect()
+  fxD = Math.min(2, window.devicePixelRatio || 1)
+  fxW = fxEl.width = Math.max(1, r.width * fxD)
+  fxH = fxEl.height = Math.max(1, r.height * fxD)
+  fxEl.style.width = r.width + 'px'
+  fxEl.style.height = r.height + 'px'
+  if (fxCtx) fxCtx.scale(fxD, fxD)
+}
+
+function fxMk() {
+  return {
+    x: Math.random() * fxW,
+    y: Math.random() * fxH,
+    r: (1 + Math.random() * 6) * fxD,
+    vy: -(0.05 + Math.random() * 0.25) * fxD,
+    vx: (Math.random() - 0.5) * 0.12 * fxD,
+    a: 0.03 + Math.random() * 0.2,
+    c: FX_COL[Math.floor(Math.random() * FX_COL.length)],
+    z: 0.5 + Math.random() * 1.2,
+    ph: Math.random() * 6.28,
+    ring: Math.random() < 0.35,
+  }
+}
+
+function fxLoop(t) {
+  fxRaf = requestAnimationFrame(fxLoop)
+  if (!fxCtx) return
+  const dy = window.scrollY - lastY
+  lastY = window.scrollY
+  fxVel += (dy - fxVel) * 0.12
+
+  const mq = document.querySelector('.mq')
+  if (mq) {
+    fxSkew += (Math.max(-8, Math.min(8, fxVel * 0.25)) - fxSkew) * 0.15
+    mq.style.transform = `rotate(-1.2deg) skewX(${fxSkew.toFixed(2)}deg)`
+  }
+
+  if (!fxVis) return
+  fxPx += (fxTx - fxPx) * 0.06
+  fxPy += (fxTy - fxPy) * 0.06
+
+  fxCtx.clearRect(0, 0, fxW, fxH)
+  const boost = 1 + Math.min(12, Math.abs(fxVel) * 0.5)
+
+  for (const p of FX_P) {
+    p.y += p.vy * boost * p.z
+    p.x += p.vx + Math.sin(t / 1500 + p.ph) * 0.2 * fxD
+    if (p.y < -20 * fxD) { p.y = fxH + 20 * fxD; p.x = Math.random() * fxW }
+    if (p.x < -20 * fxD) p.x = fxW + 10 * fxD
+    if (p.x > fxW + 20 * fxD) p.x = -10 * fxD
+    const ox = fxPx * -50 * p.z * fxD
+    const oy = fxPy * -50 * p.z * fxD
+    const al = p.a * (0.6 + 0.4 * Math.sin(t / 800 + p.ph))
+    fxCtx.beginPath()
+    fxCtx.arc(p.x + ox, p.y + oy, p.r * p.z, 0, 6.283)
+    if (p.ring) {
+      fxCtx.strokeStyle = `rgba(${p.c},${al})`
+      fxCtx.lineWidth = 1 * fxD
+      fxCtx.stroke()
+    } else {
+      fxCtx.fillStyle = `rgba(${p.c},${al * 0.75})`
+      fxCtx.fill()
+    }
+  }
+}
+
 onMounted(async () => {
   await nextTick()
   heroEl = heroRef.value
+  stickEl = stickRef.value
   contentEl = contentRef.value
   rev2El = rev2Ref.value
   fstopEl = fstopRef.value
   photoEl = document.getElementById('photo')
-  // Collect individual blade <g> elements
+  irisEl = irisRef.value
+  flashEl = flashRef.value
+
   const bladesContainer = bladesRef.value
   if (bladesContainer) {
-    bladeEls = Array.from(bladesContainer.querySelectorAll('g'))
+    bladeEls = Array.from(bladesContainer.querySelectorAll('g > g'))
   }
 
   updateScroll()
@@ -259,115 +319,13 @@ onMounted(async () => {
   window.addEventListener('scroll', onScroll, { passive: true })
   window.addEventListener('resize', onScroll)
 
-  // Canvas bokeh particles + mouse parallax + scroll velocity
-  const fxEl = fxRef.value
-  const flashEl = flashRef.value
-  let fxW = 0, fxH = 0, fxD = 1, fxPx = 0, fxPy = 0, fxTx = 0, fxTy = 0
-  let lastY = window.scrollY, fxVel = 0, fxSkew = 0, fxVis = true, fxRaf = null
-  const FX_COL = ['0,229,255', '255,179,0', '255,42,85', '255,255,255']
-  const FX_P = []
-
-  function fxSize() {
-    if (!fxEl) return
-    const r = fxEl.getBoundingClientRect()
-    fxD = Math.min(2, window.devicePixelRatio || 1)
-    fxW = fxEl.width = Math.max(1, r.width * fxD)
-    fxH = fxEl.height = Math.max(1, r.height * fxD)
-    fxEl.style.width = r.width + 'px'
-    fxEl.style.height = r.height + 'px'
-    const ctx = fxEl.getContext('2d')
-    ctx.scale(fxD, fxD)
-  }
-
-  function fxMk() {
-    return {
-      x: Math.random() * fxW,
-      y: Math.random() * fxH,
-      r: (2 + Math.random() * 9) * fxD,
-      vy: -(0.08 + Math.random() * 0.35) * fxD,
-      vx: (Math.random() - 0.5) * 0.2 * fxD,
-      a: 0.08 + Math.random() * 0.3,
-      c: FX_COL[Math.floor(Math.random() * FX_COL.length)],
-      z: 0.3 + Math.random() * 1.2,
-      ph: Math.random() * 6.28,
-      ring: Math.random() < 0.4,
-    }
-  }
-
-  for (let i = 0; i < (window.innerWidth < 760 ? 18 : 38); i++) FX_P.push(fxMk())
-
-  function fxLoop(t) {
-    fxRaf = requestAnimationFrame(fxLoop)
-    if (!fxEl) return
-    const ctx = fxEl.getContext('2d')
-    const dy = window.scrollY - lastY
-    lastY = window.scrollY
-    fxVel += (dy - fxVel) * 0.12
-
-    const mq = document.querySelector('.mq')
-    if (mq) {
-      fxSkew += (Math.max(-8, Math.min(8, fxVel * 0.25)) - fxSkew) * 0.15
-      mq.style.transform = 'rotate(-1.2deg) skewX(' + fxSkew.toFixed(2) + 'deg)'
-    }
-
-    if (!fxVis) return
-    fxPx += (fxTx - fxPx) * 0.07
-    fxPy += (fxTy - fxPy) * 0.07
-
-    ctx.clearRect(0, 0, fxW, fxH)
-    const boost = 1 + Math.min(14, Math.abs(fxVel) * 0.6)
-
-    for (const p of FX_P) {
-      p.y += p.vy * boost * p.z
-      p.x += p.vx + Math.sin(t / 1600 + p.ph) * 0.25 * fxD
-      if (p.y < -20 * fxD) { p.y = fxH + 20 * fxD; p.x = Math.random() * fxW }
-      if (p.x < -20 * fxD) p.x = fxW + 10 * fxD
-      if (p.x > fxW + 20 * fxD) p.x = -10 * fxD
-      const ox = fxPx * -60 * p.z * fxD
-      const oy = fxPy * -60 * p.z * fxD
-      const al = p.a * (0.7 + 0.3 * Math.sin(t / 900 + p.ph))
-      ctx.beginPath()
-      ctx.arc(p.x + ox, p.y + oy, p.r * p.z, 0, 6.283)
-      if (p.ring) {
-        ctx.strokeStyle = 'rgba(' + p.c + ',' + al + ')'
-        ctx.lineWidth = 1.2 * fxD
-        ctx.stroke()
-      } else {
-        ctx.fillStyle = 'rgba(' + p.c + ',' + al * 0.7 + ')'
-        ctx.fill()
-      }
-    }
-
-    // Flash trigger when stick passes midpoint
-    const st = stickRef.value
-    const top = heroEl
-    if (st && top && flashEl) {
-      const tr = top.getBoundingClientRect()
-      const pr = -tr.top / (tr.height - window.innerHeight)
-      const on = pr > 0.5
-      // flash handled by scroll event class toggle
-    }
-  }
-
+  // Canvas bokeh
+  fxEl = fxRef.value
   fxSize()
+  fxCtx = fxEl.getContext('2d')
+  for (let i = 0; i < (window.innerWidth < 760 ? 16 : 32); i++) FX_P.push(fxMk())
   fxRaf = requestAnimationFrame(fxLoop)
   window.addEventListener('resize', fxSize)
-
-  // Stick intersection for flash + visibility
-  const st = stickRef.value
-  if (st) {
-    new IntersectionObserver((e) => {
-      fxVis = e[0].isIntersecting
-    }).observe(st)
-    st.addEventListener('pointermove', (e) => {
-      const r = st.getBoundingClientRect()
-      fxTx = (e.clientX - r.left) / r.width - 0.5
-      fxTy = (e.clientY - r.top) / r.height - 0.5
-    })
-    st.addEventListener('pointerleave', () => {
-      fxTx = 0; fxTy = 0
-    })
-  }
 
   // Flash on scroll past midpoint
   let flashWas = false
@@ -385,24 +343,11 @@ onMounted(async () => {
     }
   }, { passive: true })
 
-  // Mouse parallax for iris + orbs
-  const iris = irisRef.value
-  const orb = orbRef.value
-  if (iris && orb) {
-    window.addEventListener('mousemove', (e) => {
-      if (!heroEl) return
-      const rect = heroEl.getBoundingClientRect()
-      const cx = rect.left + rect.width / 2
-      const cy = rect.top + rect.height / 2
-      const dx = (e.clientX - cx) / (rect.width / 2)
-      const dy = (e.clientY - cy) / (rect.height / 2)
-      const mx = Math.max(-1, Math.min(1, dx))
-      const my = Math.max(-1, Math.min(1, dy))
-      iris.style.setProperty('--px', mx.toFixed(4))
-      iris.style.setProperty('--py', my.toFixed(4))
-      orb.style.setProperty('--px', mx.toFixed(4))
-      orb.style.setProperty('--py', my.toFixed(4))
-    })
+  // Stick visibility for canvas
+  if (stickEl) {
+    new IntersectionObserver((e) => {
+      fxVis = e[0].isIntersecting
+    }).observe(stickEl)
   }
 })
 
@@ -413,4 +358,45 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped></style>
+<style scoped>
+.iris-wrap {
+  position: absolute;
+  width: min(100vmin, 820px);
+  aspect-ratio: 1;
+  z-index: 1;
+  pointer-events: none;
+  translate: calc(var(--px, 0) * -24px) calc(var(--py, 0) * -24px);
+}
+.iris-wrap svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.photo {
+  position: absolute;
+  width: 56%;
+  aspect-ratio: 1;
+  left: 22%;
+  top: 22%;
+  border-radius: 50%;
+  will-change: transform;
+  background: #111;
+  box-shadow: 0 0 90px rgba(0, 229, 255, 0.28);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.photo-fallback {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle at 35% 45%, #4B5565 0%, #242B36 55%, #12151D 100%);
+}
+.blade {
+  transform-origin: 0 0;
+  will-change: transform;
+  transform-box: fill-box;
+}
+</style>
