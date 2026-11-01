@@ -1,6 +1,9 @@
 //! Lens Blur API wrappers across flutter_rust_bridge.
 
-use crate::blur::{self, BokehShape, LensBlurParams};
+use crate::blur::{self, LensBlurParams};
+
+#[cfg(test)]
+use crate::blur::BokehShape;
 
 /// Lens Blur parameters across the FFI boundary.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -12,6 +15,8 @@ pub struct ApiLensBlurParams {
     pub bokeh_shape_index: u32,
     pub bokeh_boost: f32,
     pub background_blur: bool,
+    /// Bokeh kernel sample count: 12 (interactive scrub), 36 (settle), 64 (export).
+    pub sample_count: u32,
 }
 
 /// Applies depth-guided lens blur with synthetic bokeh.
@@ -22,25 +27,16 @@ pub fn blur_apply(
     params: ApiLensBlurParams,
     depth_map: Option<Vec<f32>>,
 ) -> Vec<u8> {
-    let shape = match params.bokeh_shape_index {
-        1 => BokehShape::Pentagon,
-        2 => BokehShape::Hexagon,
-        3 => BokehShape::Septagon,
-        4 => BokehShape::CatsEye,
-        5 => BokehShape::SoapBubble,
-        6 => BokehShape::Swirl,
-        _ => BokehShape::Circle,
-    };
-
-    let p = LensBlurParams {
-        enabled: params.enabled,
-        amount: params.amount,
-        focal_point: params.focal_point,
-        focal_range: params.focal_range,
-        bokeh_shape: shape,
-        bokeh_boost: params.bokeh_boost,
-        background_blur: params.background_blur,
-    };
+    let p = LensBlurParams::from_fields(
+        params.enabled,
+        params.amount,
+        params.focal_point,
+        params.focal_range,
+        params.bokeh_shape_index as u8,
+        params.bokeh_boost,
+        params.background_blur,
+        params.sample_count,
+    );
 
     blur::apply_lens_blur(
         &rgba,
@@ -48,8 +44,46 @@ pub fn blur_apply(
         height as usize,
         p,
         depth_map.as_deref(),
-        36,
     )
+}
+
+/// Applies depth-guided lens blur with automatic depth estimation.
+/// When no depth map is supplied, estimates one on-device via
+/// [`crate::ml::estimate_depth_map`] instead of falling back to a
+/// synthetic gradient (which assumes a centered portrait).
+pub fn blur_apply_auto_depth(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    params: ApiLensBlurParams,
+) -> Result<Vec<u8>, String> {
+    let depth_map = crate::ml::estimate_depth_map(
+        &rgba,
+        width as usize,
+        height as usize,
+        width as usize,
+        height as usize,
+    )
+    .map_err(|e| format!("depth estimation failed: {e}"))?;
+
+    let p = crate::blur::LensBlurParams::from_fields(
+        params.enabled,
+        params.amount,
+        params.focal_point,
+        params.focal_range,
+        params.bokeh_shape_index as u8,
+        params.bokeh_boost,
+        params.background_blur,
+        params.sample_count,
+    );
+
+    Ok(blur::apply_lens_blur(
+        &rgba,
+        width as usize,
+        height as usize,
+        p,
+        Some(&depth_map),
+    ))
 }
 
 /// Computes an on-device monocular depth map from RGBA pixels.
@@ -151,9 +185,10 @@ mod tests {
             bokeh_shape: BokehShape::Circle,
             bokeh_boost: 0.0,
             background_blur: false,
+            sample_count: 36,
         };
 
-        let out = apply_lens_blur(&src, w, h, params, Some(&depth_map), 36);
+        let out = apply_lens_blur(&src, w, h, params, Some(&depth_map));
 
         // Subject center should stay sharp (unchanged)
         let subject_idx = (8 * w + 8) * 4;

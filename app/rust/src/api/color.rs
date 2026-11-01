@@ -72,10 +72,13 @@ impl ColorParams {
             && self.temperature == 0.0
             && self.tint == 0.0
             && self.vibrance == 0.0
+            && self.grade_shadow_hue == 0.0
             && self.grade_shadow_sat == 0.0
             && self.grade_shadow_lum == 0.0
+            && self.grade_mid_hue == 0.0
             && self.grade_mid_sat == 0.0
             && self.grade_mid_lum == 0.0
+            && self.grade_highlight_hue == 0.0
             && self.grade_highlight_sat == 0.0
             && self.grade_highlight_lum == 0.0
             && self.grade_balance == 0.0
@@ -98,10 +101,17 @@ impl CurveParams {
 }
 
 /// Pads/truncates a flat HSL list (8 bands × 3) to a fixed `[f32; 24]`.
+/// Logs a warning if the input length is not exactly 24.
 pub(crate) fn to_hsl24(v: &[f32]) -> [f32; 24] {
     let mut a = [0.0f32; 24];
-    for (slot, value) in a.iter_mut().zip(v.iter()) {
+    for (slot, value) in a.iter_mut().zip(v.iter().take(24)) {
         *slot = *value;
+    }
+    if v.len() != 24 {
+        eprintln!(
+            "warning: to_hsl24 received {} values, expected 24 (padded/truncated)",
+            v.len()
+        );
     }
     a
 }
@@ -330,8 +340,6 @@ pub fn auto_tone(jpeg: Vec<u8>) -> Option<HashMap<String, f64>> {
     map.insert("temperature".to_string(), temperature);
     map.insert("tint".to_string(), tint);
     map.insert("vibrance".to_string(), vibrance);
-    map.insert("temperature".to_string(), temperature);
-    map.insert("tint".to_string(), tint);
 
     Some(map)
 }

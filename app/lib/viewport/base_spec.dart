@@ -70,6 +70,7 @@ PreviewBaseSpec baseSpecFromRecipe(EditRecipe recipe) {
     blurBokehShape: blur.bokehShape.index,
     blurBokehBoost: blur.bokehBoost,
     blurBackgroundBlur: recipe.blurBackgroundBlur,
+    blurSampleCount: blur.blurSampleCount,
   );
 
 }

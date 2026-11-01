@@ -23,6 +23,22 @@ Future<Uint8List> blurApply({
   depthMap: depthMap,
 );
 
+/// Applies depth-guided lens blur with automatic depth estimation.
+/// When no depth map is supplied, estimates one on-device via
+/// [`crate::ml::estimate_depth_map`] instead of falling back to a
+/// synthetic gradient (which assumes a centered portrait).
+Future<Uint8List> blurApplyAutoDepth({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required ApiLensBlurParams params,
+}) => RustLib.instance.api.crateApiBlurBlurApplyAutoDepth(
+  rgba: rgba,
+  width: width,
+  height: height,
+  params: params,
+);
+
 /// Computes an on-device monocular depth map from RGBA pixels.
 /// Returns a `width * height` plane of `f32` values in `[0.0, 1.0]`
 /// where lower = closer (more in focus).
@@ -81,6 +97,9 @@ class ApiLensBlurParams {
   final double bokehBoost;
   final bool backgroundBlur;
 
+  /// Bokeh kernel sample count: 12 (interactive scrub), 36 (settle), 64 (export).
+  final int sampleCount;
+
   const ApiLensBlurParams({
     required this.enabled,
     required this.amount,
@@ -89,6 +108,7 @@ class ApiLensBlurParams {
     required this.bokehShapeIndex,
     required this.bokehBoost,
     required this.backgroundBlur,
+    required this.sampleCount,
   });
 
   @override
@@ -99,7 +119,8 @@ class ApiLensBlurParams {
       focalRange.hashCode ^
       bokehShapeIndex.hashCode ^
       bokehBoost.hashCode ^
-      backgroundBlur.hashCode;
+      backgroundBlur.hashCode ^
+      sampleCount.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -112,5 +133,6 @@ class ApiLensBlurParams {
           focalRange == other.focalRange &&
           bokehShapeIndex == other.bokehShapeIndex &&
           bokehBoost == other.bokehBoost &&
-          backgroundBlur == other.backgroundBlur;
+          backgroundBlur == other.backgroundBlur &&
+          sampleCount == other.sampleCount;
 }

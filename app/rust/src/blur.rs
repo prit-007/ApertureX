@@ -51,6 +51,8 @@ pub struct LensBlurParams {
     /// When true, applies background-only blur using AI subject segmentation:
     /// the subject stays sharp while the background is blurred.
     pub background_blur: bool,
+    /// Bokeh kernel sample count: 12 (interactive scrub), 36 (settle), 64 (export).
+    pub sample_count: u32,
 }
 
 impl Default for LensBlurParams {
@@ -63,6 +65,7 @@ impl Default for LensBlurParams {
             bokeh_shape: BokehShape::Circle,
             bokeh_boost: 0.0,
             background_blur: false,
+            sample_count: 12,
         }
     }
 }
@@ -74,6 +77,7 @@ impl LensBlurParams {
 
     /// Builds params from the flat bridge fields shared by
     /// `PreviewBaseSpec` (preview bake) and `ExportSpec` (export pipeline).
+    #[allow(clippy::too_many_arguments)]
     pub fn from_fields(
         enabled: bool,
         amount: f32,
@@ -82,6 +86,7 @@ impl LensBlurParams {
         bokeh_shape: u8,
         bokeh_boost: f32,
         background_blur: bool,
+        sample_count: u32,
     ) -> Self {
         Self {
             enabled,
@@ -91,6 +96,7 @@ impl LensBlurParams {
             bokeh_shape: BokehShape::from_index(bokeh_shape),
             bokeh_boost,
             background_blur,
+            sample_count,
         }
     }
 }
@@ -342,7 +348,6 @@ pub fn apply_lens_blur(
     h: usize,
     params: LensBlurParams,
     depth_map: Option<&[f32]>,
-    sample_count: usize,
 ) -> Vec<u8> {
     if params.is_neutral() || w <= 1 || h <= 1 {
         return rgba.to_vec();
@@ -377,7 +382,25 @@ pub fn apply_lens_blur(
         generate_synthetic_depth_map(w, h)
     };
 
-    let kernel = build_bokeh_kernel(params.bokeh_shape, sample_count);
+    // Adaptive depth-edge threshold: scales with the depth map's spread so
+    // flat scenes protect subtle edges while high-contrast scenes use a
+    // looser guard. Prevents halos on thin subjects and blockiness on soft ones.
+    let depth_range = {
+        let mut dmin = f32::INFINITY;
+        let mut dmax = f32::NEG_INFINITY;
+        for &d in &depth_buffer {
+            if d < dmin {
+                dmin = d;
+            }
+            if d > dmax {
+                dmax = d;
+            }
+        }
+        (dmax - dmin).max(0.1)
+    };
+    let depth_edge_threshold = 0.15 * depth_range;
+
+    let kernel = build_bokeh_kernel(params.bokeh_shape, params.sample_count as usize);
 
     out.par_chunks_exact_mut(w * 4)
         .enumerate()
@@ -417,7 +440,7 @@ pub fn apply_lens_blur(
                     // Symmetric depth-discontinuity guard: de-weight samples on the
                     // opposite side of a depth edge to prevent halo / bleed artifacts.
                     let depth_delta = sample_depth - pixel_depth;
-                    let depth_weight = if depth_delta.abs() > 0.15 {
+                    let depth_weight = if depth_delta.abs() > depth_edge_threshold {
                         0.12 // sample on opposite side of depth edge
                     } else {
                         1.0
@@ -467,7 +490,7 @@ mod tests {
     #[test]
     fn neutral_lens_blur_is_noop() {
         let src = vec![128u8; 16 * 16 * 4];
-        let out = apply_lens_blur(&src, 16, 16, LensBlurParams::default(), None, 36);
+        let out = apply_lens_blur(&src, 16, 16, LensBlurParams::default(), None);
         assert_eq!(out, src);
     }
 
@@ -503,9 +526,10 @@ mod tests {
             bokeh_shape: BokehShape::Circle,
             bokeh_boost: 0.0,
             background_blur: false,
+            sample_count: 36,
         };
 
-        let out = apply_lens_blur(&src, w, h, params, Some(&depth_map), 36);
+        let out = apply_lens_blur(&src, w, h, params, Some(&depth_map));
 
         // In-focus left side (x=2, y=2): should retain high contrast checkerboard
         let in_focus_idx = (2 * w + 2) * 4;
@@ -542,14 +566,15 @@ mod tests {
             bokeh_shape: BokehShape::Circle,
             bokeh_boost: 0.0,
             background_blur: false,
+            sample_count: 36,
         };
-        let out_normal = apply_lens_blur(&src, w, h, base_params, Some(&depth_map), 36);
+        let out_normal = apply_lens_blur(&src, w, h, base_params, Some(&depth_map));
 
         let boosted_params = LensBlurParams {
             bokeh_boost: 1.0,
             ..base_params
         };
-        let out_boosted = apply_lens_blur(&src, w, h, boosted_params, Some(&depth_map), 36);
+        let out_boosted = apply_lens_blur(&src, w, h, boosted_params, Some(&depth_map));
 
         // Surrounding bokeh disc around (12, 12) should be brighter with bokeh_boost
         let sample_idx = (12 * w + 11) * 4;
@@ -585,10 +610,11 @@ mod tests {
             bokeh_shape: BokehShape::Circle,
             bokeh_boost: 0.0,
             background_blur: false,
+            sample_count: 36,
         };
 
         // None passed for depth_map -> uses optical synthetic perspective
-        let out = apply_lens_blur(&src, w, h, params, None, 36);
+        let out = apply_lens_blur(&src, w, h, params, None);
 
         // Subject center near (16, 14): should be in sharp focus (coc <= 1e-3, identical to src)
         let subject_idx = (14 * w + 16) * 4;
@@ -633,8 +659,8 @@ mod tests {
     #[test]
     fn neutral_blur_ignores_sample_count() {
         let src = vec![128u8; 16 * 16 * 4];
-        let out_12 = apply_lens_blur(&src, 16, 16, LensBlurParams::default(), None, 12);
-        let out_36 = apply_lens_blur(&src, 16, 16, LensBlurParams::default(), None, 36);
+        let out_12 = apply_lens_blur(&src, 16, 16, LensBlurParams::default(), None);
+        let out_36 = apply_lens_blur(&src, 16, 16, LensBlurParams::default(), None);
         assert_eq!(out_12, src);
         assert_eq!(out_36, src);
         assert_eq!(out_12, out_36);
@@ -663,9 +689,10 @@ mod tests {
             bokeh_shape: BokehShape::Circle,
             bokeh_boost: 0.0,
             background_blur: false,
+            sample_count: 36,
         };
 
-        let seq = apply_lens_blur(&src, w, h, params, Some(&depth_map), 36);
+        let seq = apply_lens_blur(&src, w, h, params, Some(&depth_map));
 
         // Parallel version: split rows into chunks and process each in parallel
         let mut out = vec![0u8; w * h * 4];

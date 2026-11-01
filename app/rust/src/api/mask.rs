@@ -175,6 +175,18 @@ pub fn detect_faces(_rgba: Vec<u8>, _width: u32, _height: u32) -> Vec<DetectedFa
     Vec::new()
 }
 
+/// Returns true if face detection (YuNet) is compiled into this build.
+pub fn face_detection_available() -> bool {
+    #[cfg(feature = "ai")]
+    {
+        true
+    }
+    #[cfg(not(feature = "ai"))]
+    {
+        false
+    }
+}
+
 /// Detects the largest face in an RGBA image, if any.
 pub fn detect_face(rgba: Vec<u8>, width: u32, height: u32) -> Option<DetectedFace> {
     let faces = detect_faces(rgba, width, height);

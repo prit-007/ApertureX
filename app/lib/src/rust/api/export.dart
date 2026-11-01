@@ -468,6 +468,9 @@ class ExportSpec {
 
   /// When true, applies background-only blur (subject stays sharp).
   final bool blurBackgroundBlur;
+
+  /// Bokeh kernel sample count: 12 (interactive scrub), 36 (settle), 64 (export).
+  final int blurSampleCount;
   final int quality;
 
   /// Longest-side cap for the export (0 = full resolution).
@@ -551,6 +554,7 @@ class ExportSpec {
     required this.blurBokehShape,
     required this.blurBokehBoost,
     required this.blurBackgroundBlur,
+    required this.blurSampleCount,
     required this.quality,
     required this.maxDim,
     required this.bandRows,
@@ -628,6 +632,7 @@ class ExportSpec {
       blurBokehShape.hashCode ^
       blurBokehBoost.hashCode ^
       blurBackgroundBlur.hashCode ^
+      blurSampleCount.hashCode ^
       quality.hashCode ^
       maxDim.hashCode ^
       bandRows.hashCode ^
@@ -703,6 +708,7 @@ class ExportSpec {
           blurBokehShape == other.blurBokehShape &&
           blurBokehBoost == other.blurBokehBoost &&
           blurBackgroundBlur == other.blurBackgroundBlur &&
+          blurSampleCount == other.blurSampleCount &&
           quality == other.quality &&
           maxDim == other.maxDim &&
           bandRows == other.bandRows &&

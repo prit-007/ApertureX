@@ -216,6 +216,9 @@ class PreviewBaseSpec {
   /// When true, applies background-only blur (subject stays sharp).
   final bool blurBackgroundBlur;
 
+  /// Bokeh kernel sample count: 12 (interactive scrub), 36 (settle), 64 (export).
+  final int blurSampleCount;
+
   const PreviewBaseSpec({
     required this.flipH,
     required this.flipV,
@@ -274,6 +277,7 @@ class PreviewBaseSpec {
     required this.blurBokehShape,
     required this.blurBokehBoost,
     required this.blurBackgroundBlur,
+    required this.blurSampleCount,
   });
 
   /// Maps the flat blur fields onto the engine's [`crate::blur::LensBlurParams`].
@@ -341,7 +345,8 @@ class PreviewBaseSpec {
       blurFocalRange.hashCode ^
       blurBokehShape.hashCode ^
       blurBokehBoost.hashCode ^
-      blurBackgroundBlur.hashCode;
+      blurBackgroundBlur.hashCode ^
+      blurSampleCount.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -404,7 +409,8 @@ class PreviewBaseSpec {
           blurFocalRange == other.blurFocalRange &&
           blurBokehShape == other.blurBokehShape &&
           blurBokehBoost == other.blurBokehBoost &&
-          blurBackgroundBlur == other.blurBackgroundBlur;
+          blurBackgroundBlur == other.blurBackgroundBlur &&
+          blurSampleCount == other.blurSampleCount;
 }
 
 /// Dimensions of the frame a [`preview_render`] just wrote into the bound

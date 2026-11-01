@@ -202,6 +202,8 @@ pub struct ExportSpec {
     pub blur_bokeh_boost: f32,
     /// When true, applies background-only blur (subject stays sharp).
     pub blur_background_blur: bool,
+    /// Bokeh kernel sample count: 12 (interactive scrub), 36 (settle), 64 (export).
+    pub blur_sample_count: u8,
     // encode
     pub quality: u8,
     /// Longest-side cap for the export (0 = full resolution).
@@ -229,6 +231,7 @@ impl ExportSpec {
             self.blur_bokeh_shape,
             self.blur_bokeh_boost,
             self.blur_background_blur,
+            self.blur_sample_count.into(),
         )
     }
 
@@ -805,6 +808,7 @@ mod tests {
             blur_bokeh_shape: 0,
             blur_bokeh_boost: 0.0,
             blur_background_blur: false,
+            blur_sample_count: 12,
             quality: 90,
             max_dim: 0,
             band_rows: 16,
@@ -840,6 +844,7 @@ mod tests {
                 bokeh_shape: crate::blur::BokehShape::Hexagon,
                 bokeh_boost: 0.4,
                 background_blur: false,
+                sample_count: 12,
             }
         );
     }
