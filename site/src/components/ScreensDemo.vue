@@ -351,6 +351,12 @@ import editorImg from '../assets/stock/editor.webp'
 import maskImg from '../assets/stock/mask.webp'
 import lookqrImgSrc from '../assets/stock/lookqr.webp'
 import exportImg from '../assets/stock/export.webp'
+import gallery1Img from '../assets/stock/gallery-1.webp'
+import gallery2Img from '../assets/stock/gallery-2.webp'
+import gallery3Img from '../assets/stock/gallery-3.webp'
+import gallery4Img from '../assets/stock/gallery-4.webp'
+import gallery5Img from '../assets/stock/gallery-5.webp'
+import gallery6Img from '../assets/stock/gallery-6.webp'
 
 const tabs = [
   { id: 'lightroom', label: '1. Zen Lightroom Inspector' },
@@ -448,12 +454,12 @@ const slider1ThumbLeft = computed(() => slider1Pct.value + '%')
 const slider2ThumbLeft = computed(() => slider2Pct.value + '%')
 
 const galleryItems = [
-  { bg: 'radial-gradient(circle, #FFB300, #FF2A55)', img: '/assets/stock/gallery-1.webp', tag: 'RAW' },
-  { bg: 'radial-gradient(circle, #00E5FF, #006699)', img: '/assets/stock/gallery-2.webp', tag: 'HDR' },
-  { bg: 'radial-gradient(circle, #70F3FF, #152238)', img: '/assets/stock/gallery-3.webp', tag: 'RAW' },
-  { bg: 'radial-gradient(circle, #FF5C7E, #3A0C16)', img: '/assets/stock/gallery-4.webp', tag: 'EDIT' },
-  { bg: 'radial-gradient(circle, #FFD54F, #5D3A00)', img: '/assets/stock/gallery-5.webp', tag: 'RAW' },
-  { bg: 'radial-gradient(circle, #10B981, #083320)', img: '/assets/stock/gallery-6.webp', tag: 'C2PA' },
+  { bg: 'radial-gradient(circle, #FFB300, #FF2A55)', img: gallery1Img, tag: 'RAW' },
+  { bg: 'radial-gradient(circle, #00E5FF, #006699)', img: gallery2Img, tag: 'HDR' },
+  { bg: 'radial-gradient(circle, #70F3FF, #152238)', img: gallery3Img, tag: 'RAW' },
+  { bg: 'radial-gradient(circle, #FF5C7E, #3A0C16)', img: gallery4Img, tag: 'EDIT' },
+  { bg: 'radial-gradient(circle, #FFD54F, #5D3A00)', img: gallery5Img, tag: 'RAW' },
+  { bg: 'radial-gradient(circle, #10B981, #083320)', img: gallery6Img, tag: 'C2PA' },
 ]
 const gallerySel = ref(3)
 
