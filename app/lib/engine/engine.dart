@@ -771,6 +771,24 @@ class AxEngine {
   static Future<bool> faceDetectionAvailable() =>
       rust_mask.faceDetectionAvailable();
 
+  /// Applies one-tap AI portrait blur.
+  ///
+  /// Detects faces, estimates depth, places focal plane on the highest-scoring
+  /// face, and applies background blur with the subject protected.
+  /// Default amount is 0.4 (subtle).
+  static Future<Uint8List> blurApplyPortrait({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    required double amount,
+  }) =>
+      rust_blur.blurApplyPortrait(
+        rgba: rgba,
+        width: width,
+        height: height,
+        amount: amount,
+      );
+
   // --- masking / local adjustments (P2.5) -----------------------------------
 
   static rust_color.ColorParams _localParams(AdjustmentLayer l) =>

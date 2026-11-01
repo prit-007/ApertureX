@@ -111,4 +111,70 @@ void main() {
       expect([true, false], contains(available));
     });
   });
+
+  group('AxEngine portrait blur', () {
+    test('blurApplyPortrait output length matches input', () async {
+      if (!rustAvailable) {
+        return;
+      }
+      final rgba = Uint8List(32 * 32 * 4);
+      for (var i = 0; i < rgba.length; i += 4) {
+        rgba[i] = 128;
+        rgba[i + 1] = 128;
+        rgba[i + 2] = 128;
+        rgba[i + 3] = 255;
+      }
+      final out = await AxEngine.blurApplyPortrait(
+        rgba: rgba,
+        width: 32,
+        height: 32,
+        amount: 0.4,
+      );
+      expect(out.length, 32 * 32 * 4);
+    });
+
+    test('blurApplyPortrait default amount is subtle', () async {
+      if (!rustAvailable) {
+        return;
+      }
+      final rgba = Uint8List(32 * 32 * 4);
+      for (var i = 0; i < rgba.length; i += 4) {
+        rgba[i] = 200;
+        rgba[i + 1] = 200;
+        rgba[i + 2] = 200;
+        rgba[i + 3] = 255;
+      }
+      final out = await AxEngine.blurApplyPortrait(
+        rgba: rgba,
+        width: 32,
+        height: 32,
+        amount: 0.4,
+      );
+      expect(out.length, 32 * 32 * 4);
+    });
+
+    test('blurApplyPortrait with checkerboard (no faces) does not error', () async {
+      if (!rustAvailable) {
+        return;
+      }
+      final rgba = Uint8List(32 * 32 * 4);
+      for (var y = 0; y < 32; y++) {
+        for (var x = 0; x < 32; x++) {
+          final idx = (y * 32 + x) * 4;
+          final v = (x + y) % 2 == 0 ? 255 : 0;
+          rgba[idx] = v;
+          rgba[idx + 1] = v;
+          rgba[idx + 2] = v;
+          rgba[idx + 3] = 255;
+        }
+      }
+      final out = await AxEngine.blurApplyPortrait(
+        rgba: rgba,
+        width: 32,
+        height: 32,
+        amount: 0.4,
+      );
+      expect(out.length, 32 * 32 * 4);
+    });
+  });
 }

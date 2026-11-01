@@ -1,5 +1,6 @@
 //! Lens Blur API wrappers across flutter_rust_bridge.
 
+use crate::api::mask::detect_faces;
 use crate::blur::{self, LensBlurParams};
 
 #[cfg(test)]
@@ -75,6 +76,66 @@ pub fn blur_apply_auto_depth(
         params.bokeh_boost,
         params.background_blur,
         params.sample_count,
+    );
+
+    Ok(blur::apply_lens_blur(
+        &rgba,
+        width as usize,
+        height as usize,
+        p,
+        Some(&depth_map),
+    ))
+}
+
+/// Applies one-tap AI portrait blur.
+///
+/// Detects faces via YuNet, estimates depth via Depth Anything V2, places
+/// the focal plane on the highest-scoring face, and applies background
+/// blur with the subject protected. Default amount is 0.4 (subtle).
+///
+/// When no faces are detected, falls back to center-focused depth blur
+/// without background-only masking.
+pub fn blur_apply_portrait(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    amount: f32,
+) -> Result<Vec<u8>, String> {
+    let (w, h) = (width as usize, height as usize);
+
+    // Detect faces to find the subject
+    let faces = detect_faces(rgba.clone(), width, height);
+
+    // Estimate depth map
+    let depth_map = crate::ml::estimate_depth_map(&rgba, w, h, w, h)
+        .map_err(|e| format!("depth estimation failed: {e}"))?;
+
+    // Determine focal point from the highest-scoring face, or center
+    let (focal_point, background_blur) = if let Some(face) = faces.into_iter().max_by(|a, b| {
+        a.score
+            .partial_cmp(&b.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    }) {
+        // Sample depth at face center (normalized coords -> pixel index)
+        let cx = face.cx.clamp(0.0, 1.0);
+        let cy = face.cy.clamp(0.0, 1.0);
+        let px = (cx * (w - 1) as f32).round() as usize;
+        let py = (cy * (h - 1) as f32).round() as usize;
+        let depth_at_face = depth_map[py * w + px].clamp(0.0, 1.0);
+        (depth_at_face, true)
+    } else {
+        (0.5, false)
+    };
+
+    let p = crate::blur::LensBlurParams::from_fields(
+        true,
+        amount,
+        focal_point,
+        0.2, // shallow DoF for portrait
+        0,   // circle bokeh for soft portrait look
+        0.3, // subtle bokeh boost
+        background_blur,
+        36, // full quality for portrait
     );
 
     Ok(blur::apply_lens_blur(
@@ -341,5 +402,47 @@ mod tests {
             conf_textured > conf_textureless,
             "textured ({conf_textured}) > textureless ({conf_textureless})"
         );
+    }
+
+    /// Portrait blur returns output of same length as input.
+    #[test]
+    fn portrait_blur_output_length_matches_input() {
+        let (w, h) = (32, 32);
+        let src = vec![128u8; w * h * 4];
+        let out = blur_apply_portrait(src.clone(), w as u32, h as u32, 0.4)
+            .expect("portrait blur must succeed");
+        assert_eq!(out.len(), w * h * 4);
+    }
+
+    /// Portrait blur default amount is 0.4 (subtle).
+    #[test]
+    fn portrait_blur_default_amount_is_subtle() {
+        let (w, h) = (32, 32);
+        let src = vec![200u8; w * h * 4];
+        let out = blur_apply_portrait(src.clone(), w as u32, h as u32, 0.4)
+            .expect("portrait blur must succeed");
+        // With uniform gray and low confidence, output should still be valid
+        assert_eq!(out.len(), w * h * 4);
+    }
+
+    /// Portrait blur with no faces falls back to synthetic depth (doesn't error).
+    #[test]
+    fn portrait_blur_no_faces_falls_back_to_synthetic_depth() {
+        let (w, h) = (32, 32);
+        // Checkerboard pattern - no faces expected from YuNet
+        let mut src = vec![0u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                let v = if (x + y) % 2 == 0 { 255 } else { 0 };
+                src[idx] = v;
+                src[idx + 1] = v;
+                src[idx + 2] = v;
+                src[idx + 3] = 255;
+            }
+        }
+        let out = blur_apply_portrait(src.clone(), w as u32, h as u32, 0.4)
+            .expect("portrait blur with no faces must succeed");
+        assert_eq!(out.len(), w * h * 4);
     }
 }

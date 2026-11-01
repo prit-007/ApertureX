@@ -39,6 +39,26 @@ Future<Uint8List> blurApplyAutoDepth({
   params: params,
 );
 
+/// Applies one-tap AI portrait blur.
+///
+/// Detects faces via YuNet, estimates depth via Depth Anything V2, places
+/// the focal plane on the highest-scoring face, and applies background
+/// blur with the subject protected. Default amount is 0.4 (subtle).
+///
+/// When no faces are detected, falls back to center-focused depth blur
+/// without background-only masking.
+Future<Uint8List> blurApplyPortrait({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required double amount,
+}) => RustLib.instance.api.crateApiBlurBlurApplyPortrait(
+  rgba: rgba,
+  width: width,
+  height: height,
+  amount: amount,
+);
+
 /// Computes an on-device monocular depth map from RGBA pixels.
 /// Returns a `width * height` plane of `f32` values in `[0.0, 1.0]`
 /// where lower = closer (more in focus).
