@@ -3904,11 +3904,20 @@ impl SseDecode for crate::api::export::ExportBrandingSpec {
         let mut var_signatureAnchor = <u8>::sse_decode(deserializer);
         let mut var_signatureOpacity = <f32>::sse_decode(deserializer);
         let mut var_signatureSizePct = <f32>::sse_decode(deserializer);
+        let mut var_signatureInsetPct = <f32>::sse_decode(deserializer);
+        let mut var_signatureColor = <u32>::sse_decode(deserializer);
+        let mut var_signatureDropShadow = <bool>::sse_decode(deserializer);
         let mut var_enableLogo = <bool>::sse_decode(deserializer);
         let mut var_logoBytes = <Vec<u8>>::sse_decode(deserializer);
         let mut var_logoAnchor = <u8>::sse_decode(deserializer);
         let mut var_logoOpacity = <f32>::sse_decode(deserializer);
         let mut var_logoScalePct = <f32>::sse_decode(deserializer);
+        let mut var_logoInsetPct = <f32>::sse_decode(deserializer);
+        let mut var_enableTiledWatermark = <bool>::sse_decode(deserializer);
+        let mut var_tiledText = <String>::sse_decode(deserializer);
+        let mut var_tiledOpacity = <f32>::sse_decode(deserializer);
+        let mut var_tiledSizePct = <f32>::sse_decode(deserializer);
+        let mut var_tiledSpacingPct = <f32>::sse_decode(deserializer);
         let mut var_enableFossBadge = <bool>::sse_decode(deserializer);
         return crate::api::export::ExportBrandingSpec {
             enable_museum_frame: var_enableMuseumFrame,
@@ -3920,11 +3929,20 @@ impl SseDecode for crate::api::export::ExportBrandingSpec {
             signature_anchor: var_signatureAnchor,
             signature_opacity: var_signatureOpacity,
             signature_size_pct: var_signatureSizePct,
+            signature_inset_pct: var_signatureInsetPct,
+            signature_color: var_signatureColor,
+            signature_drop_shadow: var_signatureDropShadow,
             enable_logo: var_enableLogo,
             logo_bytes: var_logoBytes,
             logo_anchor: var_logoAnchor,
             logo_opacity: var_logoOpacity,
             logo_scale_pct: var_logoScalePct,
+            logo_inset_pct: var_logoInsetPct,
+            enable_tiled_watermark: var_enableTiledWatermark,
+            tiled_text: var_tiledText,
+            tiled_opacity: var_tiledOpacity,
+            tiled_size_pct: var_tiledSizePct,
+            tiled_spacing_pct: var_tiledSpacingPct,
             enable_foss_badge: var_enableFossBadge,
         };
     }
@@ -4772,11 +4790,20 @@ impl SseDecode for crate::watermark::WatermarkSpec {
         let mut var_signatureAnchor = <crate::watermark::WatermarkAnchor>::sse_decode(deserializer);
         let mut var_signatureOpacity = <f32>::sse_decode(deserializer);
         let mut var_signatureSizePct = <f32>::sse_decode(deserializer);
+        let mut var_signatureInsetPct = <f32>::sse_decode(deserializer);
+        let mut var_signatureColor = <u32>::sse_decode(deserializer);
+        let mut var_signatureDropShadow = <bool>::sse_decode(deserializer);
         let mut var_enableLogo = <bool>::sse_decode(deserializer);
         let mut var_logoBytes = <Vec<u8>>::sse_decode(deserializer);
         let mut var_logoAnchor = <crate::watermark::WatermarkAnchor>::sse_decode(deserializer);
         let mut var_logoOpacity = <f32>::sse_decode(deserializer);
         let mut var_logoScalePct = <f32>::sse_decode(deserializer);
+        let mut var_logoInsetPct = <f32>::sse_decode(deserializer);
+        let mut var_enableTiledWatermark = <bool>::sse_decode(deserializer);
+        let mut var_tiledText = <String>::sse_decode(deserializer);
+        let mut var_tiledOpacity = <f32>::sse_decode(deserializer);
+        let mut var_tiledSizePct = <f32>::sse_decode(deserializer);
+        let mut var_tiledSpacingPct = <f32>::sse_decode(deserializer);
         let mut var_enableFossBadge = <bool>::sse_decode(deserializer);
         return crate::watermark::WatermarkSpec {
             enable_museum_frame: var_enableMuseumFrame,
@@ -4788,11 +4815,20 @@ impl SseDecode for crate::watermark::WatermarkSpec {
             signature_anchor: var_signatureAnchor,
             signature_opacity: var_signatureOpacity,
             signature_size_pct: var_signatureSizePct,
+            signature_inset_pct: var_signatureInsetPct,
+            signature_color: var_signatureColor,
+            signature_drop_shadow: var_signatureDropShadow,
             enable_logo: var_enableLogo,
             logo_bytes: var_logoBytes,
             logo_anchor: var_logoAnchor,
             logo_opacity: var_logoOpacity,
             logo_scale_pct: var_logoScalePct,
+            logo_inset_pct: var_logoInsetPct,
+            enable_tiled_watermark: var_enableTiledWatermark,
+            tiled_text: var_tiledText,
+            tiled_opacity: var_tiledOpacity,
+            tiled_size_pct: var_tiledSizePct,
+            tiled_spacing_pct: var_tiledSpacingPct,
             enable_foss_badge: var_enableFossBadge,
         };
     }
@@ -5354,11 +5390,20 @@ impl flutter_rust_bridge::IntoDart for crate::api::export::ExportBrandingSpec {
             self.signature_anchor.into_into_dart().into_dart(),
             self.signature_opacity.into_into_dart().into_dart(),
             self.signature_size_pct.into_into_dart().into_dart(),
+            self.signature_inset_pct.into_into_dart().into_dart(),
+            self.signature_color.into_into_dart().into_dart(),
+            self.signature_drop_shadow.into_into_dart().into_dart(),
             self.enable_logo.into_into_dart().into_dart(),
             self.logo_bytes.into_into_dart().into_dart(),
             self.logo_anchor.into_into_dart().into_dart(),
             self.logo_opacity.into_into_dart().into_dart(),
             self.logo_scale_pct.into_into_dart().into_dart(),
+            self.logo_inset_pct.into_into_dart().into_dart(),
+            self.enable_tiled_watermark.into_into_dart().into_dart(),
+            self.tiled_text.into_into_dart().into_dart(),
+            self.tiled_opacity.into_into_dart().into_dart(),
+            self.tiled_size_pct.into_into_dart().into_dart(),
+            self.tiled_spacing_pct.into_into_dart().into_dart(),
             self.enable_foss_badge.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -5876,11 +5921,20 @@ impl flutter_rust_bridge::IntoDart for crate::watermark::WatermarkSpec {
             self.signature_anchor.into_into_dart().into_dart(),
             self.signature_opacity.into_into_dart().into_dart(),
             self.signature_size_pct.into_into_dart().into_dart(),
+            self.signature_inset_pct.into_into_dart().into_dart(),
+            self.signature_color.into_into_dart().into_dart(),
+            self.signature_drop_shadow.into_into_dart().into_dart(),
             self.enable_logo.into_into_dart().into_dart(),
             self.logo_bytes.into_into_dart().into_dart(),
             self.logo_anchor.into_into_dart().into_dart(),
             self.logo_opacity.into_into_dart().into_dart(),
             self.logo_scale_pct.into_into_dart().into_dart(),
+            self.logo_inset_pct.into_into_dart().into_dart(),
+            self.enable_tiled_watermark.into_into_dart().into_dart(),
+            self.tiled_text.into_into_dart().into_dart(),
+            self.tiled_opacity.into_into_dart().into_dart(),
+            self.tiled_size_pct.into_into_dart().into_dart(),
+            self.tiled_spacing_pct.into_into_dart().into_dart(),
             self.enable_foss_badge.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -6107,11 +6161,20 @@ impl SseEncode for crate::api::export::ExportBrandingSpec {
         <u8>::sse_encode(self.signature_anchor, serializer);
         <f32>::sse_encode(self.signature_opacity, serializer);
         <f32>::sse_encode(self.signature_size_pct, serializer);
+        <f32>::sse_encode(self.signature_inset_pct, serializer);
+        <u32>::sse_encode(self.signature_color, serializer);
+        <bool>::sse_encode(self.signature_drop_shadow, serializer);
         <bool>::sse_encode(self.enable_logo, serializer);
         <Vec<u8>>::sse_encode(self.logo_bytes, serializer);
         <u8>::sse_encode(self.logo_anchor, serializer);
         <f32>::sse_encode(self.logo_opacity, serializer);
         <f32>::sse_encode(self.logo_scale_pct, serializer);
+        <f32>::sse_encode(self.logo_inset_pct, serializer);
+        <bool>::sse_encode(self.enable_tiled_watermark, serializer);
+        <String>::sse_encode(self.tiled_text, serializer);
+        <f32>::sse_encode(self.tiled_opacity, serializer);
+        <f32>::sse_encode(self.tiled_size_pct, serializer);
+        <f32>::sse_encode(self.tiled_spacing_pct, serializer);
         <bool>::sse_encode(self.enable_foss_badge, serializer);
     }
 }
@@ -6707,11 +6770,20 @@ impl SseEncode for crate::watermark::WatermarkSpec {
         <crate::watermark::WatermarkAnchor>::sse_encode(self.signature_anchor, serializer);
         <f32>::sse_encode(self.signature_opacity, serializer);
         <f32>::sse_encode(self.signature_size_pct, serializer);
+        <f32>::sse_encode(self.signature_inset_pct, serializer);
+        <u32>::sse_encode(self.signature_color, serializer);
+        <bool>::sse_encode(self.signature_drop_shadow, serializer);
         <bool>::sse_encode(self.enable_logo, serializer);
         <Vec<u8>>::sse_encode(self.logo_bytes, serializer);
         <crate::watermark::WatermarkAnchor>::sse_encode(self.logo_anchor, serializer);
         <f32>::sse_encode(self.logo_opacity, serializer);
         <f32>::sse_encode(self.logo_scale_pct, serializer);
+        <f32>::sse_encode(self.logo_inset_pct, serializer);
+        <bool>::sse_encode(self.enable_tiled_watermark, serializer);
+        <String>::sse_encode(self.tiled_text, serializer);
+        <f32>::sse_encode(self.tiled_opacity, serializer);
+        <f32>::sse_encode(self.tiled_size_pct, serializer);
+        <f32>::sse_encode(self.tiled_spacing_pct, serializer);
         <bool>::sse_encode(self.enable_foss_badge, serializer);
     }
 }

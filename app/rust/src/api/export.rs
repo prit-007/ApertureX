@@ -259,8 +259,8 @@ pub struct ExportResult {
     pub jpeg: Vec<u8>,
 }
 
-/// Specifications for watermark, signature, museum frame, and FOSS badge.
-#[derive(Debug, Clone, Default)]
+/// Specifications for watermark, signature, museum frame, tiled proof, and FOSS badge.
+#[derive(Debug, Clone)]
 pub struct ExportBrandingSpec {
     pub enable_museum_frame: bool,
     /// 0 = StudioWhite, 1 = MatteDark, 2 = WarmGallery
@@ -273,12 +273,52 @@ pub struct ExportBrandingSpec {
     pub signature_anchor: u8,
     pub signature_opacity: f32,
     pub signature_size_pct: f32,
+    pub signature_inset_pct: f32,
+    pub signature_color: u32,
+    pub signature_drop_shadow: bool,
     pub enable_logo: bool,
     pub logo_bytes: Vec<u8>,
     pub logo_anchor: u8,
     pub logo_opacity: f32,
     pub logo_scale_pct: f32,
+    pub logo_inset_pct: f32,
+    pub enable_tiled_watermark: bool,
+    pub tiled_text: String,
+    pub tiled_opacity: f32,
+    pub tiled_size_pct: f32,
+    pub tiled_spacing_pct: f32,
     pub enable_foss_badge: bool,
+}
+
+impl Default for ExportBrandingSpec {
+    fn default() -> Self {
+        Self {
+            enable_museum_frame: false,
+            frame_theme: 0,
+            exif_line1: String::new(),
+            exif_line2: String::new(),
+            enable_signature: false,
+            signature_text: String::new(),
+            signature_anchor: 8,
+            signature_opacity: 0.8,
+            signature_size_pct: 2.5,
+            signature_inset_pct: 3.0,
+            signature_color: 0,
+            signature_drop_shadow: true,
+            enable_logo: false,
+            logo_bytes: Vec::new(),
+            logo_anchor: 8,
+            logo_opacity: 0.8,
+            logo_scale_pct: 10.0,
+            logo_inset_pct: 3.0,
+            enable_tiled_watermark: false,
+            tiled_text: String::new(),
+            tiled_opacity: 0.25,
+            tiled_size_pct: 3.0,
+            tiled_spacing_pct: 30.0,
+            enable_foss_badge: false,
+        }
+    }
 }
 
 impl ExportBrandingSpec {
@@ -309,11 +349,20 @@ impl ExportBrandingSpec {
             signature_anchor: anchor_from_u8(self.signature_anchor),
             signature_opacity: self.signature_opacity,
             signature_size_pct: self.signature_size_pct,
+            signature_inset_pct: self.signature_inset_pct,
+            signature_color: self.signature_color,
+            signature_drop_shadow: self.signature_drop_shadow,
             enable_logo: self.enable_logo,
             logo_bytes: self.logo_bytes.clone(),
             logo_anchor: anchor_from_u8(self.logo_anchor),
             logo_opacity: self.logo_opacity,
             logo_scale_pct: self.logo_scale_pct,
+            logo_inset_pct: self.logo_inset_pct,
+            enable_tiled_watermark: self.enable_tiled_watermark,
+            tiled_text: self.tiled_text.clone(),
+            tiled_opacity: self.tiled_opacity,
+            tiled_size_pct: self.tiled_size_pct,
+            tiled_spacing_pct: self.tiled_spacing_pct,
             enable_foss_badge: self.enable_foss_badge,
         }
     }

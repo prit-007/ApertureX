@@ -66,8 +66,11 @@ pub struct WatermarkSpec {
     pub enable_signature: bool,
     pub signature_text: String,
     pub signature_anchor: WatermarkAnchor,
-    pub signature_opacity: f32,  // 0.0 to 1.0
-    pub signature_size_pct: f32, // e.g. 2.5% of shortest side
+    pub signature_opacity: f32,   // 0.0 to 1.0
+    pub signature_size_pct: f32,  // e.g. 2.5% of shortest side
+    pub signature_inset_pct: f32, // Inset padding percentage from edge (e.g. 3.0%)
+    pub signature_color: u32, // 0 = White, 1 = Black, 2 = Warm Ivory, 3 = Gold Accent, or 0xAARRGGBB
+    pub signature_drop_shadow: bool,
 
     // PNG Logo Signature
     pub enable_logo: bool,
@@ -75,6 +78,14 @@ pub struct WatermarkSpec {
     pub logo_anchor: WatermarkAnchor,
     pub logo_opacity: f32,
     pub logo_scale_pct: f32, // e.g. 10.0% of width
+    pub logo_inset_pct: f32,
+
+    // Tiled / Repeating Watermark (Client Proof Protection)
+    pub enable_tiled_watermark: bool,
+    pub tiled_text: String,
+    pub tiled_opacity: f32,
+    pub tiled_size_pct: f32,
+    pub tiled_spacing_pct: f32,
 
     // FOSS Flex Badge
     pub enable_foss_badge: bool,
@@ -92,11 +103,20 @@ impl Default for WatermarkSpec {
             signature_anchor: WatermarkAnchor::BottomRight,
             signature_opacity: 0.8,
             signature_size_pct: 2.5,
+            signature_inset_pct: 3.0,
+            signature_color: 0,
+            signature_drop_shadow: true,
             enable_logo: false,
             logo_bytes: Vec::new(),
             logo_anchor: WatermarkAnchor::BottomRight,
             logo_opacity: 0.8,
             logo_scale_pct: 10.0,
+            logo_inset_pct: 3.0,
+            enable_tiled_watermark: false,
+            tiled_text: String::new(),
+            tiled_opacity: 0.25,
+            tiled_size_pct: 3.0,
+            tiled_spacing_pct: 30.0,
             enable_foss_badge: false,
         }
     }
@@ -999,6 +1019,30 @@ pub fn calculate_anchor_position(
     (x.max(0.0), y.max(0.0))
 }
 
+/// Resolves color code (0 = White, 1 = Black, 2 = Ivory, 3 = Gold, or ARGB packed) to [R, G, B, A].
+pub fn resolve_signature_color(color_code: u32, alpha: u8) -> [u8; 4] {
+    match color_code {
+        0 => [255, 255, 255, alpha], // Pure White
+        1 => [26, 26, 26, alpha],    // Matte Dark
+        2 => [247, 245, 240, alpha], // Warm Ivory
+        3 => [212, 175, 55, alpha],  // Gold Accent
+        c if c > 3 => {
+            // Packed 0xAARRGGBB or 0x00RRGGBB
+            let r = ((c >> 16) & 0xFF) as u8;
+            let g = ((c >> 8) & 0xFF) as u8;
+            let b = (c & 0xFF) as u8;
+            let a = ((c >> 24) & 0xFF) as u8;
+            let final_a = if a == 0 {
+                alpha
+            } else {
+                ((a as f32 / 255.0) * (alpha as f32 / 255.0) * 255.0).round() as u8
+            };
+            [r, g, b, final_a]
+        }
+        _ => [255, 255, 255, alpha],
+    }
+}
+
 /// Applies custom photographer text signature with 9-point grid alignment.
 pub fn apply_text_signature(
     buf: &mut [u8],
@@ -1009,19 +1053,71 @@ pub fn apply_text_signature(
     opacity: f32,
     size_pct: f32,
 ) {
+    apply_text_signature_ext(buf, w, h, text, anchor, opacity, size_pct, 3.0, 0, true);
+}
+
+/// Extended text signature with custom inset margin, color theme, and drop shadow control.
+#[allow(clippy::too_many_arguments)]
+pub fn apply_text_signature_ext(
+    buf: &mut [u8],
+    w: u32,
+    h: u32,
+    text: &str,
+    anchor: WatermarkAnchor,
+    opacity: f32,
+    size_pct: f32,
+    inset_pct: f32,
+    color_code: u32,
+    drop_shadow: bool,
+) {
     if text.is_empty() || opacity <= 0.0 {
         return;
     }
     let font_size = ((w.min(h) as f32) * (size_pct / 100.0)).clamp(12.0, 160.0);
     let (text_w, text_h) = measure_text(text, font_size);
-    let margin = (w.min(h) as f32 * 0.03).max(12.0);
+    let margin = ((w.min(h) as f32) * (inset_pct.max(0.5) / 100.0)).max(8.0);
 
     let (pos_x, pos_y) = calculate_anchor_position(w, h, text_w, text_h, anchor, margin, margin);
 
     let alpha = (opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
+    let color = resolve_signature_color(color_code, alpha);
+
+    draw_text_rgba(buf, w, h, text, pos_x, pos_y, font_size, color, drop_shadow);
+}
+
+/// Applies tiled repeating watermark across the entire image (Client Proof Protection).
+pub fn apply_tiled_watermark(
+    buf: &mut [u8],
+    w: u32,
+    h: u32,
+    text: &str,
+    opacity: f32,
+    size_pct: f32,
+    spacing_pct: f32,
+) {
+    if text.is_empty() || opacity <= 0.0 || w == 0 || h == 0 {
+        return;
+    }
+    let font_size = ((w.min(h) as f32) * (size_pct.clamp(1.0, 10.0) / 100.0)).clamp(12.0, 120.0);
+    let (text_w, text_h) = measure_text(text, font_size);
+    let step_x = ((w as f32) * (spacing_pct.clamp(10.0, 100.0) / 100.0)).max(text_w + 30.0);
+    let step_y = ((h as f32) * (spacing_pct.clamp(10.0, 100.0) / 100.0)).max(text_h + 30.0);
+
+    let alpha = (opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
     let color = [255, 255, 255, alpha];
 
-    draw_text_rgba(buf, w, h, text, pos_x, pos_y, font_size, color, true);
+    let mut row = 0;
+    let mut y = (step_y * 0.25).max(10.0);
+    while y < h as f32 {
+        let x_offset = if row % 2 == 1 { step_x * 0.5 } else { 0.0 };
+        let mut x = x_offset;
+        while x < w as f32 {
+            draw_text_rgba(buf, w, h, text, x, y, font_size, color, true);
+            x += step_x;
+        }
+        y += step_y;
+        row += 1;
+    }
 }
 
 /// Bilinear sampling helper for resizing images.
@@ -1064,13 +1160,32 @@ pub fn apply_logo_watermark(
     opacity: f32,
     scale_pct: f32,
 ) {
+    apply_logo_watermark_ext(
+        buf, w, h, logo_rgba, logo_w, logo_h, anchor, opacity, scale_pct, 3.0,
+    );
+}
+
+/// Extended logo watermark application with customizable inset margin.
+#[allow(clippy::too_many_arguments)]
+pub fn apply_logo_watermark_ext(
+    buf: &mut [u8],
+    w: u32,
+    h: u32,
+    logo_rgba: &[u8],
+    logo_w: u32,
+    logo_h: u32,
+    anchor: WatermarkAnchor,
+    opacity: f32,
+    scale_pct: f32,
+    inset_pct: f32,
+) {
     if logo_w == 0 || logo_h == 0 || opacity <= 0.0 {
         return;
     }
 
     let target_w = ((w as f32 * (scale_pct / 100.0)).round() as u32).max(16);
     let target_h = (((target_w as f32 / logo_w as f32) * logo_h as f32).round() as u32).max(16);
-    let margin = (w.min(h) as f32 * 0.03).max(12.0);
+    let margin = ((w.min(h) as f32) * (inset_pct.max(0.5) / 100.0)).max(8.0);
 
     let (pos_x, pos_y) = calculate_anchor_position(
         w,
@@ -1211,8 +1326,20 @@ pub fn process_branding_pipeline(
         (src_rgba.to_vec(), w, h)
     };
 
+    if spec.enable_tiled_watermark && !spec.tiled_text.is_empty() {
+        apply_tiled_watermark(
+            &mut out,
+            out_w,
+            out_h,
+            &spec.tiled_text,
+            spec.tiled_opacity,
+            spec.tiled_size_pct,
+            spec.tiled_spacing_pct,
+        );
+    }
+
     if spec.enable_signature && !spec.signature_text.is_empty() {
-        apply_text_signature(
+        apply_text_signature_ext(
             &mut out,
             out_w,
             out_h,
@@ -1220,12 +1347,15 @@ pub fn process_branding_pipeline(
             spec.signature_anchor,
             spec.signature_opacity,
             spec.signature_size_pct,
+            spec.signature_inset_pct,
+            spec.signature_color,
+            spec.signature_drop_shadow,
         );
     }
 
     if spec.enable_logo && !spec.logo_bytes.is_empty() {
         if let Ok((logo_rgba, lw, lh)) = decode_png_rgba(&spec.logo_bytes) {
-            apply_logo_watermark(
+            apply_logo_watermark_ext(
                 &mut out,
                 out_w,
                 out_h,
@@ -1235,6 +1365,7 @@ pub fn process_branding_pipeline(
                 spec.logo_anchor,
                 spec.logo_opacity,
                 spec.logo_scale_pct,
+                spec.logo_inset_pct,
             );
         }
     }
@@ -1249,6 +1380,82 @@ pub fn process_branding_pipeline(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_tiled_watermark_application() {
+        let mut buf = vec![30u8; 400 * 400 * 4];
+        apply_tiled_watermark(&mut buf, 400, 400, "PROOF", 0.5, 3.0, 25.0);
+        let modified = buf.chunks(4).filter(|px| px[0] > 30).count();
+        assert!(
+            modified > 100,
+            "Tiled watermark should modify pixels across canvas: {modified}"
+        );
+    }
+
+    #[test]
+    fn test_signature_custom_color_and_inset() {
+        let mut buf_white = vec![10u8; 300 * 200 * 4];
+        apply_text_signature_ext(
+            &mut buf_white,
+            300,
+            200,
+            "JANE DOE",
+            WatermarkAnchor::BottomRight,
+            0.9,
+            3.0,
+            5.0,
+            0, // Pure White
+            false,
+        );
+        let white_pixels = buf_white.chunks(4).filter(|px| px[0] > 200).count();
+        assert!(
+            white_pixels > 20,
+            "White text should be bright: {white_pixels}"
+        );
+
+        let mut buf_gold = vec![10u8; 300 * 200 * 4];
+        apply_text_signature_ext(
+            &mut buf_gold,
+            300,
+            200,
+            "JANE DOE",
+            WatermarkAnchor::BottomRight,
+            0.9,
+            3.0,
+            5.0,
+            3, // Gold Accent
+            false,
+        );
+        // Gold has high red and green, lower blue: R > 150, B < 100
+        let gold_pixels = buf_gold
+            .chunks(4)
+            .filter(|px| px[0] > 150 && px[2] < 100)
+            .count();
+        assert!(
+            gold_pixels > 20,
+            "Gold text should have gold hue: {gold_pixels}"
+        );
+    }
+
+    #[test]
+    fn test_pipeline_with_tiled_and_signature() {
+        let src = vec![50u8; 200 * 200 * 4];
+        let spec = WatermarkSpec {
+            enable_tiled_watermark: true,
+            tiled_text: "SAMPLE".to_string(),
+            enable_signature: true,
+            signature_text: "COPYRIGHT".to_string(),
+            ..WatermarkSpec::default()
+        };
+        let (out, out_w, out_h) = process_branding_pipeline(&src, 200, 200, &spec);
+        assert_eq!(out_w, 200);
+        assert_eq!(out_h, 200);
+        let modified = out.chunks(4).filter(|px| px[0] > 50).count();
+        assert!(
+            modified > 50,
+            "Pipeline should apply both watermarks: {modified}"
+        );
+    }
 
     #[test]
     fn test_text_measurement_and_rendering() {

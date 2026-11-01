@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -146,6 +149,39 @@ void main() {
       final switched = await notifier.setActivePluginForTask(AiTask.subjectSegmentation, 'builtin-saliency');
       expect(switched, isTrue);
       expect(notifier.getActivePluginForTask(AiTask.subjectSegmentation)!.id, 'builtin-saliency');
+    });
+
+    test('depth-anything-v2-small plugin has correct download metadata', () {
+      final depthPlugin = kCommunityAiPlugins.firstWhere((p) => p.id == 'depth-anything-v2-small');
+      expect(depthPlugin.downloadUrl, isNotNull);
+      expect(depthPlugin.downloadUrl, contains('.onnx'));
+      expect(depthPlugin.sha256, isNotNull);
+      expect(depthPlugin.sha256, hasLength(64));
+      expect(depthPlugin.fileSizeBytes, 27258801);
+    });
+
+    test('AiPluginModel round-trips downloadUrl through toJson/fromJson', () {
+      const original = const AiPluginModel(
+        id: 'test-plugin',
+        name: 'Test Plugin',
+        description: 'A test',
+        author: 'Test Author',
+        task: AiTask.depthEstimation,
+        sourceUrl: 'https://example.com/repo',
+        downloadUrl: 'https://example.com/model.onnx',
+        sha256: 'abcd1234',
+        fileSizeBytes: 12345,
+      );
+      final json = original.toJson();
+      final restored = AiPluginModel.fromJson(json);
+      expect(restored.downloadUrl, 'https://example.com/model.onnx');
+      expect(restored.sha256, 'abcd1234');
+      expect(restored.fileSizeBytes, 12345);
+    });
+
+    test('sha256 digest is 64 hex characters', () {
+      final digest = sha256.convert(utf8.encode('hello')).toString();
+      expect(digest, hasLength(64));
     });
   });
 }

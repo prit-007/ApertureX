@@ -33,11 +33,20 @@ class WatermarkSpec {
   final WatermarkAnchor signatureAnchor;
   final double signatureOpacity;
   final double signatureSizePct;
+  final double signatureInsetPct;
+  final int signatureColor;
+  final bool signatureDropShadow;
   final bool enableLogo;
   final Uint8List logoBytes;
   final WatermarkAnchor logoAnchor;
   final double logoOpacity;
   final double logoScalePct;
+  final double logoInsetPct;
+  final bool enableTiledWatermark;
+  final String tiledText;
+  final double tiledOpacity;
+  final double tiledSizePct;
+  final double tiledSpacingPct;
   final bool enableFossBadge;
 
   const WatermarkSpec({
@@ -50,11 +59,20 @@ class WatermarkSpec {
     required this.signatureAnchor,
     required this.signatureOpacity,
     required this.signatureSizePct,
+    required this.signatureInsetPct,
+    required this.signatureColor,
+    required this.signatureDropShadow,
     required this.enableLogo,
     required this.logoBytes,
     required this.logoAnchor,
     required this.logoOpacity,
     required this.logoScalePct,
+    required this.logoInsetPct,
+    required this.enableTiledWatermark,
+    required this.tiledText,
+    required this.tiledOpacity,
+    required this.tiledSizePct,
+    required this.tiledSpacingPct,
     required this.enableFossBadge,
   });
 
@@ -69,11 +87,20 @@ class WatermarkSpec {
       signatureAnchor.hashCode ^
       signatureOpacity.hashCode ^
       signatureSizePct.hashCode ^
+      signatureInsetPct.hashCode ^
+      signatureColor.hashCode ^
+      signatureDropShadow.hashCode ^
       enableLogo.hashCode ^
       logoBytes.hashCode ^
       logoAnchor.hashCode ^
       logoOpacity.hashCode ^
       logoScalePct.hashCode ^
+      logoInsetPct.hashCode ^
+      enableTiledWatermark.hashCode ^
+      tiledText.hashCode ^
+      tiledOpacity.hashCode ^
+      tiledSizePct.hashCode ^
+      tiledSpacingPct.hashCode ^
       enableFossBadge.hashCode;
 
   @override
@@ -90,10 +117,19 @@ class WatermarkSpec {
           signatureAnchor == other.signatureAnchor &&
           signatureOpacity == other.signatureOpacity &&
           signatureSizePct == other.signatureSizePct &&
+          signatureInsetPct == other.signatureInsetPct &&
+          signatureColor == other.signatureColor &&
+          signatureDropShadow == other.signatureDropShadow &&
           enableLogo == other.enableLogo &&
           logoBytes == other.logoBytes &&
           logoAnchor == other.logoAnchor &&
           logoOpacity == other.logoOpacity &&
           logoScalePct == other.logoScalePct &&
+          logoInsetPct == other.logoInsetPct &&
+          enableTiledWatermark == other.enableTiledWatermark &&
+          tiledText == other.tiledText &&
+          tiledOpacity == other.tiledOpacity &&
+          tiledSizePct == other.tiledSizePct &&
+          tiledSpacingPct == other.tiledSpacingPct &&
           enableFossBadge == other.enableFossBadge;
 }

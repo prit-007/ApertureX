@@ -2,11 +2,12 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart' show MethodChannel;
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart'
+    hide GlobalMaterialLocalizations;
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:aperturex/edit/recipe.dart';
 import 'package:aperturex/edit/xmp_sidecar.dart';
 import 'package:aperturex/features/editor/editor_screen.dart';
@@ -89,6 +90,29 @@ class _ExportApi extends Fake implements RustLibApi {
     required rust_export.C2paExportSpec c2Pa,
   }) async =>
       rust_export.ExportResult(cancelled: false, jpeg: exportedJpeg);
+
+  @override
+  Future<rust_export.BrandedFrame> crateApiExportRenderBrandingPreview({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required rust_export.ExportBrandingSpec branding,
+  }) async =>
+      rust_export.BrandedFrame(
+        rgba: Uint8List.fromList(rgba),
+        width: width,
+        height: height,
+      );
+
+  @override
+  Future<Uint8List> crateApiExportEncodeJpegRgba({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int quality,
+    required List<int> exif,
+  }) async =>
+      exportedJpeg;
 }
 
 class _RecordingDialog {
@@ -213,6 +237,11 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: const MaterialApp(
+          localizationsDelegates: [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: [Locale('en', 'US')],
           home: EditorScreen(
             asset: GalleryAsset(id: 'a', width: 1, height: 1),
           ),
@@ -229,11 +258,17 @@ void main() {
   Future<void> tapSaveToPhotos(WidgetTester tester) async {
     await tester.tap(find.text('Export'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Save to Photos'));
+    // Export Studio opens; tap the primary export button (default format = JPEG
+    // → ExportAction.saveToPhotos) to commit the export action.
+    await tester.tap(find.byKey(const Key('export_studio_primary_btn')));
+    await tester.pump(const Duration(milliseconds: 100));
     // The desktop branch performs a real File.writeAsBytes; real IO only
     // completes on real event-loop turns, which fake-async pumps never
     // deliver — interleave runAsync until a terminal snackbar appears, then
-    // let the snackbar entrance settle in fake time.
+    // let the snackbar entrance settle in fake time. (pumpAndSettle here
+    // would time out: the ExportProgressPoller feeds setState every 80 ms
+    // until the export's finally block stops it, and finally won't run until
+    // the real file write below completes.)
     for (var i = 0; i < 40; i++) {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 25)),

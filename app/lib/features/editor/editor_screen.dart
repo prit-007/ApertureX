@@ -35,6 +35,7 @@ import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
 import '../../platform/photo_saver.dart';
 import 'export_options_sheet.dart';
+import 'export_screen.dart';
 import '../../engine/engine.dart';
 import '../../engine/image_format.dart';
 import '../../settings/app_settings.dart';
@@ -213,9 +214,21 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   Future<void> _onExportPressed() async {
     final previewBytes = _bytes;
     final isRaw = previewBytes != null && isRawImage(previewBytes);
-    final action = await ExportOptionsSheet.show(context, isRaw: isRaw);
+    final action = await ExportScreen.open(
+      context,
+      previewBytes: previewBytes,
+      isRaw: isRaw,
+      recipe: ref.read(recipeControllerProvider).recipe,
+    );
     if (action == null || !mounted) return;
+    await _handleExportAction(action);
+  }
+
+  Future<void> _handleExportAction(ExportAction action) async {
     switch (action) {
+      case ExportAction.openExportStudio:
+        await _onExportPressed();
+        break;
       case ExportAction.saveToApertureX:
         await _saveToApertureX();
         break;
@@ -523,23 +536,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           exposureParts.add('f/${meta.fNumber!.toStringAsFixed(1)}');
         }
         final line2 = exposureParts.join(' • ');
-        rustBranding = rust_export.ExportBrandingSpec(
+        rustBranding = branding.copyWith(
           enableMuseumFrame: true,
-          frameTheme: branding.frameThemeIndex,
+          frameThemeIndex: branding.frameThemeIndex,
           exifLine1: line1.isEmpty ? 'APERTUREX • ORIGINAL' : line1,
           exifLine2: line2,
-          enableSignature: branding.enableSignature,
-          signatureText: branding.signatureText,
-          signatureAnchor: branding.signatureAnchorIndex,
-          signatureOpacity: branding.signatureOpacity,
-          signatureSizePct: branding.signatureSizePct,
-          enableLogo: branding.enableLogo,
-          logoBytes: branding.logoBytes ?? Uint8List(0),
-          logoAnchor: branding.logoAnchorIndex,
-          logoOpacity: branding.logoOpacity,
-          logoScalePct: branding.logoScalePct,
-          enableFossBadge: branding.enableFossBadge,
-        );
+        ).toRustBrandingSpec();
       } catch (_) {}
     }
 
@@ -585,6 +587,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           colorSpace: settings.colorSpace,
           ultraHdr: settings.ultraHdr,
           hdrHeadroom: settings.hdrHeadroom,
+          outputSharpenMedia: settings.outputSharpenMedia,
+          outputSharpen: settings.outputSharpen,
         );
       },
       onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
@@ -748,8 +752,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     await _runJpegExportPipeline(
       exportJpeg: (decoded, exif, token, bytes, recipe) async {
         final settings = ref.read(exportSettingsProvider);
-        // Bake all edits into a full-res JPEG, then decode back to RGBA for TIFF16 encode.
-        // (A direct RGBA export bridge can be added later to avoid the JPEG round-trip.)
+        final exportCustoms = await _buildExportBrandingAndC2pa(
+          bytes: bytes,
+          recipe: recipe,
+          exif: exif,
+        );
         return await AxEngine.exportJpegFull(
           rgba: decoded.rgba,
           width: decoded.width,
@@ -762,14 +769,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           layers: recipe.layers,
           maskGroups: recipe.maskGroups,
           exif: exif,
-          branding: null,
-          c2pa: null,
+          branding: exportCustoms.branding,
+          c2pa: exportCustoms.c2pa,
           quality: settings.quality,
           maxDim: settings.maxDim == 0 ? null : settings.maxDim,
           cancelToken: token,
           colorSpace: settings.colorSpace,
           ultraHdr: false,
           hdrHeadroom: settings.hdrHeadroom,
+          outputSharpenMedia: settings.outputSharpenMedia,
+          outputSharpen: settings.outputSharpen,
         );
       },
       onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
@@ -835,6 +844,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     await _runJpegExportPipeline(
       exportJpeg: (decoded, exif, token, bytes, recipe) async {
         final settings = ref.read(exportSettingsProvider);
+        final exportCustoms = await _buildExportBrandingAndC2pa(
+          bytes: bytes,
+          recipe: recipe,
+          exif: exif,
+        );
         return await AxEngine.exportJpegFull(
           rgba: decoded.rgba,
           width: decoded.width,
@@ -847,14 +861,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           layers: recipe.layers,
           maskGroups: recipe.maskGroups,
           exif: exif,
-          branding: null,
-          c2pa: null,
+          branding: exportCustoms.branding,
+          c2pa: exportCustoms.c2pa,
           quality: settings.quality,
           maxDim: settings.maxDim == 0 ? null : settings.maxDim,
           cancelToken: token,
           colorSpace: settings.colorSpace,
           ultraHdr: false,
           hdrHeadroom: settings.hdrHeadroom,
+          outputSharpenMedia: settings.outputSharpenMedia,
+          outputSharpen: settings.outputSharpen,
         );
       },
       onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
@@ -955,6 +971,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           colorSpace: settings.colorSpace,
           ultraHdr: settings.ultraHdr,
           hdrHeadroom: settings.hdrHeadroom,
+          outputSharpenMedia: settings.outputSharpenMedia,
+          outputSharpen: settings.outputSharpen,
         );
       },
       onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {

@@ -4643,8 +4643,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ExportBrandingSpec dco_decode_export_branding_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 15)
-      throw Exception('unexpected arr length: expect 15 but see ${arr.length}');
+    if (arr.length != 24)
+      throw Exception('unexpected arr length: expect 24 but see ${arr.length}');
     return ExportBrandingSpec(
       enableMuseumFrame: dco_decode_bool(arr[0]),
       frameTheme: dco_decode_u_8(arr[1]),
@@ -4655,12 +4655,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       signatureAnchor: dco_decode_u_8(arr[6]),
       signatureOpacity: dco_decode_f_32(arr[7]),
       signatureSizePct: dco_decode_f_32(arr[8]),
-      enableLogo: dco_decode_bool(arr[9]),
-      logoBytes: dco_decode_list_prim_u_8_strict(arr[10]),
-      logoAnchor: dco_decode_u_8(arr[11]),
-      logoOpacity: dco_decode_f_32(arr[12]),
-      logoScalePct: dco_decode_f_32(arr[13]),
-      enableFossBadge: dco_decode_bool(arr[14]),
+      signatureInsetPct: dco_decode_f_32(arr[9]),
+      signatureColor: dco_decode_u_32(arr[10]),
+      signatureDropShadow: dco_decode_bool(arr[11]),
+      enableLogo: dco_decode_bool(arr[12]),
+      logoBytes: dco_decode_list_prim_u_8_strict(arr[13]),
+      logoAnchor: dco_decode_u_8(arr[14]),
+      logoOpacity: dco_decode_f_32(arr[15]),
+      logoScalePct: dco_decode_f_32(arr[16]),
+      logoInsetPct: dco_decode_f_32(arr[17]),
+      enableTiledWatermark: dco_decode_bool(arr[18]),
+      tiledText: dco_decode_String(arr[19]),
+      tiledOpacity: dco_decode_f_32(arr[20]),
+      tiledSizePct: dco_decode_f_32(arr[21]),
+      tiledSpacingPct: dco_decode_f_32(arr[22]),
+      enableFossBadge: dco_decode_bool(arr[23]),
     );
   }
 
@@ -5204,8 +5213,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   WatermarkSpec dco_decode_watermark_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 15)
-      throw Exception('unexpected arr length: expect 15 but see ${arr.length}');
+    if (arr.length != 24)
+      throw Exception('unexpected arr length: expect 24 but see ${arr.length}');
     return WatermarkSpec(
       enableMuseumFrame: dco_decode_bool(arr[0]),
       frameTheme: dco_decode_museum_frame_theme(arr[1]),
@@ -5216,12 +5225,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       signatureAnchor: dco_decode_watermark_anchor(arr[6]),
       signatureOpacity: dco_decode_f_32(arr[7]),
       signatureSizePct: dco_decode_f_32(arr[8]),
-      enableLogo: dco_decode_bool(arr[9]),
-      logoBytes: dco_decode_list_prim_u_8_strict(arr[10]),
-      logoAnchor: dco_decode_watermark_anchor(arr[11]),
-      logoOpacity: dco_decode_f_32(arr[12]),
-      logoScalePct: dco_decode_f_32(arr[13]),
-      enableFossBadge: dco_decode_bool(arr[14]),
+      signatureInsetPct: dco_decode_f_32(arr[9]),
+      signatureColor: dco_decode_u_32(arr[10]),
+      signatureDropShadow: dco_decode_bool(arr[11]),
+      enableLogo: dco_decode_bool(arr[12]),
+      logoBytes: dco_decode_list_prim_u_8_strict(arr[13]),
+      logoAnchor: dco_decode_watermark_anchor(arr[14]),
+      logoOpacity: dco_decode_f_32(arr[15]),
+      logoScalePct: dco_decode_f_32(arr[16]),
+      logoInsetPct: dco_decode_f_32(arr[17]),
+      enableTiledWatermark: dco_decode_bool(arr[18]),
+      tiledText: dco_decode_String(arr[19]),
+      tiledOpacity: dco_decode_f_32(arr[20]),
+      tiledSizePct: dco_decode_f_32(arr[21]),
+      tiledSpacingPct: dco_decode_f_32(arr[22]),
+      enableFossBadge: dco_decode_bool(arr[23]),
     );
   }
 
@@ -5627,11 +5645,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_signatureAnchor = sse_decode_u_8(deserializer);
     var var_signatureOpacity = sse_decode_f_32(deserializer);
     var var_signatureSizePct = sse_decode_f_32(deserializer);
+    var var_signatureInsetPct = sse_decode_f_32(deserializer);
+    var var_signatureColor = sse_decode_u_32(deserializer);
+    var var_signatureDropShadow = sse_decode_bool(deserializer);
     var var_enableLogo = sse_decode_bool(deserializer);
     var var_logoBytes = sse_decode_list_prim_u_8_strict(deserializer);
     var var_logoAnchor = sse_decode_u_8(deserializer);
     var var_logoOpacity = sse_decode_f_32(deserializer);
     var var_logoScalePct = sse_decode_f_32(deserializer);
+    var var_logoInsetPct = sse_decode_f_32(deserializer);
+    var var_enableTiledWatermark = sse_decode_bool(deserializer);
+    var var_tiledText = sse_decode_String(deserializer);
+    var var_tiledOpacity = sse_decode_f_32(deserializer);
+    var var_tiledSizePct = sse_decode_f_32(deserializer);
+    var var_tiledSpacingPct = sse_decode_f_32(deserializer);
     var var_enableFossBadge = sse_decode_bool(deserializer);
     return ExportBrandingSpec(
       enableMuseumFrame: var_enableMuseumFrame,
@@ -5643,11 +5670,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       signatureAnchor: var_signatureAnchor,
       signatureOpacity: var_signatureOpacity,
       signatureSizePct: var_signatureSizePct,
+      signatureInsetPct: var_signatureInsetPct,
+      signatureColor: var_signatureColor,
+      signatureDropShadow: var_signatureDropShadow,
       enableLogo: var_enableLogo,
       logoBytes: var_logoBytes,
       logoAnchor: var_logoAnchor,
       logoOpacity: var_logoOpacity,
       logoScalePct: var_logoScalePct,
+      logoInsetPct: var_logoInsetPct,
+      enableTiledWatermark: var_enableTiledWatermark,
+      tiledText: var_tiledText,
+      tiledOpacity: var_tiledOpacity,
+      tiledSizePct: var_tiledSizePct,
+      tiledSpacingPct: var_tiledSpacingPct,
       enableFossBadge: var_enableFossBadge,
     );
   }
@@ -6442,11 +6478,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_signatureAnchor = sse_decode_watermark_anchor(deserializer);
     var var_signatureOpacity = sse_decode_f_32(deserializer);
     var var_signatureSizePct = sse_decode_f_32(deserializer);
+    var var_signatureInsetPct = sse_decode_f_32(deserializer);
+    var var_signatureColor = sse_decode_u_32(deserializer);
+    var var_signatureDropShadow = sse_decode_bool(deserializer);
     var var_enableLogo = sse_decode_bool(deserializer);
     var var_logoBytes = sse_decode_list_prim_u_8_strict(deserializer);
     var var_logoAnchor = sse_decode_watermark_anchor(deserializer);
     var var_logoOpacity = sse_decode_f_32(deserializer);
     var var_logoScalePct = sse_decode_f_32(deserializer);
+    var var_logoInsetPct = sse_decode_f_32(deserializer);
+    var var_enableTiledWatermark = sse_decode_bool(deserializer);
+    var var_tiledText = sse_decode_String(deserializer);
+    var var_tiledOpacity = sse_decode_f_32(deserializer);
+    var var_tiledSizePct = sse_decode_f_32(deserializer);
+    var var_tiledSpacingPct = sse_decode_f_32(deserializer);
     var var_enableFossBadge = sse_decode_bool(deserializer);
     return WatermarkSpec(
       enableMuseumFrame: var_enableMuseumFrame,
@@ -6458,11 +6503,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       signatureAnchor: var_signatureAnchor,
       signatureOpacity: var_signatureOpacity,
       signatureSizePct: var_signatureSizePct,
+      signatureInsetPct: var_signatureInsetPct,
+      signatureColor: var_signatureColor,
+      signatureDropShadow: var_signatureDropShadow,
       enableLogo: var_enableLogo,
       logoBytes: var_logoBytes,
       logoAnchor: var_logoAnchor,
       logoOpacity: var_logoOpacity,
       logoScalePct: var_logoScalePct,
+      logoInsetPct: var_logoInsetPct,
+      enableTiledWatermark: var_enableTiledWatermark,
+      tiledText: var_tiledText,
+      tiledOpacity: var_tiledOpacity,
+      tiledSizePct: var_tiledSizePct,
+      tiledSpacingPct: var_tiledSpacingPct,
       enableFossBadge: var_enableFossBadge,
     );
   }
@@ -6799,11 +6853,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_8(self.signatureAnchor, serializer);
     sse_encode_f_32(self.signatureOpacity, serializer);
     sse_encode_f_32(self.signatureSizePct, serializer);
+    sse_encode_f_32(self.signatureInsetPct, serializer);
+    sse_encode_u_32(self.signatureColor, serializer);
+    sse_encode_bool(self.signatureDropShadow, serializer);
     sse_encode_bool(self.enableLogo, serializer);
     sse_encode_list_prim_u_8_strict(self.logoBytes, serializer);
     sse_encode_u_8(self.logoAnchor, serializer);
     sse_encode_f_32(self.logoOpacity, serializer);
     sse_encode_f_32(self.logoScalePct, serializer);
+    sse_encode_f_32(self.logoInsetPct, serializer);
+    sse_encode_bool(self.enableTiledWatermark, serializer);
+    sse_encode_String(self.tiledText, serializer);
+    sse_encode_f_32(self.tiledOpacity, serializer);
+    sse_encode_f_32(self.tiledSizePct, serializer);
+    sse_encode_f_32(self.tiledSpacingPct, serializer);
     sse_encode_bool(self.enableFossBadge, serializer);
   }
 
@@ -7424,11 +7487,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_watermark_anchor(self.signatureAnchor, serializer);
     sse_encode_f_32(self.signatureOpacity, serializer);
     sse_encode_f_32(self.signatureSizePct, serializer);
+    sse_encode_f_32(self.signatureInsetPct, serializer);
+    sse_encode_u_32(self.signatureColor, serializer);
+    sse_encode_bool(self.signatureDropShadow, serializer);
     sse_encode_bool(self.enableLogo, serializer);
     sse_encode_list_prim_u_8_strict(self.logoBytes, serializer);
     sse_encode_watermark_anchor(self.logoAnchor, serializer);
     sse_encode_f_32(self.logoOpacity, serializer);
     sse_encode_f_32(self.logoScalePct, serializer);
+    sse_encode_f_32(self.logoInsetPct, serializer);
+    sse_encode_bool(self.enableTiledWatermark, serializer);
+    sse_encode_String(self.tiledText, serializer);
+    sse_encode_f_32(self.tiledOpacity, serializer);
+    sse_encode_f_32(self.tiledSizePct, serializer);
+    sse_encode_f_32(self.tiledSpacingPct, serializer);
     sse_encode_bool(self.enableFossBadge, serializer);
   }
 }
