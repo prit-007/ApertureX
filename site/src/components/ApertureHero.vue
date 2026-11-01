@@ -17,7 +17,7 @@
       <div class="iris" ref="irisRef" @mousemove="onMouseMove" @mouseleave="onMouseLeave">
         <img
           id="photo"
-          :src="irisImg"
+          :src="irisImageSrc"
           alt="Hero photo preview"
           class="photo"
           draggable="false"
@@ -122,7 +122,7 @@
       <!-- Aperture f-stop readout -->
       <div class="fstop" ref="fstopRef" aria-hidden="true">
         <span>Aperture</span>
-        <b id="fval">{{ fStop }}</b>
+        <b id="fval">f/16</b>
         <span>Scroll to open</span>
       </div>
     </div>
@@ -130,7 +130,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import irisImg from '../assets/stock/iris.webp'
 
 const heroRef = ref(null)
@@ -145,68 +145,120 @@ const orbRef = ref(null)
 const version = 'v0.3.7'
 const irisImageSrc = irisImg
 
-const mouse = ref({ x: 0, y: 0 })
-const scrollProgress = ref(0)
-const fStop = ref('f/16')
-
 const apertureStops = [16, 11, 8, 5.6, 4, 2.8, 2, 1.4, 1.2]
 
-const currentFStop = computed(() => {
-  const p = scrollProgress.value
+let bladeEls = []
+let heroEl = null
+let contentEl = null
+let rev2El = null
+let fstopEl = null
+let photoEl = null
+let ticking = false
+let scrollP = 0
+
+const currentFStop = (p) => {
   const idx = Math.min(8, Math.round(p * 8))
   return `f/${apertureStops[idx]}`
-})
+}
 
-onMounted(() => {
-  fStop.value = currentFStop.value
+const smoothstep = (p) => p * p * (3 - 2 * p)
 
-  let ticking = false
-  const onScroll = () => {
-    if (ticking) return
-    ticking = true
-    requestAnimationFrame(() => {
-      const hero = heroRef.value
-      if (!hero) {
-        ticking = false
-        return
-      }
-      const r = hero.getBoundingClientRect()
-      const viewHeight = window.innerHeight
-      const p = Math.max(0, Math.min(1, (viewHeight - r.top) / viewHeight))
-      scrollProgress.value = p
-      fStop.value = currentFStop.value
-      ticking = false
-    })
+const updateScroll = () => {
+  if (!heroEl) return
+  const r = heroEl.getBoundingClientRect()
+  const viewH = window.innerHeight
+  const p = Math.max(0, Math.min(1, -r.top / (r.height - viewH)))
+  const e = smoothstep(p)
+  scrollP = p
+
+  // Aperture blades: rotate to position + translate outward + rotate open
+  bladeEls.forEach((b, k) => {
+    b.setAttribute(
+      'transform',
+      `rotate(${k * 45}) translate(${e * 210}px, 0) rotate(${e * -24}deg)`
+    )
+  })
+
+  // Photo scale
+  if (photoEl) {
+    photoEl.style.transform = `scale(${0.6 + e * 1.3})`
   }
+
+  // Hero content (hcopy): lift + fade
+  const hp = Math.min(1, p * 2.2)
+  const ho = 1 - Math.max(0, (p - 0.25) * 3)
+  if (contentEl) {
+    contentEl.style.opacity = ho
+    contentEl.style.pointerEvents = ho < 0.15 ? 'none' : ''
+    contentEl.style.transform = `translateY(${-hp * 60}px) scale(${1 - hp * 0.08})`
+  }
+
+  // Rev2 reveal
+  const q = Math.max(0, Math.min(1, (p - 0.5) * 3))
+  if (rev2El) {
+    rev2El.style.opacity = q
+    rev2El.style.transform = `translateY(${(1 - q) * 40}px)`
+  }
+
+  // F-stop readout
+  if (fstopEl) {
+    fstopEl.textContent = currentFStop(p)
+  }
+
+  ticking = false
+}
+
+const onScroll = () => {
+  if (ticking) return
+  ticking = true
+  requestAnimationFrame(() => {
+    updateScroll()
+    ticking = false
+  })
+}
+
+onMounted(async () => {
+  await nextTick()
+  heroEl = heroRef.value
+  contentEl = contentRef.value
+  rev2El = rev2Ref.value
+  fstopEl = fstopRef.value
+  photoEl = document.getElementById('photo')
+  // Collect individual blade <g> elements
+  const bladesContainer = bladesRef.value
+  if (bladesContainer) {
+    bladeEls = Array.from(bladesContainer.querySelectorAll('g'))
+  }
+
+  updateScroll()
 
   window.addEventListener('scroll', onScroll, { passive: true })
   window.addEventListener('resize', onScroll)
-  onScroll()
 
   // Mouse parallax
   const iris = irisRef.value
   const orb = orbRef.value
   if (iris && orb) {
     window.addEventListener('mousemove', (e) => {
-      const rect = heroRef.value.getBoundingClientRect()
+      if (!heroEl) return
+      const rect = heroEl.getBoundingClientRect()
       const cx = rect.left + rect.width / 2
       const cy = rect.top + rect.height / 2
       const dx = (e.clientX - cx) / (rect.width / 2)
       const dy = (e.clientY - cy) / (rect.height / 2)
-      mouse.value = {
-        x: Math.max(-1, Math.min(1, dx)),
-        y: Math.max(-1, Math.min(1, dy)),
-      }
-      iris.style.setProperty('--px', mouse.value.x.toFixed(4))
-      iris.style.setProperty('--py', mouse.value.y.toFixed(4))
-      orb.style.setProperty('--px', mouse.value.x.toFixed(4))
-      orb.style.setProperty('--py', mouse.value.y.toFixed(4))
+      const mx = Math.max(-1, Math.min(1, dx))
+      const my = Math.max(-1, Math.min(1, dy))
+      iris.style.setProperty('--px', mx.toFixed(4))
+      iris.style.setProperty('--py', my.toFixed(4))
+      orb.style.setProperty('--px', mx.toFixed(4))
+      orb.style.setProperty('--py', my.toFixed(4))
     })
   }
 })
 
 onUnmounted(() => {
-  // listeners cleaned by component teardown in SPA; for SSR safety:
+  window.removeEventListener('scroll', onScroll)
+  window.removeEventListener('resize', onScroll)
 })
 </script>
 
