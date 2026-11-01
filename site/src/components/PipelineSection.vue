@@ -1,5 +1,5 @@
 <template>
-  <section id="pipeline" class="pipeline-section reveal">
+  <section id="pipeline" class="pipeline-section">
     <div class="wrap">
       <div class="section-head center">
         <span class="hud-tag">ZERO-COPY COMPILATION</span>
@@ -14,7 +14,7 @@
         <div v-for="(step, i) in steps" :key="step.id" class="flow-step">
           <span class="num">{{ step.num }}</span>
           <h4>{{ step.title }}</h4>
-          <p>{{ step.desc }}</p>
+          <p v-html="step.desc"></p>
           <div v-if="i < steps.length - 1" class="flow-connector">&rarr;</div>
         </div>
       </div>
@@ -35,7 +35,7 @@ const steps = [
     id: 'ingest',
     num: '01 // INGEST',
     title: 'Native Decode',
-    desc: 'TurboJPEG & LibRaw demosaic to native resident heap; EXIF & GDepth extraction.',
+    desc: 'TurboJPEG &amp; LibRaw demosaic to native resident heap; EXIF &amp; GDepth extraction.',
   },
   {
     id: 'translate',
@@ -58,8 +58,8 @@ const steps = [
   {
     id: 'provenance',
     num: '05 // PROVENANCE',
-    title: 'Banded & C2PA',
-    desc: 'Full-res streaming export with C2PA Content Credentials manifests & watermark branding.',
+    title: 'Banded &amp; C2PA',
+    desc: 'Full-res streaming export with C2PA Content Credentials manifests &amp; watermark branding.',
   },
 ]
 
@@ -73,97 +73,77 @@ const trust = [
 
 <style scoped>
 .pipeline-section {
-  padding: 64px 0;
+  padding: 100px 0;
   background: var(--bg-darkest);
 }
-
 .section-head.center {
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: 52px;
 }
-
 .flow-track {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-  align-items: center;
-  margin-bottom: 48px;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 48px;
+  overflow-x: auto;
+  padding-bottom: 12px;
 }
-
 .flow-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 24px 20px;
-  background: var(--bg-card);
+  flex: 1;
+  min-width: 190px;
+  padding: 24px;
+  background: var(--bg-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  max-width: 420px;
-  width: 100%;
-  text-align: center;
+  border-radius: var(--radius-m);
+  position: relative;
 }
-
 .flow-step .num {
   font-family: var(--mono);
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: 0.72rem;
   color: var(--cyan);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 8px;
 }
-
 .flow-step h4 {
-  font-size: 1rem;
+  font-size: 1.08rem;
   color: var(--text);
-  margin: 0;
+  margin-bottom: 8px;
 }
-
 .flow-step p {
-  color: var(--text-muted);
   font-size: 0.85rem;
+  color: var(--text-muted);
   line-height: 1.5;
-  margin: 6px 0 0 0;
 }
-
 .flow-connector {
-  font-size: 1.2rem;
-  color: var(--text-faint);
-  padding: 8px 0;
-}
-
-.trust-row {
+  width: 20px;
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
+  color: var(--border-highlight);
+  flex-shrink: 0;
 }
-
+.trust-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  margin-top: 40px;
+}
 .trust-card {
-  flex: 1;
-  min-width: 200px;
-  max-width: 260px;
   padding: 20px;
-  border-radius: var(--radius-l);
+  border-radius: var(--radius-m);
   text-align: center;
 }
-
 .trust-card b {
   display: block;
-  font-size: 1.1rem;
-  margin-bottom: 6px;
   font-family: var(--display);
+  font-size: 1.15rem;
+  color: var(--text);
+  margin-bottom: 4px;
 }
-
 .trust-card span {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
-  line-height: 1.5;
-}
-
-@media (max-width: 640px) {
-  .flow-step {
-    max-width: 100%;
-  }
 }
 </style>

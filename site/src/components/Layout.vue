@@ -1,121 +1,149 @@
 <template>
   <div class="layout">
-    <header class="site-header" ref="header">
-      <div class="wrap header-inner">
-        <a href="/" class="brand" aria-label="ApertureX home">
-          <img
-            :src="logoSrc"
-            alt="ApertureX"
-            class="brand-img"
-            width="32"
-            height="32"
-          />
-          <span class="brand-text">ApertureX</span>
+    <announcement-bar />
+    <header class="site-nav" ref="navRef" :class="{ scrolled }">
+      <div class="wrap nav-inner">
+        <a href="#top" class="nav-brand" @click="scrollToTop">
+          <img :src="appIcon" alt="ApertureX logo" width="34" height="34" />
+          <span>APERTUREX</span>
         </a>
 
-        <nav class="nav" aria-label="Main navigation">
-          <a href="#features">Features</a>
-          <a href="#presets">Presets</a>
-          <a href="#plugins">AI Plugins</a>
-          <a href="#download">Download</a>
-          <a href="#about">About</a>
+        <nav class="nav-links" aria-label="Primary">
+          <a href="#compare" data-nav="compare" :class="{ active: activeNav === 'compare' }">Compare</a>
+          <a href="#features" data-nav="features" :class="{ active: activeNav === 'features' }">Capabilities</a>
+          <a href="#screens" data-nav="screens" :class="{ active: activeNav === 'screens' }">Studio Tour</a>
+          <a href="#pipeline" data-nav="pipeline" :class="{ active: activeNav === 'pipeline' }">Architecture</a>
+          <a href="#changelog" data-nav="changelog" :class="{ active: activeNav === 'changelog' }">Changelog</a>
         </nav>
 
-        <div class="header-actions">
-          <button class="btn btn-outline" @click="toggleDrawer">
-            <span class="sr-only">Menu</span>
-            <svg
-              class="menu-icon"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
+        <div class="nav-actions">
+          <span class="nav-version-badge">{{ version }}</span>
+          <a
+            href="https://github.com/prit-007/ApertureX/releases/latest"
+            class="btn btn-primary"
+            target="_blank"
+            rel="noopener"
+          >
+            Download APK
+          </a>
+          <button type="button" class="menu-toggle-btn" @click="toggleDrawer" :aria-expanded="drawerOpen">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
         </div>
       </div>
     </header>
 
-    <aside
-      v-if="drawerOpen"
-      class="drawer-overlay"
-      @click.self="drawerOpen = false"
-    >
-      <div class="drawer-panel">
-        <button class="drawer-close" @click="drawerOpen = false">
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-          <span class="sr-only">Close menu</span>
-        </button>
-        <nav class="drawer-nav" aria-label="Mobile navigation">
-          <a href="#features" @click="drawerOpen = false">Features</a>
-          <a href="#presets" @click="drawerOpen = false">Presets</a>
-          <a href="#plugins" @click="drawerOpen = false">AI Plugins</a>
-          <a href="#download" @click="drawerOpen = false">Download</a>
-          <a href="#about" @click="drawerOpen = false">About</a>
-        </nav>
-        <div class="drawer-version">
-          <span class="hud-tag">v{{ version }}</span>
-        </div>
-      </div>
-    </aside>
+    <!-- Mobile Drawer -->
+    <div class="drawer-backdrop" :class="{ open: drawerOpen }" @click.self="closeDrawer" />
+    <nav class="mobile-drawer" :class="{ open: drawerOpen }" aria-label="Mobile navigation">
+      <a href="#compare">Before &amp; After</a>
+      <a href="#features">Studio Capabilities</a>
+      <a href="#screens">Interactive Studio Tour</a>
+      <a href="#pipeline">Zero-Copy Architecture</a>
+      <a href="#changelog">Release Changelog</a>
+      <a
+        href="https://github.com/prit-007/ApertureX/releases/latest"
+        class="btn btn-primary"
+        target="_blank"
+        rel="noopener"
+        @click="closeDrawer"
+      >
+        Download APK ({{ version }})
+      </a>
+    </nav>
 
     <main class="layout-main">
       <slot />
     </main>
 
-    <footer class="site-footer">
-      <div class="wrap footer-inner">
-        <div class="footer-brand">
-          <img
-            :src="logoSrc"
-            alt="ApertureX"
-            class="brand-img"
-            width="32"
-            height="32"
-          />
-          <span class="brand-text">ApertureX</span>
+    <footer>
+      <div class="wrap">
+        <div class="foot-row">
+          <span class="foot-mark">
+            <img :src="appIcon" alt="ApertureX icon" width="28" height="28" />
+            APERTUREX
+          </span>
+          <div class="foot-links">
+            <a href="https://github.com/prit-007/ApertureX" target="_blank" rel="noopener">GitHub</a>
+            <a href="https://github.com/prit-007/ApertureX/releases" target="_blank" rel="noopener">Releases</a>
+            <a href="https://github.com/prit-007/ApertureX/blob/main/docs/ROADMAP.md" target="_blank" rel="noopener">Roadmap</a>
+            <a href="https://github.com/prit-007/ApertureX/blob/main/docs/PARITY.md" target="_blank" rel="noopener">Parity Ledger</a>
+            <a href="https://github.com/prit-007/ApertureX/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+            <a href="https://github.com/prit-007/ApertureX/blob/main/LICENSE" target="_blank" rel="noopener">GPL-3.0 License</a>
+          </div>
         </div>
-        <p class="footer-copy">
-          Mobile-native FOSS photo editor &middot; 100% offline &middot;
-          GPL-3.0 &middot; Built with Flutter + Rust
-        </p>
+        <div class="foot-bottom">
+          <div>&copy; 2026 Developer's Paradise &bull; Released under the GNU General Public License v3.0</div>
+          <div>Designed for creators &bull; 100% on-device &bull; Zero telemetry</div>
+        </div>
       </div>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import AnnouncementBar from './AnnouncementBar.vue'
 import appIcon from '../assets/app_icon.png'
 
+const navRef = ref(null)
+const scrolled = ref(false)
 const drawerOpen = ref(false)
-const version = '0.3.7'
+const activeNav = ref('compare')
+const version = 'v0.3.7'
+
+const appIconSrc = appIcon
+
+function scrollToTop(e) {
+  e.preventDefault()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 
 function toggleDrawer() {
   drawerOpen.value = !drawerOpen.value
+  document.body.classList.toggle('drawer-open', drawerOpen.value)
 }
 
-const logoSrc = appIcon
+function closeDrawer() {
+  drawerOpen.value = false
+  document.body.classList.remove('drawer-open')
+}
+
+onMounted(() => {
+  document.documentElement.classList.add('js')
+  const handler = () => {
+    scrolled.value = window.scrollY > 8
+    updateActiveNav()
+  }
+  window.addEventListener('scroll', handler, { passive: true })
+  window.addEventListener('resize', handler)
+  handler()
+
+  // Close drawer on escape
+  const onEsc = (e) => {
+    if (e.key === 'Escape' && drawerOpen.value) closeDrawer()
+  }
+  window.addEventListener('keydown', onEsc)
+  onUnmounted(() => {
+    window.removeEventListener('scroll', handler)
+    window.removeEventListener('resize', handler)
+    window.removeEventListener('keydown', onEsc)
+  })
+})
+
+function updateActiveNav() {
+  const sections = ['compare', 'features', 'screens', 'pipeline', 'changelog']
+  let found = 'compare'
+  sections.forEach((id) => {
+    const el = document.getElementById(id)
+    if (el && el.getBoundingClientRect().top <= 140) {
+      found = id
+    }
+  })
+  activeNav.value = found
+}
 </script>
 
 <style scoped>
@@ -124,208 +152,7 @@ const logoSrc = appIcon
   flex-direction: column;
   min-height: 100vh;
 }
-
-.site-header {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: rgba(8, 11, 17, 0.6);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-}
-
-.header-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 64px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--display);
-  font-weight: 800;
-  font-size: 1.25rem;
-  color: var(--text);
-}
-
-.brand-img {
-  border-radius: var(--radius-s);
-}
-
-.brand-text {
-  letter-spacing: -0.02em;
-}
-
-.nav {
-  display: flex;
-  gap: 26px;
-  align-items: center;
-}
-
-.nav a {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: color 0.2s;
-}
-
-.nav a:hover {
-  color: var(--cyan);
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.btn-outline {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-m);
-  background: var(--glass);
-  color: var(--text);
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-outline:hover {
-  border-color: var(--cyan);
-  background: var(--glass-hover);
-}
-
-.menu-icon {
-  display: block;
-}
-
-.drawer-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(6, 8, 13, 0.6);
-  backdrop-filter: blur(8px);
-  z-index: 60;
-}
-
-.drawer-panel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: min(320px, 85vw);
-  height: 100vh;
-  background: var(--bg-2);
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  transform: translateX(100%);
-  transition: transform 0.3s ease;
-}
-
-.drawer-overlay[class*="overlay"] .drawer-panel,
-.drawer-panel {
-  transform: translateX(0);
-}
-
-.drawer-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  margin: 16px;
-}
-
-.drawer-close svg {
-  width: 22px;
-  height: 22px;
-}
-
-.drawer-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  margin-top: 8px;
-  padding: 0 20px;
-}
-
-.drawer-nav a {
-  display: block;
-  padding: 14px 16px;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border-soft);
-  font-size: 0.95rem;
-}
-
-.drawer-nav a:hover {
-  color: var(--cyan);
-  background: var(--glass);
-}
-
-.drawer-version {
-  margin: auto 20px 24px 20px;
-  font-family: var(--mono);
-  font-size: 0.75rem;
-  color: var(--text-faint);
-}
-
 .layout-main {
   flex: 1;
-}
-
-.site-footer {
-  border-top: 1px solid var(--border);
-  padding: 40px 0;
-  margin-top: auto;
-}
-
-.footer-inner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.footer-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--display);
-  font-weight: 800;
-  font-size: 1rem;
-  color: var(--text);
-}
-
-.footer-copy {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  border: 0;
-  white-space: nowrap;
-}
-
-@media (max-width: 640px) {
-  .nav {
-    display: none;
-  }
 }
 </style>

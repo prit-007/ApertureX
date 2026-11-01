@@ -1,13 +1,12 @@
 <template>
-  <div class="marquee" aria-hidden="true">
-    <div class="mq-track">
-      <span v-for="(t, i) in items" :key="i">{{ t }}</span>
-      <span v-for="(t, i) in items" :key="`dup-${i}`">{{ t }}</span>
-    </div>
+  <div class="mq" aria-hidden="true">
+    <div id="mq"></div>
   </div>
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
+
 const items = [
   'Non-destructive',
   '100% offline',
@@ -16,43 +15,48 @@ const items = [
   'Look QR',
   '200 MP tiles',
   'C2PA signed',
-  'No trackers',
+  'No accounts',
 ]
+
+onMounted(() => {
+  const el = document.getElementById('mq')
+  if (el) {
+    const html = items.map((t) => `<span>${t}</span>`).join('')
+    el.innerHTML = html + html
+  }
+})
 </script>
 
 <style scoped>
-.marquee {
+.mq {
+  background: linear-gradient(90deg, #00E5FF, #0099FF);
+  color: #040810;
   overflow: hidden;
-  padding: 12px 0;
-  background: var(--bg-darkest);
-  border-top: 1px solid var(--border-soft);
-  border-bottom: 1px solid var(--border-soft);
-}
-
-.mq-track {
-  display: flex;
-  gap: 40px;
-  will-change: transform;
-  animation: scroll 20s linear infinite;
-}
-
-.mq-track span {
-  font-family: var(--mono);
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   white-space: nowrap;
+  padding: 15px 0;
+  transform: rotate(-1.2deg);
+  margin: -14px -20px 0;
+  position: relative;
+  z-index: 7;
+  will-change: transform;
 }
-
-@keyframes scroll {
-  from { transform: translatex(0); }
-  to { transform: translatex(-50%); }
+.mq div {
+  display: inline-flex;
+  gap: 44px;
+  animation: mq 30s linear infinite;
+  font: 800 1.4rem var(--mono);
 }
-
+.mq span::after {
+  content: '\2736';
+  margin-left: 44px;
+}
+@keyframes mq {
+  to {
+    transform: translateX(-50%);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .mq-track {
+  .mq div {
     animation: none;
     display: flex;
     gap: 20px;
