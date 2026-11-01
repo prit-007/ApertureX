@@ -13,6 +13,8 @@ class ParameterSliderRow extends StatelessWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.onChangeStart,
+    this.onChangeEnd,
     this.displayValue,
     this.sliderKey,
     this.onReset,
@@ -26,6 +28,8 @@ class ParameterSliderRow extends StatelessWidget {
   final double min;
   final double max;
   final ValueChanged<double> onChanged;
+  final ValueChanged<double>? onChangeStart;
+  final ValueChanged<double>? onChangeEnd;
   final String? displayValue;
   final Key? sliderKey;
   final VoidCallback? onReset;
@@ -84,6 +88,8 @@ class ParameterSliderRow extends StatelessWidget {
                   value: value.clamp(min, max),
                   min: min,
                   max: max,
+                  onChangeStart: onChangeStart,
+                  onChangeEnd: onChangeEnd,
                   onChanged: (val) {
                     onChanged(val);
                   },
