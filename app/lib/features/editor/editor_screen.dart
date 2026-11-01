@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -20,6 +21,7 @@ import '../../core/theme/design_tokens.dart';
 import 'background_export_worker.dart';
 import 'editor_shortcuts.dart';
 import 'export_progress.dart';
+import '../../edit/active_image.dart' show activeImageBytesProvider;
 import '../../edit/geometry_spec.dart';
 import '../../edit/library_catalog.dart';
 import '../../edit/parameter.dart';
@@ -142,6 +144,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _loading = false;
       });
       ref.read(currentEditingAssetProvider.notifier).setAsset(_currentAsset);
+      ref.read(activeImageBytesProvider.notifier).setBytes(bytes);
+      if (asset != null && widget.imageBytes == null) {
+        unawaited(_upgradeToMaster(asset));
+      }
     } catch (e) {
       axLog(LogDomain.editor, 'Open failed: $e', level: LogLevel.error);
       if (!mounted) return;
@@ -178,12 +184,33 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _bytes = bytes;
         _loading = false;
       });
+      ref.read(activeImageBytesProvider.notifier).setBytes(bytes);
+      unawaited(_upgradeToMaster(nextAsset));
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = '$e';
         _loading = false;
       });
+    }
+  }
+
+  /// Loads full master resolution bytes in the background and upgrades
+  /// activeImageBytesProvider and preview surfaces for crisp 1:1 zoom inspection.
+  Future<void> _upgradeToMaster(GalleryAsset asset) async {
+    try {
+      final masterBytes =
+          await ref.read(gallerySourceProvider).loadImage(asset.id);
+      if (!mounted || _currentAsset?.id != asset.id || masterBytes.isEmpty) {
+        return;
+      }
+      ref.read(activeImageBytesProvider.notifier).setBytes(masterBytes);
+      setState(() {
+        _bytes = masterBytes;
+      });
+      axLog(LogDomain.editor, 'Upgraded ${asset.id} to full master resolution');
+    } catch (e) {
+      axLog(LogDomain.editor, 'Master background upgrade skipped: $e');
     }
   }
 

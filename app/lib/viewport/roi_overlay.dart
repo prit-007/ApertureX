@@ -113,6 +113,7 @@ RoiOverlayPlan? planRoiOverlay({
   required double scale,
   required Offset offset,
   required Size viewport,
+  double devicePixelRatio = 1.0,
   int maxRoiBandBytes = kDefaultRoiBandBytes,
   bool geometryActive = false,
   bool roiSupported = true,
@@ -121,10 +122,17 @@ RoiOverlayPlan? planRoiOverlay({
   if (imageW <= 0 || imageH <= 0 || fitted.width <= 0 || fitted.height <= 0) {
     return null;
   }
-  // The proxy only loses sharpness once the image is displayed wider than the
-  // proxy has pixels — that is exactly where a full-res band adds detail.
-  if (scale * fitted.width < proxyW) return null;
   if (scale <= 0) return null;
+
+  // The proxy loses sharpness once the image is displayed wider than the
+  // proxy has physical pixels — that is exactly where full-res tiles add detail.
+  // Factoring in device pixel density ensures mobile high-DPI screens trigger
+  // tack-sharp 1:1 master tile loading instead of blurry proxy upscaling.
+  final physicalWidth = scale * fitted.width * devicePixelRatio;
+  final effectiveProxy = (imageW > proxyW && devicePixelRatio > 1.0)
+      ? math.min(proxyW.toDouble(), fitted.width * devicePixelRatio * 1.1)
+      : proxyW.toDouble();
+  if (physicalWidth < effectiveProxy) return null;
 
   // Inverse of the viewport transform (translate(offset) * scale, topLeft):
   // world = (screen - offset) / scale.

@@ -143,6 +143,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   bool _comparing = false;
   bool _editing = false;
   bool _needsReset = true;
+  bool _viewInitialized = false;
+  double _devicePixelRatio = 1.0;
   bool _disposed = false;
   int _bakeToken = 0;
   final ValueNotifier<bool> _busy = ValueNotifier(false);
@@ -236,6 +238,40 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _compare.addStatusListener(_onDeliveryGestureSettled);
     _maskPeek.addStatusListener(_onDeliveryGestureSettled);
     _load();
+  }
+
+  @override
+  void didUpdateWidget(ImageCanvas oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.imageBytes != null && widget.imageBytes != oldWidget.imageBytes) {
+      _upgradeRoiBytes(widget.imageBytes!);
+    }
+  }
+
+  /// Upgrades the high-zoom ROI tile pyramid to the master photo's full
+  /// resolution when master bytes arrive from background load.
+  /// Preserves the user's active viewport scale and pan position perfectly.
+  Future<void> _upgradeRoiBytes(Uint8List bytes) async {
+    if (_disposed || !mounted || isRawImage(bytes)) return;
+    try {
+      final dims = await AxEngine.jpegDimensions(bytes);
+      if (_disposed || !mounted) return;
+      if (dims.width > _fullW || dims.height > _fullH) {
+        setState(() {
+          _roiBytes = bytes;
+          _fullW = dims.width;
+          _fullH = dims.height;
+          _tileGrid = TileGrid(
+            imageWidth: _fullW,
+            imageHeight: _fullH,
+            tileSize: _tileSize,
+          );
+        });
+        _scheduleRoi();
+      }
+    } catch (_) {
+      // Header parse failed or non-standard format; keep existing proxy ROI.
+    }
   }
 
   Future<void> _load() async {
@@ -403,6 +439,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       scale: _scale,
       offset: _offset,
       viewport: bounds,
+      devicePixelRatio: _devicePixelRatio,
       geometryActive: roiBlockedByGeometry(recipe),
       roiSupported: _fullW > 0 && _fullH > 0,
     );
@@ -730,13 +767,28 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _pendingRecipe = recipe;
       _pendingBaseChanged |= baseChanged;
       _pendingGradeChanged |= gradeChanged;
-      _pendingForceFullRes = forceFullRes;
+      _pendingForceFullRes |= forceFullRes;
       return;
     }
 
+    if (!baseChanged && gradeChanged) {
+      // Color grading changes (exposure, contrast, highlights, shadows, curves,
+      // HSL, color wheels, etc.) are executed purely via GPU 3D LUT shader (<0.5ms).
+      // Zero debounce timer: update immediately for silky 60-120fps live scrubbing.
+      _rebake(
+        recipe,
+        baseChanged: false,
+        gradeChanged: true,
+        forceFullRes: forceFullRes,
+      );
+      return;
+    }
+
+    // Base changes (spatial warp, crop, retouch): throttle to 16ms (1 vsync frame)
+    // rather than dragging behind an aggressive trailing-debounce.
     _debounce?.cancel();
     _debounce = Timer(
-      const Duration(milliseconds: 30),
+      const Duration(milliseconds: 16),
       () => _rebake(
         recipe,
         baseChanged: baseChanged,
@@ -839,7 +891,6 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       return;
     }
     setState(() {
-      final dimsChanged = _baseW != frame.width || _baseH != frame.height;
       _baseImage?.dispose();
       _baseImage = image;
       _baseRgba = frame.rgba;
@@ -851,7 +902,6 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       } else {
         _lastBaseKey = _baseKey(recipe);
       }
-      if (dimsChanged && !useFastProxy) _needsReset = true;
     });
     _updatePixelSampler();
   }
@@ -951,14 +1001,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       );
       if (!mounted || token != _bakeToken) return;
       setState(() {
-        final dimsChanged = _baseW != size.width || _baseH != size.height;
         _baseW = size.width;
         _baseH = size.height;
         _lastBaseKey = _baseKey(recipe);
         _lastGradeKey = _gradeKey(recipe);
         _importedKey = 0;
         _baseRgba = null;
-        if (dimsChanged) _needsReset = true;
       });
     } catch (_) {
       _dropTexture();
@@ -1013,6 +1061,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   @override
   Widget build(BuildContext context) {
+    _devicePixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ??
+        View.of(context).devicePixelRatio;
+
+    ref.listen<Uint8List?>(activeImageBytesProvider, (previous, next) {
+      if (next != null && next.isNotEmpty && next != _roiBytes) {
+        _upgradeRoiBytes(next);
+      }
+    });
+
     ref.listen(recipeControllerProvider, (previous, next) {
       if (previous?.recipe != next.recipe) {
         _scheduleBake(next.recipe);
@@ -1108,16 +1165,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final uneditedSource = _source;
     final lut = _lut;
     final zeroCopy = _useTexture && _textureId != null;
-    // Texture delivery never bakes `lut`/`base` images, so requiring them
-    // would pin the viewport to the placeholder forever (#54).
-    if (previewNeedsPlaceholder(
+    final needsPlaceholder = previewNeedsPlaceholder(
       failed: _failed,
       hasProgram: program != null,
       hasShader: shader != null,
       hasSource: baseImage != null || uneditedSource != null,
       hasLut: lut != null,
       useTexture: zeroCopy,
-    )) {
+    );
+    if (needsPlaceholder) {
       return _placeholder();
     }
     // The gate above proved the shader-path inputs (it only passes texture
@@ -1160,15 +1216,20 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         final boundsChanged = _lastBounds != bounds && _lastBounds != Size.zero;
         _lastFitted = fitted;
         _lastBounds = bounds;
-        if (_needsReset ||
-            (_scale == 1.0 && boundsChanged) ||
-            (_offset == Offset.zero && bounds.width > 0 && bounds.height > 0)) {
+        if (!_viewInitialized) {
+          _viewInitialized = true;
           _needsReset = false;
           // Contain-fit is the baseline: the photo always fits inside the
           // canvas, so zoom only ever goes in.
           _minScale = 1.0;
           _resetView(fitted, bounds);
-        } else if (boundsChanged && _scale > 1.0) {
+        } else if (_needsReset) {
+          _needsReset = false;
+          _minScale = 1.0;
+          _resetView(fitted, bounds);
+        } else if (_scale == 1.0 && boundsChanged) {
+          _resetView(fitted, bounds);
+        } else if (_scale > 1.0) {
           _offset = _clampOffset(_offset, _scale, fitted, bounds);
         }
         // Publish the view transform so overlays outside this widget (the
@@ -2174,25 +2235,9 @@ class _CanvasPainter extends CustomPainter {
 
     canvas.drawRect(dst, Paint()..shader = shader);
 
-    if (blend > 0) {
-      canvas.drawImageRect(
-        compareSource,
-        Rect.fromLTWH(
-          0,
-          0,
-          compareSource.width.toDouble(),
-          compareSource.height.toDouble(),
-        ),
-        dst,
-        Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: blend),
-      );
-    }
-
     // High-zoom tiles: one shader pass per tile. Translate so the tile's own
     // rect is the shader's local origin — `FlutterFragCoord` is local-canvas
     // space, so uSize covers the tile exactly, mirroring the proxy pass.
-    // The compare crossfade is drawn above, so tiles under the blend are
-    // already covered by the raw-source overlay and need no extra fade.
     if (tiles.isNotEmpty) {
       canvas.save();
       canvas.clipRect(Offset.zero & size);
@@ -2221,6 +2266,22 @@ class _CanvasPainter extends CustomPainter {
         canvas.restore();
       }
       canvas.restore();
+    }
+
+    // Compare crossfade is drawn above both the proxy and high-zoom tiles
+    // so holding compare reveals the raw original seamlessly across all zoom levels.
+    if (blend > 0) {
+      canvas.drawImageRect(
+        compareSource,
+        Rect.fromLTWH(
+          0,
+          0,
+          compareSource.width.toDouble(),
+          compareSource.height.toDouble(),
+        ),
+        dst,
+        Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: blend),
+      );
     }
 
     if (softProof.enabled) {
