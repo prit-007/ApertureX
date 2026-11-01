@@ -11,11 +11,10 @@
       </div>
 
       <div class="flow-track">
-        <div v-for="(step, i) in steps" :key="step.id" class="flow-step">
+        <div v-for="step in steps" :key="step.id" class="flow-step">
           <span class="num">{{ step.num }}</span>
           <h4>{{ step.title }}</h4>
           <p v-html="step.desc"></p>
-          <div v-if="i < steps.length - 1" class="flow-connector">&rarr;</div>
         </div>
       </div>
 
@@ -56,8 +55,14 @@ const steps = [
     desc: 'Pure-Rust ZXing barcode detection over camera YUV/RGBA frames with 0 Google blobs.',
   },
   {
+    id: 'library',
+    num: '05 // LIBRARY',
+    title: 'Smart Library',
+    desc: 'SQLite/Drift grid, smart collections, 64-bit dHash culling &amp; background batch export.',
+  },
+  {
     id: 'provenance',
-    num: '05 // PROVENANCE',
+    num: '06 // PROVENANCE',
     title: 'Banded &amp; C2PA',
     desc: 'Full-res streaming export with C2PA Content Credentials manifests &amp; watermark branding.',
   },
@@ -81,18 +86,13 @@ const trust = [
   margin-bottom: 52px;
 }
 .flow-track {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
   margin-top: 48px;
-  overflow-x: auto;
-  padding-bottom: 12px;
 }
 .flow-step {
-  flex: 1;
-  min-width: 190px;
-  padding: 24px;
+  padding: 22px 18px;
   background: var(--bg-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-m);
@@ -116,19 +116,31 @@ const trust = [
   color: var(--text-muted);
   line-height: 1.5;
 }
-.flow-connector {
-  width: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--border-highlight);
-  flex-shrink: 0;
-}
 .trust-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin-top: 40px;
+}
+@media (max-width: 1024px) {
+  .flow-track {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .trust-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+@media (max-width: 620px) {
+  .flow-track {
+    grid-template-columns: 1fr;
+  }
+  .trust-row {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+  }
 }
 .trust-card {
   padding: 20px;

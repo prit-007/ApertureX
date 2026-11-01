@@ -2,10 +2,10 @@
   <g :transform="`rotate(${angle})`">
     <polygon
       class="blade"
-      points="0,-200 220,-100 220,100 0,50"
+      points="0,-190 190,-90 190,120 0,40"
       fill="url(#apertureGrad)"
       stroke="#00E5FF"
-      stroke-opacity="0.25"
+      stroke-opacity="0.3"
       stroke-width="1.5"
     />
   </g>

@@ -14,6 +14,7 @@
           <a href="#screens" data-nav="screens" :class="{ active: activeNav === 'screens' }">Studio Tour</a>
           <a href="#pipeline" data-nav="pipeline" :class="{ active: activeNav === 'pipeline' }">Architecture</a>
           <a href="#changelog" data-nav="changelog" :class="{ active: activeNav === 'changelog' }">Changelog</a>
+          <a href="#developers" data-nav="developers" :class="{ active: activeNav === 'developers' }">Developers</a>
         </nav>
 
         <div class="nav-actions">
@@ -38,11 +39,13 @@
     <!-- Mobile Drawer -->
     <div class="drawer-backdrop" :class="{ open: drawerOpen }" @click.self="closeDrawer" />
     <nav class="mobile-drawer" :class="{ open: drawerOpen }" aria-label="Mobile navigation">
+      <a href="#why">Why ApertureX</a>
       <a href="#compare">Before &amp; After</a>
       <a href="#features">Studio Capabilities</a>
       <a href="#screens">Interactive Studio Tour</a>
       <a href="#pipeline">Zero-Copy Architecture</a>
       <a href="#changelog">Release Changelog</a>
+      <a href="#developers">About Developers</a>
       <a
         href="https://github.com/prit-007/ApertureX/releases/latest"
         class="btn btn-primary"
@@ -71,12 +74,13 @@
             <a href="https://github.com/prit-007/ApertureX/blob/main/docs/ROADMAP.md" target="_blank" rel="noopener">Roadmap</a>
             <a href="https://github.com/prit-007/ApertureX/blob/main/docs/PARITY.md" target="_blank" rel="noopener">Parity Ledger</a>
             <a href="https://github.com/prit-007/ApertureX/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+            <a href="https://github.com/prit-007/ApertureX/blob/main/THIRD_PARTY.md" target="_blank" rel="noopener">Third-Party</a>
             <a href="https://github.com/prit-007/ApertureX/blob/main/LICENSE" target="_blank" rel="noopener">GPL-3.0 License</a>
           </div>
         </div>
         <div class="foot-bottom">
-          <div>&copy; 2026 Developer's Paradise &bull; Released under the GNU General Public License v3.0</div>
-          <div>Designed for creators &bull; 100% on-device &bull; Zero telemetry</div>
+          <div>&copy; 2026 Developer's Paradise &bull; Architected by Prit Vasani &bull; Released under the GNU General Public License v3.0</div>
+          <div>Designed for creators &bull; 100% on-device &bull; Zero telemetry &bull; Free &amp; Open Source</div>
         </div>
       </div>
     </footer>
@@ -134,7 +138,7 @@ onMounted(() => {
 })
 
 function updateActiveNav() {
-  const sections = ['compare', 'features', 'screens', 'pipeline', 'changelog']
+  const sections = ['compare', 'features', 'screens', 'pipeline', 'changelog', 'developers']
   let found = 'compare'
   sections.forEach((id) => {
     const el = document.getElementById(id)

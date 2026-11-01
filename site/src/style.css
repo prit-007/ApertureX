@@ -380,7 +380,7 @@ h4 {
   background: rgba(8, 11, 17, 0.96);
   box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.9);
 }
-@media (max-width: 960px) {
+@media (max-width: 1120px) {
   .nav-links {
     display: none;
   }
@@ -408,7 +408,7 @@ h4 {
   color: var(--text);
   cursor: pointer;
 }
-@media (max-width: 960px) {
+@media (max-width: 1120px) {
   .menu-toggle-btn {
     display: flex;
   }
@@ -593,11 +593,23 @@ body.drawer-open {
 /* Hero Tech Metrics Strip */
 .hero-specs-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 14px;
   max-width: 1100px;
   margin: 0 auto;
   text-align: left;
+}
+@media (max-width: 1024px) {
+  .hero-specs-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-width: 720px;
+  }
+}
+@media (max-width: 600px) {
+  .hero-specs-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 480px;
+  }
 }
 .hero-spec-card {
   padding: 16px 20px;
@@ -612,13 +624,14 @@ body.drawer-open {
   font-weight: 800;
   color: var(--text);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
+  min-height: 2.5em;
 }
 .hero-spec-card .label {
   font-size: 0.78rem;
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 section {
@@ -1622,6 +1635,109 @@ section {
   color: var(--cyan);
 }
 
+/* ============ RELEASE BUILDS MATRIX ============ */
+.builds-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 36px;
+  text-align: left;
+}
+@media (max-width: 760px) {
+  .builds-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .builds-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.build-card {
+  background: rgba(14, 18, 26, 0.7);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.22s ease;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  overflow: hidden;
+}
+.build-card:hover {
+  border-color: rgba(0, 229, 255, 0.45);
+  background: rgba(22, 29, 44, 0.85);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px -10px rgba(0, 229, 255, 0.25);
+}
+.build-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.build-card-platform {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.build-card-platform svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--cyan);
+}
+.build-card-badge {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.build-card-badge.rec {
+  background: rgba(0, 229, 255, 0.15);
+  color: var(--cyan);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+}
+.build-card-name {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--cyan);
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+.build-card-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: 14px;
+}
+.build-card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--cyan);
+}
+.build-card-action svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+}
+.build-card:hover .build-card-action svg {
+  transform: translateY(2px);
+}
+
 /* ============ CHANGELOG SECTION ============ */
 #releasesContainer {
   max-width: 860px;
@@ -1784,6 +1900,8 @@ footer {
   left: 22%;
   top: 22%;
   border-radius: 50%;
+  overflow: hidden;
+  object-fit: cover;
   transform: scale(0.6);
   will-change: transform;
   background: #111;

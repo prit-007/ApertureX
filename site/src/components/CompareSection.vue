@@ -33,6 +33,8 @@
               :src="compareImg"
               alt="Original flat RAW capture"
               style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;"
+              @load="onImageLoad"
+              @error="onImageError"
             />
             <div
               id="compareRawFallback"
@@ -48,6 +50,8 @@
               :src="compareImg"
               alt="ApertureX film grade"
               style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;"
+              @load="onImageLoad"
+              @error="onImageError"
             />
             <div
               id="compareGradedFallback"
@@ -96,6 +100,19 @@ const compareImageSrc = compareImg
 
 const viewportRef = ref(null)
 const comparePercent = ref(50)
+
+function onImageLoad(e) {
+  const img = e.currentTarget
+  img.style.opacity = '1'
+  const fallback = img.nextElementSibling
+  if (fallback) fallback.style.display = 'none'
+}
+
+function onImageError(e) {
+  e.currentTarget.style.opacity = '0'
+  const fallback = e.currentTarget.nextElementSibling
+  if (fallback) fallback.style.display = 'flex'
+}
 
 function setComparePercent(pct) {
   comparePercent.value = Math.max(0, Math.min(100, pct))

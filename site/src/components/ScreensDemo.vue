@@ -41,6 +41,8 @@
                       :src="editorImg"
                       alt="Editor canvas preview"
                       style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;"
+                      @load="onImageLoad"
+                      @error="onImageError"
                     />
                     <div id="mockCanvasFallback" class="mock-canvas-art" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);">
                       <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -98,6 +100,8 @@
                       :src="maskImg"
                       alt="Ruby mask overlay"
                       style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;"
+                      @load="onImageLoad"
+                      @error="onImageError"
                     />
                     <div id="snapseedMaskFallback" style="position:absolute;inset:0;">
                       <div class="mock-ruby-mask" id="mockRubyMask" :style="{ left: rubyLeft, top: rubyTop }"></div>
@@ -126,6 +130,8 @@
                         :src="lookqrImgSrc"
                         alt="Look QR code"
                         style="width:100px;height:100px;border-radius:8px;padding:6px;object-fit:cover;opacity:0;transition:opacity .5s ease;box-shadow:0 4px 16px rgba(0,0,0,0.5);background:#FFF;"
+                        @load="onImageLoad"
+                        @error="onImageError"
                       />
                       <div id="lookqrFallback" style="width:100px;height:100px;background:#FFF;border-radius:8px;padding:6px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,0.5);">
                         <svg viewBox="0 0 100 100" width="88" height="88">
@@ -161,12 +167,14 @@
                 </div>
 
                 <!-- 4. Export & C2PA Mode View -->
-                <div id="mockExportView" v-if="activeTab === 'export'" class="mock-export-box" style="--export-img: url('/assets/stock/export.webp');">
+                <div id="mockExportView" v-if="activeTab === 'export'" class="mock-export-box" :style="{ '--export-img': `url(${exportImg})` }">
                   <img
                     id="mockExportRingImg"
                     :src="exportImg"
                     alt="Export processing"
                     style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;"
+                    @load="onImageLoad"
+                    @error="onImageError"
                   />
                   <div id="mockExportRingFallback" style="position:absolute;inset:0;background:#090C12;display:flex;align-items:center;justify-content:center;padding:20px;">
                     <div class="mock-ring" id="mockExportRing" :style="{ background: exportRingBg }">
@@ -201,6 +209,8 @@
                         :src="g.img"
                         :alt="`Gallery photo ${i + 1}`"
                         style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease;"
+                        @load="onImageLoad"
+                        @error="onImageError"
                       />
                       <div class="gallery-fallback" :style="{ background: g.bg }"></div>
                       <span class="mock-photo-tag">{{ g.tag }}</span>
@@ -562,7 +572,25 @@ function triggerSimulatedExport() {
   }, 25)
 }
 
+function onImageLoad(e) {
+  const img = e.currentTarget
+  img.style.opacity = '1'
+  const fallback = img.nextElementSibling
+  if (fallback) fallback.style.display = 'none'
+}
+
+function onImageError(e) {
+  e.currentTarget.style.opacity = '0'
+  const fallback = e.currentTarget.nextElementSibling
+  if (fallback) fallback.style.display = 'flex'
+}
+
 onMounted(() => {
+  // Reveal any stock images that finished loading before Vue attached listeners.
+  document.querySelectorAll('#screens img').forEach((img) => {
+    if (img.complete && img.naturalWidth) onImageLoad({ currentTarget: img })
+  })
+
   // Wire window drag listeners
   window.addEventListener('mousemove', (e) => {
     if (s1Dragging) updateS1(e)

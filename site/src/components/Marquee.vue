@@ -16,6 +16,9 @@ const items = [
   '200 MP tiles',
   'C2PA signed',
   'No accounts',
+  'DNG export',
+  'USB tethering',
+  '6 languages',
 ]
 
 onMounted(() => {
