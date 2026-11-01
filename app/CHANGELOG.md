@@ -4,6 +4,24 @@ All notable changes to ApertureX are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.9] - 2026-11-01
+
+Dual-Model AI UX Enhancement, Youth-Centric Presets, and Android 10 Gallery Permission Fix.
+
+### Added
+- **Dual-Model AI Depth Confidence** — `depth_confidence()` returns a [0,1] reliability score based on input image luminance variance, so the UI can warn when depth estimation is unreliable (textureless surfaces, uniform color).
+- **Face Detection Availability** — `face_detection_available()` distinguishes "no faces detected" from "AI feature disabled" so the UI can gate face-aware features appropriately.
+- **One-Tap AI Portrait Blur** — `blur_apply_portrait()` detects faces via YuNet, estimates depth via Depth Anything V2, places the focal plane on the highest-scoring face, and applies background blur (default amount 0.4) with the subject protected. Falls back to center-focused depth blur when no faces are detected.
+- **Face-Aware Auto-Tone** — `auto_tone_with_faces()` weights pixels inside detected face boxes 2x in luminance and color-balance calculations, optimizing exposure and white balance for faces rather than the whole scene.
+- **Smart Preset Chips** — `ContentClassifier.classify()` maps face count + depth confidence + brightness to preset category + specific preset IDs. `RecommendedPresetsChipRow` renders primary + alternate preset chips in the Looks Sheet catalog tab; tapping applies the preset via `RecipeController` (never auto-applies).
+- **15 Youth-Centric Presets** — Gen Z Kodachrome, Y2K Bedroom Pop, Soft Core, Indie Sleaze, Main Character, Clean Girl, Dark Academia, VHS Camcorder, Digital Disposable, Cottagecore Youth, Neon Midnight, Sunset Picnic, Beach Day, Rooftop Hangout, K-Pop Concert, Street Fashion, Festival Glow, Anime Con.
+
+### Fixed
+- **Android 10 Gallery Permission** — `READ_MEDIA_IMAGES` / `READ_MEDIA_VISUAL_USER_SELECTED` are Android 13+ (API 33) permissions and are invalid on API 29; now correctly gated with `minSdkVersion="33"`. Added `android:requestLegacyExternalStorage="true"` so scoped storage doesn't block shared media access on API 29. Added runtime `READ_EXTERNAL_STORAGE` request in `MainActivity.kt` for API ≤ 32. Resolves the "Photo access denied" / empty gallery issue on Android 10.
+
+### Changed
+- **Version bumped to 0.3.9 across pubspec.yaml, Cargo.toml, and documentation.**
+
 ## [0.3.7] - 2026-10-31
 
 Curated Master Preset Catalog, 3-Way Color Grading Wheels, 8-Band HSL Mix, Depth Anything V2 Bokeh & UI Ergonomics Polish.
