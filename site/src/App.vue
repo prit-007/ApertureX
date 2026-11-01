@@ -9,16 +9,12 @@
     <Layout>
       <template #default>
         <main id="content">
-          <!-- Hero 1: Living Aperture (mouse-responsive blades + app icon) -->
-          <LivingApertureHero />
+          <!-- Hero: Living Aperture with aperture blades -->
+          <ApertureHero />
 
-          <!-- Hero specs chips -->
+          <!-- Hero spec chips -->
           <HeroSpecs />
 
-          <!-- Hero 2: Immersive Before/After (depth bokeh + split curtain) -->
-          <ImmersiveHero />
-
-          <!-- Interactive compare widget -->
           <CompareSection />
 
           <FeaturesGrid />
@@ -37,13 +33,13 @@
     <footer class="site-footer">
       <div class="wrap footer-inner">
         <div class="footer-brand">
-                <img
-                  :src="appIcon"
-                  alt="ApertureX icon"
-                  class="hero-icon"
-                  width="120"
-                  height="120"
-                />
+          <img
+            :src="appIcon"
+            alt="ApertureX"
+            class="brand-img"
+            width="32"
+            height="32"
+          />
           <span class="brand-text">ApertureX</span>
         </div>
         <p class="footer-copy">
@@ -59,9 +55,7 @@
 import { ref, onMounted } from 'vue'
 import Layout from './components/Layout.vue'
 import BokehCanvas from './components/BokehCanvas.vue'
-import appIcon from './assets/app_icon.png'
-import LivingApertureHero from './components/LivingApertureHero.vue'
-import ImmersiveHero from './components/ImmersiveHero.vue'
+import ApertureHero from './components/ApertureHero.vue'
 import HeroSpecs from './components/HeroSpecs.vue'
 import CompareSection from './components/CompareSection.vue'
 import FeaturesGrid from './components/FeaturesGrid.vue'
@@ -69,6 +63,7 @@ import ScreensDemo from './components/ScreensDemo.vue'
 import PipelineSection from './components/PipelineSection.vue'
 import DownloadSection from './components/DownloadSection.vue'
 import ReleaseList from './components/ReleaseList.vue'
+import appIcon from './assets/app_icon.png'
 
 const scrollProgress = ref(null)
 
