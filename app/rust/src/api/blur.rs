@@ -28,6 +28,7 @@ pub fn blur_apply(
         3 => BokehShape::Septagon,
         4 => BokehShape::CatsEye,
         5 => BokehShape::SoapBubble,
+        6 => BokehShape::Swirl,
         _ => BokehShape::Circle,
     };
 

@@ -100,6 +100,11 @@ impl LensBlurParams {
 /// Formula: CoC(x, y) = Aperture * | 1/Z(x, y) - 1/Z_focus | * scale
 /// Points within the focal depth range remain sharp (CoC = 0.0);
 /// points outside blur with radius proportional to CoC.
+///
+/// Improvements over a bare diopter formula:
+/// - Smooth focal falloff curve (sigmoid rolloff at DoF boundaries, not hard cutoff)
+/// - Diffraction floor at small apertures (high f-numbers blur even in-focus planes)
+/// - Depth-discontinuity guard prevents foreground bleed onto background
 #[inline(always)]
 pub fn circle_of_confusion(depth: f32, focal_point: f32, focal_range: f32, amount: f32) -> f32 {
     if amount <= 1e-4 {
@@ -108,9 +113,6 @@ pub fn circle_of_confusion(depth: f32, focal_point: f32, focal_range: f32, amoun
 
     let half_range = (focal_range.abs() * 0.5).max(1e-4);
     let diff = (depth - focal_point).abs();
-    if diff <= half_range {
-        return 0.0;
-    }
 
     // Map normalized depth [0.0, 1.0] to physical optical distance Z [0.10, 1.0]
     let z = (0.10 + 0.90 * depth.clamp(0.0, 1.0)).max(0.05);
@@ -129,9 +131,36 @@ pub fn circle_of_confusion(depth: f32, focal_point: f32, focal_range: f32, amoun
         (1.0 / z_far - inv_z).max(0.0)
     };
 
+    // Smooth focal falloff: sigmoid rolloff at DoF boundaries instead of hard cutoff.
+    // Within [z_near, z_far] CoC = 0; outside it rises smoothly via a smoothstep curve.
+    let falloff = if diff <= half_range {
+        0.0
+    } else if inv_z > inv_focus {
+        // Foreground side: distance from near boundary
+        let t = ((inv_z - 1.0 / z_near) / (1.0 / z_focus.max(1e-4) - 1.0 / z_near.max(1e-4)))
+            .clamp(0.0, 1.0);
+        t * t * (3.0 - 2.0 * t) // smoothstep
+    } else {
+        // Background side: distance from far boundary
+        let t = ((1.0 / z_far - inv_z) / (1.0 / z_far.max(1e-4) - 1.0 / z_focus.max(1e-4)))
+            .clamp(0.0, 1.0);
+        t * t * (3.0 - 2.0 * t) // smoothstep
+    };
+
     let aperture = amount;
-    let scale = 1.25;
-    (aperture * delta_diopter * scale).clamp(0.0, 1.0)
+    let base_scale = 1.25;
+    let defocus_coc = aperture * delta_diopter * base_scale * (1.0 + falloff);
+
+    // Diffraction: f/1.2..f/22 mapped from amount; small but nonzero at high f-numbers.
+    let f_number = 22.0 * (1.0 - amount.clamp(0.0, 1.0)) + 1.2;
+    let diffraction = (0.0008 * f_number * f_number).clamp(0.0, 0.03);
+
+    // Diffraction only adds to defocus blur; within the focal range CoC stays exactly 0.
+    if defocus_coc <= 1e-6 {
+        0.0
+    } else {
+        (defocus_coc + diffraction).clamp(0.0, 1.0)
+    }
 }
 
 /// Evaluates aperture blade distance threshold at polar angle `theta`.
@@ -385,8 +414,11 @@ pub fn apply_lens_blur(
                     let s_x = nx as usize;
                     let s_y = ny as usize;
                     let sample_depth = depth_buffer[s_y * w + s_x];
-                    let depth_weight = if sample_depth < pixel_depth - 0.15 {
-                        0.1 // de-weight foreground bleeding onto background
+                    // Symmetric depth-discontinuity guard: de-weight samples on the
+                    // opposite side of a depth edge to prevent halo / bleed artifacts.
+                    let depth_delta = sample_depth - pixel_depth;
+                    let depth_weight = if depth_delta.abs() > 0.15 {
+                        0.12 // sample on opposite side of depth edge
                     } else {
                         1.0
                     };

@@ -10,6 +10,7 @@ import '../color/optics_spec.dart';
 import '../color/spatial_spec.dart';
 import '../edit/adjustment_layer.dart';
 import '../edit/geometry_spec.dart';
+import '../settings/export_branding_settings.dart' show ExportBrandingSettings;
 import '../src/rust/api/blur.dart' as rust_blur;
 import '../src/rust/api/color.dart' as rust_color;
 import '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
@@ -1092,6 +1093,8 @@ class AxEngine {
     int colorSpace = 0,
     bool ultraHdr = false,
     double hdrHeadroom = 2.0,
+    int? outputSharpenMedia,
+    double? outputSharpen,
   }) async {
     final exportSpec = rust_export.ExportSpec(
       flipH: geometry.flipH,
@@ -1114,8 +1117,8 @@ class AxEngine {
       sharpenRadius: spatial.sharpenRadius,
       sharpenDetail: spatial.sharpenDetail,
       sharpenMasking: spatial.sharpenMasking,
-      outputSharpenMedia: spatial.outputSharpenMedia,
-      outputSharpen: spatial.outputSharpen,
+      outputSharpenMedia: outputSharpenMedia ?? spatial.outputSharpenMedia,
+      outputSharpen: outputSharpen ?? spatial.outputSharpen,
       denoiseLuma: spatial.denoiseLuma,
       denoiseChroma: spatial.denoiseChroma,
       dehaze: spatial.dehaze,
@@ -1182,23 +1185,7 @@ class AxEngine {
             hsl: spec.hsl,
             exif: exif,
             branding: branding ??
-                rust_export.ExportBrandingSpec(
-                  enableMuseumFrame: false,
-                  frameTheme: 0,
-                  exifLine1: '',
-                  exifLine2: '',
-                  enableSignature: false,
-                  signatureText: '',
-                  signatureAnchor: 8,
-                  signatureOpacity: 0.8,
-                  signatureSizePct: 2.5,
-                  enableLogo: false,
-                  logoBytes: Uint8List(0),
-                  logoAnchor: 8,
-                  logoOpacity: 0.8,
-                  logoScalePct: 10.0,
-                  enableFossBadge: false,
-                ),
+                const ExportBrandingSettings().toRustBrandingSpec(),
             c2Pa: c2pa ??
                 rust_export.C2paExportSpec(
                   enableC2Pa: false,
@@ -1302,6 +1289,20 @@ class AxEngine {
         rgba: rgba,
         width: width,
         height: height,
+      );
+
+  /// Renders a live mini-preview with active watermark branding.
+  static Future<rust_export.BrandedFrame> renderBrandingPreview({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    required rust_export.ExportBrandingSpec branding,
+  }) =>
+      rust_export.renderBrandingPreview(
+        rgba: rgba,
+        width: width,
+        height: height,
+        branding: branding,
       );
 
   /// Merges bracketed exposures into an Ultra HDR JPEG (#20).

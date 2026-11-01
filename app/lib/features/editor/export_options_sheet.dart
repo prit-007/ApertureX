@@ -7,6 +7,7 @@ import '../../settings/export_settings.dart';
 import '../../ui/common/app_sheet.dart';
 
 enum ExportAction {
+  openExportStudio,
   saveToApertureX,
   saveToPhotos,
   savePng,
@@ -162,6 +163,17 @@ class _ExportOptionsSheetContentState
                 const Divider(height: 1),
 
                 // Primary Export Actions
+                ListTile(
+                  leading: const Icon(Icons.tune_outlined, color: Colors.amber),
+                  title: const Text('Open Pro Export Studio', overflow: TextOverflow.ellipsis),
+                  subtitle: const Text(
+                    'Full-page Lightroom-style export canvas & watermarking suite',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: _formatBadge('STUDIO', theme),
+                  onTap: () =>
+                      Navigator.of(context).pop(ExportAction.openExportStudio),
+                ),
                 ListTile(
                   leading: const Icon(Icons.auto_fix_high_outlined),
                   title: const Text('Save to ApertureX', overflow: TextOverflow.ellipsis),

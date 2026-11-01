@@ -1459,6 +1459,7 @@ class LooksPresetsPanel extends ConsumerStatefulWidget {
 class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
   String _selectedCategory = 'All';
   String _searchQuery = '';
+  bool _synced = false;
 
   static const List<String> _categories = [
     'All',
@@ -1467,7 +1468,47 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
     'Portraits',
     'Moody',
     'Landscape',
+    'Cinema',
   ];
+
+  /// Derive a display category for a built-in look from its name/description
+  /// so built-ins appear under the same category chips as community presets.
+  String _builtinCategory(ToolDefinition tool) {
+    final name = tool.name.toLowerCase();
+    final desc = tool.description.toLowerCase();
+    if (name.contains('portra') || name.contains('ektar') || name.contains('velvia') ||
+        name.contains('agfa') || name.contains('kodachrome') || desc.contains('film') ||
+        desc.contains('analog')) {
+      return 'Film';
+    }
+    if (name.contains('portrait') || desc.contains('skin') || desc.contains('portrait')) {
+      return 'Portraits';
+    }
+    if (name.contains('moody') || name.contains('dark') || desc.contains('moody') ||
+        desc.contains('crushed')) {
+      return 'Moody';
+    }
+    if (name.contains('cine') || name.contains('teal') || desc.contains('cinematic') ||
+        desc.contains('split tone')) {
+      return 'Cinema';
+    }
+    if (desc.contains('landscape') || desc.contains('mountain')) {
+      return 'Landscape';
+    }
+    return 'Built-in';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!_synced && mounted) {
+        _synced = true;
+        await ref.read(communityPresetsProvider.notifier).syncWithGitHub();
+        if (mounted) setState(() {});
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1476,18 +1517,29 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
     final notifier = ref.read(recipeControllerProvider.notifier);
     final communityState = ref.watch(communityPresetsProvider);
 
-    // Filter builtins
-    final builtins = ToolLibrary.builtins.where((tool) {
-      if (_selectedCategory != 'All' && _selectedCategory != 'Built-in') return false;
+    // ---- Unified preset list: built-ins + community, each tagged ----
+    final allItems = <_PresetItem>[];
+
+    for (final tool in ToolLibrary.builtins) {
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
-        return tool.name.toLowerCase().contains(q) ||
-            tool.description.toLowerCase().contains(q);
+        if (!tool.name.toLowerCase().contains(q) &&
+            !tool.description.toLowerCase().contains(q)) {
+          continue;
+        }
       }
-      return true;
-    }).toList();
+      final cat = _builtinCategory(tool);
+      if (_selectedCategory != 'All' && _selectedCategory != cat && _selectedCategory != 'Built-in') {
+        continue;
+      }
+      final isApplied = _looksMatch(tool, recipe);
+      allItems.add(_PresetItem.builtin(tool, cat, isApplied, () {
+        HapticFeedback.lightImpact();
+        notifier.applyTool(tool);
+        notifier.commit(label: 'Applied ${tool.name}');
+      }));
+    }
 
-    // Filter community presets
     final communityPresets = communityState.presets.where((preset) {
       if (_selectedCategory == 'Built-in') return false;
       if (_selectedCategory != 'All' &&
@@ -1502,7 +1554,14 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
             preset.tags.any((t) => t.toLowerCase().contains(q));
       }
       return true;
-    }).toList();
+    });
+    for (final preset in communityPresets) {
+      final isApplied = _presetMatches(preset, recipe);
+      allItems.add(_PresetItem.community(preset, isApplied, () {
+        HapticFeedback.lightImpact();
+        ref.read(communityPresetsProvider.notifier).applyPreset(ref, preset);
+      }));
+    }
 
     return ListView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -1556,121 +1615,31 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
           ),
         ),
         const SizedBox(height: Insets.sm),
-        // Built-in looks
-        if (builtins.isNotEmpty) ...[
-          const SectionHeader('Built-in Looks'),
+        // ---- CINEMA STRIP: horizontal scrolling preset carousel ----
+        if (allItems.isNotEmpty) ...[
+          const SectionHeader('Preset Strip'),
           const SizedBox(height: Insets.xs),
-          for (final tool in builtins) ...[
-            Builder(builder: (context) {
-              final isApplied = _looksMatch(tool, recipe);
-              return Card(
-                margin: const EdgeInsets.only(bottom: Insets.xs),
-                child: ListTile(
-                  leading: PresetThumbnail(
-                    params: tool.params,
-                    size: 42,
-                  ),
-                  title: Text(
-                    tool.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: isApplied ? scheme.primary : null,
-                    ),
-                  ),
-                  subtitle: Text(
-                    tool.description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  trailing: isApplied
-                      ? Icon(Icons.check_circle, color: scheme.primary, size: 20)
-                      : Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    notifier.applyTool(tool);
-                    notifier.commit(label: 'Applied ${tool.name}');
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Applied look: ${tool.name}'),
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
-                  },
-                ),
-              );
-            }),
-          ],
-          const SizedBox(height: Insets.sm),
+          SizedBox(
+            height: 178,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: allItems.length,
+              itemBuilder: (context, idx) {
+                final item = allItems[idx];
+                return _PresetStripItem(
+                  item: item,
+                  recipe: recipe,
+                  notifier: notifier,
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: Insets.md),
+        ] else ...[
+          const SectionHeader('No presets match'),
+          const Text('Try adjusting the category or search.'),
+          const SizedBox(height: Insets.md),
         ],
-
-        // Community Presets
-        if (communityPresets.isNotEmpty) ...[
-          const SectionHeader('Community Presets'),
-          const SizedBox(height: Insets.xs),
-          for (final preset in communityPresets) ...[
-            Builder(builder: (context) {
-              final isApplied = _presetMatches(preset, recipe);
-              return Card(
-                margin: const EdgeInsets.only(bottom: Insets.xs),
-                child: ListTile(
-                  leading: PresetThumbnail(
-                    params: preset.params ?? const {},
-                    size: 42,
-                  ),
-                  title: Row(
-                    children: [
-                      Text(
-                        preset.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: isApplied ? scheme.primary : null,
-                        ),
-                      ),
-                      const SizedBox(width: Insets.xs),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: scheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          preset.category,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: scheme.onSecondaryContainer,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  subtitle: Text(
-                    '${preset.author} · ★ ${preset.rating.toStringAsFixed(1)} · ${preset.description}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  trailing: isApplied
-                      ? Icon(Icons.check_circle, color: scheme.primary, size: 20)
-                      : Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    ref.read(communityPresetsProvider.notifier).applyPreset(ref, preset);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Applied preset: ${preset.name}'),
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
-                  },
-                ),
-              );
-            }),
-          ],
-        ],
-
-        const SizedBox(height: Insets.lg),
         const SectionHeader('Import Look'),
         Text(
           'Paste a look JSON or apx:// QR code to import a custom preset.',
@@ -1751,5 +1720,188 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
       if (p.name == name) return p;
     }
     return null;
+  }
+}
+
+/// Union of built-in looks and community presets for the cinema strip.
+class _PresetItem {
+  const _PresetItem._({
+    required this.kind,
+    required this.name,
+    required this.description,
+    required this.params,
+    required this.category,
+    required this.isApplied,
+    required this.onTap,
+    this.author,
+    this.rating,
+  });
+
+  factory _PresetItem.builtin(
+      ToolDefinition tool, String category, bool isApplied, VoidCallback onTap) {
+    return _PresetItem._(
+      kind: 'builtin',
+      name: tool.name,
+      description: tool.description,
+      params: tool.params,
+      category: category,
+      isApplied: isApplied,
+      onTap: onTap,
+    );
+  }
+
+  factory _PresetItem.community(
+      CommunityPreset preset, bool isApplied, VoidCallback onTap) {
+    return _PresetItem._(
+      kind: 'community',
+      name: preset.name,
+      description: preset.description,
+      params: preset.params ?? const {},
+      category: preset.category,
+      isApplied: isApplied,
+      onTap: onTap,
+      author: preset.author,
+      rating: preset.rating,
+    );
+  }
+
+  final String kind;
+  final String name;
+  final String description;
+  final Map<String, double> params;
+  final String category;
+  final bool isApplied;
+  final VoidCallback onTap;
+  final String? author;
+  final double? rating;
+}
+
+/// Single cinema-strip preset card: large live thumbnail + name + applied badge.
+class _PresetStripItem extends ConsumerWidget {
+  const _PresetStripItem({
+    required this.item,
+    required this.recipe,
+    required this.notifier,
+  });
+
+  final _PresetItem item;
+  final EditRecipe recipe;
+  final RecipeController notifier;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final isApplied = item.isApplied;
+    final matrix = computePresetColorMatrix(item.params);
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        item.onTap();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Applied ${item.kind == 'community' ? 'preset' : 'look'}: ${item.name}'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      },
+      child: Container(
+        width: 150,
+        margin: const EdgeInsets.only(right: Insets.sm),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(Radii.md),
+          border: Border.all(
+            color: isApplied
+                ? scheme.primary
+                : scheme.outlineVariant.withValues(alpha: 0.4),
+            width: isApplied ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Live thumbnail
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.sm)),
+              child: AspectRatio(
+                aspectRatio: 3 / 4,
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.matrix(matrix),
+                  child: Image.memory(
+                    ref.watch(activeImageBytesProvider) ?? Uint8List(0),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (_, _, _) => Container(
+                      color: scheme.surfaceContainerHighest,
+                      child: Center(
+                        child: Icon(
+                          Icons.style_outlined,
+                          size: 24,
+                          color: scheme.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Label + applied badge
+            Padding(
+              padding: const EdgeInsets.all(Insets.xs),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            color: isApplied ? scheme.primary : scheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      if (isApplied)
+                        Icon(Icons.check_circle, color: scheme.primary, size: 16),
+                    ],
+                  ),
+                  if (item.kind == 'community' && item.author != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      item.author!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  Text(
+                    item.category,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                      color: scheme.primary.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aperturex/settings/export_branding_settings.dart';
@@ -18,8 +19,11 @@ void main() {
       expect(settings.enableSignature, isFalse);
       expect(settings.signatureOpacity, equals(0.8));
       expect(settings.signatureAnchorIndex, equals(8)); // BottomRight
+      expect(settings.signatureColor, equals(0)); // White
+      expect(settings.signatureDropShadow, isTrue);
+      expect(settings.enableTiledWatermark, isFalse);
       expect(settings.enableFossBadge, isFalse);
-      expect(settings.enableC2pa, isTrue); // C2PA opt-in/active for authenticity
+      expect(settings.enableC2pa, isTrue);
     });
 
     test('toRustBrandingSpec maps correctly', () {
@@ -31,6 +35,12 @@ void main() {
         enableSignature: true,
         signatureText: '© 2026 Test',
         signatureAnchorIndex: 8,
+        signatureColor: 3, // Gold
+        signatureInsetPct: 5.0,
+        signatureDropShadow: true,
+        enableTiledWatermark: true,
+        tiledText: 'PROOF',
+        tiledOpacity: 0.3,
         enableFossBadge: true,
       );
 
@@ -41,6 +51,12 @@ void main() {
       expect(rustSpec.exifLine2, equals('1/250s • f/2.0 • ISO 100'));
       expect(rustSpec.enableSignature, isTrue);
       expect(rustSpec.signatureText, equals('© 2026 Test'));
+      expect(rustSpec.signatureColor, equals(3));
+      expect(rustSpec.signatureInsetPct, equals(5.0));
+      expect(rustSpec.signatureDropShadow, isTrue);
+      expect(rustSpec.enableTiledWatermark, isTrue);
+      expect(rustSpec.tiledText, equals('PROOF'));
+      expect(rustSpec.tiledOpacity, equals(0.3));
       expect(rustSpec.enableFossBadge, isTrue);
     });
 
@@ -64,9 +80,38 @@ void main() {
         enabled: true,
         text: '© Jane Doe',
         opacity: 0.9,
+        color: 3,
+        insetPct: 4.0,
+        dropShadow: false,
       );
       expect(container.read(exportBrandingProvider).signatureText, equals('© Jane Doe'));
       expect(container.read(exportBrandingProvider).signatureOpacity, equals(0.9));
+      expect(container.read(exportBrandingProvider).signatureColor, equals(3));
+      expect(container.read(exportBrandingProvider).signatureInsetPct, equals(4.0));
+      expect(container.read(exportBrandingProvider).signatureDropShadow, isFalse);
+
+      notifier.setTiledWatermark(
+        enabled: true,
+        text: 'CLIENT PROOF',
+        opacity: 0.2,
+      );
+      expect(container.read(exportBrandingProvider).enableTiledWatermark, isTrue);
+      expect(container.read(exportBrandingProvider).tiledText, equals('CLIENT PROOF'));
+
+      notifier.setLogo(
+        enabled: true,
+        bytes: Uint8List.fromList([1, 2, 3]),
+        path: 'logo.png',
+      );
+      expect(container.read(exportBrandingProvider).enableLogo, isTrue);
+      expect(container.read(exportBrandingProvider).logoBytes?.length, equals(3));
+
+      notifier.clearLogo();
+      expect(container.read(exportBrandingProvider).enableLogo, isFalse);
+
+      notifier.applyWatermarkPreset(WatermarkPreset.goldStudio);
+      expect(container.read(exportBrandingProvider).enableSignature, isTrue);
+      expect(container.read(exportBrandingProvider).signatureColor, equals(3)); // Gold
 
       notifier.setFossBadge(true);
       expect(container.read(exportBrandingProvider).enableFossBadge, isTrue);

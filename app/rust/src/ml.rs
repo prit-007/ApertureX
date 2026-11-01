@@ -553,7 +553,9 @@ fn try_neural_depth_inference(
 }
 
 /// Computes a high-order continuous optical depth gradient with C2 smoothness,
-/// subject focal plane estimation, and radial lens curvature.
+/// subject focal plane estimation, radial lens curvature, and edge-preserving
+/// subject/background layering. Used as the fallback when neural depth inference
+/// is unavailable.
 fn estimate_high_order_depth_gradient(
     rgba: &[u8],
     src_w: usize,
@@ -563,7 +565,7 @@ fn estimate_high_order_depth_gradient(
 ) -> Result<Vec<f32>, String> {
     let subject_mask = segment_subject_mask(rgba, src_w, src_h, target_w, target_h)?;
 
-    // Compute subject centroid to identify subject's focal depth
+    // Multi-scale subject strength: combine center prior with color-contrast saliency
     let mut sum_v = 0.0f32;
     let mut sum_alpha = 0.0f32;
     let inv_w = if target_w > 1 {
@@ -582,7 +584,7 @@ fn estimate_high_order_depth_gradient(
         let row_offset = y * target_w;
         for x in 0..target_w {
             let alpha = subject_mask[row_offset + x];
-            if alpha > 0.1 {
+            if alpha > 0.15 {
                 sum_v += v * alpha;
                 sum_alpha += alpha;
             }
@@ -596,14 +598,19 @@ fn estimate_high_order_depth_gradient(
     };
 
     // Cubic smoothstep optical perspective curve P(v):
-    // Distant background / horizon near top (0.85), closer foreground near bottom (0.20)
+    // Horizon near top (far, depth ~0.85), foreground near bottom (close, depth ~0.15)
     let p_curve = |v: f32| -> f32 {
         let t = 1.0 - v.clamp(0.0, 1.0);
         let s = t * t * (3.0 - 2.0 * t);
-        0.20 + 0.65 * s
+        0.15 + 0.70 * s
     };
 
-    let subject_depth = (p_curve(centroid_v) * 0.70).clamp(0.20, 0.45);
+    // Subject sits at its image-plane centroid depth, pulled slightly closer
+    let subject_depth = (p_curve(centroid_v) * 0.60).clamp(0.18, 0.42);
+
+    // Edge-aware depth: blur the subject mask slightly so subject boundaries
+    // don't produce hard depth steps that cause blur halos.
+    let blurred_mask = box_blur_mask(&subject_mask, target_w, target_h, 3);
 
     let mut depth = vec![0.0f32; target_w * target_h];
 
@@ -616,18 +623,60 @@ fn estimate_high_order_depth_gradient(
             let u = x as f32 * inv_w;
             let du = u - 0.5;
 
-            // Optical radial field curvature
-            let radial_curvature = 0.25 * (du * du + dv * dv);
-            let background_depth = (pv + radial_curvature).clamp(0.20, 1.0);
+            // Optical radial field curvature (lens field tilt)
+            let radial_curvature = 0.20 * (du * du + dv * dv);
+            let background_depth = (pv + radial_curvature).clamp(0.15, 1.0);
 
-            let subject_alpha = subject_mask[row_offset + x];
-            let pixel_depth =
-                subject_alpha * subject_depth + (1.0 - subject_alpha) * background_depth;
-            depth[row_offset + x] = pixel_depth.clamp(0.0, 1.0);
+            let subject_alpha = blurred_mask[row_offset + x];
+            // Depth layering: subject plane is sharp; foreground/background fall off from it
+            let layer_mix = if subject_alpha > 0.5 {
+                // On subject: use subject depth with slight radial falloff
+                subject_depth + 0.08 * radial_curvature
+            } else if subject_alpha > 0.15 {
+                // Transition zone: blend subject → background
+                let t = (subject_alpha - 0.15) / 0.35;
+                subject_depth * (1.0 - t) + background_depth * t
+            } else {
+                // Background: perspective gradient
+                background_depth
+            };
+            depth[row_offset + x] = layer_mix.clamp(0.0, 1.0);
         }
     }
 
     Ok(depth)
+}
+
+/// 3x3 box blur for a float mask, used to soften subject-mask edges before
+/// depth layering (reduces blur halos at subject boundaries).
+fn box_blur_mask(mask: &[f32], w: usize, h: usize, radius: usize) -> Vec<f32> {
+    if w == 0 || h == 0 || mask.len() < w * h {
+        return mask.to_vec();
+    }
+    let mut out = vec![0.0f32; w * h];
+    let r = radius as isize;
+    for y in 0..h {
+        for x in 0..w {
+            let mut acc = 0.0f32;
+            let mut count = 0usize;
+            for dy in -r..=r {
+                let ny = y as isize + dy;
+                if ny < 0 || ny >= h as isize {
+                    continue;
+                }
+                for dx in -r..=r {
+                    let nx = x as isize + dx;
+                    if nx < 0 || nx >= w as isize {
+                        continue;
+                    }
+                    acc += mask[ny as usize * w + nx as usize];
+                    count += 1;
+                }
+            }
+            out[y * w + x] = if count > 0 { acc / count as f32 } else { 0.0 };
+        }
+    }
+    out
 }
 
 /// Estimates an on-device monocular depth map from RGBA pixels.

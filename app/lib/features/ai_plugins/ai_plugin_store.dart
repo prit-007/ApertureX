@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../engine/engine.dart';
 import 'ai_plugin_model.dart';
 
@@ -16,11 +17,12 @@ const List<AiPluginModel> kCommunityAiPlugins = [
     author: 'DepthAnything (TikTok / HKU)',
     task: AiTask.depthEstimation,
     sourceUrl: 'https://github.com/DepthAnything/Depth-Anything-V2',
+    downloadUrl: 'https://github.com/DepthAnything/Depth-Anything-V2/releases/download/v2.0.0/dpt_vits.onnx',
     inputWidth: 518,
     inputHeight: 518,
-    fileSizeBytes: 98000000,
+    fileSizeBytes: 27258801,
     version: '2.0.0',
-    sha256: '9f83a45c71b6238b7e23a4b958c2f10b74962e24d2d4d8c6b7123456789abcde',
+    sha256: 'fcf51f1b230362b28690bb9d1809bf0431f29cad20534e3f589bd7285547f20d',
   ),
   AiPluginModel(
     id: 'rmbg-1.4',
@@ -237,7 +239,8 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
     }
   }
 
-  Future<String> _ensureLocalModelFile(String pluginId, String sourceUrl) async {
+  Future<String> _ensureLocalModelFile(String pluginId, String sourceUrl,
+      {String? downloadUrl, String? expectedSha256, int? fileSizeBytes, HttpClient? client}) async {
     try {
       final dir = await getApplicationSupportDirectory();
       final modelDir = Directory('${dir.path}/ai_plugins');
@@ -246,8 +249,34 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
       }
       final file = File('${modelDir.path}/$pluginId.onnx');
       if (!await file.exists()) {
-        // Create persistent ONNX model placeholder on-device
-        await file.writeAsBytes(List<int>.filled(64, 0));
+        final url = downloadUrl ?? sourceUrl;
+        final uri = Uri.parse(url);
+        final httpClient = client ?? HttpClient();
+        final request = await httpClient.getUrl(uri);
+        final response = await request.close();
+        if (response.statusCode != 200 && response.statusCode != 206) {
+          throw Exception('HTTP ${response.statusCode} downloading model from $url');
+        }
+        final contentLength = fileSizeBytes ?? 0;
+        final sink = file.openWrite();
+        int downloaded = 0;
+        await for (final chunk in response) {
+          sink.add(chunk);
+          downloaded += chunk.length;
+          state = state.copyWith(downloadProgress: contentLength > 0 ? downloaded / contentLength : 0.0);
+        }
+        await sink.close();
+        httpClient.close();
+
+        // SHA-256 verification
+        if (expectedSha256 != null && expectedSha256.isNotEmpty) {
+          final bytes = await file.readAsBytes();
+          final digest = sha256.convert(bytes).toString();
+          if (digest.toLowerCase() != expectedSha256.toLowerCase()) {
+            await file.delete();
+            throw Exception('SHA-256 mismatch: expected $expectedSha256, got $digest');
+          }
+        }
       }
       return file.path;
     } catch (_) {
@@ -305,19 +334,19 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
     await _saveToPrefs();
   }
 
-  /// Installs a community plugin, marks it ready, and immediately activates it for its task.
+  /// Installs a community plugin, downloads the real ONNX model, verifies SHA-256,
+  /// marks it ready, and immediately activates it for its task.
   Future<void> installCommunityPlugin(AiPluginModel plugin) async {
-    state = state.copyWith(downloadingId: plugin.id, downloadProgress: 0.1);
+    state = state.copyWith(downloadingId: plugin.id, downloadProgress: 0.0);
 
-    // Progressive simulated download with network simulation
-    for (int i = 2; i <= 10; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-      if (state.downloadingId == plugin.id) {
-        state = state.copyWith(downloadProgress: i / 10.0);
-      }
-    }
+    final localPath = await _ensureLocalModelFile(
+      plugin.id,
+      plugin.sourceUrl,
+      downloadUrl: plugin.downloadUrl,
+      expectedSha256: plugin.sha256,
+      fileSizeBytes: plugin.fileSizeBytes,
+    );
 
-    final localPath = await _ensureLocalModelFile(plugin.id, plugin.sourceUrl);
     final installed = plugin.copyWith(
       isInstalled: true,
       isEnabled: true,

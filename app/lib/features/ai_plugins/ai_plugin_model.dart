@@ -105,6 +105,7 @@ class AiPluginModel {
     required this.author,
     required this.task,
     required this.sourceUrl,
+    this.downloadUrl,
     this.modelFile,
     this.controls = const [],
     this.inputWidth = 512,
@@ -149,6 +150,7 @@ class AiPluginModel {
       ),
       sourceUrl: json['sourceUrl'] as String? ?? '',
       modelFile: json['model_file'] as String?,
+      downloadUrl: json['download_url'] as String?,
       controls: controlsList,
       inputWidth: width,
       inputHeight: height,
@@ -170,6 +172,7 @@ class AiPluginModel {
   final String author;
   final AiTask task;
   final String sourceUrl;
+  final String? downloadUrl;
   final String? modelFile;
   final List<AiPluginControl> controls;
   final int inputWidth;
@@ -191,6 +194,7 @@ class AiPluginModel {
     String? author,
     AiTask? task,
     String? sourceUrl,
+    String? downloadUrl,
     String? modelFile,
     List<AiPluginControl>? controls,
     int? inputWidth,
@@ -212,6 +216,7 @@ class AiPluginModel {
       author: author ?? this.author,
       task: task ?? this.task,
       sourceUrl: sourceUrl ?? this.sourceUrl,
+      downloadUrl: downloadUrl ?? this.downloadUrl,
       modelFile: modelFile ?? this.modelFile,
       controls: controls ?? this.controls,
       inputWidth: inputWidth ?? this.inputWidth,
@@ -233,9 +238,10 @@ class AiPluginModel {
         'name': name,
         'description': description,
         'author': author,
-        'task': task.name,
-        'sourceUrl': sourceUrl,
-        if (modelFile != null) 'model_file': modelFile,
+      'task': task.name,
+      'sourceUrl': sourceUrl,
+      if (downloadUrl != null) 'download_url': downloadUrl,
+      if (modelFile != null) 'model_file': modelFile,
         'controls': controls.map((c) => c.toJson()).toList(),
         'input_shape': [1, inputChannels, inputHeight, inputWidth],
         'isBuiltIn': isBuiltIn,
