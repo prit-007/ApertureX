@@ -1,8 +1,8 @@
 # ApertureX
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Status](https://img.shields.io/badge/status-v0.3.7-blue.svg)](docs/ROADMAP.md)
-[![Latest Release](https://img.shields.io/badge/release-v0.3.7-brightgreen.svg)](https://github.com/prit-007/ApertureX/releases/latest)
+[![Status](https://img.shields.io/badge/status-v0.3.9-blue.svg)](docs/ROADMAP.md)
+[![Latest Release](https://img.shields.io/badge/release-v0.3.9-brightgreen.svg)](https://github.com/prit-007/ApertureX/releases/latest)
 [![F-Droid](https://img.shields.io/badge/F--Droid-Ready%20for%20Publish-blue?logo=fdroid)](https://github.com/prit-007/ApertureX/releases/latest)
 [![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20Desktop-lightgrey.svg)](#)
 [![Website](https://img.shields.io/badge/website-prit--007.github.io%2FApertureX-6BEAF7)](https://prit-007.github.io/ApertureX/)
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/prit-007/ApertureX/releases/latest"><b>📥 Download Latest APK (v0.3.7)</b></a> •
+  <a href="https://github.com/prit-007/ApertureX/releases/latest"><b>📥 Download Latest APK (v0.3.9)</b></a> •
   <a href="https://prit-007.github.io/ApertureX/"><b>🌐 Interactive Website &amp; Studio Tour</b></a> •
   <a href="docs/ROADMAP.md"><b>🗺️ Roadmap &amp; Features</b></a> •
   <a href="THIRD_PARTY.md"><b>📜 Open-Source Licenses</b></a>
@@ -81,7 +81,7 @@ ApertureX is production-ready for Android devices and available for sideloading,
 
 ---
 
-> **Status: v0.3.7 (Release).** Verified across 1,360+ Dart tests, 363 Rust tests (including 7 golden fixture corpus tests), and 0 analyzer issues. See [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`docs/PARITY.md`](docs/PARITY.md).
+> **Status: v0.3.9 (Release).** Verified across 1,360+ Dart tests, 363 Rust tests (including 7 golden fixture corpus tests), and 0 analyzer issues. See [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`docs/PARITY.md`](docs/PARITY.md).
 
 > **Naming:** the product is **ApertureX** and every identifier is canonical:
 > Dart package `aperturex`, applicationId/bundle id `com.devparadise.aperturex`,

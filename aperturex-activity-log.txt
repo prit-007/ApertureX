@@ -1,0 +1,247 @@
+ApertureX activity log
+2026-10-24T11:07:46.819787 [app/debug] ApertureX started
+2026-10-24T11:07:46.852293 [nav/debug] push /
+2026-10-24T11:07:47.079834 [app/debug] lifecycle inactive
+2026-10-24T11:07:49.493775 [permission/warning] Photo access denied
+2026-10-24T11:07:49.531955 [app/debug] lifecycle resumed
+2026-10-24T11:07:54.544142 [app/debug] lifecycle inactive
+2026-10-24T11:07:54.739841 [permission/warning] Photo access denied
+2026-10-24T11:07:54.763833 [app/debug] lifecycle resumed
+2026-10-24T11:07:55.828488 [app/debug] lifecycle inactive
+2026-10-24T11:07:56.025229 [permission/warning] Photo access denied
+2026-10-24T11:07:56.056642 [app/debug] lifecycle resumed
+2026-10-24T11:07:56.906642 [app/debug] lifecycle inactive
+2026-10-24T11:07:57.067568 [permission/warning] Photo access denied
+2026-10-24T11:07:57.093466 [app/debug] lifecycle resumed
+2026-10-24T11:07:58.137660 [permission/debug] Opened app settings
+2026-10-24T11:07:58.200548 [app/debug] lifecycle inactive
+2026-10-24T11:07:59.769512 [app/debug] lifecycle paused
+2026-10-24T11:08:05.240244 [app/debug] lifecycle hidden
+2026-10-24T11:08:05.348652 [app/debug] lifecycle resumed
+2026-10-24T11:08:06.004880 [app/debug] lifecycle inactive
+2026-10-24T11:08:06.198539 [permission/warning] Photo access denied
+2026-10-24T11:08:06.205374 [app/debug] lifecycle resumed
+2026-10-24T11:08:07.319642 [app/debug] lifecycle inactive
+2026-10-24T11:08:07.520907 [permission/warning] Photo access denied
+2026-10-24T11:08:07.540844 [app/debug] lifecycle resumed
+2026-10-24T11:08:11.567431 [app/debug] lifecycle inactive
+2026-10-24T11:08:11.797494 [permission/warning] Photo access denied
+2026-10-24T11:08:11.836015 [app/debug] lifecycle resumed
+2026-10-24T11:08:12.716563 [app/debug] lifecycle inactive
+2026-10-24T11:08:12.890297 [permission/warning] Photo access denied
+2026-10-24T11:08:12.900921 [app/debug] lifecycle resumed
+2026-10-24T11:08:13.409394 [nav/debug] push qOa<void>
+2026-10-24T11:08:13.466323 [editor/debug] Loaded recipe: Sample
+2026-10-24T11:08:18.699818 [app/debug] lifecycle inactive
+2026-10-24T11:08:19.256219 [app/debug] lifecycle paused
+2026-10-24T22:20:33.231101 [app/debug] ApertureX started
+2026-10-24T22:20:33.264164 [nav/debug] push /
+2026-10-24T22:20:33.486266 [app/debug] lifecycle inactive
+2026-10-24T22:20:34.032731 [permission/warning] Photo access denied
+2026-10-24T22:20:34.033850 [app/debug] lifecycle resumed
+2026-10-24T22:20:35.232423 [nav/debug] push qOa<void>
+2026-10-24T22:20:35.298314 [editor/debug] Opened sample image
+2026-10-24T22:20:39.137959 [editor/debug] Committed edit: Exposure (branch: main)
+2026-10-24T22:20:41.333632 [editor/debug] Committed edit: Exposure (branch: main)
+2026-10-24T22:20:44.304906 [nav/debug] pop qOa<void>
+2026-10-24T22:20:46.440800 [app/debug] lifecycle inactive
+2026-10-24T22:20:46.639528 [permission/warning] Photo access denied
+2026-10-24T22:20:46.670588 [app/debug] lifecycle resumed
+2026-10-24T22:20:47.530627 [app/debug] lifecycle inactive
+2026-10-24T22:20:47.688657 [permission/warning] Photo access denied
+2026-10-24T22:20:47.704819 [app/debug] lifecycle resumed
+2026-10-24T22:20:48.207867 [permission/debug] Opened app settings
+2026-10-24T22:20:48.243994 [app/debug] lifecycle inactive
+2026-10-24T22:20:49.919610 [app/debug] lifecycle hidden
+2026-10-24T22:20:57.251479 [app/debug] lifecycle inactive
+2026-10-24T22:20:57.405550 [app/debug] lifecycle resumed
+2026-10-24T22:21:03.422195 [app/debug] lifecycle inactive
+2026-10-24T22:21:04.786203 [app/debug] lifecycle resumed
+2026-10-24T22:21:06.808764 [nav/debug] push qOa<void>
+2026-10-24T22:21:06.893596 [editor/debug] Loaded recipe: Sample
+2026-10-24T22:21:08.407826 [nav/debug] pop qOa<void>
+2026-10-24T22:21:10.056200 [nav/debug] push qOa<void>
+2026-10-24T22:21:11.297777 [nav/debug] pop qOa<void>
+2026-10-24T22:21:12.185552 [app/debug] lifecycle inactive
+2026-10-24T22:21:12.799167 [app/debug] lifecycle paused
+2026-10-31T18:05:16.272695 [app/debug] ApertureX started
+2026-10-31T18:05:16.296666 [nav/debug] push /
+2026-10-31T18:05:16.449441 [app/debug] lifecycle inactive
+2026-10-31T18:05:16.837958 [permission/warning] Photo access denied
+2026-10-31T18:05:21.274648 [app/debug] lifecycle inactive
+2026-10-31T18:05:21.498345 [permission/warning] Photo access denied
+2026-10-31T18:05:21.511830 [app/debug] lifecycle resumed
+2026-10-31T18:05:22.654801 [app/debug] lifecycle inactive
+2026-10-31T18:05:22.855216 [permission/warning] Photo access denied
+2026-10-31T18:05:22.873784 [app/debug] lifecycle resumed
+2026-10-31T18:05:23.849082 [app/debug] lifecycle inactive
+2026-10-31T18:05:24.032552 [permission/warning] Photo access denied
+2026-10-31T18:05:24.044768 [app/debug] lifecycle resumed
+2026-10-31T18:05:24.431475 [nav/debug] push qOa<void>
+2026-10-31T18:05:24.487415 [editor/debug] Loaded recipe: Sample
+2026-10-31T18:05:26.110336 [nav/debug] pop qOa<void>
+2026-10-31T18:05:26.902854 [permission/debug] Opened app settings
+2026-10-31T18:05:27.088790 [app/debug] lifecycle inactive
+2026-10-31T18:05:28.919579 [app/debug] lifecycle hidden
+2026-10-31T18:05:32.059725 [app/debug] lifecycle inactive
+2026-10-31T18:05:32.237687 [app/debug] lifecycle resumed
+2026-10-31T18:05:33.489379 [permission/debug] Opened app settings
+2026-10-31T18:05:33.527862 [app/debug] lifecycle inactive
+2026-10-31T18:05:34.546832 [app/debug] lifecycle paused
+2026-10-31T18:05:44.778703 [app/debug] lifecycle hidden
+2026-10-31T18:05:44.979447 [app/debug] lifecycle resumed
+2026-10-31T18:05:45.768070 [app/debug] lifecycle inactive
+2026-10-31T18:05:46.224066 [app/debug] lifecycle paused
+2026-10-31T18:05:47.642781 [app/debug] lifecycle hidden
+2026-10-31T18:05:47.831911 [app/debug] lifecycle resumed
+2026-10-31T18:05:49.171333 [app/debug] lifecycle inactive
+2026-10-31T18:05:49.452259 [permission/warning] Photo access denied
+2026-10-31T18:05:49.462759 [app/debug] lifecycle resumed
+2026-10-31T18:05:50.413554 [app/debug] lifecycle inactive
+2026-10-31T18:05:50.642400 [permission/warning] Photo access denied
+2026-10-31T18:05:50.657447 [app/debug] lifecycle resumed
+2026-10-31T18:05:54.064625 [app/debug] lifecycle inactive
+2026-10-31T18:05:54.463806 [permission/warning] Photo access denied
+2026-10-31T18:05:54.494252 [app/debug] lifecycle resumed
+2026-10-31T18:05:56.122741 [app/debug] lifecycle inactive
+2026-10-31T18:06:40.267363 [app/debug] lifecycle resumed
+2026-10-31T18:08:32.071597 [app/debug] lifecycle inactive
+2026-10-31T18:08:32.516656 [app/debug] lifecycle paused
+2026-10-31T18:11:53.105324 [app/debug] lifecycle hidden
+2026-10-31T18:11:53.350358 [app/debug] lifecycle resumed
+2026-10-31T18:11:57.799302 [nav/debug] push qOa<void>
+2026-10-31T18:11:59.723524 [nav/debug] pop qOa<void>
+2026-10-31T18:12:01.499500 [nav/debug] push qOa<void>
+2026-10-31T18:12:02.717612 [nav/debug] pop qOa<void>
+2026-10-31T18:12:03.364085 [nav/debug] push eaa<dynamic>
+2026-10-31T18:12:05.714203 [nav/debug] pop eaa<dynamic>
+2026-10-31T18:12:06.697028 [nav/debug] push eaa<dynamic>
+2026-10-31T18:12:12.976173 [app/debug] lifecycle inactive
+2026-10-31T18:12:14.808840 [app/debug] lifecycle resumed
+2026-10-31T18:12:15.140260 [nav/debug] pop eaa<dynamic>
+2026-10-31T18:12:16.099526 [app/debug] lifecycle inactive
+2026-10-31T18:12:16.527670 [app/debug] lifecycle paused
+2026-10-31T18:13:47.695375 [app/debug] ApertureX started
+2026-10-31T18:13:47.717598 [nav/debug] push /
+2026-10-31T18:13:47.966276 [app/debug] lifecycle inactive
+2026-10-31T18:13:48.479466 [permission/warning] Photo access denied
+2026-10-31T18:13:48.532968 [app/debug] lifecycle resumed
+2026-10-31T18:13:50.547766 [nav/debug] push eaa<dynamic>
+2026-10-31T18:13:51.677352 [nav/debug] pop eaa<dynamic>
+2026-10-31T18:13:53.018203 [nav/debug] push eaa<dynamic>
+2026-10-31T18:13:54.990104 [nav/debug] pop eaa<dynamic>
+2026-10-31T18:13:57.610249 [nav/debug] push qOa<void>
+2026-10-31T18:13:57.694177 [editor/debug] Opened sample image
+2026-10-31T18:13:58.883974 [nav/debug] pop qOa<void>
+2026-10-31T18:13:59.600175 [app/debug] lifecycle inactive
+2026-10-31T18:13:59.788142 [permission/warning] Photo access denied
+2026-10-31T18:13:59.797438 [app/debug] lifecycle resumed
+2026-10-31T18:14:00.470810 [permission/debug] Opened app settings
+2026-10-31T18:14:00.524898 [app/debug] lifecycle inactive
+2026-10-31T18:14:02.253578 [app/debug] lifecycle hidden
+2026-10-31T18:14:13.067185 [nav/debug] push /
+2026-10-31T18:14:13.213882 [app/debug] lifecycle inactive
+2026-10-31T18:14:14.565588 [permission/warning] Photo access denied
+2026-10-31T18:14:15.626280 [app/debug] lifecycle inactive
+2026-10-31T18:14:15.774263 [permission/warning] Photo access denied
+2026-10-31T18:14:15.776811 [app/debug] lifecycle resumed
+2026-10-31T18:14:16.568063 [app/debug] lifecycle inactive
+2026-10-31T18:14:16.706130 [permission/warning] Photo access denied
+2026-10-31T18:14:20.328890 [app/debug] lifecycle inactive
+2026-10-31T18:14:20.549043 [permission/warning] Photo access denied
+2026-10-31T18:14:20.576360 [app/debug] lifecycle resumed
+2026-10-31T18:14:23.324790 [nav/debug] push qOa<void>
+2026-10-31T18:14:23.383471 [editor/debug] Loaded recipe: Sample
+2026-10-31T18:14:26.739073 [nav/debug] pop qOa<void>
+2026-10-31T18:14:28.787426 [app/debug] lifecycle inactive
+2026-10-31T18:14:29.000648 [permission/warning] Photo access denied
+2026-10-31T18:14:29.037444 [app/debug] lifecycle resumed
+2026-10-31T18:14:30.110586 [nav/debug] push qOa<void>
+2026-10-31T18:14:30.182075 [editor/debug] Loaded recipe: Sample
+2026-10-31T18:14:30.895806 [nav/debug] push eaa<dynamic>
+2026-10-31T18:14:37.534631 [nav/debug] pop eaa<dynamic>
+2026-10-31T18:14:43.571899 [nav/debug] push eaa<IJ>
+2026-10-31T18:14:48.507563 [nav/debug] pop eaa<IJ>
+2026-10-31T18:14:49.073787 [nav/debug] pop qOa<void>
+2026-10-31T18:14:54.266300 [app/debug] lifecycle inactive
+2026-10-31T18:14:54.475709 [permission/warning] Photo access denied
+2026-10-31T18:14:54.500890 [app/debug] lifecycle resumed
+2026-10-31T18:14:56.802324 [nav/debug] push qOa<void>
+2026-10-31T18:15:08.355915 [nav/debug] pop qOa<void>
+2026-10-31T18:15:10.915574 [app/debug] lifecycle inactive
+2026-10-31T18:15:14.736936 [app/debug] lifecycle resumed
+2026-10-31T18:15:15.132406 [app/debug] lifecycle inactive
+2026-10-31T18:15:15.709303 [app/debug] lifecycle paused
+2026-10-31T19:48:19.566845 [app/debug] ApertureX started
+2026-10-31T19:48:19.584186 [nav/debug] push /
+2026-10-31T19:48:19.855793 [app/debug] lifecycle inactive
+2026-10-31T19:48:20.306243 [permission/warning] Photo access denied
+2026-10-31T19:48:22.505544 [app/debug] lifecycle resumed
+2026-10-31T19:48:22.689091 [app/debug] lifecycle inactive
+2026-10-31T19:48:23.144004 [app/debug] lifecycle resumed
+2026-10-31T19:48:23.422316 [app/debug] lifecycle inactive
+2026-10-31T19:48:25.290822 [app/debug] lifecycle resumed
+2026-10-31T19:48:26.767096 [app/debug] lifecycle inactive
+2026-10-31T19:48:26.943101 [permission/warning] Photo access denied
+2026-10-31T19:48:26.968242 [app/debug] lifecycle resumed
+2026-10-31T19:48:27.631534 [app/debug] lifecycle inactive
+2026-10-31T19:48:27.808929 [permission/warning] Photo access denied
+2026-10-31T19:48:27.835925 [app/debug] lifecycle resumed
+2026-10-31T19:48:28.467760 [app/debug] lifecycle inactive
+2026-10-31T19:48:28.635738 [permission/warning] Photo access denied
+2026-10-31T19:48:28.653251 [app/debug] lifecycle resumed
+2026-10-31T19:48:29.026271 [app/debug] lifecycle inactive
+2026-10-31T19:48:29.203010 [permission/warning] Photo access denied
+2026-10-31T19:48:29.224262 [app/debug] lifecycle resumed
+2026-10-31T19:48:29.800018 [nav/debug] push eaa<dynamic>
+2026-10-31T19:48:30.882240 [nav/debug] pop eaa<dynamic>
+2026-10-31T19:48:31.571446 [app/debug] lifecycle inactive
+2026-10-31T19:48:32.180227 [app/debug] lifecycle hidden
+2026-10-31T19:50:41.929345 [app/debug] ApertureX started
+2026-10-31T19:50:41.947449 [nav/debug] push /
+2026-10-31T19:50:42.292751 [app/debug] lifecycle inactive
+2026-10-31T19:50:42.887231 [app/debug] lifecycle resumed
+2026-10-31T19:50:45.445615 [app/debug] lifecycle inactive
+2026-10-31T19:50:46.178369 [app/debug] lifecycle resumed
+2026-10-31T19:50:46.992179 [app/debug] lifecycle inactive
+2026-10-31T19:50:47.957102 [permission/warning] Photo access denied
+2026-10-31T19:50:48.008013 [app/debug] lifecycle resumed
+2026-10-31T19:50:48.809018 [permission/debug] Opened app settings
+2026-10-31T19:50:48.912244 [app/debug] lifecycle inactive
+2026-10-31T19:50:52.168280 [app/debug] lifecycle hidden
+2026-10-31T19:51:04.689965 [app/debug] ApertureX started
+2026-10-31T19:51:04.700941 [nav/debug] push /
+2026-10-31T19:51:04.813133 [app/debug] lifecycle inactive
+2026-10-31T19:51:06.532122 [permission/warning] Photo access denied
+2026-10-31T19:51:06.534970 [app/debug] lifecycle resumed
+2026-10-31T19:51:07.464758 [app/debug] lifecycle inactive
+2026-10-31T19:51:07.980968 [permission/warning] Photo access denied
+2026-10-31T19:51:07.983294 [app/debug] lifecycle resumed
+2026-10-31T19:51:09.011555 [nav/debug] push eaa<dynamic>
+2026-10-31T19:51:10.073242 [nav/debug] pop eaa<dynamic>
+2026-10-31T19:51:12.099765 [nav/debug] push eaa<dynamic>
+2026-10-31T19:51:13.617432 [nav/debug] pop eaa<dynamic>
+2026-10-31T19:51:17.157730 [nav/debug] push qOa<void>
+2026-10-31T19:51:17.278833 [editor/debug] Loaded recipe: Sample
+2026-10-31T19:51:23.490479 [nav/debug] pop qOa<void>
+2026-10-31T19:51:25.640662 [nav/debug] push qOa<void>
+2026-10-31T19:51:25.717359 [editor/debug] Loaded recipe: Sample
+2026-10-31T19:51:26.843057 [nav/debug] pop qOa<void>
+2026-10-31T19:51:29.089401 [app/debug] lifecycle inactive
+2026-10-31T19:51:29.627727 [permission/warning] Photo access denied
+2026-10-31T19:51:29.688198 [app/debug] lifecycle resumed
+2026-10-31T19:51:35.074496 [nav/debug] push qOa<void>
+2026-10-31T19:51:36.201317 [nav/debug] pop qOa<void>
+2026-10-31T19:51:36.952185 [nav/debug] push qOa<void>
+2026-10-31T19:51:47.046001 [nav/debug] push qOa<void>
+2026-10-31T19:52:33.743170 [app/debug] lifecycle inactive
+2026-10-31T19:52:39.064008 [app/debug] lifecycle resumed
+2026-10-31T19:53:07.986325 [app/debug] lifecycle inactive
+2026-10-31T19:53:08.588085 [app/debug] lifecycle paused
+2026-10-31T19:55:57.997642 [app/debug] ApertureX started
+2026-10-31T19:55:58.022374 [nav/debug] push /
+2026-10-31T19:55:58.180240 [app/debug] lifecycle inactive
+2026-10-31T19:55:58.605257 [permission/warning] Photo access denied
+2026-10-31T19:55:58.607276 [app/debug] lifecycle resumed
+2026-10-31T19:55:59.794841 [nav/debug] push qOa<void>
+2026-10-31T19:56:06.352121 [nav/debug] push qOa<void>

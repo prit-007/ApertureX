@@ -96,7 +96,7 @@ const navRef = ref(null)
 const scrolled = ref(false)
 const drawerOpen = ref(false)
 const activeNav = ref('compare')
-const version = 'v0.3.7'
+const version = 'v0.3.9'
 
 const appIconSrc = appIcon
 
