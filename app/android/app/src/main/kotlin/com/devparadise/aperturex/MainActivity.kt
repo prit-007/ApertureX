@@ -1,10 +1,17 @@
 package com.devparadise.aperturex
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
 import android.graphics.Rect
+import android.os.Build
+import android.os.Bundle
 import android.view.Surface
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -32,8 +39,19 @@ class MainActivity : FlutterActivity() {
     private val producers = mutableMapOf<Long, TextureRegistry.SurfaceProducer>()
     private val roiExecutor = Executors.newSingleThreadExecutor()
 
+    // Android 10 (API 29) and below require READ_EXTERNAL_STORAGE at runtime.
+    // Android 13+ (API 33) uses READ_MEDIA_IMAGES via the photo_manager plugin.
+    private val requestStoragePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted: Boolean ->
+        if (!granted) {
+            NativeLog.record("Storage permission denied", level = "warning")
+        }
+    }
+
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
+        requestStoragePermissionIfNeeded()
         enableHighRefreshRate()
     }
 
@@ -70,6 +88,25 @@ class MainActivity : FlutterActivity() {
             }
         } catch (t: Throwable) {
             NativeLog.record("enableHighRefreshRate failed", t, level = "warning")
+        }
+    }
+
+    /// Requests READ_EXTERNAL_STORAGE on Android 10 (API 29) through Android 12L (API 32),
+    // where scoped storage is not yet the default and the photo_manager plugin needs
+    // this permission to read the media store. On Android 13+ (API 33),
+    // READ_MEDIA_IMAGES is requested by the photo_manager plugin via
+    // requestPermissionExtend().
+    private fun requestStoragePermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT <= 32) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestStoragePermissionLauncher.launch(
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                )
+            }
         }
     }
 
