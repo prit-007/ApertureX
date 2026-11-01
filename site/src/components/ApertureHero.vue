@@ -5,13 +5,28 @@
       <div class="hero-grid-bg"></div>
       <canvas id="fx" class="hero-fx" aria-hidden="true"></canvas>
 
-      <!-- Orbiting pills -->
+      <!-- Orbiting pills (primary) -->
       <div class="orb" aria-hidden="true" ref="orbRef">
         <span style="--a:0deg"><b>Rust engine</b></span>
         <span style="--a:90deg"><b>RAW</b></span>
         <span style="--a:180deg"><b>C2PA</b></span>
         <span style="--a:270deg"><b>Look QR</b></span>
       </div>
+      <!-- Orbiting pills (secondary, counter-rotating) -->
+      <div class="orb o2" aria-hidden="true">
+        <span style="--a:0deg"><b>65³ LUT</b></span>
+        <span style="--a:60deg"><b>16-bit TIFF</b></span>
+        <span style="--a:120deg"><b>AI masks</b></span>
+        <span style="--a:180deg"><b>0 trackers</b></span>
+        <span style="--a:240deg"><b>GPL-3.0</b></span>
+        <span style="--a:300deg"><b>200 MP</b></span>
+      </div>
+
+      <!-- Bokeh particle canvas -->
+      <canvas id="fx" class="hero-fx" aria-hidden="true" ref="fxRef"></canvas>
+
+      <!-- Scroll flash -->
+      <div class="flash" ref="flashRef"></div>
 
       <!-- Iris + aperture blades -->
       <div class="iris" ref="irisRef" @mousemove="onMouseMove" @mouseleave="onMouseLeave">
@@ -141,6 +156,8 @@ const rev2Ref = ref(null)
 const fstopRef = ref(null)
 const bladesRef = ref(null)
 const orbRef = ref(null)
+const fxRef = ref(null)
+const flashRef = ref(null)
 
 const version = 'v0.3.7'
 const irisImageSrc = irisImg
@@ -155,6 +172,13 @@ let fstopEl = null
 let photoEl = null
 let ticking = false
 let scrollP = 0
+let fxRaf = null
+let fxVis = true
+let fxTx = 0
+let fxTy = 0
+let lastY = window.scrollY
+let fxVel = 0
+let fxSkew = 0
 
 const currentFStop = (p) => {
   const idx = Math.min(8, Math.round(p * 8))
@@ -235,7 +259,133 @@ onMounted(async () => {
   window.addEventListener('scroll', onScroll, { passive: true })
   window.addEventListener('resize', onScroll)
 
-  // Mouse parallax
+  // Canvas bokeh particles + mouse parallax + scroll velocity
+  const fxEl = fxRef.value
+  const flashEl = flashRef.value
+  let fxW = 0, fxH = 0, fxD = 1, fxPx = 0, fxPy = 0, fxTx = 0, fxTy = 0
+  let lastY = window.scrollY, fxVel = 0, fxSkew = 0, fxVis = true, fxRaf = null
+  const FX_COL = ['0,229,255', '255,179,0', '255,42,85', '255,255,255']
+  const FX_P = []
+
+  function fxSize() {
+    if (!fxEl) return
+    const r = fxEl.getBoundingClientRect()
+    fxD = Math.min(2, window.devicePixelRatio || 1)
+    fxW = fxEl.width = Math.max(1, r.width * fxD)
+    fxH = fxEl.height = Math.max(1, r.height * fxD)
+    fxEl.style.width = r.width + 'px'
+    fxEl.style.height = r.height + 'px'
+    const ctx = fxEl.getContext('2d')
+    ctx.scale(fxD, fxD)
+  }
+
+  function fxMk() {
+    return {
+      x: Math.random() * fxW,
+      y: Math.random() * fxH,
+      r: (2 + Math.random() * 9) * fxD,
+      vy: -(0.08 + Math.random() * 0.35) * fxD,
+      vx: (Math.random() - 0.5) * 0.2 * fxD,
+      a: 0.08 + Math.random() * 0.3,
+      c: FX_COL[Math.floor(Math.random() * FX_COL.length)],
+      z: 0.3 + Math.random() * 1.2,
+      ph: Math.random() * 6.28,
+      ring: Math.random() < 0.4,
+    }
+  }
+
+  for (let i = 0; i < (window.innerWidth < 760 ? 18 : 38); i++) FX_P.push(fxMk())
+
+  function fxLoop(t) {
+    fxRaf = requestAnimationFrame(fxLoop)
+    if (!fxEl) return
+    const ctx = fxEl.getContext('2d')
+    const dy = window.scrollY - lastY
+    lastY = window.scrollY
+    fxVel += (dy - fxVel) * 0.12
+
+    const mq = document.querySelector('.mq')
+    if (mq) {
+      fxSkew += (Math.max(-8, Math.min(8, fxVel * 0.25)) - fxSkew) * 0.15
+      mq.style.transform = 'rotate(-1.2deg) skewX(' + fxSkew.toFixed(2) + 'deg)'
+    }
+
+    if (!fxVis) return
+    fxPx += (fxTx - fxPx) * 0.07
+    fxPy += (fxTy - fxPy) * 0.07
+
+    ctx.clearRect(0, 0, fxW, fxH)
+    const boost = 1 + Math.min(14, Math.abs(fxVel) * 0.6)
+
+    for (const p of FX_P) {
+      p.y += p.vy * boost * p.z
+      p.x += p.vx + Math.sin(t / 1600 + p.ph) * 0.25 * fxD
+      if (p.y < -20 * fxD) { p.y = fxH + 20 * fxD; p.x = Math.random() * fxW }
+      if (p.x < -20 * fxD) p.x = fxW + 10 * fxD
+      if (p.x > fxW + 20 * fxD) p.x = -10 * fxD
+      const ox = fxPx * -60 * p.z * fxD
+      const oy = fxPy * -60 * p.z * fxD
+      const al = p.a * (0.7 + 0.3 * Math.sin(t / 900 + p.ph))
+      ctx.beginPath()
+      ctx.arc(p.x + ox, p.y + oy, p.r * p.z, 0, 6.283)
+      if (p.ring) {
+        ctx.strokeStyle = 'rgba(' + p.c + ',' + al + ')'
+        ctx.lineWidth = 1.2 * fxD
+        ctx.stroke()
+      } else {
+        ctx.fillStyle = 'rgba(' + p.c + ',' + al * 0.7 + ')'
+        ctx.fill()
+      }
+    }
+
+    // Flash trigger when stick passes midpoint
+    const st = stickRef.value
+    const top = heroEl
+    if (st && top && flashEl) {
+      const tr = top.getBoundingClientRect()
+      const pr = -tr.top / (tr.height - window.innerHeight)
+      const on = pr > 0.5
+      // flash handled by scroll event class toggle
+    }
+  }
+
+  fxSize()
+  fxRaf = requestAnimationFrame(fxLoop)
+  window.addEventListener('resize', fxSize)
+
+  // Stick intersection for flash + visibility
+  const st = stickRef.value
+  if (st) {
+    new IntersectionObserver((e) => {
+      fxVis = e[0].isIntersecting
+    }).observe(st)
+    st.addEventListener('pointermove', (e) => {
+      const r = st.getBoundingClientRect()
+      fxTx = (e.clientX - r.left) / r.width - 0.5
+      fxTy = (e.clientY - r.top) / r.height - 0.5
+    })
+    st.addEventListener('pointerleave', () => {
+      fxTx = 0; fxTy = 0
+    })
+  }
+
+  // Flash on scroll past midpoint
+  let flashWas = false
+  window.addEventListener('scroll', () => {
+    if (flashEl && heroEl) {
+      const r = heroEl.getBoundingClientRect()
+      const pr = -r.top / (r.height - window.innerHeight)
+      const on = pr > 0.5
+      if (on !== flashWas) {
+        flashWas = on
+        flashEl.classList.remove('go')
+        void flashEl.offsetWidth
+        flashEl.classList.add('go')
+      }
+    }
+  }, { passive: true })
+
+  // Mouse parallax for iris + orbs
   const iris = irisRef.value
   const orb = orbRef.value
   if (iris && orb) {
@@ -259,6 +409,7 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('scroll', onScroll)
   window.removeEventListener('resize', onScroll)
+  if (fxRaf) cancelAnimationFrame(fxRaf)
 })
 </script>
 
