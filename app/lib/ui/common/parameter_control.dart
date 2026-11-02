@@ -7,6 +7,9 @@ import '../../core/theme/design_tokens.dart';
 import '../../edit/muted_parameters.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
+import '../../features/ai_plugins/ai_plugin_model.dart';
+import '../../features/ai_plugins/ai_plugin_store.dart';
+import '../../features/ai_plugins/ai_plugins_screen.dart';
 import '../../viewport/mask_peek.dart';
 import '../edit_activity.dart';
 import '../precision_gear.dart';
@@ -46,6 +49,19 @@ class ParameterControl extends ConsumerWidget {
     // gains a decimal and the track shows its fine-mode badge.
     final precise = ref.watch(precisionGearProvider.select(precisionEngaged));
 
+    final isAiDenoise = parameter == Parameter.aiDenoise;
+    final aiDenoiseModelAvailable = isAiDenoise
+        ? ref.watch(aiDenoiseAvailableProvider)
+        : true;
+    final aiGated = isAiDenoise && !aiDenoiseModelAvailable;
+    final activeAiDenoisePluginName = isAiDenoise
+        ? ref.watch(
+            aiPluginProvider.select(
+              (s) => s.activePluginForTask(AiTask.denoise)?.name,
+            ),
+          )
+        : null;
+
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: Insets.lg,
@@ -58,34 +74,85 @@ class ParameterControl extends ConsumerWidget {
             children: [
               if (showLabel)
                 Expanded(
-                  child: GestureDetector(
-                    key: Key('param-label-${parameter.name}'),
-                    behavior: HitTestBehavior.opaque,
-                    onLongPress: () => ref
-                        .read(mutedParametersProvider.notifier)
-                        .toggle(parameter),
-                    onDoubleTap: () => ref
-                        .read(mutedParametersProvider.notifier)
-                        .toggle(parameter),
-                    child: Semantics(
-                      button: true,
-                      excludeSemantics: true,
-                      label: muted
-                          ? '${spec.label}, muted. Double-tap to unmute'
-                          : '${spec.label}. Long-press or double-tap to mute',
-                      child: Opacity(
-                        // Bypassed, not deleted: dim instead of striking
-                        // through (pro audio/video mute semantics).
-                        opacity: muted ? 0.3 : 1.0,
-                        child: Text(
-                          spec.label,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: GestureDetector(
+                          key: Key('param-label-${parameter.name}'),
+                          behavior: HitTestBehavior.opaque,
+                          onLongPress: aiGated
+                              ? null
+                              : () => ref
+                                  .read(mutedParametersProvider.notifier)
+                                  .toggle(parameter),
+                          onDoubleTap: aiGated
+                              ? null
+                              : () => ref
+                                  .read(mutedParametersProvider.notifier)
+                                  .toggle(parameter),
+                          child: Semantics(
+                            button: !aiGated,
+                            excludeSemantics: true,
+                            label: muted
+                                ? '${spec.label}, muted. Double-tap to unmute'
+                                : '${spec.label}. Long-press or double-tap to mute',
+                            child: Opacity(
+                              // Bypassed, not deleted: dim instead of striking
+                              // through (pro audio/video mute semantics).
+                              opacity: muted ? 0.3 : 1.0,
+                              child: Text(
+                                activeAiDenoisePluginName != null
+                                    ? '${spec.label} · $activeAiDenoisePluginName'
+                                    : spec.label,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: activeAiDenoisePluginName != null
+                                        ? scheme.primary
+                                        : scheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                      if (aiGated) ...[
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          key: const Key('ai-denoise-install-badge'),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const AiPluginsScreen()),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: scheme.outlineVariant.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.download_rounded, size: 11, color: scheme.primary),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'Install Model',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: scheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 )
               else
@@ -94,9 +161,28 @@ class ParameterControl extends ConsumerWidget {
                 key: Key('param-value-${parameter.name}'),
                 value: value,
                 isNeutral: isNeutral,
-                muted: muted,
+                muted: muted || aiGated,
                 precise: precise,
-                onType: (v) => notifier.update(parameter, v),
+                onType: (v) {
+                  if (aiGated) {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('AI Denoise requires NAFNet or SCUNet neural weights.'),
+                        action: SnackBarAction(
+                          label: 'Install',
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const AiPluginsScreen()),
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  notifier.update(parameter, v);
+                },
               ),
               IconButton(
                 key: Key('param-jog-dial-${parameter.name}'),
@@ -104,14 +190,18 @@ class ParameterControl extends ConsumerWidget {
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                onPressed: () {
-                  HapticFeedback.selectionClick();
-                  showRotaryJogDial(context, parameter: parameter);
-                },
+                onPressed: aiGated
+                    ? null
+                    : () {
+                        HapticFeedback.selectionClick();
+                        showRotaryJogDial(context, parameter: parameter);
+                      },
                 icon: Icon(
                   Icons.album_outlined,
                   size: 16,
-                  color: isNeutral ? scheme.onSurfaceVariant : scheme.primary,
+                  color: aiGated
+                      ? scheme.onSurfaceVariant.withValues(alpha: 0.35)
+                      : (isNeutral ? scheme.onSurfaceVariant : scheme.primary),
                 ),
               ),
               if (precise)
@@ -136,9 +226,26 @@ class ParameterControl extends ConsumerWidget {
             math: math,
             value: value,
             scheme: scheme,
-            muted: muted,
+            muted: muted || aiGated,
             precise: precise,
             onChanged: (v) {
+              if (aiGated) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('AI Denoise requires NAFNet or SCUNet neural weights.'),
+                    action: SnackBarAction(
+                      label: 'Install',
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const AiPluginsScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                );
+                return;
+              }
               final previous = valueOf(
                 ref.read(recipeControllerProvider).recipe,
                 parameter,
@@ -153,9 +260,26 @@ class ParameterControl extends ConsumerWidget {
                 ),
               );
             },
-            onReset: () => notifier.reset(parameter),
-            onCommit: () => notifier.commit(label: spec.label),
+            onReset: () {
+              if (aiGated) return;
+              notifier.reset(parameter);
+            },
+            onCommit: () {
+              if (aiGated) return;
+              notifier.commit(label: spec.label);
+            },
           ),
+          if (aiGated)
+            Padding(
+              padding: const EdgeInsets.only(top: Insets.xs, left: Insets.lg),
+              child: Text(
+                'Install a neural denoise model (NAFNet or SCUNet) from Plugins → Community Hub to enable AI Denoise.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.error,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
         ],
       ),
     );

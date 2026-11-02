@@ -39,17 +39,34 @@ class ToolDefinition {
   /// Optional HSL 8-band color mix `[r_h, r_s, r_l, ...]`.
   final List<double>? hsl;
 
-  /// Applies this look onto [base] (unknown parameter names are ignored).
-  EditRecipe applyTo(EditRecipe base) {
+  /// Applies this look onto [base] with optional [amount] scaling (0.0 to 2.0, default 1.0).
+  ///
+  /// At 1.0 (100%), full preset parameters are applied.
+  /// At 0.0 (0%), parameters remain at neutral.
+  /// Between 1.0 and 2.0 (100%-200%), parameters are boosted proportionally.
+  EditRecipe applyTo(EditRecipe base, {double amount = 1.0}) {
     var recipe = base;
     for (final entry in params.entries) {
       final parameter = _parameterByName(entry.key);
       if (parameter != null) {
-        recipe = withValue(recipe, parameter, entry.value);
+        if ((amount - 1.0).abs() < 0.001) {
+          recipe = withValue(recipe, parameter, entry.value);
+        } else {
+          final spec = specOf(parameter);
+          final baseVal = spec.neutral;
+          final targetVal = entry.value;
+          final effectiveVal = clampParameter(parameter, baseVal + (targetVal - baseVal) * amount);
+          recipe = withValue(recipe, parameter, effectiveVal);
+        }
       }
     }
     if (hsl != null && hsl!.isNotEmpty) {
-      recipe = recipe.copyWith(hsl: List<double>.from(hsl!));
+      if ((amount - 1.0).abs() < 0.001) {
+        recipe = recipe.copyWith(hsl: List<double>.from(hsl!));
+      } else {
+        final scaled = hsl!.map((v) => (v * amount).clamp(-1.0, 1.0)).toList();
+        recipe = recipe.copyWith(hsl: scaled);
+      }
     }
     return recipe;
   }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
+import '../features/ai_plugins/ai_plugin_store.dart';
 import 'adjustment_layer.dart';
 import 'history_tree.dart';
 import 'parameter.dart';
@@ -43,8 +44,14 @@ class RecipeController extends Notifier<RecipeState> {
 
   /// Sets [parameter] to an absolute [value] (clamped to its range).
   void update(Parameter parameter, double value) {
+    // AI denoise is gated behind an installed neural denoise model.
+    // No model → value is forced to neutral (0).
+    final effectiveValue = parameter == Parameter.aiDenoise
+        && !ref.read(aiPluginProvider).isDenoiseModelAvailable
+        ? 0.0
+        : value;
     state = state.copyWith(
-      recipe: withValue(state.recipe, parameter, value),
+      recipe: withValue(state.recipe, parameter, effectiveValue),
       activeParameter: parameter,
     );
   }
@@ -229,13 +236,6 @@ class RecipeController extends Notifier<RecipeState> {
     commit(label: 'Shader Preset');
   }
 
-  void setCustomGlslCode(String code) {
-    state = state.copyWith(
-      recipe: state.recipe.copyWith(customGlslCode: code),
-    );
-    commit(label: 'Custom Shader');
-  }
-
   /// Applies a crop (and optional rotation/flip) as one committed step.
   void applyCrop({
     required List<double> crop,
@@ -254,10 +254,10 @@ class RecipeController extends Notifier<RecipeState> {
   /// Resets every edit back to neutral.
   void resetAll() => loadRecipe(EditRecipe.neutral, label: 'Reset');
 
-  /// Applies a shareable look (tool definition) onto the current recipe.
-  void applyTool(ToolDefinition tool) {
-    state = state.copyWith(recipe: tool.applyTo(state.recipe));
-    axLog(LogDomain.preset, 'Applied tool preset: ${tool.name}');
+  /// Applies a shareable look (tool definition) onto the current recipe with optional [amount] (0.0 to 2.0).
+  void applyTool(ToolDefinition tool, {double amount = 1.0}) {
+    state = state.copyWith(recipe: tool.applyTo(state.recipe, amount: amount));
+    axLog(LogDomain.preset, 'Applied tool preset: ${tool.name} at ${(amount * 100).round()}%');
   }
 
   /// Appends a local adjustment layer (masking).
