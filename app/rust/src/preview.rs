@@ -524,7 +524,13 @@ pub fn render(
 
     // 4. Grade in place (skipped when neutral).
     if !grade_is_neutral(params, curves, hsl) {
-        let p = params.to_core();
+        let mut p = params.to_core();
+        // #160: Shadows & highlights are edge-aware spatial ops baked into the base;
+        // zero them in the pointwise grade to prevent applying them twice.
+        if spec.shadows != 0.0 || spec.highlights != 0.0 {
+            p.shadows = 0.0;
+            p.highlights = 0.0;
+        }
         let set = curves.to_set();
         let hsl24 = to_hsl24(hsl);
         frame.rgba.par_chunks_exact_mut(4).for_each(|px| {
@@ -801,11 +807,15 @@ pub fn histogram_from_base(
     };
 
     let set = curves.to_set();
+    let mut core_p = params.to_core();
+    // #160: Base image already contains spatial shadows/highlights; zero them in the pointwise grade.
+    core_p.shadows = 0.0;
+    core_p.highlights = 0.0;
     Ok(histogram::histogram_graded(
         &base.rgba,
         base.width,
         base.height,
-        params.to_core(),
+        core_p,
         sample_dim,
         Some(&set),
         &to_hsl24(hsl),

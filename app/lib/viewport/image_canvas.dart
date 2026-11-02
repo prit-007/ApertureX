@@ -1041,7 +1041,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final histogram = await AxEngine.previewHistogram(
       handle,
       sampleDim: 256,
-      spec: GradeSpec.fromRecipe(recipe),
+      spec: GradeSpec.fromRecipe(recipe).copyWith(
+        shadows: 0.0,
+        highlights: 0.0,
+      ),
     );
     if (token != _bakeToken) return;
     ref.read(histogramProvider.notifier).publish(histogram);
@@ -1062,7 +1065,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         layers: recipe.layers,
         maskGroups: recipe.maskGroups,
         retouchPatches: recipe.retouchPatches,
-        grade: GradeSpec.fromRecipe(recipe),
+        grade: GradeSpec.fromRecipe(recipe).copyWith(
+          shadows: 0.0,
+          highlights: 0.0,
+        ),
         baseChanged: baseChanged,
       );
       if (!mounted || token != _bakeToken) return;
