@@ -4,8 +4,12 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../color/blur_spec.dart';
 import '../../color/grade_spec.dart';
+import '../../color/optics_spec.dart';
+import '../../color/spatial_spec.dart';
 import '../../edit/adjustment_layer.dart';
+import '../../edit/geometry_spec.dart';
 import '../../edit/recipe.dart';
 import '../../engine/engine.dart';
 import 'export_progress.dart';
@@ -42,6 +46,8 @@ class ExportTask {
     this.cancelToken = 0,
     this.bytesWritten = 0,
     this.layers = const <AdjustmentLayer>[],
+    this.lutAtlas,
+    this.lutSize = 0,
   });
 
   final String id;
@@ -59,6 +65,8 @@ class ExportTask {
   final int cancelToken;
   final int bytesWritten;
   final List<AdjustmentLayer> layers;
+  final Uint8List? lutAtlas;
+  final int lutSize;
 
   bool get isTerminal =>
       status == ExportTaskStatus.completed ||
@@ -88,6 +96,8 @@ class ExportTask {
       cancelToken: cancelToken ?? this.cancelToken,
       bytesWritten: bytesWritten ?? this.bytesWritten,
       layers: layers,
+      lutAtlas: lutAtlas,
+      lutSize: lutSize,
     );
   }
 }
@@ -145,6 +155,8 @@ class BackgroundExportWorker extends Notifier<List<ExportTask>> {
     int quality = 90,
     int? maxDim,
     List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
+    Uint8List? lutAtlas,
+    int lutSize = 0,
   }) {
     final id = 'task_${DateTime.now().millisecondsSinceEpoch}_${_sequence++}';
     final task = ExportTask(
@@ -158,6 +170,8 @@ class BackgroundExportWorker extends Notifier<List<ExportTask>> {
       quality: quality,
       maxDim: maxDim,
       layers: layers,
+      lutAtlas: lutAtlas,
+      lutSize: lutSize,
     );
 
     state = [...state, task];
@@ -290,10 +304,18 @@ class BackgroundExportWorker extends Notifier<List<ExportTask>> {
               width: task.width,
               height: task.height,
               spec: GradeSpec.fromRecipe(task.recipe),
+              spatial: SpatialSpec.fromRecipe(task.recipe),
+              optics: OpticsSpec.fromRecipe(task.recipe),
+              geometry: GeometrySpec.fromRecipe(task.recipe),
+              blur: LensBlurSpec.fromRecipe(task.recipe),
               quality: task.quality,
               maxDim: task.maxDim,
               cancelToken: cancelToken,
-              layers: task.layers,
+              layers: task.layers.isNotEmpty ? task.layers : task.recipe.layers,
+              maskGroups: task.recipe.maskGroups,
+              retouchPatches: task.recipe.retouchPatches,
+              lutAtlas: task.lutAtlas,
+              lutSize: task.lutSize,
             );
             break;
           case ExportFormat.png:

@@ -248,8 +248,13 @@ class FolderGallerySource implements GallerySource {
     if (bytes.isEmpty) return bytes;
     final format = detectImageFormat(bytes);
     if (format == ImageFormat.raw) {
-      // The editor sniffs RAW by magic bytes and Rust decodes the original
-      // itself — pass through untouched, never resized/re-encoded here.
+      // Fast path: extract embedded high-res preview JPEG from the RAW container
+      // for instant sub-50ms viewport opening; background task upgrades to master RAW.
+      final embedded = await AxEngine.extractRawEmbeddedPreview(bytes);
+      if (embedded != null && embedded.isNotEmpty) {
+        return embedded;
+      }
+      // Fallback: pass through untouched so Rust engine decodes RAW linearly.
       return bytes;
     }
     if (format == ImageFormat.heic || format == ImageFormat.avif) {

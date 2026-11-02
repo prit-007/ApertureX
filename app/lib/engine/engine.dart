@@ -10,6 +10,7 @@ import '../color/optics_spec.dart';
 import '../color/spatial_spec.dart';
 import '../edit/adjustment_layer.dart';
 import '../edit/geometry_spec.dart';
+import '../edit/retouch_patch.dart';
 import '../settings/export_branding_settings.dart' show ExportBrandingSettings;
 import '../src/rust/api/blur.dart' as rust_blur;
 import '../src/rust/api/color.dart' as rust_color;
@@ -27,6 +28,7 @@ import '../src/rust/api/mask.dart' as rust_mask;
 import '../src/rust/api/preview.dart' as rust_preview;
 import '../src/rust/api/preview.dart' show PreviewBaseSpec;
 import '../src/rust/api/raw.dart' as rust_raw;
+import '../src/rust/api/retouch.dart' as rust_retouch;
 import '../src/rust/api/roi.dart' as rust_roi;
 import '../src/rust/api/spatial.dart' as rust_spatial;
 import '../src/rust/frb_generated.dart';
@@ -193,6 +195,11 @@ class AxEngine {
   /// Reads RAW/DNG dimensions without demosaicing (ADR 0005, rawler-first).
   static Future<ImageDims> rawDimensions(Uint8List raw) =>
       rust_raw.rawDimensions(raw: raw);
+
+  /// Fast-path extraction of the embedded JPEG preview from a RAW container (ARW, CR2, NEF, DNG, RW2).
+  /// Enables instantaneous (<50ms) initial render while linear demosaicing runs in the background.
+  static Future<Uint8List?> extractRawEmbeddedPreview(Uint8List raw) =>
+      rust_raw.rawExtractEmbeddedPreview(raw: raw);
 
   /// Decodes a RAW/DNG to a full sRGB RGBA8 buffer (demosaic + camera colour).
   static Future<RgbaImage> decodeRawRgba(Uint8List raw) =>
@@ -470,6 +477,7 @@ class AxEngine {
     sharpenMasking: spec.sharpenMasking,
     denoiseLuma: spec.denoiseLuma,
     denoiseChroma: spec.denoiseChroma,
+    aiDenoise: spec.aiDenoise,
     dehaze: spec.dehaze,
     vignette: spec.vignette,
     vignetteMidpoint: spec.vignetteMidpoint,
@@ -882,6 +890,26 @@ class AxEngine {
         .toList();
   }
 
+  static List<rust_retouch.ApiRetouchPatch> _mapRetouchPatches(
+    List<RetouchPatch> patches,
+  ) {
+    if (patches.isEmpty) return const [];
+    return patches
+        .map(
+          (p) => rust_retouch.ApiRetouchPatch(
+            targetX: p.targetX,
+            targetY: p.targetY,
+            sourceX: p.sourceX,
+            sourceY: p.sourceY,
+            radius: p.radius,
+            feather: p.feather,
+            opacity: p.opacity,
+            isClone: p.mode == RetouchMode.clone,
+          ),
+        )
+        .toList();
+  }
+
   /// Composites local adjustment [layers] over [rgba] (masks + sub-grades).
   static Future<Uint8List> applyMasks(
     Uint8List rgba, {
@@ -964,11 +992,12 @@ class AxEngine {
     required PreviewBaseSpec spec,
     required List<AdjustmentLayer> layers,
     List<MaskGroup> maskGroups = const [],
+    List<RetouchPatch> retouchPatches = const <RetouchPatch>[],
   }) => rust_preview.previewBase(
     handle: BigInt.from(handle),
     spec: spec,
     layers: _mapLayers(layers, maskGroups),
-    retouchPatches: [],
+    retouchPatches: _mapRetouchPatches(retouchPatches),
   );
 
   /// Halo rows of context ([spatial margin]) the high-zoom ROI overlay (#55)
@@ -1076,13 +1105,14 @@ class AxEngine {
     required PreviewBaseSpec spec,
     required List<AdjustmentLayer> layers,
     List<MaskGroup> maskGroups = const [],
+    List<RetouchPatch> retouchPatches = const <RetouchPatch>[],
     required GradeSpec grade,
     required bool baseChanged,
   }) => rust_preview.previewRender(
     handle: BigInt.from(handle),
     spec: spec,
     layers: _mapLayers(layers, maskGroups),
-    retouchPatches: [],
+    retouchPatches: _mapRetouchPatches(retouchPatches),
     params: _colorParams(grade),
     curves: _curveParams(grade),
     hsl: grade.hsl,
@@ -1135,9 +1165,12 @@ class AxEngine {
     LensBlurSpec blur = const LensBlurSpec(),
     List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
     List<MaskGroup> maskGroups = const <MaskGroup>[],
+    List<RetouchPatch> retouchPatches = const <RetouchPatch>[],
     List<int> exif = const <int>[],
     rust_export.ExportBrandingSpec? branding,
     rust_export.C2paExportSpec? c2pa,
+    Uint8List? lutAtlas,
+    int lutSize = 0,
     int quality = 90,
     int? maxDim,
     int cancelToken = 0,
@@ -1172,6 +1205,7 @@ class AxEngine {
       outputSharpen: outputSharpen ?? spatial.outputSharpen,
       denoiseLuma: spatial.denoiseLuma,
       denoiseChroma: spatial.denoiseChroma,
+      aiDenoise: spatial.aiDenoise,
       dehaze: spatial.dehaze,
       vignette: spatial.vignette,
       vignetteMidpoint: spatial.vignetteMidpoint,
@@ -1191,18 +1225,18 @@ class AxEngine {
       profileCorrections: optics.profileCorrections,
       profileDistortion: optics.profileDistortion,
       profileVignetting: optics.profileVignetting,
-      filmBloom: 0.0,
-      filmBloomRadius: 0.0,
-      filmBloomThreshold: 0.0,
-      filmDust: 0.0,
-      filmHalation: 0.0,
-      filmHalationRadius: 0.0,
-      filmHalationThreshold: 0.0,
-      filmScratches: 0.0,
-      shaderLabPreset: 0,
-      shaderParam1: 0.0,
-      shaderParam2: 0.0,
-      shaderParam3: 0.0,
+      filmBloom: spatial.filmBloom,
+      filmBloomRadius: spatial.filmBloomRadius,
+      filmBloomThreshold: spatial.filmBloomThreshold,
+      filmDust: spatial.filmDust,
+      filmHalation: spatial.filmHalation,
+      filmHalationRadius: spatial.filmHalationRadius,
+      filmHalationThreshold: spatial.filmHalationThreshold,
+      filmScratches: spatial.filmScratches,
+      shaderLabPreset: spatial.shaderLabPreset,
+      shaderParam1: spatial.shaderParam1,
+      shaderParam2: spatial.shaderParam2,
+      shaderParam3: spatial.shaderParam3,
       blurEnabled: blur.enabled,
       blurAmount: blur.amount,
       blurFocalPoint: blur.focalPoint,
@@ -1218,10 +1252,13 @@ class AxEngine {
       colorSpace: colorSpace,
       ultraHdr: ultraHdr,
       hdrHeadroom: hdrHeadroom,
+      lutAtlas: lutAtlas ?? Uint8List(0),
+      lutSize: lutSize,
     );
 
 
     final mappedLayers = _mapLayers(layers, maskGroups);
+    final mappedPatches = _mapRetouchPatches(retouchPatches);
     final colorP = _colorParams(spec);
     final curveP = _curveParams(spec);
 
@@ -1245,7 +1282,7 @@ class AxEngine {
                   recipeJson: '',
                   exifSummary: '',
                 ),
-            retouchPatches: [],
+            retouchPatches: mappedPatches,
           )
         : await rust_export.exportFull(
             rgba: rgba,
@@ -1257,7 +1294,7 @@ class AxEngine {
             curves: curveP,
             hsl: spec.hsl,
             exif: exif,
-            retouchPatches: [],
+            retouchPatches: mappedPatches,
           );
     return result.cancelled ? null : result.jpeg;
   }
@@ -1276,7 +1313,10 @@ class AxEngine {
     LensBlurSpec blur = const LensBlurSpec(),
     List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
     List<MaskGroup> maskGroups = const <MaskGroup>[],
+    List<RetouchPatch> retouchPatches = const <RetouchPatch>[],
     List<int> exif = const <int>[],
+    Uint8List? lutAtlas,
+    int lutSize = 0,
     int quality = 90,
     int? maxDim,
     int colorSpace = 0,
@@ -1294,7 +1334,10 @@ class AxEngine {
       blur: blur,
       layers: layers,
       maskGroups: maskGroups,
+      retouchPatches: retouchPatches,
       exif: exif,
+      lutAtlas: lutAtlas,
+      lutSize: lutSize,
       quality: quality,
       maxDim: maxDim,
       colorSpace: colorSpace,

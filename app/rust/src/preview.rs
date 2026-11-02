@@ -643,6 +643,7 @@ fn bake_base(
         sharpen_masking: spec.sharpen_masking,
         denoise_luma: spec.denoise_luma,
         denoise_chroma: spec.denoise_chroma,
+        ai_denoise: spec.ai_denoise,
         dehaze: spec.dehaze,
         vignette: spec.vignette,
         vignette_midpoint: spec.vignette_midpoint,

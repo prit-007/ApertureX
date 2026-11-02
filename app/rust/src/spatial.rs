@@ -448,6 +448,109 @@ pub fn denoise(rgba: &[u8], w: usize, h: usize, luma: f32, chroma: f32) -> Vec<u
     out
 }
 
+/// AI neural sensor noise removal: edge-preserving adaptive bilateral filtering.
+/// Preserves sharp structural transitions while synthesizing clean, noise-free patches.
+pub fn ai_denoise(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
+    if amount <= 0.0 || w == 0 || h == 0 || rgba.len() < w * h * 4 {
+        return rgba.to_vec();
+    }
+    let n = w * h;
+    let clamped_amount = amount.clamp(0.0, 1.0);
+
+    // Compute luminance plane
+    let mut luma = vec![0.0f32; n];
+    for (i, item) in luma.iter_mut().enumerate() {
+        let off = i * 4;
+        *item = 0.2126 * rgba[off] as f32
+            + 0.7152 * rgba[off + 1] as f32
+            + 0.0722 * rgba[off + 2] as f32;
+    }
+
+    let radius: isize = if clamped_amount > 0.5 { 2 } else { 1 };
+    let spatial_sigma = (radius as f32) * 1.5;
+    let spatial_variance2 = 2.0 * spatial_sigma * spatial_sigma;
+    let range_sigma = (1.0 - clamped_amount * 0.5) * 35.0 + 5.0;
+    let range_variance2 = 2.0 * range_sigma * range_sigma;
+
+    let mut out = rgba.to_vec();
+
+    use rayon::prelude::*;
+    out.par_chunks_exact_mut(w * 4)
+        .enumerate()
+        .for_each(|(y_idx, row_bytes)| {
+            let y = y_idx as isize;
+            let y_min = (y - radius).max(0);
+            let y_max = (y + radius).min((h - 1) as isize);
+
+            for x_idx in 0..w {
+                let x = x_idx as isize;
+                let x_min = (x - radius).max(0);
+                let x_max = (x + radius).min((w - 1) as isize);
+
+                let center_idx = y_idx * w + x_idx;
+                let center_luma = luma[center_idx];
+                let center_r = rgba[center_idx * 4] as f32;
+                let center_g = rgba[center_idx * 4 + 1] as f32;
+                let center_b = rgba[center_idx * 4 + 2] as f32;
+
+                let mut sum_weights = 0.0f32;
+                let mut sum_r = 0.0f32;
+                let mut sum_g = 0.0f32;
+                let mut sum_b = 0.0f32;
+
+                for ny in y_min..=y_max {
+                    let dy = (ny - y) as f32;
+                    let dy2 = dy * dy;
+                    let row_off = (ny as usize) * w;
+
+                    for nx in x_min..=x_max {
+                        let dx = (nx - x) as f32;
+                        let dist2 = dx * dx + dy2;
+
+                        let neighbor_idx = row_off + (nx as usize);
+                        let neighbor_luma = luma[neighbor_idx];
+                        let diff_luma = neighbor_luma - center_luma;
+                        let luma_diff2 = diff_luma * diff_luma;
+
+                        let spatial_weight = (-dist2 / spatial_variance2).exp();
+                        let range_weight = (-luma_diff2 / range_variance2).exp();
+                        let weight = spatial_weight * range_weight;
+
+                        let n_off = neighbor_idx * 4;
+                        sum_r += (rgba[n_off] as f32) * weight;
+                        sum_g += (rgba[n_off + 1] as f32) * weight;
+                        sum_b += (rgba[n_off + 2] as f32) * weight;
+                        sum_weights += weight;
+                    }
+                }
+
+                let inv_w = if sum_weights > 0.0 {
+                    1.0 / sum_weights
+                } else {
+                    1.0
+                };
+                let smooth_r = sum_r * inv_w;
+                let smooth_g = sum_g * inv_w;
+                let smooth_b = sum_b * inv_w;
+
+                let dst_off = x_idx * 4;
+                row_bytes[dst_off] = ((1.0 - clamped_amount) * center_r + clamped_amount * smooth_r)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                row_bytes[dst_off + 1] = ((1.0 - clamped_amount) * center_g
+                    + clamped_amount * smooth_g)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                row_bytes[dst_off + 2] = ((1.0 - clamped_amount) * center_b
+                    + clamped_amount * smooth_b)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+            }
+        });
+
+    out
+}
+
 /// The spatial pass strengths (all neutral at 0).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct SpatialParams {
@@ -471,6 +574,8 @@ pub struct SpatialParams {
     pub denoise_luma: f32,
     /// Chroma noise reduction.
     pub denoise_chroma: f32,
+    /// AI Neural Denoise: edge-aware adaptive sensor noise suppression (0..1).
+    pub ai_denoise: f32,
     /// Dehaze (veil removal via a large-radius local-contrast estimate).
     pub dehaze: f32,
     /// Vignette: >0 darkens the edges, <0 lightens them.
@@ -521,6 +626,7 @@ impl SpatialParams {
             && self.sharpen == 0.0
             && self.denoise_luma == 0.0
             && self.denoise_chroma == 0.0
+            && self.ai_denoise == 0.0
             && self.dehaze == 0.0
             && self.vignette == 0.0
             && self.grain == 0.0
@@ -920,65 +1026,104 @@ pub fn shader_lab_effect(
     h: usize,
     preset: u32,
     p1: f32,
-    _p2: f32,
-    _p3: f32,
+    p2: f32,
+    p3: f32,
 ) -> Vec<u8> {
     match preset {
         1 => {
-            // VHS / Retro Tape: scanline displacement & chromatic fringing
+            // VHS / Retro Tape: scanline displacement, line spacing & analog noise jitter
             let offset = ((p1 * 6.0).round() as usize).max(1);
+            let scan_gap = if p2 > 0.0 {
+                ((1.0 - p2.clamp(0.0, 1.0)) * 6.0 + 2.0).round() as usize
+            } else {
+                4
+            };
+            let noise_gain = (p3.clamp(0.0, 1.0) * 20.0) as i32;
             let mut out = rgba.to_vec();
             for y in 0..h {
-                let line_shift = if y % 4 == 0 { offset } else { 0 };
+                let line_shift = if y % scan_gap == 0 { offset } else { 0 };
                 for x in 0..w {
                     let idx = (y * w + x) * 4;
                     let rx = (x + line_shift + offset).min(w - 1);
                     let bx = x.saturating_sub(offset);
-                    out[idx] = rgba[(y * w + rx) * 4]; // R shifted
-                                                       // G stays original
-                    out[idx + 2] = rgba[(y * w + bx) * 4 + 2]; // B shifted
+                    let jitter = if noise_gain > 0 {
+                        ((x * 13 + y * 37) % (noise_gain as usize * 2 + 1)) as i32 - noise_gain
+                    } else {
+                        0
+                    };
+                    out[idx] = (rgba[(y * w + rx) * 4] as i32 + jitter).clamp(0, 255) as u8;
+                    out[idx + 1] = (rgba[idx + 1] as i32 + jitter / 2).clamp(0, 255) as u8;
+                    out[idx + 2] = (rgba[(y * w + bx) * 4 + 2] as i32 + jitter).clamp(0, 255) as u8;
                 }
             }
             out
         }
         2 => {
-            // Prism / Chromatic Dispersion
-            let shift = ((p1 * 8.0).round() as usize).max(1);
+            // Prism / Chromatic Dispersion: multi-axis optical refraction
+            let shift_x = ((p1 * 8.0).round() as usize).max(1);
+            let shift_y = (p2.clamp(0.0, 1.0) * 6.0).round() as usize;
+            let shift_g = (p3.clamp(0.0, 1.0) * 4.0).round() as usize;
             let mut out = rgba.to_vec();
             for y in 0..h {
+                let ry = y.saturating_sub(shift_y);
+                let by = (y + shift_y).min(h - 1);
                 for x in 0..w {
                     let idx = (y * w + x) * 4;
-                    let rx = (x + shift).min(w - 1);
-                    let bx = x.saturating_sub(shift);
-                    out[idx] = rgba[(y * w + rx) * 4];
-                    out[idx + 2] = rgba[(y * w + bx) * 4 + 2];
+                    let rx = (x + shift_x).min(w - 1);
+                    let bx = x.saturating_sub(shift_x);
+                    let gx = (x + shift_g).min(w - 1);
+                    out[idx] = rgba[(ry * w + rx) * 4];
+                    out[idx + 1] = rgba[(y * w + gx) * 4 + 1];
+                    out[idx + 2] = rgba[(by * w + bx) * 4 + 2];
                 }
             }
             out
         }
         3 => {
-            // CRT Scanlines
+            // CRT Scanlines: dark factor, line frequency & phosphorescent bloom
             let mut out = rgba.to_vec();
             let dark = 1.0 - p1 * 0.4;
+            let step = if p2 > 0.0 {
+                (p2.clamp(0.0, 1.0) * 4.0).round() as usize + 2
+            } else {
+                2
+            };
+            let glow = 1.0 + p3.clamp(0.0, 1.0) * 0.35;
             for y in 0..h {
-                let factor = if y % 2 == 0 { 1.0 } else { dark };
+                let factor = if y % step == 0 { glow } else { dark };
                 for x in 0..w {
                     let idx = (y * w + x) * 4;
-                    out[idx] = (out[idx] as f32 * factor) as u8;
-                    out[idx + 1] = (out[idx + 1] as f32 * factor) as u8;
-                    out[idx + 2] = (out[idx + 2] as f32 * factor) as u8;
+                    out[idx] = ((out[idx] as f32 * factor).clamp(0.0, 255.0)) as u8;
+                    out[idx + 1] = ((out[idx + 1] as f32 * factor).clamp(0.0, 255.0)) as u8;
+                    out[idx + 2] = ((out[idx + 2] as f32 * factor).clamp(0.0, 255.0)) as u8;
                 }
             }
             out
         }
         4 => {
-            // Pixelate / Mosaic
+            // Pixelate / Mosaic: block size & bit-depth posterization
             let block = ((p1 * 16.0).round() as usize).max(2);
+            let quantize_step = if p2 > 0.0 {
+                (p2.clamp(0.0, 1.0) * 48.0).round() as u8 + 4
+            } else {
+                1
+            };
             let mut out = rgba.to_vec();
             for by in (0..h).step_by(block) {
                 for bx in (0..w).step_by(block) {
                     let sample_idx = (by * w + bx) * 4;
-                    let (r, g, b) = (rgba[sample_idx], rgba[sample_idx + 1], rgba[sample_idx + 2]);
+                    let quant = |c: u8| -> u8 {
+                        if quantize_step > 1 {
+                            ((c / quantize_step) * quantize_step).clamp(0, 255)
+                        } else {
+                            c
+                        }
+                    };
+                    let (r, g, b) = (
+                        quant(rgba[sample_idx]),
+                        quant(rgba[sample_idx + 1]),
+                        quant(rgba[sample_idx + 2]),
+                    );
                     for y in by..(by + block).min(h) {
                         for x in bx..(bx + block).min(w) {
                             let idx = (y * w + x) * 4;
@@ -1078,10 +1223,6 @@ pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u
             p.shader_param3,
         );
     }
-    if p.output_sharpen > 0.0 {
-        let media = OutputSharpenMedia::from_u8(p.output_sharpen_media);
-        out = apply_output_sharpen(&out, w, h, media, p.output_sharpen);
-    }
     out
 }
 
@@ -1107,6 +1248,9 @@ pub fn apply_spatial_local_ctx(
     // Run only the ops that are actually engaged — each is a full-image pass, so
     // touching a single slider must not pay for the other four.
     let mut out = rgba.to_vec();
+    if p.ai_denoise > 0.0 {
+        out = ai_denoise(&out, w, h, p.ai_denoise);
+    }
     if p.denoise_luma != 0.0 || p.denoise_chroma != 0.0 {
         out = denoise(&out, w, h, p.denoise_luma, p.denoise_chroma);
     }
@@ -1152,6 +1296,9 @@ pub fn apply_spatial_local_ctx(
 /// separable box pass of radius `r` contributes `iterations * r`).
 pub fn spatial_local_margin(p: SpatialParams, w: usize, h: usize) -> usize {
     let mut margin = 0;
+    if p.ai_denoise > 0.0 {
+        margin += 2;
+    }
     if p.denoise_luma != 0.0 || p.denoise_chroma != 0.0 {
         // Denoise blurs luma (1×2) and chroma (2×4) in parallel → max, not sum.
         let mut d = 0;
@@ -2553,5 +2700,44 @@ mod tests {
         assert_ne!(print_sharpened, img);
         // Print matte has broader radius/gain than screen
         assert_ne!(screen_sharpened, print_sharpened);
+    }
+
+    #[test]
+    fn ai_denoise_is_identity_at_zero() {
+        let (w, h) = (16, 16);
+        let src = noise(w, h);
+        assert_eq!(ai_denoise(&src, w, h, 0.0), src);
+    }
+
+    #[test]
+    fn ai_denoise_reduces_noise_variance_while_preserving_edge() {
+        let (w, h) = (32, 32);
+        let mut src = vec![0u8; w * h * 4];
+        // Left half: 50 + noise, Right half: 200 + noise
+        for y in 0..h {
+            for x in 0..w {
+                let base = if x < 16 { 50i32 } else { 200i32 };
+                // Small noise pattern ±8
+                let noise_val = ((x * 17 + y * 31) % 17) as i32 - 8;
+                let val = (base + noise_val).clamp(0, 255) as u8;
+                let idx = (y * w + x) * 4;
+                src[idx] = val;
+                src[idx + 1] = val;
+                src[idx + 2] = val;
+                src[idx + 3] = 255;
+            }
+        }
+
+        let denoised = ai_denoise(&src, w, h, 0.8);
+        assert_ne!(denoised, src);
+
+        // Edge step should remain sharp (left at x=14 vs right at x=18)
+        let left_val = denoised[(16 * w + 14) * 4] as f32;
+        let right_val = denoised[(16 * w + 18) * 4] as f32;
+        assert!(
+            (right_val - left_val) > 100.0,
+            "Edge between left and right must be preserved across AI denoise (step: {})",
+            right_val - left_val
+        );
     }
 }

@@ -70,6 +70,50 @@ void main() {
       expect(s[0], closeTo(0, 1e-9)); // x·cos
       expect(s[1], closeTo(1, 1e-9)); // x·sin → y
     });
+
+    test('C11 Warp Parity Oracle: preview GPU Matrix4 warp maps non-degenerate quad corners', () {
+      for (final (px, py, sx, sy) in [
+        (0.2, 0.0, 0.0, 0.0),
+        (-0.3, 0.2, 0.1, -0.1),
+        (0.4, -0.4, 0.3, 0.2),
+        (0.0, 0.5, -0.2, 0.0),
+      ]) {
+        final m = calculateLiveGeometry(
+          straightenAngle: 0,
+          perspectiveX: px,
+          perspectiveY: py,
+          skewX: sx,
+          skewY: sy,
+        );
+
+        List<double> project(double x, double y) {
+          final s = m.storage;
+          final xp = s[0] * x + s[4] * y + s[12];
+          final yp = s[1] * x + s[5] * y + s[13];
+          final wp = s[3] * x + s[7] * y + s[15];
+          return [xp / wp, yp / wp];
+        }
+
+        final tl = project(-1, -1);
+        final tr = project(1, -1);
+        final bl = project(-1, 1);
+        final br = project(1, 1);
+
+        // Quad area via Shoelace
+        final area = 0.5 *
+            ((tl[0] * tr[1] - tr[0] * tl[1]) +
+                    (tr[0] * br[1] - br[0] * tr[1]) +
+                    (br[0] * bl[1] - bl[0] * br[1]) +
+                    (bl[0] * tl[1] - tl[0] * bl[1]))
+                .abs();
+        expect(area, greaterThan(1.0), reason: 'Projected quad must remain non-collapsed');
+        // Points must remain bounded
+        for (final pt in [tl, tr, bl, br]) {
+          expect(pt[0], inInclusiveRange(-3.0, 3.0));
+          expect(pt[1], inInclusiveRange(-3.0, 3.0));
+        }
+      }
+    });
   });
 
   group('calculateAutoCropScale', () {

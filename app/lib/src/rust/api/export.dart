@@ -416,6 +416,7 @@ class ExportSpec {
   final double sharpenMasking;
   final double denoiseLuma;
   final double denoiseChroma;
+  final double aiDenoise;
   final double dehaze;
   final double vignette;
   final double vignetteMidpoint;
@@ -491,6 +492,12 @@ class ExportSpec {
   /// HDR headroom in EV stops (e.g. 2.0 = 400% brightness boost).
   final double hdrHeadroom;
 
+  /// Optional user-imported 3D LUT atlas (RGBA8 trilinear cube atlas).
+  final Uint8List lutAtlas;
+
+  /// Dimension of the 3D LUT cube (e.g. 33 or 65; 0 = no imported LUT).
+  final int lutSize;
+
   const ExportSpec({
     required this.flipH,
     required this.flipV,
@@ -514,6 +521,7 @@ class ExportSpec {
     required this.sharpenMasking,
     required this.denoiseLuma,
     required this.denoiseChroma,
+    required this.aiDenoise,
     required this.dehaze,
     required this.vignette,
     required this.vignetteMidpoint,
@@ -562,6 +570,8 @@ class ExportSpec {
     required this.colorSpace,
     required this.ultraHdr,
     required this.hdrHeadroom,
+    required this.lutAtlas,
+    required this.lutSize,
   });
 
   /// Maps the flat blur fields onto the engine's [`crate::blur::LensBlurParams`].
@@ -592,6 +602,7 @@ class ExportSpec {
       sharpenMasking.hashCode ^
       denoiseLuma.hashCode ^
       denoiseChroma.hashCode ^
+      aiDenoise.hashCode ^
       dehaze.hashCode ^
       vignette.hashCode ^
       vignetteMidpoint.hashCode ^
@@ -639,7 +650,9 @@ class ExportSpec {
       cancelToken.hashCode ^
       colorSpace.hashCode ^
       ultraHdr.hashCode ^
-      hdrHeadroom.hashCode;
+      hdrHeadroom.hashCode ^
+      lutAtlas.hashCode ^
+      lutSize.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -668,6 +681,7 @@ class ExportSpec {
           sharpenMasking == other.sharpenMasking &&
           denoiseLuma == other.denoiseLuma &&
           denoiseChroma == other.denoiseChroma &&
+          aiDenoise == other.aiDenoise &&
           dehaze == other.dehaze &&
           vignette == other.vignette &&
           vignetteMidpoint == other.vignetteMidpoint &&
@@ -715,7 +729,9 @@ class ExportSpec {
           cancelToken == other.cancelToken &&
           colorSpace == other.colorSpace &&
           ultraHdr == other.ultraHdr &&
-          hdrHeadroom == other.hdrHeadroom;
+          hdrHeadroom == other.hdrHeadroom &&
+          lutAtlas == other.lutAtlas &&
+          lutSize == other.lutSize;
 }
 
 /// One bracketed exposure for HDR merge (#20).

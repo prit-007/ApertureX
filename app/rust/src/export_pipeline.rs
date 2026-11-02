@@ -49,6 +49,8 @@ pub struct ExportRecipe {
     pub grade: GradeParams,
     pub curves: CurveSet,
     pub hsl: [f32; 24],
+    pub lut_atlas: Vec<u8>,
+    pub lut_size: u32,
 }
 
 /// A graded frame ready to encode (post-geometry dimensions).
@@ -101,7 +103,17 @@ pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) 
     if !recipe.layers.is_empty() {
         buf = mask::apply_local(&buf, gw, gh, &recipe.layers);
     }
-    grade_in_place(&mut buf, recipe.grade, &recipe.curves, &recipe.hsl);
+    let mut grade = recipe.grade;
+    if recipe.spatial.shadows != 0.0 || recipe.spatial.highlights != 0.0 {
+        grade.shadows = 0.0;
+        grade.highlights = 0.0;
+    }
+    let lut = if recipe.lut_size > 0 && !recipe.lut_atlas.is_empty() {
+        Some((recipe.lut_atlas.as_slice(), recipe.lut_size))
+    } else {
+        None
+    };
+    grade_in_place(&mut buf, grade, &recipe.curves, &recipe.hsl, lut);
     ExportFrame {
         rgba: buf,
         width: gw as u32,
@@ -175,7 +187,17 @@ pub fn run_export_tiled(
         if !recipe.layers.is_empty() {
             band = mask::apply_local_band(&band, gw, gh, y0, &recipe.layers);
         }
-        grade_in_place(&mut band, recipe.grade, &recipe.curves, &recipe.hsl);
+        let mut grade = recipe.grade;
+        if recipe.spatial.shadows != 0.0 || recipe.spatial.highlights != 0.0 {
+            grade.shadows = 0.0;
+            grade.highlights = 0.0;
+        }
+        let lut = if recipe.lut_size > 0 && !recipe.lut_atlas.is_empty() {
+            Some((recipe.lut_atlas.as_slice(), recipe.lut_size))
+        } else {
+            None
+        };
+        grade_in_place(&mut band, grade, &recipe.curves, &recipe.hsl, lut);
         out[y0 * gw * 4..(y0 + bh) * gw * 4].copy_from_slice(&band);
         y0 += bh;
         if let Some(p) = progress {
@@ -195,13 +217,31 @@ pub fn run_export_tiled(
 
 /// Point-wise grade in place — the shared colour stage for single and banded
 /// export. Mirrors `api::color::grade_rgba` so preview and export agree.
-fn grade_in_place(buf: &mut [u8], grade: GradeParams, curves: &CurveSet, hsl: &[f32; 24]) {
-    buf.par_chunks_exact_mut(4).for_each(|px| {
-        let graded = color::grade_pixel_u8(px[0], px[1], px[2], grade, Some(curves), hsl);
-        px[0] = graded[0];
-        px[1] = graded[1];
-        px[2] = graded[2];
-    });
+fn grade_in_place(
+    buf: &mut [u8],
+    grade: GradeParams,
+    curves: &CurveSet,
+    hsl: &[f32; 24],
+    lut: Option<(&[u8], u32)>,
+) {
+    if let Some((atlas, size)) = lut {
+        buf.par_chunks_exact_mut(4).for_each(|px| {
+            let r = px[0] as f32 / 255.0;
+            let g = px[1] as f32 / 255.0;
+            let b = px[2] as f32 / 255.0;
+            let sampled = color::sample_lut(atlas, size, r, g, b);
+            px[0] = (sampled[0] * 255.0).clamp(0.0, 255.0) as u8;
+            px[1] = (sampled[1] * 255.0).clamp(0.0, 255.0) as u8;
+            px[2] = (sampled[2] * 255.0).clamp(0.0, 255.0) as u8;
+        });
+    } else {
+        buf.par_chunks_exact_mut(4).for_each(|px| {
+            let graded = color::grade_pixel_u8(px[0], px[1], px[2], grade, Some(curves), hsl);
+            px[0] = graded[0];
+            px[1] = graded[1];
+            px[2] = graded[2];
+        });
+    }
 }
 
 #[cfg(test)]
@@ -285,6 +325,8 @@ mod tests {
                 film_scratches: 0.2,
                 shader_lab_preset: 1,
                 shader_param1: 0.5,
+                output_sharpen: 0.4,
+                output_sharpen_media: 1,
                 ..Default::default()
             },
             layers: vec![LocalAdjustment {
@@ -311,6 +353,8 @@ mod tests {
             },
             curves: CurveSet::from_points(&[0.0, 0.0, 0.5, 0.6, 1.0, 1.0], &[], &[], &[]),
             hsl: [0.0; 24],
+            lut_atlas: vec![],
+            lut_size: 0,
         }
     }
 
@@ -325,6 +369,8 @@ mod tests {
             grade: GradeParams::default(),
             curves: CurveSet::identity(),
             hsl: [0.0; 24],
+            lut_atlas: vec![],
+            lut_size: 0,
         }
     }
 
@@ -392,6 +438,29 @@ mod tests {
         assert_ne!(
             with_retouch.rgba, without_retouch.rgba,
             "retouch must perturb the export pixels"
+        );
+    }
+
+    #[test]
+    fn output_sharpen_preview_and_export_parity_oracle() {
+        // Parity Oracle (Issue C7):
+        // Asserts exact byte-for-byte correspondence between preview's single-frame
+        // spatial pipeline and export's tiled/banded pipeline when output_sharpen is active.
+        let (w, h) = (48, 40);
+        let src = noise(w, h);
+        let mut recipe = neutral();
+        recipe.spatial.output_sharpen = 0.5;
+        recipe.spatial.output_sharpen_media = 1;
+
+        let single = run_export_single(&recipe, &src, w, h);
+        let tiled = match run_export_tiled(&recipe, &src, w, h, 16, None, None).unwrap() {
+            ExportOutcome::Done(f) => f,
+            ExportOutcome::Cancelled => panic!("cancelled"),
+        };
+
+        assert_eq!(
+            single.rgba, tiled.rgba,
+            "output_sharpen single-frame (preview path) and tiled (export path) must have exact byte-for-byte parity"
         );
     }
 

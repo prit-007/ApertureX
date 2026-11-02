@@ -160,6 +160,7 @@ class PreviewBaseSpec {
   final double sharpenMasking;
   final double denoiseLuma;
   final double denoiseChroma;
+  final double aiDenoise;
   final double dehaze;
   final double vignette;
   final double vignetteMidpoint;
@@ -237,6 +238,7 @@ class PreviewBaseSpec {
     required this.sharpenMasking,
     required this.denoiseLuma,
     required this.denoiseChroma,
+    required this.aiDenoise,
     required this.dehaze,
     required this.vignette,
     required this.vignetteMidpoint,
@@ -306,6 +308,7 @@ class PreviewBaseSpec {
       sharpenMasking.hashCode ^
       denoiseLuma.hashCode ^
       denoiseChroma.hashCode ^
+      aiDenoise.hashCode ^
       dehaze.hashCode ^
       vignette.hashCode ^
       vignetteMidpoint.hashCode ^
@@ -370,6 +373,7 @@ class PreviewBaseSpec {
           sharpenMasking == other.sharpenMasking &&
           denoiseLuma == other.denoiseLuma &&
           denoiseChroma == other.denoiseChroma &&
+          aiDenoise == other.aiDenoise &&
           dehaze == other.dehaze &&
           vignette == other.vignette &&
           vignetteMidpoint == other.vignetteMidpoint &&

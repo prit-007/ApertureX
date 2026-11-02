@@ -46,6 +46,7 @@ pub struct PreviewBaseSpec {
     pub sharpen_masking: f32,
     pub denoise_luma: f32,
     pub denoise_chroma: f32,
+    pub ai_denoise: f32,
     pub dehaze: f32,
     pub vignette: f32,
     pub vignette_midpoint: f32,
@@ -118,6 +119,7 @@ impl Default for PreviewBaseSpec {
             sharpen_masking: 0.0,
             denoise_luma: 0.0,
             denoise_chroma: 0.0,
+            ai_denoise: 0.0,
             dehaze: 0.0,
             vignette: 0.0,
             vignette_midpoint: 0.5,
@@ -338,6 +340,7 @@ mod tests {
             sharpen_masking: 0.0,
             denoise_luma: 0.0,
             denoise_chroma: 0.0,
+            ai_denoise: 0.0,
             dehaze: 0.0,
             vignette: 0.0,
             vignette_midpoint: 0.5,
@@ -450,8 +453,8 @@ mod tests {
         );
         let ret = retouch_apply(opt, geo.width, geo.height, patches.clone());
         let seq = spatial_apply(
-            ret, geo.width, geo.height, sh, hi, cl, tx, shn, 1.0, 0.25, 0.0, dl, dc, dh, vg, 0.5,
-            0.5, 0.0, 0.0, gr, 0.25, 0.5,
+            ret, geo.width, geo.height, sh, hi, cl, tx, shn, 1.0, 0.25, 0.0, dl, dc, 0.0, dh, vg,
+            0.5, 0.5, 0.0, 0.0, gr, 0.25, 0.5,
         );
 
         let spec = PreviewBaseSpec {
@@ -472,6 +475,7 @@ mod tests {
             sharpen_masking: 0.0,
             denoise_luma: dl,
             denoise_chroma: dc,
+            ai_denoise: 0.0,
             dehaze: dh,
             vignette: vg,
             vignette_midpoint: 0.5,

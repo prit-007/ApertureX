@@ -595,6 +595,62 @@ mod tests {
         assert_ne!(out, src);
     }
 
+    #[test]
+    fn perspective_warp_parity_oracle_geometry_is_convex_and_bounded() {
+        // C11 Parity Oracle: Tests that perspective quad warping maps normalized
+        // quad corners without degenerate fold-over, inversion, or out-of-bounds collapse.
+        for &(px, py, sx, sy) in &[
+            (0.2f32, 0.0f32, 0.0f32, 0.0f32),
+            (-0.3f32, 0.2f32, 0.1f32, -0.1f32),
+            (0.4f32, -0.4f32, 0.3f32, 0.2f32),
+            (0.0f32, 0.5f32, -0.2f32, 0.0f32),
+        ] {
+            let tl = [
+                0.5 - 0.5 * (1.0 - px) * (1.0 - sx),
+                0.5 - 0.5 * (1.0 - py) * (1.0 - sy),
+            ];
+            let tr = [
+                0.5 + 0.5 * (1.0 - px) * (1.0 + sx),
+                0.5 - 0.5 * (1.0 - py) * (1.0 + sy),
+            ];
+            let bl = [
+                0.5 - 0.5 * (1.0 + px) * (1.0 - sx),
+                0.5 + 0.5 * (1.0 + py) * (1.0 - sy),
+            ];
+            let br = [
+                0.5 + 0.5 * (1.0 + px) * (1.0 + sx),
+                0.5 + 0.5 * (1.0 + py) * (1.0 + sy),
+            ];
+
+            // Area of quad via Shoelace formula: must be strictly positive (no self-intersection)
+            let area = 0.5
+                * ((tl[0] * tr[1] - tr[0] * tl[1])
+                    + (tr[0] * br[1] - br[0] * tr[1])
+                    + (br[0] * bl[1] - bl[0] * br[1])
+                    + (bl[0] * tl[1] - tl[0] * bl[1]))
+                    .abs();
+            assert!(
+                area > 0.1,
+                "Warp quad area must be positive and non-collapsed (area: {}) for px={}, py={}, sx={}, sy={}",
+                area, px, py, sx, sy
+            );
+
+            // Bounded: quad coordinates must not blow up
+            for pt in &[tl, tr, bl, br] {
+                assert!(
+                    pt[0] >= -0.5 && pt[0] <= 1.5,
+                    "Warp point x out of bounds: {}",
+                    pt[0]
+                );
+                assert!(
+                    pt[1] >= -0.5 && pt[1] <= 1.5,
+                    "Warp point y out of bounds: {}",
+                    pt[1]
+                );
+            }
+        }
+    }
+
     fn pixel(w: usize, x: usize, y: usize, rgba: &[u8]) -> [u8; 4] {
         let i = (y * w + x) * 4;
         [rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]]

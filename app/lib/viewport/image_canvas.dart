@@ -943,6 +943,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       spec: _baseSpec(recipe),
       layers: recipe.layers,
       maskGroups: recipe.maskGroups,
+      retouchPatches: recipe.retouchPatches,
     );
     final image = await _imageFrom(frame.rgba, frame.width, frame.height);
     if (!mounted || token != _bakeToken) {
@@ -987,7 +988,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }
 
   Future<void> _rebuildLut(EditRecipe recipe, int token) async {
-    final spec = GradeSpec.fromRecipe(recipe);
+    // Spatial pass in baseImage already applied edge-preserving guided shadows and highlights;
+    // zero them out for the 3D LUT fragment shader to prevent double-applying tone curves.
+    final spec = GradeSpec.fromRecipe(recipe).copyWith(
+      shadows: 0.0,
+      highlights: 0.0,
+    );
     final imported = ref.read(importedLutProvider);
     final ui.Image lutImage;
     final int lutSize;
@@ -1055,6 +1061,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         spec: _baseSpec(recipe),
         layers: recipe.layers,
         maskGroups: recipe.maskGroups,
+        retouchPatches: recipe.retouchPatches,
         grade: GradeSpec.fromRecipe(recipe),
         baseChanged: baseChanged,
       );
