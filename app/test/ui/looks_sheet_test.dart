@@ -108,8 +108,11 @@ void main() {
   testWidgets('tapping Share on a look opens PresetCardDialog with QR', (tester) async {
     await pump(tester);
 
-    expect(find.byKey(const Key('share-look-qr-Punch')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('share-look-qr-Punch')));
+    final shareBtn = find.byKey(const Key('share-look-qr-Punch'));
+    await tester.ensureVisible(shareBtn);
+    await tester.pumpAndSettle();
+    expect(shareBtn, findsOneWidget);
+    await tester.tap(shareBtn);
     await tester.pumpAndSettle();
 
     expect(find.byType(QrImageView), findsOneWidget);
