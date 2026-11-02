@@ -267,6 +267,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       case ExportAction.savePng:
         await _exportPngToPhotos();
         break;
+      case ExportAction.saveHeic:
+        await _exportHeicToPhotos();
+        break;
+      case ExportAction.saveAvif:
+        await _exportAvifToPhotos();
+        break;
       case ExportAction.saveDngWithXmp:
         await _exportDngToPhotos();
         break;
@@ -977,6 +983,216 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               action: SnackBarAction(
                 label: 'Retry',
                 onPressed: () => _exportPngToPhotos(),
+              ),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _exportHeicToPhotos() async {
+    await _runJpegExportPipeline(
+      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+        final settings = ref.read(exportSettingsProvider);
+        final exportCustoms = await _buildExportBrandingAndC2pa(
+          bytes: bytes,
+          recipe: recipe,
+          exif: exif,
+        );
+        return await AxEngine.exportJpegFull(
+          rgba: decoded.rgba,
+          width: decoded.width,
+          height: decoded.height,
+          spec: GradeSpec.fromRecipe(recipe),
+          spatial: SpatialSpec.fromRecipe(recipe),
+          geometry: GeometrySpec.fromRecipe(recipe),
+          optics: OpticsSpec.fromRecipe(recipe),
+          blur: LensBlurSpec.fromRecipe(recipe),
+          layers: recipe.layers,
+          maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
+          exif: exif,
+          branding: exportCustoms.branding,
+          c2pa: exportCustoms.c2pa,
+          quality: settings.quality,
+          maxDim: settings.maxDim == 0 ? null : settings.maxDim,
+          cancelToken: token,
+          colorSpace: settings.colorSpace,
+          ultraHdr: false,
+          hdrHeadroom: settings.hdrHeadroom,
+          outputSharpenMedia: settings.outputSharpenMedia,
+          outputSharpen: settings.outputSharpen,
+        );
+      },
+      onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
+        if (!mounted) return;
+        setState(() => _exportPhase = ExportPhase.saving);
+
+        final baked = await AxEngine.decodeJpegRgba(jpeg);
+        final settings = ref.read(exportSettingsProvider);
+        final heic = await AxEngine.exportHeic(
+          rgba: baked.rgba,
+          width: baked.width,
+          height: baked.height,
+          quality: settings.quality,
+        );
+
+        if (!mounted) return;
+        final baseName =
+            widget.asset?.id.split('/').last.split('\\').last ?? 'photo';
+        final outName =
+            settings.formatFilename(original: baseName, preset: 'heic');
+
+        final outcome = await ref
+            .read(photoSaverProvider)
+            .saveFile(heic, name: outName, extension: 'heic');
+        if (outcome == null) {
+          axLog(LogDomain.export, 'HEIC save cancelled at the file dialog');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Save cancelled')),
+            );
+          }
+          return;
+        }
+
+        await emitXmpSidecar(
+          ref.read(exportSidecarSinkProvider),
+          outName,
+          recipe,
+        );
+
+        axLog(LogDomain.export, 'Exported HEIC (${heic.length} bytes)');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: outcome is SavedToFile
+                  ? Text('HEIC saved to ${outcome.file.path}')
+                  : const Text('HEIC saved to your photos'),
+            ),
+          );
+        }
+      },
+      onCancelled: () {
+        axLog(LogDomain.export, 'HEIC export cancelled');
+      },
+      onError: (e) {
+        axLog(LogDomain.export, 'HEIC export failed: $e', level: LogLevel.error);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('HEIC export failed: $e'),
+              action: SnackBarAction(
+                label: 'Retry',
+                onPressed: () => _exportHeicToPhotos(),
+              ),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _exportAvifToPhotos() async {
+    await _runJpegExportPipeline(
+      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+        final settings = ref.read(exportSettingsProvider);
+        final exportCustoms = await _buildExportBrandingAndC2pa(
+          bytes: bytes,
+          recipe: recipe,
+          exif: exif,
+        );
+        return await AxEngine.exportJpegFull(
+          rgba: decoded.rgba,
+          width: decoded.width,
+          height: decoded.height,
+          spec: GradeSpec.fromRecipe(recipe),
+          spatial: SpatialSpec.fromRecipe(recipe),
+          geometry: GeometrySpec.fromRecipe(recipe),
+          optics: OpticsSpec.fromRecipe(recipe),
+          blur: LensBlurSpec.fromRecipe(recipe),
+          layers: recipe.layers,
+          maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
+          exif: exif,
+          branding: exportCustoms.branding,
+          c2pa: exportCustoms.c2pa,
+          quality: settings.quality,
+          maxDim: settings.maxDim == 0 ? null : settings.maxDim,
+          cancelToken: token,
+          colorSpace: settings.colorSpace,
+          ultraHdr: false,
+          hdrHeadroom: settings.hdrHeadroom,
+          outputSharpenMedia: settings.outputSharpenMedia,
+          outputSharpen: settings.outputSharpen,
+        );
+      },
+      onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
+        if (!mounted) return;
+        setState(() => _exportPhase = ExportPhase.saving);
+
+        final baked = await AxEngine.decodeJpegRgba(jpeg);
+        final settings = ref.read(exportSettingsProvider);
+        final avif = await AxEngine.exportAvif(
+          rgba: baked.rgba,
+          width: baked.width,
+          height: baked.height,
+          quality: settings.quality,
+        );
+
+        if (!mounted) return;
+        final baseName =
+            widget.asset?.id.split('/').last.split('\\').last ?? 'photo';
+        final outName =
+            settings.formatFilename(original: baseName, preset: 'avif');
+
+        final outcome = await ref
+            .read(photoSaverProvider)
+            .saveFile(avif, name: outName, extension: 'avif');
+        if (outcome == null) {
+          axLog(LogDomain.export, 'AVIF save cancelled at the file dialog');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Save cancelled')),
+            );
+          }
+          return;
+        }
+
+        await emitXmpSidecar(
+          ref.read(exportSidecarSinkProvider),
+          outName,
+          recipe,
+        );
+
+        axLog(LogDomain.export, 'Exported AVIF (${avif.length} bytes)');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: outcome is SavedToFile
+                  ? Text('AVIF saved to ${outcome.file.path}')
+                  : const Text('AVIF saved to your photos'),
+            ),
+          );
+        }
+      },
+      onCancelled: () {
+        axLog(LogDomain.export, 'AVIF export cancelled');
+      },
+      onError: (e) {
+        axLog(LogDomain.export, 'AVIF export failed: $e', level: LogLevel.error);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('AVIF export failed: $e'),
+              action: SnackBarAction(
+                label: 'Retry',
+                onPressed: () => _exportAvifToPhotos(),
               ),
             ),
           );

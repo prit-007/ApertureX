@@ -64,6 +64,32 @@ Future<Uint8List> exportPng({
   height: height,
 );
 
+/// Exports RGBA8 pixels into an ISO-BMFF HEIC container (#175).
+Future<Uint8List> exportHeic({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required int quality,
+}) => RustLib.instance.api.crateApiExportExportHeic(
+  rgba: rgba,
+  width: width,
+  height: height,
+  quality: quality,
+);
+
+/// Exports RGBA8 pixels into an ISO-BMFF AVIF container (#175).
+Future<Uint8List> exportAvif({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required int quality,
+}) => RustLib.instance.api.crateApiExportExportAvif(
+  rgba: rgba,
+  width: width,
+  height: height,
+  quality: quality,
+);
+
 /// Merges bracketed exposures into an Ultra HDR JPEG (#20).
 ///
 /// Runs the full pipeline: merge exposures into linear HDR radiance,

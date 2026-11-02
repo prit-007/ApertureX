@@ -13,6 +13,8 @@ enum ExportAction {
   savePng,
   saveDngWithXmp,
   saveTiff16,
+  saveHeic,
+  saveAvif,
   share,
   sharePresetCard,
   backgroundExport,

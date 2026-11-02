@@ -15,7 +15,7 @@ import '../../engine/engine.dart';
 import 'export_progress.dart';
 
 /// Supported formats for the background export worker.
-enum ExportFormat { jpeg, png, dng, tiff16 }
+enum ExportFormat { jpeg, png, dng, tiff16, heic, avif }
 
 /// Lifecycle states for an individual export task.
 enum ExportTaskStatus {
@@ -337,6 +337,22 @@ class BackgroundExportWorker extends Notifier<List<ExportTask>> {
             exportedBytes = await AxEngine.exportDng(
               rawBytes: task.rgba,
               xmp: '',
+            );
+            break;
+          case ExportFormat.heic:
+            exportedBytes = await AxEngine.exportHeic(
+              rgba: task.rgba,
+              width: task.width,
+              height: task.height,
+              quality: task.quality,
+            );
+            break;
+          case ExportFormat.avif:
+            exportedBytes = await AxEngine.exportAvif(
+              rgba: task.rgba,
+              width: task.width,
+              height: task.height,
+              quality: task.quality,
             );
             break;
         }

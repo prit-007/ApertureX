@@ -198,8 +198,13 @@ class AxEngine {
 
   /// Fast-path extraction of the embedded JPEG preview from a RAW container (ARW, CR2, NEF, DNG, RW2).
   /// Enables instantaneous (<50ms) initial render while linear demosaicing runs in the background.
-  static Future<Uint8List?> extractRawEmbeddedPreview(Uint8List raw) =>
-      rust_raw.rawExtractEmbeddedPreview(raw: raw);
+  static Future<Uint8List?> extractRawEmbeddedPreview(Uint8List raw) async {
+    try {
+      return await rust_raw.rawExtractEmbeddedPreview(raw: raw);
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Decodes a RAW/DNG to a full sRGB RGBA8 buffer (demosaic + camera colour).
   static Future<RgbaImage> decodeRawRgba(Uint8List raw) =>
@@ -1384,6 +1389,34 @@ class AxEngine {
         rgba: rgba,
         width: width,
         height: height,
+      );
+
+  /// Exports RGBA8 pixels into an ISO-BMFF HEIC container (#175).
+  static Future<Uint8List> exportHeic({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    int quality = 90,
+  }) =>
+      rust_export.exportHeic(
+        rgba: rgba,
+        width: width,
+        height: height,
+        quality: quality,
+      );
+
+  /// Exports RGBA8 pixels into an ISO-BMFF AVIF container (#175).
+  static Future<Uint8List> exportAvif({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    int quality = 90,
+  }) =>
+      rust_export.exportAvif(
+        rgba: rgba,
+        width: width,
+        height: height,
+        quality: quality,
       );
 
   /// Renders a live mini-preview with active watermark branding.

@@ -58,6 +58,18 @@ pub fn export_png(rgba: Vec<u8>, width: u32, height: u32) -> Result<Vec<u8>, Str
     crate::export::encode_png(&rgba, width, height)
 }
 
+/// Exports RGBA8 pixels into an ISO-BMFF HEIC container (#175).
+pub fn export_heic(rgba: Vec<u8>, width: u32, height: u32, quality: u8) -> Result<Vec<u8>, String> {
+    crate::validate::validate_rgba(&rgba, width, height)?;
+    crate::export::encode_heic(&rgba, width, height, quality)
+}
+
+/// Exports RGBA8 pixels into an ISO-BMFF AVIF container (#175).
+pub fn export_avif(rgba: Vec<u8>, width: u32, height: u32, quality: u8) -> Result<Vec<u8>, String> {
+    crate::validate::validate_rgba(&rgba, width, height)?;
+    crate::export::encode_avif(&rgba, width, height, quality)
+}
+
 /// One bracketed exposure for HDR merge (#20).
 pub struct HdrExposureSpec {
     pub rgba: Vec<u8>,

@@ -9,6 +9,7 @@ import '../../edit/recipe.dart';
 import '../../engine/engine.dart';
 import '../../settings/export_branding_settings.dart';
 import '../../settings/export_settings.dart';
+import '../../l10n/app_strings.dart';
 import 'export_options_sheet.dart' show ExportAction;
 
 /// Professional Material 3 Export Studio Screen.
@@ -185,6 +186,12 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         break;
       case 'dng':
         Navigator.of(context).pop(ExportAction.saveDngWithXmp);
+        break;
+      case 'heic':
+        Navigator.of(context).pop(ExportAction.saveHeic);
+        break;
+      case 'avif':
+        Navigator.of(context).pop(ExportAction.saveAvif);
         break;
       case 'jpeg':
       default:
@@ -498,6 +505,8 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                 SegmentedButton<String>(
                   segments: [
                     const ButtonSegment(value: 'jpeg', label: Text('JPEG')),
+                    const ButtonSegment(value: 'heic', label: Text('HEIC')),
+                    const ButtonSegment(value: 'avif', label: Text('AVIF')),
                     const ButtonSegment(value: 'png', label: Text('PNG')),
                     const ButtonSegment(value: 'tiff16', label: Text('TIFF 16-bit')),
                     if (widget.isRaw)
@@ -510,7 +519,9 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                   },
                 ),
                 const SizedBox(height: Insets.sm),
-                if (_selectedFormat == 'jpeg') ...[
+                if (_selectedFormat == 'jpeg' ||
+                    _selectedFormat == 'heic' ||
+                    _selectedFormat == 'avif') ...[
                   Row(
                     children: [
                       Text(
@@ -1528,7 +1539,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                 key: const Key('export_studio_primary_btn'),
                 icon: const Icon(Icons.file_download_outlined),
                 label: Text(
-                  'Export ${_selectedFormat.toUpperCase()} (${targetDim.width}×${targetDim.height})',
+                  '${AppStrings.of(context).export} ${_selectedFormat.toUpperCase()} (${targetDim.width}×${targetDim.height})',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 style: FilledButton.styleFrom(
