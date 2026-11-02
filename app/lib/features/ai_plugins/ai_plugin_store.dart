@@ -450,7 +450,7 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
     final activeId = state.activePluginPerTask[task];
     if (activeId != null) {
       return state.installedPlugins.firstWhere(
-        (p) => p.id == activeId && p.isEnabled && p.isInstalled,
+        (p) => p.id == activeId && p.isEnabled && p.isInstalled && p.task == task,
         orElse: () => state.installedPlugins.firstWhere(
           (p) => p.task == task && p.isEnabled && p.isInstalled,
           orElse: () => state.installedPlugins.first,
@@ -473,6 +473,7 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
   bool isAiModelAvailable(AiTask task) {
     final plugin = getActivePluginForTask(task);
     return plugin != null &&
+        plugin.task == task &&
         plugin.isEnabled &&
         plugin.isInstalled &&
         plugin.localPath != null &&
