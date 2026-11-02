@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 
 /// Asset keys of the shaders declared in `pubspec.yaml`.
 const String lutShaderAsset = 'shaders/lut.frag';
-const String gradeShaderAsset = 'shaders/grade.frag';
 
 /// The app-wide warmup singleton, handed to the tree by [bootstrapApp].
 final shaderWarmupProvider = Provider<ShaderWarmup>((ref) => ShaderWarmup());
@@ -33,23 +32,16 @@ class ShaderWarmup {
 
   final Future<void> Function()? _warmOverride;
 
-  /// Cached program futures — the engine keeps its own static registry, but
+  /// Cached program future — the engine keeps its own static registry, but
   /// the app must hand *one* future to every consumer so the pipeline the
   /// warmup builds is the same object the canvas draws with.
   Future<ui.FragmentProgram>? _lut;
-  Future<ui.FragmentProgram>? _grade;
 
   Future<void>? _pending;
 
   /// The cached `lut.frag` program (single load, shared by every canvas).
   Future<ui.FragmentProgram> lutProgram() =>
       _lut ??= ui.FragmentProgram.fromAsset(lutShaderAsset);
-
-  /// The cached `grade.frag` program — declared in `pubspec.yaml` since the
-  /// slice-D spike but never loaded until now; the warmup pays its (one-time,
-  /// essentially free) compile so wiring it later can't stutter.
-  Future<ui.FragmentProgram> gradeProgram() =>
-      _grade ??= ui.FragmentProgram.fromAsset(gradeShaderAsset);
 
   /// Runs (or awaits) the warmup pass. Concurrent callers share one run; a
   /// failed pass stays failed for the session (no retry storm) — the canvas

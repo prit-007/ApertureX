@@ -129,7 +129,6 @@ flutter:
   uses-material-design: true
 
   shaders:
-    - shaders/grade.frag
     - shaders/lut.frag
 
   assets:
