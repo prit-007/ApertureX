@@ -376,7 +376,7 @@ decode-only today).
 
 **Scope**
 - F-Droid metadata + per-ABI version codes (ADR 0004); reproducible release.
-- HEIC import/export; accessibility (TalkBack/VoiceOver, dynamic type); i18n;
+- HEIC/AVIF import/export (ISO-BMFF parser + encoder); accessibility (TalkBack/VoiceOver, dynamic type, reduce-motion #174); i18n;
   onboarding; error/empty states.
 - Performance pass on the low-tier device matrix; iPhone validation (P-1 gap).
 

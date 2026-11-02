@@ -96,7 +96,7 @@ UI (Flutter + Material 3)
 Viewport (Flutter/Impeller)
 ├── Tile compositor
 ├── Zoom/pan transforms
-└── Fragment-shader chain (grade.frag, lut.frag)
+└── Fragment-shader chain (lut.frag 3D LUT preview)
     
 Edit Core (Pure Dart)
 ├── EditRecipe (Lightroom-aligned schema)

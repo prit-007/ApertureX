@@ -36,13 +36,12 @@ A shader that works on one Android GPU may break or misbehave on another;
 compilation can stall first use.
 
 - **Likelihood:** medium · **Impact:** medium
-- **Status:** *partially retired.* `grade.frag` + a 65³ LUT-atlas shader hold
-  display refresh on a mid-tier Android device (P-1 met). The Rust-owned
-  `ANativeWindow` **zero-copy texture** path is now **mounted by the viewport on
-  Android** (`PreviewSurface`, issue #54): delivery switches to the shader path
-  while compare/peek crossfades or imported-LUT sessions are active and returns
-  to zero-copy when idle. The shader/atlas path remains the universal fallback;
-  the remaining gap is **no iOS texture registration**.
+- **Status:** *retired.* `grade.frag` has been fully retired in favor of the 65³
+  LUT-atlas shader (`lut.frag`) and the Rust-owned `ANativeWindow` **zero-copy texture**
+  path now mounted by the viewport on Android (`PreviewSurface`, issue #54): delivery
+  switches to the shader path while compare/peek crossfades or imported-LUT sessions
+  are active and returns to zero-copy when idle. The shader/atlas path remains the
+  universal fallback; the remaining gap is **no iOS texture registration**.
 - **Mitigations:**
   - Constrain the shader dialect to the documented safe subset; centralize UV
     handling (incl. GLES un-flip) in one helper.

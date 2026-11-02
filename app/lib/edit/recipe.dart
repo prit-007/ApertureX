@@ -283,10 +283,10 @@ class EditRecipe {
   // Light.
   final double exposure; // EV, neutral 0.
   final double contrast; // unitless, neutral 0.
-  final double highlights; // unitless, neutral 0 (not yet rendered).
-  final double shadows; // unitless, neutral 0 (not yet rendered).
-  final double whites; // unitless, neutral 0 (not yet rendered).
-  final double blacks; // unitless, neutral 0 (not yet rendered).
+  final double highlights; // unitless, neutral 0 (spatial edge-aware curve).
+  final double shadows; // unitless, neutral 0 (spatial edge-aware curve).
+  final double whites; // unitless, neutral 0.
+  final double blacks; // unitless, neutral 0.
   final double clarity; // spatial pass, neutral 0.
   final double texture; // spatial pass, neutral 0.
   final double dehaze; // spatial pass, neutral 0.
