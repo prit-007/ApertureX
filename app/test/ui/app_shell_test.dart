@@ -8,6 +8,7 @@ import 'package:aperturex/ui/app_shell.dart';
 import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
 import 'package:aperturex/ui/snapseed/snapseed_shell.dart';
 import 'package:aperturex/ui/common/brush_toolbar.dart';
+import 'package:aperturex/ui/precision_gear.dart';
 import 'package:aperturex/viewport/exposure_assist.dart';
 import 'package:aperturex/viewport/image_canvas.dart';
 
@@ -193,6 +194,31 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('false-color-ire-legend')), findsNothing);
+    });
+
+    testWidgets('displays floating live scrub HUD pill when parameter slider is dragged', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      expect(find.byKey(const Key('live-scrub-hud-pill')), findsNothing);
+
+      // Claim active track on Exposure and set value to 1.25
+      container.read(recipeControllerProvider.notifier).update(Parameter.exposure, 1.25);
+      container.read(activeTrackProvider.notifier).claim(Parameter.exposure);
+      await tester.pumpAndSettle();
+
+      // Pill appears with parameter label and formatted value
+      final hudPill = find.byKey(const Key('live-scrub-hud-pill'));
+      expect(hudPill, findsOneWidget);
+      expect(find.descendant(of: hudPill, matching: find.text('Exposure')), findsOneWidget);
+      expect(find.descendant(of: hudPill, matching: find.text('+1.25')), findsOneWidget);
+
+      // Release active track
+      container.read(activeTrackProvider.notifier).release(Parameter.exposure);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('live-scrub-hud-pill')), findsNothing);
     });
   });
 }

@@ -404,6 +404,13 @@ class RecipeController extends Notifier<RecipeState> {
     axLog(LogDomain.editor, 'Loaded recipe: $label');
   }
 
+  /// Restores a full recipe (e.g. from a named snapshot or virtual copy), committing it
+  /// as a new history node on the active branch without wiping previous DAG history.
+  void restoreRecipe(EditRecipe recipe, {String label = 'Restore Snapshot'}) {
+    state = state.copyWith(recipe: recipe);
+    commit(label: label);
+  }
+
   /// Commits the live recipe as a new (optionally named) history node.
   ///
   /// Backed by the DAG [HistoryTree] (Issue #97). Appends a child to the current

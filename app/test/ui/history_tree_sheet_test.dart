@@ -125,4 +125,61 @@ void main() {
       }
     },
   );
+
+  testWidgets('HistoryTreeSheet switches to Snapshots tab, captures and restores snapshot', (tester) async {
+    final container = ProviderContainer();
+    final controller = container.read(recipeControllerProvider.notifier);
+
+    // Initial edit
+    controller.update(Parameter.exposure, 1.25);
+    controller.commit(label: 'Exposure +1.25');
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => HistoryTreeSheet.show(context),
+                child: const Text('Open History'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open History'));
+    await tester.pumpAndSettle();
+
+    // Switch to Snapshots tab
+    await tester.tap(find.textContaining('Snapshots'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No Snapshots Saved'), findsOneWidget);
+
+    // Tap 'Capture Current Edit'
+    await tester.tap(find.text('Capture Current Edit'));
+    await tester.pumpAndSettle();
+
+    // Enter snapshot name
+    await tester.enterText(find.byType(TextField), 'Golden Sunset');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    // Snapshot is now listed
+    expect(find.text('Golden Sunset'), findsOneWidget);
+
+    // Change current recipe in controller
+    controller.update(Parameter.exposure, -2.0);
+    expect(container.read(recipeControllerProvider).recipe.exposure, -2.0);
+
+    // Tap Restore on the snapshot
+    await tester.tap(find.text('Restore'));
+    await tester.pumpAndSettle();
+
+    // Recipe restored back to the snapshot's exposure (+1.25)
+    expect(container.read(recipeControllerProvider).recipe.exposure, 1.25);
+  });
 }

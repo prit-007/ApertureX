@@ -31,6 +31,7 @@ import '../viewport/exposure_assist.dart';
 import '../viewport/image_canvas.dart';
 import '../viewport/mask_peek.dart';
 import 'edit_activity.dart';
+import 'precision_gear.dart';
 import 'lightroom/lightroom_shell.dart';
 import 'common/brush_toolbar.dart';
 import 'common/mask_controls.dart';
@@ -496,6 +497,20 @@ class _AppShellState extends ConsumerState<AppShell> {
                   child: _AiProgressFloatingPill(),
                 ),
               ),
+              if (ref.watch(activeTrackProvider) != null)
+                Positioned(
+                  top: Insets.lg + 16,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Center(
+                      child: _LiveScrubHudPill(
+                        parameter: ref.watch(activeTrackProvider)!,
+                      ),
+                    ),
+                  ),
+                ),
               if (ref.watch(exposureAssistProvider).mode ==
                   ExposureAssistMode.falseColor)
                 const Positioned(
@@ -651,6 +666,20 @@ class _AppShellState extends ConsumerState<AppShell> {
                       child: _AiProgressFloatingPill(),
                     ),
                   ),
+                  if (ref.watch(activeTrackProvider) != null)
+                    Positioned(
+                      top: Insets.lg + 16,
+                      left: 0,
+                      right: 0,
+                      child: SafeArea(
+                        bottom: false,
+                        child: Center(
+                          child: _LiveScrubHudPill(
+                            parameter: ref.watch(activeTrackProvider)!,
+                          ),
+                        ),
+                      ),
+                    ),
                   if (ref.watch(exposureAssistProvider).mode ==
                       ExposureAssistMode.falseColor)
                     const Positioned(
@@ -1587,6 +1616,76 @@ class _FalseColorLegendOverlay extends StatelessWidget {
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Floating live parameter readout pill displayed over the viewport when a parameter
+/// slider is being actively dragged, preventing thumb occlusion.
+class _LiveScrubHudPill extends ConsumerWidget {
+  const _LiveScrubHudPill({required this.parameter});
+
+  final Parameter parameter;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final spec = specOf(parameter);
+    final value = ref.watch(
+      recipeControllerProvider.select((s) => valueOf(s.recipe, parameter)),
+    );
+    final isNeutral = value == spec.neutral;
+    final formatted = isNeutral
+        ? '0'
+        : (spec.min >= 0 && spec.max <= 1.0
+            ? '${(value * 100).round()}%'
+            : (spec.max - spec.min <= 10.0
+                ? '${value > 0 ? '+' : ''}${value.toStringAsFixed(2)}'
+                : '${value > 0 ? '+' : ''}${value.round()}'));
+
+    return Container(
+      key: const Key('live-scrub-hud-pill'),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white24, width: 0.75),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black54,
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            spec.label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 1,
+            height: 12,
+            color: Colors.white24,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            formatted,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: isNeutral ? Colors.white54 : const Color(0xFF64B5F6),
+            ),
+          ),
         ],
       ),
     );
