@@ -10,6 +10,7 @@ import 'package:aperturex/ui/common/parameter_slider_row.dart';
 import 'package:aperturex/ui/edit_activity.dart';
 import 'package:aperturex/viewport/canvas_transform.dart';
 import 'package:aperturex/viewport/compare_hold.dart';
+import 'package:aperturex/viewport/preview_surface.dart';
 import 'package:aperturex/viewport/roi_overlay.dart';
 import 'package:aperturex/viewport/split_compare.dart';
 import 'package:aperturex/viewport/wiper_compare.dart';
@@ -243,6 +244,54 @@ void main() {
 
       expect(ended, isTrue);
       expect(container.read(editActivityProvider), isFalse);
+    });
+
+    test('useTextureDelivery yields to shader/tile custom paint when roiActive is true', () {
+      // Proves that when high-zoom detail tiles are active, zero-copy texture
+      // yields so CustomPaint renders the sharp 1:1 master resolution tiles
+      expect(
+        useTextureDelivery(
+          textureId: 42,
+          hasImportedLut: false,
+          gestureActive: false,
+          roiActive: true,
+          geometryActive: false,
+        ),
+        isFalse,
+      );
+
+      // Normal idle view without tiles retains zero-copy texture
+      expect(
+        useTextureDelivery(
+          textureId: 42,
+          hasImportedLut: false,
+          gestureActive: false,
+          roiActive: false,
+          geometryActive: false,
+        ),
+        isTrue,
+      );
+    });
+
+    testWidgets('PreviewSurface renders fallback when textureId is null (e.g. tiles active)', (tester) async {
+      bool fallbackRendered = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PreviewSurface(
+              textureId: null, // As yielded when _tilesActive || tiles.isNotEmpty
+              fallback: (context) {
+                fallbackRendered = true;
+                return const Text('Sharp Master Tiles Overlay');
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(fallbackRendered, isTrue);
+      expect(find.text('Sharp Master Tiles Overlay'), findsOneWidget);
     });
   });
 }

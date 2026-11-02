@@ -254,13 +254,26 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   Future<void> _upgradeRoiBytes(Uint8List bytes) async {
     if (_disposed || !mounted || isRawImage(bytes)) return;
     try {
-      final dims = await AxEngine.jpegDimensions(bytes);
+      int width = 0;
+      int height = 0;
+      try {
+        final dims = await AxEngine.jpegDimensions(bytes);
+        width = dims.width;
+        height = dims.height;
+      } catch (_) {
+        final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+        final descriptor = await ui.ImageDescriptor.encoded(buffer);
+        width = descriptor.width;
+        height = descriptor.height;
+        descriptor.dispose();
+        buffer.dispose();
+      }
       if (_disposed || !mounted) return;
-      if (dims.width > _fullW || dims.height > _fullH) {
+      if (width > _fullW || height > _fullH) {
         setState(() {
           _roiBytes = bytes;
-          _fullW = dims.width;
-          _fullH = dims.height;
+          _fullW = width;
+          _fullH = height;
           _tileGrid = TileGrid(
             imageWidth: _fullW,
             imageHeight: _fullH,
@@ -294,14 +307,26 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           final dims = await AxEngine.jpegDimensions(jpeg);
           _fullW = dims.width;
           _fullH = dims.height;
+        } catch (_) {
+          try {
+            final buffer = await ui.ImmutableBuffer.fromUint8List(jpeg);
+            final descriptor = await ui.ImageDescriptor.encoded(buffer);
+            _fullW = descriptor.width;
+            _fullH = descriptor.height;
+            descriptor.dispose();
+            buffer.dispose();
+          } catch (_) {
+            _fullW = 0;
+            _fullH = 0;
+          }
+        }
+        if (_fullW > 0 && _fullH > 0) {
           _tileGrid = TileGrid(
             imageWidth: _fullW,
             imageHeight: _fullH,
             tileSize: _tileSize,
           );
-        } catch (_) {
-          _fullW = 0;
-          _fullH = 0;
+        } else {
           _tileGrid = null;
         }
       }
@@ -1156,6 +1181,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           _scale = scale;
           _offset = _clampOffset(offset, scale, _lastFitted, _lastBounds);
         });
+        _scheduleRoi();
       }
     });
 
@@ -1281,6 +1307,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                   // tile overlay, geometry edits, wiper split curtain, split compare, exposure assist, soft proofing).
                   textureId:
                       zeroCopy &&
+                          !_tilesActive &&
+                          tiles.isEmpty &&
                           !zoneMask.isTargeting &&
                           !wiper.isActive &&
                           !splitCompare.isEnabled &&
@@ -1517,6 +1545,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _scale = scale;
         _offset = _clampOffset(offset, scale, fitted, bounds);
       });
+      _scheduleRoi();
       return;
     }
     if (_multi) return;
@@ -1533,6 +1562,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           bounds,
         );
       });
+      if (_scale > 1.0) {
+        _scheduleRoi();
+      }
     }
   }
 
