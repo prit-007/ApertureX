@@ -355,7 +355,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                                 );
                                 _tabScrollController.animateTo(
                                   target,
-                                  duration: AppMotion.shortDuration,
+                                  duration: AppMotion.responsive(
+                                    context,
+                                    AppMotion.shortDuration,
+                                  ),
                                   curve: AppMotion.standardCurve,
                                 );
                               }
@@ -379,7 +382,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                                 );
                                 _tabScrollController.animateTo(
                                   target,
-                                  duration: AppMotion.shortDuration,
+                                  duration: AppMotion.responsive(
+                                    context,
+                                    AppMotion.shortDuration,
+                                  ),
                                   curve: AppMotion.standardCurve,
                                 );
                               }
@@ -443,8 +449,11 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                           );
                           _tabScrollController.animateTo(
                             target,
-                            duration: const Duration(milliseconds: 250),
-                            curve: Curves.easeOut,
+                            duration: AppMotion.responsive(
+                              context,
+                              AppMotion.shortDuration,
+                            ),
+                            curve: AppMotion.standardCurve,
                           );
                         }
                       },

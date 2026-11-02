@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:material_ui/material_ui.dart';
 
 /// Shared spacing, shape and motion tokens for ApertureX (ADR 0011).
@@ -89,4 +90,18 @@ abstract class AppMotion {
 
   static const Duration sheetDuration = Durations.medium2;
   static const Curve sheetCurve = Easing.standard;
+
+  // --- Accessibility Reduce Motion (#174) ----------------------------------
+
+  /// True when the host OS or user accessibility settings request reduced motion.
+  static bool get reduceMotion =>
+      ui.PlatformDispatcher.instance.accessibilityFeatures.reduceMotion;
+
+  /// Returns [standard] or [Duration.zero] if reduce-motion or disable-animations is active.
+  static Duration responsive(BuildContext context, Duration standard) {
+    if (reduceMotion || (MediaQuery.maybeDisableAnimationsOf(context) ?? false)) {
+      return Duration.zero;
+    }
+    return standard;
+  }
 }

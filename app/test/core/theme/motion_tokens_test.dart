@@ -55,6 +55,50 @@ void main() {
       expect(AppMotion.fadeDuration.inMilliseconds, greaterThan(0));
       expect(AppMotion.scrubDuration.inMilliseconds, greaterThan(0));
     });
+
+    testWidgets('responsive returns standard duration when animations enabled', (
+      tester,
+    ) async {
+      late BuildContext ctx;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              ctx = context;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+
+      final d = AppMotion.responsive(ctx, const Duration(milliseconds: 300));
+      expect(d, const Duration(milliseconds: 300));
+    });
+
+    testWidgets('responsive returns Duration.zero when disableAnimations is true', (
+      tester,
+    ) async {
+      late BuildContext ctx;
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              disableAnimations: true,
+            ),
+            child: child!,
+          ),
+          home: Builder(
+            builder: (context) {
+              ctx = context;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+
+      final d = AppMotion.responsive(ctx, const Duration(milliseconds: 300));
+      expect(d, Duration.zero);
+    });
   });
 
   group('Motion (legacy class)', () {

@@ -850,11 +850,14 @@ class _AppShellState extends ConsumerState<AppShell> {
       );
     }
 
+    final motionDuration = AppMotion.responsive(context, AppMotion.standardDuration);
+
     return AnimatedSwitcher(
-      duration: AppMotion.standardDuration,
+      duration: motionDuration,
       switchInCurve: AppMotion.standardCurve,
       switchOutCurve: AppMotion.standardCurve,
       transitionBuilder: (Widget child, Animation<double> animation) {
+        if (motionDuration == Duration.zero) return child;
         return FadeTransition(
           opacity: animation,
           child: SlideTransition(
@@ -883,7 +886,7 @@ class _Fade extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedOpacity(
       opacity: active ? 0 : 1,
-      duration: AppMotion.fadeDuration,
+      duration: AppMotion.responsive(context, AppMotion.fadeDuration),
       curve: AppMotion.fadeCurve,
       child: IgnorePointer(ignoring: active, child: child),
     );
@@ -1096,9 +1099,9 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
           ClipRect(
             child: AnimatedContainer(
               key: const Key('lightroom-sheet-body'),
-              duration: _dragging
+              duration: (_dragging || AppMotion.reduceMotion)
                   ? Duration.zero
-                  : AppMotion.sheetDuration,
+                  : AppMotion.responsive(context, AppMotion.sheetDuration),
               curve: AppMotion.sheetCurve,
               height: contentHeight,
               child: ClipRRect(
@@ -1257,7 +1260,7 @@ class _HistogramDrawerState extends ConsumerState<_HistogramDrawer> {
             ),
           ClipRect(
             child: AnimatedSize(
-              duration: AppMotion.standardDuration,
+              duration: AppMotion.responsive(context, AppMotion.standardDuration),
               curve: AppMotion.standardCurve,
               alignment: Alignment.topCenter,
               child: widget.open
@@ -1586,7 +1589,7 @@ class _AiProgressFloatingPill extends ConsumerWidget {
 
     return AnimatedOpacity(
       opacity: isInferring ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 220),
+      duration: AppMotion.responsive(context, AppMotion.shortDuration),
       curve: Curves.easeOutCubic,
       child: IgnorePointer(
         ignoring: !isInferring,
