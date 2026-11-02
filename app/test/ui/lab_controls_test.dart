@@ -46,7 +46,6 @@ void main() {
     expect(find.text('Prism Dispersion'), findsOneWidget);
     expect(find.text('CRT Scanlines'), findsOneWidget);
     expect(find.text('Pixelate'), findsOneWidget);
-    expect(find.text('Custom GLSL'), findsOneWidget);
 
     // Tap VHS Retro
     await tester.tap(find.text('VHS Retro'));
@@ -64,35 +63,24 @@ void main() {
     );
   });
 
-  testWidgets('selecting Custom GLSL shows edit dialog and saves GLSL code', (
+  testWidgets('selecting Pixelate updates recipe state to preset 4', (
     tester,
   ) async {
     await pumpLabControls(tester);
 
-    // Tap Custom GLSL
-    await tester.tap(find.text('Custom GLSL'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Edit Custom GLSL'), findsOneWidget);
-
-    // Open Custom GLSL dialog
-    await tester.tap(find.text('Edit Custom GLSL'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Custom GLSL Shader'), findsOneWidget);
-
-    // Enter shader code
-    final textField = find.byType(TextField);
-    expect(textField, findsOneWidget);
-    await tester.enterText(textField, 'void main() { fragColor = vec4(1.0); }');
-    await tester.pumpAndSettle();
-
-    // Tap Apply
-    await tester.tap(find.text('Apply'));
+    // Tap Pixelate
+    await tester.tap(find.text('Pixelate'));
     await tester.pumpAndSettle();
 
     final recipe = container.read(recipeControllerProvider).recipe;
-    expect(recipe.shaderLabPreset, 5);
-    expect(recipe.customGlslCode, 'void main() { fragColor = vec4(1.0); }');
+    expect(recipe.shaderLabPreset, 4);
+
+    // When Pixelate is selected, shader parameters controls appear
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is ParameterControl && w.parameter == Parameter.shaderParam1,
+      ),
+      findsOneWidget,
+    );
   });
 }

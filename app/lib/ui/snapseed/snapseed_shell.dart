@@ -9,6 +9,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../color/tat.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../edit/active_image.dart' show activeImageBytesProvider;
 import '../../edit/node_editor.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
@@ -17,12 +18,15 @@ import '../../edit/tool_definition.dart';
 import '../../gesture/gesture_interpreter.dart';
 import '../../gesture/zone_mask.dart';
 import '../common/blur_controls.dart';
+import '../common/history_tree_sheet.dart';
 import '../common/mask_controls.dart';
 import '../common/precision_rotation_dial.dart';
 import '../common/preset_preview_thumbnail.dart';
+import '../../features/crop/crop_screen.dart';
 import 'edit_hud.dart';
 import 'snapseed_gesture_hud.dart';
 import 'snapseed_tools_sheet.dart';
+import '../../l10n/app_strings.dart';
 
 /// Index of the radial-menu item nearest [pointer], for a menu centred at
 /// [center] with [count] items at [radius]. Item 0 sits at the top (−90°),
@@ -77,11 +81,11 @@ class SnapseedShell extends ConsumerStatefulWidget {
   ConsumerState<SnapseedShell> createState() => _SnapseedShellState();
 }
 
-String _categoryLabel(ToolCategory c) => switch (c) {
-  ToolCategory.light => 'Light',
-  ToolCategory.color => 'Color',
-  ToolCategory.effects => 'Effects',
-  ToolCategory.detail => 'Detail',
+String _categoryLabel(ToolCategory c, [AppStrings? strings]) => switch (c) {
+  ToolCategory.light => strings?.light ?? 'Light',
+  ToolCategory.color => strings?.color ?? 'Color',
+  ToolCategory.effects => strings?.effects ?? 'Effects',
+  ToolCategory.detail => strings?.detail ?? 'Detail',
 };
 
 class _SnapseedShellState extends ConsumerState<SnapseedShell> {
@@ -149,23 +153,42 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
   void _openToolsSheet(BuildContext context) {
     HapticFeedback.lightImpact();
+    final size = MediaQuery.sizeOf(context);
+    final isWide = size.width >= 600;
+    final sheetH = isWide ? math.min(size.height * 0.75, 620.0) : size.height * 0.70;
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.70,
-        child: SnapseedToolsSheet(
-          onSelectCategoryAndTool: (cat, tool) {
-            if (widget.onSelectCategoryAndTool != null) {
-              widget.onSelectCategoryAndTool!(cat, tool);
-            } else {
-              widget.onPickTool(tool);
-            }
-          },
-          onOpenStraighten: () {
-            setState(() => _straightenOpen = true);
-          },
+      builder: (ctx) => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 580),
+          child: SizedBox(
+            height: sheetH,
+            child: SnapseedToolsSheet(
+              onSelectCategoryAndTool: (cat, tool) {
+                if (widget.onSelectCategoryAndTool != null) {
+                  widget.onSelectCategoryAndTool!(cat, tool);
+                } else {
+                  widget.onPickTool(tool);
+                }
+              },
+              onOpenStraighten: () {
+                setState(() => _straightenOpen = true);
+              },
+              onOpenCrop: () {
+                final bytes = ref.read(activeImageBytesProvider);
+                if (bytes != null) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => CropScreen(imageBytes: bytes),
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
         ),
       ),
     );
@@ -173,48 +196,57 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
   void _openMasksSheet(BuildContext context) {
     HapticFeedback.lightImpact();
+    final size = MediaQuery.sizeOf(context);
+    final isWide = size.width >= 600;
+    final sheetH = isWide ? math.min(size.height * 0.75, 620.0) : size.height * 0.70;
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Material(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.lg)),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.70,
-          child: const SafeArea(
-            top: false,
-            child: Column(
-              children: [
-                SizedBox(height: Insets.xs),
-                Center(
-                  child: SizedBox(
-                    width: 36,
-                    height: 4,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.all(Radius.circular(2)),
+      builder: (ctx) => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 580),
+          child: Material(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.lg)),
+            child: SizedBox(
+              height: sheetH,
+              child: const SafeArea(
+                top: false,
+                child: Column(
+                  children: [
+                    SizedBox(height: Insets.xs),
+                    Center(
+                      child: SizedBox(
+                        width: 36,
+                        height: 4,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.all(Radius.circular(2)),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: Insets.md, vertical: Insets.xs),
-                  child: Row(
-                    children: [
-                      Icon(Icons.layers_outlined, size: 20),
-                      SizedBox(width: Insets.sm),
-                      Text(
-                        'Masks & Layers',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: Insets.md, vertical: Insets.xs),
+                      child: Row(
+                        children: [
+                          Icon(Icons.layers_outlined, size: 20),
+                          SizedBox(width: Insets.sm),
+                          Text(
+                            'Masks & Layers',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    Divider(height: 1),
+                    Expanded(child: MaskControls()),
+                  ],
                 ),
-                Divider(height: 1),
-                Expanded(child: MaskControls()),
-              ],
+              ),
             ),
           ),
         ),
@@ -224,18 +256,25 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
   void _openLensBlurSheet(BuildContext context) {
     HapticFeedback.lightImpact();
+    final size = MediaQuery.sizeOf(context);
+    final isWide = size.width >= 600;
+    final sheetH = isWide ? math.min(size.height * 0.75, 620.0) : size.height * 0.70;
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Material(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.lg)),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.70,
-          child: const SafeArea(
-            top: false,
-            child: Column(
+      builder: (ctx) => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 580),
+          child: Material(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.lg)),
+            child: SizedBox(
+              height: sheetH,
+              child: const SafeArea(
+                top: false,
+                child: Column(
               children: [
                 SizedBox(height: Insets.xs),
                 Center(
@@ -270,7 +309,9 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   @override
@@ -506,6 +547,18 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                 icon: const Icon(Icons.grid_view, size: 17),
                               ),
                               IconButton(
+                                key: const Key('snapseed-stacks-toggle'),
+                                tooltip: 'View Edits (Stacks)',
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                onPressed: () {
+                                  HapticFeedback.lightImpact();
+                                  HistoryTreeSheet.show(context);
+                                },
+                                icon: const Icon(Icons.layers, size: 17),
+                              ),
+                              IconButton(
                                 key: const Key('snapseed-looks-toggle'),
                                 tooltip: 'Looks & Presets',
                                 visualDensity: VisualDensity.compact,
@@ -580,7 +633,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        _categoryLabel(widget.category),
+                                        _categoryLabel(widget.category, AppStrings.of(context)),
                                         style: themeStyle(context, FontWeight.w600)
                                             .copyWith(color: scheme.onSurfaceVariant, fontSize: 11),
                                       ),
@@ -916,7 +969,8 @@ class _RadialMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    const radius = 96.0;
+    final shortest = MediaQuery.sizeOf(context).shortestSide;
+    final radius = shortest >= 600 ? 128.0 : 96.0;
     // Fixed hit-box (issue #46): each item paints a 56px circle + label but
     // gets a symmetric target around its ring point. The box is larger than
     // the painted circle so taps just outside the ring still hit the item
@@ -924,7 +978,7 @@ class _RadialMenu extends StatelessWidget {
     // painting past the box is fine.
     const hitW = 88.0;
     const hitH = 100.0;
-    const half = radius + hitW / 2;
+    final half = radius + hitW / 2;
     return Stack(
       children: [
         Positioned.fill(

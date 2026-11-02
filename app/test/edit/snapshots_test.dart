@@ -161,5 +161,17 @@ void main() {
       expect(state.history.last.label, 'Snapshot: Golden Hour');
       expect(state.history.length, greaterThanOrEqualTo(2));
     });
+
+    test('snapshotCompareRecipeProvider defaults to null and holds snapshot for A/B comparison', () {
+      expect(container.read(snapshotCompareRecipeProvider), isNull);
+
+      final snapshotRecipe = EditRecipe.neutral.copyWith(exposure: 1.0);
+      container.read(snapshotCompareRecipeProvider.notifier).setRecipe(snapshotRecipe);
+
+      expect(container.read(snapshotCompareRecipeProvider), equals(snapshotRecipe));
+
+      container.read(snapshotCompareRecipeProvider.notifier).setRecipe(null);
+      expect(container.read(snapshotCompareRecipeProvider), isNull);
+    });
   });
 }

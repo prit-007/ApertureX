@@ -58,7 +58,6 @@ class ShaderWarmup {
 
   Future<void> _warmPrograms() async {
     final lut = await lutProgram();
-    final grade = await gradeProgram();
     // One white pixel serves every sampler slot: values are irrelevant,
     // only the pipeline build matters.
     final pixel = await _onePixel();
@@ -71,15 +70,6 @@ class ShaderWarmup {
         // must match the uniform contract in `shaders/lut.frag`.
         floats: const [1, 1, 1, 0, 1, 1, -1.0, -1.0, 0.0, 0.0, 0.98, 0.02],
         samplerCount: 2,
-      );
-      await _rasterize(
-        grade,
-        pixel,
-        // uSize(0,1), uExposure(2), uContrast(3), uSaturation(4),
-        // uTemperature(5), uTint(6), uVibrance(7), uHighlights(8), uShadows(9) —
-        // matches `shaders/grade.frag` (see `edit/grade_mapping.dart`).
-        floats: const [1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        samplerCount: 1,
       );
     } finally {
       pixel.dispose();

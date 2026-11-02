@@ -17,6 +17,7 @@ import '../../color/optics_spec.dart';
 import '../../color/spatial_spec.dart';
 import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
+import '../../color/imported_lut.dart';
 import '../../core/theme/design_tokens.dart';
 import 'background_export_worker.dart';
 import 'editor_shortcuts.dart';
@@ -36,6 +37,7 @@ import '../../gallery/edit_preview_store.dart';
 import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
 import '../../platform/photo_saver.dart';
+import '../../l10n/app_strings.dart';
 import 'export_options_sheet.dart';
 import 'export_screen.dart';
 import '../../engine/engine.dart';
@@ -323,6 +325,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         recipe: recipe,
         targetPath: targetPath,
         format: ExportFormat.jpeg,
+        layers: recipe.layers,
+        lutAtlas: ref.read(importedLutProvider)?.rgba,
+        lutSize: ref.read(importedLutProvider)?.size ?? 0,
       );
 
       if (!mounted) return;
@@ -459,6 +464,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           blur: LensBlurSpec.fromRecipe(recipe),
           layers: recipe.layers,
           maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
           exif: exif,
           quality: 85,
           maxDim: 1600,
@@ -605,6 +613,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           blur: LensBlurSpec.fromRecipe(recipe),
           layers: recipe.layers,
           maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
           exif: exif,
           branding: exportCustoms.branding,
           c2pa: exportCustoms.c2pa,
@@ -795,6 +806,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           blur: LensBlurSpec.fromRecipe(recipe),
           layers: recipe.layers,
           maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
           exif: exif,
           branding: exportCustoms.branding,
           c2pa: exportCustoms.c2pa,
@@ -887,6 +901,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           blur: LensBlurSpec.fromRecipe(recipe),
           layers: recipe.layers,
           maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
           exif: exif,
           branding: exportCustoms.branding,
           c2pa: exportCustoms.c2pa,
@@ -989,6 +1006,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           blur: LensBlurSpec.fromRecipe(recipe),
           layers: recipe.layers,
           maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
           exif: exif,
           branding: exportCustoms.branding,
           c2pa: exportCustoms.c2pa,
@@ -1128,13 +1148,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       );
     });
 
+    final strings = AppStrings.of(context);
     final undo = Semantics(
-      label: 'Undo',
+      label: strings.undo,
       hint: 'Double tap to undo, long press to open edit history tree',
       button: true,
       enabled: canUndo,
       child: Tooltip(
-        message: 'Undo',
+        message: strings.undo,
         triggerMode: TooltipTriggerMode.manual,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -1151,7 +1172,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       ),
     );
     final redo = IconButton(
-      tooltip: 'Redo',
+      tooltip: strings.redo,
       onPressed: canRedo ? notifier.redo : null,
       icon: const Icon(Icons.redo),
     );
@@ -1165,7 +1186,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       ),
     );
     final export = Semantics(
-      label: _exporting ? 'Cancel export' : 'Export photo',
+      label: _exporting ? 'Cancel export' : '${strings.export} photo',
       hint: _exporting
           ? 'Double tap to cancel the current export'
           : 'Double tap to open export options',
@@ -1186,7 +1207,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 ),
               )
             : const Icon(Icons.ios_share, size: 18),
-        label: Text(_exporting ? 'Cancel' : 'Export'),
+        label: Text(_exporting ? 'Cancel' : strings.export),
       ),
     );
 
@@ -1306,13 +1327,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
+      final strings = AppStrings.of(context);
       return EmptyState(
         icon: Icons.broken_image_outlined,
-        title: 'Could not open this photo',
+        title: strings.couldNotOpenPhoto,
         message: _error,
         action: FilledButton.tonal(
           onPressed: _resolve,
-          child: const Text('Try again'),
+          child: Text(strings.tryAgain),
         ),
       );
     }

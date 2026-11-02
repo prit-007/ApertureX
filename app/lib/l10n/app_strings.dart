@@ -134,7 +134,39 @@ class AppStrings {
     }
   }
 
-  // --- Lightroom Master Tabs ---
+  // --- Lightroom Master Tabs & Categories ---
+  String get light => _t({
+        'es': 'Luz',
+        'de': 'Licht',
+        'fr': 'Lumière',
+        'ja': 'ライト',
+        'zh': '光效',
+      }, 'Light');
+
+  String get color => _t({
+        'es': 'Color',
+        'de': 'Farbe',
+        'fr': 'Couleur',
+        'ja': 'カラー',
+        'zh': '色彩',
+      }, 'Color');
+
+  String get effects => _t({
+        'es': 'Efectos',
+        'de': 'Effekte',
+        'fr': 'Effets',
+        'ja': '効果',
+        'zh': '效果',
+      }, 'Effects');
+
+  String get detail => _t({
+        'es': 'Detalle',
+        'de': 'Details',
+        'fr': 'Détails',
+        'ja': 'ディテール',
+        'zh': '细节',
+      }, 'Detail');
+
   String get lightAndColor => _t({
         'es': 'Luz y color',
         'de': 'Licht & Farbe',
@@ -239,6 +271,38 @@ class AppStrings {
         'ja': '長押しで比較',
         'zh': '长按对比',
       }, 'Hold to compare');
+
+  String get wiper => _t({
+        'es': 'Cortinilla',
+        'de': 'Wischer',
+        'fr': 'Volet',
+        'ja': 'ワイパー',
+        'zh': '擦除',
+      }, 'Wiper');
+
+  String get splitCompare => _t({
+        'es': 'División A/D',
+        'de': 'V/N-Teilung',
+        'fr': 'Scinder A/A',
+        'ja': '前/後 分割',
+        'zh': '前/后分屏',
+      }, 'B/A Split');
+
+  String get previousPhoto => _t({
+        'es': 'Foto anterior',
+        'de': 'Vorheriges Foto',
+        'fr': 'Photo précédente',
+        'ja': '前の写真',
+        'zh': '上一张照片',
+      }, 'Previous photo');
+
+  String get nextPhoto => _t({
+        'es': 'Foto siguiente',
+        'de': 'Nächstes Foto',
+        'fr': 'Photo suivante',
+        'ja': '次の写真',
+        'zh': '下一张照片',
+      }, 'Next photo');
 
   String get wiperCompare => _t({
         'es': 'Comparación dividida',

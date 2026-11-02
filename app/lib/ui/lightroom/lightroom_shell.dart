@@ -13,6 +13,7 @@ import '../../edit/parameter.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
+import '../../features/ai_plugins/ai_plugin_model.dart';
 import '../../features/ai_plugins/ai_plugin_store.dart';
 import '../../features/ai_plugins/ai_plugins_screen.dart';
 import '../../features/guide/app_guide_screen.dart';
@@ -37,6 +38,7 @@ import '../common/mask_controls.dart';
 import '../common/optics_controls.dart';
 import '../common/parameter_panel.dart';
 import '../common/retouch_controls.dart';
+import '../../l10n/app_strings.dart';
 import '../common/tone_curve_editor.dart';
 import '../common/looks_sheet.dart';
 import '../common/app_primitives.dart';
@@ -60,14 +62,14 @@ enum MasterTab {
   plugins,
 }
 
-String _masterTabLabel(MasterTab tab) => switch (tab) {
-  MasterTab.lightColor => 'Light & Color',
-  MasterTab.effectsDetail => 'Effects & Detail',
-  MasterTab.cropGeometry => 'Crop & Geometry',
-  MasterTab.proTools => 'Pro Tools',
-  MasterTab.looksPresets => 'Looks & Presets',
-  MasterTab.masks => 'Masks',
-  MasterTab.plugins => 'Plugins',
+String _masterTabLabel(MasterTab tab, [AppStrings? strings]) => switch (tab) {
+  MasterTab.lightColor => strings?.lightAndColor ?? 'Light & Color',
+  MasterTab.effectsDetail => strings?.effectsAndDetail ?? 'Effects & Detail',
+  MasterTab.cropGeometry => strings?.cropAndGeometry ?? 'Crop & Geometry',
+  MasterTab.proTools => strings?.proTools ?? 'Pro Tools',
+  MasterTab.looksPresets => strings?.looksAndPresets ?? 'Looks & Presets',
+  MasterTab.masks => strings?.masks ?? 'Masks',
+  MasterTab.plugins => strings?.plugins ?? 'Plugins',
 };
 
 enum _LightColorSubTab { light, color, curve, mix, grade }
@@ -230,7 +232,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         label: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_masterTabLabel(tab)),
+            Text(_masterTabLabel(tab, AppStrings.of(context))),
             if (isModified) ...[
               const SizedBox(width: 4),
               Container(
@@ -1286,34 +1288,46 @@ class _PluginsPanelView extends ConsumerWidget {
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
           ),
         ),
-        _aiTaskCard(
-          context,
-          icon: Icons.person_search_rounded,
-          taskName: 'Subject & Object Saliency',
-          modelName: 'ApertureX Saliency (Zero-Copy)',
-          status: 'Active · NPU Accelerated',
-        ),
-        _aiTaskCard(
-          context,
-          icon: Icons.blur_on_rounded,
-          taskName: 'Monocular Depth Estimation',
-          modelName: 'Depth Gradient & Saliency Fusion',
-          status: 'Active · Optical Bokeh Ready',
-        ),
-        _aiTaskCard(
-          context,
-          icon: Icons.auto_fix_high_rounded,
-          taskName: 'Edge Refinement & Matting',
-          modelName: 'Guided Filter Re-Matting',
-          status: 'Active · Pixel-Perfect Edges',
-        ),
-        _aiTaskCard(
-          context,
-          icon: Icons.cloud_outlined,
-          taskName: 'Sky & Horizon Detection',
-          modelName: 'Chromatic Sky Segmenter',
-          status: 'Active · Adaptive Boundary',
-        ),
+        Builder(builder: (context) {
+          final activeSaliency = notifier.getActivePluginForTask(AiTask.subjectSegmentation);
+          final activeDepth = notifier.getActivePluginForTask(AiTask.depthEstimation);
+          final activeMatting = notifier.getActivePluginForTask(AiTask.portraitHair);
+          final activeSky = notifier.getActivePluginForTask(AiTask.skySegmentation);
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _aiTaskCard(
+                context,
+                icon: Icons.person_search_rounded,
+                taskName: 'Subject & Object Saliency',
+                modelName: activeSaliency?.name ?? 'Built-in Saliency Alg.',
+                status: activeSaliency != null ? 'Active · Neural' : 'Active · Heuristic',
+              ),
+              _aiTaskCard(
+                context,
+                icon: Icons.blur_on_rounded,
+                taskName: 'Monocular Depth Estimation',
+                modelName: activeDepth?.name ?? 'Depth Gradient Fusion',
+                status: activeDepth != null ? 'Active · Neural' : 'Active · Gradient',
+              ),
+              _aiTaskCard(
+                context,
+                icon: Icons.auto_fix_high_rounded,
+                taskName: 'Edge Refinement & Matting',
+                modelName: activeMatting?.name ?? 'Guided Filter Matting',
+                status: activeMatting != null ? 'Active · Neural' : 'Active · Guided Filter',
+              ),
+              _aiTaskCard(
+                context,
+                icon: Icons.cloud_outlined,
+                taskName: 'Sky & Horizon Detection',
+                modelName: activeSky?.name ?? 'Chromatic Sky Segmenter',
+                status: activeSky != null ? 'Active · Neural' : 'Active · Color Mask',
+              ),
+            ],
+          );
+        }),
         const SizedBox(height: Insets.md),
         const SectionHeader('Installed Models'),
         for (final p in installed)
@@ -1462,6 +1476,8 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
   String _searchQuery = '';
   bool _searchOpen = false;
   bool _synced = false;
+  ToolDefinition? _activePresetTool;
+  double _activePresetAmount = 1.0;
 
   static const List<String> _categories = [
     'All',
@@ -1537,6 +1553,10 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
       seenNames.add(p.name.toLowerCase());
       allItems.add(_PresetItem.catalog(p, catLabel, isApplied, () {
         HapticFeedback.lightImpact();
+        setState(() {
+          _activePresetTool = p.tool;
+          _activePresetAmount = 1.0;
+        });
         notifier.applyTool(p.tool);
         notifier.commit(label: 'Applied ${p.name}');
       }));
@@ -1562,8 +1582,17 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
       if (seenNames.contains(preset.name.toLowerCase())) continue;
       seenNames.add(preset.name.toLowerCase());
       final isApplied = _presetMatches(preset, recipe);
+      final communityTool = ToolDefinition(
+        name: preset.name,
+        description: preset.description,
+        params: preset.params ?? const {},
+      );
       allItems.add(_PresetItem.community(preset, isApplied, () {
         HapticFeedback.lightImpact();
+        setState(() {
+          _activePresetTool = communityTool;
+          _activePresetAmount = 1.0;
+        });
         ref.read(communityPresetsProvider.notifier).applyPreset(ref, preset);
       }));
     }
@@ -1581,6 +1610,10 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
       final isApplied = _looksMatch(tool, recipe);
       allItems.add(_PresetItem.builtin(tool, 'Film', isApplied, () {
         HapticFeedback.lightImpact();
+        setState(() {
+          _activePresetTool = tool;
+          _activePresetAmount = 1.0;
+        });
         notifier.applyTool(tool);
         notifier.commit(label: 'Applied ${tool.name}');
       }));
@@ -1695,6 +1728,59 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
           ),
         ),
         const SizedBox(height: Insets.xs),
+        if (_activePresetTool != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: Insets.xs),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(Radii.sm),
+                border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.tune, size: 16, color: scheme.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Strength ${(_activePresetAmount * 100).round()}%',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 2,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                      ),
+                      child: Slider(
+                        key: const Key('preset-strength-slider'),
+                        value: _activePresetAmount,
+                        min: 0.0,
+                        max: 2.0,
+                        divisions: 40,
+                        onChanged: (val) {
+                          setState(() => _activePresetAmount = val);
+                          notifier.applyTool(_activePresetTool!, amount: val);
+                        },
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 14),
+                    tooltip: 'Dismiss',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => setState(() => _activePresetTool = null),
+                  ),
+                ],
+              ),
+            ),
+          ),
         // Horizontal film scroll view
         Expanded(
           child: allItems.isNotEmpty
@@ -1771,6 +1857,7 @@ class _PresetItem {
     required this.category,
     required this.isApplied,
     required this.onTap,
+    this.tool,
     this.author,
     this.rating,
     this.reference,
@@ -1792,6 +1879,7 @@ class _PresetItem {
       category: category,
       isApplied: isApplied,
       onTap: onTap,
+      tool: item.tool,
       reference: item.reference,
       hasDepth: item.hasDepth,
       depthHint: item.depthHint,
@@ -1812,6 +1900,7 @@ class _PresetItem {
       category: category,
       isApplied: isApplied,
       onTap: onTap,
+      tool: tool,
     );
   }
 
@@ -1820,6 +1909,11 @@ class _PresetItem {
     bool isApplied,
     VoidCallback onTap,
   ) {
+    final tool = ToolDefinition(
+      name: preset.name,
+      description: preset.description,
+      params: preset.params ?? const {},
+    );
     return _PresetItem._(
       kind: 'community',
       name: preset.name,
@@ -1828,6 +1922,7 @@ class _PresetItem {
       category: preset.category.isNotEmpty ? preset.category : 'Community',
       isApplied: isApplied,
       onTap: onTap,
+      tool: tool,
       author: preset.author,
       rating: preset.rating,
     );
@@ -1840,6 +1935,7 @@ class _PresetItem {
   final String category;
   final bool isApplied;
   final VoidCallback onTap;
+  final ToolDefinition? tool;
   final String? author;
   final double? rating;
   final String? reference;

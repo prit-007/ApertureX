@@ -42,6 +42,7 @@ import 'common/retouch_toolbar.dart';
 import 'snapseed/ghost_hint.dart';
 import 'snapseed/snapseed_shell.dart';
 import '../core/theme/window_size_class.dart';
+import '../l10n/app_strings.dart';
 
 /// The editor body shared by the app: one [ImageCanvas] over one recipe.
 ///
@@ -404,7 +405,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     final isStylus = event.kind == PointerDeviceKind.stylus ||
         event.kind == PointerDeviceKind.invertedStylus;
     if (!isStylus) return;
-    ref.read(brushPressureProvider.notifier).setPressure(event.pressure);
+    final stylusSettings = ref.read(stylusSettingsProvider);
+    final pressure = stylusSettings.pressureSensitivity ? event.pressure : 1.0;
+    ref.read(brushPressureProvider.notifier).setPressure(pressure);
   }
 
   @override
@@ -420,7 +423,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     final hasHistogram = ref.watch(histogramProvider.select((h) => h != null));
 
     final overlays = <Widget>[
-      const _CompareHint(),
+      _CompareHint(
+        onPreviousPhoto: widget.onPreviousPhoto,
+        onNextPhoto: widget.onNextPhoto,
+      ),
       _HistogramToggle(
         enabled: hasHistogram,
         selected: _showHistogram,
@@ -704,6 +710,48 @@ class _AppShellState extends ConsumerState<AppShell> {
                       child: _Fade(
                         active: active,
                         child: SafeArea(top: false, child: overlays[0]),
+                      ),
+                    ),
+                  if (widget.onPreviousPhoto != null && wide)
+                    Positioned(
+                      left: Insets.sm,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: _Fade(
+                          active: active,
+                          child: Material(
+                            color: scheme.surfaceContainerHighest
+                                .withValues(alpha: 0.65),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              tooltip: AppStrings.of(context).previousPhoto,
+                              icon: const Icon(Icons.chevron_left, size: 28),
+                              onPressed: widget.onPreviousPhoto,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (widget.onNextPhoto != null && wide)
+                    Positioned(
+                      right: Insets.sm,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: _Fade(
+                          active: active,
+                          child: Material(
+                            color: scheme.surfaceContainerHighest
+                                .withValues(alpha: 0.65),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              tooltip: AppStrings.of(context).nextPhoto,
+                              icon: const Icon(Icons.chevron_right, size: 28),
+                              onPressed: widget.onNextPhoto,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                 ],
@@ -1291,13 +1339,20 @@ class _HistogramToggle extends StatelessWidget {
 }
 
 /// A compact, interactive affordance on the image: hold to view the
-/// unedited "before".
+/// unedited "before", toggle split views, and navigate photos.
 class _CompareHint extends ConsumerWidget {
-  const _CompareHint();
+  const _CompareHint({
+    this.onPreviousPhoto,
+    this.onNextPhoto,
+  });
+
+  final VoidCallback? onPreviousPhoto;
+  final VoidCallback? onNextPhoto;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final strings = AppStrings.of(context);
     final wiper = ref.watch(wiperCompareProvider);
     final splitCompare = ref.watch(splitCompareProvider);
     final assist = ref.watch(exposureAssistProvider);
@@ -1316,12 +1371,31 @@ class _CompareHint extends ConsumerWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: Insets.xs, vertical: 2),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (onPreviousPhoto != null) ...[
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 24,
+                  ),
+                  iconSize: 16,
+                  icon: const Icon(Icons.navigate_before),
+                  tooltip: strings.previousPhoto,
+                  onPressed: onPreviousPhoto,
+                ),
+                Container(
+                  width: 1,
+                  height: 12,
+                  color: scheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+                const SizedBox(width: Insets.xs),
+              ],
               Listener(
                 behavior: HitTestBehavior.opaque,
                 onPointerDown: (_) =>
@@ -1336,7 +1410,7 @@ class _CompareHint extends ConsumerWidget {
                     Icon(Icons.compare, size: 14, color: scheme.primary),
                     const SizedBox(width: Insets.xs),
                     Text(
-                      'Hold to compare',
+                      strings.holdToCompare,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -1371,7 +1445,7 @@ class _CompareHint extends ConsumerWidget {
                     ),
                     const SizedBox(width: Insets.xs),
                     Text(
-                      'Wiper',
+                      strings.wiper,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: wiper.isActive
@@ -1414,7 +1488,7 @@ class _CompareHint extends ConsumerWidget {
                     ),
                     const SizedBox(width: Insets.xs),
                     Text(
-                      'B/A Split',
+                      strings.splitCompare,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: splitCompare.isEnabled
@@ -1471,6 +1545,25 @@ class _CompareHint extends ConsumerWidget {
                   ],
                 ),
               ),
+              if (onNextPhoto != null) ...[
+                const SizedBox(width: Insets.xs),
+                Container(
+                  width: 1,
+                  height: 12,
+                  color: scheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 24,
+                  ),
+                  iconSize: 16,
+                  icon: const Icon(Icons.navigate_next),
+                  tooltip: strings.nextPhoto,
+                  onPressed: onNextPhoto,
+                ),
+              ],
             ],
           ),
         ),

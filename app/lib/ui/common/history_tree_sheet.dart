@@ -1,11 +1,15 @@
+import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../edit/adjustment_layer.dart';
 import '../../edit/history_tree.dart';
+import '../../edit/node_editor.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/snapshots_provider.dart';
+import '../../viewport/split_compare.dart';
 
 /// Interactive modal sheet visualizing the Git-style Directed Acyclic Graph
 /// (DAG) of non-destructive edit history, parallel branches, and named snapshots (Issue #97).
@@ -86,7 +90,11 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
               child: Row(
                 children: [
                   Icon(
-                    _selectedView == 0 ? Icons.alt_route : Icons.bookmarks_outlined,
+                    _selectedView == 0
+                        ? Icons.alt_route
+                        : _selectedView == 1
+                            ? Icons.layers
+                            : Icons.bookmarks_outlined,
                     color: scheme.primary,
                   ),
                   const SizedBox(width: 10),
@@ -97,7 +105,9 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                         Text(
                           _selectedView == 0
                               ? 'Edit History & Branches'
-                              : 'Snapshots & Virtual Copies',
+                              : _selectedView == 1
+                                  ? 'Edit Stacks (Snapseed Parity)'
+                                  : 'Snapshots & Virtual Copies',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -105,7 +115,9 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                         Text(
                           _selectedView == 0
                               ? 'Non-linear DAG history · ${tree.nodes.length} commits'
-                              : 'Saved creative milestones · ${snapshots.length} saved',
+                              : _selectedView == 1
+                                  ? 'Stack view with selective brush re-entry'
+                                  : 'Saved creative milestones · ${snapshots.length} saved',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
                               ),
@@ -122,7 +134,7 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
               ),
             ),
 
-            // Segmented switch: History vs Snapshots
+            // Segmented switch: History vs Stacks vs Snapshots
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: SegmentedButton<int>(
@@ -134,6 +146,11 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                   ),
                   ButtonSegment<int>(
                     value: 1,
+                    label: Text('Stacks (${state.recipe.layers.length + (lineage.length > 1 ? lineage.length - 1 : 0)})'),
+                    icon: const Icon(Icons.layers, size: 16),
+                  ),
+                  ButtonSegment<int>(
+                    value: 2,
                     label: Text('Snapshots (${snapshots.length})'),
                     icon: const Icon(Icons.bookmark_border, size: 16),
                   ),
@@ -371,6 +388,159 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                   },
                 ),
               ),
+            ] else if (_selectedView == 1) ...[
+              // Stacks View (Snapseed parity: edit stack with per-step re-entry & masking)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      'Applied Edits Stack',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Tap 🖌️ to brush mask effect',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 8),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  children: [
+                    // Selective Adjustment Layers in reverse order (top of stack first)
+                    for (int i = state.recipe.layers.length - 1; i >= 0; i--) ...[
+                      Builder(builder: (context) {
+                        final layer = state.recipe.layers[i];
+                        final maskName = switch (layer.maskKind) {
+                          MaskKind.linear => 'Linear Gradient',
+                          MaskKind.radial => 'Radial Gradient',
+                          MaskKind.brush => 'Brush Mask',
+                          MaskKind.colorRange => 'Color Range Mask',
+                          MaskKind.luminance => 'Luminance Range Mask',
+                          MaskKind.depthRange => 'Depth Range Mask',
+                          MaskKind.subject => 'AI Subject Mask',
+                          MaskKind.sky => 'AI Sky Mask',
+                          MaskKind.bitmap => 'Bitmap Mask',
+                          MaskKind.autoBrush => 'Edge-Aware Auto Brush',
+                        };
+                        return Card.outlined(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              radius: 18,
+                              backgroundColor: scheme.primaryContainer,
+                              child: Icon(Icons.masks, size: 18, color: scheme.primary),
+                            ),
+                            title: Text(
+                              maskName,
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                            ),
+                            subtitle: Text(
+                              'Exp ${(layer.exposure >= 0 ? "+" : "")}${layer.exposure.toStringAsFixed(2)} · Sat ${(layer.saturation >= 0 ? "+" : "")}${layer.saturation.toStringAsFixed(2)}',
+                              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.brush, size: 18),
+                                  tooltip: 'Brush Selective Mask',
+                                  onPressed: () {
+                                    ref.read(nodeEditorProvider.notifier).enable();
+                                    ref.read(nodeEditorProvider.notifier).select(i);
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, size: 18),
+                                  tooltip: 'Delete Layer',
+                                  onPressed: () {
+                                    ref.read(recipeControllerProvider.notifier).removeLayerAt(i);
+                                    HapticFeedback.lightImpact();
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                    // History steps along current lineage (excluding root initial)
+                    for (int j = lineage.length - 1; j >= 1; j--) ...[
+                      Builder(builder: (context) {
+                        final node = lineage[j];
+                        final isHead = node.id == tree.currentNodeId;
+                        return Card.outlined(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          color: isHead ? scheme.primary.withValues(alpha: 0.06) : null,
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              radius: 18,
+                              backgroundColor: scheme.surfaceContainerHighest,
+                              child: Icon(Icons.tune, size: 18, color: scheme.onSurfaceVariant),
+                            ),
+                            title: Text(
+                              node.label,
+                              style: TextStyle(
+                                fontWeight: isHead ? FontWeight.bold : FontWeight.w600,
+                                fontSize: 14,
+                                color: isHead ? scheme.primary : null,
+                              ),
+                            ),
+                            subtitle: Text(
+                              'Commit #${node.id.substring(0, math.min(6, node.id.length))}',
+                              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                            ),
+                            trailing: TextButton.icon(
+                              icon: const Icon(Icons.replay, size: 16),
+                              label: const Text('Re-enter', style: TextStyle(fontSize: 12)),
+                              onPressed: () {
+                                ref.read(recipeControllerProvider.notifier).jumpToNode(node.id);
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                    // Base photo (Original)
+                    Card.outlined(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: scheme.surfaceContainerHighest,
+                          child: Icon(Icons.photo_outlined, size: 18, color: scheme.onSurfaceVariant),
+                        ),
+                        title: const Text(
+                          'Original Photo',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        ),
+                        subtitle: const Text(
+                          'Base unedited image',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                        trailing: TextButton(
+                          onPressed: () {
+                            ref.read(recipeControllerProvider.notifier).resetAll();
+                            Navigator.of(context).pop();
+                          },
+                          child: const Text('Revert to Original', style: TextStyle(fontSize: 12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ] else ...[
               // Snapshots View
               Padding(
@@ -506,6 +676,31 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                                           label: 'Snapshot: ${snap.name}');
                                   HapticFeedback.lightImpact();
                                   Navigator.of(context).pop();
+                                },
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(Icons.compare_arrows, size: 18),
+                                tooltip: 'A/B Compare vs current',
+                                onPressed: () {
+                                  ref.read(snapshotCompareRecipeProvider.notifier).setRecipe(snap.recipe);
+                                  ref.read(splitCompareProvider.notifier).setEnabled(true);
+                                  HapticFeedback.mediumImpact();
+                                  Navigator.of(context).pop();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('A/B Split comparing against "${snap.name}"'),
+                                      action: SnackBarAction(
+                                        label: 'Restore',
+                                        onPressed: () {
+                                          ref.read(recipeControllerProvider.notifier).restoreRecipe(
+                                            snap.recipe,
+                                            label: 'Restored from ${snap.name}',
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  );
                                 },
                               ),
                               IconButton(

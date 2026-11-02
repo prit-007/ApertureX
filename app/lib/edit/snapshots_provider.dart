@@ -49,3 +49,19 @@ final snapshotsProvider =
     NotifierProvider<SnapshotsNotifier, List<RecipeSnapshot>>(
   SnapshotsNotifier.new,
 );
+
+/// Active snapshot recipe used for live A/B compare against the current edit.
+/// When null, A/B compare evaluates against the original unedited source.
+class SnapshotCompareRecipeNotifier extends Notifier<EditRecipe?> {
+  @override
+  EditRecipe? build() => null;
+
+  void setRecipe(EditRecipe? recipe) {
+    state = recipe;
+  }
+}
+
+final snapshotCompareRecipeProvider =
+    NotifierProvider<SnapshotCompareRecipeNotifier, EditRecipe?>(
+  SnapshotCompareRecipeNotifier.new,
+);

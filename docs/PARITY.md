@@ -66,7 +66,7 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Range mask (luminance/color) | Range Mask | ✅ (Zone-system luminance + HSV color-range) | P2.5/P6 |
 | Depth range mask | Depth Range | ✅ (`MASK_DEPTH_RANGE` monocular depth plane slicing — ADR 0024) | P6 |
 | Adjustment layers over masks | Masks + local adj | ✅ (analytic masks) | P2.5 |
-| Snapseed stack == adjustment layers | Stack | 🚧 | P2.5 |
+| Snapseed stack == adjustment layers | Stack | ✅ (Edit Stacks with per-step re-entry & adjustment layer masking) | P2.5 |
 
 ## Intelligent / AI masking (optional module — ADR 0010)
 
