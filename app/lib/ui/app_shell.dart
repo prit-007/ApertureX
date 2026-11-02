@@ -496,6 +496,16 @@ class _AppShellState extends ConsumerState<AppShell> {
                   child: _AiProgressFloatingPill(),
                 ),
               ),
+              if (ref.watch(exposureAssistProvider).mode ==
+                  ExposureAssistMode.falseColor)
+                const Positioned(
+                  top: Insets.lg + 52,
+                  right: Insets.sm,
+                  child: SafeArea(
+                    bottom: false,
+                    child: _FalseColorLegendOverlay(),
+                  ),
+                ),
               if (widget.topHud != null)
                 Positioned(
                   top: 0,
@@ -641,6 +651,16 @@ class _AppShellState extends ConsumerState<AppShell> {
                       child: _AiProgressFloatingPill(),
                     ),
                   ),
+                  if (ref.watch(exposureAssistProvider).mode ==
+                      ExposureAssistMode.falseColor)
+                    const Positioned(
+                      top: Insets.lg + 52,
+                      right: Insets.sm,
+                      child: SafeArea(
+                        bottom: false,
+                        child: _FalseColorLegendOverlay(),
+                      ),
+                    ),
                   if (nodeMode && (wide || kind == AppShellKind.snapseed))
                     const Positioned(
                       left: Insets.sm,
@@ -1500,6 +1520,74 @@ class _AiProgressFloatingPill extends ConsumerWidget {
                 ),
               )
             : const SizedBox.shrink(),
+      ),
+    );
+  }
+}
+
+/// Floating vertical IRE reference bar overlay when ARRI 16-zone false color is active.
+class _FalseColorLegendOverlay extends StatelessWidget {
+  const _FalseColorLegendOverlay();
+
+  static const _entries = [
+    (Color(0xFFE53935), '100 CLIP'),
+    (Color(0xFFFFEB3B), '85 HLI'),
+    (Color(0xFFF06292), '70 SKIN'),
+    (Color(0xFF66BB6A), '40 MID'),
+    (Color(0xFF1E88E5), '5 SHD'),
+    (Color(0xFF8E24AA), '0 CRUSH'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('false-color-ire-legend'),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.80),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24, width: 0.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black45,
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final (color, label) in _entries)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white70,
+                      letterSpacing: 0.3,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

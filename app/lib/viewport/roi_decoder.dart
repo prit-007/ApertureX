@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import '../engine/engine.dart';
+import '../engine/image_format.dart';
 
 /// A decoded source band: full-width strip of the original frame, RGBA.
 class RoiBand {
@@ -62,6 +63,20 @@ class RoiDecoder {
     required int width,
     required int height,
   }) async {
+    if (isRawImage(bytes)) {
+      final img = await AxEngine.decodeRawRoi(
+        bytes,
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+      );
+      return RoiBand(
+        width: img.width.toInt(),
+        height: img.height.toInt(),
+        rgba: img.rgba,
+      );
+    }
     final img = await AxEngine.decodeJpegRoi(
       bytes,
       x: x,
@@ -138,7 +153,7 @@ class RoiDecoder {
     required int width,
     required int height,
   }) async {
-    if (!needsNativeRoiDecoder(imageW, imageH)) {
+    if (isRawImage(bytes) || !needsNativeRoiDecoder(imageW, imageH)) {
       return _rustFallback(
         bytes: bytes,
         x: x,

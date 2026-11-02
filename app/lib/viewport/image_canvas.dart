@@ -214,6 +214,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   double _startScale = 1;
   Offset _startOffset = Offset.zero;
   Offset _startFocal = Offset.zero;
+  Offset _lastDoubleTapPos = Offset.zero;
   bool _multi = false;
   bool _zoneTargeting = false;
   bool _wiperDragging = false;
@@ -252,21 +253,32 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// resolution when master bytes arrive from background load.
   /// Preserves the user's active viewport scale and pan position perfectly.
   Future<void> _upgradeRoiBytes(Uint8List bytes) async {
-    if (_disposed || !mounted || isRawImage(bytes)) return;
+    if (_disposed || !mounted) return;
     try {
       int width = 0;
       int height = 0;
-      try {
-        final dims = await AxEngine.jpegDimensions(bytes);
-        width = dims.width;
-        height = dims.height;
-      } catch (_) {
-        final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-        final descriptor = await ui.ImageDescriptor.encoded(buffer);
-        width = descriptor.width;
-        height = descriptor.height;
-        descriptor.dispose();
-        buffer.dispose();
+      if (isRawImage(bytes)) {
+        try {
+          final dims = await AxEngine.rawDimensions(bytes);
+          width = dims.width;
+          height = dims.height;
+        } catch (_) {
+          width = 0;
+          height = 0;
+        }
+      } else {
+        try {
+          final dims = await AxEngine.jpegDimensions(bytes);
+          width = dims.width;
+          height = dims.height;
+        } catch (_) {
+          final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+          final descriptor = await ui.ImageDescriptor.encoded(buffer);
+          width = descriptor.width;
+          height = descriptor.height;
+          descriptor.dispose();
+          buffer.dispose();
+        }
       }
       if (_disposed || !mounted) return;
       if (width > _fullW || height > _fullH) {
@@ -295,13 +307,26 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       final jpeg =
           widget.imageBytes ??
           await AxEngine.syntheticJpeg(width: 1024, height: 1024);
-      // Original frame dims for the ROI overlay (#55): header-only, RAW
-      // excluded (no region decode path for demosaiced data).
+      // Original frame dims for the ROI overlay (#55): both JPEG and RAW supported.
       _roiBytes = jpeg;
       if (isRawImage(jpeg)) {
-        _fullW = 0;
-        _fullH = 0;
-        _tileGrid = null;
+        try {
+          final dims = await AxEngine.rawDimensions(jpeg);
+          _fullW = dims.width;
+          _fullH = dims.height;
+        } catch (_) {
+          _fullW = 0;
+          _fullH = 0;
+        }
+        if (_fullW > 0 && _fullH > 0) {
+          _tileGrid = TileGrid(
+            imageWidth: _fullW,
+            imageHeight: _fullH,
+            tileSize: _tileSize,
+          );
+        } else {
+          _tileGrid = null;
+        }
       } else {
         try {
           final dims = await AxEngine.jpegDimensions(jpeg);
@@ -334,6 +359,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       if (!mounted) {
         proxy.$1.dispose();
         return;
+      }
+      if (_fullW == 0 && proxy.$3 > 0) {
+        _fullW = proxy.$3;
+        _fullH = proxy.$4;
+        _tileGrid = TileGrid(
+          imageWidth: _fullW,
+          imageHeight: _fullH,
+          tileSize: _tileSize,
+        );
       }
       _program = program;
       _shader = program.fragmentShader();
@@ -685,7 +719,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       h = d.height;
     }
     final image = await _imageFrom(rgba, w, h);
-    return (image, rgba, w, h);
+    return (image, rgba, decoded.width, decoded.height);
   }
 
   Future<ui.Image> _imageFrom(Uint8List rgba, int w, int h) {
@@ -1361,14 +1395,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 onScaleStart: (d) => _onScaleStart(d, fitted, tat),
                 onScaleUpdate: (d) => _onScaleUpdate(d, fitted, bounds, tat),
                 onScaleEnd: (_) => _onScaleEnd(),
-                onDoubleTap: () {
-                  if (ref.read(wiperCompareProvider).isActive) {
-                    ref.read(wiperCompareProvider.notifier).resetPosition();
-                    HapticFeedback.selectionClick();
-                  } else {
-                    _resetView(fitted, bounds);
-                  }
-                },
+                onDoubleTapDown: (d) => _lastDoubleTapPos = d.localPosition,
+                onDoubleTap: () =>
+                    _handleDoubleTap(_lastDoubleTapPos, fitted, bounds),
                 onLongPressStart: (_) =>
                     ref.read(compareHoldProvider.notifier).hold(),
                 onLongPressEnd: (_) =>
@@ -1624,6 +1653,30 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       (bounds.width - fitted.width) / 2,
       (bounds.height - fitted.height) / 2,
     );
+  }
+
+  /// Toggles between Fit (1.0x) and 100% 1:1 sensor resolution centered on the tapped point.
+  void _handleDoubleTap(Offset tapPos, Size fitted, Size bounds) {
+    if (ref.read(wiperCompareProvider).isActive) {
+      ref.read(wiperCompareProvider.notifier).resetPosition();
+      HapticFeedback.selectionClick();
+      return;
+    }
+    final next = computeDoubleTapZoom(
+      currentScale: _scale,
+      currentOffset: _offset,
+      tapPosition: tapPos,
+      fitted: fitted,
+      bounds: bounds,
+      fullWidth: _fullW,
+    );
+    setState(() {
+      _scale = next.scale;
+      _offset = next.offset;
+    });
+    _publishTransform(next);
+    _scheduleRoi();
+    HapticFeedback.selectionClick();
   }
 
   /// The cached tiles that intersect the visible world rect, each mapped to

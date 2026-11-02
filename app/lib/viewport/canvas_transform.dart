@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show Offset, Size;
 
 import 'package:aperturex/viewport/image_canvas.dart' show ImageCanvas;
@@ -153,4 +154,60 @@ final pixelSamplerProvider =
     NotifierProvider<PixelSamplerNotifier, PixelLumaSampler?>(
   PixelSamplerNotifier.new,
 );
+
+/// Computes the next viewport transform when double-tapping on the canvas.
+///
+/// Toggles between Fit (1.0x) and 100% 1:1 sensor resolution (or 2.5x-4.0x)
+/// centered precisely on [tapPosition].
+CanvasTransform computeDoubleTapZoom({
+  required double currentScale,
+  required Offset currentOffset,
+  required Offset tapPosition,
+  required Size fitted,
+  required Size bounds,
+  int fullWidth = 0,
+}) {
+  if (currentScale > 1.05) {
+    // Already zoomed in; reset to fitted 1.0x view.
+    return CanvasTransform(
+      fitted: fitted,
+      scale: 1.0,
+      offset: Offset(
+        (bounds.width - fitted.width) / 2,
+        (bounds.height - fitted.height) / 2,
+      ),
+    );
+  }
+
+  final pos = tapPosition == Offset.zero
+      ? Offset(bounds.width / 2, bounds.height / 2)
+      : tapPosition;
+
+  // 1:1 sensor view target scale
+  final targetScale = (fullWidth > 0 && fitted.width > 0)
+      ? math.max(2.0, fullWidth / fitted.width).clamp(1.5, 4.0)
+      : 2.5;
+
+  final worldX = (pos.dx - currentOffset.dx) / currentScale;
+  final worldY = (pos.dy - currentOffset.dy) / currentScale;
+  final newOffset = Offset(
+    pos.dx - worldX * targetScale,
+    pos.dy - worldY * targetScale,
+  );
+
+  final cw = fitted.width * targetScale;
+  final ch = fitted.height * targetScale;
+  final cx = cw <= bounds.width
+      ? (bounds.width - cw) / 2
+      : newOffset.dx.clamp(bounds.width - cw, 0.0);
+  final cy = ch <= bounds.height
+      ? (bounds.height - ch) / 2
+      : newOffset.dy.clamp(bounds.height - ch, 0.0);
+
+  return CanvasTransform(
+    fitted: fitted,
+    scale: targetScale,
+    offset: Offset(cx, cy),
+  );
+}
 

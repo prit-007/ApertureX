@@ -8,6 +8,7 @@ import 'package:aperturex/ui/app_shell.dart';
 import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
 import 'package:aperturex/ui/snapseed/snapseed_shell.dart';
 import 'package:aperturex/ui/common/brush_toolbar.dart';
+import 'package:aperturex/viewport/exposure_assist.dart';
 import 'package:aperturex/viewport/image_canvas.dart';
 
 void main() {
@@ -169,6 +170,29 @@ void main() {
 
       notifier.setPressure(1.5);
       expect(container.read(brushPressureProvider), 1.0);
+    });
+
+    testWidgets('displays False Color IRE legend when falseColor assist mode is engaged', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      expect(find.byKey(const Key('false-color-ire-legend')), findsNothing);
+
+      // Engage False Color
+      container.read(exposureAssistProvider.notifier).setMode(ExposureAssistMode.falseColor);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('false-color-ire-legend')), findsOneWidget);
+      expect(find.text('100 CLIP'), findsOneWidget);
+      expect(find.text('70 SKIN'), findsOneWidget);
+      expect(find.text('0 CRUSH'), findsOneWidget);
+
+      // Disengage
+      container.read(exposureAssistProvider.notifier).setMode(ExposureAssistMode.off);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('false-color-ire-legend')), findsNothing);
     });
   });
 }
