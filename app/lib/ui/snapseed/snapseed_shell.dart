@@ -27,6 +27,7 @@ import 'edit_hud.dart';
 import 'snapseed_gesture_hud.dart';
 import 'snapseed_tools_sheet.dart';
 import '../../l10n/app_strings.dart';
+import '../../core/theme/window_size_class.dart';
 
 /// Index of the radial-menu item nearest [pointer], for a menu centred at
 /// [center] with [count] items at [radius]. Item 0 sits at the top (−90°),
@@ -92,6 +93,8 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
   bool _radialOpen = false;
   bool _straightenOpen = false;
   bool _looksOpen = false;
+  ToolDefinition? _activePresetTool;
+  double _activePresetAmount = 1.0;
   Timer? _scrubFadeTimer;
   bool _scrubVisible = false;
 
@@ -341,8 +344,13 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
     // tool pill (and its Selective entry) steps aside until Done.
     final nodeMode = ref.watch(nodeEditorProvider.select((s) => s.enabled));
 
-    return Stack(
-      children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final widthClass = windowSizeClassFor(constraints.maxWidth);
+        final isWide = widthClass != WindowSizeClass.compact;
+
+        return Stack(
+          children: [
         // Recent-changes HUD: float below top bar (top: 56), or below histogram (top: 140)
         // so it never collides with the histogram or status bar.
         Positioned(
@@ -456,7 +464,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                     !nodeMode)
                 ? 1.0
                 : 0.0,
-            duration: AppMotion.shortDuration,
+            duration: AppMotion.responsive(context, AppMotion.shortDuration),
             curve: AppMotion.scrubCurve,
               child: IgnorePointer(
                 child: SnapseedScrubHud(
@@ -503,14 +511,15 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
             ),
           ),
 
-        // Unified Material 3 bottom dock (zero-overlap, integrated actions).
+        // Unified Material 3 bottom dock (zero-overlap, integrated actions, responsive wide alignment).
         if (!nodeMode)
           Align(
-            alignment: Alignment.bottomCenter,
+            alignment: isWide ? Alignment.bottomRight : Alignment.bottomCenter,
             child: SafeArea(
               top: false,
+              right: true,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(Insets.sm, 0, Insets.sm, Insets.sm),
+                padding: EdgeInsets.fromLTRB(Insets.sm, 0, isWide ? Insets.xl : Insets.sm, Insets.sm),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(28),
                   child: BackdropFilter(
@@ -759,11 +768,12 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
         // Live Photo Preset/Looks Carousel
         if (_looksOpen && !nodeMode)
           Align(
-            alignment: Alignment.bottomCenter,
+            alignment: isWide ? Alignment.bottomRight : Alignment.bottomCenter,
             child: SafeArea(
               top: false,
+              right: true,
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 74, left: 16, right: 16),
+                padding: EdgeInsets.only(bottom: 74, left: 16, right: isWide ? Insets.xl : 16),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: BackdropFilter(
@@ -821,6 +831,55 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                               ],
                             ),
                           ),
+                          if (_activePresetTool != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(Radii.sm),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      '${_activePresetTool!.name} · ${(_activePresetAmount * 100).round()}%',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: scheme.onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: SliderTheme(
+                                        data: SliderTheme.of(context).copyWith(
+                                          trackHeight: 2,
+                                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                                        ),
+                                        child: Slider(
+                                          key: const Key('snapseed-preset-strength-slider'),
+                                          value: _activePresetAmount,
+                                          min: 0.0,
+                                          max: 2.0,
+                                          divisions: 40,
+                                          onChanged: (val) {
+                                            setState(() => _activePresetAmount = val);
+                                            ref.read(recipeControllerProvider.notifier).applyTool(_activePresetTool!, amount: val);
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.close, size: 14),
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: () => setState(() => _activePresetTool = null),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           const SizedBox(height: 6),
                           SizedBox(
                             height: 76,
@@ -835,7 +894,11 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                   borderRadius: BorderRadius.circular(10),
                                   onTap: () {
                                     HapticFeedback.lightImpact();
-                                    ref.read(recipeControllerProvider.notifier).applyTool(tool);
+                                    setState(() {
+                                      _activePresetTool = tool;
+                                      _activePresetAmount = 1.0;
+                                    });
+                                    ref.read(recipeControllerProvider.notifier).applyTool(tool, amount: 1.0);
                                     ref.read(recipeControllerProvider.notifier).commit(label: tool.name);
                                   },
                                   child: Column(
@@ -878,11 +941,12 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
         // Floating straighten & rotation dial HUD
         if (_straightenOpen && !nodeMode)
           Align(
-            alignment: Alignment.bottomCenter,
+            alignment: isWide ? Alignment.bottomRight : Alignment.bottomCenter,
             child: SafeArea(
               top: false,
+              right: true,
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 74),
+                padding: EdgeInsets.only(bottom: 74, right: isWide ? Insets.xl : 0),
                 child: DecoratedBox(
                   key: const Key('snapseed-straighten-panel'),
                   decoration: BoxDecoration(
@@ -942,7 +1006,9 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
               },
             ),
           ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
