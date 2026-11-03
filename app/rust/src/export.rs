@@ -143,7 +143,13 @@ fn write_isobmff_box(out: &mut Vec<u8>, tag: &[u8; 4], payload: &[u8]) {
     out.extend_from_slice(payload);
 }
 
-/// Helper to build a complete ISO-BMFF container for HEIC or AVIF encapsulation (#175).
+/// Helper to build a complete ISO-BMFF container for HEIC/AVIF encapsulation (#175).
+///
+/// The payload is always a JPEG bitstream (no HEVC/AV1 encoder available), so
+/// the honest brand combination is major `mif1` + compatible `jpeg` — NOT
+/// `heic`/`avif` which would declare HEVC/AV1 compatibility we don't have.
+/// An `iinf`/`infe` box with `item_type = "jpeg"` is mandatory for a valid
+/// HEIF container.
 fn encode_isobmff_container(
     rgba: &[u8],
     width: u32,
@@ -163,10 +169,10 @@ fn encode_isobmff_container(
         ));
     }
 
-    // 1. Encode primary image payload
+    // 1. Encode primary image payload (always JPEG — no HEVC/AV1 encoder).
     let payload = encode_jpeg(rgba, width, height, quality, &[])?;
 
-    let mut out = Vec::with_capacity(payload.len() + 256);
+    let mut out = Vec::with_capacity(payload.len() + 512);
 
     // 2. ftyp box
     let mut ftyp_payload = Vec::new();
@@ -196,7 +202,21 @@ fn encode_isobmff_container(
     pitm.extend_from_slice(&1u16.to_be_bytes()); // item_ID
     write_isobmff_box(&mut meta_content, b"pitm", &pitm);
 
-    // 3c. iprp box (item properties) -> ipco -> ispe
+    // 3c. iinf box (item info) + infe entry (item_type = "jpeg")
+    let mut iinf = Vec::new();
+    iinf.extend_from_slice(&[0, 0, 0, 0]); // version/flags
+    iinf.extend_from_slice(&1u16.to_be_bytes()); // entry_count = 1
+
+    let mut infe = Vec::new();
+    infe.extend_from_slice(&[0, 0, 0, 0]); // version/flags
+    infe.extend_from_slice(&1u16.to_be_bytes()); // item_ID = 1
+    infe.extend_from_slice(b"jpeg\0"); // item_type = "jpeg" (null-terminated)
+    infe.extend_from_slice(&[0]); // item_name = empty (null-terminated)
+    write_isobmff_box(&mut iinf, b"infe", &infe);
+
+    write_isobmff_box(&mut meta_content, b"iinf", &iinf);
+
+    // 3d. iprp box (item properties) -> ipco -> ispe
     let mut ipco = Vec::new();
     let mut ispe = Vec::new();
     ispe.extend_from_slice(&[0, 0, 0, 0]); // version/flags
@@ -223,7 +243,7 @@ fn encode_isobmff_container(
 
     write_isobmff_box(&mut meta_content, b"iprp", &iprp);
 
-    // 3d. iloc box (item location: offset & length)
+    // 3e. iloc box (item location: offset & length)
     let meta_box_size = meta_content.len() + 8;
     let iloc_size = 30;
     let total_meta_size = (meta_box_size + iloc_size) as u32;
@@ -250,28 +270,21 @@ fn encode_isobmff_container(
     Ok(out)
 }
 
-/// Encodes an RGBA8 buffer into an ISO-BMFF HEIC container (#175).
+/// Encodes an RGBA8 buffer into an ISO-BMFF HEIF container with JPEG payload (#175).
+///
+/// Honest brands: major `mif1`, compatible `jpeg`. Does NOT claim HEVC
+/// compatibility (no `heic` brand) since the payload is plain JPEG.
 pub fn encode_heic(rgba: &[u8], width: u32, height: u32, quality: u8) -> Result<Vec<u8>, String> {
-    encode_isobmff_container(
-        rgba,
-        width,
-        height,
-        quality,
-        b"heic",
-        &[b"mif1", b"heic", b"msf1"],
-    )
+    encode_isobmff_container(rgba, width, height, quality, b"mif1", &[b"mif1", b"jpeg"])
 }
 
-/// Encodes an RGBA8 buffer into an ISO-BMFF AVIF container (#175).
+/// Encodes an RGBA8 buffer into an ISO-BMFF container with JPEG payload (#175).
+///
+/// Honest brands: major `mif1`, compatible `jpeg`. The `avif` name is retained
+/// for API compatibility but the container is really HEIF/JPEG — no AV1 item
+/// exists (no AV1 encoder available). A real AVIF would require rav1e/svt-av1.
 pub fn encode_avif(rgba: &[u8], width: u32, height: u32, quality: u8) -> Result<Vec<u8>, String> {
-    encode_isobmff_container(
-        rgba,
-        width,
-        height,
-        quality,
-        b"avif",
-        &[b"mif1", b"miaf", b"avif"],
-    )
+    encode_isobmff_container(rgba, width, height, quality, b"mif1", &[b"mif1", b"jpeg"])
 }
 
 #[cfg(test)]
@@ -382,9 +395,23 @@ mod tests {
     fn encode_heic_produces_valid_isobmff_container_with_ispe() {
         let rgba = solid_rgba(32, 24, 180, 140, 90);
         let bytes = encode_heic(&rgba, 32, 24, 90).expect("encode_heic should succeed");
-        // Verify ftyp header with major brand "heic"
+        // Verify ftyp header with major brand "mif1" (not "heic" — no HEVC)
         assert_eq!(&bytes[4..8], b"ftyp");
-        assert_eq!(&bytes[8..12], b"heic");
+        assert_eq!(&bytes[8..12], b"mif1");
+
+        // Verify iinf/infe box with item_type "jpeg"
+        let iinf_pos = bytes
+            .windows(4)
+            .position(|w| w == b"iinf")
+            .expect("iinf box must exist in heic container");
+        assert!(
+            bytes[iinf_pos..].windows(6).any(|w| w == b"infe\0\0"),
+            "infe box must exist inside iinf"
+        );
+        let infe_pos = bytes
+            .windows(5)
+            .position(|w| w == b"jpeg\0")
+            .expect("item_type 'jpeg' must exist in infe box");
 
         // Verify ispe spatial dimensions exist in container
         let ispe_pos = bytes
@@ -394,15 +421,32 @@ mod tests {
         let w = u32::from_be_bytes(bytes[ispe_pos + 8..ispe_pos + 12].try_into().unwrap());
         let h = u32::from_be_bytes(bytes[ispe_pos + 12..ispe_pos + 16].try_into().unwrap());
         assert_eq!((w, h), (32, 24));
+
+        // item_type must appear before ispe (both inside meta)
+        assert!(infe_pos < ispe_pos, "infe item_type must precede ispe");
     }
 
     #[test]
     fn encode_avif_produces_valid_isobmff_container_with_ispe() {
         let rgba = solid_rgba(40, 30, 200, 100, 50);
         let bytes = encode_avif(&rgba, 40, 30, 85).expect("encode_avif should succeed");
-        // Verify ftyp header with major brand "avif"
+        // Verify ftyp header with major brand "mif1" (not "avif" — no AV1)
         assert_eq!(&bytes[4..8], b"ftyp");
-        assert_eq!(&bytes[8..12], b"avif");
+        assert_eq!(&bytes[8..12], b"mif1");
+
+        // Verify iinf/infe box with item_type "jpeg"
+        let iinf_pos = bytes
+            .windows(4)
+            .position(|w| w == b"iinf")
+            .expect("iinf box must exist in avif container");
+        assert!(
+            bytes[iinf_pos..].windows(6).any(|w| w == b"infe\0\0"),
+            "infe box must exist inside iinf"
+        );
+        let infe_pos = bytes
+            .windows(5)
+            .position(|w| w == b"jpeg\0")
+            .expect("item_type 'jpeg' must exist in infe box");
 
         // Verify ispe spatial dimensions exist in container
         let ispe_pos = bytes
@@ -412,5 +456,8 @@ mod tests {
         let w = u32::from_be_bytes(bytes[ispe_pos + 8..ispe_pos + 12].try_into().unwrap());
         let h = u32::from_be_bytes(bytes[ispe_pos + 12..ispe_pos + 16].try_into().unwrap());
         assert_eq!((w, h), (40, 30));
+
+        // item_type must appear before ispe (both inside meta)
+        assert!(infe_pos < ispe_pos, "infe item_type must precede ispe");
     }
 }
