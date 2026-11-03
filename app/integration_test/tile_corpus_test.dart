@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' show Size;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -292,8 +291,6 @@ String mb(int bytes) => '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
 
 // --- Stubs for removed tile_source.dart (integration test needs updating) ---
 class DecodedTile {
-  final int level, col, row, width, height;
-  final Uint8List rgba;
   const DecodedTile({
     required this.level,
     required this.col,
@@ -302,11 +299,13 @@ class DecodedTile {
     required this.height,
     required this.rgba,
   });
+  final int level, col, row, width, height;
+  final Uint8List rgba;
 }
 
 class TilePyramidStub {
-  final int imageWidth, imageHeight, tileSize;
   TilePyramidStub({required this.imageWidth, required this.imageHeight, this.tileSize = 512});
+  final int imageWidth, imageHeight, tileSize;
   int get levelCount => 1;
   int get maxFeasibleLevel => 0;
   Size levelSize(int level) => Size(imageWidth.toDouble(), imageHeight.toDouble());
@@ -315,12 +314,12 @@ class TilePyramidStub {
 }
 
 class JpegTileSource {
+  JpegTileSource({required this.jpeg, required this.imageWidth, required this.imageHeight})
+      : pyramid = TilePyramidStub(imageWidth: imageWidth, imageHeight: imageHeight);
   final Uint8List jpeg;
   final int imageWidth, imageHeight;
   final int maxFeasibleLevel = 0;
   final TilePyramidStub pyramid;
   final int tileSize = 512;
-  JpegTileSource({required this.jpeg, required this.imageWidth, required this.imageHeight})
-      : pyramid = TilePyramidStub(imageWidth: imageWidth, imageHeight: imageHeight);
   Future<DecodedTile?> fetchTile(int level, int col, int row) async => null;
 }

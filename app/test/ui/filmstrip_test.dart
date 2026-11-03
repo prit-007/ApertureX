@@ -63,7 +63,7 @@ void main() {
 
   tearDown(() => container.dispose());
 
-  Widget _harness() => UncontrolledProviderScope(
+  Widget harness() => UncontrolledProviderScope(
         container: container,
         child: const MaterialApp(
           home: Scaffold(body: Filmstrip()),
@@ -72,12 +72,12 @@ void main() {
 
   group('Filmstrip', () {
     testWidgets('renders thumbnail count indicator', (tester) async {
-      await tester.pumpWidget(_harness());
+      await tester.pumpWidget(harness());
       expect(find.text('3 photos'), findsOneWidget);
     });
 
     testWidgets('shows current photo highlighted', (tester) async {
-      await tester.pumpWidget(_harness());
+      await tester.pumpWidget(harness());
       // First photo ('a') should be highlighted initially
       final thumbnail = find.byKey(const Key('filmstrip-thumbnail-a'));
       expect(thumbnail, findsOneWidget);
@@ -94,7 +94,7 @@ void main() {
     });
 
     testWidgets('tapping a thumbnail switches current photo', (tester) async {
-      await tester.pumpWidget(_harness());
+      await tester.pumpWidget(harness());
 
       final nav = container.read(photoNavigatorProvider.notifier);
       expect(nav.state.currentIndex, 0);
@@ -107,7 +107,7 @@ void main() {
     });
 
     testWidgets('next button advances to next photo', (tester) async {
-      await tester.pumpWidget(_harness());
+      await tester.pumpWidget(harness());
 
       final nav = container.read(photoNavigatorProvider.notifier);
       expect(nav.state.currentIndex, 0);
@@ -120,7 +120,7 @@ void main() {
     });
 
     testWidgets('previous button goes to previous photo', (tester) async {
-      await tester.pumpWidget(_harness());
+      await tester.pumpWidget(harness());
 
       final nav = container.read(photoNavigatorProvider.notifier);
       nav.goNext(); // -> b
@@ -137,7 +137,7 @@ void main() {
     });
 
     testWidgets('next button is disabled at last photo', (tester) async {
-      await tester.pumpWidget(_harness());
+      await tester.pumpWidget(harness());
 
       final nav = container.read(photoNavigatorProvider.notifier);
       nav.goNext();
@@ -152,7 +152,7 @@ void main() {
     });
 
     testWidgets('previous button is disabled at first photo', (tester) async {
-      await tester.pumpWidget(_harness());
+      await tester.pumpWidget(harness());
 
       final previousButton = tester.widget<IconButton>(
         find.byKey(const Key('filmstrip-previous')),

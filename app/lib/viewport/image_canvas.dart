@@ -864,7 +864,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     );
   }
 
-  /// Bakes the [snapshot] recipe into `_snapshotImage` for A/B compare.
+  /// Bakes the [recipe] into `_snapshotImage` for A/B compare.
   /// Uses the same bake pipeline as the main recipe but stores the result
   /// separately so it can serve as the compare "before" image.
   void _scheduleSnapshotBake(EditRecipe recipe) {

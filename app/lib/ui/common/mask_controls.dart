@@ -324,7 +324,7 @@ class MaskControls extends ConsumerWidget {
                   notifier.addMaskGroup(MaskGroup(id: gid, name: 'Mask $num'));
                 },
                 icon: const Icon(Icons.create_new_folder_outlined, size: 16),
-                label: Text(AppStrings.of(context).maskNewGroupPlus, style: TextStyle(fontSize: 12)),
+                label: Text(AppStrings.of(context).maskNewGroupPlus, style: const TextStyle(fontSize: 12)),
               ),
               OutlinedButton(
                 key: const Key('edit-on-canvas'),
@@ -751,8 +751,8 @@ class MaskControls extends ConsumerWidget {
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.add),
                   child: Chip(
-                    avatar: Icon(Icons.add, size: 14),
-                    label: Text(AppStrings.of(context).maskAdd, style: TextStyle(fontSize: 11)),
+                    avatar: const Icon(Icons.add, size: 14),
+                    label: Text(AppStrings.of(context).maskAdd, style: const TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),
@@ -773,8 +773,8 @@ class MaskControls extends ConsumerWidget {
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.subtract),
                   child: Chip(
-                    avatar: Icon(Icons.remove, size: 14),
-                    label: Text(AppStrings.of(context).maskSubtract, style: TextStyle(fontSize: 11)),
+                    avatar: const Icon(Icons.remove, size: 14),
+                    label: Text(AppStrings.of(context).maskSubtract, style: const TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),
@@ -795,8 +795,8 @@ class MaskControls extends ConsumerWidget {
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.intersect),
                   child: Chip(
-                    avatar: Icon(Icons.join_inner, size: 14),
-                    label: Text(AppStrings.of(context).maskIntersect, style: TextStyle(fontSize: 11)),
+                    avatar: const Icon(Icons.join_inner, size: 14),
+                    label: Text(AppStrings.of(context).maskIntersect, style: const TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),
@@ -920,7 +920,7 @@ class MaskControls extends ConsumerWidget {
                       if (showJoinOp) ...[
                         ChoiceChip(
                           key: Key('mask-join-add-$i'),
-                          label: Text(AppStrings.of(context).maskPlus, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          label: Text(AppStrings.of(context).maskPlus, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           selected: layer.joinOp == MaskJoinOp.add,
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
@@ -931,7 +931,7 @@ class MaskControls extends ConsumerWidget {
                         ),
                         ChoiceChip(
                           key: Key('mask-join-subtract-$i'),
-                          label: Text(AppStrings.of(context).maskMinus, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          label: Text(AppStrings.of(context).maskMinus, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           selected: layer.joinOp == MaskJoinOp.subtract,
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
@@ -942,7 +942,7 @@ class MaskControls extends ConsumerWidget {
                         ),
                         ChoiceChip(
                           key: Key('mask-join-intersect-$i'),
-                          label: Text(AppStrings.of(context).maskIntersectSymbol, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          label: Text(AppStrings.of(context).maskIntersectSymbol, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           selected: layer.joinOp == MaskJoinOp.intersect,
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
@@ -1080,7 +1080,7 @@ class MaskControls extends ConsumerWidget {
                 children: [
                   FilterChip(
                     key: const Key('mask-inline-invert'),
-                    label: Text(AppStrings.of(context).maskInvert, style: TextStyle(fontSize: 11)),
+                    label: Text(AppStrings.of(context).maskInvert, style: const TextStyle(fontSize: 11)),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     selected: layer.inverted,
                     visualDensity: VisualDensity.compact,
@@ -1092,7 +1092,7 @@ class MaskControls extends ConsumerWidget {
                   if (layer.maskKind == MaskKind.brush) ...[
                     ChoiceChip(
                       key: const Key('mask-inline-brush-paint'),
-                      label: Text(AppStrings.of(context).maskPaint, style: TextStyle(fontSize: 11)),
+                      label: Text(AppStrings.of(context).maskPaint, style: const TextStyle(fontSize: 11)),
                       selected: !ref.watch(nodeEditorProvider.select((s) => s.eraserMode)) &&
                           !ref.watch(nodeEditorProvider.select((s) => s.refineBrushMode)),
                       visualDensity: VisualDensity.compact,
@@ -1107,7 +1107,7 @@ class MaskControls extends ConsumerWidget {
                     ),
                     ChoiceChip(
                       key: const Key('mask-inline-brush-erase'),
-                      label: Text(AppStrings.of(context).maskErase, style: TextStyle(fontSize: 11)),
+                      label: Text(AppStrings.of(context).maskErase, style: const TextStyle(fontSize: 11)),
                       selected: ref.watch(nodeEditorProvider.select((s) => s.eraserMode)),
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
@@ -1118,7 +1118,7 @@ class MaskControls extends ConsumerWidget {
                     ),
                     FilterChip(
                       key: const Key('mask-inline-auto-mask'),
-                      label: Text(AppStrings.of(context).maskAutoMask, style: TextStyle(fontSize: 11)),
+                      label: Text(AppStrings.of(context).maskAutoMask, style: const TextStyle(fontSize: 11)),
                       selected: layer.maskKind == MaskKind.autoBrush,
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
@@ -1133,7 +1133,7 @@ class MaskControls extends ConsumerWidget {
                     ActionChip(
                       key: const Key('mask-subtract'),
                       avatar: const Icon(Icons.remove_circle_outline, size: 14),
-                      label: Text(AppStrings.of(context).maskSubtract, style: TextStyle(fontSize: 11)),
+                      label: Text(AppStrings.of(context).maskSubtract, style: const TextStyle(fontSize: 11)),
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
                       onPressed: () {
@@ -1143,7 +1143,7 @@ class MaskControls extends ConsumerWidget {
                   ],
                   ChoiceChip(
                     key: const Key('mask-inline-refine-brush'),
-                    label: Text(AppStrings.of(context).maskRefineBrush, style: TextStyle(fontSize: 11)),
+                    label: Text(AppStrings.of(context).maskRefineBrush, style: const TextStyle(fontSize: 11)),
                     selected: ref.watch(nodeEditorProvider.select((s) => s.refineBrushMode)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
@@ -1160,7 +1160,7 @@ class MaskControls extends ConsumerWidget {
                   ActionChip(
                     key: const Key('mask-inline-refine-edge'),
                     avatar: const Icon(Icons.auto_fix_high, size: 14),
-                    label: Text(AppStrings.of(context).maskRefineEdge, style: TextStyle(fontSize: 11)),
+                    label: Text(AppStrings.of(context).maskRefineEdge, style: const TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     onPressed: isInferring
@@ -1192,7 +1192,7 @@ class MaskControls extends ConsumerWidget {
                   ActionChip(
                     key: const Key('mask-inline-duplicate'),
                     avatar: const Icon(Icons.copy, size: 14),
-                    label: Text(AppStrings.of(context).maskDuplicate, style: TextStyle(fontSize: 11)),
+                    label: Text(AppStrings.of(context).maskDuplicate, style: const TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     onPressed: () => notifier.addLayer(layer.copyWith()),
@@ -1201,7 +1201,7 @@ class MaskControls extends ConsumerWidget {
                     ActionChip(
                       key: const Key('mask-luma-eyedropper'),
                       avatar: const Icon(Icons.colorize, size: 14),
-                      label: Text(AppStrings.of(context).maskSampleLuma, style: TextStyle(fontSize: 11)),
+                      label: Text(AppStrings.of(context).maskSampleLuma, style: const TextStyle(fontSize: 11)),
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
                       onPressed: () {
@@ -1211,7 +1211,7 @@ class MaskControls extends ConsumerWidget {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(AppStrings.of(context).maskSampleLuminance),
-                            duration: Duration(seconds: 2),
+                            duration: const Duration(seconds: 2),
                           ),
                         );
                       },
@@ -1225,7 +1225,7 @@ class MaskControls extends ConsumerWidget {
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       icon: const Icon(Icons.clear, size: 14),
-                      label: Text(AppStrings.of(context).maskClear, style: TextStyle(fontSize: 11)),
+                      label: Text(AppStrings.of(context).maskClear, style: const TextStyle(fontSize: 11)),
                       onPressed: () {
                         notifier.updateLayerAt(i, layer.withClearedStrokes());
                       },
@@ -1452,7 +1452,7 @@ class MaskControls extends ConsumerWidget {
                 ActionChip(
                   key: const Key('mask-inline-color-eyedropper'),
                   avatar: const Icon(Icons.color_lens, size: 14),
-                  label: Text(AppStrings.of(context).maskSampleColorBtn, style: TextStyle(fontSize: 11)),
+                  label: Text(AppStrings.of(context).maskSampleColorBtn, style: const TextStyle(fontSize: 11)),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   onPressed: () {
@@ -1462,7 +1462,7 @@ class MaskControls extends ConsumerWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(AppStrings.of(context).maskSampleColor),
-                        duration: Duration(seconds: 2),
+                        duration: const Duration(seconds: 2),
                       ),
                     );
                   },

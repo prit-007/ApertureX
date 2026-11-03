@@ -3,6 +3,7 @@
 /// Tracks which [GalleryAsset] is currently being edited and provides
 /// previous/next navigation through the gallery's asset list. Wraps at both
 /// ends so the user can cycle continuously through their library.
+library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'gallery_asset.dart';
@@ -72,7 +73,7 @@ class PhotoNavigator extends Notifier<PhotoNavigatorState> {
     state = state.copyWith(currentIndex: index);
   }
 
-  /// Sets the current asset by matching its [id].
+  /// Sets the current asset by matching its id.
   void setCurrentAsset(GalleryAsset asset) {
     final index = state.assets.indexWhere((a) => a.id == asset.id);
     if (index >= 0) {

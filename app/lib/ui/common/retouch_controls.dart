@@ -204,12 +204,12 @@ class RetouchControls extends ConsumerWidget {
                       ButtonSegment<RetouchMode>(
                         value: RetouchMode.heal,
                         label: Text(AppStrings.of(context).retouchHeal),
-                        icon: Icon(Icons.auto_fix_high, size: 16),
+                        icon: const Icon(Icons.auto_fix_high, size: 16),
                       ),
                       ButtonSegment<RetouchMode>(
                         value: RetouchMode.clone,
                         label: Text(AppStrings.of(context).retouchClone),
-                        icon: Icon(Icons.copy, size: 16),
+                        icon: const Icon(Icons.copy, size: 16),
                       ),
                     ],
                     selected: {currentMode},

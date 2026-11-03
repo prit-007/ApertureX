@@ -73,7 +73,7 @@ class GeometryControls extends ConsumerWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(AppStrings.of(context).geometryHorizonStraight),
-                duration: Duration(seconds: 1),
+                duration: const Duration(seconds: 1),
               ),
             );
           }
@@ -138,7 +138,7 @@ class GeometryControls extends ConsumerWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(AppStrings.of(context).geometryAlreadyAligned),
-                duration: Duration(seconds: 1),
+                duration: const Duration(seconds: 1),
               ),
             );
           }

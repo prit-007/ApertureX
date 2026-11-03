@@ -509,8 +509,8 @@ void main() {
   testWidgets('SnapseedShell wide dock aligns bottom-right at 1024x768', (
     tester,
   ) async {
-    tester.binding.window.physicalSizeTestValue = const Size(1024, 768);
-    tester.binding.window.devicePixelRatioTestValue = 1.0;
+    tester.view.physicalSize = const Size(1024, 768);
+    tester.view.devicePixelRatio = 1.0;
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -538,15 +538,15 @@ void main() {
     final align = tester.widget<Align>(alignFinder);
     expect(align.alignment, Alignment.bottomRight);
 
-    tester.binding.window.clearPhysicalSizeTestValue();
-    tester.binding.window.clearDevicePixelRatioTestValue();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
   });
 
   testWidgets('SnapseedShell wide dock aligns bottom-right at 1366x1024', (
     tester,
   ) async {
-    tester.binding.window.physicalSizeTestValue = const Size(1366, 1024);
-    tester.binding.window.devicePixelRatioTestValue = 1.0;
+    tester.view.physicalSize = const Size(1366, 1024);
+    tester.view.devicePixelRatio = 1.0;
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -574,15 +574,15 @@ void main() {
     final align = tester.widget<Align>(alignFinder);
     expect(align.alignment, Alignment.bottomRight);
 
-    tester.binding.window.clearPhysicalSizeTestValue();
-    tester.binding.window.clearDevicePixelRatioTestValue();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
   });
 
   testWidgets('SnapseedShell compact dock aligns bottom-center at 390x844', (
     tester,
   ) async {
-    tester.binding.window.physicalSizeTestValue = const Size(390, 844);
-    tester.binding.window.devicePixelRatioTestValue = 1.0;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -610,15 +610,15 @@ void main() {
     final align = tester.widget<Align>(alignFinder);
     expect(align.alignment, Alignment.bottomCenter);
 
-    tester.binding.window.clearPhysicalSizeTestValue();
-    tester.binding.window.clearDevicePixelRatioTestValue();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
   });
 
   testWidgets('SnapseedShell wide layout has no overflow at 1024x768', (
     tester,
   ) async {
-    tester.binding.window.physicalSizeTestValue = const Size(1024, 768);
-    tester.binding.window.devicePixelRatioTestValue = 1.0;
+    tester.view.physicalSize = const Size(1024, 768);
+    tester.view.devicePixelRatio = 1.0;
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -669,8 +669,8 @@ void main() {
       );
     }
 
-    tester.binding.window.clearPhysicalSizeTestValue();
-    tester.binding.window.clearDevicePixelRatioTestValue();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
   });
 }
 
