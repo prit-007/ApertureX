@@ -2,12 +2,14 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// The 5 tool panels migrated to AppStrings in #164. The guard test verifies
-/// none of them regress to bare Text('...') literals.
+/// The 5 tool panels migrated to AppStrings in #164, plus the retouch toolbar
+/// (Heal/Clone mode labels). The guard test verifies none of them regress to
+/// bare Text('...') literals.
 const _panelFiles = {
   'lib/ui/common/mask_controls.dart',
   'lib/ui/common/geometry_controls.dart',
   'lib/ui/common/retouch_controls.dart',
+  'lib/ui/common/retouch_toolbar.dart',
   'lib/ui/common/blur_controls.dart',
   'lib/ui/common/optics_controls.dart',
 };

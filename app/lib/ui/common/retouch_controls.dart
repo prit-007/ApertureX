@@ -256,7 +256,7 @@ class RetouchControls extends ConsumerWidget {
                             color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 4),
-                          Text('#${idx + 1} ${isHeal ? 'Heal' : 'Clone'}'),
+                          Text('#${idx + 1} ${isHeal ? AppStrings.of(context).retouchHeal : AppStrings.of(context).retouchClone}'),
                         ],
                       ),
                       selected: isSelected,
@@ -289,8 +289,8 @@ class RetouchControls extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         selectedPatch != null
-                            ? 'Spot #${selectedIndex! + 1} (${currentMode == RetouchMode.heal ? 'Heal' : 'Clone'})'
-                            : 'Spot Settings',
+                            ? 'Spot #${selectedIndex! + 1} (${currentMode == RetouchMode.heal ? AppStrings.of(context).retouchHeal : AppStrings.of(context).retouchClone})'
+                            : AppStrings.of(context).retouchSpotSettings,
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: scheme.primary,
                           fontWeight: FontWeight.w600,

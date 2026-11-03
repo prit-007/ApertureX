@@ -802,6 +802,14 @@ class AppStrings {
         'zh': '克隆',
       }, 'Clone');
 
+  String get retouchSpotSettings => _t({
+        'es': 'Ajustes del punto',
+        'de': 'Punkteinstellungen',
+        'fr': 'Paramètres du point',
+        'ja': 'スポット設定',
+        'zh': '点位设置',
+      }, 'Spot Settings');
+
   String get retouchDeletePatch => _t({
         'es': 'Eliminar parche',
         'de': 'Patch löschen',
