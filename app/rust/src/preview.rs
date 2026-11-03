@@ -1058,20 +1058,39 @@ mod anative_window {
     }
 }
 
-/// Non-Android targets have no `ANativeWindow`; every write errors so Dart
-/// keeps the return-frame fallback (spike A). The JNI entry point is
-/// Android-only, so `from_surface` is never referenced here.
+/// Non-Android targets have no `ANativeWindow`, but `write_rgba` still works
+/// by treating `window` as a raw pointer to tightly-packed RGBA memory
+/// (e.g. a `CVPixelBuffer` base address on iOS). The JNI entry point is
+/// Android-only; iOS registers textures via the `aperturex/preview_texture`
+/// method channel instead.
 #[cfg(not(target_os = "android"))]
 mod anative_window {
     pub fn release(_window: usize) {}
 
-    pub fn write_rgba(
-        _window: usize,
-        _rgba: &[u8],
-        _width: u32,
-        _height: u32,
-    ) -> Result<(), String> {
-        Err("preview textures are Android-only (spike B); use preview_base".into())
+    pub fn write_rgba(window: usize, rgba: &[u8], width: u32, height: u32) -> Result<(), String> {
+        if window == 0 {
+            return Err("preview_write_rgba: null buffer pointer".into());
+        }
+        let row_bytes = width as usize * 4;
+        let expected = row_bytes * height as usize;
+        if rgba.len() < expected {
+            return Err(format!(
+                "preview_write_rgba: rgba buffer has {} bytes, need {}",
+                rgba.len(),
+                expected
+            ));
+        }
+        // Safety: `window` is a pointer to a buffer owned by the platform
+        // (e.g. CVPixelBuffer on iOS). It must be valid for `expected` bytes.
+        unsafe {
+            let base = window as *mut u8;
+            for y in 0..height as usize {
+                let src = &rgba[y * row_bytes..][..row_bytes];
+                let dst = std::slice::from_raw_parts_mut(base.add(y * row_bytes), row_bytes);
+                dst.copy_from_slice(src);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -1097,6 +1116,16 @@ pub extern "system" fn Java_com_devparadise_aperturex_MainActivity_bindPreviewSu
             0
         }
     }
+}
+
+/// iOS entry point invoked by `AppDelegate.bindPreviewSurface`. Passes the
+/// `CVPixelBuffer` base address pointer to Rust `bind_window` so `render`
+/// writes graded frames straight into it (zero-copy on iOS). Returns `true`
+/// on success.
+#[cfg(target_os = "ios")]
+#[no_mangle]
+pub extern "C" fn aperturex_bind_window(handle: u64, window_ptr: i64) -> bool {
+    bind_window(handle, window_ptr).is_ok()
 }
 
 #[cfg(test)]
