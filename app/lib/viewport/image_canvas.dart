@@ -170,10 +170,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   // Level-0 tiles of the ORIGINAL frame, decoded natively (never the full
   // frame), baked with the same spatial+mask chain as the proxy through
   // `bake_roi_rect`, and drawn over the proxy through the grading shader
-  // once the proxy would upscale. The multi-level pyramid stays wired for the
-  // `TileViewport` demo/corpus harness; the editing canvas uses level 0 only,
-  // because the proxy itself already covers every zoom below the ROI gate
-  // (`scale * fitted.width >= proxyW`).
+  // once the proxy would upscale. The editing canvas uses level 0 only —
+  // the proxy itself already covers every zoom below the ROI gate
+  // (`scale * fitted.width >= proxyW`) — so the multi-level mip pyramid
+  // (`TilePyramid`, removed with the `TileViewport` harness in #167) is
+  // not needed here.
   static const int _tileSize = 512;
 
   /// Decoded-tile cache budget. A 512×512 RGBA tile is 1 MiB; 64 tiles is
