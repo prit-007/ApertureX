@@ -113,7 +113,7 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Quality Culling (Sharpness & Closed-Eye) | ✅ (Laplacian variance + YuNet facial eye openness score — ADR 0025) | P6 |
 | Folder Watching / Auto-Import | ✅ (debounced `Directory.watch` background ingestion — ADR 0025) | P6 |
 | Desktop MenuBar | ✅ (native macOS/Linux/Windows PlatformMenuBar with shortcuts) | P5 |
-| Internationalization (i18n) | ✅ (flutter_localizations + intl for EN, ES, DE, FR, JA, ZH) | P5 |
+| Internationalization (i18n) | ✅ (flutter_localizations + intl for EN, ES, DE, FR, JA, ZH; editor + gallery + export + settings + tool panels migrated via #164) | P5 |
 | Lensfun Optics & EXIF Inspector | ✅ (hardware camera/lens profile database, distortion correction, EXIF sheet #85) | P2 |
 | In-App OTA Updater | ✅ ("Metrolist-style" GitHub Releases live updater with download progress) | P5 |
 | Interactive Academy & Tool Guide | ✅ (searchable masterclasses, pro tips, category chips, tool guide sheet) | P5 |

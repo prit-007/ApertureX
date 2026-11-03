@@ -8,9 +8,9 @@ A mobile-native FOSS photo editor (Android + iOS) with Flutter UI + Rust engine 
 
 ### Responsive Layout (Cross-Device Native Feel)
 - **Universal Coverage:** Compact phones to 14" Galaxy Tabs/iPad Pro
-- **Portrait:** `ExtendedImage` top 75%, tools as `BottomSheet` with `SafeArea(bottom: true)`
+- **Portrait:** `ImageCanvas` top 75%, tools as `BottomSheet` with `SafeArea(bottom: true)`
 - **Landscape/Tablet:** Split layout (image 70% left, controls 30% right sidebar with `SafeArea(right: true)`)
-- **No hardcoded heights** - use `LayoutBuilder` + `OrientationBuilder`
+- **No hardcoded heights** - use `LayoutBuilder` + `WindowSizeClass` (Material 3 breakpoints: compact <600, medium 600-840, expanded 840-1200, large >1200)
 
 ### Advanced Stylus Input & Palm Rejection
 - **Pressure Sensitivity:** `event.pressure` (0.0-1.0) for dynamic brush opacity/flow
