@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/retouch_patch.dart';
+import '../../l10n/app_strings.dart';
 import '../../viewport/canvas_transform.dart';
 import 'parameter_slider_row.dart';
 
@@ -154,7 +155,7 @@ class RetouchControls extends ConsumerWidget {
                       ),
                       onPressed: () => addSpot(RetouchMode.heal),
                       icon: const Icon(Icons.auto_fix_high, size: 16),
-                      label: const Text('Heal Spot +', style: TextStyle(fontWeight: FontWeight.w600)),
+                      label: Text(AppStrings.of(context).retouchHealSpotPlus, style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                     FilledButton.tonalIcon(
                       key: const Key('retouch-add-clone'),
@@ -167,7 +168,7 @@ class RetouchControls extends ConsumerWidget {
                       ),
                       onPressed: () => addSpot(RetouchMode.clone),
                       icon: const Icon(Icons.copy, size: 16),
-                      label: const Text('Clone Spot +', style: TextStyle(fontWeight: FontWeight.w600)),
+                      label: Text(AppStrings.of(context).retouchCloneSpotPlus, style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                     if (selectedPatch != null && selectedIndex != null)
                       OutlinedButton.icon(
@@ -187,7 +188,7 @@ class RetouchControls extends ConsumerWidget {
                           );
                         },
                         icon: const Icon(Icons.replay, size: 16),
-                        label: const Text('Reset Source'),
+                        label: Text(AppStrings.of(context).retouchResetSource),
                       ),
                   ],
                 ),
@@ -199,15 +200,15 @@ class RetouchControls extends ConsumerWidget {
                       selectedBackgroundColor: scheme.primary.withValues(alpha: 0.25),
                       selectedForegroundColor: scheme.primary,
                     ),
-                    segments: const [
+                    segments: [
                       ButtonSegment<RetouchMode>(
                         value: RetouchMode.heal,
-                        label: Text('Heal'),
+                        label: Text(AppStrings.of(context).retouchHeal),
                         icon: Icon(Icons.auto_fix_high, size: 16),
                       ),
                       ButtonSegment<RetouchMode>(
                         value: RetouchMode.clone,
-                        label: Text('Clone'),
+                        label: Text(AppStrings.of(context).retouchClone),
                         icon: Icon(Icons.copy, size: 16),
                       ),
                     ],
@@ -393,7 +394,7 @@ class RetouchControls extends ConsumerWidget {
               if (selectedPatch != null && selectedIndex != null)
                 TextButton.icon(
                   icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Delete Patch'),
+                  label: Text(AppStrings.of(context).retouchDeletePatch),
                   style: TextButton.styleFrom(
                     foregroundColor: scheme.error,
                   ),
@@ -408,7 +409,7 @@ class RetouchControls extends ConsumerWidget {
                     notifier.clearRetouchPatches();
                     ref.read(selectedRetouchPatchIndexProvider.notifier).select(null);
                   },
-                  child: const Text('Clear All'),
+                  child: Text(AppStrings.of(context).retouchClearAll),
                 ),
             ],
           ),
@@ -560,12 +561,12 @@ class _RetouchValueSheetState extends State<_RetouchValueSheet> {
               children: [
                 TextButton(
                   onPressed: () => _pop(null),
-                  child: const Text('Cancel'),
+                  child: Text(AppStrings.of(context).retouchCancel),
                 ),
                 const SizedBox(width: Insets.sm),
                 FilledButton(
                   onPressed: () => _pop(double.tryParse(_controller.text)),
-                  child: const Text('Set'),
+                  child: Text(AppStrings.of(context).retouchSet),
                 ),
               ],
             ),

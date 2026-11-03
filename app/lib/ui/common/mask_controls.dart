@@ -14,6 +14,7 @@ import '../../engine/engine.dart';
 import '../../features/ai_plugins/ai_plugin_model.dart';
 import '../../features/ai_plugins/ai_plugin_store.dart';
 import '../../gallery/gallery_controller.dart' show gallerySourceProvider;
+import '../../l10n/app_strings.dart';
 import '../../settings/ai_consent.dart';
 import '../../viewport/canvas_transform.dart';
 import '../../viewport/mask_peek.dart';
@@ -323,7 +324,7 @@ class MaskControls extends ConsumerWidget {
                   notifier.addMaskGroup(MaskGroup(id: gid, name: 'Mask $num'));
                 },
                 icon: const Icon(Icons.create_new_folder_outlined, size: 16),
-                label: const Text('New Group +', style: TextStyle(fontSize: 12)),
+                label: Text(AppStrings.of(context).maskNewGroupPlus, style: TextStyle(fontSize: 12)),
               ),
               OutlinedButton(
                 key: const Key('edit-on-canvas'),
@@ -737,65 +738,65 @@ class MaskControls extends ConsumerWidget {
                 PopupMenuButton<MaskKind>(
                   key: Key('group-add-${group.id}'),
                   tooltip: 'Add mask to group',
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: MaskKind.brush, child: Text('Brush')),
-                    PopupMenuItem(value: MaskKind.linear, child: Text('Linear Gradient')),
-                    PopupMenuItem(value: MaskKind.radial, child: Text('Radial Gradient')),
-                    PopupMenuItem(value: MaskKind.subject, child: Text('Subject')),
-                    PopupMenuItem(value: MaskKind.sky, child: Text('Sky')),
-                    PopupMenuItem(value: MaskKind.luminance, child: Text('Luminance')),
-                    PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
-                    PopupMenuItem(value: MaskKind.autoBrush, child: Text('Auto Brush')),
-                    PopupMenuItem(value: MaskKind.depthRange, child: Text('Depth Range')),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(value: MaskKind.brush, child: Text(AppStrings.of(context).maskBrush)),
+                    PopupMenuItem(value: MaskKind.linear, child: Text(AppStrings.of(context).maskLinearGradient)),
+                    PopupMenuItem(value: MaskKind.radial, child: Text(AppStrings.of(context).maskRadialGradient)),
+                    PopupMenuItem(value: MaskKind.subject, child: Text(AppStrings.of(context).maskSubject)),
+                    PopupMenuItem(value: MaskKind.sky, child: Text(AppStrings.of(context).maskSky)),
+                    PopupMenuItem(value: MaskKind.luminance, child: Text(AppStrings.of(context).maskLuminance)),
+                    PopupMenuItem(value: MaskKind.colorRange, child: Text(AppStrings.of(context).maskColorRange)),
+                    PopupMenuItem(value: MaskKind.autoBrush, child: Text(AppStrings.of(context).maskAutoBrush)),
+                    PopupMenuItem(value: MaskKind.depthRange, child: Text(AppStrings.of(context).maskDepthRange)),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.add),
-                  child: const Chip(
+                  child: Chip(
                     avatar: Icon(Icons.add, size: 14),
-                    label: Text('Add', style: TextStyle(fontSize: 11)),
+                    label: Text(AppStrings.of(context).maskAdd, style: TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),
                 ),
                 PopupMenuButton<MaskKind>(
-                  key: Key('group-subtract-${group.id}'),
-                  tooltip: 'Subtract mask from group',
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: MaskKind.brush, child: Text('Brush')),
-                    PopupMenuItem(value: MaskKind.linear, child: Text('Linear Gradient')),
-                    PopupMenuItem(value: MaskKind.radial, child: Text('Radial Gradient')),
-                    PopupMenuItem(value: MaskKind.subject, child: Text('Subject')),
-                    PopupMenuItem(value: MaskKind.sky, child: Text('Sky')),
-                    PopupMenuItem(value: MaskKind.luminance, child: Text('Luminance')),
-                    PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
-                    PopupMenuItem(value: MaskKind.autoBrush, child: Text('Auto Brush')),
-                    PopupMenuItem(value: MaskKind.depthRange, child: Text('Depth Range')),
+                key: Key('group-subtract-${group.id}'),
+                tooltip: 'Subtract mask from group',
+                itemBuilder: (context) => [
+                    PopupMenuItem(value: MaskKind.brush, child: Text(AppStrings.of(context).maskBrush)),
+                    PopupMenuItem(value: MaskKind.linear, child: Text(AppStrings.of(context).maskLinearGradient)),
+                    PopupMenuItem(value: MaskKind.radial, child: Text(AppStrings.of(context).maskRadialGradient)),
+                    PopupMenuItem(value: MaskKind.subject, child: Text(AppStrings.of(context).maskSubject)),
+                    PopupMenuItem(value: MaskKind.sky, child: Text(AppStrings.of(context).maskSky)),
+                    PopupMenuItem(value: MaskKind.luminance, child: Text(AppStrings.of(context).maskLuminance)),
+                    PopupMenuItem(value: MaskKind.colorRange, child: Text(AppStrings.of(context).maskColorRange)),
+                    PopupMenuItem(value: MaskKind.autoBrush, child: Text(AppStrings.of(context).maskAutoBrush)),
+                    PopupMenuItem(value: MaskKind.depthRange, child: Text(AppStrings.of(context).maskDepthRange)),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.subtract),
-                  child: const Chip(
+                  child: Chip(
                     avatar: Icon(Icons.remove, size: 14),
-                    label: Text('Subtract', style: TextStyle(fontSize: 11)),
+                    label: Text(AppStrings.of(context).maskSubtract, style: TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),
                 ),
                 PopupMenuButton<MaskKind>(
-                  key: Key('group-intersect-${group.id}'),
-                  tooltip: 'Intersect mask with group',
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: MaskKind.brush, child: Text('Brush')),
-                    PopupMenuItem(value: MaskKind.linear, child: Text('Linear Gradient')),
-                    PopupMenuItem(value: MaskKind.radial, child: Text('Radial Gradient')),
-                    PopupMenuItem(value: MaskKind.subject, child: Text('Subject')),
-                    PopupMenuItem(value: MaskKind.sky, child: Text('Sky')),
-                    PopupMenuItem(value: MaskKind.luminance, child: Text('Luminance')),
-                    PopupMenuItem(value: MaskKind.colorRange, child: Text('Color Range')),
-                    PopupMenuItem(value: MaskKind.autoBrush, child: Text('Auto Brush')),
-                    PopupMenuItem(value: MaskKind.depthRange, child: Text('Depth Range')),
+                key: Key('group-intersect-${group.id}'),
+                tooltip: 'Intersect mask with group',
+                itemBuilder: (context) => [
+                    PopupMenuItem(value: MaskKind.brush, child: Text(AppStrings.of(context).maskBrush)),
+                    PopupMenuItem(value: MaskKind.linear, child: Text(AppStrings.of(context).maskLinearGradient)),
+                    PopupMenuItem(value: MaskKind.radial, child: Text(AppStrings.of(context).maskRadialGradient)),
+                    PopupMenuItem(value: MaskKind.subject, child: Text(AppStrings.of(context).maskSubject)),
+                    PopupMenuItem(value: MaskKind.sky, child: Text(AppStrings.of(context).maskSky)),
+                    PopupMenuItem(value: MaskKind.luminance, child: Text(AppStrings.of(context).maskLuminance)),
+                    PopupMenuItem(value: MaskKind.colorRange, child: Text(AppStrings.of(context).maskColorRange)),
+                    PopupMenuItem(value: MaskKind.autoBrush, child: Text(AppStrings.of(context).maskAutoBrush)),
+                    PopupMenuItem(value: MaskKind.depthRange, child: Text(AppStrings.of(context).maskDepthRange)),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.intersect),
-                  child: const Chip(
+                  child: Chip(
                     avatar: Icon(Icons.join_inner, size: 14),
-                    label: Text('Intersect', style: TextStyle(fontSize: 11)),
+                    label: Text(AppStrings.of(context).maskIntersect, style: TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),
@@ -919,7 +920,7 @@ class MaskControls extends ConsumerWidget {
                       if (showJoinOp) ...[
                         ChoiceChip(
                           key: Key('mask-join-add-$i'),
-                          label: const Text('+', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          label: Text(AppStrings.of(context).maskPlus, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           selected: layer.joinOp == MaskJoinOp.add,
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
@@ -930,7 +931,7 @@ class MaskControls extends ConsumerWidget {
                         ),
                         ChoiceChip(
                           key: Key('mask-join-subtract-$i'),
-                          label: const Text('-', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          label: Text(AppStrings.of(context).maskMinus, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           selected: layer.joinOp == MaskJoinOp.subtract,
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
@@ -941,7 +942,7 @@ class MaskControls extends ConsumerWidget {
                         ),
                         ChoiceChip(
                           key: Key('mask-join-intersect-$i'),
-                          label: const Text('⋂', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          label: Text(AppStrings.of(context).maskIntersectSymbol, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           selected: layer.joinOp == MaskJoinOp.intersect,
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
@@ -990,7 +991,7 @@ class MaskControls extends ConsumerWidget {
                   final bytes = ref.read(activeImageBytesProvider);
                   if (bytes == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('No photo loaded to refine mask')),
+                      SnackBar(content: Text(AppStrings.of(context).maskNoPhotoRefine)),
                     );
                     return;
                   }
@@ -1079,7 +1080,7 @@ class MaskControls extends ConsumerWidget {
                 children: [
                   FilterChip(
                     key: const Key('mask-inline-invert'),
-                    label: const Text('Invert', style: TextStyle(fontSize: 11)),
+                    label: Text(AppStrings.of(context).maskInvert, style: TextStyle(fontSize: 11)),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     selected: layer.inverted,
                     visualDensity: VisualDensity.compact,
@@ -1091,7 +1092,7 @@ class MaskControls extends ConsumerWidget {
                   if (layer.maskKind == MaskKind.brush) ...[
                     ChoiceChip(
                       key: const Key('mask-inline-brush-paint'),
-                      label: const Text('Paint', style: TextStyle(fontSize: 11)),
+                      label: Text(AppStrings.of(context).maskPaint, style: TextStyle(fontSize: 11)),
                       selected: !ref.watch(nodeEditorProvider.select((s) => s.eraserMode)) &&
                           !ref.watch(nodeEditorProvider.select((s) => s.refineBrushMode)),
                       visualDensity: VisualDensity.compact,
@@ -1106,7 +1107,7 @@ class MaskControls extends ConsumerWidget {
                     ),
                     ChoiceChip(
                       key: const Key('mask-inline-brush-erase'),
-                      label: const Text('Erase', style: TextStyle(fontSize: 11)),
+                      label: Text(AppStrings.of(context).maskErase, style: TextStyle(fontSize: 11)),
                       selected: ref.watch(nodeEditorProvider.select((s) => s.eraserMode)),
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
@@ -1117,7 +1118,7 @@ class MaskControls extends ConsumerWidget {
                     ),
                     FilterChip(
                       key: const Key('mask-inline-auto-mask'),
-                      label: const Text('Auto Mask', style: TextStyle(fontSize: 11)),
+                      label: Text(AppStrings.of(context).maskAutoMask, style: TextStyle(fontSize: 11)),
                       selected: layer.maskKind == MaskKind.autoBrush,
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
@@ -1132,7 +1133,7 @@ class MaskControls extends ConsumerWidget {
                     ActionChip(
                       key: const Key('mask-subtract'),
                       avatar: const Icon(Icons.remove_circle_outline, size: 14),
-                      label: const Text('Subtract', style: TextStyle(fontSize: 11)),
+                      label: Text(AppStrings.of(context).maskSubtract, style: TextStyle(fontSize: 11)),
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
                       onPressed: () {
@@ -1142,7 +1143,7 @@ class MaskControls extends ConsumerWidget {
                   ],
                   ChoiceChip(
                     key: const Key('mask-inline-refine-brush'),
-                    label: const Text('Refine Brush', style: TextStyle(fontSize: 11)),
+                    label: Text(AppStrings.of(context).maskRefineBrush, style: TextStyle(fontSize: 11)),
                     selected: ref.watch(nodeEditorProvider.select((s) => s.refineBrushMode)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
@@ -1159,7 +1160,7 @@ class MaskControls extends ConsumerWidget {
                   ActionChip(
                     key: const Key('mask-inline-refine-edge'),
                     avatar: const Icon(Icons.auto_fix_high, size: 14),
-                    label: const Text('Refine Edge', style: TextStyle(fontSize: 11)),
+                    label: Text(AppStrings.of(context).maskRefineEdge, style: TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     onPressed: isInferring
@@ -1168,7 +1169,7 @@ class MaskControls extends ConsumerWidget {
                             final bytes = ref.read(activeImageBytesProvider);
                             if (bytes == null) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('No photo loaded to refine mask')),
+                                SnackBar(content: Text(AppStrings.of(context).maskNoPhotoRefine)),
                               );
                               return;
                             }
@@ -1191,7 +1192,7 @@ class MaskControls extends ConsumerWidget {
                   ActionChip(
                     key: const Key('mask-inline-duplicate'),
                     avatar: const Icon(Icons.copy, size: 14),
-                    label: const Text('Duplicate', style: TextStyle(fontSize: 11)),
+                    label: Text(AppStrings.of(context).maskDuplicate, style: TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     onPressed: () => notifier.addLayer(layer.copyWith()),
@@ -1200,7 +1201,7 @@ class MaskControls extends ConsumerWidget {
                     ActionChip(
                       key: const Key('mask-luma-eyedropper'),
                       avatar: const Icon(Icons.colorize, size: 14),
-                      label: const Text('Sample Luma', style: TextStyle(fontSize: 11)),
+                      label: Text(AppStrings.of(context).maskSampleLuma, style: TextStyle(fontSize: 11)),
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
                       onPressed: () {
@@ -1208,8 +1209,8 @@ class MaskControls extends ConsumerWidget {
                         ref.read(nodeEditorProvider.notifier).select(i);
                         ScaffoldMessenger.of(context).hideCurrentSnackBar();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Tap photo to sample luminance band'),
+                          SnackBar(
+                            content: Text(AppStrings.of(context).maskSampleLuminance),
                             duration: Duration(seconds: 2),
                           ),
                         );
@@ -1224,7 +1225,7 @@ class MaskControls extends ConsumerWidget {
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       icon: const Icon(Icons.clear, size: 14),
-                      label: const Text('Clear', style: TextStyle(fontSize: 11)),
+                      label: Text(AppStrings.of(context).maskClear, style: TextStyle(fontSize: 11)),
                       onPressed: () {
                         notifier.updateLayerAt(i, layer.withClearedStrokes());
                       },
@@ -1451,7 +1452,7 @@ class MaskControls extends ConsumerWidget {
                 ActionChip(
                   key: const Key('mask-inline-color-eyedropper'),
                   avatar: const Icon(Icons.color_lens, size: 14),
-                  label: const Text('Sample Color', style: TextStyle(fontSize: 11)),
+                  label: Text(AppStrings.of(context).maskSampleColorBtn, style: TextStyle(fontSize: 11)),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   onPressed: () {
@@ -1459,8 +1460,8 @@ class MaskControls extends ConsumerWidget {
                     ref.read(nodeEditorProvider.notifier).select(i);
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Tap photo to sample target color'),
+                      SnackBar(
+                        content: Text(AppStrings.of(context).maskSampleColor),
                         duration: Duration(seconds: 2),
                       ),
                     );
@@ -1686,8 +1687,8 @@ class MaskControls extends ConsumerWidget {
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('AI segmentation failed; using fallback subject mask'),
+          SnackBar(
+            content: Text(AppStrings.of(context).maskAISegmentationFailed),
           ),
         );
       }
@@ -1771,8 +1772,8 @@ class MaskControls extends ConsumerWidget {
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Face detection failed; using fallback face mask'),
+          SnackBar(
+            content: Text(AppStrings.of(context).maskFaceDetectionFailed),
           ),
         );
       }
@@ -1851,7 +1852,7 @@ class MaskControls extends ConsumerWidget {
     if (!context.mounted) return;
     if (bytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No photo loaded for depth extraction')),
+        SnackBar(content: Text(AppStrings.of(context).maskNoPhotoDepth)),
       );
       return;
     }
@@ -1878,7 +1879,7 @@ class MaskControls extends ConsumerWidget {
         HapticFeedback.selectionClick();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Loaded embedded portrait depth mask')),
+            SnackBar(content: Text(AppStrings.of(context).maskDepthLoaded)),
           );
         }
       } else {
@@ -1908,14 +1909,14 @@ class MaskControls extends ConsumerWidget {
         HapticFeedback.selectionClick();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Generated AI neural depth mask via $modelName')),
+            SnackBar(content: Text(AppStrings.of(context).maskDepthGenerated(modelName))),
           );
         }
       }
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not generate depth mask')),
+          SnackBar(content: Text(AppStrings.of(context).maskDepthFailed)),
         );
       }
     } finally {
@@ -2227,18 +2228,18 @@ class _MaskColorGradingSectionState extends State<_MaskColorGradingSection> {
         const SizedBox(height: 4),
         SegmentedButton<GradeWheelZone>(
           key: widget.segmentedKey,
-          segments: const [
+          segments: [
             ButtonSegment(
               value: GradeWheelZone.shadows,
-              label: Text('Shadows'),
+              label: Text(AppStrings.of(context).maskShadows),
             ),
             ButtonSegment(
               value: GradeWheelZone.midtones,
-              label: Text('Midtones'),
+              label: Text(AppStrings.of(context).maskMidtones),
             ),
             ButtonSegment(
               value: GradeWheelZone.highlights,
-              label: Text('Highlights'),
+              label: Text(AppStrings.of(context).maskHighlights),
             ),
           ],
           selected: {_zone},
