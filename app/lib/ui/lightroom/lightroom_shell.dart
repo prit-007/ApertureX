@@ -12,6 +12,7 @@ import '../../edit/active_image.dart' show activeImageBytesProvider;
 import '../../edit/parameter.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
+import '../../edit/snapshots_provider.dart';
 import '../../engine/engine.dart';
 import '../../features/ai_plugins/ai_plugin_model.dart';
 import '../../features/ai_plugins/ai_plugin_store.dart';
@@ -648,6 +649,18 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     },
                     icon: const Icon(Icons.wb_iridescent_outlined),
                     selectedIcon: Icon(Icons.wb_iridescent, color: scheme.primary),
+                  ),
+                  IconButton(
+                    tooltip: 'Snapshot A/B Compare',
+                    visualDensity: VisualDensity.compact,
+                    isSelected: ref.watch(snapshotCompareEnabledProvider),
+                    onPressed: () {
+                      ref.read(snapshotCompareEnabledProvider.notifier).toggle();
+                      HapticFeedback.selectionClick();
+                    },
+                    icon: const Icon(Icons.compare_arrows),
+                    selectedIcon:
+                        Icon(Icons.compare_arrows, color: scheme.primary),
                   ),
                   IconButton(
                     key: const Key('tray-soft-proofing'),

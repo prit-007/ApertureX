@@ -852,24 +852,26 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     final motionDuration = AppMotion.responsive(context, AppMotion.standardDuration);
 
-    return AnimatedSwitcher(
-      duration: motionDuration,
-      switchInCurve: AppMotion.standardCurve,
-      switchOutCurve: AppMotion.standardCurve,
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        if (motionDuration == Duration.zero) return child;
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0.0, 0.05),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          ),
-        );
-      },
-      child: shell,
+    return OrientationBuilder(
+      builder: (context, orientation) => AnimatedSwitcher(
+        duration: motionDuration,
+        switchInCurve: AppMotion.standardCurve,
+        switchOutCurve: AppMotion.standardCurve,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          if (motionDuration == Duration.zero) return child;
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.0, 0.05),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: shell,
+      ),
     );
   }
 }
@@ -1239,7 +1241,7 @@ class _HistogramDrawerState extends ConsumerState<_HistogramDrawer> {
                   const Icon(Icons.bar_chart, size: 16),
                   const SizedBox(width: Insets.xs),
                   Text(
-                    'Histogram',
+                    AppStrings.of(context).histogram,
                     style: TextStyle(
                       fontSize: 11,
                       color: scheme.onSurfaceVariant,

@@ -173,5 +173,15 @@ void main() {
       container.read(snapshotCompareRecipeProvider.notifier).setRecipe(null);
       expect(container.read(snapshotCompareRecipeProvider), isNull);
     });
+
+    test('snapshotCompareEnabledProvider defaults to false and toggles', () {
+      expect(container.read(snapshotCompareEnabledProvider), isFalse);
+
+      container.read(snapshotCompareEnabledProvider.notifier).toggle();
+      expect(container.read(snapshotCompareEnabledProvider), isTrue);
+
+      container.read(snapshotCompareEnabledProvider.notifier).toggle();
+      expect(container.read(snapshotCompareEnabledProvider), isFalse);
+    });
   });
 }

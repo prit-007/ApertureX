@@ -121,15 +121,30 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     });
     try {
       final asset = _currentAsset;
-      final bytes = widget.imageBytes ??
-          (asset != null
-              ? await ref
-                    .read(gallerySourceProvider)
-                    .loadPreview(asset.id)
-              : await AxEngine.syntheticJpeg(width: 1024, height: 1024));
+      final isRawAsset = asset != null && _isRawAsset(asset);
+      Uint8List bytes;
+      if (widget.imageBytes != null) {
+        bytes = widget.imageBytes!;
+      } else if (asset == null) {
+        bytes = await AxEngine.syntheticJpeg(width: 1024, height: 1024);
+      } else if (isRawAsset) {
+        // RAW embedded preview fast path: show embedded JPEG immediately
+        // while full demosaic runs in the background via _upgradeToMaster.
+        final embedded = await ref
+            .read(gallerySourceProvider)
+            .loadPreview(asset.id);
+        final extracted = await AxEngine.extractRawEmbeddedPreview(embedded);
+        bytes = embedded;
+        if (extracted != null && extracted.isNotEmpty) {
+          bytes = extracted;
+          axLog(LogDomain.editor, 'Using embedded RAW preview (${embedded.length} bytes)');
+        }
+      } else {
+        bytes = await ref.read(gallerySourceProvider).loadPreview(asset.id);
+      }
       if (bytes.isEmpty) throw StateError('The image could not be read.');
       if (!mounted) return;
-      axLog(LogDomain.editor, 'Opened ${asset?.id ?? 'sample image'}');
+      axLog(LogDomain.editor, 'Opened ${asset != null ? asset.id : 'sample image'}');
 
       // Restore this entry's saved (non-destructive) recipe, or start neutral.
       final notifier = ref.read(recipeControllerProvider.notifier);
@@ -158,6 +173,24 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _loading = false;
       });
     }
+  }
+
+  /// Whether [asset] is a RAW file based on its MIME type or extension.
+  bool _isRawAsset(GalleryAsset asset) {
+    final mime = asset.mimeType ?? '';
+    if (mime.startsWith('image/') && !mime.contains('jpeg') &&
+        !mime.contains('png') && !mime.contains('webp') &&
+        !mime.contains('gif') && !mime.contains('bmp') &&
+        !mime.contains('heic') && !mime.contains('avif') &&
+        !mime.contains('tiff')) {
+      return true;
+    }
+    final ext = (asset.relativePath ?? '').toLowerCase();
+    return ext.endsWith('.dng') || ext.endsWith('.cr2') ||
+        ext.endsWith('.nef') || ext.endsWith('.arw') ||
+        ext.endsWith('.rw2') || ext.endsWith('.orf') ||
+        ext.endsWith('.pef') || ext.endsWith('.srw') ||
+        ext.endsWith('.cr3') || ext.endsWith('.raf');
   }
 
   Future<void> _switchToAsset(GalleryAsset nextAsset) async {

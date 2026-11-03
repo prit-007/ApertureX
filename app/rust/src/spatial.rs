@@ -2353,6 +2353,40 @@ mod tests {
         }
     }
 
+    /// Parity oracle for C7: output_sharpen must be applied exactly once, and
+    /// the preview (apply_spatial) and export (apply_spatial_band stitched)
+    /// paths must agree byte-for-byte.
+    #[test]
+    fn output_sharpen_parity_preview_matches_export() {
+        let (w, h) = (64, 48);
+        let src = noise(w, h);
+        let p = SpatialParams {
+            output_sharpen_media: 1, // Screen
+            output_sharpen: 0.6,
+            ..Default::default()
+        };
+
+        // Preview path: apply_spatial (full frame)
+        let preview = apply_spatial(&src, w, h, p);
+
+        // Export path: apply_spatial_band stitched
+        let mut exported = Vec::with_capacity(src.len());
+        let mut y = 0;
+        while y < h {
+            let bh = 16.min(h - y);
+            exported.extend_from_slice(&apply_spatial_band(&src, w, h, y, bh, p));
+            y += bh;
+        }
+
+        assert_eq!(
+            preview, exported,
+            "output_sharpen must be applied exactly once in both preview and export paths"
+        );
+
+        // And the sharpened output must differ from neutral (sanity check)
+        assert_ne!(preview, src, "output_sharpen > 0 must change the image");
+    }
+
     #[test]
     fn banded_spatial_matches_for_each_op_alone() {
         let (w, h) = (64, 64);

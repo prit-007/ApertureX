@@ -211,7 +211,7 @@ void main() {
         task: AiTask.denoise,
       );
 
-      final store = container.read(aiPluginProvider);
+      final store = container.read(aiPluginProvider.notifier);
       expect(store.isDenoiseModelAvailable, isTrue);
     });
 
@@ -229,7 +229,7 @@ void main() {
       final addedId = notifier.state.installedPlugins.last.id;
       await notifier.togglePlugin(addedId, false);
 
-      final store = container.read(aiPluginProvider);
+      final store = container.read(aiPluginProvider.notifier);
       expect(store.isDenoiseModelAvailable, isFalse);
     });
 
@@ -244,7 +244,7 @@ void main() {
         task: AiTask.depthEstimation,
       );
 
-      final store = container.read(aiPluginProvider);
+      final store = container.read(aiPluginProvider.notifier);
       expect(store.isAiModelAvailable(AiTask.depthEstimation), isTrue);
     });
 

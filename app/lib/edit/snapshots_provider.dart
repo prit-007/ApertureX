@@ -65,3 +65,18 @@ final snapshotCompareRecipeProvider =
     NotifierProvider<SnapshotCompareRecipeNotifier, EditRecipe?>(
   SnapshotCompareRecipeNotifier.new,
 );
+
+/// Whether snapshot A/B compare mode is active. When enabled and a snapshot
+/// recipe is set via [snapshotCompareRecipeProvider], the compare hold shows
+/// the snapshot instead of the original source.
+class SnapshotCompareEnabled extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+}
+
+final snapshotCompareEnabledProvider =
+    NotifierProvider<SnapshotCompareEnabled, bool>(
+  SnapshotCompareEnabled.new,
+);

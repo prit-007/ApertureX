@@ -134,6 +134,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(SwitchListTile), findsWidgets);
     });
+
+    testWidgets('uses OrientationBuilder to adapt portrait vs landscape', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpShell(tester);
+
+      // OrientationBuilder must be present in the widget tree for
+      // portrait/landscape layout branching.
+      expect(find.byType(OrientationBuilder), findsWidgets);
+    });
   });
 
   group('Stylus pressure (issue #35)', () {

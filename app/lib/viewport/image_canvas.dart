@@ -18,6 +18,7 @@ import '../edit/muted_parameters.dart';
 import '../edit/parameter.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_controller.dart';
+import '../edit/snapshots_provider.dart';
 import '../engine/engine.dart';
 import '../engine/image_format.dart';
 import '../engine/preview_texture.dart';
@@ -128,6 +129,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   int _baseW = 0;
   int _baseH = 0;
 
+  /// Baked snapshot image for A/B compare. When [snapshotCompareEnabledProvider]
+  /// is on and [snapshotCompareRecipeProvider] holds a recipe, this image is
+  /// shown as the "before" side of the compare instead of the original source.
+  ui.Image? _snapshotImage;
+
   /// Spike B: platform texture id when Rust writes frames straight into a
   /// Flutter `Texture` (zero pixels over the bridge). Null → spike-A
   /// return-frame + shader path. `_useTexture` is false while an imported LUT
@@ -156,6 +162,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   Timer? _histogramDebounce;
   bool _baking = false;
   EditRecipe? _pendingRecipe;
+  EditRecipe? _pendingSnapshotRecipe;
   bool _pendingBaseChanged = false;
   bool _pendingGradeChanged = false;
 
@@ -857,6 +864,52 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     );
   }
 
+  /// Bakes the [snapshot] recipe into `_snapshotImage` for A/B compare.
+  /// Uses the same bake pipeline as the main recipe but stores the result
+  /// separately so it can serve as the compare "before" image.
+  void _scheduleSnapshotBake(EditRecipe recipe) {
+    if (_program == null || _previewHandle == null) return;
+    if (_baking) {
+      // Defer: will be picked up after the current bake settles.
+      _pendingSnapshotRecipe = recipe;
+      return;
+    }
+    _rebakeSnapshot(recipe);
+  }
+
+  Future<void> _rebakeSnapshot(EditRecipe recipe) async {
+    if (_program == null || _previewHandle == null) return;
+    _baking = true;
+    final token = ++_bakeToken;
+    try {
+      final baked = await AxEngine.previewBase(
+        _previewHandle!,
+        spec: _baseSpec(recipe),
+        layers: recipe.layers,
+        maskGroups: recipe.maskGroups,
+        retouchPatches: recipe.retouchPatches,
+      );
+      if (!mounted || _disposed || token != _bakeToken) return;
+      final image = await _imageFrom(baked.rgba, baked.width, baked.height);
+      if (!mounted || _disposed) {
+        image.dispose();
+        return;
+      }
+      _snapshotImage?.dispose();
+      _snapshotImage = image;
+      setState(() {});
+    } catch (_) {
+      // Snapshot bake failure is non-fatal: compare falls back to original.
+    } finally {
+      _baking = false;
+      if (_pendingSnapshotRecipe != null) {
+        final pending = _pendingSnapshotRecipe!;
+        _pendingSnapshotRecipe = null;
+        _scheduleSnapshotBake(pending);
+      }
+    }
+  }
+
   void _settleFullRes() {
     if (_disposed || !mounted || _program == null || _previewHandle == null) return;
     final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
@@ -1111,6 +1164,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _shader?.dispose();
     _source?.dispose();
     _baseImage?.dispose();
+    _snapshotImage?.dispose();
     _lut?.dispose();
     _dropTexture(); // release the platform texture (#54)
     _roiDebounce?.cancel();
@@ -1204,6 +1258,29 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       }
       _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
     });
+    // Snapshot A/B compare: bake the snapshot recipe when the toggle is on
+    // and a snapshot recipe is set, so it can serve as the compare "before."
+    ref.listen<bool>(snapshotCompareEnabledProvider, (_, enabled) {
+      if (enabled) {
+        final snapshot = ref.read(snapshotCompareRecipeProvider);
+        if (snapshot != null) {
+          _scheduleSnapshotBake(snapshot);
+        }
+      } else {
+        _snapshotImage?.dispose();
+        _snapshotImage = null;
+        setState(() {});
+      }
+    });
+    ref.listen<EditRecipe?>(snapshotCompareRecipeProvider, (_, recipe) {
+      if (ref.read(snapshotCompareEnabledProvider) && recipe != null) {
+        _scheduleSnapshotBake(recipe);
+      } else if (recipe == null) {
+        _snapshotImage?.dispose();
+        _snapshotImage = null;
+        if (mounted) setState(() {});
+      }
+    });
     // Haptic Zone Masking: switch to shader path during 2-finger zone targeting
     ref.listen(zoneMaskProvider, (previous, next) {
       if (previous?.isTargeting != next.isTargeting) {
@@ -1253,10 +1330,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     // mode without a LUT); the `!`s feed definite-assignment analysis.
     final fragShader = shader!;
     // The shader grades the edited base image when available; falls back to
-    // the unedited proxy. The compare "before" side always uses the unedited
-    // source so the user sees the true original.
+    // the unedited proxy. The compare "before" side uses the snapshot recipe
+    // when snapshot A/B compare is active, otherwise the unedited source.
     final proxySource = baseImage ?? uneditedSource!;
-    final compareSource = uneditedSource!;
+    final snapshotCompareEnabled = ref.watch(snapshotCompareEnabledProvider);
+    final compareSource =
+        snapshotCompareEnabled && _snapshotImage != null
+            ? _snapshotImage!
+            : uneditedSource!;
 
     final tat = ref.watch(tatModeProvider);
     final tatComponent = ref.watch(tatComponentProvider);

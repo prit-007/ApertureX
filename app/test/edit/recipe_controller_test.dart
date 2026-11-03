@@ -7,8 +7,28 @@ import 'package:aperturex/edit/parameter.dart';
 import 'package:aperturex/edit/recipe.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
 import 'package:aperturex/edit/recipe_state.dart';
+import 'package:aperturex/features/ai_plugins/ai_plugin_model.dart';
+import 'package:aperturex/features/ai_plugins/ai_plugin_store.dart';
+import 'package:aperturex/src/rust/frb_generated.dart';
+
+/// Mocks the blur AI model API so [AiPluginNotifier] can sync plugins without
+/// a native Rust library in unit tests.
+class _AiPluginBlurApi extends Fake implements RustLibApi {
+  @override
+  Future<bool> crateApiBlurSetActiveMlModel({
+    required String task,
+    required String path,
+  }) async =>
+      true;
+}
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    RustLib.initMock(api: _AiPluginBlurApi());
+  });
+
   late ProviderContainer container;
   late RecipeController notifier;
 
@@ -299,6 +319,30 @@ void main() {
 
       notifier.applyCrop(crop: [0.1, 0.1, 0.9, 0.9]);
       expect(activityLog.entries.any((e) => e.domain == LogDomain.editor && e.message.contains('Crop')), isTrue);
+    });
+  });
+
+  group('AI denoise model gating', () {
+    test('update aiDenoise forces 0.0 when no denoise model is available', () {
+      notifier.update(Parameter.aiDenoise, 0.8);
+      expect(state().recipe.aiDenoise, 0.0);
+    });
+
+    test('update aiDenoise accepts value when denoise model is available', () async {
+      final aiStore = container.read(aiPluginProvider.notifier);
+      await aiStore.addCustomPlugin(
+        name: 'Test Denoise',
+        url: 'https://example.com/denoise.onnx',
+        task: AiTask.denoise,
+      );
+
+      notifier.update(Parameter.aiDenoise, 0.75);
+      expect(state().recipe.aiDenoise, 0.75);
+    });
+
+    test('update non-ai parameters is not affected by model availability', () {
+      notifier.update(Parameter.contrast, 0.5);
+      expect(state().recipe.contrast, 0.5);
     });
   });
 
