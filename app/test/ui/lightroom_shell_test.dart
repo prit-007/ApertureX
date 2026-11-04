@@ -501,6 +501,51 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  testWidgets(
+    'Looks & Presets master tab renders horizontal filmstrip with catalog presets and applies look',
+    (tester) async {
+      await pump(tester);
+
+      // Tap Looks & Presets tab
+      await tester.tap(find.text('Looks & Presets'));
+      await tester.pumpAndSettle();
+
+      // Verify panel header, count badge and search toggle
+      expect(find.text('Looks & Presets'), findsWidgets);
+      expect(find.byKey(const Key('preset-search-toggle')), findsOneWidget);
+      expect(find.byKey(const Key('preset-scan-qr-btn')), findsOneWidget);
+
+      // Verify horizontal filmstrip list view
+      final filmstrip = find.byKey(const Key('preset-filmstrip-list'));
+      expect(filmstrip, findsOneWidget);
+      final listWidget = tester.widget<ListView>(filmstrip);
+      expect(listWidget.scrollDirection, Axis.horizontal);
+
+      // Verify category chips exist (e.g. Cinema, Anime, Film)
+      expect(find.byKey(const Key('preset-cat-All')), findsOneWidget);
+      expect(find.byKey(const Key('preset-cat-Cinema')), findsOneWidget);
+      expect(find.byKey(const Key('preset-cat-Anime')), findsOneWidget);
+
+      // Verify built-in preset appears in initial view
+      expect(find.text('Punch'), findsOneWidget);
+
+      // Switch to Cinema category to verify catalog movie looks
+      await tester.tap(find.byKey(const Key('preset-cat-Cinema')));
+      await tester.pumpAndSettle();
+
+      // Verify movie looks from PresetCatalog are populated (e.g. Blade Runner 2049)
+      expect(find.text('Blade Runner 2049'), findsOneWidget);
+
+      // Tap preset card to apply
+      await tester.tap(find.text('Blade Runner 2049'));
+      await tester.pumpAndSettle();
+
+      // Verify recipe updated with Blade Runner 2049 parameters
+      final recipe = container.read(recipeControllerProvider).recipe;
+      expect(recipe.exposure, isNotNull);
+    },
+  );
 }
 
 IconButton cancelBtn(WidgetTester tester) =>

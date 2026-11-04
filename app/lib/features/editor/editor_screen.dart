@@ -17,6 +17,7 @@ import '../../color/optics_spec.dart';
 import '../../color/spatial_spec.dart';
 import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
+import '../../color/imported_lut.dart';
 import '../../core/theme/design_tokens.dart';
 import 'background_export_worker.dart';
 import 'editor_shortcuts.dart';
@@ -36,6 +37,7 @@ import '../../gallery/edit_preview_store.dart';
 import '../../gallery/gallery_asset.dart';
 import '../../gallery/gallery_controller.dart';
 import '../../platform/photo_saver.dart';
+import '../../l10n/app_strings.dart';
 import 'export_options_sheet.dart';
 import 'export_screen.dart';
 import '../../engine/engine.dart';
@@ -119,15 +121,30 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     });
     try {
       final asset = _currentAsset;
-      final bytes = widget.imageBytes ??
-          (asset != null
-              ? await ref
-                    .read(gallerySourceProvider)
-                    .loadPreview(asset.id)
-              : await AxEngine.syntheticJpeg(width: 1024, height: 1024));
+      final isRawAsset = asset != null && _isRawAsset(asset);
+      Uint8List bytes;
+      if (widget.imageBytes != null) {
+        bytes = widget.imageBytes!;
+      } else if (asset == null) {
+        bytes = await AxEngine.syntheticJpeg(width: 1024, height: 1024);
+      } else if (isRawAsset) {
+        // RAW embedded preview fast path: show embedded JPEG immediately
+        // while full demosaic runs in the background via _upgradeToMaster.
+        final embedded = await ref
+            .read(gallerySourceProvider)
+            .loadPreview(asset.id);
+        final extracted = await AxEngine.extractRawEmbeddedPreview(embedded);
+        bytes = embedded;
+        if (extracted != null && extracted.isNotEmpty) {
+          bytes = extracted;
+          axLog(LogDomain.editor, 'Using embedded RAW preview (${embedded.length} bytes)');
+        }
+      } else {
+        bytes = await ref.read(gallerySourceProvider).loadPreview(asset.id);
+      }
       if (bytes.isEmpty) throw StateError('The image could not be read.');
       if (!mounted) return;
-      axLog(LogDomain.editor, 'Opened ${asset?.id ?? 'sample image'}');
+      axLog(LogDomain.editor, 'Opened ${asset != null ? asset.id : 'sample image'}');
 
       // Restore this entry's saved (non-destructive) recipe, or start neutral.
       final notifier = ref.read(recipeControllerProvider.notifier);
@@ -156,6 +173,24 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _loading = false;
       });
     }
+  }
+
+  /// Whether [asset] is a RAW file based on its MIME type or extension.
+  bool _isRawAsset(GalleryAsset asset) {
+    final mime = asset.mimeType ?? '';
+    if (mime.startsWith('image/') && !mime.contains('jpeg') &&
+        !mime.contains('png') && !mime.contains('webp') &&
+        !mime.contains('gif') && !mime.contains('bmp') &&
+        !mime.contains('heic') && !mime.contains('avif') &&
+        !mime.contains('tiff')) {
+      return true;
+    }
+    final ext = (asset.relativePath ?? '').toLowerCase();
+    return ext.endsWith('.dng') || ext.endsWith('.cr2') ||
+        ext.endsWith('.nef') || ext.endsWith('.arw') ||
+        ext.endsWith('.rw2') || ext.endsWith('.orf') ||
+        ext.endsWith('.pef') || ext.endsWith('.srw') ||
+        ext.endsWith('.cr3') || ext.endsWith('.raf');
   }
 
   Future<void> _switchToAsset(GalleryAsset nextAsset) async {
@@ -265,6 +300,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       case ExportAction.savePng:
         await _exportPngToPhotos();
         break;
+      case ExportAction.saveHeic:
+        await _exportHeicToPhotos();
+        break;
+      case ExportAction.saveAvif:
+        await _exportAvifToPhotos();
+        break;
       case ExportAction.saveDngWithXmp:
         await _exportDngToPhotos();
         break;
@@ -323,6 +364,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         recipe: recipe,
         targetPath: targetPath,
         format: ExportFormat.jpeg,
+        layers: recipe.layers,
+        lutAtlas: ref.read(importedLutProvider)?.rgba,
+        lutSize: ref.read(importedLutProvider)?.size ?? 0,
       );
 
       if (!mounted) return;
@@ -459,6 +503,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           blur: LensBlurSpec.fromRecipe(recipe),
           layers: recipe.layers,
           maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
           exif: exif,
           quality: 85,
           maxDim: 1600,
@@ -605,6 +652,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           blur: LensBlurSpec.fromRecipe(recipe),
           layers: recipe.layers,
           maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
           exif: exif,
           branding: exportCustoms.branding,
           c2pa: exportCustoms.c2pa,
@@ -795,6 +845,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           blur: LensBlurSpec.fromRecipe(recipe),
           layers: recipe.layers,
           maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
           exif: exif,
           branding: exportCustoms.branding,
           c2pa: exportCustoms.c2pa,
@@ -887,6 +940,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           blur: LensBlurSpec.fromRecipe(recipe),
           layers: recipe.layers,
           maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
           exif: exif,
           branding: exportCustoms.branding,
           c2pa: exportCustoms.c2pa,
@@ -968,6 +1024,216 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     );
   }
 
+  Future<void> _exportHeicToPhotos() async {
+    await _runJpegExportPipeline(
+      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+        final settings = ref.read(exportSettingsProvider);
+        final exportCustoms = await _buildExportBrandingAndC2pa(
+          bytes: bytes,
+          recipe: recipe,
+          exif: exif,
+        );
+        return await AxEngine.exportJpegFull(
+          rgba: decoded.rgba,
+          width: decoded.width,
+          height: decoded.height,
+          spec: GradeSpec.fromRecipe(recipe),
+          spatial: SpatialSpec.fromRecipe(recipe),
+          geometry: GeometrySpec.fromRecipe(recipe),
+          optics: OpticsSpec.fromRecipe(recipe),
+          blur: LensBlurSpec.fromRecipe(recipe),
+          layers: recipe.layers,
+          maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
+          exif: exif,
+          branding: exportCustoms.branding,
+          c2pa: exportCustoms.c2pa,
+          quality: settings.quality,
+          maxDim: settings.maxDim == 0 ? null : settings.maxDim,
+          cancelToken: token,
+          colorSpace: settings.colorSpace,
+          ultraHdr: false,
+          hdrHeadroom: settings.hdrHeadroom,
+          outputSharpenMedia: settings.outputSharpenMedia,
+          outputSharpen: settings.outputSharpen,
+        );
+      },
+      onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
+        if (!mounted) return;
+        setState(() => _exportPhase = ExportPhase.saving);
+
+        final baked = await AxEngine.decodeJpegRgba(jpeg);
+        final settings = ref.read(exportSettingsProvider);
+        final heic = await AxEngine.exportHeic(
+          rgba: baked.rgba,
+          width: baked.width,
+          height: baked.height,
+          quality: settings.quality,
+        );
+
+        if (!mounted) return;
+        final baseName =
+            widget.asset?.id.split('/').last.split('\\').last ?? 'photo';
+        final outName =
+            settings.formatFilename(original: baseName, preset: 'heic');
+
+        final outcome = await ref
+            .read(photoSaverProvider)
+            .saveFile(heic, name: outName, extension: 'heic');
+        if (outcome == null) {
+          axLog(LogDomain.export, 'HEIC save cancelled at the file dialog');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Save cancelled')),
+            );
+          }
+          return;
+        }
+
+        await emitXmpSidecar(
+          ref.read(exportSidecarSinkProvider),
+          outName,
+          recipe,
+        );
+
+        axLog(LogDomain.export, 'Exported HEIC (${heic.length} bytes)');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: outcome is SavedToFile
+                  ? Text('HEIC saved to ${outcome.file.path}')
+                  : const Text('HEIC saved to your photos'),
+            ),
+          );
+        }
+      },
+      onCancelled: () {
+        axLog(LogDomain.export, 'HEIC export cancelled');
+      },
+      onError: (e) {
+        axLog(LogDomain.export, 'HEIC export failed: $e', level: LogLevel.error);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('HEIC export failed: $e'),
+              action: SnackBarAction(
+                label: 'Retry',
+                onPressed: () => _exportHeicToPhotos(),
+              ),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _exportAvifToPhotos() async {
+    await _runJpegExportPipeline(
+      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+        final settings = ref.read(exportSettingsProvider);
+        final exportCustoms = await _buildExportBrandingAndC2pa(
+          bytes: bytes,
+          recipe: recipe,
+          exif: exif,
+        );
+        return await AxEngine.exportJpegFull(
+          rgba: decoded.rgba,
+          width: decoded.width,
+          height: decoded.height,
+          spec: GradeSpec.fromRecipe(recipe),
+          spatial: SpatialSpec.fromRecipe(recipe),
+          geometry: GeometrySpec.fromRecipe(recipe),
+          optics: OpticsSpec.fromRecipe(recipe),
+          blur: LensBlurSpec.fromRecipe(recipe),
+          layers: recipe.layers,
+          maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
+          exif: exif,
+          branding: exportCustoms.branding,
+          c2pa: exportCustoms.c2pa,
+          quality: settings.quality,
+          maxDim: settings.maxDim == 0 ? null : settings.maxDim,
+          cancelToken: token,
+          colorSpace: settings.colorSpace,
+          ultraHdr: false,
+          hdrHeadroom: settings.hdrHeadroom,
+          outputSharpenMedia: settings.outputSharpenMedia,
+          outputSharpen: settings.outputSharpen,
+        );
+      },
+      onSaveResult: (jpeg, recipe, exif, rgba, width, height) async {
+        if (!mounted) return;
+        setState(() => _exportPhase = ExportPhase.saving);
+
+        final baked = await AxEngine.decodeJpegRgba(jpeg);
+        final settings = ref.read(exportSettingsProvider);
+        final avif = await AxEngine.exportAvif(
+          rgba: baked.rgba,
+          width: baked.width,
+          height: baked.height,
+          quality: settings.quality,
+        );
+
+        if (!mounted) return;
+        final baseName =
+            widget.asset?.id.split('/').last.split('\\').last ?? 'photo';
+        final outName =
+            settings.formatFilename(original: baseName, preset: 'avif');
+
+        final outcome = await ref
+            .read(photoSaverProvider)
+            .saveFile(avif, name: outName, extension: 'avif');
+        if (outcome == null) {
+          axLog(LogDomain.export, 'AVIF save cancelled at the file dialog');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Save cancelled')),
+            );
+          }
+          return;
+        }
+
+        await emitXmpSidecar(
+          ref.read(exportSidecarSinkProvider),
+          outName,
+          recipe,
+        );
+
+        axLog(LogDomain.export, 'Exported AVIF (${avif.length} bytes)');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: outcome is SavedToFile
+                  ? Text('AVIF saved to ${outcome.file.path}')
+                  : const Text('AVIF saved to your photos'),
+            ),
+          );
+        }
+      },
+      onCancelled: () {
+        axLog(LogDomain.export, 'AVIF export cancelled');
+      },
+      onError: (e) {
+        axLog(LogDomain.export, 'AVIF export failed: $e', level: LogLevel.error);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('AVIF export failed: $e'),
+              action: SnackBarAction(
+                label: 'Retry',
+                onPressed: () => _exportAvifToPhotos(),
+              ),
+            ),
+          );
+        }
+      },
+    );
+  }
+
   Future<void> _exportAndShare() async {
     await _runJpegExportPipeline(
       exportJpeg: (decoded, exif, token, bytes, recipe) async {
@@ -989,6 +1255,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           blur: LensBlurSpec.fromRecipe(recipe),
           layers: recipe.layers,
           maskGroups: recipe.maskGroups,
+          retouchPatches: recipe.retouchPatches,
+          lutAtlas: ref.read(importedLutProvider)?.rgba,
+          lutSize: ref.read(importedLutProvider)?.size ?? 0,
           exif: exif,
           branding: exportCustoms.branding,
           c2pa: exportCustoms.c2pa,
@@ -1128,13 +1397,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       );
     });
 
+    final strings = AppStrings.of(context);
     final undo = Semantics(
-      label: 'Undo',
+      label: strings.undo,
       hint: 'Double tap to undo, long press to open edit history tree',
       button: true,
       enabled: canUndo,
       child: Tooltip(
-        message: 'Undo',
+        message: strings.undo,
         triggerMode: TooltipTriggerMode.manual,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -1151,7 +1421,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       ),
     );
     final redo = IconButton(
-      tooltip: 'Redo',
+      tooltip: strings.redo,
       onPressed: canRedo ? notifier.redo : null,
       icon: const Icon(Icons.redo),
     );
@@ -1165,7 +1435,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       ),
     );
     final export = Semantics(
-      label: _exporting ? 'Cancel export' : 'Export photo',
+      label: _exporting ? 'Cancel export' : '${strings.export} photo',
       hint: _exporting
           ? 'Double tap to cancel the current export'
           : 'Double tap to open export options',
@@ -1186,7 +1456,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 ),
               )
             : const Icon(Icons.ios_share, size: 18),
-        label: Text(_exporting ? 'Cancel' : 'Export'),
+        label: Text(_exporting ? 'Cancel' : strings.export),
       ),
     );
 
@@ -1306,13 +1576,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
+      final strings = AppStrings.of(context);
       return EmptyState(
         icon: Icons.broken_image_outlined,
-        title: 'Could not open this photo',
+        title: strings.couldNotOpenPhoto,
         message: _error,
         action: FilledButton.tonal(
           onPressed: _resolve,
-          child: const Text('Try again'),
+          child: Text(strings.tryAgain),
         ),
       );
     }

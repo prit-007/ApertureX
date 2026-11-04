@@ -126,7 +126,6 @@ class EditRecipe {
     this.shaderParam1 = 0,
     this.shaderParam2 = 0,
     this.shaderParam3 = 0,
-    this.customGlslCode = '',
   });
 
   /// Deserialises from [json], tolerating missing keys (default to neutral) and
@@ -256,7 +255,6 @@ class EditRecipe {
       shaderParam1: asDouble('shaderParam1'),
       shaderParam2: asDouble('shaderParam2'),
       shaderParam3: asDouble('shaderParam3'),
-      customGlslCode: json['customGlslCode'] as String? ?? '',
     );
   }
 
@@ -285,10 +283,10 @@ class EditRecipe {
   // Light.
   final double exposure; // EV, neutral 0.
   final double contrast; // unitless, neutral 0.
-  final double highlights; // unitless, neutral 0 (not yet rendered).
-  final double shadows; // unitless, neutral 0 (not yet rendered).
-  final double whites; // unitless, neutral 0 (not yet rendered).
-  final double blacks; // unitless, neutral 0 (not yet rendered).
+  final double highlights; // unitless, neutral 0 (spatial edge-aware curve).
+  final double shadows; // unitless, neutral 0 (spatial edge-aware curve).
+  final double whites; // unitless, neutral 0.
+  final double blacks; // unitless, neutral 0.
   final double clarity; // spatial pass, neutral 0.
   final double texture; // spatial pass, neutral 0.
   final double dehaze; // spatial pass, neutral 0.
@@ -392,7 +390,6 @@ class EditRecipe {
   final double shaderParam1;
   final double shaderParam2;
   final double shaderParam3;
-  final String customGlslCode;
 
   // Perspective & skew geometry (GPU Matrix4 preview, Rust resample on export).
   final double perspectiveX; // horizontal perspective, neutral 0, range ~[-1,1]
@@ -492,7 +489,6 @@ class EditRecipe {
     double? shaderParam1,
     double? shaderParam2,
     double? shaderParam3,
-    String? customGlslCode,
   }) {
     return EditRecipe(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -585,7 +581,6 @@ class EditRecipe {
       shaderParam1: shaderParam1 ?? this.shaderParam1,
       shaderParam2: shaderParam2 ?? this.shaderParam2,
       shaderParam3: shaderParam3 ?? this.shaderParam3,
-      customGlslCode: customGlslCode ?? this.customGlslCode,
     );
   }
 
@@ -680,7 +675,6 @@ class EditRecipe {
     'shaderParam1': shaderParam1,
     'shaderParam2': shaderParam2,
     'shaderParam3': shaderParam3,
-    'customGlslCode': customGlslCode,
   };
 
   @override
@@ -774,8 +768,7 @@ class EditRecipe {
       other.shaderLabPreset == shaderLabPreset &&
       other.shaderParam1 == shaderParam1 &&
       other.shaderParam2 == shaderParam2 &&
-      other.shaderParam3 == shaderParam3 &&
-      other.customGlslCode == customGlslCode;
+      other.shaderParam3 == shaderParam3;
 
   @override
   int get hashCode => Object.hash(
@@ -868,7 +861,6 @@ class EditRecipe {
       shaderParam1,
       shaderParam2,
       shaderParam3,
-      customGlslCode,
     ),
   );
 

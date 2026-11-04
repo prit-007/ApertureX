@@ -194,6 +194,16 @@ class ExportSettings {
       case 'png':
         bytes = pixels * 4.0 * 0.45; // ~45% compression of RGBA
         break;
+      case 'heic':
+        // HEVC intra ~ 50% of JPEG size at equivalent quality
+        final qFactor = (0.08 + (quality / 100.0) * 0.22) * 0.5;
+        bytes = pixels * qFactor;
+        break;
+      case 'avif':
+        // AV1 intra ~ 45% of JPEG size at equivalent quality
+        final qFactor = (0.08 + (quality / 100.0) * 0.22) * 0.45;
+        bytes = pixels * qFactor;
+        break;
       case 'tiff':
       case 'tiff16':
         bytes = pixels * 8.0; // 16-bit uncompressed RGBA

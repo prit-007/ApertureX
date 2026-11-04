@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:aperturex/engine/engine.dart';
 import 'package:aperturex/viewport/roi_decoder.dart';
-import 'package:aperturex/viewport/tile_source.dart';
 
 /// On-device >100 MP tile-pyramid + seam + memory harness (#16 remainder).
 ///
@@ -289,3 +288,38 @@ Future<void> _expectRoiChannelLive() async {
     (buf[i], buf[i + 1], buf[i + 2], buf[i + 3]);
 
 String mb(int bytes) => '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
+
+// --- Stubs for removed tile_source.dart (integration test needs updating) ---
+class DecodedTile {
+  const DecodedTile({
+    required this.level,
+    required this.col,
+    required this.row,
+    required this.width,
+    required this.height,
+    required this.rgba,
+  });
+  final int level, col, row, width, height;
+  final Uint8List rgba;
+}
+
+class TilePyramidStub {
+  TilePyramidStub({required this.imageWidth, required this.imageHeight, this.tileSize = 512});
+  final int imageWidth, imageHeight, tileSize;
+  int get levelCount => 1;
+  int get maxFeasibleLevel => 0;
+  Size levelSize(int level) => Size(imageWidth.toDouble(), imageHeight.toDouble());
+  int tilesAcross(int level) => 1;
+  int tilesDown(int level) => 1;
+}
+
+class JpegTileSource {
+  JpegTileSource({required this.jpeg, required this.imageWidth, required this.imageHeight})
+      : pyramid = TilePyramidStub(imageWidth: imageWidth, imageHeight: imageHeight);
+  final Uint8List jpeg;
+  final int imageWidth, imageHeight;
+  final int maxFeasibleLevel = 0;
+  final TilePyramidStub pyramid;
+  final int tileSize = 512;
+  Future<DecodedTile?> fetchTile(int level, int col, int row) async => null;
+}

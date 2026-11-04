@@ -8,6 +8,7 @@ import '../../edit/crop_math.dart';
 import '../../edit/recipe.dart' show fullCrop;
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
+import '../../l10n/app_strings.dart';
 import 'precision_rotation_dial.dart';
 
 enum GeometrySubTab {
@@ -43,7 +44,7 @@ class GeometryControls extends ConsumerWidget {
         if (bytes == null) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No photo loaded for auto-straighten')),
+            SnackBar(content: Text(AppStrings.of(context).geometryNoPhotoStraighten)),
           );
           return;
         }
@@ -70,22 +71,22 @@ class GeometryControls extends ConsumerWidget {
             }
           } else if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Horizon is already straight'),
-                duration: Duration(seconds: 1),
+              SnackBar(
+                content: Text(AppStrings.of(context).geometryHorizonStraight),
+                duration: const Duration(seconds: 1),
               ),
             );
           }
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Auto-straighten failed: $e')),
+              SnackBar(content: Text(AppStrings.of(context).geometryStraightenFailed(e.toString()))),
             );
           }
         }
       },
       icon: const Icon(Icons.auto_fix_high, size: 16),
-      label: const Text('Auto', style: TextStyle(fontWeight: FontWeight.w600)),
+      label: Text(AppStrings.of(context).geometryAuto, style: const TextStyle(fontWeight: FontWeight.w600)),
     );
 
     final autoUprightBtn = FilledButton.tonalIcon(
@@ -101,7 +102,7 @@ class GeometryControls extends ConsumerWidget {
         if (bytes == null) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No photo loaded for auto-upright')),
+            SnackBar(content: Text(AppStrings.of(context).geometryNoPhotoUpright)),
           );
           return;
         }
@@ -135,22 +136,22 @@ class GeometryControls extends ConsumerWidget {
             }
           } else if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Geometry is already aligned'),
-                duration: Duration(seconds: 1),
+              SnackBar(
+                content: Text(AppStrings.of(context).geometryAlreadyAligned),
+                duration: const Duration(seconds: 1),
               ),
             );
           }
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Auto-upright failed: $e')),
+              SnackBar(content: Text(AppStrings.of(context).geometryUprightFailed(e.toString()))),
             );
           }
         }
       },
       icon: const Icon(Icons.architecture, size: 16),
-      label: const Text('Upright', style: TextStyle(fontWeight: FontWeight.w600)),
+      label: Text(AppStrings.of(context).geometryUpright, style: const TextStyle(fontWeight: FontWeight.w600)),
     );
 
     final autoFrameBtn = FilledButton.tonalIcon(
@@ -166,7 +167,7 @@ class GeometryControls extends ConsumerWidget {
         if (bytes == null) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No photo loaded for auto-frame')),
+            SnackBar(content: Text(AppStrings.of(context).geometryNoPhotoFrame)),
           );
           return;
         }
@@ -193,9 +194,9 @@ class GeometryControls extends ConsumerWidget {
             if (context.mounted) {
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('No distinct subject detected to frame'),
-                ),
+              SnackBar(
+                content: Text(AppStrings.of(context).geometryNoSubject),
+              ),
               );
             }
             return;
@@ -223,13 +224,13 @@ class GeometryControls extends ConsumerWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Auto-frame failed: $e')),
+              SnackBar(content: Text(AppStrings.of(context).geometryFrameFailed(e.toString()))),
             );
           }
         }
       },
       icon: const Icon(Icons.crop_rotate, size: 16),
-      label: const Text('Auto Frame', style: TextStyle(fontWeight: FontWeight.w600)),
+      label: Text(AppStrings.of(context).geometryAutoFrame, style: const TextStyle(fontWeight: FontWeight.w600)),
     );
 
     // Aspect Ratio Presets
@@ -323,7 +324,7 @@ class GeometryControls extends ConsumerWidget {
             notifier.commit(label: 'Rotate');
           },
           icon: const Icon(Icons.rotate_90_degrees_ccw, size: 16),
-          label: const Text('Left'),
+          label: Text(AppStrings.of(context).geometryFlipLeft),
         ),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
@@ -336,7 +337,7 @@ class GeometryControls extends ConsumerWidget {
             notifier.commit(label: 'Rotate');
           },
           icon: const Icon(Icons.rotate_90_degrees_cw, size: 16),
-          label: const Text('Right'),
+          label: Text(AppStrings.of(context).geometryFlipRight),
         ),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
@@ -351,7 +352,7 @@ class GeometryControls extends ConsumerWidget {
             notifier.commit(label: 'Flip H');
           },
           icon: const Icon(Icons.flip, size: 16),
-          label: const Text('Flip H'),
+          label: Text(AppStrings.of(context).geometryFlipH),
         ),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
@@ -366,7 +367,7 @@ class GeometryControls extends ConsumerWidget {
             notifier.commit(label: 'Flip V');
           },
           icon: const Icon(Icons.flip_camera_android, size: 16),
-          label: const Text('Flip V'),
+          label: Text(AppStrings.of(context).geometryFlipV),
         ),
       ],
     );

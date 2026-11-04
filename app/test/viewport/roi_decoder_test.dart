@@ -143,6 +143,23 @@ void main() {
       expect(out.height, 100);
     });
 
+    test('raw camera frames bypass platform channel even when large', () async {
+      // Little-endian TIFF magic bytes (DNG / ARW / CR2 / NEF)
+      final rawBytes = Uint8List.fromList([0x49, 0x49, 0x2A, 0x00, 0x00, 0x00, 0x00, 0x00]);
+      final out = await decoder.decodeBand(
+        bytes: rawBytes,
+        imageW: bigW,
+        imageH: bigH,
+        bandTop: 0,
+        bandBottom: 500,
+      );
+      expect(out, isNotNull);
+      expect(calls, isEmpty); // Bypassed Android BitmapRegionDecoder!
+      expect(rustCalls, 1); // Routed to in-process Rust rawler pipeline!
+      expect(out!.width, bigW);
+      expect(out.height, 500);
+    });
+
     test('rejects invalid bands without decoding', () async {
       expect(
         await decoder.decodeBand(

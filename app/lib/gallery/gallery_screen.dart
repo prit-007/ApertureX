@@ -38,6 +38,7 @@ import 'gallery_export.dart';
 import 'gallery_grouping.dart';
 import 'gallery_source.dart';
 import 'hdr_merge_sheet.dart';
+import '../l10n/app_strings.dart';
 import 'staggered_photo_grid.dart';
 
 /// Which gallery scope is displayed (#85).
@@ -941,10 +942,15 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             child: AppBar(
               title: state.selectionMode
                   ? Text(
-                      '${state.selectedCount} selected',
+                      AppStrings.of(context).selectedCount(state.selectedCount),
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     )
-                  : _AlbumTitle(title: state.title, onTap: _openAlbumPicker),
+                  : _AlbumTitle(
+                      title: state.title == 'Recent'
+                          ? AppStrings.of(context).recent
+                          : state.title,
+                      onTap: _openAlbumPicker,
+                    ),
               actions: [
                 if (state.selectionMode) ...[
                   IconButton(
@@ -2767,13 +2773,13 @@ class _SelectionBar extends StatelessWidget {
                 key: const Key('paste-action'),
                 onPressed: onPaste,
                 icon: const Icon(Icons.paste, size: 18),
-                label: const Text('Paste'),
+                label: Text(AppStrings.of(context).paste),
               ),
               const SizedBox(width: Insets.xs),
               FilledButton.tonalIcon(
                 onPressed: onExport,
                 icon: const Icon(Icons.ios_share, size: 18),
-                label: const Text('Export'),
+                label: Text(AppStrings.of(context).export),
               ),
               const SizedBox(width: Insets.xs),
               TextButton(

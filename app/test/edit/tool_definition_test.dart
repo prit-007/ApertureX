@@ -46,4 +46,53 @@ void main() {
       expect(recipe.schemaVersion, EditRecipe.currentSchemaVersion);
     }
   });
+
+  group('Preset strength amount semantics (Issue #169)', () {
+    const tool = ToolDefinition(
+      name: 'Moody Warmth',
+      params: {
+        'exposure': 1.0,
+        'contrast': 0.4,
+        'temperature': 0.6,
+      },
+      hsl: [0.2, 0.4, -0.6],
+    );
+
+    test('amount 0.0 (0%) keeps recipe at neutral baseline', () {
+      final recipe = tool.applyTo(EditRecipe.neutral, amount: 0.0);
+      expect(recipe.exposure, closeTo(0.0, 1e-4));
+      expect(recipe.contrast, closeTo(0.0, 1e-4));
+      expect(recipe.temperature, closeTo(0.0, 1e-4));
+      expect(recipe.hsl, [0.0, 0.0, -0.0]);
+    });
+
+    test('amount 0.5 (50%) applies half-strength adjustments', () {
+      final recipe = tool.applyTo(EditRecipe.neutral, amount: 0.5);
+      expect(recipe.exposure, closeTo(0.5, 1e-4));
+      expect(recipe.contrast, closeTo(0.2, 1e-4));
+      expect(recipe.temperature, closeTo(0.3, 1e-4));
+      expect(recipe.hsl[0], closeTo(0.1, 1e-4));
+      expect(recipe.hsl[1], closeTo(0.2, 1e-4));
+      expect(recipe.hsl[2], closeTo(-0.3, 1e-4));
+    });
+
+    test('amount 1.0 (100%) applies exact target parameters', () {
+      final recipe = tool.applyTo(EditRecipe.neutral, amount: 1.0);
+      expect(recipe.exposure, closeTo(1.0, 1e-4));
+      expect(recipe.contrast, closeTo(0.4, 1e-4));
+      expect(recipe.temperature, closeTo(0.6, 1e-4));
+      expect(recipe.hsl, [0.2, 0.4, -0.6]);
+    });
+
+    test('amount 2.0 (200%) doubles parameters with proper clamping', () {
+      final recipe = tool.applyTo(EditRecipe.neutral, amount: 2.0);
+      expect(recipe.exposure, closeTo(2.0, 1e-4));
+      expect(recipe.contrast, closeTo(0.8, 1e-4));
+      // Temperature max clamp is 1.0
+      expect(recipe.temperature, closeTo(1.0, 1e-4));
+      expect(recipe.hsl[0], closeTo(0.4, 1e-4));
+      expect(recipe.hsl[1], closeTo(0.8, 1e-4));
+      expect(recipe.hsl[2], closeTo(-1.0, 1e-4)); // Clamped to -1.0
+    });
+  });
 }

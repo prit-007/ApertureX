@@ -36,6 +36,11 @@ class SpatialSpec {
     this.filmBloomThreshold = 0.75,
     this.filmDust = 0,
     this.filmScratches = 0,
+    // Shader lab parameters.
+    this.shaderLabPreset = 0,
+    this.shaderParam1 = 0,
+    this.shaderParam2 = 0,
+    this.shaderParam3 = 0,
   });
 
   factory SpatialSpec.fromRecipe(EditRecipe recipe) => SpatialSpec(
@@ -69,6 +74,10 @@ class SpatialSpec {
     filmBloomThreshold: recipe.filmBloomThreshold,
     filmDust: recipe.filmDust,
     filmScratches: recipe.filmScratches,
+    shaderLabPreset: recipe.shaderLabPreset,
+    shaderParam1: recipe.shaderParam1,
+    shaderParam2: recipe.shaderParam2,
+    shaderParam3: recipe.shaderParam3,
   );
 
   final double shadows;
@@ -102,6 +111,11 @@ class SpatialSpec {
   final double filmBloomThreshold;
   final double filmDust;
   final double filmScratches;
+  // Shader lab parameters.
+  final int shaderLabPreset;
+  final double shaderParam1;
+  final double shaderParam2;
+  final double shaderParam3;
 
   bool get isNeutral =>
       shadows == 0 &&

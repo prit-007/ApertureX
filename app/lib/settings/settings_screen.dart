@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -9,6 +11,7 @@ import '../features/ai_plugins/ai_plugins_screen.dart';
 import '../features/guide/app_guide_screen.dart';
 import '../features/logs/logs_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
+import '../l10n/app_strings.dart';
 import '../ui/common/app_primitives.dart';
 import '../ui/common/editor_guide_sheet.dart';
 import '../ui/common/settings_sheet.dart' show kOfflineClaim;
@@ -73,10 +76,12 @@ class SettingsScreen extends ConsumerWidget {
     final export = ref.watch(exportSettingsProvider);
     final aiConsent = ref.watch(aiConsentProvider);
     final appVersion = ref.watch(appVersionProvider).asData?.value ?? '0.3.9+9';
+    final strings = AppStrings.of(context);
+    final isAndroid = !kIsWeb && Platform.isAndroid;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(strings.settings),
       ),
       body: ListView(
         padding: const EdgeInsets.only(top: Insets.xs, bottom: Insets.xxl),
@@ -208,28 +213,44 @@ class SettingsScreen extends ConsumerWidget {
                 dense: true,
                 leading: const Icon(Icons.speed_rounded),
                 title: const Text('Zero-Copy Texture Pipeline (60 FPS)'),
-                subtitle: const Text('Direct Impeller GPU 3D LUT fragment shader chain enabled'),
+                subtitle: Text(
+                  isAndroid
+                      ? 'Direct Impeller GPU 3D LUT fragment shader chain enabled'
+                      : 'Direct GPU frame-pipeline path active',
+                ),
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
+                    color: isAndroid
+                        ? theme.colorScheme.primaryContainer
+                        : theme.colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    'ACTIVE',
+                    isAndroid ? 'ACTIVE' : 'STANDBY',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onPrimaryContainer,
+                      color: isAndroid
+                          ? theme.colorScheme.onPrimaryContainer
+                          : theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
               const Divider(height: 1),
-              const ListTile(
+              SwitchListTile(
                 dense: true,
-                leading: Icon(Icons.color_lens_outlined),
-                title: Text('Wide-Gamut Color Accuracy'),
-                subtitle: Text('Display-P3 to sRGB accurate preview & export'),
+                secondary: const Icon(Icons.color_lens_outlined),
+                title: const Text('Wide-Gamut Color Space (Display P3)'),
+                subtitle: Text(
+                  export.colorSpace == 1
+                      ? 'Display-P3 wide color gamut active for preview & export'
+                      : 'sRGB standard color space active (tap to enable Display-P3)',
+                ),
+                value: export.colorSpace == 1,
+                onChanged: (enabled) {
+                  ref.read(exportSettingsProvider.notifier).setColorSpace(enabled ? 1 : 0);
+                },
               ),
             ],
           ),

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:aperturex/core/theme/design_tokens.dart';
 
 class MacroHudMessage {
   const MacroHudMessage({
@@ -52,7 +53,7 @@ class MacroActionHud extends ConsumerWidget {
 
     return IgnorePointer(
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
+        duration: AppMotion.responsive(context, AppMotion.shortDuration),
         transitionBuilder: (child, animation) {
           return FadeTransition(
             opacity: animation,

@@ -130,12 +130,12 @@ void main() {
       });
     }
 
-    test('customGlslCode perturbs the base key', () {
+    test('shaderLabPreset perturbs the base key', () {
       final base = baseKeyOf(const EditRecipe());
       expect(
-        baseKeyOf(const EditRecipe().copyWith(customGlslCode: 'void main() {}')),
+        baseKeyOf(const EditRecipe().copyWith(shaderLabPreset: 1, shaderParam1: 0.5)),
         isNot(base),
-        reason: 'customGlslCode missing from baseKeyOf — custom shader would be dead',
+        reason: 'shaderLabPreset and shaderParam must perturb baseKeyOf',
       );
     });
 

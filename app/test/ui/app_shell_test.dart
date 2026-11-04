@@ -8,6 +8,8 @@ import 'package:aperturex/ui/app_shell.dart';
 import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
 import 'package:aperturex/ui/snapseed/snapseed_shell.dart';
 import 'package:aperturex/ui/common/brush_toolbar.dart';
+import 'package:aperturex/ui/precision_gear.dart';
+import 'package:aperturex/viewport/exposure_assist.dart';
 import 'package:aperturex/viewport/image_canvas.dart';
 
 void main() {
@@ -132,6 +134,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(SwitchListTile), findsWidgets);
     });
+
+    testWidgets('uses OrientationBuilder to adapt portrait vs landscape', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpShell(tester);
+
+      // OrientationBuilder must be present in the widget tree for
+      // portrait/landscape layout branching.
+      expect(find.byType(OrientationBuilder), findsWidgets);
+    });
   });
 
   group('Stylus pressure (issue #35)', () {
@@ -169,6 +184,54 @@ void main() {
 
       notifier.setPressure(1.5);
       expect(container.read(brushPressureProvider), 1.0);
+    });
+
+    testWidgets('displays False Color IRE legend when falseColor assist mode is engaged', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      expect(find.byKey(const Key('false-color-ire-legend')), findsNothing);
+
+      // Engage False Color
+      container.read(exposureAssistProvider.notifier).setMode(ExposureAssistMode.falseColor);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('false-color-ire-legend')), findsOneWidget);
+      expect(find.text('100 CLIP'), findsOneWidget);
+      expect(find.text('70 SKIN'), findsOneWidget);
+      expect(find.text('0 CRUSH'), findsOneWidget);
+
+      // Disengage
+      container.read(exposureAssistProvider.notifier).setMode(ExposureAssistMode.off);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('false-color-ire-legend')), findsNothing);
+    });
+
+    testWidgets('displays floating live scrub HUD pill when parameter slider is dragged', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      expect(find.byKey(const Key('live-scrub-hud-pill')), findsNothing);
+
+      // Claim active track on Exposure and set value to 1.25
+      container.read(recipeControllerProvider.notifier).update(Parameter.exposure, 1.25);
+      container.read(activeTrackProvider.notifier).claim(Parameter.exposure);
+      await tester.pumpAndSettle();
+
+      // Pill appears with parameter label and formatted value
+      final hudPill = find.byKey(const Key('live-scrub-hud-pill'));
+      expect(hudPill, findsOneWidget);
+      expect(find.descendant(of: hudPill, matching: find.text('Exposure')), findsOneWidget);
+      expect(find.descendant(of: hudPill, matching: find.text('+1.25')), findsOneWidget);
+
+      // Release active track
+      container.read(activeTrackProvider.notifier).release(Parameter.exposure);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('live-scrub-hud-pill')), findsNothing);
     });
   });
 }

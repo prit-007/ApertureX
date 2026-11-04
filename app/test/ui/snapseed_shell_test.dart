@@ -505,6 +505,173 @@ void main() {
 
     expect(find.text('Lens Blur & Bokeh'), findsOneWidget);
   });
+
+  testWidgets('SnapseedShell wide dock aligns bottom-right at 1024x768', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1024, 768);
+    tester.view.devicePixelRatio = 1.0;
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final alignFinder = find.ancestor(
+      of: find.byKey(const Key('snapseed-tools-sheet-toggle')),
+      matching: find.byType(Align),
+    );
+    expect(alignFinder, findsOneWidget);
+    final align = tester.widget<Align>(alignFinder);
+    expect(align.alignment, Alignment.bottomRight);
+
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('SnapseedShell wide dock aligns bottom-right at 1366x1024', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1366, 1024);
+    tester.view.devicePixelRatio = 1.0;
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final alignFinder = find.ancestor(
+      of: find.byKey(const Key('snapseed-tools-sheet-toggle')),
+      matching: find.byType(Align),
+    );
+    expect(alignFinder, findsOneWidget);
+    final align = tester.widget<Align>(alignFinder);
+    expect(align.alignment, Alignment.bottomRight);
+
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('SnapseedShell compact dock aligns bottom-center at 390x844', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final alignFinder = find.ancestor(
+      of: find.byKey(const Key('snapseed-tools-sheet-toggle')),
+      matching: find.byType(Align),
+    );
+    expect(alignFinder, findsOneWidget);
+    final align = tester.widget<Align>(alignFinder);
+    expect(align.alignment, Alignment.bottomCenter);
+
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('SnapseedShell wide layout has no overflow at 1024x768', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1024, 768);
+    tester.view.devicePixelRatio = 1.0;
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+              hasHistogram: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Layout completes without exceptions (no overflow reported)
+    expect(tester.takeException(), isNull);
+
+    // All dock buttons still hit the 48dp touch target minimum
+    final buttons = [
+      const Key('snapseed-tools-sheet-toggle'),
+      const Key('snapseed-looks-toggle'),
+      const Key('snapseed-mask-toggle'),
+      const Key('snapseed-lens-blur-toggle'),
+      const Key('snapseed-straighten-toggle'),
+      const Key('selective-toggle'),
+      const Key('histogram-toggle'),
+    ];
+
+    for (final key in buttons) {
+      final finder = find.byKey(key);
+      expect(finder, findsOneWidget, reason: 'key $key not found');
+      final button = tester.widget<IconButton>(finder);
+      expect(
+        button.constraints?.minWidth,
+        greaterThanOrEqualTo(48.0),
+        reason: '$key minWidth must be >= 48dp',
+      );
+      expect(
+        button.constraints?.minHeight,
+        greaterThanOrEqualTo(48.0),
+        reason: '$key minHeight must be >= 48dp',
+      );
+    }
+
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
 }
 
 /// Finds the [AnimatedOpacity] wrapping the scrub HUD and returns its opacity.

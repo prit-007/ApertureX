@@ -32,6 +32,7 @@ PreviewBaseSpec baseSpecFromRecipe(EditRecipe recipe) {
     outputSharpen: spatial.outputSharpen,
     denoiseLuma: spatial.denoiseLuma,
     denoiseChroma: spatial.denoiseChroma,
+    aiDenoise: spatial.aiDenoise,
     dehaze: spatial.dehaze,
     vignette: spatial.vignette,
     vignetteMidpoint: spatial.vignetteMidpoint,

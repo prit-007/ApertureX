@@ -1,12 +1,19 @@
 import 'dart:io' show Platform;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/error/error_dialog.dart' show rootNavigatorKey;
 import '../../edit/recipe_controller.dart';
 import '../../edit/settings_clipboard.dart';
+import '../../features/editor/editor_screen.dart';
+import '../../features/editor/export_screen.dart';
+import '../../features/print/print_screen.dart';
+import '../../features/tether/tether_screen.dart';
+import '../../features/video/video_editor_screen.dart';
 import '../../viewport/split_compare.dart';
 import '../../viewport/wiper_compare.dart';
 
@@ -55,8 +62,16 @@ class DesktopMenuBar extends ConsumerWidget {
                 LogicalKeyboardKey.keyO,
                 meta: true,
               ),
-              onSelected: () {
-                // Routed via top-level file picker or gallery action
+              onSelected: () async {
+                try {
+                  final picked = await FilePicker.pickFile(type: FileType.image);
+                  if (picked != null) {
+                    final bytes = await picked.readAsBytes();
+                    rootNavigatorKey.currentState?.push(
+                      MaterialPageRoute<void>(builder: (_) => EditorScreen(imageBytes: bytes)),
+                    );
+                  }
+                } catch (_) {}
               },
             ),
             PlatformMenuItem(
@@ -66,7 +81,11 @@ class DesktopMenuBar extends ConsumerWidget {
                 meta: true,
               ),
               onSelected: () {
-                // Triggered in editor screen
+                final ctx = rootNavigatorKey.currentContext;
+                if (ctx != null) {
+                  final recipe = ref.read(recipeControllerProvider).recipe;
+                  ExportScreen.open(ctx, recipe: recipe);
+                }
               },
             ),
             PlatformMenuItem(
@@ -75,7 +94,11 @@ class DesktopMenuBar extends ConsumerWidget {
                 LogicalKeyboardKey.keyP,
                 meta: true,
               ),
-              onSelected: () {},
+              onSelected: () {
+                rootNavigatorKey.currentState?.push(
+                  MaterialPageRoute<void>(builder: (_) => const PrintScreen(items: [])),
+                );
+              },
             ),
             PlatformMenuItem(
               label: 'Studio Tethered Capture…',
@@ -83,11 +106,19 @@ class DesktopMenuBar extends ConsumerWidget {
                 LogicalKeyboardKey.keyT,
                 meta: true,
               ),
-              onSelected: () {},
+              onSelected: () {
+                rootNavigatorKey.currentState?.push(
+                  MaterialPageRoute<void>(builder: (_) => const TetherScreen()),
+                );
+              },
             ),
             PlatformMenuItem(
               label: 'Video Color Studio…',
-              onSelected: () {},
+              onSelected: () {
+                rootNavigatorKey.currentState?.push(
+                  MaterialPageRoute<void>(builder: (_) => const VideoEditorScreen()),
+                );
+              },
             ),
             const PlatformMenuItemGroup(
               members: [

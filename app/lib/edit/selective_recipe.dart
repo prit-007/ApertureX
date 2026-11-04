@@ -138,7 +138,7 @@ class CopiedSettings {
     }
 
     // Lab
-    if (r.shaderLabPreset != 0 || r.customGlslCode.isNotEmpty) {
+    if (r.shaderLabPreset != 0) {
       modified.add(RecipeSection.lab);
     }
 
@@ -257,7 +257,6 @@ class CopiedSettings {
       shaderParam1: source.shaderParam1,
       shaderParam2: source.shaderParam2,
       shaderParam3: source.shaderParam3,
-      customGlslCode: source.customGlslCode,
     ),
   };
 }

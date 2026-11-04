@@ -184,4 +184,75 @@ void main() {
       expect(digest, hasLength(64));
     });
   });
+
+  group('AI model availability gating', () {
+    test('isDenoiseModelAvailable is false when no denoise plugin installed', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final store = container.read(aiPluginProvider);
+      expect(store.isDenoiseModelAvailable, isFalse);
+    });
+
+    test('isAiModelAvailable is false for depthEstimation initially', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final store = container.read(aiPluginProvider);
+      expect(store.isAiModelAvailable(AiTask.depthEstimation), isFalse);
+    });
+
+    test('isDenoiseModelAvailable becomes true after installing denoise plugin', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(aiPluginProvider.notifier);
+
+      await notifier.addCustomPlugin(
+        name: 'Test Neural Denoise',
+        url: 'https://example.com/denoise.onnx',
+        task: AiTask.denoise,
+      );
+
+      final store = container.read(aiPluginProvider.notifier);
+      expect(store.isDenoiseModelAvailable, isTrue);
+    });
+
+    test('isDenoiseModelAvailable is false when denoise plugin is disabled', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(aiPluginProvider.notifier);
+
+      await notifier.addCustomPlugin(
+        name: 'Disabled Denoise',
+        url: 'https://example.com/disabled.onnx',
+        task: AiTask.denoise,
+      );
+
+      final addedId = notifier.state.installedPlugins.last.id;
+      await notifier.togglePlugin(addedId, false);
+
+      final store = container.read(aiPluginProvider.notifier);
+      expect(store.isDenoiseModelAvailable, isFalse);
+    });
+
+    test('isAiModelAvailable becomes true after installing depth plugin', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(aiPluginProvider.notifier);
+
+      await notifier.addCustomPlugin(
+        name: 'Test Depth',
+        url: 'https://example.com/depth.onnx',
+        task: AiTask.depthEstimation,
+      );
+
+      final store = container.read(aiPluginProvider.notifier);
+      expect(store.isAiModelAvailable(AiTask.depthEstimation), isTrue);
+    });
+
+    test('aiDenoiseAvailableProvider reflects store state', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final available = container.read(aiDenoiseAvailableProvider);
+      expect(available, isFalse);
+    });
+  });
 }

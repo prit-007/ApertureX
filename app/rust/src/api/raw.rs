@@ -80,6 +80,11 @@ fn decode_raw_to_srgb(bytes: &[u8]) -> Result<raw::RawLinearImage, String> {
     Ok(img)
 }
 
+/// Fast-path extraction of high-res embedded JPEG preview from a RAW/DNG file.
+pub fn raw_extract_embedded_preview(raw: Vec<u8>) -> Option<Vec<u8>> {
+    raw::extract_embedded_preview_jpeg(&raw)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -141,5 +146,24 @@ mod tests {
     fn garbage_input_errors() {
         assert!(decode_raw_rgba(b"nope".to_vec()).is_err());
         assert!(raw_dimensions(b"nope".to_vec()).is_err());
+    }
+
+    #[test]
+    fn raw_extract_embedded_preview_finds_embedded_jpeg_stream() {
+        // Construct a mock container with junk prefix, a valid 16KB JPEG stream, and suffix
+        let mut mock_raw = vec![0xAA; 2048];
+        let mut jpeg = vec![0u8; 17000];
+        jpeg[0] = 0xFF;
+        jpeg[1] = 0xD8;
+        jpeg[2] = 0xFF;
+        let last = jpeg.len() - 1;
+        jpeg[last - 1] = 0xFF;
+        jpeg[last] = 0xD9;
+
+        mock_raw.extend_from_slice(&jpeg);
+        mock_raw.extend_from_slice(&[0xBB; 1024]);
+
+        let extracted = raw_extract_embedded_preview(mock_raw).expect("Must extract JPEG");
+        assert_eq!(extracted, jpeg);
     }
 }

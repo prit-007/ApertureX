@@ -1,11 +1,29 @@
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:aperturex/engine/engine.dart';
 import 'package:aperturex/engine/image_format.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 
 void main() {
+  final rustDylib =
+      '${Directory.current.path}/rust/target/debug/librust_lib_aperturex.so';
+  final rustAvailable = File(rustDylib).existsSync();
+
+  setUpAll(() async {
+    try {
+      if (rustAvailable) {
+        await RustLib.init(
+          externalLibrary: ExternalLibrary.open(rustDylib),
+          forceSameCodegenVersion: false,
+        );
+      }
+    } catch (_) {
+      // Rust not available in this environment; tests requiring it skip individually.
+    }
+  });
+
   group('HEIC / HEIF & AVIF container decode', () {
     test('detectImageFormat identifies HEIC and AVIF signatures', () {
       final heicHeader = Uint8List.fromList([
@@ -99,6 +117,46 @@ void main() {
       final decoded = await AxEngine.decodeImageRgba(bytes);
       expect(decoded.width, 32);
       expect(decoded.height, 32);
+    });
+
+    test('exportHeic generates valid container decodable by decodeHeicRgba', () async {
+      if (!rustAvailable) return;
+      final imgCanvas = img.Image(width: 48, height: 32);
+      img.fill(imgCanvas, color: img.ColorRgba8(100, 150, 200, 255));
+      final rgba = imgCanvas.getBytes(order: img.ChannelOrder.rgba);
+
+      final heicBytes = await AxEngine.exportHeic(
+        rgba: rgba,
+        width: 48,
+        height: 32,
+        quality: 90,
+      );
+
+      expect(detectImageFormat(heicBytes), ImageFormat.heic);
+      final decoded = await AxEngine.decodeHeicRgba(heicBytes);
+      expect(decoded.width, 48);
+      expect(decoded.height, 32);
+      expect(decoded.rgba.length, 48 * 32 * 4);
+    });
+
+    test('exportAvif generates valid container decodable by decodeHeicRgba', () async {
+      if (!rustAvailable) return;
+      final imgCanvas = img.Image(width: 36, height: 24);
+      img.fill(imgCanvas, color: img.ColorRgba8(220, 120, 80, 255));
+      final rgba = imgCanvas.getBytes(order: img.ChannelOrder.rgba);
+
+      final avifBytes = await AxEngine.exportAvif(
+        rgba: rgba,
+        width: 36,
+        height: 24,
+        quality: 85,
+      );
+
+      expect(detectImageFormat(avifBytes), ImageFormat.avif);
+      final decoded = await AxEngine.decodeHeicRgba(avifBytes);
+      expect(decoded.width, 36);
+      expect(decoded.height, 24);
+      expect(decoded.rgba.length, 36 * 24 * 4);
     });
   });
 }

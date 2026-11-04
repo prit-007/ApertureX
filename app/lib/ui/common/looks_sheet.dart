@@ -39,6 +39,8 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
   bool _showCatalogSearch = false;
   String? _importError;
   int _selectedTab = 0; // 0: My Looks & QR, 1: Community Hub
+  double _presetAmount = 1.0;
+  ToolDefinition? _activeTool;
 
   @override
   void dispose() {
@@ -48,10 +50,11 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
     super.dispose();
   }
 
-  void _apply(ToolDefinition tool) {
-    ref.read(recipeControllerProvider.notifier).applyTool(tool);
+  void _apply(ToolDefinition tool, {double? amount}) {
+    final amt = amount ?? _presetAmount;
+    ref.read(recipeControllerProvider.notifier).applyTool(tool, amount: amt);
     ref.read(recipeControllerProvider.notifier).commit(label: tool.name);
-    axLog(LogDomain.preset, 'Applied look "${tool.name}"');
+    axLog(LogDomain.preset, 'Applied look "${tool.name}" at ${(amt * 100).round()}%');
     Navigator.of(context).maybePop();
   }
 
@@ -112,7 +115,53 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
             onSelectionChanged: (set) => setState(() => _selectedTab = set.first),
           ),
         ),
-        const SizedBox(height: Insets.md),
+        const SizedBox(height: Insets.xs),
+        // Preset Strength Intensity Slider (0–200%, issue #169)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Insets.xs),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(Radii.sm),
+              border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.tune, size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text(
+                  'Strength ${(_presetAmount * 100).round()}%',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 2,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                    ),
+                    child: Slider(
+                      key: const Key('looks-sheet-preset-strength-slider'),
+                      value: _presetAmount,
+                      min: 0.0,
+                      max: 2.0,
+                      divisions: 40,
+                      onChanged: (val) {
+                        setState(() => _presetAmount = val);
+                        if (_activeTool != null) {
+                          ref.read(recipeControllerProvider.notifier).applyTool(_activeTool!, amount: val);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: Insets.sm),
         if (_selectedTab == 0) ...[
           Row(
             children: [

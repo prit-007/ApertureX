@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../edit/parameter.dart';
 import '../../engine/engine.dart';
 import 'ai_plugin_model.dart';
 
@@ -132,6 +133,26 @@ class AiPluginState {
       activePluginPerTask: activePluginPerTask ?? this.activePluginPerTask,
     );
   }
+
+  /// Retrieves the active plugin for a given task.
+  AiPluginModel? activePluginForTask(AiTask task) {
+    final activeId = activePluginPerTask[task];
+    if (activeId != null) {
+      for (final p in installedPlugins) {
+        if (p.id == activeId && p.isEnabled && p.isInstalled) return p;
+      }
+    }
+    for (final p in installedPlugins) {
+      if (p.task == task && p.isEnabled && p.isInstalled) return p;
+    }
+    return null;
+  }
+
+  /// True when an active AI plugin is available for [task].
+  bool isAiModelAvailable(AiTask task) => activePluginForTask(task) != null;
+
+  /// True when an AI denoise model (NAFNet or SCUNet) is available and enabled.
+  bool get isDenoiseModelAvailable => isAiModelAvailable(AiTask.denoise);
 }
 
 class AiPluginNotifier extends Notifier<AiPluginState> {
@@ -429,7 +450,7 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
     final activeId = state.activePluginPerTask[task];
     if (activeId != null) {
       return state.installedPlugins.firstWhere(
-        (p) => p.id == activeId && p.isEnabled && p.isInstalled,
+        (p) => p.id == activeId && p.isEnabled && p.isInstalled && p.task == task,
         orElse: () => state.installedPlugins.firstWhere(
           (p) => p.task == task && p.isEnabled && p.isInstalled,
           orElse: () => state.installedPlugins.first,
@@ -445,6 +466,22 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
       return null;
     }
   }
+
+  /// True when an AI model is active, installed, enabled, and has a local
+  /// file for [task]. Use this to gate any AI-powered parameter behind model
+  /// availability — no model, no feature.
+  bool isAiModelAvailable(AiTask task) {
+    final plugin = getActivePluginForTask(task);
+    return plugin != null &&
+        plugin.task == task &&
+        plugin.isEnabled &&
+        plugin.isInstalled &&
+        plugin.localPath != null &&
+        plugin.localPath!.isNotEmpty;
+  }
+
+  /// True when a neural denoise model (NAFNet / SCUNet) is available.
+  bool get isDenoiseModelAvailable => isAiModelAvailable(AiTask.denoise);
 
   /// Sets [pluginId] as the active plugin for [task] and plugs it into Rust engine.
   Future<bool> setActivePluginForTask(AiTask task, String pluginId) async {
@@ -472,3 +509,17 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
 }
 
 final aiPluginProvider = NotifierProvider<AiPluginNotifier, AiPluginState>(AiPluginNotifier.new);
+
+/// True when a neural denoise model (NAFNet / SCUNet) is installed and active.
+/// Gates the [Parameter.aiDenoise] slider — no model, no denoise.
+final aiDenoiseAvailableProvider = Provider<bool>((ref) {
+  final store = ref.watch(aiPluginProvider);
+  return store.isDenoiseModelAvailable;
+});
+
+/// True when an AI model is active for [task]. Use to gate any AI-powered
+/// parameter behind model availability.
+bool aiModelAvailableForTask(WidgetRef ref, AiTask task) {
+  final store = ref.watch(aiPluginProvider);
+  return store.isAiModelAvailable(task);
+}

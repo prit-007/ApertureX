@@ -348,6 +348,55 @@ pub fn export_tiff16(rgba: &[u8], width: u32, height: u32, _xmp: &str) -> Result
     Ok(buf)
 }
 
+/// Fast-path extraction of the embedded JPEG preview from a RAW file container (ARW, CR2, NEF, DNG, RW2).
+/// Allows instant <50ms viewport open while full linear demosaicing runs in the background.
+pub fn extract_embedded_preview_jpeg(bytes: &[u8]) -> Option<Vec<u8>> {
+    if bytes.len() < 1024 {
+        return None;
+    }
+
+    let mut best_start = None;
+    let mut best_len = 0;
+    let mut i = 0;
+    let max_search = bytes.len().saturating_sub(4);
+
+    while i < max_search {
+        // Look for JPEG SOI: 0xFF, 0xD8, 0xFF
+        if bytes[i] == 0xFF && bytes[i + 1] == 0xD8 && bytes[i + 2] == 0xFF {
+            let start = i;
+            let mut j = start + 2;
+            let end_search = (start + 35 * 1024 * 1024).min(bytes.len() - 1);
+            let mut last_eoi = None;
+            while j < end_search {
+                if bytes[j] == 0xFF && bytes[j + 1] == 0xD9 {
+                    last_eoi = Some(j + 2);
+                    j += 2;
+                } else {
+                    j += 1;
+                }
+            }
+
+            if let Some(end) = last_eoi {
+                let len = end - start;
+                // Prefer the largest preview (which is the high-res embedded preview, not tiny thumb)
+                if len > best_len && len >= 16 * 1024 {
+                    best_len = len;
+                    best_start = Some((start, end));
+                }
+                i = end;
+                continue;
+            }
+        }
+        i += 1;
+    }
+
+    if let Some((start, end)) = best_start {
+        Some(bytes[start..end].to_vec())
+    } else {
+        None
+    }
+}
+
 fn flat_to_mat3(flat: &[f32]) -> Option<Mat3> {
     if flat.len() != 9 {
         return None;

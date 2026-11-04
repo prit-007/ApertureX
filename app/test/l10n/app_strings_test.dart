@@ -82,5 +82,14 @@ void main() {
       expect(delegate.isSupported(const Locale('zh')), isTrue);
       expect(delegate.isSupported(const Locale('xx')), isFalse);
     });
+
+    test('histogram string exists in all locales', () {
+      expect(const AppStrings(Locale('en')).histogram, 'Histogram');
+      expect(const AppStrings(Locale('es')).histogram, 'Histograma');
+      expect(const AppStrings(Locale('de')).histogram, 'Histogramm');
+      expect(const AppStrings(Locale('fr')).histogram, 'Histogramme');
+      expect(const AppStrings(Locale('ja')).histogram, 'ヒストグラム');
+      expect(const AppStrings(Locale('zh')).histogram, '直方图');
+    });
   });
 }

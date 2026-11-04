@@ -9,6 +9,7 @@ import '../../edit/active_image.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
+import '../../l10n/app_strings.dart';
 import '../../settings/ai_consent.dart';
 import '../../src/rust/api/mask.dart' as rust_mask;
 import 'mask_controls.dart';
@@ -61,12 +62,12 @@ class BlurControls extends ConsumerWidget {
         children: [
           ExpansionTile(
             initiallyExpanded: true,
-            title: const _PanelTitle('Lens Blur'),
+            title: _PanelTitle(AppStrings.of(context).blurSectionLensBlur),
             children: [
               SwitchListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                title: const Text('Depth-Aware Lens Blur'),
-                subtitle: const Text('Optical depth-of-field + subject-aware bokeh'),
+                title: Text(AppStrings.of(context).blurDepthAware),
+                subtitle: Text(AppStrings.of(context).blurDepthAwareSubtitle),
                 visualDensity: VisualDensity.compact,
                 value: recipe.blurEnabled,
                 onChanged: (val) async {
@@ -85,7 +86,7 @@ class BlurControls extends ConsumerWidget {
                       key: const Key('blur-subject-focus'),
                       visualDensity: VisualDensity.compact,
                       avatar: const Icon(Icons.psychology, size: 14),
-                      label: const Text('Re-run Subject Focus', style: TextStyle(fontSize: 12)),
+                      label: Text(AppStrings.of(context).blurReRunSubjectFocus, style: const TextStyle(fontSize: 12)),
                       onPressed: () async {
                     await _applySubjectFocus(context, ref);
                       },
@@ -102,7 +103,7 @@ class BlurControls extends ConsumerWidget {
           if (recipe.blurEnabled) ...[
             ExpansionTile(
               initiallyExpanded: false, // Collapsed by default to save space!
-              title: const _PanelTitle('Bokeh Shape & Specular'),
+              title: _PanelTitle(AppStrings.of(context).blurSectionBokehShape),
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -169,7 +170,7 @@ Future<void> _applySubjectFocus(BuildContext context, WidgetRef ref) async {
   if (bytes == null) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No photo loaded to place focus')),
+        SnackBar(content: Text(AppStrings.of(context).blurNoPhotoFocus)),
       );
     }
     return;
@@ -223,9 +224,9 @@ Future<void> _applySubjectFocus(BuildContext context, WidgetRef ref) async {
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Subject not detected — center focus applied'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(AppStrings.of(context).blurSubjectNotDetected),
+          duration: const Duration(seconds: 2),
         ),
       );
     }

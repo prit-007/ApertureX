@@ -31,6 +31,7 @@ import '../viewport/exposure_assist.dart';
 import '../viewport/image_canvas.dart';
 import '../viewport/mask_peek.dart';
 import 'edit_activity.dart';
+import 'precision_gear.dart';
 import 'lightroom/lightroom_shell.dart';
 import 'common/brush_toolbar.dart';
 import 'common/mask_controls.dart';
@@ -41,6 +42,7 @@ import 'common/retouch_toolbar.dart';
 import 'snapseed/ghost_hint.dart';
 import 'snapseed/snapseed_shell.dart';
 import '../core/theme/window_size_class.dart';
+import '../l10n/app_strings.dart';
 
 /// The editor body shared by the app: one [ImageCanvas] over one recipe.
 ///
@@ -403,7 +405,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     final isStylus = event.kind == PointerDeviceKind.stylus ||
         event.kind == PointerDeviceKind.invertedStylus;
     if (!isStylus) return;
-    ref.read(brushPressureProvider.notifier).setPressure(event.pressure);
+    final stylusSettings = ref.read(stylusSettingsProvider);
+    final pressure = stylusSettings.pressureSensitivity ? event.pressure : 1.0;
+    ref.read(brushPressureProvider.notifier).setPressure(pressure);
   }
 
   @override
@@ -419,7 +423,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     final hasHistogram = ref.watch(histogramProvider.select((h) => h != null));
 
     final overlays = <Widget>[
-      const _CompareHint(),
+      _CompareHint(
+        onPreviousPhoto: widget.onPreviousPhoto,
+        onNextPhoto: widget.onNextPhoto,
+      ),
       _HistogramToggle(
         enabled: hasHistogram,
         selected: _showHistogram,
@@ -496,6 +503,30 @@ class _AppShellState extends ConsumerState<AppShell> {
                   child: _AiProgressFloatingPill(),
                 ),
               ),
+              if (ref.watch(activeTrackProvider) != null)
+                Positioned(
+                  top: Insets.lg + 16,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Center(
+                      child: _LiveScrubHudPill(
+                        parameter: ref.watch(activeTrackProvider)!,
+                      ),
+                    ),
+                  ),
+                ),
+              if (ref.watch(exposureAssistProvider).mode ==
+                  ExposureAssistMode.falseColor)
+                const Positioned(
+                  top: Insets.lg + 52,
+                  right: Insets.sm,
+                  child: SafeArea(
+                    bottom: false,
+                    child: _FalseColorLegendOverlay(),
+                  ),
+                ),
               if (widget.topHud != null)
                 Positioned(
                   top: 0,
@@ -641,6 +672,30 @@ class _AppShellState extends ConsumerState<AppShell> {
                       child: _AiProgressFloatingPill(),
                     ),
                   ),
+                  if (ref.watch(activeTrackProvider) != null)
+                    Positioned(
+                      top: Insets.lg + 16,
+                      left: 0,
+                      right: 0,
+                      child: SafeArea(
+                        bottom: false,
+                        child: Center(
+                          child: _LiveScrubHudPill(
+                            parameter: ref.watch(activeTrackProvider)!,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (ref.watch(exposureAssistProvider).mode ==
+                      ExposureAssistMode.falseColor)
+                    const Positioned(
+                      top: Insets.lg + 52,
+                      right: Insets.sm,
+                      child: SafeArea(
+                        bottom: false,
+                        child: _FalseColorLegendOverlay(),
+                      ),
+                    ),
                   if (nodeMode && (wide || kind == AppShellKind.snapseed))
                     const Positioned(
                       left: Insets.sm,
@@ -655,6 +710,48 @@ class _AppShellState extends ConsumerState<AppShell> {
                       child: _Fade(
                         active: active,
                         child: SafeArea(top: false, child: overlays[0]),
+                      ),
+                    ),
+                  if (widget.onPreviousPhoto != null && wide)
+                    Positioned(
+                      left: Insets.sm,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: _Fade(
+                          active: active,
+                          child: Material(
+                            color: scheme.surfaceContainerHighest
+                                .withValues(alpha: 0.65),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              tooltip: AppStrings.of(context).previousPhoto,
+                              icon: const Icon(Icons.chevron_left, size: 28),
+                              onPressed: widget.onPreviousPhoto,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (widget.onNextPhoto != null && wide)
+                    Positioned(
+                      right: Insets.sm,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: _Fade(
+                          active: active,
+                          child: Material(
+                            color: scheme.surfaceContainerHighest
+                                .withValues(alpha: 0.65),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              tooltip: AppStrings.of(context).nextPhoto,
+                              icon: const Icon(Icons.chevron_right, size: 28),
+                              onPressed: widget.onNextPhoto,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                 ],
@@ -753,23 +850,28 @@ class _AppShellState extends ConsumerState<AppShell> {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: AppMotion.standardDuration,
-      switchInCurve: AppMotion.standardCurve,
-      switchOutCurve: AppMotion.standardCurve,
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0.0, 0.05),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          ),
-        );
-      },
-      child: shell,
+    final motionDuration = AppMotion.responsive(context, AppMotion.standardDuration);
+
+    return OrientationBuilder(
+      builder: (context, orientation) => AnimatedSwitcher(
+        duration: motionDuration,
+        switchInCurve: AppMotion.standardCurve,
+        switchOutCurve: AppMotion.standardCurve,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          if (motionDuration == Duration.zero) return child;
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.0, 0.05),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: shell,
+      ),
     );
   }
 }
@@ -786,7 +888,7 @@ class _Fade extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedOpacity(
       opacity: active ? 0 : 1,
-      duration: AppMotion.fadeDuration,
+      duration: AppMotion.responsive(context, AppMotion.fadeDuration),
       curve: AppMotion.fadeCurve,
       child: IgnorePointer(ignoring: active, child: child),
     );
@@ -999,9 +1101,9 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
           ClipRect(
             child: AnimatedContainer(
               key: const Key('lightroom-sheet-body'),
-              duration: _dragging
+              duration: (_dragging || AppMotion.reduceMotion)
                   ? Duration.zero
-                  : AppMotion.sheetDuration,
+                  : AppMotion.responsive(context, AppMotion.sheetDuration),
               curve: AppMotion.sheetCurve,
               height: contentHeight,
               child: ClipRRect(
@@ -1139,7 +1241,7 @@ class _HistogramDrawerState extends ConsumerState<_HistogramDrawer> {
                   const Icon(Icons.bar_chart, size: 16),
                   const SizedBox(width: Insets.xs),
                   Text(
-                    'Histogram',
+                    AppStrings.of(context).histogram,
                     style: TextStyle(
                       fontSize: 11,
                       color: scheme.onSurfaceVariant,
@@ -1160,7 +1262,7 @@ class _HistogramDrawerState extends ConsumerState<_HistogramDrawer> {
             ),
           ClipRect(
             child: AnimatedSize(
-              duration: AppMotion.standardDuration,
+              duration: AppMotion.responsive(context, AppMotion.standardDuration),
               curve: AppMotion.standardCurve,
               alignment: Alignment.topCenter,
               child: widget.open
@@ -1242,13 +1344,20 @@ class _HistogramToggle extends StatelessWidget {
 }
 
 /// A compact, interactive affordance on the image: hold to view the
-/// unedited "before".
+/// unedited "before", toggle split views, and navigate photos.
 class _CompareHint extends ConsumerWidget {
-  const _CompareHint();
+  const _CompareHint({
+    this.onPreviousPhoto,
+    this.onNextPhoto,
+  });
+
+  final VoidCallback? onPreviousPhoto;
+  final VoidCallback? onNextPhoto;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final strings = AppStrings.of(context);
     final wiper = ref.watch(wiperCompareProvider);
     final splitCompare = ref.watch(splitCompareProvider);
     final assist = ref.watch(exposureAssistProvider);
@@ -1267,12 +1376,31 @@ class _CompareHint extends ConsumerWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: Insets.xs, vertical: 2),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (onPreviousPhoto != null) ...[
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 24,
+                  ),
+                  iconSize: 16,
+                  icon: const Icon(Icons.navigate_before),
+                  tooltip: strings.previousPhoto,
+                  onPressed: onPreviousPhoto,
+                ),
+                Container(
+                  width: 1,
+                  height: 12,
+                  color: scheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+                const SizedBox(width: Insets.xs),
+              ],
               Listener(
                 behavior: HitTestBehavior.opaque,
                 onPointerDown: (_) =>
@@ -1287,7 +1415,7 @@ class _CompareHint extends ConsumerWidget {
                     Icon(Icons.compare, size: 14, color: scheme.primary),
                     const SizedBox(width: Insets.xs),
                     Text(
-                      'Hold to compare',
+                      strings.holdToCompare,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -1322,7 +1450,7 @@ class _CompareHint extends ConsumerWidget {
                     ),
                     const SizedBox(width: Insets.xs),
                     Text(
-                      'Wiper',
+                      strings.wiper,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: wiper.isActive
@@ -1365,7 +1493,7 @@ class _CompareHint extends ConsumerWidget {
                     ),
                     const SizedBox(width: Insets.xs),
                     Text(
-                      'B/A Split',
+                      strings.splitCompare,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: splitCompare.isEnabled
@@ -1422,6 +1550,25 @@ class _CompareHint extends ConsumerWidget {
                   ],
                 ),
               ),
+              if (onNextPhoto != null) ...[
+                const SizedBox(width: Insets.xs),
+                Container(
+                  width: 1,
+                  height: 12,
+                  color: scheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 24,
+                  ),
+                  iconSize: 16,
+                  icon: const Icon(Icons.navigate_next),
+                  tooltip: strings.nextPhoto,
+                  onPressed: onNextPhoto,
+                ),
+              ],
             ],
           ),
         ),
@@ -1444,7 +1591,7 @@ class _AiProgressFloatingPill extends ConsumerWidget {
 
     return AnimatedOpacity(
       opacity: isInferring ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 220),
+      duration: AppMotion.responsive(context, AppMotion.shortDuration),
       curve: Curves.easeOutCubic,
       child: IgnorePointer(
         ignoring: !isInferring,
@@ -1500,6 +1647,144 @@ class _AiProgressFloatingPill extends ConsumerWidget {
                 ),
               )
             : const SizedBox.shrink(),
+      ),
+    );
+  }
+}
+
+/// Floating vertical IRE reference bar overlay when ARRI 16-zone false color is active.
+class _FalseColorLegendOverlay extends StatelessWidget {
+  const _FalseColorLegendOverlay();
+
+  static const _entries = [
+    (Color(0xFFE53935), '100 CLIP'),
+    (Color(0xFFFFEB3B), '85 HLI'),
+    (Color(0xFFF06292), '70 SKIN'),
+    (Color(0xFF66BB6A), '40 MID'),
+    (Color(0xFF1E88E5), '5 SHD'),
+    (Color(0xFF8E24AA), '0 CRUSH'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('false-color-ire-legend'),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.80),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24, width: 0.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black45,
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final (color, label) in _entries)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white70,
+                      letterSpacing: 0.3,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Floating live parameter readout pill displayed over the viewport when a parameter
+/// slider is being actively dragged, preventing thumb occlusion.
+class _LiveScrubHudPill extends ConsumerWidget {
+  const _LiveScrubHudPill({required this.parameter});
+
+  final Parameter parameter;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final spec = specOf(parameter);
+    final value = ref.watch(
+      recipeControllerProvider.select((s) => valueOf(s.recipe, parameter)),
+    );
+    final isNeutral = value == spec.neutral;
+    final formatted = isNeutral
+        ? '0'
+        : (spec.min >= 0 && spec.max <= 1.0
+            ? '${(value * 100).round()}%'
+            : (spec.max - spec.min <= 10.0
+                ? '${value > 0 ? '+' : ''}${value.toStringAsFixed(2)}'
+                : '${value > 0 ? '+' : ''}${value.round()}'));
+
+    return Container(
+      key: const Key('live-scrub-hud-pill'),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white24, width: 0.75),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black54,
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            spec.label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 1,
+            height: 12,
+            color: Colors.white24,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            formatted,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: isNeutral ? Colors.white54 : const Color(0xFF64B5F6),
+            ),
+          ),
+        ],
       ),
     );
   }

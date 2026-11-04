@@ -58,6 +58,18 @@ pub fn export_png(rgba: Vec<u8>, width: u32, height: u32) -> Result<Vec<u8>, Str
     crate::export::encode_png(&rgba, width, height)
 }
 
+/// Exports RGBA8 pixels into an ISO-BMFF HEIC container (#175).
+pub fn export_heic(rgba: Vec<u8>, width: u32, height: u32, quality: u8) -> Result<Vec<u8>, String> {
+    crate::validate::validate_rgba(&rgba, width, height)?;
+    crate::export::encode_heic(&rgba, width, height, quality)
+}
+
+/// Exports RGBA8 pixels into an ISO-BMFF AVIF container (#175).
+pub fn export_avif(rgba: Vec<u8>, width: u32, height: u32, quality: u8) -> Result<Vec<u8>, String> {
+    crate::validate::validate_rgba(&rgba, width, height)?;
+    crate::export::encode_avif(&rgba, width, height, quality)
+}
+
 /// One bracketed exposure for HDR merge (#20).
 pub struct HdrExposureSpec {
     pub rgba: Vec<u8>,
@@ -152,6 +164,7 @@ pub struct ExportSpec {
     pub sharpen_masking: f32,
     pub denoise_luma: f32,
     pub denoise_chroma: f32,
+    pub ai_denoise: f32,
     pub dehaze: f32,
     pub vignette: f32,
     pub vignette_midpoint: f32,
@@ -218,6 +231,10 @@ pub struct ExportSpec {
     pub ultra_hdr: bool,
     /// HDR headroom in EV stops (e.g. 2.0 = 400% brightness boost).
     pub hdr_headroom: f32,
+    /// Optional user-imported 3D LUT atlas (RGBA8 trilinear cube atlas).
+    pub lut_atlas: Vec<u8>,
+    /// Dimension of the 3D LUT cube (e.g. 33 or 65; 0 = no imported LUT).
+    pub lut_size: u32,
 }
 
 impl ExportSpec {
@@ -538,6 +555,7 @@ pub fn export_full_with_branding(
             sharpen_masking: spec.sharpen_masking,
             denoise_luma: spec.denoise_luma,
             denoise_chroma: spec.denoise_chroma,
+            ai_denoise: spec.ai_denoise,
             dehaze: spec.dehaze,
             vignette: spec.vignette,
             vignette_midpoint: spec.vignette_midpoint,
@@ -581,6 +599,8 @@ pub fn export_full_with_branding(
         grade: params.to_core(),
         curves: curves.to_set(),
         hsl: to_hsl24(&hsl),
+        lut_atlas: spec.lut_atlas.clone(),
+        lut_size: spec.lut_size,
     };
 
     let token_parts = cancel_flag(spec.cancel_token);
@@ -768,6 +788,7 @@ mod tests {
             sharpen_masking: 0.0,
             denoise_luma: 0.0,
             denoise_chroma: 0.0,
+            ai_denoise: 0.0,
             dehaze: 0.0,
             vignette: 0.0,
             vignette_midpoint: 0.5,
@@ -816,6 +837,8 @@ mod tests {
             color_space: 0,
             ultra_hdr: false,
             hdr_headroom: 2.0,
+            lut_atlas: Vec::new(),
+            lut_size: 0,
         }
     }
 

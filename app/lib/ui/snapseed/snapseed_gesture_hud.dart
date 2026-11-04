@@ -188,7 +188,7 @@ class SnapseedScrubHud extends StatelessWidget {
 
     return AnimatedOpacity(
       opacity: visible ? 1.0 : 0.0,
-      duration: AppMotion.shortDuration,
+      duration: AppMotion.responsive(context, AppMotion.shortDuration),
       curve: AppMotion.scrubCurve,
       child: Center(
         // Keep a 16px screen margin so the pill never spans edge-to-edge;
@@ -317,7 +317,7 @@ class SnapseedParameterCarousel extends StatelessWidget {
     return Center(
       child: AnimatedOpacity(
         opacity: visible ? 1.0 : 0.0,
-        duration: AppMotion.microDuration,
+        duration: AppMotion.responsive(context, AppMotion.microDuration),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: BackdropFilter(

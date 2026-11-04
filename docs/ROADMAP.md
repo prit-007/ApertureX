@@ -37,8 +37,10 @@ Legend: **[scope]** → *exit criteria*.  Status: ✅ done · 🚧 in progress �
   on-device 5-point landmark detection powering portrait masks & Rule of Thirds auto-framing.
   **ApertureX Neural Forge (BYOM Plugins) landed:** users can install sandboxed ONNX models
   via GitHub/HuggingFace links with auto-generated native Flutter slider controls.
-- **P4 ✅ → complete** — banded single-call export + cancel + hard memory cap +
-  determinate progress + batch polish (#68/#80/#75) + lossless DNG CFA export (#79).
+- **P4 ✅ → complete** — banded single-call export + cancel + determinate progress +
+  batch polish (#68/#80/#75) + lossless DNG CFA export (#79). No hard memory cap
+  (jpeg_encoder has no streaming API; peak is geometry + graded output + one band,
+  see docs/RISKS.md).
   **Lossless PNG export** landed via Rust DEFLATE encoder (`export.rs`), and **Background
   Export Queue** landed via dedicated Isolate worker with wake-lock persistence.
 - **P5 ✅ → complete** — release automation (tag-driven releases, F-Droid-container
@@ -356,8 +358,9 @@ an opaque cancel-token registry (`exportCancelNew/Set/Drop`). Dart's
 banded spatial → masks → grade → optional downscale → JPEG — in **one** bridge
 crossing instead of five; `exportJpeg` now delegates to it, so the legacy
 multi-round-trip chain is retired. The editor drives a Cancel button off the
-token (returns `null` on abort). The hard peak-memory cap via streamed/
-banded encode, the determinate progress indicator (editor export, batch, share),
+token (returns `null` on abort). Banded encode keeps peak memory bounded
+(geometry + graded output + one band), the determinate progress indicator
+(editor export, batch, share),
 and memory-bounded parallel **batch export** with copy/paste-in-selection-bar
 are all wired (#68/#80/#75). Verified: 142 Rust tests (spatial/mask band
 parity, tiled-vs-single parity, FFI cancel), `cargo fmt`/`clippy` clean, and
@@ -376,7 +379,7 @@ decode-only today).
 
 **Scope**
 - F-Droid metadata + per-ABI version codes (ADR 0004); reproducible release.
-- HEIC import/export; accessibility (TalkBack/VoiceOver, dynamic type); i18n;
+- HEIC/AVIF import/export (ISO-BMFF parser + encoder); accessibility (TalkBack/VoiceOver, dynamic type, reduce-motion #174); i18n;
   onboarding; error/empty states.
 - Performance pass on the low-tier device matrix; iPhone validation (P-1 gap).
 

@@ -6,7 +6,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../edit/recipe_controller.dart';
 import '../../edit/retouch_patch.dart';
+import '../../settings/app_settings.dart';
 import '../../viewport/canvas_transform.dart';
+import '../../viewport/mask_peek.dart' show stylusOnlyModeProvider;
 import 'retouch_controls.dart';
 
 enum _DragHandle { none, target, source, radius }
@@ -32,6 +34,7 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
 
   // Multi-touch tracking for pinch-zoom and 2-finger pan
   final Map<int, Offset> _activePointers = {};
+  final Map<int, PointerDeviceKind> _activePointerKinds = {};
   Offset? _prevFocalPoint;
   double? _prevSpan;
   int? _newPatchCreatedOnCurrentDown;
@@ -94,7 +97,19 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
             setState(() => _hoverPos = event.localPosition);
           },
           onPointerDown: (event) {
+            final stylusOnly = ref.read(stylusOnlyModeProvider);
+            final stylusSettings = ref.read(stylusSettingsProvider);
+            final isStylus = event.kind == PointerDeviceKind.stylus ||
+                event.kind == PointerDeviceKind.invertedStylus;
+            if (stylusOnly && !isStylus) return;
+            if (stylusSettings.palmRejection) {
+              final hasActiveStylus = _activePointerKinds.values.any((k) =>
+                  k == PointerDeviceKind.stylus || k == PointerDeviceKind.invertedStylus);
+              if (hasActiveStylus && !isStylus) return;
+            }
+
             _activePointers[event.pointer] = event.localPosition;
+            _activePointerKinds[event.pointer] = event.kind;
             if (_activePointers.length >= 2) {
               // If a spot was just created on the initial finger down, remove it
               if (_newPatchCreatedOnCurrentDown != null) {
@@ -205,7 +220,9 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
             }
 
             // Otherwise, create a new patch at this position on the photo
-            final pressure = event.pressure > 0.0 ? event.pressure : 1.0;
+            final pressure = (stylusSettings.pressureSensitivity && event.pressure > 0.0)
+                ? event.pressure
+                : 1.0;
             final scaledRadius = (brush.radius * (0.5 + 0.5 * pressure)).clamp(0.01, 0.25);
 
             final srcX = (normX > 0.5 ? normX - 0.08 : normX + 0.08).clamp(0.02, 0.98);
@@ -232,7 +249,19 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
             HapticFeedback.selectionClick();
           },
           onPointerMove: (event) {
+            final stylusOnly = ref.read(stylusOnlyModeProvider);
+            final stylusSettings = ref.read(stylusSettingsProvider);
+            final isStylus = event.kind == PointerDeviceKind.stylus ||
+                event.kind == PointerDeviceKind.invertedStylus;
+            if (stylusOnly && !isStylus) return;
+            if (stylusSettings.palmRejection) {
+              final hasActiveStylus = _activePointerKinds.values.any((k) =>
+                  k == PointerDeviceKind.stylus || k == PointerDeviceKind.invertedStylus);
+              if (hasActiveStylus && !isStylus) return;
+            }
+
             _activePointers[event.pointer] = event.localPosition;
+            _activePointerKinds[event.pointer] = event.kind;
             if (_activePointers.length >= 2) {
               _handleMultiTouchUpdate();
               return;
@@ -283,6 +312,7 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
           },
           onPointerUp: (event) {
             _activePointers.remove(event.pointer);
+            _activePointerKinds.remove(event.pointer);
             if (_activePointers.length < 2 && _prevFocalPoint != null) {
               _prevFocalPoint = null;
               _prevSpan = null;
@@ -302,6 +332,7 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
           },
           onPointerCancel: (event) {
             _activePointers.remove(event.pointer);
+            _activePointerKinds.remove(event.pointer);
             if (_activePointers.isEmpty) {
               _newPatchCreatedOnCurrentDown = null;
               if (_prevFocalPoint != null) {

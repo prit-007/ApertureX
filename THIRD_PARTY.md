@@ -19,6 +19,8 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 | [`drift`](https://pub.dev/packages/drift) | ^2.35.2 | MIT | Local SQLite database abstraction & reactive query layer for catalog and edits gallery | ✅ |
 | [`extended_image`](https://pub.dev/packages/extended_image) | ^10.1.0 | MIT | Gallery grid, pinch/pan gesture layer, `ExtendedRawImage.sourceRect` tile blits | ✅ |
 | [`file_picker`](https://pub.dev/packages/file_picker) | ^13.1.0 | MIT | Native SAF file picker for importing HALD CLUT PNGs (federated: `android_file_picker` etc.; no Android permissions required — SAF user grant) | ✅ |
+| [`flutter_riverpod`](https://pub.dev/packages/flutter_riverpod) | ^3.4.3 | MIT | Flutter-side Riverpod bindings (`ProviderScope`, widget consumers) for app-wide state: recipe controller, gallery, node editor | ✅ |
+| [`riverpod`](https://pub.dev/packages/riverpod) | ^3.4.3 | MIT | Riverpod core; explicit version pin alongside `flutter_riverpod` (no direct imports yet) | ✅ |
 | [`flutter_rust_bridge`](https://pub.dev/packages/flutter_rust_bridge) | v2.x | MIT / Apache-2.0 | Dart ↔ Rust FFI codegen | ✅ |
 | [`image`](https://pub.dev/packages/image) | ^4.12.0 | MIT | Pure-Dart PNG decode for HALD CLUT LUT import (ADR 0009) | ✅ |
 | [`intl`](https://pub.dev/packages/intl) | ^0.20.2 | BSD-3-Clause | Internationalization, pluralization, and localized date/number formatting | ✅ |

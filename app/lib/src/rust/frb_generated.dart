@@ -86,7 +86,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 318886115;
+  int get rustContentHash => 183677846;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -263,6 +263,13 @@ abstract class RustLibApi extends BaseApi {
     String? modelPath,
   });
 
+  Future<Uint8List> crateApiExportExportAvif({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int quality,
+  });
+
   Future<ExportBrandingSpec> crateApiExportExportBrandingSpecDefault();
 
   Future<WatermarkSpec> crateApiExportExportBrandingSpecToCore({
@@ -317,6 +324,13 @@ abstract class RustLibApi extends BaseApi {
     required int gainQuality,
     required double headroomEv,
     required List<int> exif,
+  });
+
+  Future<Uint8List> crateApiExportExportHeic({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int quality,
   });
 
   Future<Uint8List> crateApiExportExportPng({
@@ -579,6 +593,10 @@ abstract class RustLibApi extends BaseApi {
 
   Future<ImageDims> crateApiRawRawDimensions({required List<int> raw});
 
+  Future<Uint8List?> crateApiRawRawExtractEmbeddedPreview({
+    required List<int> raw,
+  });
+
   Future<Float32List> crateApiMaskRefineMask({
     required List<int> rgba,
     required int width,
@@ -638,6 +656,7 @@ abstract class RustLibApi extends BaseApi {
     required double sharpenMasking,
     required double denoiseLuma,
     required double denoiseChroma,
+    required double aiDenoise,
     required double dehaze,
     required double vignette,
     required double vignetteMidpoint,
@@ -1796,6 +1815,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<Uint8List> crateApiExportExportAvif({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int quality,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_u_8(quality, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 30,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiExportExportAvifConstMeta,
+        argValues: [rgba, width, height, quality],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiExportExportAvifConstMeta => const TaskConstMeta(
+    debugName: "export_avif",
+    argNames: ["rgba", "width", "height", "quality"],
+  );
+
+  @override
   Future<ExportBrandingSpec> crateApiExportExportBrandingSpecDefault() {
     return handler.executeNormal(
       NormalTask(
@@ -1804,7 +1861,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 30,
+            funcId: 31,
             port: port_,
           );
         },
@@ -1837,7 +1894,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 31,
+            funcId: 32,
             port: port_,
           );
         },
@@ -1868,7 +1925,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 32,
+            funcId: 33,
             port: port_,
           );
         },
@@ -1895,7 +1952,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 33,
+            funcId: 34,
             port: port_,
           );
         },
@@ -1923,7 +1980,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 34,
+            funcId: 35,
             port: port_,
           );
         },
@@ -1961,7 +2018,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 35,
+            funcId: 36,
             port: port_,
           );
         },
@@ -2011,7 +2068,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 36,
+            funcId: 37,
             port: port_,
           );
         },
@@ -2087,7 +2144,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 37,
+            funcId: 38,
             port: port_,
           );
         },
@@ -2154,7 +2211,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 38,
+            funcId: 39,
             port: port_,
           );
         },
@@ -2176,6 +2233,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<Uint8List> crateApiExportExportHeic({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int quality,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_u_8(quality, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 40,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiExportExportHeicConstMeta,
+        argValues: [rgba, width, height, quality],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiExportExportHeicConstMeta => const TaskConstMeta(
+    debugName: "export_heic",
+    argNames: ["rgba", "width", "height", "quality"],
+  );
+
+  @override
   Future<Uint8List> crateApiExportExportPng({
     required List<int> rgba,
     required int width,
@@ -2191,7 +2286,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 39,
+            funcId: 41,
             port: port_,
           );
         },
@@ -2221,7 +2316,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 40,
+            funcId: 42,
             port: port_,
           );
         },
@@ -2256,7 +2351,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 41,
+            funcId: 43,
             port: port_,
           );
         },
@@ -2288,7 +2383,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 42,
+            funcId: 44,
             port: port_,
           );
         },
@@ -2327,7 +2422,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 43,
+            funcId: 45,
             port: port_,
           );
         },
@@ -2359,7 +2454,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 46,
             port: port_,
           );
         },
@@ -2390,7 +2485,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 47,
             port: port_,
           );
         },
@@ -2417,7 +2512,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 48,
             port: port_,
           );
         },
@@ -2455,7 +2550,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 49,
             port: port_,
           );
         },
@@ -2516,7 +2611,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 48,
+            funcId: 50,
             port: port_,
           );
         },
@@ -2593,7 +2688,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 49,
+            funcId: 51,
             port: port_,
           );
         },
@@ -2630,7 +2725,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 50,
+            funcId: 52,
             port: port_,
           );
         },
@@ -2667,7 +2762,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 51,
+            funcId: 53,
             port: port_,
           );
         },
@@ -2706,7 +2801,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 52,
+            funcId: 54,
             port: port_,
           );
         },
@@ -2745,7 +2840,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 53,
+            funcId: 55,
             port: port_,
           );
         },
@@ -2790,7 +2885,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 54,
+            funcId: 56,
             port: port_,
           );
         },
@@ -2845,7 +2940,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 55,
+            funcId: 57,
             port: port_,
           );
         },
@@ -2884,7 +2979,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 56,
+            funcId: 58,
             port: port_,
           );
         },
@@ -2917,7 +3012,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 57,
+            funcId: 59,
             port: port_,
           );
         },
@@ -2953,7 +3048,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 58,
+            funcId: 60,
             port: port_,
           );
         },
@@ -2997,7 +3092,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 59,
+            funcId: 61,
             port: port_,
           );
         },
@@ -3035,7 +3130,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 60,
+            funcId: 62,
             port: port_,
           );
         },
@@ -3063,7 +3158,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 61,
+            funcId: 63,
             port: port_,
           );
         },
@@ -3091,7 +3186,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 62,
+            funcId: 64,
             port: port_,
           );
         },
@@ -3118,7 +3213,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 63,
+            funcId: 65,
             port: port_,
           );
         },
@@ -3172,7 +3267,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 64,
+            funcId: 66,
             port: port_,
           );
         },
@@ -3248,7 +3343,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 65,
+            funcId: 67,
             port: port_,
           );
         },
@@ -3305,7 +3400,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 66,
+            funcId: 68,
             port: port_,
           );
         },
@@ -3346,7 +3441,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 67,
+            funcId: 69,
             port: port_,
           );
         },
@@ -3383,7 +3478,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 68,
+            funcId: 70,
             port: port_,
           );
         },
@@ -3421,7 +3516,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 69,
+            funcId: 71,
             port: port_,
           );
         },
@@ -3453,7 +3548,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 70,
+            funcId: 72,
             port: port_,
           );
         },
@@ -3483,7 +3578,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 71,
+            funcId: 73,
             port: port_,
           );
         },
@@ -3511,7 +3606,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 72,
+            funcId: 74,
             port: port_,
           );
         },
@@ -3541,7 +3636,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 73,
+            funcId: 75,
             port: port_,
           );
         },
@@ -3582,7 +3677,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 74,
+            funcId: 76,
             port: port_,
           );
         },
@@ -3619,7 +3714,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 75,
+            funcId: 77,
             port: port_,
           );
         },
@@ -3653,7 +3748,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 76,
+            funcId: 78,
             port: port_,
           );
         },
@@ -3700,7 +3795,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 77,
+            funcId: 79,
             port: port_,
           );
         },
@@ -3753,7 +3848,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 78,
+            funcId: 80,
             port: port_,
           );
         },
@@ -3792,7 +3887,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 79,
+            funcId: 81,
             port: port_,
           );
         },
@@ -3823,7 +3918,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 80,
+            funcId: 82,
             port: port_,
           );
         },
@@ -3851,7 +3946,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 81,
+            funcId: 83,
             port: port_,
           );
         },
@@ -3868,6 +3963,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiRawRawDimensionsConstMeta =>
       const TaskConstMeta(debugName: "raw_dimensions", argNames: ["raw"]);
+
+  @override
+  Future<Uint8List?> crateApiRawRawExtractEmbeddedPreview({
+    required List<int> raw,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(raw, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 84,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiRawRawExtractEmbeddedPreviewConstMeta,
+        argValues: [raw],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiRawRawExtractEmbeddedPreviewConstMeta =>
+      const TaskConstMeta(
+        debugName: "raw_extract_embedded_preview",
+        argNames: ["raw"],
+      );
 
   @override
   Future<Float32List> crateApiMaskRefineMask({
@@ -3897,7 +4025,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 82,
+            funcId: 85,
             port: port_,
           );
         },
@@ -3955,7 +4083,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 83,
+            funcId: 86,
             port: port_,
           );
         },
@@ -3994,7 +4122,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 84,
+            funcId: 87,
             port: port_,
           );
         },
@@ -4031,7 +4159,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 85,
+            funcId: 88,
             port: port_,
           );
         },
@@ -4071,7 +4199,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 86,
+            funcId: 89,
             port: port_,
           );
         },
@@ -4105,7 +4233,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 87,
+            funcId: 90,
             port: port_,
           );
         },
@@ -4141,6 +4269,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required double sharpenMasking,
     required double denoiseLuma,
     required double denoiseChroma,
+    required double aiDenoise,
     required double dehaze,
     required double vignette,
     required double vignetteMidpoint,
@@ -4168,6 +4297,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_f_32(sharpenMasking, serializer);
           sse_encode_f_32(denoiseLuma, serializer);
           sse_encode_f_32(denoiseChroma, serializer);
+          sse_encode_f_32(aiDenoise, serializer);
           sse_encode_f_32(dehaze, serializer);
           sse_encode_f_32(vignette, serializer);
           sse_encode_f_32(vignetteMidpoint, serializer);
@@ -4180,7 +4310,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 88,
+            funcId: 91,
             port: port_,
           );
         },
@@ -4203,6 +4333,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sharpenMasking,
           denoiseLuma,
           denoiseChroma,
+          aiDenoise,
           dehaze,
           vignette,
           vignetteMidpoint,
@@ -4235,6 +4366,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "sharpenMasking",
           "denoiseLuma",
           "denoiseChroma",
+          "aiDenoise",
           "dehaze",
           "vignette",
           "vignetteMidpoint",
@@ -4265,7 +4397,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 89,
+            funcId: 92,
             port: port_,
           );
         },
@@ -4306,7 +4438,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 90,
+            funcId: 93,
             port: port_,
           );
         },
@@ -4347,7 +4479,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 91,
+            funcId: 94,
             port: port_,
           );
         },
@@ -4388,7 +4520,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 92,
+            funcId: 95,
             port: port_,
           );
         },
@@ -4427,7 +4559,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 93,
+            funcId: 96,
             port: port_,
           );
         },
@@ -4466,7 +4598,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 94,
+            funcId: 97,
             port: port_,
           );
         },
@@ -4501,7 +4633,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 95,
+            funcId: 98,
             port: port_,
           );
         },
@@ -4894,8 +5026,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ExportSpec dco_decode_export_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 70)
-      throw Exception('unexpected arr length: expect 70 but see ${arr.length}');
+    if (arr.length != 73)
+      throw Exception('unexpected arr length: expect 73 but see ${arr.length}');
     return ExportSpec(
       flipH: dco_decode_bool(arr[0]),
       flipV: dco_decode_bool(arr[1]),
@@ -4919,54 +5051,57 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       sharpenMasking: dco_decode_f_32(arr[19]),
       denoiseLuma: dco_decode_f_32(arr[20]),
       denoiseChroma: dco_decode_f_32(arr[21]),
-      dehaze: dco_decode_f_32(arr[22]),
-      vignette: dco_decode_f_32(arr[23]),
-      vignetteMidpoint: dco_decode_f_32(arr[24]),
-      vignetteFeather: dco_decode_f_32(arr[25]),
-      vignetteRoundness: dco_decode_f_32(arr[26]),
-      vignetteHighlights: dco_decode_f_32(arr[27]),
-      grain: dco_decode_f_32(arr[28]),
-      grainSize: dco_decode_f_32(arr[29]),
-      grainRoughness: dco_decode_f_32(arr[30]),
-      filmHalation: dco_decode_f_32(arr[31]),
-      filmHalationRadius: dco_decode_f_32(arr[32]),
-      filmHalationThreshold: dco_decode_f_32(arr[33]),
-      filmBloom: dco_decode_f_32(arr[34]),
-      filmBloomRadius: dco_decode_f_32(arr[35]),
-      filmBloomThreshold: dco_decode_f_32(arr[36]),
-      filmDust: dco_decode_f_32(arr[37]),
-      filmScratches: dco_decode_f_32(arr[38]),
-      shaderLabPreset: dco_decode_u_32(arr[39]),
-      shaderParam1: dco_decode_f_32(arr[40]),
-      shaderParam2: dco_decode_f_32(arr[41]),
-      shaderParam3: dco_decode_f_32(arr[42]),
-      outputSharpenMedia: dco_decode_u_8(arr[43]),
-      outputSharpen: dco_decode_f_32(arr[44]),
-      removeChromaticAberration: dco_decode_bool(arr[45]),
-      defringePurpleAmount: dco_decode_f_32(arr[46]),
-      defringePurpleHueMin: dco_decode_f_32(arr[47]),
-      defringePurpleHueMax: dco_decode_f_32(arr[48]),
-      defringeGreenAmount: dco_decode_f_32(arr[49]),
-      defringeGreenHueMin: dco_decode_f_32(arr[50]),
-      defringeGreenHueMax: dco_decode_f_32(arr[51]),
-      profileCorrections: dco_decode_bool(arr[52]),
-      profileDistortion: dco_decode_f_32(arr[53]),
-      profileVignetting: dco_decode_f_32(arr[54]),
-      blurEnabled: dco_decode_bool(arr[55]),
-      blurAmount: dco_decode_f_32(arr[56]),
-      blurFocalPoint: dco_decode_f_32(arr[57]),
-      blurFocalRange: dco_decode_f_32(arr[58]),
-      blurBokehShape: dco_decode_u_8(arr[59]),
-      blurBokehBoost: dco_decode_f_32(arr[60]),
-      blurBackgroundBlur: dco_decode_bool(arr[61]),
-      blurSampleCount: dco_decode_u_8(arr[62]),
-      quality: dco_decode_u_8(arr[63]),
-      maxDim: dco_decode_u_32(arr[64]),
-      bandRows: dco_decode_u_32(arr[65]),
-      cancelToken: dco_decode_u_64(arr[66]),
-      colorSpace: dco_decode_u_32(arr[67]),
-      ultraHdr: dco_decode_bool(arr[68]),
-      hdrHeadroom: dco_decode_f_32(arr[69]),
+      aiDenoise: dco_decode_f_32(arr[22]),
+      dehaze: dco_decode_f_32(arr[23]),
+      vignette: dco_decode_f_32(arr[24]),
+      vignetteMidpoint: dco_decode_f_32(arr[25]),
+      vignetteFeather: dco_decode_f_32(arr[26]),
+      vignetteRoundness: dco_decode_f_32(arr[27]),
+      vignetteHighlights: dco_decode_f_32(arr[28]),
+      grain: dco_decode_f_32(arr[29]),
+      grainSize: dco_decode_f_32(arr[30]),
+      grainRoughness: dco_decode_f_32(arr[31]),
+      filmHalation: dco_decode_f_32(arr[32]),
+      filmHalationRadius: dco_decode_f_32(arr[33]),
+      filmHalationThreshold: dco_decode_f_32(arr[34]),
+      filmBloom: dco_decode_f_32(arr[35]),
+      filmBloomRadius: dco_decode_f_32(arr[36]),
+      filmBloomThreshold: dco_decode_f_32(arr[37]),
+      filmDust: dco_decode_f_32(arr[38]),
+      filmScratches: dco_decode_f_32(arr[39]),
+      shaderLabPreset: dco_decode_u_32(arr[40]),
+      shaderParam1: dco_decode_f_32(arr[41]),
+      shaderParam2: dco_decode_f_32(arr[42]),
+      shaderParam3: dco_decode_f_32(arr[43]),
+      outputSharpenMedia: dco_decode_u_8(arr[44]),
+      outputSharpen: dco_decode_f_32(arr[45]),
+      removeChromaticAberration: dco_decode_bool(arr[46]),
+      defringePurpleAmount: dco_decode_f_32(arr[47]),
+      defringePurpleHueMin: dco_decode_f_32(arr[48]),
+      defringePurpleHueMax: dco_decode_f_32(arr[49]),
+      defringeGreenAmount: dco_decode_f_32(arr[50]),
+      defringeGreenHueMin: dco_decode_f_32(arr[51]),
+      defringeGreenHueMax: dco_decode_f_32(arr[52]),
+      profileCorrections: dco_decode_bool(arr[53]),
+      profileDistortion: dco_decode_f_32(arr[54]),
+      profileVignetting: dco_decode_f_32(arr[55]),
+      blurEnabled: dco_decode_bool(arr[56]),
+      blurAmount: dco_decode_f_32(arr[57]),
+      blurFocalPoint: dco_decode_f_32(arr[58]),
+      blurFocalRange: dco_decode_f_32(arr[59]),
+      blurBokehShape: dco_decode_u_8(arr[60]),
+      blurBokehBoost: dco_decode_f_32(arr[61]),
+      blurBackgroundBlur: dco_decode_bool(arr[62]),
+      blurSampleCount: dco_decode_u_8(arr[63]),
+      quality: dco_decode_u_8(arr[64]),
+      maxDim: dco_decode_u_32(arr[65]),
+      bandRows: dco_decode_u_32(arr[66]),
+      cancelToken: dco_decode_u_64(arr[67]),
+      colorSpace: dco_decode_u_32(arr[68]),
+      ultraHdr: dco_decode_bool(arr[69]),
+      hdrHeadroom: dco_decode_f_32(arr[70]),
+      lutAtlas: dco_decode_list_prim_u_8_strict(arr[71]),
+      lutSize: dco_decode_u_32(arr[72]),
     );
   }
 
@@ -5295,8 +5430,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PreviewBaseSpec dco_decode_preview_base_spec(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 58)
-      throw Exception('unexpected arr length: expect 58 but see ${arr.length}');
+    if (arr.length != 59)
+      throw Exception('unexpected arr length: expect 59 but see ${arr.length}');
     return PreviewBaseSpec(
       flipH: dco_decode_bool(arr[0]),
       flipV: dco_decode_bool(arr[1]),
@@ -5315,47 +5450,48 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       sharpenMasking: dco_decode_f_32(arr[14]),
       denoiseLuma: dco_decode_f_32(arr[15]),
       denoiseChroma: dco_decode_f_32(arr[16]),
-      dehaze: dco_decode_f_32(arr[17]),
-      vignette: dco_decode_f_32(arr[18]),
-      vignetteMidpoint: dco_decode_f_32(arr[19]),
-      vignetteFeather: dco_decode_f_32(arr[20]),
-      vignetteRoundness: dco_decode_f_32(arr[21]),
-      vignetteHighlights: dco_decode_f_32(arr[22]),
-      grain: dco_decode_f_32(arr[23]),
-      grainSize: dco_decode_f_32(arr[24]),
-      grainRoughness: dco_decode_f_32(arr[25]),
-      filmHalation: dco_decode_f_32(arr[26]),
-      filmHalationRadius: dco_decode_f_32(arr[27]),
-      filmHalationThreshold: dco_decode_f_32(arr[28]),
-      filmBloom: dco_decode_f_32(arr[29]),
-      filmBloomRadius: dco_decode_f_32(arr[30]),
-      filmBloomThreshold: dco_decode_f_32(arr[31]),
-      filmDust: dco_decode_f_32(arr[32]),
-      filmScratches: dco_decode_f_32(arr[33]),
-      shaderLabPreset: dco_decode_u_32(arr[34]),
-      shaderParam1: dco_decode_f_32(arr[35]),
-      shaderParam2: dco_decode_f_32(arr[36]),
-      shaderParam3: dco_decode_f_32(arr[37]),
-      outputSharpenMedia: dco_decode_u_8(arr[38]),
-      outputSharpen: dco_decode_f_32(arr[39]),
-      removeChromaticAberration: dco_decode_bool(arr[40]),
-      defringePurpleAmount: dco_decode_f_32(arr[41]),
-      defringePurpleHueMin: dco_decode_f_32(arr[42]),
-      defringePurpleHueMax: dco_decode_f_32(arr[43]),
-      defringeGreenAmount: dco_decode_f_32(arr[44]),
-      defringeGreenHueMin: dco_decode_f_32(arr[45]),
-      defringeGreenHueMax: dco_decode_f_32(arr[46]),
-      profileCorrections: dco_decode_bool(arr[47]),
-      profileDistortion: dco_decode_f_32(arr[48]),
-      profileVignetting: dco_decode_f_32(arr[49]),
-      blurEnabled: dco_decode_bool(arr[50]),
-      blurAmount: dco_decode_f_32(arr[51]),
-      blurFocalPoint: dco_decode_f_32(arr[52]),
-      blurFocalRange: dco_decode_f_32(arr[53]),
-      blurBokehShape: dco_decode_u_8(arr[54]),
-      blurBokehBoost: dco_decode_f_32(arr[55]),
-      blurBackgroundBlur: dco_decode_bool(arr[56]),
-      blurSampleCount: dco_decode_u_8(arr[57]),
+      aiDenoise: dco_decode_f_32(arr[17]),
+      dehaze: dco_decode_f_32(arr[18]),
+      vignette: dco_decode_f_32(arr[19]),
+      vignetteMidpoint: dco_decode_f_32(arr[20]),
+      vignetteFeather: dco_decode_f_32(arr[21]),
+      vignetteRoundness: dco_decode_f_32(arr[22]),
+      vignetteHighlights: dco_decode_f_32(arr[23]),
+      grain: dco_decode_f_32(arr[24]),
+      grainSize: dco_decode_f_32(arr[25]),
+      grainRoughness: dco_decode_f_32(arr[26]),
+      filmHalation: dco_decode_f_32(arr[27]),
+      filmHalationRadius: dco_decode_f_32(arr[28]),
+      filmHalationThreshold: dco_decode_f_32(arr[29]),
+      filmBloom: dco_decode_f_32(arr[30]),
+      filmBloomRadius: dco_decode_f_32(arr[31]),
+      filmBloomThreshold: dco_decode_f_32(arr[32]),
+      filmDust: dco_decode_f_32(arr[33]),
+      filmScratches: dco_decode_f_32(arr[34]),
+      shaderLabPreset: dco_decode_u_32(arr[35]),
+      shaderParam1: dco_decode_f_32(arr[36]),
+      shaderParam2: dco_decode_f_32(arr[37]),
+      shaderParam3: dco_decode_f_32(arr[38]),
+      outputSharpenMedia: dco_decode_u_8(arr[39]),
+      outputSharpen: dco_decode_f_32(arr[40]),
+      removeChromaticAberration: dco_decode_bool(arr[41]),
+      defringePurpleAmount: dco_decode_f_32(arr[42]),
+      defringePurpleHueMin: dco_decode_f_32(arr[43]),
+      defringePurpleHueMax: dco_decode_f_32(arr[44]),
+      defringeGreenAmount: dco_decode_f_32(arr[45]),
+      defringeGreenHueMin: dco_decode_f_32(arr[46]),
+      defringeGreenHueMax: dco_decode_f_32(arr[47]),
+      profileCorrections: dco_decode_bool(arr[48]),
+      profileDistortion: dco_decode_f_32(arr[49]),
+      profileVignetting: dco_decode_f_32(arr[50]),
+      blurEnabled: dco_decode_bool(arr[51]),
+      blurAmount: dco_decode_f_32(arr[52]),
+      blurFocalPoint: dco_decode_f_32(arr[53]),
+      blurFocalRange: dco_decode_f_32(arr[54]),
+      blurBokehShape: dco_decode_u_8(arr[55]),
+      blurBokehBoost: dco_decode_f_32(arr[56]),
+      blurBackgroundBlur: dco_decode_bool(arr[57]),
+      blurSampleCount: dco_decode_u_8(arr[58]),
     );
   }
 
@@ -5951,6 +6087,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_sharpenMasking = sse_decode_f_32(deserializer);
     var var_denoiseLuma = sse_decode_f_32(deserializer);
     var var_denoiseChroma = sse_decode_f_32(deserializer);
+    var var_aiDenoise = sse_decode_f_32(deserializer);
     var var_dehaze = sse_decode_f_32(deserializer);
     var var_vignette = sse_decode_f_32(deserializer);
     var var_vignetteMidpoint = sse_decode_f_32(deserializer);
@@ -5999,6 +6136,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_colorSpace = sse_decode_u_32(deserializer);
     var var_ultraHdr = sse_decode_bool(deserializer);
     var var_hdrHeadroom = sse_decode_f_32(deserializer);
+    var var_lutAtlas = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_lutSize = sse_decode_u_32(deserializer);
     return ExportSpec(
       flipH: var_flipH,
       flipV: var_flipV,
@@ -6022,6 +6161,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       sharpenMasking: var_sharpenMasking,
       denoiseLuma: var_denoiseLuma,
       denoiseChroma: var_denoiseChroma,
+      aiDenoise: var_aiDenoise,
       dehaze: var_dehaze,
       vignette: var_vignette,
       vignetteMidpoint: var_vignetteMidpoint,
@@ -6070,6 +6210,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       colorSpace: var_colorSpace,
       ultraHdr: var_ultraHdr,
       hdrHeadroom: var_hdrHeadroom,
+      lutAtlas: var_lutAtlas,
+      lutSize: var_lutSize,
     );
   }
 
@@ -6553,6 +6695,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_sharpenMasking = sse_decode_f_32(deserializer);
     var var_denoiseLuma = sse_decode_f_32(deserializer);
     var var_denoiseChroma = sse_decode_f_32(deserializer);
+    var var_aiDenoise = sse_decode_f_32(deserializer);
     var var_dehaze = sse_decode_f_32(deserializer);
     var var_vignette = sse_decode_f_32(deserializer);
     var var_vignetteMidpoint = sse_decode_f_32(deserializer);
@@ -6612,6 +6755,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       sharpenMasking: var_sharpenMasking,
       denoiseLuma: var_denoiseLuma,
       denoiseChroma: var_denoiseChroma,
+      aiDenoise: var_aiDenoise,
       dehaze: var_dehaze,
       vignette: var_vignette,
       vignetteMidpoint: var_vignetteMidpoint,
@@ -7161,6 +7305,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.sharpenMasking, serializer);
     sse_encode_f_32(self.denoiseLuma, serializer);
     sse_encode_f_32(self.denoiseChroma, serializer);
+    sse_encode_f_32(self.aiDenoise, serializer);
     sse_encode_f_32(self.dehaze, serializer);
     sse_encode_f_32(self.vignette, serializer);
     sse_encode_f_32(self.vignetteMidpoint, serializer);
@@ -7209,6 +7354,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_32(self.colorSpace, serializer);
     sse_encode_bool(self.ultraHdr, serializer);
     sse_encode_f_32(self.hdrHeadroom, serializer);
+    sse_encode_list_prim_u_8_strict(self.lutAtlas, serializer);
+    sse_encode_u_32(self.lutSize, serializer);
   }
 
   @protected
@@ -7647,6 +7794,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.sharpenMasking, serializer);
     sse_encode_f_32(self.denoiseLuma, serializer);
     sse_encode_f_32(self.denoiseChroma, serializer);
+    sse_encode_f_32(self.aiDenoise, serializer);
     sse_encode_f_32(self.dehaze, serializer);
     sse_encode_f_32(self.vignette, serializer);
     sse_encode_f_32(self.vignetteMidpoint, serializer);

@@ -12,13 +12,16 @@ import '../../edit/active_image.dart' show activeImageBytesProvider;
 import '../../edit/parameter.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
+import '../../edit/snapshots_provider.dart';
 import '../../engine/engine.dart';
+import '../../features/ai_plugins/ai_plugin_model.dart';
 import '../../features/ai_plugins/ai_plugin_store.dart';
 import '../../features/ai_plugins/ai_plugins_screen.dart';
 import '../../features/guide/app_guide_screen.dart';
 import '../../features/guide/tool_guide_model.dart';
 import '../../features/presets/community_preset_model.dart';
 import '../../features/presets/community_presets_provider.dart';
+import '../../features/presets/preset_catalog.dart';
 import '../../viewport/compare_hold.dart';
 import '../../viewport/exposure_assist.dart';
 import '../../viewport/mask_peek.dart' show rubyPeeksEnabledProvider;
@@ -36,6 +39,7 @@ import '../common/mask_controls.dart';
 import '../common/optics_controls.dart';
 import '../common/parameter_panel.dart';
 import '../common/retouch_controls.dart';
+import '../../l10n/app_strings.dart';
 import '../common/tone_curve_editor.dart';
 import '../common/looks_sheet.dart';
 import '../common/app_primitives.dart';
@@ -59,14 +63,14 @@ enum MasterTab {
   plugins,
 }
 
-String _masterTabLabel(MasterTab tab) => switch (tab) {
-  MasterTab.lightColor => 'Light & Color',
-  MasterTab.effectsDetail => 'Effects & Detail',
-  MasterTab.cropGeometry => 'Crop & Geometry',
-  MasterTab.proTools => 'Pro Tools',
-  MasterTab.looksPresets => 'Looks & Presets',
-  MasterTab.masks => 'Masks',
-  MasterTab.plugins => 'Plugins',
+String _masterTabLabel(MasterTab tab, [AppStrings? strings]) => switch (tab) {
+  MasterTab.lightColor => strings?.lightAndColor ?? 'Light & Color',
+  MasterTab.effectsDetail => strings?.effectsAndDetail ?? 'Effects & Detail',
+  MasterTab.cropGeometry => strings?.cropAndGeometry ?? 'Crop & Geometry',
+  MasterTab.proTools => strings?.proTools ?? 'Pro Tools',
+  MasterTab.looksPresets => strings?.looksAndPresets ?? 'Looks & Presets',
+  MasterTab.masks => strings?.masks ?? 'Masks',
+  MasterTab.plugins => strings?.plugins ?? 'Plugins',
 };
 
 enum _LightColorSubTab { light, color, curve, mix, grade }
@@ -229,7 +233,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         label: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_masterTabLabel(tab)),
+            Text(_masterTabLabel(tab, AppStrings.of(context))),
             if (isModified) ...[
               const SizedBox(width: 4),
               Container(
@@ -352,7 +356,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                                 );
                                 _tabScrollController.animateTo(
                                   target,
-                                  duration: AppMotion.shortDuration,
+                                  duration: AppMotion.responsive(
+                                    context,
+                                    AppMotion.shortDuration,
+                                  ),
                                   curve: AppMotion.standardCurve,
                                 );
                               }
@@ -376,7 +383,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                                 );
                                 _tabScrollController.animateTo(
                                   target,
-                                  duration: AppMotion.shortDuration,
+                                  duration: AppMotion.responsive(
+                                    context,
+                                    AppMotion.shortDuration,
+                                  ),
                                   curve: AppMotion.standardCurve,
                                 );
                               }
@@ -440,8 +450,11 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                           );
                           _tabScrollController.animateTo(
                             target,
-                            duration: const Duration(milliseconds: 250),
-                            curve: Curves.easeOut,
+                            duration: AppMotion.responsive(
+                              context,
+                              AppMotion.shortDuration,
+                            ),
+                            curve: AppMotion.standardCurve,
                           );
                         }
                       },
@@ -636,6 +649,18 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     },
                     icon: const Icon(Icons.wb_iridescent_outlined),
                     selectedIcon: Icon(Icons.wb_iridescent, color: scheme.primary),
+                  ),
+                  IconButton(
+                    tooltip: 'Snapshot A/B Compare',
+                    visualDensity: VisualDensity.compact,
+                    isSelected: ref.watch(snapshotCompareEnabledProvider),
+                    onPressed: () {
+                      ref.read(snapshotCompareEnabledProvider.notifier).toggle();
+                      HapticFeedback.selectionClick();
+                    },
+                    icon: const Icon(Icons.compare_arrows),
+                    selectedIcon:
+                        Icon(Icons.compare_arrows, color: scheme.primary),
                   ),
                   IconButton(
                     key: const Key('tray-soft-proofing'),
@@ -1285,34 +1310,46 @@ class _PluginsPanelView extends ConsumerWidget {
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
           ),
         ),
-        _aiTaskCard(
-          context,
-          icon: Icons.person_search_rounded,
-          taskName: 'Subject & Object Saliency',
-          modelName: 'ApertureX Saliency (Zero-Copy)',
-          status: 'Active · NPU Accelerated',
-        ),
-        _aiTaskCard(
-          context,
-          icon: Icons.blur_on_rounded,
-          taskName: 'Monocular Depth Estimation',
-          modelName: 'Depth Gradient & Saliency Fusion',
-          status: 'Active · Optical Bokeh Ready',
-        ),
-        _aiTaskCard(
-          context,
-          icon: Icons.auto_fix_high_rounded,
-          taskName: 'Edge Refinement & Matting',
-          modelName: 'Guided Filter Re-Matting',
-          status: 'Active · Pixel-Perfect Edges',
-        ),
-        _aiTaskCard(
-          context,
-          icon: Icons.cloud_outlined,
-          taskName: 'Sky & Horizon Detection',
-          modelName: 'Chromatic Sky Segmenter',
-          status: 'Active · Adaptive Boundary',
-        ),
+        Builder(builder: (context) {
+          final activeSaliency = notifier.getActivePluginForTask(AiTask.subjectSegmentation);
+          final activeDepth = notifier.getActivePluginForTask(AiTask.depthEstimation);
+          final activeMatting = notifier.getActivePluginForTask(AiTask.portraitHair);
+          final activeSky = notifier.getActivePluginForTask(AiTask.skySegmentation);
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _aiTaskCard(
+                context,
+                icon: Icons.person_search_rounded,
+                taskName: 'Subject & Object Saliency',
+                modelName: activeSaliency?.name ?? 'Built-in Saliency Alg.',
+                status: activeSaliency != null ? 'Active · Neural' : 'Active · Heuristic',
+              ),
+              _aiTaskCard(
+                context,
+                icon: Icons.blur_on_rounded,
+                taskName: 'Monocular Depth Estimation',
+                modelName: activeDepth?.name ?? 'Depth Gradient Fusion',
+                status: activeDepth != null ? 'Active · Neural' : 'Active · Gradient',
+              ),
+              _aiTaskCard(
+                context,
+                icon: Icons.auto_fix_high_rounded,
+                taskName: 'Edge Refinement & Matting',
+                modelName: activeMatting?.name ?? 'Guided Filter Matting',
+                status: activeMatting != null ? 'Active · Neural' : 'Active · Guided Filter',
+              ),
+              _aiTaskCard(
+                context,
+                icon: Icons.cloud_outlined,
+                taskName: 'Sky & Horizon Detection',
+                modelName: activeSky?.name ?? 'Chromatic Sky Segmenter',
+                status: activeSky != null ? 'Active · Neural' : 'Active · Color Mask',
+              ),
+            ],
+          );
+        }),
         const SizedBox(height: Insets.md),
         const SectionHeader('Installed Models'),
         for (final p in installed)
@@ -1459,43 +1496,42 @@ class LooksPresetsPanel extends ConsumerStatefulWidget {
 class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
   String _selectedCategory = 'All';
   String _searchQuery = '';
+  bool _searchOpen = false;
   bool _synced = false;
+  ToolDefinition? _activePresetTool;
+  double _activePresetAmount = 1.0;
 
   static const List<String> _categories = [
     'All',
-    'Built-in',
-    'Film',
-    'Portraits',
-    'Moody',
-    'Landscape',
     'Cinema',
+    'Anime',
+    'Film',
+    'Nature',
+    'Portraits',
+    'Indian & Festive',
+    'Travel',
+    'Urban',
+    'Community',
   ];
 
-  /// Derive a display category for a built-in look from its name/description
-  /// so built-ins appear under the same category chips as community presets.
-  String _builtinCategory(ToolDefinition tool) {
-    final name = tool.name.toLowerCase();
-    final desc = tool.description.toLowerCase();
-    if (name.contains('portra') || name.contains('ektar') || name.contains('velvia') ||
-        name.contains('agfa') || name.contains('kodachrome') || desc.contains('film') ||
-        desc.contains('analog')) {
-      return 'Film';
-    }
-    if (name.contains('portrait') || desc.contains('skin') || desc.contains('portrait')) {
-      return 'Portraits';
-    }
-    if (name.contains('moody') || name.contains('dark') || desc.contains('moody') ||
-        desc.contains('crushed')) {
-      return 'Moody';
-    }
-    if (name.contains('cine') || name.contains('teal') || desc.contains('cinematic') ||
-        desc.contains('split tone')) {
-      return 'Cinema';
-    }
-    if (desc.contains('landscape') || desc.contains('mountain')) {
-      return 'Landscape';
-    }
-    return 'Built-in';
+  String _mapCatalogCategory(PresetCategory cat) => switch (cat) {
+    PresetCategory.all => 'All',
+    PresetCategory.cinema => 'Cinema',
+    PresetCategory.anime => 'Anime',
+    PresetCategory.nature => 'Nature',
+    PresetCategory.portrait => 'Portraits',
+    PresetCategory.indian => 'Indian & Festive',
+    PresetCategory.travel => 'Travel',
+    PresetCategory.urban => 'Urban',
+    PresetCategory.film => 'Film',
+  };
+
+  bool _matchesCategory(String itemCategory, String selectedCategory) {
+    if (selectedCategory == 'All') return true;
+    if (selectedCategory == itemCategory) return true;
+    final s = selectedCategory.toLowerCase();
+    final c = itemCategory.toLowerCase();
+    return c.contains(s) || s.contains(c);
   }
 
   @override
@@ -1517,33 +1553,42 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
     final notifier = ref.read(recipeControllerProvider.notifier);
     final communityState = ref.watch(communityPresetsProvider);
 
-    // ---- Unified preset list: built-ins + community, each tagged ----
+    // ---- Unified preset list: Catalog (All Looks) + Community + Builtins ----
     final allItems = <_PresetItem>[];
+    final seenNames = <String>{};
 
-    for (final tool in ToolLibrary.builtins) {
+    // 1. All rich catalog presets from LooksSheet (Movie looks, anime styles, nature, portrait, indian, film)
+    for (final p in PresetCatalog.allPresets) {
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
-        if (!tool.name.toLowerCase().contains(q) &&
-            !tool.description.toLowerCase().contains(q)) {
+        if (!p.name.toLowerCase().contains(q) &&
+            !p.description.toLowerCase().contains(q) &&
+            !p.reference.toLowerCase().contains(q)) {
           continue;
         }
       }
-      final cat = _builtinCategory(tool);
-      if (_selectedCategory != 'All' && _selectedCategory != cat && _selectedCategory != 'Built-in') {
+      final catLabel = _mapCatalogCategory(p.category);
+      if (!_matchesCategory(catLabel, _selectedCategory)) {
         continue;
       }
-      final isApplied = _looksMatch(tool, recipe);
-      allItems.add(_PresetItem.builtin(tool, cat, isApplied, () {
+      final isApplied = _looksMatch(p.tool, recipe);
+      seenNames.add(p.name.toLowerCase());
+      allItems.add(_PresetItem.catalog(p, catLabel, isApplied, () {
         HapticFeedback.lightImpact();
-        notifier.applyTool(tool);
-        notifier.commit(label: 'Applied ${tool.name}');
+        setState(() {
+          _activePresetTool = p.tool;
+          _activePresetAmount = 1.0;
+        });
+        notifier.applyTool(p.tool);
+        notifier.commit(label: 'Applied ${p.name}');
       }));
     }
 
+    // 2. Community Hub presets
     final communityPresets = communityState.presets.where((preset) {
-      if (_selectedCategory == 'Built-in') return false;
       if (_selectedCategory != 'All' &&
-          preset.category.toLowerCase() != _selectedCategory.toLowerCase()) {
+          _selectedCategory != 'Community' &&
+          !_matchesCategory(preset.category, _selectedCategory)) {
         return false;
       }
       if (_searchQuery.isNotEmpty) {
@@ -1556,138 +1601,239 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
       return true;
     });
     for (final preset in communityPresets) {
+      if (seenNames.contains(preset.name.toLowerCase())) continue;
+      seenNames.add(preset.name.toLowerCase());
       final isApplied = _presetMatches(preset, recipe);
+      final communityTool = ToolDefinition(
+        name: preset.name,
+        description: preset.description,
+        params: preset.params ?? const {},
+      );
       allItems.add(_PresetItem.community(preset, isApplied, () {
         HapticFeedback.lightImpact();
+        setState(() {
+          _activePresetTool = communityTool;
+          _activePresetAmount = 1.0;
+        });
         ref.read(communityPresetsProvider.notifier).applyPreset(ref, preset);
       }));
     }
 
-    return ListView(
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-      padding: const EdgeInsets.all(Insets.md),
+    // 3. Fallback Builtins (if any extra exist in ToolLibrary)
+    for (final tool in ToolLibrary.builtins) {
+      if (seenNames.contains(tool.name.toLowerCase())) continue;
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        if (!tool.name.toLowerCase().contains(q) &&
+            !tool.description.toLowerCase().contains(q)) {
+          continue;
+        }
+      }
+      final isApplied = _looksMatch(tool, recipe);
+      allItems.add(_PresetItem.builtin(tool, 'Film', isApplied, () {
+        HapticFeedback.lightImpact();
+        setState(() {
+          _activePresetTool = tool;
+          _activePresetAmount = 1.0;
+        });
+        notifier.applyTool(tool);
+        notifier.commit(label: 'Applied ${tool.name}');
+      }));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SectionHeader('Creative Looks & Presets'),
-        Text(
-          'One-tap aesthetic grading. Presets create non-destructive history entries so you can fine-tune or undo anytime.',
-          style: TextStyle(
-            fontSize: 12,
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: Insets.sm),
-        TextField(
-          decoration: InputDecoration(
-            hintText: 'Search looks & presets…',
-            prefixIcon: const Icon(Icons.search, size: 18),
-            suffixIcon: _searchQuery.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, size: 16),
-                    onPressed: () => setState(() => _searchQuery = ''),
-                  )
-                : null,
-            isDense: true,
-            border: const OutlineInputBorder(borderRadius: Radii.smAll),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          ),
-          onChanged: (val) => setState(() => _searchQuery = val),
-        ),
-        const SizedBox(height: Insets.sm),
-        // Category chips
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
+        // Top compact header & actions bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Insets.md, Insets.xs, Insets.md, Insets.xs),
           child: Row(
             children: [
-              for (final cat in _categories)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: FilterChip(
-                    label: Text(cat, style: const TextStyle(fontSize: 11)),
-                    selected: _selectedCategory == cat,
-                    onSelected: (val) {
-                      if (val) setState(() => _selectedCategory = cat);
-                    },
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+              Icon(Icons.movie_filter_outlined, size: 18, color: scheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Looks & Presets',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: scheme.onSurface,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${allItems.length}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: scheme.onPrimaryContainer,
                   ),
                 ),
+              ),
+              const Spacer(),
+              IconButton(
+                key: const Key('preset-search-toggle'),
+                icon: Icon(_searchOpen ? Icons.close : Icons.search, size: 18),
+                tooltip: 'Search Presets',
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
+                  setState(() {
+                    _searchOpen = !_searchOpen;
+                    if (!_searchOpen) _searchQuery = '';
+                  });
+                },
+              ),
+              IconButton(
+                key: const Key('preset-scan-qr-btn'),
+                icon: const Icon(Icons.qr_code_scanner, size: 18),
+                tooltip: 'Scan QR Look',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => showAppSheet(context, const LooksSheet()),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: Insets.sm),
-        // ---- CINEMA STRIP: horizontal scrolling preset carousel ----
-        if (allItems.isNotEmpty) ...[
-          const SectionHeader('Preset Strip'),
-          const SizedBox(height: Insets.xs),
-          SizedBox(
-            height: 178,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: allItems.length,
-              itemBuilder: (context, idx) {
-                final item = allItems[idx];
-                return _PresetStripItem(
-                  item: item,
-                  recipe: recipe,
-                  notifier: notifier,
-                );
-              },
+        if (_searchOpen)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Insets.md, 0, Insets.md, Insets.xs),
+            child: SizedBox(
+              height: 36,
+              child: TextField(
+                key: const Key('preset-search-input'),
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Search movie looks, anime, film…',
+                  prefixIcon: const Icon(Icons.search, size: 16),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 14),
+                          onPressed: () => setState(() => _searchQuery = ''),
+                        )
+                      : null,
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.sm)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                ),
+                onChanged: (val) => setState(() => _searchQuery = val),
+              ),
             ),
           ),
-          const SizedBox(height: Insets.md),
-        ] else ...[
-          const SectionHeader('No presets match'),
-          const Text('Try adjusting the category or search.'),
-          const SizedBox(height: Insets.md),
-        ],
-        const SectionHeader('Import Look'),
-        Text(
-          'Paste a look JSON or apx:// QR code to import a custom preset.',
-          style: TextStyle(
-            fontSize: 12,
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: Insets.sm),
-        TextField(
-          decoration: const InputDecoration(
-            hintText: 'Paste look JSON or apx:// URL',
-            border: OutlineInputBorder(),
-          ),
-          maxLines: 3,
-          onSubmitted: (json) {
-            try {
-              final tool = ToolDefinition.decode(json);
-              HapticFeedback.lightImpact();
-              notifier.applyTool(tool);
-              notifier.commit(label: 'Imported ${tool.name}');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Imported look: ${tool.name}'),
-                  duration: const Duration(seconds: 1),
+        // Horizontal category selector chips
+        SizedBox(
+          height: 36,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: Insets.md),
+            itemCount: _categories.length,
+            itemBuilder: (context, idx) {
+              final cat = _categories[idx];
+              final selected = _selectedCategory == cat;
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: FilterChip(
+                  key: Key('preset-cat-$cat'),
+                  label: Text(cat, style: const TextStyle(fontSize: 11)),
+                  selected: selected,
+                  onSelected: (val) {
+                    if (val) setState(() => _selectedCategory = cat);
+                  },
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                 ),
               );
-            } catch (e) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Invalid look format'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            }
-          },
+            },
+          ),
         ),
-        const SizedBox(height: Insets.md),
-        Row(
-          children: [
-            OutlinedButton.icon(
-              onPressed: () {
-                showAppSheet(context, const LooksSheet());
-              },
-              icon: const Icon(Icons.qr_code_scanner, size: 18),
-              label: const Text('Scan QR Look'),
+        const SizedBox(height: Insets.xs),
+        if (_activePresetTool != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: Insets.xs),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(Radii.sm),
+                border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.tune, size: 16, color: scheme.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Strength ${(_activePresetAmount * 100).round()}%',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 2,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                      ),
+                      child: Slider(
+                        key: const Key('preset-strength-slider'),
+                        value: _activePresetAmount,
+                        min: 0.0,
+                        max: 2.0,
+                        divisions: 40,
+                        onChanged: (val) {
+                          setState(() => _activePresetAmount = val);
+                          notifier.applyTool(_activePresetTool!, amount: val);
+                        },
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 14),
+                    tooltip: 'Dismiss',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => setState(() => _activePresetTool = null),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
+        // Horizontal film scroll view
+        Expanded(
+          child: allItems.isNotEmpty
+              ? ListView.builder(
+                  key: const Key('preset-filmstrip-list'),
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(Insets.md, Insets.xs, Insets.md, Insets.sm),
+                  itemCount: allItems.length,
+                  itemBuilder: (context, idx) {
+                    final item = allItems[idx];
+                    return _PresetStripItem(
+                      item: item,
+                      recipe: recipe,
+                      notifier: notifier,
+                    );
+                  },
+                )
+              : Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.style_outlined, size: 32, color: scheme.onSurfaceVariant),
+                      const SizedBox(height: Insets.xs),
+                      Text(
+                        'No presets found in $_selectedCategory',
+                        style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
         ),
       ],
     );
@@ -1733,12 +1879,41 @@ class _PresetItem {
     required this.category,
     required this.isApplied,
     required this.onTap,
+    this.tool,
     this.author,
     this.rating,
+    this.reference,
+    this.hasDepth = false,
+    this.depthHint,
   });
 
+  factory _PresetItem.catalog(
+    PresetItem item,
+    String category,
+    bool isApplied,
+    VoidCallback onTap,
+  ) {
+    return _PresetItem._(
+      kind: 'catalog',
+      name: item.name,
+      description: item.description,
+      params: item.tool.params,
+      category: category,
+      isApplied: isApplied,
+      onTap: onTap,
+      tool: item.tool,
+      reference: item.reference,
+      hasDepth: item.hasDepth,
+      depthHint: item.depthHint,
+    );
+  }
+
   factory _PresetItem.builtin(
-      ToolDefinition tool, String category, bool isApplied, VoidCallback onTap) {
+    ToolDefinition tool,
+    String category,
+    bool isApplied,
+    VoidCallback onTap,
+  ) {
     return _PresetItem._(
       kind: 'builtin',
       name: tool.name,
@@ -1747,19 +1922,29 @@ class _PresetItem {
       category: category,
       isApplied: isApplied,
       onTap: onTap,
+      tool: tool,
     );
   }
 
   factory _PresetItem.community(
-      CommunityPreset preset, bool isApplied, VoidCallback onTap) {
+    CommunityPreset preset,
+    bool isApplied,
+    VoidCallback onTap,
+  ) {
+    final tool = ToolDefinition(
+      name: preset.name,
+      description: preset.description,
+      params: preset.params ?? const {},
+    );
     return _PresetItem._(
       kind: 'community',
       name: preset.name,
       description: preset.description,
       params: preset.params ?? const {},
-      category: preset.category,
+      category: preset.category.isNotEmpty ? preset.category : 'Community',
       isApplied: isApplied,
       onTap: onTap,
+      tool: tool,
       author: preset.author,
       rating: preset.rating,
     );
@@ -1772,8 +1957,12 @@ class _PresetItem {
   final String category;
   final bool isApplied;
   final VoidCallback onTap;
+  final ToolDefinition? tool;
   final String? author;
   final double? rating;
+  final String? reference;
+  final bool hasDepth;
+  final String? depthHint;
 }
 
 /// Single cinema-strip preset card: large live thumbnail + name + applied badge.
@@ -1801,13 +1990,13 @@ class _PresetStripItem extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                'Applied ${item.kind == 'community' ? 'preset' : 'look'}: ${item.name}'),
+                'Applied look: ${item.name}'),
             duration: const Duration(seconds: 1),
           ),
         );
       },
       child: Container(
-        width: 150,
+        width: 140,
         margin: const EdgeInsets.only(right: Insets.sm),
         decoration: BoxDecoration(
           color: scheme.surfaceContainer,
@@ -1818,82 +2007,127 @@ class _PresetStripItem extends ConsumerWidget {
                 : scheme.outlineVariant.withValues(alpha: 0.4),
             width: isApplied ? 2 : 1,
           ),
+          boxShadow: isApplied
+              ? [
+                  BoxShadow(
+                    color: scheme.primary.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Live thumbnail
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.sm)),
-              child: AspectRatio(
-                aspectRatio: 3 / 4,
-                child: ColorFiltered(
-                  colorFilter: ColorFilter.matrix(matrix),
-                  child: Image.memory(
-                    ref.watch(activeImageBytesProvider) ?? Uint8List(0),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    errorBuilder: (_, _, _) => Container(
-                      color: scheme.surfaceContainerHighest,
-                      child: Center(
-                        child: Icon(
-                          Icons.style_outlined,
-                          size: 24,
-                          color: scheme.primary,
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.sm)),
+                      child: ColorFiltered(
+                        colorFilter: ColorFilter.matrix(matrix),
+                        child: Image.memory(
+                          ref.watch(activeImageBytesProvider) ?? Uint8List(0),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            color: scheme.surfaceContainerHighest,
+                            child: Center(
+                              child: Icon(
+                                Icons.movie_filter_outlined,
+                                size: 28,
+                                color: scheme.primary.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
+                  if (item.hasDepth)
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.blur_on, size: 10, color: Colors.cyanAccent),
+                            const SizedBox(width: 2),
+                            Text(
+                              item.depthHint ?? 'Depth',
+                              style: const TextStyle(
+                                fontSize: 8,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (isApplied)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: scheme.primary,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check, size: 10, color: Colors.white),
+                            SizedBox(width: 2),
+                            Text(
+                              'ACTIVE',
+                              style: TextStyle(
+                                fontSize: 8,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            // Label + applied badge
+            // Label + category/reference
             Padding(
-              padding: const EdgeInsets.all(Insets.xs),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                            color: isApplied ? scheme.primary : scheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      if (isApplied)
-                        Icon(Icons.check_circle, color: scheme.primary, size: 16),
-                    ],
-                  ),
-                  if (item.kind == 'community' && item.author != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      item.author!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
                   Text(
-                    item.category,
+                    item.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                      color: scheme.primary.withValues(alpha: 0.7),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                      color: isApplied ? scheme.primary : scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    item.reference ?? (item.author != null ? 'by ${item.author}' : item.category),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: scheme.onSurfaceVariant,
                     ),
                   ),
                 ],

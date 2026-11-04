@@ -18,6 +18,7 @@ import '../edit/muted_parameters.dart';
 import '../edit/parameter.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_controller.dart';
+import '../edit/snapshots_provider.dart';
 import '../engine/engine.dart';
 import '../engine/image_format.dart';
 import '../engine/preview_texture.dart';
@@ -128,6 +129,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   int _baseW = 0;
   int _baseH = 0;
 
+  /// Baked snapshot image for A/B compare. When [snapshotCompareEnabledProvider]
+  /// is on and [snapshotCompareRecipeProvider] holds a recipe, this image is
+  /// shown as the "before" side of the compare instead of the original source.
+  ui.Image? _snapshotImage;
+
   /// Spike B: platform texture id when Rust writes frames straight into a
   /// Flutter `Texture` (zero pixels over the bridge). Null → spike-A
   /// return-frame + shader path. `_useTexture` is false while an imported LUT
@@ -156,6 +162,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   Timer? _histogramDebounce;
   bool _baking = false;
   EditRecipe? _pendingRecipe;
+  EditRecipe? _pendingSnapshotRecipe;
   bool _pendingBaseChanged = false;
   bool _pendingGradeChanged = false;
 
@@ -163,10 +170,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   // Level-0 tiles of the ORIGINAL frame, decoded natively (never the full
   // frame), baked with the same spatial+mask chain as the proxy through
   // `bake_roi_rect`, and drawn over the proxy through the grading shader
-  // once the proxy would upscale. The multi-level pyramid stays wired for the
-  // `TileViewport` demo/corpus harness; the editing canvas uses level 0 only,
-  // because the proxy itself already covers every zoom below the ROI gate
-  // (`scale * fitted.width >= proxyW`).
+  // once the proxy would upscale. The editing canvas uses level 0 only —
+  // the proxy itself already covers every zoom below the ROI gate
+  // (`scale * fitted.width >= proxyW`) — so the multi-level mip pyramid
+  // (`TilePyramid`, removed with the `TileViewport` harness in #167) is
+  // not needed here.
   static const int _tileSize = 512;
 
   /// Decoded-tile cache budget. A 512×512 RGBA tile is 1 MiB; 64 tiles is
@@ -214,6 +222,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   double _startScale = 1;
   Offset _startOffset = Offset.zero;
   Offset _startFocal = Offset.zero;
+  Offset _lastDoubleTapPos = Offset.zero;
   bool _multi = false;
   bool _zoneTargeting = false;
   bool _wiperDragging = false;
@@ -252,15 +261,39 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// resolution when master bytes arrive from background load.
   /// Preserves the user's active viewport scale and pan position perfectly.
   Future<void> _upgradeRoiBytes(Uint8List bytes) async {
-    if (_disposed || !mounted || isRawImage(bytes)) return;
+    if (_disposed || !mounted) return;
     try {
-      final dims = await AxEngine.jpegDimensions(bytes);
+      int width = 0;
+      int height = 0;
+      if (isRawImage(bytes)) {
+        try {
+          final dims = await AxEngine.rawDimensions(bytes);
+          width = dims.width;
+          height = dims.height;
+        } catch (_) {
+          width = 0;
+          height = 0;
+        }
+      } else {
+        try {
+          final dims = await AxEngine.jpegDimensions(bytes);
+          width = dims.width;
+          height = dims.height;
+        } catch (_) {
+          final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+          final descriptor = await ui.ImageDescriptor.encoded(buffer);
+          width = descriptor.width;
+          height = descriptor.height;
+          descriptor.dispose();
+          buffer.dispose();
+        }
+      }
       if (_disposed || !mounted) return;
-      if (dims.width > _fullW || dims.height > _fullH) {
+      if (width > _fullW || height > _fullH) {
         setState(() {
           _roiBytes = bytes;
-          _fullW = dims.width;
-          _fullH = dims.height;
+          _fullW = width;
+          _fullH = height;
           _tileGrid = TileGrid(
             imageWidth: _fullW,
             imageHeight: _fullH,
@@ -282,26 +315,51 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       final jpeg =
           widget.imageBytes ??
           await AxEngine.syntheticJpeg(width: 1024, height: 1024);
-      // Original frame dims for the ROI overlay (#55): header-only, RAW
-      // excluded (no region decode path for demosaiced data).
+      // Original frame dims for the ROI overlay (#55): both JPEG and RAW supported.
       _roiBytes = jpeg;
       if (isRawImage(jpeg)) {
-        _fullW = 0;
-        _fullH = 0;
-        _tileGrid = null;
-      } else {
         try {
-          final dims = await AxEngine.jpegDimensions(jpeg);
+          final dims = await AxEngine.rawDimensions(jpeg);
           _fullW = dims.width;
           _fullH = dims.height;
+        } catch (_) {
+          _fullW = 0;
+          _fullH = 0;
+        }
+        if (_fullW > 0 && _fullH > 0) {
           _tileGrid = TileGrid(
             imageWidth: _fullW,
             imageHeight: _fullH,
             tileSize: _tileSize,
           );
+        } else {
+          _tileGrid = null;
+        }
+      } else {
+        try {
+          final dims = await AxEngine.jpegDimensions(jpeg);
+          _fullW = dims.width;
+          _fullH = dims.height;
         } catch (_) {
-          _fullW = 0;
-          _fullH = 0;
+          try {
+            final buffer = await ui.ImmutableBuffer.fromUint8List(jpeg);
+            final descriptor = await ui.ImageDescriptor.encoded(buffer);
+            _fullW = descriptor.width;
+            _fullH = descriptor.height;
+            descriptor.dispose();
+            buffer.dispose();
+          } catch (_) {
+            _fullW = 0;
+            _fullH = 0;
+          }
+        }
+        if (_fullW > 0 && _fullH > 0) {
+          _tileGrid = TileGrid(
+            imageWidth: _fullW,
+            imageHeight: _fullH,
+            tileSize: _tileSize,
+          );
+        } else {
           _tileGrid = null;
         }
       }
@@ -309,6 +367,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       if (!mounted) {
         proxy.$1.dispose();
         return;
+      }
+      if (_fullW == 0 && proxy.$3 > 0) {
+        _fullW = proxy.$3;
+        _fullH = proxy.$4;
+        _tileGrid = TileGrid(
+          imageWidth: _fullW,
+          imageHeight: _fullH,
+          tileSize: _tileSize,
+        );
       }
       _program = program;
       _shader = program.fragmentShader();
@@ -660,7 +727,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       h = d.height;
     }
     final image = await _imageFrom(rgba, w, h);
-    return (image, rgba, w, h);
+    return (image, rgba, decoded.width, decoded.height);
   }
 
   Future<ui.Image> _imageFrom(Uint8List rgba, int w, int h) {
@@ -798,6 +865,52 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     );
   }
 
+  /// Bakes the [recipe] into `_snapshotImage` for A/B compare.
+  /// Uses the same bake pipeline as the main recipe but stores the result
+  /// separately so it can serve as the compare "before" image.
+  void _scheduleSnapshotBake(EditRecipe recipe) {
+    if (_program == null || _previewHandle == null) return;
+    if (_baking) {
+      // Defer: will be picked up after the current bake settles.
+      _pendingSnapshotRecipe = recipe;
+      return;
+    }
+    _rebakeSnapshot(recipe);
+  }
+
+  Future<void> _rebakeSnapshot(EditRecipe recipe) async {
+    if (_program == null || _previewHandle == null) return;
+    _baking = true;
+    final token = ++_bakeToken;
+    try {
+      final baked = await AxEngine.previewBase(
+        _previewHandle!,
+        spec: _baseSpec(recipe),
+        layers: recipe.layers,
+        maskGroups: recipe.maskGroups,
+        retouchPatches: recipe.retouchPatches,
+      );
+      if (!mounted || _disposed || token != _bakeToken) return;
+      final image = await _imageFrom(baked.rgba, baked.width, baked.height);
+      if (!mounted || _disposed) {
+        image.dispose();
+        return;
+      }
+      _snapshotImage?.dispose();
+      _snapshotImage = image;
+      setState(() {});
+    } catch (_) {
+      // Snapshot bake failure is non-fatal: compare falls back to original.
+    } finally {
+      _baking = false;
+      if (_pendingSnapshotRecipe != null) {
+        final pending = _pendingSnapshotRecipe!;
+        _pendingSnapshotRecipe = null;
+        _scheduleSnapshotBake(pending);
+      }
+    }
+  }
+
   void _settleFullRes() {
     if (_disposed || !mounted || _program == null || _previewHandle == null) return;
     final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
@@ -884,6 +997,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       spec: _baseSpec(recipe),
       layers: recipe.layers,
       maskGroups: recipe.maskGroups,
+      retouchPatches: recipe.retouchPatches,
     );
     final image = await _imageFrom(frame.rgba, frame.width, frame.height);
     if (!mounted || token != _bakeToken) {
@@ -928,7 +1042,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }
 
   Future<void> _rebuildLut(EditRecipe recipe, int token) async {
-    final spec = GradeSpec.fromRecipe(recipe);
+    // Spatial pass in baseImage already applied edge-preserving guided shadows and highlights;
+    // zero them out for the 3D LUT fragment shader to prevent double-applying tone curves.
+    final spec = GradeSpec.fromRecipe(recipe).copyWith(
+      shadows: 0.0,
+      highlights: 0.0,
+    );
     final imported = ref.read(importedLutProvider);
     final ui.Image lutImage;
     final int lutSize;
@@ -976,7 +1095,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final histogram = await AxEngine.previewHistogram(
       handle,
       sampleDim: 256,
-      spec: GradeSpec.fromRecipe(recipe),
+      spec: GradeSpec.fromRecipe(recipe).copyWith(
+        shadows: 0.0,
+        highlights: 0.0,
+      ),
     );
     if (token != _bakeToken) return;
     ref.read(histogramProvider.notifier).publish(histogram);
@@ -996,7 +1118,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         spec: _baseSpec(recipe),
         layers: recipe.layers,
         maskGroups: recipe.maskGroups,
-        grade: GradeSpec.fromRecipe(recipe),
+        retouchPatches: recipe.retouchPatches,
+        grade: GradeSpec.fromRecipe(recipe).copyWith(
+          shadows: 0.0,
+          highlights: 0.0,
+        ),
         baseChanged: baseChanged,
       );
       if (!mounted || token != _bakeToken) return;
@@ -1039,6 +1165,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _shader?.dispose();
     _source?.dispose();
     _baseImage?.dispose();
+    _snapshotImage?.dispose();
     _lut?.dispose();
     _dropTexture(); // release the platform texture (#54)
     _roiDebounce?.cancel();
@@ -1132,6 +1259,29 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       }
       _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
     });
+    // Snapshot A/B compare: bake the snapshot recipe when the toggle is on
+    // and a snapshot recipe is set, so it can serve as the compare "before."
+    ref.listen<bool>(snapshotCompareEnabledProvider, (_, enabled) {
+      if (enabled) {
+        final snapshot = ref.read(snapshotCompareRecipeProvider);
+        if (snapshot != null) {
+          _scheduleSnapshotBake(snapshot);
+        }
+      } else {
+        _snapshotImage?.dispose();
+        _snapshotImage = null;
+        setState(() {});
+      }
+    });
+    ref.listen<EditRecipe?>(snapshotCompareRecipeProvider, (_, recipe) {
+      if (ref.read(snapshotCompareEnabledProvider) && recipe != null) {
+        _scheduleSnapshotBake(recipe);
+      } else if (recipe == null) {
+        _snapshotImage?.dispose();
+        _snapshotImage = null;
+        if (mounted) setState(() {});
+      }
+    });
     // Haptic Zone Masking: switch to shader path during 2-finger zone targeting
     ref.listen(zoneMaskProvider, (previous, next) {
       if (previous?.isTargeting != next.isTargeting) {
@@ -1156,6 +1306,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           _scale = scale;
           _offset = _clampOffset(offset, scale, _lastFitted, _lastBounds);
         });
+        _scheduleRoi();
       }
     });
 
@@ -1180,10 +1331,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     // mode without a LUT); the `!`s feed definite-assignment analysis.
     final fragShader = shader!;
     // The shader grades the edited base image when available; falls back to
-    // the unedited proxy. The compare "before" side always uses the unedited
-    // source so the user sees the true original.
+    // the unedited proxy. The compare "before" side uses the snapshot recipe
+    // when snapshot A/B compare is active, otherwise the unedited source.
     final proxySource = baseImage ?? uneditedSource!;
-    final compareSource = uneditedSource!;
+    final snapshotCompareEnabled = ref.watch(snapshotCompareEnabledProvider);
+    final compareSource =
+        snapshotCompareEnabled && _snapshotImage != null
+            ? _snapshotImage!
+            : uneditedSource!;
 
     final tat = ref.watch(tatModeProvider);
     final tatComponent = ref.watch(tatComponentProvider);
@@ -1281,6 +1436,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                   // tile overlay, geometry edits, wiper split curtain, split compare, exposure assist, soft proofing).
                   textureId:
                       zeroCopy &&
+                          !_tilesActive &&
+                          tiles.isEmpty &&
                           !zoneMask.isTargeting &&
                           !wiper.isActive &&
                           !splitCompare.isEnabled &&
@@ -1333,14 +1490,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 onScaleStart: (d) => _onScaleStart(d, fitted, tat),
                 onScaleUpdate: (d) => _onScaleUpdate(d, fitted, bounds, tat),
                 onScaleEnd: (_) => _onScaleEnd(),
-                onDoubleTap: () {
-                  if (ref.read(wiperCompareProvider).isActive) {
-                    ref.read(wiperCompareProvider.notifier).resetPosition();
-                    HapticFeedback.selectionClick();
-                  } else {
-                    _resetView(fitted, bounds);
-                  }
-                },
+                onDoubleTapDown: (d) => _lastDoubleTapPos = d.localPosition,
+                onDoubleTap: () =>
+                    _handleDoubleTap(_lastDoubleTapPos, fitted, bounds),
                 onLongPressStart: (_) =>
                     ref.read(compareHoldProvider.notifier).hold(),
                 onLongPressEnd: (_) =>
@@ -1517,6 +1669,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _scale = scale;
         _offset = _clampOffset(offset, scale, fitted, bounds);
       });
+      _scheduleRoi();
       return;
     }
     if (_multi) return;
@@ -1533,6 +1686,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           bounds,
         );
       });
+      if (_scale > 1.0) {
+        _scheduleRoi();
+      }
     }
   }
 
@@ -1592,6 +1748,30 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       (bounds.width - fitted.width) / 2,
       (bounds.height - fitted.height) / 2,
     );
+  }
+
+  /// Toggles between Fit (1.0x) and 100% 1:1 sensor resolution centered on the tapped point.
+  void _handleDoubleTap(Offset tapPos, Size fitted, Size bounds) {
+    if (ref.read(wiperCompareProvider).isActive) {
+      ref.read(wiperCompareProvider.notifier).resetPosition();
+      HapticFeedback.selectionClick();
+      return;
+    }
+    final next = computeDoubleTapZoom(
+      currentScale: _scale,
+      currentOffset: _offset,
+      tapPosition: tapPos,
+      fitted: fitted,
+      bounds: bounds,
+      fullWidth: _fullW,
+    );
+    setState(() {
+      _scale = next.scale;
+      _offset = next.offset;
+    });
+    _publishTransform(next);
+    _scheduleRoi();
+    HapticFeedback.selectionClick();
   }
 
   /// The cached tiles that intersect the visible world rect, each mapped to

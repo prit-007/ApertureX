@@ -26,8 +26,8 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | HSL / color mix | Selective | HSL/Color | ✅ | P2 |
 | Color grading (shadow/mid/high) | — | Color Grading | ✅ (split-tone) | P2 |
 | Texture / clarity / dehaze | Details/Structure | Effects panel | ✅ (halo-free guided refine in #57, dark-channel dehaze in #58) | P2 |
-| Film emulation: halation, bloom, dust flecks, scratches | — | Effects / Film panel | ✅ (photochemical physics in Rust preview base + grade.frag) | P2 |
-| Shader Lab: custom presets + 3 user params + custom GLSL | — | Effects / Lab panel | ✅ (`shaderLabPreset`, `shaderParam1..3`, `customGlslCode`) | P2 |
+| Film emulation: halation, bloom, dust flecks, scratches | — | Effects / Film panel | ✅ (photochemical physics in Rust preview base + export pipeline) | P2 |
+| Shader Lab: custom presets + 3 user params | — | Effects / Lab panel | ✅ (`shaderLabPreset`, `shaderParam1..3` built-in shaders; custom GLSL retired) | P2 |
 | Sharpening (radius/detail/masking) | Details | Detail panel | ✅ | P2 |
 | Output sharpening (Screen, Matte, Glossy, Web) | — | Export / Output Sharpening | ✅ (`outputSharpen`, `outputSharpenMedia` — ADR 0024) | P6 |
 | Noise reduction | Details | Detail panel | ✅ | P2 |
@@ -66,7 +66,7 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Range mask (luminance/color) | Range Mask | ✅ (Zone-system luminance + HSV color-range) | P2.5/P6 |
 | Depth range mask | Depth Range | ✅ (`MASK_DEPTH_RANGE` monocular depth plane slicing — ADR 0024) | P6 |
 | Adjustment layers over masks | Masks + local adj | ✅ (analytic masks) | P2.5 |
-| Snapseed stack == adjustment layers | Stack | 🚧 | P2.5 |
+| Snapseed stack == adjustment layers | Stack | ✅ (Edit Stacks with per-step re-entry & adjustment layer masking) | P2.5 |
 
 ## Intelligent / AI masking (optional module — ADR 0010)
 
@@ -113,7 +113,7 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 | Quality Culling (Sharpness & Closed-Eye) | ✅ (Laplacian variance + YuNet facial eye openness score — ADR 0025) | P6 |
 | Folder Watching / Auto-Import | ✅ (debounced `Directory.watch` background ingestion — ADR 0025) | P6 |
 | Desktop MenuBar | ✅ (native macOS/Linux/Windows PlatformMenuBar with shortcuts) | P5 |
-| Internationalization (i18n) | ✅ (flutter_localizations + intl for EN, ES, DE, FR, JA, ZH) | P5 |
+| Internationalization (i18n) | ✅ (flutter_localizations + intl for EN, ES, DE, FR, JA, ZH; editor + gallery + export + settings + tool panels + retouch toolbar migrated via #164) | P5 |
 | Lensfun Optics & EXIF Inspector | ✅ (hardware camera/lens profile database, distortion correction, EXIF sheet #85) | P2 |
 | In-App OTA Updater | ✅ ("Metrolist-style" GitHub Releases live updater with download progress) | P5 |
 | Interactive Academy & Tool Guide | ✅ (searchable masterclasses, pro tips, category chips, tool guide sheet) | P5 |
@@ -128,7 +128,7 @@ the consolidated, file-by-file plan is [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION
 |---|---|---|
 | JPEG import | ✅ (zune-jpeg SIMD direct decode into resident store via `preview_open_jpeg`) | P1 |
 | PNG photo import | ✅ (standard PNG decode via `AxEngine.decodeImageRgba`) | P6 |
-| HEIC / AVIF import | ✅ (ISO-BMFF spatial parsing & embedded payload extraction in `decodeHeicRgba`) | P5 |
+| HEIC / AVIF import & export | ✅ (ISO-BMFF spatial parsing & embedded payload extraction in `decodeHeicRgba`; ISO-BMFF container export in `AxEngine.exportHeic` / `exportAvif`) | P5 |
 | RAW import (DNG/CR2/NEF/ARW/RAF) | ✅ (rawler: decode/demosaic/matrices/orientation/ROI + lens/EXIF #66, DCP #64, highlights #65; all 5 golden fixtures green) | P3 |
 | JPEG full-res export | ✅ (basic, P1); banded full-res path #68 | P4 |
 | C2PA Content Credentials + FOSS watermark + museum frame branding on export | ✅ (progressive disclosure export UI) | P4 |

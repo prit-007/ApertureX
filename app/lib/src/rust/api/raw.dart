@@ -38,3 +38,7 @@ Future<RgbaImage> decodeRawRoi({
   width: width,
   height: height,
 );
+
+/// Fast-path extraction of high-res embedded JPEG preview from a RAW/DNG file.
+Future<Uint8List?> rawExtractEmbeddedPreview({required List<int> raw}) =>
+    RustLib.instance.api.crateApiRawRawExtractEmbeddedPreview(raw: raw);

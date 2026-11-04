@@ -10,6 +10,7 @@ import '../../edit/active_image.dart';
 import '../../edit/adjustment_layer.dart';
 import '../../edit/node_editor.dart';
 import '../../edit/recipe_controller.dart';
+import '../../settings/app_settings.dart';
 import '../../viewport/canvas_transform.dart';
 import '../../viewport/mask_peek.dart';
 import 'mask_controls.dart' show maskRefinerProvider;
@@ -64,6 +65,7 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
   bool _isErasing = false;
   Offset? _pointerPos;
   final Map<int, Offset> _activePointers = {};
+  final Map<int, PointerDeviceKind> _activePointerKinds = {};
   Offset? _prevFocalPoint;
   double? _prevSpan;
 
@@ -111,11 +113,18 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       onPointerHover: (e) => setState(() => _pointerPos = e.localPosition),
       onPointerDown: (e) {
         final stylusOnly = ref.read(stylusOnlyModeProvider);
+        final stylusSettings = ref.read(stylusSettingsProvider);
         final isStylus = e.kind == PointerDeviceKind.stylus ||
             e.kind == PointerDeviceKind.invertedStylus;
         if (stylusOnly && !isStylus) return;
+        if (stylusSettings.palmRejection) {
+          final hasActiveStylus = _activePointerKinds.values.any((k) =>
+              k == PointerDeviceKind.stylus || k == PointerDeviceKind.invertedStylus);
+          if (hasActiveStylus && !isStylus) return;
+        }
 
         _activePointers[e.pointer] = e.localPosition;
+        _activePointerKinds[e.pointer] = e.kind;
         if (_activePointers.length >= 2) {
           _reset();
           final pts = _activePointers.values.toList();
@@ -130,11 +139,18 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
       },
       onPointerMove: (e) {
         final stylusOnly = ref.read(stylusOnlyModeProvider);
+        final stylusSettings = ref.read(stylusSettingsProvider);
         final isStylus = e.kind == PointerDeviceKind.stylus ||
             e.kind == PointerDeviceKind.invertedStylus;
         if (stylusOnly && !isStylus) return;
+        if (stylusSettings.palmRejection) {
+          final hasActiveStylus = _activePointerKinds.values.any((k) =>
+              k == PointerDeviceKind.stylus || k == PointerDeviceKind.invertedStylus);
+          if (hasActiveStylus && !isStylus) return;
+        }
 
         _activePointers[e.pointer] = e.localPosition;
+        _activePointerKinds[e.pointer] = e.kind;
         if (_activePointers.length >= 2) {
           final pts = _activePointers.values.toList();
           final focal = Offset((pts[0].dx + pts[1].dx) / 2, (pts[0].dy + pts[1].dy) / 2);
@@ -159,6 +175,7 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         _onMove(e, transform, layers);
       },
       onPointerUp: (e) {
+        _activePointerKinds.remove(e.pointer);
         final stylusOnly = ref.read(stylusOnlyModeProvider);
         final isStylus = e.kind == PointerDeviceKind.stylus ||
             e.kind == PointerDeviceKind.invertedStylus;
@@ -175,6 +192,7 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         }
       },
       onPointerCancel: (e) {
+        _activePointerKinds.remove(e.pointer);
         final stylusOnly = ref.read(stylusOnlyModeProvider);
         final isStylus = e.kind == PointerDeviceKind.stylus ||
             e.kind == PointerDeviceKind.invertedStylus;
@@ -271,13 +289,14 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
     }
 
     final isRefine = ref.read(nodeEditorProvider.select((s) => s.refineBrushMode));
+    final stylusSettings = ref.read(stylusSettingsProvider);
     if (selectedIdx != null &&
         selectedIdx >= 0 &&
         selectedIdx < layers.length &&
         isRefine) {
       final n = _downNorm;
       if (n != null) {
-        final pr = (e.kind == PointerDeviceKind.stylus)
+        final pr = (e.kind == PointerDeviceKind.stylus && stylusSettings.pressureSensitivity)
             ? e.pressure.clamp(0.05, 1.0)
             : 1.0;
         _liveBrushPoints = [n.dx, n.dy, pr];
@@ -293,7 +312,7 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
         layers[selectedIdx].maskKind == MaskKind.brush) {
       final n = _downNorm;
       if (n != null) {
-        final pr = (e.kind == PointerDeviceKind.stylus)
+        final pr = (e.kind == PointerDeviceKind.stylus && stylusSettings.pressureSensitivity)
             ? e.pressure.clamp(0.05, 1.0)
             : 1.0;
         _liveBrushPoints = [n.dx, n.dy, pr];
@@ -332,7 +351,8 @@ class NodeOverlayState extends ConsumerState<NodeOverlay> {
     if (_liveBrushPoints != null) {
       final n = t.toNormalized(e.localPosition);
       if (n != null) {
-        final pr = (e.kind == PointerDeviceKind.stylus)
+        final stylusSettings = ref.read(stylusSettingsProvider);
+        final pr = (e.kind == PointerDeviceKind.stylus && stylusSettings.pressureSensitivity)
             ? e.pressure.clamp(0.05, 1.0)
             : 1.0;
         _liveBrushPoints!.addAll([n.dx, n.dy, pr]);

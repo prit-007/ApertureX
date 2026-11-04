@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:aperturex/edit/muted_parameters.dart';
 import 'package:aperturex/edit/parameter.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
+import 'package:aperturex/features/ai_plugins/ai_plugin_store.dart';
 import 'package:aperturex/ui/common/parameter_control.dart';
 
 Widget _harness(ProviderContainer container, Parameter parameter) =>
@@ -285,5 +286,68 @@ void main() {
     );
     expect(bypassed, scheme.surfaceContainerHighest);
     expect(bypassed, isNot(scheme.primary));
+  });
+
+  group('AI Denoise model gating', () {
+    testWidgets('slider is disabled and install badge shows when no denoise model available', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_harness(container, Parameter.aiDenoise));
+
+      // Label shows base name, no model name
+      expect(find.text('AI Denoise'), findsOneWidget);
+      expect(find.text('AI Denoise ·'), findsNothing);
+
+      // Install badge is present
+      expect(find.byKey(const Key('ai-denoise-install-badge')), findsOneWidget);
+
+      // Jog dial is disabled
+      final jogDial = find.byKey(const Key('param-jog-dial-aiDenoise'));
+      expect(tester.widget<IconButton>(jogDial).onPressed, isNull);
+
+      // Label gestures are disabled
+      final label = find.byKey(const Key('param-label-aiDenoise'));
+      expect(
+        tester.widget<GestureDetector>(label).onLongPress,
+        isNull,
+      );
+      expect(
+        tester.widget<GestureDetector>(label).onDoubleTap,
+        isNull,
+      );
+    });
+
+    testWidgets('slider is enabled and no install badge when denoise model available', (
+      tester,
+    ) async {
+      // Create a separate container with the provider overridden to simulate
+      // a model being available.
+      final modelContainer = ProviderContainer(
+        overrides: [
+          aiDenoiseAvailableProvider.overrideWith((ref) => true),
+        ],
+      );
+      addTearDown(modelContainer.dispose);
+
+      await tester.pumpWidget(_harness(modelContainer, Parameter.aiDenoise));
+
+      // Install badge is NOT present
+      expect(find.byKey(const Key('ai-denoise-install-badge')), findsNothing);
+
+      // Jog dial is enabled
+      final jogDial = find.byKey(const Key('param-jog-dial-aiDenoise'));
+      expect(tester.widget<IconButton>(jogDial).onPressed, isNotNull);
+
+      // Label gestures are enabled
+      final label = find.byKey(const Key('param-label-aiDenoise'));
+      expect(
+        tester.widget<GestureDetector>(label).onLongPress,
+        isNotNull,
+      );
+      expect(
+        tester.widget<GestureDetector>(label).onDoubleTap,
+        isNotNull,
+      );
+    });
   });
 }

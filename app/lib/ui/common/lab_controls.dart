@@ -12,8 +12,7 @@ enum ShaderLabPreset {
   vhs(1, 'VHS Retro'),
   prism(2, 'Prism Dispersion'),
   crt(3, 'CRT Scanlines'),
-  pixelate(4, 'Pixelate'),
-  custom(5, 'Custom GLSL');
+  pixelate(4, 'Pixelate');
 
   const ShaderLabPreset(this.id, this.label);
   final int id;
@@ -27,60 +26,10 @@ enum ShaderLabPreset {
   }
 }
 
-/// Shader Lab: community GLSL shaders, analog VHS glitches, chromatic prism dispersion,
-/// retro CRT scanlines, pixelation, and live customizable GLSL fragment shaders.
+/// Shader Lab: analog VHS glitches, chromatic prism dispersion,
+/// retro CRT scanlines, and pixelation shaders.
 class LabControls extends ConsumerWidget {
   const LabControls({super.key});
-
-  void _showGlslEditor(BuildContext context, WidgetRef ref, String initialCode) {
-    final controller = TextEditingController(text: initialCode);
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Custom GLSL Shader'),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'Paste custom fragment shader code or uniforms.\nu_param1, u_param2, u_param3 are available as float uniforms.',
-                  style: TextStyle(fontSize: 12),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: controller,
-                  maxLines: 10,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: '// Paste GLSL fragment shader code here...',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              ref
-                  .read(recipeControllerProvider.notifier)
-                  .setCustomGlslCode(controller.text);
-              Navigator.of(ctx).pop();
-            },
-            child: const Text('Apply'),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -113,16 +62,6 @@ class LabControls extends ConsumerWidget {
           ),
         ),
         if (activePreset != ShaderLabPreset.none) ...[
-          if (activePreset == ShaderLabPreset.custom) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.code),
-                label: const Text('Edit Custom GLSL'),
-                onPressed: () => _showGlslEditor(context, ref, recipe.customGlslCode),
-              ),
-            ),
-          ],
           const SectionHeader('Shader Parameters'),
           const ParameterControl(parameter: Parameter.shaderParam1),
           const ParameterControl(parameter: Parameter.shaderParam2),

@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/retouch_patch.dart';
+import '../../l10n/app_strings.dart';
 import '../../viewport/canvas_transform.dart';
 import 'retouch_controls.dart';
 
@@ -99,7 +100,7 @@ class RetouchToolbar extends ConsumerWidget {
                         : null,
                   ),
                   const SizedBox(width: 4),
-                  const Text('Heal', style: TextStyle(fontSize: 11)),
+                  Text(AppStrings.of(context).retouchHeal, style: const TextStyle(fontSize: 11)),
                 ],
               ),
               selected: currentMode == RetouchMode.heal,
@@ -135,7 +136,7 @@ class RetouchToolbar extends ConsumerWidget {
                         : null,
                   ),
                   const SizedBox(width: 4),
-                  const Text('Clone', style: TextStyle(fontSize: 11)),
+                  Text(AppStrings.of(context).retouchClone, style: const TextStyle(fontSize: 11)),
                 ],
               ),
               selected: currentMode == RetouchMode.clone,
