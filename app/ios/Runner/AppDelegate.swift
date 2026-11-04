@@ -17,7 +17,6 @@ import UIKit
   /// `dispose` → release.
   private static var previewTextures: [Int64: CVPixelBuffer] = [:]
   private static let previewLock = NSLock()
-  private static var nextPreviewTextureId: Int64 = 1
 
   override func application(
     _ application: UIApplication,
@@ -102,7 +101,7 @@ import UIKit
       case "bind":
         self.handlePreviewTextureBind(call: call, result: result)
       case "dispose":
-        self.handlePreviewTextureDispose(call: call, result: result)
+        self.handlePreviewTextureDispose(call: call, result: result, registrar: registrar)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -136,18 +135,17 @@ import UIKit
       return
     }
 
+    // Register as a Flutter texture so the Texture widget can display it.
+    // The registry assigns the texture id (it must match what the engine
+    // tracks — not a local counter). Rust writes RGBA directly into the
+    // pixel buffer memory via `aperturex_bind_window`, so `copyPixelBuffer`
+    // always returns the latest content without any Dart↔Rust roundtrip.
+    let texture = PreviewTexture(pixelBuffer: pb)
+    let textureId = registrar.textures().register(texture)
+
     AppDelegate.previewLock.lock()
-    let textureId = AppDelegate.nextPreviewTextureId
-    AppDelegate.nextPreviewTextureId += 1
     AppDelegate.previewTextures[textureId] = pb
     AppDelegate.previewLock.unlock()
-
-    // Register as a Flutter texture so the Texture widget can display it.
-    // Rust writes RGBA directly into the pixel buffer memory via
-    // `aperturex_bind_window`, so `copyPixelBuffer` always returns the
-    // latest content without any Dart↔Rust roundtrip.
-    let texture = PreviewTexture(pixelBuffer: pb, id: textureId)
-    registrar.register(texture)
 
     result(textureId)
   }
@@ -183,11 +181,15 @@ import UIKit
       return
     }
 
-    let ok = aperturex_bind_window(handle, Int64(bitPattern: base))
+    let ok = aperturex_bind_window(UInt64(bitPattern: handle), Int64(UInt(bitPattern: base)))
     result(ok)
   }
 
-  private func handlePreviewTextureDispose(call: FlutterMethodCall, result: FlutterResult) {
+  private func handlePreviewTextureDispose(
+    call: FlutterMethodCall,
+    result: FlutterResult,
+    registrar: FlutterPluginRegistrar
+  ) {
     guard
       let args = call.arguments as? [String: Any],
       let textureId = args["textureId"] as? Int64
@@ -196,7 +198,7 @@ import UIKit
       return
     }
 
-    registrar.unregisterTexture(textureId)
+    registrar.textures().unregisterTexture(textureId)
     AppDelegate.previewLock.lock()
     AppDelegate.previewTextures.removeValue(forKey: textureId)
     AppDelegate.previewLock.unlock()
@@ -277,25 +279,18 @@ import UIKit
 /// content without any Dart↔Rust roundtrip.
 private class PreviewTexture: NSObject, FlutterTexture {
   let pixelBuffer: CVPixelBuffer
-  let id: Int64
 
-  init(pixelBuffer: CVPixelBuffer, id: Int64) {
+  init(pixelBuffer: CVPixelBuffer) {
     self.pixelBuffer = pixelBuffer
-    self.id = id
   }
 
-  func copyPixelBuffer() -> CVPixelBuffer? {
-    return pixelBuffer
-  }
-
-  func textureId() -> Int64 {
-    return id
+  // Swift imports `- (CVPixelBufferRef)copyPixelBuffer` as Unmanaged; the
+  // engine takes ownership (+1) and releases when it swaps buffers, so this
+  // must be passRetained (the same buffer is returned every call).
+  func copyPixelBuffer() -> Unmanaged<CVPixelBuffer>? {
+    return Unmanaged.passRetained(pixelBuffer)
   }
 }
-
-/// iOS FFI entry point: binds a CVPixelBuffer base address to a Rust preview
-/// handle. Implemented in Rust (`preview.rs`, `#[cfg(target_os = "ios")]`).
-func aperturex_bind_window(_ handle: UInt64, _ window_ptr: Int64) -> Bool
 
 private enum RoiDecodeError: Error {
   case badSource
