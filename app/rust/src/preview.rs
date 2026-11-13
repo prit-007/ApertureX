@@ -527,8 +527,10 @@ pub fn render(
         let mut p = params.to_core();
         // #160: Shadows & highlights are edge-aware spatial ops baked into the base;
         // zero them in the pointwise grade to prevent applying them twice.
-        if spec.shadows != 0.0 || spec.highlights != 0.0 {
+        if spec.shadows != 0.0 {
             p.shadows = 0.0;
+        }
+        if spec.highlights != 0.0 {
             p.highlights = 0.0;
         }
         let set = curves.to_set();

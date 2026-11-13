@@ -724,20 +724,19 @@ pub fn bake_lut3d_curves(
     let inv = 1.0 / (n - 1) as f32;
     let mut rgba = vec![0u8; w * h * 4];
 
+    // Precompute linear coordinate values for the n lattice grid points.
+    // This turns 3 * N^3 sRGB EOTF (powf) calls into exactly N calls,
+    // yielding a dramatic multi-fold speedup for live 3D LUT generation during scrubbing.
+    let lin_steps: Vec<f32> = (0..n).map(|i| srgb_to_linear(i as f32 * inv)).collect();
+
     rgba.par_chunks_exact_mut(w * 4)
         .enumerate()
         .for_each(|(gi, row)| {
-            for bi in 0..n {
+            let g_lin = lin_steps[gi];
+            for (bi, &b_lin) in lin_steps.iter().enumerate() {
                 let bi_n = bi * n;
-                for ri in 0..n {
-                    let out = grade_pixel_c(
-                        ri as f32 * inv,
-                        gi as f32 * inv,
-                        bi as f32 * inv,
-                        params,
-                        curves,
-                        hsl,
-                    );
+                for (ri, &r_lin) in lin_steps.iter().enumerate() {
+                    let out = grade_from_linear([r_lin, g_lin, b_lin], params, curves, hsl);
                     let x = bi_n + ri;
                     let idx = x * 4;
                     row[idx] = (out[0] * 255.0 + 0.5) as u8;
@@ -772,18 +771,13 @@ pub fn export_cube_lut(
     writeln!(out_str, "DOMAIN_MAX 1.0 1.0 1.0").unwrap();
     writeln!(out_str).unwrap();
 
+    let lin_steps: Vec<f32> = (0..n).map(|i| srgb_to_linear(i as f32 * inv)).collect();
+
     // Standard Adobe .CUBE order: red changes fastest, green second, blue slowest.
-    for bi in 0..n {
-        for gi in 0..n {
-            for ri in 0..n {
-                let out = grade_pixel_c(
-                    ri as f32 * inv,
-                    gi as f32 * inv,
-                    bi as f32 * inv,
-                    params,
-                    curves,
-                    hsl,
-                );
+    for &b_lin in &lin_steps {
+        for &g_lin in &lin_steps {
+            for &r_lin in &lin_steps {
+                let out = grade_from_linear([r_lin, g_lin, b_lin], params, curves, hsl);
                 writeln!(
                     out_str,
                     "{:.6} {:.6} {:.6}",
