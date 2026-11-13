@@ -264,32 +264,21 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// resolution when master bytes arrive from background load.
   /// Preserves the user's active viewport scale and pan position perfectly.
   Future<void> _upgradeRoiBytes(Uint8List bytes) async {
-    if (_disposed || !mounted) return;
+    if (_disposed || !mounted || isRawImage(bytes)) return;
     try {
       int width = 0;
       int height = 0;
-      if (isRawImage(bytes)) {
-        try {
-          final dims = await AxEngine.rawDimensions(bytes);
-          width = dims.width;
-          height = dims.height;
-        } catch (_) {
-          width = 0;
-          height = 0;
-        }
-      } else {
-        try {
-          final dims = await AxEngine.jpegDimensions(bytes);
-          width = dims.width;
-          height = dims.height;
-        } catch (_) {
-          final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-          final descriptor = await ui.ImageDescriptor.encoded(buffer);
-          width = descriptor.width;
-          height = descriptor.height;
-          descriptor.dispose();
-          buffer.dispose();
-        }
+      try {
+        final dims = await AxEngine.jpegDimensions(bytes);
+        width = dims.width;
+        height = dims.height;
+      } catch (_) {
+        final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+        final descriptor = await ui.ImageDescriptor.encoded(buffer);
+        width = descriptor.width;
+        height = descriptor.height;
+        descriptor.dispose();
+        buffer.dispose();
       }
       if (_disposed || !mounted) return;
       if (width > _fullW || height > _fullH) {
@@ -318,31 +307,23 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       final jpeg =
           widget.imageBytes ??
           await AxEngine.syntheticJpeg(width: 1024, height: 1024);
-      // Original frame dims for the ROI overlay (#55): both JPEG and RAW supported.
+      // Original frame dims for the ROI overlay (#55): header-only, RAW
+      // excluded (no region decode path for demosaiced data).
       _roiBytes = jpeg;
       if (isRawImage(jpeg)) {
-        try {
-          final dims = await AxEngine.rawDimensions(jpeg);
-          _fullW = dims.width;
-          _fullH = dims.height;
-        } catch (_) {
-          _fullW = 0;
-          _fullH = 0;
-        }
-        if (_fullW > 0 && _fullH > 0) {
-          _tileGrid = TileGrid(
-            imageWidth: _fullW,
-            imageHeight: _fullH,
-            tileSize: _tileSize,
-          );
-        } else {
-          _tileGrid = null;
-        }
+        _fullW = 0;
+        _fullH = 0;
+        _tileGrid = null;
       } else {
         try {
           final dims = await AxEngine.jpegDimensions(jpeg);
           _fullW = dims.width;
           _fullH = dims.height;
+          _tileGrid = TileGrid(
+            imageWidth: _fullW,
+            imageHeight: _fullH,
+            tileSize: _tileSize,
+          );
         } catch (_) {
           try {
             final buffer = await ui.ImmutableBuffer.fromUint8List(jpeg);
@@ -355,15 +336,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             _fullW = 0;
             _fullH = 0;
           }
-        }
-        if (_fullW > 0 && _fullH > 0) {
-          _tileGrid = TileGrid(
-            imageWidth: _fullW,
-            imageHeight: _fullH,
-            tileSize: _tileSize,
-          );
-        } else {
-          _tileGrid = null;
+          if (_fullW > 0 && _fullH > 0) {
+            _tileGrid = TileGrid(
+              imageWidth: _fullW,
+              imageHeight: _fullH,
+              tileSize: _tileSize,
+            );
+          } else {
+            _tileGrid = null;
+          }
         }
       }
       final proxy = await _decode(jpeg, maxDim: _maxPreviewDim);
@@ -371,7 +352,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         proxy.$1.dispose();
         return;
       }
-      if (_fullW == 0 && proxy.$3 > 0) {
+      if (!isRawImage(jpeg) && _fullW == 0 && proxy.$3 > 0) {
         _fullW = proxy.$3;
         _fullH = proxy.$4;
         _tileGrid = TileGrid(
@@ -386,18 +367,45 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       // Upload once into the Rust-resident store (#37 spike A); the pixels
       // never need to come back — every bake addresses the handle.
       _embeddedDepthAssetId = null;
-      final handle = await AxEngine.previewOpenJpeg(
-        jpegBytes: jpeg,
-        maxDim: _maxPreviewDim,
-      );
+      int handle;
       int? fastHandle;
-      try {
-        fastHandle = await AxEngine.previewOpenJpeg(
-          jpegBytes: jpeg,
-          maxDim: _maxPreviewDim ~/ 2,
+      if (isRawImage(jpeg) && proxy.$2.isNotEmpty) {
+        handle = await AxEngine.previewOpen(
+          rgba: proxy.$2,
+          width: proxy.$1.width,
+          height: proxy.$1.height,
         );
-      } catch (_) {
-        fastHandle = null;
+        try {
+          const halfMaxDim = _maxPreviewDim ~/ 2;
+          if (math.max(proxy.$1.width, proxy.$1.height) > halfMaxDim) {
+            final downscaled = await AxEngine.downscale(
+              proxy.$2,
+              width: proxy.$1.width,
+              height: proxy.$1.height,
+              maxDim: halfMaxDim,
+            );
+            fastHandle = await AxEngine.previewOpen(
+              rgba: downscaled.rgba,
+              width: downscaled.width,
+              height: downscaled.height,
+            );
+          }
+        } catch (_) {
+          fastHandle = null;
+        }
+      } else {
+        handle = await AxEngine.previewOpenJpeg(
+          jpegBytes: jpeg,
+          maxDim: _maxPreviewDim,
+        );
+        try {
+          fastHandle = await AxEngine.previewOpenJpeg(
+            jpegBytes: jpeg,
+            maxDim: _maxPreviewDim ~/ 2,
+          );
+        } catch (_) {
+          fastHandle = null;
+        }
       }
       if (!mounted) {
         unawaited(AxEngine.previewClose(handle));
@@ -486,7 +494,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       ref.read(zoneMaskProvider).isTargeting ||
       ref.read(wiperCompareProvider).isActive ||
       ref.read(splitCompareProvider).isEnabled ||
-      ref.read(exposureAssistProvider).isActive;
+      ref.read(exposureAssistProvider).isActive ||
+      ref.read(softProofingProvider).enabled;
 
   void _onDeliveryGestureSettled(AnimationStatus _) =>
       _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
@@ -518,6 +527,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final bounds = _lastBounds;
     if (fitted == Size.zero || bounds == Size.zero) return;
     final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
+
+    if (isRawImage(bytes)) return;
 
     final plan = planRoiOverlay(
       imageW: _fullW,
@@ -562,7 +573,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         if (spatialChanged || !_tiles.containsKey(t.coord)) t.coord,
     ];
     if (needed.isEmpty) {
-      if (!_tilesActive) {
+      if (!_tilesActive && _tiles.length > 0) {
         setState(() => _tilesActive = true);
         _scheduleBake(recipe);
       }
@@ -570,7 +581,6 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
 
     final token = ++_roiToken;
-    setState(() => _tilesActive = true);
     // Geometry is gated to identity above, so tiles bake with the same spec
     // as the proxy; the halo gives the spatial chain true context on all
     // four sides. One halo fetch covers the whole visible set.
@@ -602,6 +612,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       for (final e in baked.entries) {
         _tiles.put(e.key, e.value);
       }
+      _tilesActive = _tiles.length > 0;
       _tileBaseKey = baseKey;
     });
     _scheduleBake(recipe); // texture delivery must yield to the overlay pass
@@ -748,7 +759,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       h = d.height;
     }
     final image = await _imageFrom(rgba, w, h);
-    return (image, rgba, decoded.width, decoded.height);
+    return (image, rgba, w, h);
   }
 
   Future<ui.Image> _imageFrom(Uint8List rgba, int w, int h) {
@@ -1347,6 +1358,24 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
       }
     });
+    // Wiper split curtain compare: schedule bake for shader path
+    ref.listen(wiperCompareProvider, (previous, next) {
+      if (previous?.isActive != next.isActive) {
+        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+      }
+    });
+    // Split compare: schedule bake for shader path
+    ref.listen(splitCompareProvider, (previous, next) {
+      if (previous?.isEnabled != next.isEnabled) {
+        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+      }
+    });
+    // Soft proofing: schedule bake for shader path
+    ref.listen(softProofingProvider, (previous, next) {
+      if (previous?.enabled != next.enabled) {
+        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+      }
+    });
 
     // Multi-touch pan & pinch-to-zoom forwarded by overlays (Retouch, NodeOverlay)
     ref.listen(canvasGestureProvider, (previous, next) {
@@ -1375,13 +1404,20 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final uneditedSource = _source;
     final lut = _lut;
     final zeroCopy = _useTexture && _textureId != null;
+    final effectiveUseTexture = zeroCopy &&
+        !_tilesActive &&
+        !ref.read(zoneMaskProvider).isTargeting &&
+        !ref.read(wiperCompareProvider).isActive &&
+        !ref.read(splitCompareProvider).isEnabled &&
+        !ref.read(exposureAssistProvider).isActive &&
+        !ref.read(softProofingProvider).enabled;
     final needsPlaceholder = previewNeedsPlaceholder(
       failed: _failed,
       hasProgram: program != null,
       hasShader: shader != null,
       hasSource: baseImage != null || uneditedSource != null,
       hasLut: lut != null,
-      useTexture: zeroCopy,
+      useTexture: effectiveUseTexture,
     );
     if (needsPlaceholder) {
       return _placeholder();
@@ -1504,34 +1540,39 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                           !softProof.enabled
                       ? _textureId
                       : null,
-                  fallback: (_) => CustomPaint(
-                    size: fitted,
-                    painter: _CanvasPainter(
-                      shader: fragShader,
-                      source: proxySource,
-                      compareSource: compareSource,
-                      // Only ever built when `!zeroCopy`, where the
-                      // placeholder gate proved the LUT exists.
-                      lut: lut!,
-                      lutSize: _activeLutSize.toDouble(),
-                      dst: Offset.zero & fitted,
-                      blend: _compare.value,
-                      maskBlend: effectiveMaskBlend,
-                      zoneLo: zLo,
-                      zoneHi: zHi,
-                      wiperActive: wiper.isActive,
-                      wiperPosition: wiper.position,
-                      wiperOrientation: wiper.orientation,
-                      splitCompareActive: splitCompare.isEnabled,
-                      splitCompareOrientation: splitCompare.orientation,
-                      zebraMode: exposureAssist.mode,
-                      time: _zebraTicker.value * 1.0,
-                      zebraHigh: exposureAssist.zebraHigh,
-                      zebraLow: exposureAssist.zebraLow,
-                      softProof: softProof,
-                      tiles: tiles,
-                    ),
-                  ),
+                  fallback: (_) {
+                    if (lut == null) {
+                      return _placeholder();
+                    }
+                    return CustomPaint(
+                      size: fitted,
+                      painter: _CanvasPainter(
+                        shader: fragShader,
+                        source: proxySource,
+                        compareSource: compareSource,
+                        // Only ever built when `!zeroCopy`, where the
+                        // placeholder gate proved the LUT exists.
+                        lut: lut,
+                        lutSize: _activeLutSize.toDouble(),
+                        dst: Offset.zero & fitted,
+                        blend: _compare.value,
+                        maskBlend: effectiveMaskBlend,
+                        zoneLo: zLo,
+                        zoneHi: zHi,
+                        wiperActive: wiper.isActive,
+                        wiperPosition: wiper.position,
+                        wiperOrientation: wiper.orientation,
+                        splitCompareActive: splitCompare.isEnabled,
+                        splitCompareOrientation: splitCompare.orientation,
+                        zebraMode: exposureAssist.mode,
+                        time: _zebraTicker.value * 1.0,
+                        zebraHigh: exposureAssist.zebraHigh,
+                        zebraLow: exposureAssist.zebraLow,
+                        softProof: softProof,
+                        tiles: tiles,
+                      ),
+                    );
+                  },
                 );
               },
             ),

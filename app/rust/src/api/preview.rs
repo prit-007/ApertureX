@@ -768,4 +768,17 @@ mod tests {
             .expect("preview_histogram thread panicked");
         preview_close(h);
     }
+
+    #[test]
+    fn test_preview_open_jpeg_handles_raw_dng() {
+        let fixture_path = std::path::Path::new("tests/golden_fixtures/image_2.dng");
+        if fixture_path.exists() {
+            let bytes = std::fs::read(fixture_path).expect("failed to read image_2.dng");
+            let handle =
+                preview_open_jpeg(bytes, 1024).expect("preview_open_jpeg should support RAW files");
+            let rgba = preview_get_source_rgba(handle).expect("get source rgba");
+            assert!(rgba.width > 0 && rgba.height > 0);
+            preview_close(handle);
+        }
+    }
 }

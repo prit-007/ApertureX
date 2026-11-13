@@ -131,51 +131,86 @@ pub fn get_source_rgba(handle: u64) -> Result<RgbaImage, String> {
     })
 }
 
-/// Decodes a JPEG into a resident proxy.
+/// Decodes a JPEG (or camera RAW format) into a resident proxy.
 pub fn open_jpeg(jpeg_bytes: Vec<u8>, max_dim: u32) -> Result<u64, String> {
-    let mut decoder = JpegDecoder::new(std::io::Cursor::new(jpeg_bytes));
-    decoder
-        .decode_headers()
-        .map_err(|e| format!("JPEG headers failed: {e}"))?;
+    let mut decoder = JpegDecoder::new(std::io::Cursor::new(&jpeg_bytes));
+    if decoder.decode_headers().is_ok() {
+        if let Some((width, height)) = decoder.dimensions() {
+            if let Ok(rgba) = decoder.decode() {
+                let scale = (max_dim as f32 / width.max(height) as f32).min(1.0);
+                let target_w = (width as f32 * scale) as u32;
+                let target_h = (height as f32 * scale) as u32;
 
-    let (width, height) = decoder
-        .dimensions()
-        .ok_or_else(|| "JPEG dimensions failed".to_string())?;
+                let mut rgba_buffer = Vec::with_capacity(target_w as usize * target_h as usize * 4);
 
-    let scale = (max_dim as f32 / width.max(height) as f32).min(1.0);
-    let target_w = (width as f32 * scale) as u32;
-    let target_h = (height as f32 * scale) as u32;
+                for y in 0..target_h {
+                    let src_y = (y as f32 / scale) as usize;
+                    if src_y >= height {
+                        break;
+                    }
+                    for x in 0..target_w {
+                        let src_x = (x as f32 / scale) as usize;
+                        if src_x >= width {
+                            continue;
+                        }
 
-    let rgba = decoder
-        .decode()
-        .map_err(|e| format!("JPEG decode failed: {e}"))?;
+                        let idx = (src_y * width + src_x) * 3;
+                        if idx + 2 >= rgba.len() {
+                            continue;
+                        }
 
-    let mut rgba_buffer = Vec::with_capacity(target_w as usize * target_h as usize * 4);
+                        rgba_buffer.push(rgba[idx]); // R
+                        rgba_buffer.push(rgba[idx + 1]); // G
+                        rgba_buffer.push(rgba[idx + 2]); // B
+                        rgba_buffer.push(255); // A
+                    }
+                }
 
-    for y in 0..target_h {
-        let src_y = (y as f32 / scale) as usize;
-        if src_y >= height {
-            break;
-        }
-        for x in 0..target_w {
-            let src_x = (x as f32 / scale) as usize;
-            if src_x >= width {
-                continue;
+                return Ok(open(rgba_buffer, target_w, target_h));
             }
-
-            let idx = (src_y * width + src_x) * 3;
-            if idx + 2 >= rgba.len() {
-                continue;
-            }
-
-            rgba_buffer.push(rgba[idx]); // R
-            rgba_buffer.push(rgba[idx + 1]); // G
-            rgba_buffer.push(rgba[idx + 2]); // B
-            rgba_buffer.push(255); // A
         }
     }
 
-    Ok(open(rgba_buffer, target_w, target_h))
+    // Fallback 1: check for high-res embedded JPEG in RAW files (CR2, NEF, ARW, DNG)
+    if let Some(embedded) = crate::raw::extract_embedded_preview_jpeg(&jpeg_bytes) {
+        if let Ok(handle) = open_jpeg(embedded, max_dim) {
+            return Ok(handle);
+        }
+    }
+
+    // Fallback 2: decode as camera RAW (DNG, CR2, NEF, ARW, etc.)
+    if let Ok(decoded) = crate::api::raw::decode_raw_rgba(jpeg_bytes) {
+        let width = decoded.width;
+        let height = decoded.height;
+        let rgba = decoded.rgba;
+        let scale = (max_dim as f32 / width.max(height) as f32).min(1.0);
+        let target_w = (width as f32 * scale) as u32;
+        let target_h = (height as f32 * scale) as u32;
+
+        let mut downscaled = Vec::with_capacity(target_w as usize * target_h as usize * 4);
+        for y in 0..target_h {
+            let src_y = (y as f32 / scale) as usize;
+            if src_y >= height as usize {
+                break;
+            }
+            for x in 0..target_w {
+                let src_x = (x as f32 / scale) as usize;
+                if src_x >= width as usize {
+                    continue;
+                }
+                let idx = (src_y * width as usize + src_x) * 4;
+                if idx + 3 < rgba.len() {
+                    downscaled.push(rgba[idx]);
+                    downscaled.push(rgba[idx + 1]);
+                    downscaled.push(rgba[idx + 2]);
+                    downscaled.push(rgba[idx + 3]);
+                }
+            }
+        }
+        return Ok(open(downscaled, target_w, target_h));
+    }
+
+    Err("Failed to decode image as JPEG or RAW".to_string())
 }
 
 /// Drops the resident image for [handle]. Unknown handles are ignored so
