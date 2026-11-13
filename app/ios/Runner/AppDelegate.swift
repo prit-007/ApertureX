@@ -84,8 +84,9 @@ import UIKit
   /// Registers `aperturex/preview_texture` — the iOS half of spike B's
   /// zero-copy texture delivery. Matches the Android `MainActivity` contract:
   /// `create {width,height}` → texture id; `bind {textureId,handle}` → bind
-  /// CVPixelBuffer base address to Rust preview handle; `dispose {textureId}`
-  /// → release.
+  /// CVPixelBuffer base address to Rust preview handle;
+  /// `frameAvailable {textureId}` → tell the engine a fresh frame was written;
+  /// `dispose {textureId}` → release.
   private func registerPreviewTextureChannel(pluginRegistry: FlutterPluginRegistry) {
     guard let registrar = pluginRegistry.registrar(forPlugin: "aperturex.preview_texture") else {
       return
@@ -100,6 +101,8 @@ import UIKit
         self.handlePreviewTextureCreate(call: call, result: result, registrar: registrar)
       case "bind":
         self.handlePreviewTextureBind(call: call, result: result)
+      case "frameAvailable":
+        self.handlePreviewTextureFrameAvailable(call: call, result: result, registrar: registrar)
       case "dispose":
         self.handlePreviewTextureDispose(call: call, result: result, registrar: registrar)
       default:
@@ -124,9 +127,16 @@ import UIKit
     }
 
     var pixelBuffer: CVPixelBuffer?
+    // Rust's iOS write path copies tight rows (row_bytes = width * 4) into
+    // the base address. Ask CoreVideo for an exactly packed buffer; the bind
+    // handler verifies the result, so a padded buffer refuses the bind and
+    // Dart keeps the return-frame + shader path instead of shearing frames.
+    let attrs: [String: Any] = [
+      kCVPixelBufferBytesPerRowAlignmentKey as String: Int(width) * 4,
+    ]
     let status = CVPixelBufferCreate(
       kCFAllocatorDefault, Int(width), Int(height),
-      kCVPixelFormatType_32RGBA, nil, &pixelBuffer
+      kCVPixelFormatType_32RGBA, attrs as CFDictionary, &pixelBuffer
     )
     guard status == kCVReturnSuccess, let pb = pixelBuffer else {
       result(
@@ -170,6 +180,22 @@ import UIKit
     }
     AppDelegate.previewLock.unlock()
 
+    // Rust writes tight rows; a padded bytesPerRow would shear every frame,
+    // so refuse the bind and let Dart keep the shader path (graceful
+    // degradation, never a stretched preview).
+    let pbWidth = CVPixelBufferGetWidth(pixelBuffer)
+    let pbStride = CVPixelBufferGetBytesPerRow(pixelBuffer)
+    guard pbStride == pbWidth * 4 else {
+      result(
+        FlutterError(
+          code: "padded_buffer",
+          message: "bytesPerRow \(pbStride) != width*4 (\(pbWidth * 4))",
+          details: nil
+        )
+      )
+      return
+    }
+
     CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
     let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer)
     CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
@@ -183,6 +209,27 @@ import UIKit
 
     let ok = aperturex_bind_window(UInt64(bitPattern: handle), Int64(UInt(bitPattern: base)))
     result(ok)
+  }
+
+  /// Notifies the engine that [textureId]'s CVPixelBuffer holds a fresh
+  /// frame. Rust writes into the raw base address, which the engine cannot
+  /// observe — it only re-samples `copyPixelBuffer` after this registry poke
+  /// (Android's SurfaceProducer watches its own buffer queue instead).
+  private func handlePreviewTextureFrameAvailable(
+    call: FlutterMethodCall,
+    result: FlutterResult,
+    registrar: FlutterPluginRegistrar
+  ) {
+    guard
+      let args = call.arguments as? [String: Any],
+      let textureId = args["textureId"] as? Int64
+    else {
+      result(FlutterError(code: "bad_args", message: "invalid textureId", details: nil))
+      return
+    }
+
+    registrar.textures().textureFrameAvailable(textureId)
+    result(nil)
   }
 
   private func handlePreviewTextureDispose(
