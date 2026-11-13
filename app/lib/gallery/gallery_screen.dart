@@ -1968,7 +1968,6 @@ class _StaggeredCellState extends State<_StaggeredCell>
   @override
   void initState() {
     super.initState();
-    final delay = Duration(milliseconds: 40 * widget.index);
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 280),
@@ -1981,9 +1980,21 @@ class _StaggeredCellState extends State<_StaggeredCell>
       begin: const Offset(0, 0.18),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-    Future.delayed(delay, () {
-      if (mounted) _controller.forward();
+
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() {});
+      }
     });
+
+    if (AppMotion.reduceMotion || widget.index >= 12) {
+      _controller.value = 1.0;
+    } else {
+      final delay = Duration(milliseconds: 30 * widget.index);
+      Future.delayed(delay, () {
+        if (mounted) _controller.forward();
+      });
+    }
   }
 
   @override
@@ -1994,15 +2005,13 @@ class _StaggeredCellState extends State<_StaggeredCell>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _opacity.value,
-          child: Transform.translate(offset: _offset.value, child: child),
-        );
-      },
-      child: widget.child,
+    if (_controller.isCompleted) return widget.child;
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _offset,
+        child: widget.child,
+      ),
     );
   }
 }

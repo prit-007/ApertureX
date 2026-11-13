@@ -1266,6 +1266,17 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _needsReset = true;
       });
     });
+    ref.listen<ExposureAssistState>(exposureAssistProvider, (previous, next) {
+      if (next.mode == ExposureAssistMode.zebras) {
+        if (!_reduceMotion && !_zebraTicker.isAnimating) {
+          _zebraTicker.repeat();
+        }
+      } else {
+        if (_zebraTicker.isAnimating) {
+          _zebraTicker.stop();
+        }
+      }
+    });
     // Universal fast-proxy scrub settling: on pointer release / gesture end,
     // settle to tack-sharp full-res frame immediately.
     ref.listen<bool>(editActivityProvider, (previous, active) {
@@ -1441,6 +1452,20 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           CanvasTransform(fitted: fitted, offset: _offset, scale: _scale),
         );
 
+        final wiper = ref.watch(wiperCompareProvider);
+        final splitCompare = ref.watch(splitCompareProvider);
+        final zoneMask = ref.watch(zoneMaskProvider);
+        final exposureAssist = ref.watch(exposureAssistProvider);
+        final softProof = ref.watch(softProofingProvider);
+
+        if (exposureAssist.mode == ExposureAssistMode.zebras) {
+          if (!_reduceMotion && !_zebraTicker.isAnimating) {
+            _zebraTicker.repeat();
+          }
+        } else if (_zebraTicker.isAnimating) {
+          _zebraTicker.stop();
+        }
+
         // The image content — optionally wrapped in a [Hero] so the gallery
         // thumbnail flies into the editor canvas on open.
         Widget imageContent(double width, double height) {
@@ -1457,20 +1482,6 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 final tiles = _tilesActive && _fullH > 0
                     ? _visibleTileImages(fitted)
                     : const <_CanvasTile>[];
-                final wiper = ref.watch(wiperCompareProvider);
-                final splitCompare = ref.watch(splitCompareProvider);
-                final zoneMask = ref.watch(zoneMaskProvider);
-                final exposureAssist = ref.watch(exposureAssistProvider);
-                final softProof = ref.watch(softProofingProvider);
-                if (exposureAssist.mode == ExposureAssistMode.zebras) {
-                  if (!_reduceMotion && !_zebraTicker.isAnimating) {
-                    _zebraTicker.repeat();
-                  }
-                } else {
-                  if (_zebraTicker.isAnimating) {
-                    _zebraTicker.stop();
-                  }
-                }
                 final (zLo, zHi) = zoneMask.isTargeting
                     ? zoneMask.lumaBounds
                     : (-1.0, -1.0);

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:aperturex/core/theme/app_theme.dart';
@@ -28,6 +29,13 @@ void main() {
       final theme = AppTheme.dark(dynamicScheme);
       expect(theme.brightness, Brightness.dark);
       expect(theme.colorScheme.primary, dynamicScheme.primary);
+    });
+
+    test('configures page transitions with predictive back for Android and Cupertino for iOS', () {
+      final theme = AppTheme.dark();
+      final builders = theme.pageTransitionsTheme.builders;
+      expect(builders[TargetPlatform.android], isA<PredictiveBackPageTransitionsBuilder>());
+      expect(builders[TargetPlatform.iOS], isA<CupertinoPageTransitionsBuilder>());
     });
   });
 }

@@ -59,7 +59,13 @@ import '../../edit/active_image.dart' show currentEditingAssetProvider;
 /// overflow) over the shared [AppShell] (canvas + active shell toolbar). One
 /// recipe is the single source of truth for the whole session (ADR 0008).
 class EditorScreen extends ConsumerStatefulWidget {
-  const EditorScreen({super.key, this.asset, this.entryId, this.imageBytes});
+  const EditorScreen({
+    super.key,
+    this.asset,
+    this.entryId,
+    this.imageBytes,
+    this.heroTag,
+  });
 
   /// Photo to edit, loaded from [gallerySourceProvider].
   final GalleryAsset? asset;
@@ -71,6 +77,18 @@ class EditorScreen extends ConsumerStatefulWidget {
 
   /// Direct JPEG bytes (used by the sample-editor entry point).
   final Uint8List? imageBytes;
+
+  /// Optional custom hero tag to match the calling screen's Hero widget.
+  final String? heroTag;
+
+  /// The hero tag used for transition between gallery and editor.
+  String? get resolvedHeroTag {
+    if (heroTag != null) return heroTag;
+    if (entryId != null && entryId!.startsWith('vc:')) {
+      return 'photo-vc-$entryId';
+    }
+    return asset != null ? 'photo-${asset!.id}' : null;
+  }
 
   /// The entry id this session saves to (null in sample mode, which has
   /// nothing to persist).
@@ -1589,7 +1607,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
     return AppShell(
       imageBytes: _bytes,
-      heroTag: widget.asset != null ? 'photo-${widget.asset!.id}' : null,
+      heroTag: widget.resolvedHeroTag,
       onNextPhoto: _navigateToNext,
       onPreviousPhoto: _navigateToPrevious,
     );
