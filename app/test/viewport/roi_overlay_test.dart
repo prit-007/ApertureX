@@ -193,6 +193,32 @@ void main() {
       );
       expect(fit, isNull);
 
+      // On 1024px proxy (common preview dim) or ultra-high DPR (3.5x, 4.0x),
+      // zoomed-out contain-fit view (scale <= 1.0) must NEVER plan ROI tiles
+      final fit1024 = planRoiOverlay(
+        imageW: 6000,
+        imageH: 4000,
+        proxyW: 1024,
+        fitted: const Size(400, 267),
+        scale: 1.0,
+        offset: Offset.zero,
+        viewport: const Size(400, 800),
+        devicePixelRatio: 3.0,
+      );
+      expect(fit1024, isNull);
+
+      final zoomedOut = planRoiOverlay(
+        imageW: 6000,
+        imageH: 4000,
+        proxyW: 1024,
+        fitted: const Size(400, 267),
+        scale: 0.85,
+        offset: Offset.zero,
+        viewport: const Size(400, 800),
+        devicePixelRatio: 3.5,
+      );
+      expect(zoomedOut, isNull);
+
       // At 1.3x zoom, detail tiles activate to render tack-sharp 1:1 master pixels
       final zoomed = planRoiOverlay(
         imageW: 4000,
