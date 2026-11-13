@@ -28,6 +28,7 @@ import '../core/haptics.dart';
 import '../core/theme/design_tokens.dart';
 import '../gesture/gesture_interpreter.dart';
 import '../gesture/zone_mask.dart';
+import '../settings/app_settings.dart';
 import 'compare_hold.dart';
 import 'base_spec.dart';
 import 'change_keys.dart';
@@ -106,6 +107,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   /// Preview LUT is small; export grades per-pixel exactly.
   static const int _previewLutSize = 33;
+  /// Fast 17³ proxy LUT during active gesture drags (<0.2ms bake, 120 FPS).
+  static const int _scrubLutSize = 17;
 
   ui.FragmentProgram? _program;
   ui.FragmentShader? _shader;
@@ -404,8 +407,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _previewHandle = handle;
       _fastProxyHandle = fastHandle;
       // Spike B: prefer zero-copy texture delivery when the platform supports
-      // it (Android). Any failure leaves `_textureId` null and we keep the
-      // spike-A return-frame path.
+      // it (Android SurfaceProducer, iOS CVPixelBuffer). Any failure leaves
+      // `_textureId` null and we keep the spike-A return-frame path.
       await _tryBindTexture(handle, proxy.$3, proxy.$4);
       _useTexture = _computeUseTexture();
       _needsReset = true;
@@ -424,20 +427,37 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
   }
 
-  /// Registers a platform texture and binds it to the resident [handle].
+  /// Registers a platform texture and binds it to the resident [handle] so
+  /// Rust writes graded frames straight into it (zero-copy).
   ///
-  /// Modern Android HardwareBuffer-backed `SurfaceProducer` allocations introduce
-  /// row/stride padding that causes vertical stretching in Flutter's `Texture` widget
-  /// (the "stretched image" bug). The Impeller 3D LUT fragment-shader pipeline
-  /// renders with exact aspect ratio at 120 FPS, matching the compare view 1:1.
-  /// We yield to the aspect-accurate shader pipeline to guarantee zero stretch.
+  /// Any failure — no plugin, native alloc error, or a buffer whose rows are
+  /// padded past the frame — leaves `null` here and the viewport keeps the
+  /// spike-A return-frame + shader path. The historical "stretched image"
+  /// regression came from the NDK buffer-layout FFI bug (fixed in `6a61d9de`)
+  /// and from non-identity geometry writing a smaller frame into the proxy
+  /// buffer; geometry is gated in [useTextureDelivery], and the write path
+  /// copies row-by-row through the buffer's actual stride.
   Future<void> _tryBindTexture(int handle, int width, int height) async {
-    return;
+    if (!ref.read(zeroCopyTextureProvider)) return;
+    final tex = await PreviewTextureChannel.create(
+      width: width,
+      height: height,
+    );
+    if (tex == null) return;
+    final bound = await PreviewTextureChannel.bind(
+      textureId: tex,
+      handle: handle,
+    );
+    if (!mounted || !bound) {
+      unawaited(PreviewTextureChannel.dispose(tex));
+      return;
+    }
+    _textureId = tex;
   }
 
-  /// Texture delivery is used only when a texture is bound, no imported LUT
-  /// is active (imported atlases are applied by `lut.frag`, not Rust), no
-  /// compare/peek crossfade is running — those fades are drawn by `lut.frag`
+  /// Texture delivery is used only when a texture is bound, zeroCopy is enabled,
+  /// no imported LUT is active (imported atlases are applied by `lut.frag`, not Rust),
+  /// no compare/peek crossfade is running — those fades are drawn by `lut.frag`
   /// (`blend`/`maskBlend`), which the Rust texture path doesn't carry — no
   /// high-zoom tiles are overlaying the proxy, and recipe geometry is
   /// identity. The geometry gate is required because HardwareBuffer-backed
@@ -445,6 +465,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// frame written into the proxy buffer would be stretched to the wrong
   /// aspect by Flutter (see `useTextureDelivery`).
   bool _computeUseTexture() {
+    if (!ref.read(zeroCopyTextureProvider)) return false;
     final recipe = ref.read(recipeControllerProvider).recipe;
     return useTextureDelivery(
       textureId: _textureId,
@@ -815,13 +836,17 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         forceFullRes ||
         currentBaseKey != _lastBaseKey ||
         (_isBaseProxy && currentBaseKey != _lastProxyBaseKey);
+    final targetLutSize = (!forceFullRes && (_isScrubbing || ref.read(editActivityProvider)))
+        ? _scrubLutSize
+        : _previewLutSize;
     final gradeChanged =
         modeChanged ||
         _gradeKey(recipe) != _lastGradeKey ||
-        imported != _importedKey;
+        imported != _importedKey ||
+        _activeLutSize != targetLutSize;
     if (!baseChanged && !gradeChanged) return;
 
-    if (baseChanged && !forceFullRes) {
+    if ((baseChanged || _activeLutSize != _previewLutSize) && !forceFullRes) {
       _settleDebounce?.cancel();
       _settleDebounce = Timer(const Duration(milliseconds: 120), () {
         if (!_disposed && mounted) {
@@ -914,7 +939,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   void _settleFullRes() {
     if (_disposed || !mounted || _program == null || _previewHandle == null) return;
     final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
-    if (_isBaseProxy || _lastBaseKey != _baseKey(recipe)) {
+    if (_isBaseProxy || _lastBaseKey != _baseKey(recipe) || _activeLutSize != _previewLutSize) {
       _scheduleBake(recipe, forceFullRes: true);
     }
   }
@@ -943,7 +968,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           _setBusy(true);
           await _rebuildBase(recipe, token, forceFullRes: forceFullRes);
         }
-        if (gradeChanged) await _rebuildLut(recipe, token);
+        if (gradeChanged) {
+          await _rebuildLut(recipe, token, forceFullRes: forceFullRes);
+        }
       }
       if (token != _bakeToken) return;
       _scheduleHistogram(recipe, token);
@@ -1041,7 +1068,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     });
   }
 
-  Future<void> _rebuildLut(EditRecipe recipe, int token) async {
+  Future<void> _rebuildLut(
+    EditRecipe recipe,
+    int token, {
+    bool forceFullRes = false,
+  }) async {
     // Spatial pass in baseImage already applied edge-preserving guided shadows and highlights;
     // zero them out for the 3D LUT fragment shader to prevent double-applying tone curves.
     final spec = GradeSpec.fromRecipe(recipe).copyWith(
@@ -1055,7 +1086,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       lutImage = await lutAtlasToImage(imported);
       lutSize = imported.size;
     } else {
-      final data = await AxEngine.bakeLut3d(spec, size: _previewLutSize);
+      final isScrubbing =
+          !forceFullRes && (_isScrubbing || ref.read(editActivityProvider));
+      final targetSize = isScrubbing ? _scrubLutSize : _previewLutSize;
+      final data = await AxEngine.bakeLut3d(spec, size: targetSize);
       if (token != _bakeToken) return;
       lutImage = await lutAtlasToImage(
         LutAtlas(size: data.size, rgba: data.rgba),
@@ -1126,6 +1160,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         baseChanged: baseChanged,
       );
       if (!mounted || token != _bakeToken) return;
+      // The write above just landed in the bound buffer. iOS never notices a
+      // raw CVPixelBuffer mutation on its own — poke the registry so the
+      // engine re-samples `copyPixelBuffer` on the next vsync (Android's
+      // SurfaceProducer watches its own queue; the call is a no-op there).
+      final textureId = _textureId;
+      if (textureId != null) {
+        unawaited(PreviewTextureChannel.frameAvailable(textureId));
+      }
       setState(() {
         _baseW = size.width;
         _baseH = size.height;
@@ -1218,6 +1260,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       mutedParametersProvider,
       (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
     );
+    ref.listen(zeroCopyTextureProvider, (_, enabled) {
+      setState(() {
+        _useTexture = _computeUseTexture();
+        _needsReset = true;
+      });
+    });
     // Universal fast-proxy scrub settling: on pointer release / gesture end,
     // settle to tack-sharp full-res frame immediately.
     ref.listen<bool>(editActivityProvider, (previous, active) {
