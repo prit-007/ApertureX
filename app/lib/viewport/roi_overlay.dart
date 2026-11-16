@@ -122,7 +122,10 @@ RoiOverlayPlan? planRoiOverlay({
   if (imageW <= 0 || imageH <= 0 || fitted.width <= 0 || fitted.height <= 0) {
     return null;
   }
-  if (scale <= 0) return null;
+  // At contain-fit zoom (scale <= 1.0) or below, the entire photo is visible
+  // and the proxy covers every pixel on the display. Detail tiles only activate
+  // when actively zooming in past 1.0x to reveal 1:1 master pixels.
+  if (scale <= 1.0) return null;
 
   // The proxy loses sharpness once the image is displayed wider than the
   // proxy has physical pixels — that is exactly where full-res tiles add detail.

@@ -66,4 +66,41 @@ void main() {
     expect(median, lessThan(50), reason: 'median scrub-step cost regressed');
     expect(p95, lessThan(200), reason: 'p95 scrub-step cost regressed');
   });
+
+  test('fast proxy scrub step at 17^3 runs with sub-millisecond median decode', () async {
+    const scrubLutSize = 17; // ImageCanvas._scrubLutSize
+    final rgba = Uint8List(scrubLutSize * scrubLutSize * scrubLutSize * 4);
+
+    Future<void> fastScrubStep(int i) async {
+      rgba[i % rgba.length] = (i * 23) & 0xff;
+      final image = await lutAtlasToImage(
+        LutAtlas(size: scrubLutSize, rgba: Uint8List.fromList(rgba)),
+      );
+      image.dispose();
+    }
+
+    // Warm up
+    for (var i = 0; i < 3; i++) {
+      await fastScrubStep(i);
+    }
+
+    final samples = <int>[];
+    for (var i = 0; i < steps; i++) {
+      final sw = Stopwatch()..start();
+      await fastScrubStep(i);
+      sw.stop();
+      samples.add(sw.elapsedMilliseconds);
+    }
+
+    samples.sort();
+    final median = samples[samples.length ~/ 2];
+    final p95 = samples[(samples.length * 0.95).floor().clamp(0, samples.length - 1)];
+
+    // ignore: avoid_print
+    print('scrub proxy step (Dart side, $scrubLutSize^3): '
+        'median ${median}ms, p95 ${p95}ms');
+
+    expect(median, lessThan(20), reason: '17^3 fast proxy should have low latency');
+    expect(p95, lessThan(100), reason: '17^3 p95 latency within budget');
+  });
 }

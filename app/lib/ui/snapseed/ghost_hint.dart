@@ -31,78 +31,78 @@ class _GhostHintState extends ConsumerState<GhostHint>
     return IgnorePointer(
       child: SafeArea(
         child: Center(
-          child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            final t = Curves.easeInOut.transform(_controller.value);
-            final dy = (t * 2 - 1) * 30;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.keyboard_arrow_up,
-                  color: scheme.onSurface.withValues(alpha: 0.7),
-                ),
-                SizedBox(
-                  height: 96,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Motion trail (older copies, faded).
-                      for (final (lag, opacity) in const [
-                        (0.0, 0.15),
-                        (-14.0, 0.30),
-                      ])
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.keyboard_arrow_up,
+                color: scheme.onSurface.withValues(alpha: 0.7),
+              ),
+              SizedBox(
+                height: 96,
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) {
+                    final t = Curves.easeInOut.transform(_controller.value);
+                    final dy = (t * 2 - 1) * 30;
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Motion trail (older copies, faded).
+                        for (final (lag, opacity) in const [
+                          (0.0, 0.15),
+                          (-14.0, 0.30),
+                        ])
+                          Transform.translate(
+                            offset: Offset(0, dy - lag),
+                            child: _Thumb(scheme: scheme, opacity: opacity),
+                          ),
                         Transform.translate(
-                          offset: Offset(0, dy - lag),
-                          child: _Thumb(scheme: scheme, opacity: opacity),
+                          offset: Offset(0, dy),
+                          child: _Thumb(scheme: scheme, opacity: 1),
                         ),
-                      Transform.translate(
-                        offset: Offset(0, dy),
-                        child: _Thumb(scheme: scheme, opacity: 1),
-                      ),
-                    ],
-                  ),
+                      ],
+                    );
+                  },
                 ),
-                Icon(
-                  Icons.keyboard_arrow_down,
-                  color: scheme.onSurface.withValues(alpha: 0.7),
+              ),
+              Icon(
+                Icons.keyboard_arrow_down,
+                color: scheme.onSurface.withValues(alpha: 0.7),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
                 ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Swipe up / down to pick a tool',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Swipe left / right to adjust  ·  tap to reset  ·  '
-                        'long-press to compare',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-              ],
-            );
-          },
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Swipe up / down to pick a tool',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Swipe left / right to adjust  ·  tap to reset  ·  '
+                      'long-press to compare',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
     ),
   );
 }

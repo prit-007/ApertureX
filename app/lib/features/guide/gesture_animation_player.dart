@@ -250,12 +250,15 @@ class _VerticalDragPlayer extends StatelessWidget {
                         color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
                       ),
                     ),
-                    // Animated finger touch
+                    // Animated finger touch (GPU translated)
                     Positioned(
-                      top: beaconY - 15,
-                      child: _TouchPoint(
-                        scheme: scheme,
-                        showRipple: true,
+                      top: 0,
+                      child: Transform.translate(
+                        offset: Offset(0, beaconY - 15),
+                        child: _TouchPoint(
+                          scheme: scheme,
+                          showRipple: true,
+                        ),
                       ),
                     ),
                   ],
@@ -417,14 +420,17 @@ class _HorizontalScrubPlayer extends StatelessWidget {
               ),
             ),
 
-            // Animated finger touch and haptic visual ripples
+            // Animated finger touch and haptic visual ripples (GPU translated)
             Positioned(
               top: (height * 0.44) - 2,
-              left: scrubX - 16,
-              child: _TouchPoint(
-                scheme: scheme,
-                showRipple: true,
-                rippleProgress: (progress * 5) % 1.0,
+              left: 0,
+              child: Transform.translate(
+                offset: Offset(scrubX - 16, 0),
+                child: _TouchPoint(
+                  scheme: scheme,
+                  showRipple: true,
+                  rippleProgress: (progress * 5) % 1.0,
+                ),
               ),
             ),
 
@@ -663,16 +669,19 @@ class _TwoFingerPrecisionGearPlayer extends StatelessWidget {
               ),
             ),
 
-            // Finger 2 (Precision contact meeting on canvas)
+            // Finger 2 (Precision contact meeting on canvas, GPU translated)
             Positioned(
-              top: ((height * 0.52) - 15) + finger2DropY,
+              top: (height * 0.52) - 15,
               left: centerX + 12,
-              child: Opacity(
-                opacity: finger2Opacity,
-                child: _TouchPoint(
-                  scheme: scheme,
-                  label: '2',
-                  showRipple: isGearActive,
+              child: Transform.translate(
+                offset: Offset(0, finger2DropY),
+                child: Opacity(
+                  opacity: finger2Opacity,
+                  child: _TouchPoint(
+                    scheme: scheme,
+                    label: '2',
+                    showRipple: isGearActive,
+                  ),
                 ),
               ),
             ),
@@ -815,48 +824,54 @@ class _SplitWiperPlayer extends StatelessWidget {
               ),
             ),
 
-            // Layer 3: Split curtain divider bar & wiper handle
+            // Layer 3: Split curtain divider bar & wiper handle (GPU translated)
             Positioned(
-              left: wiperX - 1.5,
+              left: 0,
               top: 0,
               bottom: 0,
-              child: Container(
-                width: 3,
-                decoration: BoxDecoration(
-                  color: scheme.onSurface,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      blurRadius: 4,
-                      spreadRadius: 1,
-                    ),
-                  ],
+              child: Transform.translate(
+                offset: Offset(wiperX - 1.5, 0),
+                child: Container(
+                  width: 3,
+                  decoration: BoxDecoration(
+                    color: scheme.onSurface,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
 
-            // Wiper Thumb Handle
+            // Wiper Thumb Handle (GPU translated)
             Positioned(
-              left: wiperX - 15,
+              left: 0,
               top: (height / 2) - 15,
-              child: Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: scheme.surface,
-                  border: Border.all(color: scheme.primary, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 6,
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.compare_arrows,
-                  size: 16,
-                  color: scheme.primary,
+              child: Transform.translate(
+                offset: Offset(wiperX - 15, 0),
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: scheme.surface,
+                    border: Border.all(color: scheme.primary, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.compare_arrows,
+                    size: 16,
+                    color: scheme.primary,
+                  ),
                 ),
               ),
             ),

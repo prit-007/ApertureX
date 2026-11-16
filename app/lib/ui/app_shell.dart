@@ -1727,6 +1727,25 @@ class _LiveScrubHudPill extends ConsumerWidget {
 
   final Parameter parameter;
 
+  static IconData _iconFor(Parameter p) => switch (p) {
+    Parameter.exposure => Icons.wb_sunny_outlined,
+    Parameter.contrast => Icons.contrast,
+    Parameter.highlights => Icons.brightness_high_outlined,
+    Parameter.shadows => Icons.brightness_low_outlined,
+    Parameter.whites => Icons.brightness_7_outlined,
+    Parameter.blacks => Icons.brightness_4_outlined,
+    Parameter.temperature => Icons.thermostat_outlined,
+    Parameter.tint => Icons.color_lens_outlined,
+    Parameter.vibrance => Icons.auto_awesome_outlined,
+    Parameter.saturation => Icons.gradient_outlined,
+    Parameter.clarity => Icons.tonality_outlined,
+    Parameter.dehaze => Icons.cloud_outlined,
+    Parameter.texture => Icons.grain_outlined,
+    Parameter.sharpen => Icons.details_outlined,
+    Parameter.vignette => Icons.vignette_outlined,
+    _ => Icons.tune_rounded,
+  };
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final spec = specOf(parameter);
@@ -1742,49 +1761,69 @@ class _LiveScrubHudPill extends ConsumerWidget {
                 ? '${value > 0 ? '+' : ''}${value.toStringAsFixed(2)}'
                 : '${value > 0 ? '+' : ''}${value.round()}'));
 
-    return Container(
+    final theme = Theme.of(context);
+    final icon = _iconFor(parameter);
+
+    return ClipRRect(
       key: const Key('live-scrub-hud-pill'),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white24, width: 0.75),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black54,
-            blurRadius: 10,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            spec.label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.white70,
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.78),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isNeutral
+                  ? Colors.white.withValues(alpha: 0.20)
+                  : theme.colorScheme.primary.withValues(alpha: 0.50),
+              width: 1.0,
             ),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black54,
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Container(
-            width: 1,
-            height: 12,
-            color: Colors.white24,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: isNeutral ? Colors.white70 : theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                spec.label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white70,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 1,
+                height: 12,
+                color: Colors.white24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                formatted,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: isNeutral ? Colors.white54 : theme.colorScheme.primary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Text(
-            formatted,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              fontFeatures: const [FontFeature.tabularFigures()],
-              color: isNeutral ? Colors.white54 : const Color(0xFF64B5F6),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

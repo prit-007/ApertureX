@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:material_ui/material_ui.dart';
 
 import 'design_tokens.dart';
@@ -38,6 +39,15 @@ class AppTheme {
     const buttonShape = RoundedRectangleBorder(borderRadius: Radii.pillAll);
 
     return base.copyWith(
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+          TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+        },
+      ),
       scaffoldBackgroundColor: scheme.surface,
       canvasColor: scheme.surface,
       appBarTheme: AppBarTheme(

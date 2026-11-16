@@ -39,7 +39,7 @@ class CropScreen extends ConsumerStatefulWidget {
 enum _Corner { topLeft, topRight, bottomLeft, bottomRight, move }
 
 class _CropScreenState extends ConsumerState<CropScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   ui.Image? _image;
   bool _loading = true;
 
@@ -61,7 +61,7 @@ class _CropScreenState extends ConsumerState<CropScreen>
     _gridController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 150),
-    )..addListener(() => setState(() {}));
+    );
     final recipe = ref.read(recipeControllerProvider).recipe;
     _rotation = recipe.rotation;
     _flipH = recipe.flipH;
@@ -265,11 +265,14 @@ class _CropScreenState extends ConsumerState<CropScreen>
               ),
             ),
             Positioned.fill(
-              child: CustomPaint(
-                painter: _CropPainter(
-                  crop: _crop,
-                  dst: dst,
-                  gridOpacity: _gridController.value,
+              child: AnimatedBuilder(
+                animation: _gridController,
+                builder: (context, _) => CustomPaint(
+                  painter: _CropPainter(
+                    crop: _crop,
+                    dst: dst,
+                    gridOpacity: _gridController.value,
+                  ),
                 ),
               ),
             ),

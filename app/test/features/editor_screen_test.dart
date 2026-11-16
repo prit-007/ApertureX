@@ -340,7 +340,48 @@ void main() {
       final state = tester.state(find.byType(EditorScreen)) as dynamic;
       expect(state.currentAsset?.id, 'a');
       expect(state.currentEntryId, originalEntryId('a'));
+    });
 
+    test('resolves hero tag correctly for asset, virtual copy, and explicit override', () {
+      const assetScreen = EditorScreen(
+        asset: GalleryAsset(id: 'img123', width: 1, height: 1),
+      );
+      expect(assetScreen.resolvedHeroTag, 'photo-img123');
+
+      const vcScreen = EditorScreen(
+        asset: GalleryAsset(id: 'img123', width: 1, height: 1),
+        entryId: 'vc:variant-1',
+      );
+      expect(vcScreen.resolvedHeroTag, 'photo-vc-vc:variant-1');
+
+      const explicitScreen = EditorScreen(
+        asset: GalleryAsset(id: 'img123', width: 1, height: 1),
+        entryId: 'vc:variant-1',
+        heroTag: 'custom-flight-tag',
+      );
+      expect(explicitScreen.resolvedHeroTag, 'custom-flight-tag');
+    });
+
+    testWidgets('passes resolved virtual-copy hero tag to AppShell', (tester) async {
+      final container = containerWith(images: {'a': _png});
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: EditorScreen(
+              asset: GalleryAsset(id: 'a', width: 1, height: 1),
+              entryId: 'vc:copy-42',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final appShell = tester.widget<AppShell>(find.byType(AppShell));
+      expect(appShell.heroTag, 'photo-vc-vc:copy-42');
     });
   });
 }

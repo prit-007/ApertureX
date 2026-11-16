@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -73,11 +71,11 @@ class SettingsScreen extends ConsumerWidget {
     final shell = ref.watch(shellPreferenceProvider);
     final stylus = ref.watch(stylusSettingsProvider);
     final tileLimit = ref.watch(tileCacheSettingsProvider);
+    final zeroCopy = ref.watch(zeroCopyTextureProvider);
     final export = ref.watch(exportSettingsProvider);
     final aiConsent = ref.watch(aiConsentProvider);
     final appVersion = ref.watch(appVersionProvider).asData?.value ?? '0.3.9+9';
     final strings = AppStrings.of(context);
-    final isAndroid = !kIsWeb && Platform.isAndroid;
 
     return Scaffold(
       appBar: AppBar(
@@ -209,33 +207,19 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const Divider(height: 1),
-              ListTile(
+              SwitchListTile(
                 dense: true,
-                leading: const Icon(Icons.speed_rounded),
+                secondary: const Icon(Icons.speed_rounded),
                 title: const Text('Zero-Copy Texture Pipeline (60 FPS)'),
                 subtitle: Text(
-                  isAndroid
-                      ? 'Direct Impeller GPU 3D LUT fragment shader chain enabled'
-                      : 'Direct GPU frame-pipeline path active',
+                  zeroCopy
+                      ? 'Direct GPU zero-copy hardware texture delivery active'
+                      : 'Fragment-shader return-frame pipeline active',
                 ),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: isAndroid
-                        ? theme.colorScheme.primaryContainer
-                        : theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    isAndroid ? 'ACTIVE' : 'STANDBY',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: isAndroid
-                          ? theme.colorScheme.onPrimaryContainer
-                          : theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+                value: zeroCopy,
+                onChanged: (val) {
+                  ref.read(zeroCopyTextureProvider.notifier).setEnabled(val);
+                },
               ),
               const Divider(height: 1),
               SwitchListTile(

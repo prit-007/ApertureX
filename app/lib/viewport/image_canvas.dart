@@ -28,6 +28,7 @@ import '../core/haptics.dart';
 import '../core/theme/design_tokens.dart';
 import '../gesture/gesture_interpreter.dart';
 import '../gesture/zone_mask.dart';
+import '../settings/app_settings.dart';
 import 'compare_hold.dart';
 import 'base_spec.dart';
 import 'change_keys.dart';
@@ -106,6 +107,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   /// Preview LUT is small; export grades per-pixel exactly.
   static const int _previewLutSize = 33;
+  /// Fast 17³ proxy LUT during active gesture drags (<0.2ms bake, 120 FPS).
+  static const int _scrubLutSize = 17;
 
   ui.FragmentProgram? _program;
   ui.FragmentShader? _shader;
@@ -261,32 +264,21 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// resolution when master bytes arrive from background load.
   /// Preserves the user's active viewport scale and pan position perfectly.
   Future<void> _upgradeRoiBytes(Uint8List bytes) async {
-    if (_disposed || !mounted) return;
+    if (_disposed || !mounted || isRawImage(bytes)) return;
     try {
       int width = 0;
       int height = 0;
-      if (isRawImage(bytes)) {
-        try {
-          final dims = await AxEngine.rawDimensions(bytes);
-          width = dims.width;
-          height = dims.height;
-        } catch (_) {
-          width = 0;
-          height = 0;
-        }
-      } else {
-        try {
-          final dims = await AxEngine.jpegDimensions(bytes);
-          width = dims.width;
-          height = dims.height;
-        } catch (_) {
-          final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-          final descriptor = await ui.ImageDescriptor.encoded(buffer);
-          width = descriptor.width;
-          height = descriptor.height;
-          descriptor.dispose();
-          buffer.dispose();
-        }
+      try {
+        final dims = await AxEngine.jpegDimensions(bytes);
+        width = dims.width;
+        height = dims.height;
+      } catch (_) {
+        final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+        final descriptor = await ui.ImageDescriptor.encoded(buffer);
+        width = descriptor.width;
+        height = descriptor.height;
+        descriptor.dispose();
+        buffer.dispose();
       }
       if (_disposed || !mounted) return;
       if (width > _fullW || height > _fullH) {
@@ -315,31 +307,23 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       final jpeg =
           widget.imageBytes ??
           await AxEngine.syntheticJpeg(width: 1024, height: 1024);
-      // Original frame dims for the ROI overlay (#55): both JPEG and RAW supported.
+      // Original frame dims for the ROI overlay (#55): header-only, RAW
+      // excluded (no region decode path for demosaiced data).
       _roiBytes = jpeg;
       if (isRawImage(jpeg)) {
-        try {
-          final dims = await AxEngine.rawDimensions(jpeg);
-          _fullW = dims.width;
-          _fullH = dims.height;
-        } catch (_) {
-          _fullW = 0;
-          _fullH = 0;
-        }
-        if (_fullW > 0 && _fullH > 0) {
-          _tileGrid = TileGrid(
-            imageWidth: _fullW,
-            imageHeight: _fullH,
-            tileSize: _tileSize,
-          );
-        } else {
-          _tileGrid = null;
-        }
+        _fullW = 0;
+        _fullH = 0;
+        _tileGrid = null;
       } else {
         try {
           final dims = await AxEngine.jpegDimensions(jpeg);
           _fullW = dims.width;
           _fullH = dims.height;
+          _tileGrid = TileGrid(
+            imageWidth: _fullW,
+            imageHeight: _fullH,
+            tileSize: _tileSize,
+          );
         } catch (_) {
           try {
             final buffer = await ui.ImmutableBuffer.fromUint8List(jpeg);
@@ -352,15 +336,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             _fullW = 0;
             _fullH = 0;
           }
-        }
-        if (_fullW > 0 && _fullH > 0) {
-          _tileGrid = TileGrid(
-            imageWidth: _fullW,
-            imageHeight: _fullH,
-            tileSize: _tileSize,
-          );
-        } else {
-          _tileGrid = null;
+          if (_fullW > 0 && _fullH > 0) {
+            _tileGrid = TileGrid(
+              imageWidth: _fullW,
+              imageHeight: _fullH,
+              tileSize: _tileSize,
+            );
+          } else {
+            _tileGrid = null;
+          }
         }
       }
       final proxy = await _decode(jpeg, maxDim: _maxPreviewDim);
@@ -368,7 +352,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         proxy.$1.dispose();
         return;
       }
-      if (_fullW == 0 && proxy.$3 > 0) {
+      if (!isRawImage(jpeg) && _fullW == 0 && proxy.$3 > 0) {
         _fullW = proxy.$3;
         _fullH = proxy.$4;
         _tileGrid = TileGrid(
@@ -383,18 +367,45 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       // Upload once into the Rust-resident store (#37 spike A); the pixels
       // never need to come back — every bake addresses the handle.
       _embeddedDepthAssetId = null;
-      final handle = await AxEngine.previewOpenJpeg(
-        jpegBytes: jpeg,
-        maxDim: _maxPreviewDim,
-      );
+      int handle;
       int? fastHandle;
-      try {
-        fastHandle = await AxEngine.previewOpenJpeg(
-          jpegBytes: jpeg,
-          maxDim: _maxPreviewDim ~/ 2,
+      if (isRawImage(jpeg) && proxy.$2.isNotEmpty) {
+        handle = await AxEngine.previewOpen(
+          rgba: proxy.$2,
+          width: proxy.$1.width,
+          height: proxy.$1.height,
         );
-      } catch (_) {
-        fastHandle = null;
+        try {
+          const halfMaxDim = _maxPreviewDim ~/ 2;
+          if (math.max(proxy.$1.width, proxy.$1.height) > halfMaxDim) {
+            final downscaled = await AxEngine.downscale(
+              proxy.$2,
+              width: proxy.$1.width,
+              height: proxy.$1.height,
+              maxDim: halfMaxDim,
+            );
+            fastHandle = await AxEngine.previewOpen(
+              rgba: downscaled.rgba,
+              width: downscaled.width,
+              height: downscaled.height,
+            );
+          }
+        } catch (_) {
+          fastHandle = null;
+        }
+      } else {
+        handle = await AxEngine.previewOpenJpeg(
+          jpegBytes: jpeg,
+          maxDim: _maxPreviewDim,
+        );
+        try {
+          fastHandle = await AxEngine.previewOpenJpeg(
+            jpegBytes: jpeg,
+            maxDim: _maxPreviewDim ~/ 2,
+          );
+        } catch (_) {
+          fastHandle = null;
+        }
       }
       if (!mounted) {
         unawaited(AxEngine.previewClose(handle));
@@ -404,8 +415,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _previewHandle = handle;
       _fastProxyHandle = fastHandle;
       // Spike B: prefer zero-copy texture delivery when the platform supports
-      // it (Android). Any failure leaves `_textureId` null and we keep the
-      // spike-A return-frame path.
+      // it (Android SurfaceProducer, iOS CVPixelBuffer). Any failure leaves
+      // `_textureId` null and we keep the spike-A return-frame path.
       await _tryBindTexture(handle, proxy.$3, proxy.$4);
       _useTexture = _computeUseTexture();
       _needsReset = true;
@@ -424,20 +435,37 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
   }
 
-  /// Registers a platform texture and binds it to the resident [handle].
+  /// Registers a platform texture and binds it to the resident [handle] so
+  /// Rust writes graded frames straight into it (zero-copy).
   ///
-  /// Modern Android HardwareBuffer-backed `SurfaceProducer` allocations introduce
-  /// row/stride padding that causes vertical stretching in Flutter's `Texture` widget
-  /// (the "stretched image" bug). The Impeller 3D LUT fragment-shader pipeline
-  /// renders with exact aspect ratio at 120 FPS, matching the compare view 1:1.
-  /// We yield to the aspect-accurate shader pipeline to guarantee zero stretch.
+  /// Any failure — no plugin, native alloc error, or a buffer whose rows are
+  /// padded past the frame — leaves `null` here and the viewport keeps the
+  /// spike-A return-frame + shader path. The historical "stretched image"
+  /// regression came from the NDK buffer-layout FFI bug (fixed in `6a61d9de`)
+  /// and from non-identity geometry writing a smaller frame into the proxy
+  /// buffer; geometry is gated in [useTextureDelivery], and the write path
+  /// copies row-by-row through the buffer's actual stride.
   Future<void> _tryBindTexture(int handle, int width, int height) async {
-    return;
+    if (!ref.read(zeroCopyTextureProvider)) return;
+    final tex = await PreviewTextureChannel.create(
+      width: width,
+      height: height,
+    );
+    if (tex == null) return;
+    final bound = await PreviewTextureChannel.bind(
+      textureId: tex,
+      handle: handle,
+    );
+    if (!mounted || !bound) {
+      unawaited(PreviewTextureChannel.dispose(tex));
+      return;
+    }
+    _textureId = tex;
   }
 
-  /// Texture delivery is used only when a texture is bound, no imported LUT
-  /// is active (imported atlases are applied by `lut.frag`, not Rust), no
-  /// compare/peek crossfade is running — those fades are drawn by `lut.frag`
+  /// Texture delivery is used only when a texture is bound, zeroCopy is enabled,
+  /// no imported LUT is active (imported atlases are applied by `lut.frag`, not Rust),
+  /// no compare/peek crossfade is running — those fades are drawn by `lut.frag`
   /// (`blend`/`maskBlend`), which the Rust texture path doesn't carry — no
   /// high-zoom tiles are overlaying the proxy, and recipe geometry is
   /// identity. The geometry gate is required because HardwareBuffer-backed
@@ -445,6 +473,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// frame written into the proxy buffer would be stretched to the wrong
   /// aspect by Flutter (see `useTextureDelivery`).
   bool _computeUseTexture() {
+    if (!ref.read(zeroCopyTextureProvider)) return false;
     final recipe = ref.read(recipeControllerProvider).recipe;
     return useTextureDelivery(
       textureId: _textureId,
@@ -465,7 +494,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       ref.read(zoneMaskProvider).isTargeting ||
       ref.read(wiperCompareProvider).isActive ||
       ref.read(splitCompareProvider).isEnabled ||
-      ref.read(exposureAssistProvider).isActive;
+      ref.read(exposureAssistProvider).isActive ||
+      ref.read(softProofingProvider).enabled;
 
   void _onDeliveryGestureSettled(AnimationStatus _) =>
       _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
@@ -497,6 +527,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final bounds = _lastBounds;
     if (fitted == Size.zero || bounds == Size.zero) return;
     final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
+
+    if (isRawImage(bytes)) return;
 
     final plan = planRoiOverlay(
       imageW: _fullW,
@@ -541,7 +573,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         if (spatialChanged || !_tiles.containsKey(t.coord)) t.coord,
     ];
     if (needed.isEmpty) {
-      if (!_tilesActive) {
+      if (!_tilesActive && _tiles.length > 0) {
         setState(() => _tilesActive = true);
         _scheduleBake(recipe);
       }
@@ -549,7 +581,6 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
 
     final token = ++_roiToken;
-    setState(() => _tilesActive = true);
     // Geometry is gated to identity above, so tiles bake with the same spec
     // as the proxy; the halo gives the spatial chain true context on all
     // four sides. One halo fetch covers the whole visible set.
@@ -581,6 +612,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       for (final e in baked.entries) {
         _tiles.put(e.key, e.value);
       }
+      _tilesActive = _tiles.length > 0;
       _tileBaseKey = baseKey;
     });
     _scheduleBake(recipe); // texture delivery must yield to the overlay pass
@@ -727,7 +759,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       h = d.height;
     }
     final image = await _imageFrom(rgba, w, h);
-    return (image, rgba, decoded.width, decoded.height);
+    return (image, rgba, w, h);
   }
 
   Future<ui.Image> _imageFrom(Uint8List rgba, int w, int h) {
@@ -815,13 +847,17 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         forceFullRes ||
         currentBaseKey != _lastBaseKey ||
         (_isBaseProxy && currentBaseKey != _lastProxyBaseKey);
+    final targetLutSize = (!forceFullRes && (_isScrubbing || ref.read(editActivityProvider)))
+        ? _scrubLutSize
+        : _previewLutSize;
     final gradeChanged =
         modeChanged ||
         _gradeKey(recipe) != _lastGradeKey ||
-        imported != _importedKey;
+        imported != _importedKey ||
+        _activeLutSize != targetLutSize;
     if (!baseChanged && !gradeChanged) return;
 
-    if (baseChanged && !forceFullRes) {
+    if ((baseChanged || _activeLutSize != _previewLutSize) && !forceFullRes) {
       _settleDebounce?.cancel();
       _settleDebounce = Timer(const Duration(milliseconds: 120), () {
         if (!_disposed && mounted) {
@@ -914,7 +950,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   void _settleFullRes() {
     if (_disposed || !mounted || _program == null || _previewHandle == null) return;
     final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
-    if (_isBaseProxy || _lastBaseKey != _baseKey(recipe)) {
+    if (_isBaseProxy || _lastBaseKey != _baseKey(recipe) || _activeLutSize != _previewLutSize) {
       _scheduleBake(recipe, forceFullRes: true);
     }
   }
@@ -943,7 +979,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           _setBusy(true);
           await _rebuildBase(recipe, token, forceFullRes: forceFullRes);
         }
-        if (gradeChanged) await _rebuildLut(recipe, token);
+        if (gradeChanged) {
+          await _rebuildLut(recipe, token, forceFullRes: forceFullRes);
+        }
       }
       if (token != _bakeToken) return;
       _scheduleHistogram(recipe, token);
@@ -1041,7 +1079,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     });
   }
 
-  Future<void> _rebuildLut(EditRecipe recipe, int token) async {
+  Future<void> _rebuildLut(
+    EditRecipe recipe,
+    int token, {
+    bool forceFullRes = false,
+  }) async {
     // Spatial pass in baseImage already applied edge-preserving guided shadows and highlights;
     // zero them out for the 3D LUT fragment shader to prevent double-applying tone curves.
     final spec = GradeSpec.fromRecipe(recipe).copyWith(
@@ -1055,7 +1097,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       lutImage = await lutAtlasToImage(imported);
       lutSize = imported.size;
     } else {
-      final data = await AxEngine.bakeLut3d(spec, size: _previewLutSize);
+      final isScrubbing =
+          !forceFullRes && (_isScrubbing || ref.read(editActivityProvider));
+      final targetSize = isScrubbing ? _scrubLutSize : _previewLutSize;
+      final data = await AxEngine.bakeLut3d(spec, size: targetSize);
       if (token != _bakeToken) return;
       lutImage = await lutAtlasToImage(
         LutAtlas(size: data.size, rgba: data.rgba),
@@ -1126,6 +1171,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         baseChanged: baseChanged,
       );
       if (!mounted || token != _bakeToken) return;
+      // The write above just landed in the bound buffer. iOS never notices a
+      // raw CVPixelBuffer mutation on its own — poke the registry so the
+      // engine re-samples `copyPixelBuffer` on the next vsync (Android's
+      // SurfaceProducer watches its own queue; the call is a no-op there).
+      final textureId = _textureId;
+      if (textureId != null) {
+        unawaited(PreviewTextureChannel.frameAvailable(textureId));
+      }
       setState(() {
         _baseW = size.width;
         _baseH = size.height;
@@ -1218,6 +1271,23 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       mutedParametersProvider,
       (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
     );
+    ref.listen(zeroCopyTextureProvider, (_, enabled) {
+      setState(() {
+        _useTexture = _computeUseTexture();
+        _needsReset = true;
+      });
+    });
+    ref.listen<ExposureAssistState>(exposureAssistProvider, (previous, next) {
+      if (next.mode == ExposureAssistMode.zebras) {
+        if (!_reduceMotion && !_zebraTicker.isAnimating) {
+          _zebraTicker.repeat();
+        }
+      } else {
+        if (_zebraTicker.isAnimating) {
+          _zebraTicker.stop();
+        }
+      }
+    });
     // Universal fast-proxy scrub settling: on pointer release / gesture end,
     // settle to tack-sharp full-res frame immediately.
     ref.listen<bool>(editActivityProvider, (previous, active) {
@@ -1288,6 +1358,24 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
       }
     });
+    // Wiper split curtain compare: schedule bake for shader path
+    ref.listen(wiperCompareProvider, (previous, next) {
+      if (previous?.isActive != next.isActive) {
+        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+      }
+    });
+    // Split compare: schedule bake for shader path
+    ref.listen(splitCompareProvider, (previous, next) {
+      if (previous?.isEnabled != next.isEnabled) {
+        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+      }
+    });
+    // Soft proofing: schedule bake for shader path
+    ref.listen(softProofingProvider, (previous, next) {
+      if (previous?.enabled != next.enabled) {
+        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+      }
+    });
 
     // Multi-touch pan & pinch-to-zoom forwarded by overlays (Retouch, NodeOverlay)
     ref.listen(canvasGestureProvider, (previous, next) {
@@ -1316,13 +1404,20 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final uneditedSource = _source;
     final lut = _lut;
     final zeroCopy = _useTexture && _textureId != null;
+    final effectiveUseTexture = zeroCopy &&
+        !_tilesActive &&
+        !ref.read(zoneMaskProvider).isTargeting &&
+        !ref.read(wiperCompareProvider).isActive &&
+        !ref.read(splitCompareProvider).isEnabled &&
+        !ref.read(exposureAssistProvider).isActive &&
+        !ref.read(softProofingProvider).enabled;
     final needsPlaceholder = previewNeedsPlaceholder(
       failed: _failed,
       hasProgram: program != null,
       hasShader: shader != null,
       hasSource: baseImage != null || uneditedSource != null,
       hasLut: lut != null,
-      useTexture: zeroCopy,
+      useTexture: effectiveUseTexture,
     );
     if (needsPlaceholder) {
       return _placeholder();
@@ -1393,6 +1488,20 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           CanvasTransform(fitted: fitted, offset: _offset, scale: _scale),
         );
 
+        final wiper = ref.watch(wiperCompareProvider);
+        final splitCompare = ref.watch(splitCompareProvider);
+        final zoneMask = ref.watch(zoneMaskProvider);
+        final exposureAssist = ref.watch(exposureAssistProvider);
+        final softProof = ref.watch(softProofingProvider);
+
+        if (exposureAssist.mode == ExposureAssistMode.zebras) {
+          if (!_reduceMotion && !_zebraTicker.isAnimating) {
+            _zebraTicker.repeat();
+          }
+        } else if (_zebraTicker.isAnimating) {
+          _zebraTicker.stop();
+        }
+
         // The image content — optionally wrapped in a [Hero] so the gallery
         // thumbnail flies into the editor canvas on open.
         Widget imageContent(double width, double height) {
@@ -1409,20 +1518,6 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 final tiles = _tilesActive && _fullH > 0
                     ? _visibleTileImages(fitted)
                     : const <_CanvasTile>[];
-                final wiper = ref.watch(wiperCompareProvider);
-                final splitCompare = ref.watch(splitCompareProvider);
-                final zoneMask = ref.watch(zoneMaskProvider);
-                final exposureAssist = ref.watch(exposureAssistProvider);
-                final softProof = ref.watch(softProofingProvider);
-                if (exposureAssist.mode == ExposureAssistMode.zebras) {
-                  if (!_reduceMotion && !_zebraTicker.isAnimating) {
-                    _zebraTicker.repeat();
-                  }
-                } else {
-                  if (_zebraTicker.isAnimating) {
-                    _zebraTicker.stop();
-                  }
-                }
                 final (zLo, zHi) = zoneMask.isTargeting
                     ? zoneMask.lumaBounds
                     : (-1.0, -1.0);
@@ -1445,34 +1540,39 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                           !softProof.enabled
                       ? _textureId
                       : null,
-                  fallback: (_) => CustomPaint(
-                    size: fitted,
-                    painter: _CanvasPainter(
-                      shader: fragShader,
-                      source: proxySource,
-                      compareSource: compareSource,
-                      // Only ever built when `!zeroCopy`, where the
-                      // placeholder gate proved the LUT exists.
-                      lut: lut!,
-                      lutSize: _activeLutSize.toDouble(),
-                      dst: Offset.zero & fitted,
-                      blend: _compare.value,
-                      maskBlend: effectiveMaskBlend,
-                      zoneLo: zLo,
-                      zoneHi: zHi,
-                      wiperActive: wiper.isActive,
-                      wiperPosition: wiper.position,
-                      wiperOrientation: wiper.orientation,
-                      splitCompareActive: splitCompare.isEnabled,
-                      splitCompareOrientation: splitCompare.orientation,
-                      zebraMode: exposureAssist.mode,
-                      time: _zebraTicker.value * 1.0,
-                      zebraHigh: exposureAssist.zebraHigh,
-                      zebraLow: exposureAssist.zebraLow,
-                      softProof: softProof,
-                      tiles: tiles,
-                    ),
-                  ),
+                  fallback: (_) {
+                    if (lut == null) {
+                      return _placeholder();
+                    }
+                    return CustomPaint(
+                      size: fitted,
+                      painter: _CanvasPainter(
+                        shader: fragShader,
+                        source: proxySource,
+                        compareSource: compareSource,
+                        // Only ever built when `!zeroCopy`, where the
+                        // placeholder gate proved the LUT exists.
+                        lut: lut,
+                        lutSize: _activeLutSize.toDouble(),
+                        dst: Offset.zero & fitted,
+                        blend: _compare.value,
+                        maskBlend: effectiveMaskBlend,
+                        zoneLo: zLo,
+                        zoneHi: zHi,
+                        wiperActive: wiper.isActive,
+                        wiperPosition: wiper.position,
+                        wiperOrientation: wiper.orientation,
+                        splitCompareActive: splitCompare.isEnabled,
+                        splitCompareOrientation: splitCompare.orientation,
+                        zebraMode: exposureAssist.mode,
+                        time: _zebraTicker.value * 1.0,
+                        zebraHigh: exposureAssist.zebraHigh,
+                        zebraLow: exposureAssist.zebraLow,
+                        softProof: softProof,
+                        tiles: tiles,
+                      ),
+                    );
+                  },
                 );
               },
             ),

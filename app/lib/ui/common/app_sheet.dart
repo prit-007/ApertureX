@@ -14,6 +14,12 @@ Future<T?> showAppSheet<T>(BuildContext context, Widget child) {
     useSafeArea: true,
     showDragHandle: true,
     backgroundColor: Colors.transparent,
+    sheetAnimationStyle: AnimationStyle(
+      duration: AppMotion.responsive(context, Durations.medium2),
+      curve: Easing.emphasizedDecelerate,
+      reverseDuration: AppMotion.responsive(context, Durations.short4),
+      reverseCurve: Easing.emphasizedAccelerate,
+    ),
     builder: (_) => child,
   );
 }

@@ -104,8 +104,10 @@ pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) 
         buf = mask::apply_local(&buf, gw, gh, &recipe.layers);
     }
     let mut grade = recipe.grade;
-    if recipe.spatial.shadows != 0.0 || recipe.spatial.highlights != 0.0 {
+    if recipe.spatial.shadows != 0.0 {
         grade.shadows = 0.0;
+    }
+    if recipe.spatial.highlights != 0.0 {
         grade.highlights = 0.0;
     }
     let lut = if recipe.lut_size > 0 && !recipe.lut_atlas.is_empty() {
@@ -188,8 +190,10 @@ pub fn run_export_tiled(
             band = mask::apply_local_band(&band, gw, gh, y0, &recipe.layers);
         }
         let mut grade = recipe.grade;
-        if recipe.spatial.shadows != 0.0 || recipe.spatial.highlights != 0.0 {
+        if recipe.spatial.shadows != 0.0 {
             grade.shadows = 0.0;
+        }
+        if recipe.spatial.highlights != 0.0 {
             grade.highlights = 0.0;
         }
         let lut = if recipe.lut_size > 0 && !recipe.lut_atlas.is_empty() {

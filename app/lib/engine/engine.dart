@@ -388,12 +388,15 @@ class AxEngine {
 
   /// Bakes the grade (and tone curves) into a 2D-packed 3D LUT atlas — the
   /// preview path. Rust owns the colour math; the result feeds `lut.frag`.
+  ///
+  /// Shadows and highlights are edge-preserving guided spatial ops baked into
+  /// the base image; they are zeroed out here to prevent double-application (#160).
   static Future<rust_color.LutData> bakeLut3d(
     GradeSpec spec, {
     int size = 33,
   }) => rust_color.bakeLut3D(
     size: size,
-    params: _colorParams(spec),
+    params: _colorParams(spec.copyWith(shadows: 0.0, highlights: 0.0)),
     curves: _curveParams(spec),
     hsl: spec.hsl,
   );

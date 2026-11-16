@@ -201,3 +201,42 @@ final stylusSettingsProvider = NotifierProvider<StylusSettings, StylusState>(
   StylusSettings.new,
 );
 
+/// Zero-copy GPU hardware texture delivery setting (#162 / Spike B).
+class ZeroCopyTextureSettings extends Notifier<bool> {
+  static const String _key = 'zero_copy_texture_pipeline';
+  bool _userSet = false;
+
+  @override
+  bool build() {
+    _restore();
+    return true; // Default enabled
+  }
+
+  void setEnabled(bool enabled) {
+    _userSet = true;
+    state = enabled;
+    _persist(enabled);
+    axLog(LogDomain.app, 'Zero-copy texture pipeline ${enabled ? "enabled" : "disabled"}');
+  }
+
+  Future<void> _restore() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_userSet) return;
+      state = prefs.getBool(_key) ?? true;
+    } catch (_) {}
+  }
+
+  Future<void> _persist(bool enabled) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_key, enabled);
+    } catch (_) {}
+  }
+}
+
+final zeroCopyTextureProvider = NotifierProvider<ZeroCopyTextureSettings, bool>(
+  ZeroCopyTextureSettings.new,
+);
+
+
