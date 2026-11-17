@@ -32,6 +32,19 @@ impl BokehShape {
             _ => BokehShape::Circle,
         }
     }
+
+    /// Returns the 0..6 index matching Dart's BokehShape.index.
+    pub fn to_index(&self) -> u8 {
+        match self {
+            BokehShape::Circle => 0,
+            BokehShape::Pentagon => 1,
+            BokehShape::Hexagon => 2,
+            BokehShape::Septagon => 3,
+            BokehShape::CatsEye => 4,
+            BokehShape::SoapBubble => 5,
+            BokehShape::Swirl => 6,
+        }
+    }
 }
 
 /// Parameters for depth-guided optical lens blur.
@@ -904,5 +917,20 @@ mod tests {
         assert_eq!(p2[1], 180, "Cool Teal green");
         assert_eq!(p2[2], 200, "Cool Teal blue");
         assert_eq!(p2[3], 255, "Opaque alpha");
+    }
+
+    #[test]
+    fn test_bokeh_shape_index_roundtrip() {
+        for i in 0..7u8 {
+            let shape = BokehShape::from_index(i);
+            assert_eq!(shape.to_index(), i);
+        }
+        assert_eq!(BokehShape::Circle.to_index(), 0);
+        assert_eq!(BokehShape::Pentagon.to_index(), 1);
+        assert_eq!(BokehShape::Hexagon.to_index(), 2);
+        assert_eq!(BokehShape::Septagon.to_index(), 3);
+        assert_eq!(BokehShape::CatsEye.to_index(), 4);
+        assert_eq!(BokehShape::SoapBubble.to_index(), 5);
+        assert_eq!(BokehShape::Swirl.to_index(), 6);
     }
 }

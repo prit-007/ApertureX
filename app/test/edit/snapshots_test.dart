@@ -12,7 +12,7 @@ void main() {
       final recipe = EditRecipe.neutral.copyWith(
         exposure: 1.5,
         contrast: 0.3,
-        temperature: 6500,
+        temperature: 0.65,
       );
       final original = RecipeSnapshot(
         id: 'snap_123',
@@ -28,7 +28,7 @@ void main() {
       expect(decoded.name, 'Warm Sunset Look');
       expect(decoded.recipe.exposure, 1.5);
       expect(decoded.recipe.contrast, 0.3);
-      expect(decoded.recipe.temperature, 6500);
+      expect(decoded.recipe.temperature, 0.65);
       expect(decoded.timestamp, original.timestamp);
       expect(decoded, original);
     });

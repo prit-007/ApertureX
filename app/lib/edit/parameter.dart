@@ -814,16 +814,16 @@ EditRecipe withValue(EditRecipe recipe, Parameter p, double value) {
     Parameter.gradeBlending => recipe.copyWith(gradeBlending: v),
     Parameter.gradeBalance => recipe.copyWith(gradeBalance: v),
     Parameter.removeChromaticAberration =>
-      recipe.copyWith(removeChromaticAberration: v > 0.5),
+      recipe.copyWith(removeChromaticAberration: v >= 0.5),
     Parameter.profileCorrections =>
-      recipe.copyWith(profileCorrections: v > 0.5),
+      recipe.copyWith(profileCorrections: v >= 0.5),
     Parameter.defringePurpleAmount =>
       recipe.copyWith(defringePurpleAmount: v),
     Parameter.defringeGreenAmount => recipe.copyWith(defringeGreenAmount: v),
     Parameter.profileDistortion => recipe.copyWith(profileDistortion: v),
     Parameter.profileVignetting => recipe.copyWith(profileVignetting: v),
     Parameter.blurEnabled =>
-      recipe.copyWith(blurEnabled: v > 0.5),
+      recipe.copyWith(blurEnabled: v >= 0.5),
     Parameter.blurAmount => recipe.copyWith(blurAmount: v),
     Parameter.blurFocalPoint => recipe.copyWith(blurFocalPoint: v),
     Parameter.blurFocalRange => recipe.copyWith(blurFocalRange: v),
@@ -831,13 +831,13 @@ EditRecipe withValue(EditRecipe recipe, Parameter p, double value) {
     Parameter.blurBokehShape =>
       recipe.copyWith(blurBokehShape: v.round()),
     Parameter.blurBackgroundBlur =>
-      recipe.copyWith(blurBackgroundBlur: v > 0.5),
+      recipe.copyWith(blurBackgroundBlur: v >= 0.5),
     Parameter.rotation =>
       recipe.copyWith(rotation: (v.round() % 4 + 4) % 4),
     Parameter.flipH =>
-      recipe.copyWith(flipH: v > 0.5),
+      recipe.copyWith(flipH: v >= 0.5),
     Parameter.flipV =>
-      recipe.copyWith(flipV: v > 0.5),
+      recipe.copyWith(flipV: v >= 0.5),
     Parameter.straighten =>
       recipe.copyWith(straighten: v),
     Parameter.perspectiveX =>

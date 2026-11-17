@@ -19,6 +19,17 @@ void main() {
       expect(spec.isNeutral, isTrue);
     });
 
+    test('BokehShape indices strictly synchronize with Rust BokehShape (0..6)', () {
+      expect(BokehShape.circle.index, 0);
+      expect(BokehShape.pentagon.index, 1);
+      expect(BokehShape.hexagon.index, 2);
+      expect(BokehShape.septagon.index, 3);
+      expect(BokehShape.catsEye.index, 4);
+      expect(BokehShape.soapBubble.index, 5);
+      expect(BokehShape.swirl.index, 6);
+      expect(BokehShape.values.length, 7);
+    });
+
     test('fromRecipe maps fields correctly', () {
       final recipe = EditRecipe.neutral.copyWith(
         blurEnabled: true,

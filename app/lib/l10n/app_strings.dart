@@ -1093,6 +1093,184 @@ class AppStrings {
         'zh': '克隆点 +',
       }, 'Clone Spot +');
 
+  // Desktop Menu Strings
+  String get fileMenu => _t({
+        'es': 'Archivo',
+        'de': 'Datei',
+        'fr': 'Fichier',
+        'ja': 'ファイル',
+        'zh': '文件',
+      }, 'File');
+
+  String get openPhoto => _t({
+        'es': 'Abrir foto…',
+        'de': 'Foto öffnen…',
+        'fr': 'Ouvrir une photo…',
+        'ja': '写真を開く…',
+        'zh': '打开照片…',
+      }, 'Open Photo…');
+
+  String get exportImage => _t({
+        'es': 'Exportar imagen…',
+        'de': 'Bild exportieren…',
+        'fr': 'Exporter l\'image…',
+        'ja': '画像を書き出し…',
+        'zh': '导出图像…',
+      }, 'Export Image…');
+
+  String get printContactSheet => _t({
+        'es': 'Imprimir / Hoja de contactos…',
+        'de': 'Drucken / Kontaktabzug…',
+        'fr': 'Imprimer / Planche contact…',
+        'ja': '印刷 / コンタクトシート…',
+        'zh': '打印 / 缩略图索引…',
+      }, 'Print / Contact Sheet…');
+
+  String get studioTetheredCapture => _t({
+        'es': 'Captura vinculada de estudio…',
+        'de': 'Studio-Tethering-Aufnahme…',
+        'fr': 'Capture connectée en studio…',
+        'ja': 'スタジオ テザー撮影…',
+        'zh': '工作室联机拍摄…',
+      }, 'Studio Tethered Capture…');
+
+  String get videoColorStudio => _t({
+        'es': 'Estudio de color de video…',
+        'de': 'Video-Farbkorrektur-Studio…',
+        'fr': 'Studio d\'étalonnage vidéo…',
+        'ja': 'ビデオ カラースタジオ…',
+        'zh': '视频调色工作室…',
+      }, 'Video Color Studio…');
+
+  String get closeWindow => _t({
+        'es': 'Cerrar ventana',
+        'de': 'Fenster schließen',
+        'fr': 'Fermer la fenêtre',
+        'ja': 'ウィンドウを閉じる',
+        'zh': '关闭窗口',
+      }, 'Close Window');
+
+  String get editMenu => _t({
+        'es': 'Edición',
+        'de': 'Bearbeiten',
+        'fr': 'Édition',
+        'ja': '編集',
+        'zh': '编辑',
+      }, 'Edit');
+
+  String get copySettings => _t({
+        'es': 'Copiar ajustes',
+        'de': 'Einstellungen kopieren',
+        'fr': 'Copier les paramètres',
+        'ja': '設定をコピー',
+        'zh': '复制设置',
+      }, 'Copy Settings');
+
+  String get pasteSettings => _t({
+        'es': 'Pegar ajustes',
+        'de': 'Einstellungen einfügen',
+        'fr': 'Coller les paramètres',
+        'ja': '設定を貼り付け',
+        'zh': '粘贴设置',
+      }, 'Paste Settings');
+
+  String get viewMenu => _t({
+        'es': 'Ver',
+        'de': 'Ansicht',
+        'fr': 'Affichage',
+        'ja': '表示',
+        'zh': '视图',
+      }, 'View');
+
+  String get exitWiperCompare => _t({
+        'es': 'Salir de comparación de cortinilla A/B',
+        'de': 'A/B-Wischer-Vergleich beenden',
+        'fr': 'Quitter la comparaison avant/après par volet',
+        'ja': 'ワイパー比較を終了',
+        'zh': '退出卷帘对比',
+      }, 'Exit A/B Wiper Compare');
+
+  String get splitCurtainWiperCompare => _t({
+        'es': 'Comparación de cortinilla dividida',
+        'de': 'Geteilter Wischer-Vergleich',
+        'fr': 'Comparaison par volet divisé',
+        'ja': '分割ワイパー比較',
+        'zh': '卷帘对比',
+      }, 'Split Curtain Wiper Compare');
+
+  String get toggleWiperOrientation => _t({
+        'es': 'Alternar orientación de cortinilla',
+        'de': 'Wischer-Ausrichtung umschalten',
+        'fr': 'Changer l\'orientation du volet',
+        'ja': 'ワイパー方向を切り替え',
+        'zh': '切换卷帘方向',
+      }, 'Toggle Wiper Orientation');
+
+  String get resetWiperToCenter => _t({
+        'es': 'Restablecer cortinilla al centro',
+        'de': 'Wischer auf Mitte zurücksetzen',
+        'fr': 'Recentrer le volet',
+        'ja': 'ワイパーを中央にリセット',
+        'zh': '重置卷帘至中心',
+      }, 'Reset Wiper to Center');
+
+  String get exitBeforeAfterSplit => _t({
+        'es': 'Salir de vista dividida antes/después',
+        'de': 'Vorher/Nachher-Teilung beenden',
+        'fr': 'Quitter la vue fractionnée avant/après',
+        'ja': '前後分割表示を終了',
+        'zh': '退出前后分割视图',
+      }, 'Exit Before/After Split View');
+
+  String get toggleBeforeAfterSplit => _t({
+        'es': 'Alternar vista dividida antes/después',
+        'de': 'Vorher/Nachher-Teilung umschalten',
+        'fr': 'Activer/désactiver la vue fractionnée',
+        'ja': '前後分割表示を切り替え',
+        'zh': '切换前后分割视图',
+      }, 'Toggle Before/After Split View');
+
+  String get toggleSplitOrientation => _t({
+        'es': 'Alternar orientación de vista dividida',
+        'de': 'Teilungsausrichtung umschalten',
+        'fr': 'Changer l\'orientation du fractionnement',
+        'ja': '分割方向を切り替え',
+        'zh': '切换分割方向',
+      }, 'Toggle Split View Orientation');
+
+  // History & Stacks Sheet Strings
+  String get editHistoryAndBranches => _t({
+        'es': 'Historial de edición y ramas',
+        'de': 'Bearbeitungsverlauf & Zweige',
+        'fr': 'Historique des modifications et branches',
+        'ja': '編集履歴とブランチ',
+        'zh': '编辑历史与分支',
+      }, 'Edit History & Branches');
+
+  String get editStacksSnapseed => _t({
+        'es': 'Pilas de edición (paridad Snapseed)',
+        'de': 'Bearbeitungsstapel (Snapseed-Parität)',
+        'fr': 'Piles de retouches (parité Snapseed)',
+        'ja': '編集スタック (Snapseed パリティ)',
+        'zh': '编辑图层堆栈 (Snapseed 对齐)',
+      }, 'Edit Stacks (Snapseed Parity)');
+
+  String get snapshotsAndVirtualCopies => _t({
+        'es': 'Instantáneas y copias virtuales',
+        'de': 'Schnappschüsse & virtuelle Kopien',
+        'fr': 'Instantanés et copies virtuelles',
+        'ja': 'スナップショットと仮想コピー',
+        'zh': '快照与虚拟副本',
+      }, 'Snapshots & Virtual Copies');
+
+  String get close => _t({
+        'es': 'Cerrar',
+        'de': 'Schließen',
+        'fr': 'Fermer',
+        'ja': '閉じる',
+        'zh': '关闭',
+      }, 'Close');
+
   static const LocalizationsDelegate<AppStrings> delegate =
       _AppStringsDelegate();
 }

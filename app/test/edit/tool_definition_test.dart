@@ -47,6 +47,35 @@ void main() {
     }
   });
 
+  test('all built-in presets supply complete 3-way color wheels, 8-band HSL, and depth parameters', () {
+    const requiredKeys = [
+      'gradeShadowHue', 'gradeShadowSat', 'gradeShadowLum',
+      'gradeMidHue', 'gradeMidSat', 'gradeMidLum',
+      'gradeHighlightHue', 'gradeHighlightSat', 'gradeHighlightLum',
+      'gradeBlending', 'gradeBalance',
+      'blurFocalPoint', 'blurFocalRange', 'blurBokehShape', 'blurAmount',
+    ];
+    for (final tool in ToolLibrary.builtins) {
+      for (final key in requiredKeys) {
+        expect(
+          tool.params.containsKey(key),
+          isTrue,
+          reason: '${tool.name} is missing parameter $key',
+        );
+      }
+      expect(
+        tool.hsl,
+        isNotNull,
+        reason: '${tool.name} must supply 8-band HSL mix',
+      );
+      expect(
+        tool.hsl!.length,
+        24,
+        reason: '${tool.name} HSL must contain exactly 24 elements',
+      );
+    }
+  });
+
   group('Preset strength amount semantics (Issue #169)', () {
     const tool = ToolDefinition(
       name: 'Moody Warmth',

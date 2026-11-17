@@ -120,6 +120,36 @@ void main() {
       };
       expect(() => EditRecipe.fromJson(badJson), throwsA(isA<FormatException>()));
     });
+
+    test('fromJson and clamped clamp out-of-range values to parameter limits', () {
+      final json = <String, Object?>{
+        'exposure': 99.0,
+        'contrast': -5.0,
+        'highlights': 10.0,
+        'grainSize': 0.01,
+        'gradeShadowHue': 500.0,
+        'straighten': 90.0,
+        'blurBokehShape': 20,
+      };
+      final recipe = EditRecipe.fromJson(json);
+      expect(recipe.exposure, 4.0);
+      expect(recipe.contrast, -1.0);
+      expect(recipe.highlights, 1.0);
+      expect(recipe.grainSize, 0.1);
+      expect(recipe.gradeShadowHue, 360.0);
+      expect(recipe.straighten, 45.0);
+      expect(recipe.blurBokehShape, 6);
+
+      const unconstrained = EditRecipe(
+        exposure: -10.0,
+        saturation: 5.0,
+        blurFocalRange: -0.5,
+      );
+      final clamped = unconstrained.clamped();
+      expect(clamped.exposure, -4.0);
+      expect(clamped.saturation, 1.0);
+      expect(clamped.blurFocalRange, 0.01);
+    });
   });
 
   group('migration', () {

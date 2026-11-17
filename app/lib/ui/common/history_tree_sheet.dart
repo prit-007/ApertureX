@@ -9,6 +9,7 @@ import '../../edit/node_editor.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/snapshots_provider.dart';
+import '../../l10n/app_strings.dart';
 import '../../viewport/split_compare.dart';
 
 /// Interactive modal sheet visualizing the Git-style Directed Acyclic Graph
@@ -50,6 +51,7 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
         HistoryTree.initial(initialRecipe: state.committed);
     final snapshots = ref.watch(snapshotsProvider);
     final scheme = Theme.of(context).colorScheme;
+    final strings = AppStrings.of(context);
     final activeBranch = tree.activeBranch;
     final branches = tree.branches.keys.toList();
     final lineage = tree.activeLineage;
@@ -104,10 +106,10 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                       children: [
                         Text(
                           _selectedView == 0
-                              ? 'Edit History & Branches'
+                              ? strings.editHistoryAndBranches
                               : _selectedView == 1
-                                  ? 'Edit Stacks (Snapseed Parity)'
-                                  : 'Snapshots & Virtual Copies',
+                                  ? strings.editStacksSnapseed
+                                  : strings.snapshotsAndVirtualCopies,
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -127,7 +129,7 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
-                    tooltip: 'Close',
+                    tooltip: strings.close,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],

@@ -44,6 +44,7 @@ pub struct ExportRecipe {
     pub optics: OpticsParams,
     pub retouch: Vec<RetouchPatch>,
     pub blur: LensBlurParams,
+    pub precomputed_depth_map: Option<Vec<f32>>,
     pub spatial: SpatialParams,
     pub layers: Vec<LocalAdjustment>,
     pub grade: GradeParams,
@@ -158,11 +159,16 @@ pub fn run_export_tiled(
         }
     }
     if !recipe.blur.is_neutral() {
-        // Compute an on-device depth map so subjects stay sharp while
-        // background blurs (mirrors the preview pipeline's cached depth map).
-        let depth_map =
-            crate::api::blur::estimate_depth_map(frame.clone(), gw as u32, gh as u32).ok();
-        frame = blur::apply_lens_blur(&frame, gw, gh, recipe.blur, depth_map.as_deref());
+        let fallback_depth;
+        let depth_slice = match &recipe.precomputed_depth_map {
+            Some(dm) => Some(dm.as_slice()),
+            None => {
+                fallback_depth =
+                    crate::api::blur::estimate_depth_map(frame.clone(), gw as u32, gh as u32).ok();
+                fallback_depth.as_deref()
+            }
+        };
+        frame = blur::apply_lens_blur(&frame, gw, gh, recipe.blur, depth_slice);
     }
     let film_shader_engaged = recipe.spatial.film_halation != 0.0
         || recipe.spatial.film_bloom != 0.0
@@ -177,7 +183,7 @@ pub fn run_export_tiled(
 
     let mut y0 = 0;
     while y0 < gh {
-        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+        if cancel.is_some_and(|c| c.load(Ordering::Acquire)) {
             return Ok(ExportOutcome::Cancelled);
         }
         let bh = band_rows.min(gh - y0);
@@ -208,7 +214,7 @@ pub fn run_export_tiled(
             // Banded stages cover rows [0, gh); report the fraction done so
             // far, clamped into the permille range.
             let permille = ((y0 as u128 * 1000) / gh.max(1) as u128) as u32;
-            p.store(permille.min(1000), Ordering::Relaxed);
+            p.store(permille.min(1000), Ordering::Release);
         }
     }
 
@@ -303,6 +309,7 @@ mod tests {
                 background_blur: false,
                 sample_count: 36,
             },
+            precomputed_depth_map: None,
             spatial: SpatialParams {
                 shadows: 0.3,
                 highlights: -0.2,
@@ -368,6 +375,7 @@ mod tests {
             optics: OpticsParams::default(),
             retouch: Vec::new(),
             blur: LensBlurParams::default(),
+            precomputed_depth_map: None,
             spatial: SpatialParams::default(),
             layers: Vec::new(),
             grade: GradeParams::default(),
@@ -522,7 +530,7 @@ mod tests {
         assert!(matches!(out, ExportOutcome::Done(_)));
 
         // Now flip and re-run: must cancel immediately (before any band).
-        cancel.store(true, Ordering::Relaxed);
+        cancel.store(true, Ordering::Release);
         let out2 = run_export_tiled(&recipe, &src, w, h, 16, Some(&cancel), None).unwrap();
         assert_eq!(out2, ExportOutcome::Cancelled);
     }
@@ -536,7 +544,7 @@ mod tests {
         let out = run_export_tiled(&recipe, &src, w, h, 16, None, Some(&progress)).unwrap();
         assert!(matches!(out, ExportOutcome::Done(_)));
         assert_eq!(
-            progress.load(Ordering::Relaxed),
+            progress.load(Ordering::Acquire),
             1000,
             "a completed banded run reports 1000 permille"
         );
@@ -553,7 +561,20 @@ mod tests {
         // so instead run once and assert the final value; monotonicity across
         // bands is implied by the y0-based formula (y0 only grows).
         run_export_tiled(&recipe, &src, w, h, 8, None, Some(&progress)).unwrap();
-        let final_value = progress.load(Ordering::Relaxed);
+        let final_value = progress.load(Ordering::Acquire);
         assert!(final_value > 0 && final_value <= 1000);
+    }
+
+    #[test]
+    fn test_export_uses_precomputed_depth_map_when_provided() {
+        let (w, h) = (16, 16);
+        let src = noise(w, h);
+        let mut recipe = fully_engaged();
+        recipe.geometry = GeometrySpec::default();
+        recipe.precomputed_depth_map = Some(vec![0.5f32; w * h]);
+        let out = run_export_single(&recipe, &src, w, h);
+        assert_eq!(out.width, w as u32);
+        assert_eq!(out.height, h as u32);
+        assert!(!out.rgba.is_empty());
     }
 }

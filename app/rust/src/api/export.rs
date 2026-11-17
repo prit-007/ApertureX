@@ -452,7 +452,7 @@ pub fn export_cancel_new() -> u64 {
 pub fn export_cancel_set(token: u64) {
     let flag = { lock_cancels().tokens.get(&token).map(|(f, _)| f.clone()) };
     if let Some(f) = flag {
-        f.store(true, Ordering::Relaxed);
+        f.store(true, Ordering::Release);
     }
 }
 
@@ -466,7 +466,7 @@ pub fn export_cancel_drop(token: u64) {
 pub fn export_progress_get(token: u64) -> u32 {
     let cell = { lock_cancels().tokens.get(&token).map(|(_, p)| p.clone()) };
     match cell {
-        Some(p) => p.load(Ordering::Relaxed),
+        Some(p) => p.load(Ordering::Acquire),
         None => 0,
     }
 }
@@ -544,6 +544,7 @@ pub fn export_full_with_branding(
         optics: spec.optics_params(),
         retouch: to_engine_patches(&retouch_patches),
         blur: spec.blur_params(),
+        precomputed_depth_map: None,
         spatial: SpatialParams {
             shadows: spec.shadows,
             highlights: spec.highlights,
@@ -707,7 +708,7 @@ pub fn export_full_with_branding(
 
     // Encode is the last stage; report a finished export as 1000 permille.
     if let Some(p) = progress {
-        p.store(1000, Ordering::Relaxed);
+        p.store(1000, Ordering::Release);
     }
     Ok(ExportResult {
         cancelled: false,

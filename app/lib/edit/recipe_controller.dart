@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
-import '../features/ai_plugins/ai_plugin_store.dart';
 import 'adjustment_layer.dart';
 import 'history_tree.dart';
 import 'parameter.dart';
@@ -44,14 +43,8 @@ class RecipeController extends Notifier<RecipeState> {
 
   /// Sets [parameter] to an absolute [value] (clamped to its range).
   void update(Parameter parameter, double value) {
-    // AI denoise is gated behind an installed neural denoise model.
-    // No model → value is forced to neutral (0).
-    final effectiveValue = parameter == Parameter.aiDenoise
-        && !ref.read(aiPluginProvider).isDenoiseModelAvailable
-        ? 0.0
-        : value;
     state = state.copyWith(
-      recipe: withValue(state.recipe, parameter, effectiveValue),
+      recipe: withValue(state.recipe, parameter, value),
       activeParameter: parameter,
     );
   }

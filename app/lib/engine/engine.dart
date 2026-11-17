@@ -404,13 +404,16 @@ class AxEngine {
   /// the base image; they are zeroed out here to prevent double-application (#160).
   static Future<rust_color.LutData> bakeLut3d(
     GradeSpec spec, {
-    int size = 33,
-  }) => rust_color.bakeLut3D(
-    size: size,
-    params: _colorParams(spec.copyWith(shadows: 0.0, highlights: 0.0)),
-    curves: _curveParams(spec),
-    hsl: spec.hsl,
-  );
+    int size = 65,
+  }) {
+    assert(size >= 2 && size <= 256, 'LUT size must be in [2, 256]');
+    return rust_color.bakeLut3D(
+      size: size,
+      params: _colorParams(spec.copyWith(shadows: 0.0, highlights: 0.0)),
+      curves: _curveParams(spec),
+      hsl: spec.hsl,
+    );
+  }
 
   /// Applies the same pipeline per-pixel over RGBA (the export twin of the LUT).
   static Future<Uint8List> gradeRgba(Uint8List rgba, GradeSpec spec) =>

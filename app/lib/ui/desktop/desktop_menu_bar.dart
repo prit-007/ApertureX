@@ -14,6 +14,7 @@ import '../../features/editor/export_screen.dart';
 import '../../features/print/print_screen.dart';
 import '../../features/tether/tether_screen.dart';
 import '../../features/video/video_editor_screen.dart';
+import '../../l10n/app_strings.dart';
 import '../../viewport/split_compare.dart';
 import '../../viewport/wiper_compare.dart';
 
@@ -50,14 +51,15 @@ class DesktopMenuBar extends ConsumerWidget {
     final isSplitCompareActive = ref.watch(
       splitCompareProvider.select((s) => s.isEnabled),
     );
+    final strings = AppStrings.of(context);
 
     return PlatformMenuBar(
       menus: [
         PlatformMenu(
-          label: 'File',
+          label: strings.fileMenu,
           menus: [
             PlatformMenuItem(
-              label: 'Open Photo…',
+              label: strings.openPhoto,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyO,
                 meta: true,
@@ -75,7 +77,7 @@ class DesktopMenuBar extends ConsumerWidget {
               },
             ),
             PlatformMenuItem(
-              label: 'Export Image…',
+              label: strings.exportImage,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyS,
                 meta: true,
@@ -89,7 +91,7 @@ class DesktopMenuBar extends ConsumerWidget {
               },
             ),
             PlatformMenuItem(
-              label: 'Print / Contact Sheet…',
+              label: strings.printContactSheet,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyP,
                 meta: true,
@@ -101,7 +103,7 @@ class DesktopMenuBar extends ConsumerWidget {
               },
             ),
             PlatformMenuItem(
-              label: 'Studio Tethered Capture…',
+              label: strings.studioTetheredCapture,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyT,
                 meta: true,
@@ -113,18 +115,18 @@ class DesktopMenuBar extends ConsumerWidget {
               },
             ),
             PlatformMenuItem(
-              label: 'Video Color Studio…',
+              label: strings.videoColorStudio,
               onSelected: () {
                 rootNavigatorKey.currentState?.push(
                   MaterialPageRoute<void>(builder: (_) => const VideoEditorScreen()),
                 );
               },
             ),
-            const PlatformMenuItemGroup(
+            PlatformMenuItemGroup(
               members: [
                 PlatformMenuItem(
-                  label: 'Close Window',
-                  shortcut: SingleActivator(
+                  label: strings.closeWindow,
+                  shortcut: const SingleActivator(
                     LogicalKeyboardKey.keyW,
                     meta: true,
                   ),
@@ -135,10 +137,10 @@ class DesktopMenuBar extends ConsumerWidget {
           ],
         ),
         PlatformMenu(
-          label: 'Edit',
+          label: strings.editMenu,
           menus: [
             PlatformMenuItem(
-              label: 'Undo',
+              label: strings.undo,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyZ,
                 meta: true,
@@ -148,7 +150,7 @@ class DesktopMenuBar extends ConsumerWidget {
                   : null,
             ),
             PlatformMenuItem(
-              label: 'Redo',
+              label: strings.redo,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyZ,
                 meta: true,
@@ -159,7 +161,7 @@ class DesktopMenuBar extends ConsumerWidget {
                   : null,
             ),
             PlatformMenuItem(
-              label: 'Copy Settings',
+              label: strings.copySettings,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyC,
                 meta: true,
@@ -173,7 +175,7 @@ class DesktopMenuBar extends ConsumerWidget {
               },
             ),
             PlatformMenuItem(
-              label: 'Paste Settings',
+              label: strings.pasteSettings,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyV,
                 meta: true,
@@ -193,12 +195,12 @@ class DesktopMenuBar extends ConsumerWidget {
           ],
         ),
         PlatformMenu(
-          label: 'View',
+          label: strings.viewMenu,
           menus: [
             PlatformMenuItem(
               label: isWiperActive
-                  ? 'Exit A/B Wiper Compare'
-                  : 'Split Curtain Wiper Compare',
+                  ? strings.exitWiperCompare
+                  : strings.splitCurtainWiperCompare,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.backslash,
               ),
@@ -207,7 +209,7 @@ class DesktopMenuBar extends ConsumerWidget {
               },
             ),
             PlatformMenuItem(
-              label: 'Toggle Wiper Orientation',
+              label: strings.toggleWiperOrientation,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.backslash,
                 shift: true,
@@ -221,7 +223,7 @@ class DesktopMenuBar extends ConsumerWidget {
                   : null,
             ),
             PlatformMenuItem(
-              label: 'Reset Wiper to Center',
+              label: strings.resetWiperToCenter,
               onSelected: isWiperActive
                   ? () {
                       ref
@@ -232,8 +234,8 @@ class DesktopMenuBar extends ConsumerWidget {
             ),
             PlatformMenuItem(
               label: isSplitCompareActive
-                  ? 'Exit Before/After Split View'
-                  : 'Toggle Before/After Split View',
+                  ? strings.exitBeforeAfterSplit
+                  : strings.toggleBeforeAfterSplit,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyY,
               ),
@@ -242,7 +244,7 @@ class DesktopMenuBar extends ConsumerWidget {
               },
             ),
             PlatformMenuItem(
-              label: 'Toggle Split View Orientation',
+              label: strings.toggleSplitOrientation,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyY,
                 shift: true,

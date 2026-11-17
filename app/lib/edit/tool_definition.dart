@@ -146,7 +146,32 @@ class ToolLibrary {
         'vibrance': 0.30,
         'whites': 0.10,
         'blacks': -0.15,
+        'gradeShadowHue': 0.0,
+        'gradeShadowSat': 0.0,
+        'gradeShadowLum': -0.05,
+        'gradeMidHue': 0.0,
+        'gradeMidSat': 0.0,
+        'gradeMidLum': 0.05,
+        'gradeHighlightHue': 0.0,
+        'gradeHighlightSat': 0.0,
+        'gradeHighlightLum': 0.08,
+        'gradeBlending': 0.50,
+        'gradeBalance': 0.0,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 0.0,
+        'blurAmount': 0.0,
       },
+      hsl: [
+        0.0, 0.10, 0.0, // Red
+        0.0, 0.05, 0.0, // Orange
+        0.0, 0.05, 0.0, // Yellow
+        0.0, 0.08, 0.0, // Green
+        0.0, 0.05, 0.0, // Aqua
+        0.0, 0.08, 0.0, // Blue
+        0.0, 0.0, 0.0,  // Purple
+        0.0, 0.0, 0.0,  // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Soft Portrait',
@@ -159,7 +184,32 @@ class ToolLibrary {
         'vibrance': 0.15,
         'saturation': -0.05,
         'sharpen': 0.15,
+        'gradeShadowHue': 0.08,
+        'gradeShadowSat': 0.05,
+        'gradeShadowLum': 0.05,
+        'gradeMidHue': 0.08,
+        'gradeMidSat': 0.08,
+        'gradeMidLum': 0.02,
+        'gradeHighlightHue': 0.12,
+        'gradeHighlightSat': 0.10,
+        'gradeHighlightLum': 0.0,
+        'gradeBlending': 0.50,
+        'gradeBalance': 0.05,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.20,
+        'blurBokehShape': 0.0,
+        'blurAmount': 0.10,
       },
+      hsl: [
+        0.01, 0.02, 0.02, // Red
+        0.02, 0.05, 0.04, // Orange
+        0.0, 0.0, 0.0,    // Yellow
+        0.0, 0.0, 0.0,    // Green
+        0.0, 0.0, 0.0,    // Aqua
+        0.0, 0.0, 0.0,    // Blue
+        0.0, 0.0, 0.0,    // Purple
+        0.0, 0.0, 0.0,    // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Kodak Portra 160',
@@ -173,9 +223,32 @@ class ToolLibrary {
         'grain': 0.12,
         'grainSize': 0.20,
         'grainRoughness': 0.40,
+        'gradeShadowHue': 0.08,
+        'gradeShadowSat': 0.08,
+        'gradeShadowLum': 0.02,
+        'gradeMidHue': 0.09,
+        'gradeMidSat': 0.10,
+        'gradeMidLum': 0.0,
         'gradeHighlightHue': 0.10,
         'gradeHighlightSat': 0.15,
+        'gradeHighlightLum': -0.02,
+        'gradeBlending': 0.55,
+        'gradeBalance': 0.05,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 0.0,
+        'blurAmount': 0.08,
       },
+      hsl: [
+        0.0, 0.04, 0.0,   // Red
+        0.03, 0.06, 0.05, // Orange
+        -0.02, 0.0, 0.0,  // Yellow
+        0.0, 0.0, 0.0,    // Green
+        0.0, 0.0, 0.0,    // Aqua
+        0.0, 0.0, 0.0,    // Blue
+        0.0, 0.0, 0.0,    // Purple
+        0.0, 0.0, 0.0,    // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Kodak Portra 400',
@@ -192,7 +265,30 @@ class ToolLibrary {
         'grainRoughness': 0.50,
         'gradeShadowHue': 0.12,
         'gradeShadowSat': 0.14,
+        'gradeShadowLum': 0.02,
+        'gradeMidHue': 0.10,
+        'gradeMidSat': 0.12,
+        'gradeMidLum': 0.0,
+        'gradeHighlightHue': 0.11,
+        'gradeHighlightSat': 0.16,
+        'gradeHighlightLum': -0.04,
+        'gradeBlending': 0.55,
+        'gradeBalance': 0.08,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 1.0,
+        'blurAmount': 0.12,
       },
+      hsl: [
+        0.0, 0.04, 0.0,    // Red
+        0.04, 0.08, 0.06,  // Orange
+        -0.03, 0.0, 0.0,   // Yellow
+        0.0, -0.05, 0.0,   // Green
+        0.0, 0.0, 0.0,     // Aqua
+        0.0, 0.0, 0.0,     // Blue
+        0.0, 0.0, 0.0,     // Purple
+        0.0, 0.0, 0.0,     // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Fuji Pro 400H',
@@ -208,7 +304,30 @@ class ToolLibrary {
         'grain': 0.18,
         'gradeShadowHue': 0.42,
         'gradeShadowSat': 0.18,
+        'gradeShadowLum': 0.04,
+        'gradeMidHue': 0.38,
+        'gradeMidSat': 0.08,
+        'gradeMidLum': 0.0,
+        'gradeHighlightHue': 0.12,
+        'gradeHighlightSat': 0.10,
+        'gradeHighlightLum': -0.02,
+        'gradeBlending': 0.50,
+        'gradeBalance': -0.05,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.30,
+        'blurBokehShape': 0.0,
+        'blurAmount': 0.10,
       },
+      hsl: [
+        0.0, 0.0, 0.0,    // Red
+        0.0, 0.0, 0.0,    // Orange
+        0.0, 0.0, 0.0,    // Yellow
+        0.04, 0.06, 0.04, // Green
+        0.05, 0.10, 0.0,  // Aqua
+        0.0, 0.0, 0.0,    // Blue
+        0.0, 0.0, 0.0,    // Purple
+        0.0, 0.0, 0.0,    // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Ilford HP5 Plus',
@@ -222,7 +341,32 @@ class ToolLibrary {
         'grain': 0.35,
         'grainSize': 0.35,
         'grainRoughness': 0.65,
+        'gradeShadowHue': 0.0,
+        'gradeShadowSat': 0.0,
+        'gradeShadowLum': -0.08,
+        'gradeMidHue': 0.0,
+        'gradeMidSat': 0.0,
+        'gradeMidLum': 0.0,
+        'gradeHighlightHue': 0.0,
+        'gradeHighlightSat': 0.0,
+        'gradeHighlightLum': 0.06,
+        'gradeBlending': 0.50,
+        'gradeBalance': 0.0,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 2.0,
+        'blurAmount': 0.0,
       },
+      hsl: [
+        0.0, -1.0, 0.0, // Red
+        0.0, -1.0, 0.0, // Orange
+        0.0, -1.0, 0.0, // Yellow
+        0.0, -1.0, 0.0, // Green
+        0.0, -1.0, 0.0, // Aqua
+        0.0, -1.0, 0.0, // Blue
+        0.0, -1.0, 0.0, // Purple
+        0.0, -1.0, 0.0, // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'CineStill 800T',
@@ -238,7 +382,30 @@ class ToolLibrary {
         'grain': 0.26,
         'gradeShadowHue': 0.54,
         'gradeShadowSat': 0.28,
+        'gradeShadowLum': -0.04,
+        'gradeMidHue': 0.52,
+        'gradeMidSat': 0.12,
+        'gradeMidLum': 0.0,
+        'gradeHighlightHue': 0.05,
+        'gradeHighlightSat': 0.22,
+        'gradeHighlightLum': 0.04,
+        'gradeBlending': 0.60,
+        'gradeBalance': -0.10,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 0.0,
+        'blurAmount': 0.15,
       },
+      hsl: [
+        0.02, 0.20, 0.05, // Red
+        0.0, 0.0, 0.0,    // Orange
+        0.0, 0.0, 0.0,    // Yellow
+        0.0, 0.0, 0.0,    // Green
+        0.0, 0.0, 0.0,    // Aqua
+        -0.04, 0.15, 0.0, // Blue
+        0.0, 0.0, 0.0,    // Purple
+        0.0, 0.0, 0.0,    // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Teal & Orange',
@@ -246,10 +413,31 @@ class ToolLibrary {
       params: {
         'gradeShadowHue': 0.50,
         'gradeShadowSat': 0.40,
+        'gradeShadowLum': -0.06,
+        'gradeMidHue': 0.30,
+        'gradeMidSat': 0.10,
+        'gradeMidLum': 0.0,
         'gradeHighlightHue': 0.08,
         'gradeHighlightSat': 0.30,
+        'gradeHighlightLum': 0.05,
+        'gradeBlending': 0.55,
+        'gradeBalance': 0.05,
         'vibrance': 0.20,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 1.0,
+        'blurAmount': 0.10,
       },
+      hsl: [
+        0.0, 0.0, 0.0,    // Red
+        0.05, 0.25, 0.0,  // Orange
+        0.0, 0.0, 0.0,    // Yellow
+        0.0, 0.0, 0.0,    // Green
+        -0.05, 0.30, 0.0, // Aqua
+        0.0, 0.20, 0.0,   // Blue
+        0.0, 0.0, 0.0,    // Purple
+        0.0, 0.0, 0.0,    // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Moody Dark',
@@ -263,7 +451,32 @@ class ToolLibrary {
         'saturation': -0.15,
         'vignette': -0.35,
         'clarity': 0.15,
+        'gradeShadowHue': 0.60,
+        'gradeShadowSat': 0.18,
+        'gradeShadowLum': -0.12,
+        'gradeMidHue': 0.58,
+        'gradeMidSat': 0.08,
+        'gradeMidLum': -0.05,
+        'gradeHighlightHue': 0.10,
+        'gradeHighlightSat': 0.12,
+        'gradeHighlightLum': -0.05,
+        'gradeBlending': 0.50,
+        'gradeBalance': -0.15,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 2.0,
+        'blurAmount': 0.08,
       },
+      hsl: [
+        0.0, 0.0, 0.0,     // Red
+        0.0, -0.10, 0.0,   // Orange
+        0.0, 0.0, 0.0,     // Yellow
+        0.0, 0.0, -0.15,   // Green
+        0.0, 0.0, 0.0,     // Aqua
+        0.0, 0.0, -0.10,   // Blue
+        0.0, 0.0, 0.0,     // Purple
+        0.0, 0.0, 0.0,     // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Kodak Ektar 100',
@@ -275,7 +488,32 @@ class ToolLibrary {
         'grain': 0.12,
         'highlights': -0.10,
         'shadows': 0.08,
+        'gradeShadowHue': 0.62,
+        'gradeShadowSat': 0.12,
+        'gradeShadowLum': -0.04,
+        'gradeMidHue': 0.10,
+        'gradeMidSat': 0.10,
+        'gradeMidLum': 0.02,
+        'gradeHighlightHue': 0.12,
+        'gradeHighlightSat': 0.14,
+        'gradeHighlightLum': 0.02,
+        'gradeBlending': 0.50,
+        'gradeBalance': 0.02,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 0.0,
+        'blurAmount': 0.0,
       },
+      hsl: [
+        0.0, 0.20, 0.0, // Red
+        0.0, 0.15, 0.0, // Orange
+        0.0, 0.15, 0.0, // Yellow
+        0.0, 0.15, 0.0, // Green
+        0.0, 0.15, 0.0, // Aqua
+        0.0, 0.20, 0.0, // Blue
+        0.0, 0.10, 0.0, // Purple
+        0.0, 0.10, 0.0, // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Fuji Velvia 50',
@@ -286,7 +524,32 @@ class ToolLibrary {
         'clarity': 0.18,
         'vibrance': 0.20,
         'shadows': -0.08,
+        'gradeShadowHue': 0.65,
+        'gradeShadowSat': 0.16,
+        'gradeShadowLum': -0.06,
+        'gradeMidHue': 0.35,
+        'gradeMidSat': 0.12,
+        'gradeMidLum': 0.0,
+        'gradeHighlightHue': 0.15,
+        'gradeHighlightSat': 0.18,
+        'gradeHighlightLum': 0.04,
+        'gradeBlending': 0.52,
+        'gradeBalance': 0.0,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 1.0,
+        'blurAmount': 0.0,
       },
+      hsl: [
+        0.0, 0.25, 0.0,   // Red
+        0.0, 0.15, 0.0,   // Orange
+        0.0, 0.15, 0.0,   // Yellow
+        0.08, 0.30, 0.0,  // Green
+        0.0, 0.20, 0.0,   // Aqua
+        -0.05, 0.28, 0.0, // Blue
+        0.0, 0.10, 0.0,   // Purple
+        0.0, 0.10, 0.0,   // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Agfa Vista 200',
@@ -298,7 +561,32 @@ class ToolLibrary {
         'vibrance': 0.16,
         'grain': 0.22,
         'shadows': 0.10,
+        'gradeShadowHue': 0.05,
+        'gradeShadowSat': 0.14,
+        'gradeShadowLum': 0.02,
+        'gradeMidHue': 0.08,
+        'gradeMidSat': 0.12,
+        'gradeMidLum': 0.02,
+        'gradeHighlightHue': 0.12,
+        'gradeHighlightSat': 0.15,
+        'gradeHighlightLum': 0.0,
+        'gradeBlending': 0.55,
+        'gradeBalance': 0.06,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 0.0,
+        'blurAmount': 0.08,
       },
+      hsl: [
+        -0.02, 0.18, 0.0, // Red
+        0.0, 0.14, 0.0,   // Orange
+        0.0, 0.10, 0.0,   // Yellow
+        0.0, 0.0, 0.0,    // Green
+        0.0, 0.0, 0.0,    // Aqua
+        0.0, 0.0, 0.0,    // Blue
+        0.0, 0.0, 0.0,    // Purple
+        0.0, 0.0, 0.0,    // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Kodachrome 64',
@@ -310,11 +598,32 @@ class ToolLibrary {
         'shadows': -0.08,
         'vibrance': 0.15,
         'clarity': 0.12,
-        'gradeHighlightHue': 0.10,
-        'gradeHighlightSat': 0.15,
         'gradeShadowHue': 0.60,
         'gradeShadowSat': 0.12,
+        'gradeShadowLum': -0.04,
+        'gradeMidHue': 0.10,
+        'gradeMidSat': 0.10,
+        'gradeMidLum': 0.0,
+        'gradeHighlightHue': 0.10,
+        'gradeHighlightSat': 0.15,
+        'gradeHighlightLum': 0.02,
+        'gradeBlending': 0.52,
+        'gradeBalance': 0.04,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 1.0,
+        'blurAmount': 0.05,
       },
+      hsl: [
+        0.0, 0.22, -0.05, // Red
+        0.0, 0.15, 0.0,   // Orange
+        -0.05, 0.10, 0.0, // Yellow
+        0.0, 0.0, 0.0,    // Green
+        0.0, 0.0, 0.0,    // Aqua
+        0.0, 0.16, 0.0,   // Blue
+        0.0, 0.0, 0.0,    // Purple
+        0.0, 0.0, 0.0,    // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Warm Film',
@@ -325,12 +634,63 @@ class ToolLibrary {
         'vibrance': 0.15,
         'gradeShadowHue': 0.10,
         'gradeShadowSat': 0.20,
+        'gradeShadowLum': 0.02,
+        'gradeMidHue': 0.10,
+        'gradeMidSat': 0.12,
+        'gradeMidLum': 0.02,
+        'gradeHighlightHue': 0.12,
+        'gradeHighlightSat': 0.18,
+        'gradeHighlightLum': 0.0,
+        'gradeBlending': 0.55,
+        'gradeBalance': 0.08,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 0.0,
+        'blurAmount': 0.10,
       },
+      hsl: [
+        0.0, 0.10, 0.0,   // Red
+        0.0, 0.15, 0.05,  // Orange
+        0.0, 0.12, 0.0,   // Yellow
+        0.0, 0.0, 0.0,    // Green
+        0.0, 0.0, 0.0,    // Aqua
+        0.0, 0.0, 0.0,    // Blue
+        0.0, 0.0, 0.0,    // Purple
+        0.0, 0.0, 0.0,    // Magenta
+      ],
     ),
     ToolDefinition(
       name: 'Mono',
       description: 'Black & white',
-      params: {'saturation': -1.0, 'contrast': 0.15},
+      params: {
+        'saturation': -1.0,
+        'contrast': 0.15,
+        'gradeShadowHue': 0.0,
+        'gradeShadowSat': 0.0,
+        'gradeShadowLum': 0.0,
+        'gradeMidHue': 0.0,
+        'gradeMidSat': 0.0,
+        'gradeMidLum': 0.0,
+        'gradeHighlightHue': 0.0,
+        'gradeHighlightSat': 0.0,
+        'gradeHighlightLum': 0.0,
+        'gradeBlending': 0.50,
+        'gradeBalance': 0.0,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 0.0,
+        'blurAmount': 0.0,
+      },
+      hsl: [
+        0.0, -1.0, 0.0, // Red
+        0.0, -1.0, 0.0, // Orange
+        0.0, -1.0, 0.0, // Yellow
+        0.0, -1.0, 0.0, // Green
+        0.0, -1.0, 0.0, // Aqua
+        0.0, -1.0, 0.0, // Blue
+        0.0, -1.0, 0.0, // Purple
+        0.0, -1.0, 0.0, // Magenta
+      ],
     ),
   ];
 
