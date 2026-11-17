@@ -188,4 +188,129 @@ void main() {
     expect(wheelRect.width, 200);
     expect(wheelRect.height, 200);
   });
+
+  group('Interactive 3-Way Color Wheels (matching Lightroom & DaVinci Resolve)', () {
+    testWidgets('tapping 3-Way mode displays all 3 wheels simultaneously', (tester) async {
+      await pump(tester);
+
+      expect(find.text('3-Way'), findsOneWidget);
+      await tester.tap(find.text('3-Way'));
+      await tester.pumpAndSettle();
+
+      // All 3 wheels (Shadows, Midtones, Highlights) are rendered simultaneously
+      expect(find.byType(ColorGradingWheel), findsNWidgets(3));
+      // Zone headers for all 3 wheels
+      expect(find.text('Shadows'), findsWidgets);
+      expect(find.text('Midtones'), findsWidgets);
+      expect(find.text('Highlights'), findsWidgets);
+    });
+
+    testWidgets('3-Way mode wheels adjust their respective zones independently', (tester) async {
+      await pump(tester);
+
+      await tester.tap(find.text('3-Way'));
+      await tester.pumpAndSettle();
+
+      final wheels = find.byType(ColorGradingWheel);
+      expect(wheels, findsNWidgets(3));
+
+      // Drag Shadows wheel (index 0) to the right
+      final shadowsCenter = tester.getCenter(wheels.at(0));
+      await tester.dragFrom(shadowsCenter, const Offset(30, 0));
+      await tester.pumpAndSettle();
+
+      var recipe = container.read(recipeControllerProvider).recipe;
+      expect(recipe.gradeShadowSat, greaterThan(0.0));
+      expect(recipe.gradeMidSat, 0.0);
+      expect(recipe.gradeHighlightSat, 0.0);
+
+      // Drag Midtones wheel (index 1) to the top
+      final midtonesCenter = tester.getCenter(wheels.at(1));
+      await tester.dragFrom(midtonesCenter, const Offset(0, -30));
+      await tester.pumpAndSettle();
+
+      recipe = container.read(recipeControllerProvider).recipe;
+      expect(recipe.gradeShadowSat, greaterThan(0.0));
+      expect(recipe.gradeMidSat, greaterThan(0.0));
+      expect(recipe.gradeHighlightSat, 0.0);
+
+      // Drag Highlights wheel (index 2) to the bottom
+      final highlightsCenter = tester.getCenter(wheels.at(2));
+      await tester.dragFrom(highlightsCenter, const Offset(0, 30));
+      await tester.pumpAndSettle();
+
+      recipe = container.read(recipeControllerProvider).recipe;
+      expect(recipe.gradeShadowSat, greaterThan(0.0));
+      expect(recipe.gradeMidSat, greaterThan(0.0));
+      expect(recipe.gradeHighlightSat, greaterThan(0.0));
+    });
+
+    testWidgets('3-Way mode individual luminance sliders adjust respective zones', (tester) async {
+      await pump(tester);
+
+      await tester.tap(find.text('3-Way'));
+      await tester.pumpAndSettle();
+
+      // 5 sliders total: 3 per-zone luminance sliders + Blending + Balance
+      final sliders = find.byType(Slider);
+      expect(sliders, findsNWidgets(5));
+
+      // Drag Shadows luminance (slider 0)
+      await tester.drag(sliders.at(0), const Offset(40, 0));
+      await tester.pumpAndSettle();
+
+      var recipe = container.read(recipeControllerProvider).recipe;
+      expect(recipe.gradeShadowLum, greaterThan(0.0));
+      expect(recipe.gradeMidLum, 0.0);
+      expect(recipe.gradeHighlightLum, 0.0);
+
+      // Drag Midtones luminance (slider 1)
+      await tester.drag(sliders.at(1), const Offset(-40, 0));
+      await tester.pumpAndSettle();
+
+      recipe = container.read(recipeControllerProvider).recipe;
+      expect(recipe.gradeShadowLum, greaterThan(0.0));
+      expect(recipe.gradeMidLum, lessThan(0.0));
+      expect(recipe.gradeHighlightLum, 0.0);
+
+      // Drag Highlights luminance (slider 2)
+      await tester.drag(sliders.at(2), const Offset(40, 0));
+      await tester.pumpAndSettle();
+
+      recipe = container.read(recipeControllerProvider).recipe;
+      expect(recipe.gradeShadowLum, greaterThan(0.0));
+      expect(recipe.gradeMidLum, lessThan(0.0));
+      expect(recipe.gradeHighlightLum, greaterThan(0.0));
+    });
+
+    testWidgets('Reset All resets all three wheels and global grading parameters', (tester) async {
+      await pump(tester);
+
+      await tester.tap(find.text('3-Way'));
+      await tester.pumpAndSettle();
+
+      final wheels = find.byType(ColorGradingWheel);
+      await tester.dragFrom(tester.getCenter(wheels.at(0)), const Offset(30, 0));
+      await tester.dragFrom(tester.getCenter(wheels.at(1)), const Offset(0, -30));
+      await tester.pumpAndSettle();
+
+      expect(container.read(recipeControllerProvider).recipe.gradeShadowSat, greaterThan(0.0));
+      expect(container.read(recipeControllerProvider).recipe.gradeMidSat, greaterThan(0.0));
+
+      // Tap Reset All
+      final resetAll = find.text('Reset All');
+      expect(resetAll, findsOneWidget);
+      await tester.tap(resetAll);
+      await tester.pumpAndSettle();
+
+      final recipe = container.read(recipeControllerProvider).recipe;
+      expect(recipe.gradeShadowSat, 0.0);
+      expect(recipe.gradeMidSat, 0.0);
+      expect(recipe.gradeHighlightSat, 0.0);
+      expect(recipe.gradeShadowLum, 0.0);
+      expect(recipe.gradeMidLum, 0.0);
+      expect(recipe.gradeHighlightLum, 0.0);
+      expect(recipe.gradeBalance, 0.0);
+    });
+  });
 }

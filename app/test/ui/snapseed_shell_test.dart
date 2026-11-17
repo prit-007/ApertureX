@@ -452,6 +452,67 @@ void main() {
     expect(recipe.clarity, 0.30);
   });
 
+  testWidgets('SnapseedShell preset intensity slider adjusts preset strength live', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () {},
+              onPickTool: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Open looks carousel
+    await tester.tap(find.byKey(const Key('snapseed-looks-toggle')));
+    await tester.pumpAndSettle();
+
+    // Tap Punch preset
+    await tester.tap(find.byKey(const Key('snapseed-preset-Punch')));
+    await tester.pumpAndSettle();
+
+    // Slider must now be visible with Punch at 100%
+    final sliderFinder = find.byKey(const Key('snapseed-preset-strength-slider'));
+    expect(sliderFinder, findsOneWidget);
+    expect(find.text('Punch · 100%'), findsOneWidget);
+
+    // Initial 100% values
+    var recipe = container.read(recipeControllerProvider).recipe;
+    expect(recipe.contrast, closeTo(0.30, 1e-4));
+    expect(recipe.clarity, closeTo(0.30, 1e-4));
+
+    // Drag slider to the left (reducing strength to ~50%)
+    await tester.drag(sliderFinder, const Offset(-40, 0));
+    await tester.pumpAndSettle();
+
+    recipe = container.read(recipeControllerProvider).recipe;
+    expect(recipe.contrast, lessThan(0.30));
+    expect(recipe.contrast, greaterThan(0.0));
+
+    // Dismiss slider via close icon
+    final closeFinder = find.descendant(
+      of: find.ancestor(
+        of: sliderFinder,
+        matching: find.byType(Container),
+      ).first,
+      matching: find.byType(IconButton),
+    );
+    await tester.tap(closeFinder);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('snapseed-preset-strength-slider')), findsNothing);
+  });
+
   testWidgets('SnapseedShell mask toggle opens Masks & Layers modal sheet', (
     tester,
   ) async {

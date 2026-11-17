@@ -7,6 +7,7 @@ import 'package:aperturex/edit/parameter.dart';
 import 'package:aperturex/edit/recipe.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
 import 'package:aperturex/edit/recipe_state.dart';
+import 'package:aperturex/edit/tool_definition.dart';
 import 'package:aperturex/features/ai_plugins/ai_plugin_model.dart';
 import 'package:aperturex/features/ai_plugins/ai_plugin_store.dart';
 import 'package:aperturex/src/rust/frb_generated.dart';
@@ -388,6 +389,54 @@ void main() {
       expect(state().historyTree?.currentNodeId, step1Id);
       expect(state().recipe.grain, 0.0);
       expect(state().recipe.exposure, 0.5);
+    });
+  });
+
+  group('applyTool preset strength (Issue #169)', () {
+    const testTool = ToolDefinition(
+      name: 'Vibrant Sun',
+      params: {
+        'exposure': 0.8,
+        'contrast': 0.4,
+        'temperature': 0.6,
+      },
+      hsl: [0.2, 0.4, -0.6],
+    );
+
+    test('applyTool with amount: 0.0 (0%) keeps recipe at neutral baseline', () {
+      notifier.applyTool(testTool, amount: 0.0);
+      expect(state().recipe.exposure, closeTo(0.0, 1e-4));
+      expect(state().recipe.contrast, closeTo(0.0, 1e-4));
+      expect(state().recipe.temperature, closeTo(0.0, 1e-4));
+      expect(state().recipe.hsl, [0.0, 0.0, -0.0]);
+    });
+
+    test('applyTool with amount: 0.5 (50%) applies half strength deltas', () {
+      notifier.applyTool(testTool, amount: 0.5);
+      expect(state().recipe.exposure, closeTo(0.4, 1e-4));
+      expect(state().recipe.contrast, closeTo(0.2, 1e-4));
+      expect(state().recipe.temperature, closeTo(0.3, 1e-4));
+      expect(state().recipe.hsl[0], closeTo(0.1, 1e-4));
+      expect(state().recipe.hsl[1], closeTo(0.2, 1e-4));
+      expect(state().recipe.hsl[2], closeTo(-0.3, 1e-4));
+    });
+
+    test('applyTool with default amount: 1.0 (100%) applies exact preset deltas', () {
+      notifier.applyTool(testTool);
+      expect(state().recipe.exposure, closeTo(0.8, 1e-4));
+      expect(state().recipe.contrast, closeTo(0.4, 1e-4));
+      expect(state().recipe.temperature, closeTo(0.6, 1e-4));
+      expect(state().recipe.hsl, [0.2, 0.4, -0.6]);
+    });
+
+    test('applyTool with amount: 2.0 (200%) doubles preset deltas with clamp', () {
+      notifier.applyTool(testTool, amount: 2.0);
+      expect(state().recipe.exposure, closeTo(1.6, 1e-4));
+      expect(state().recipe.contrast, closeTo(0.8, 1e-4));
+      expect(state().recipe.temperature, closeTo(1.0, 1e-4)); // Clamped to 1.0
+      expect(state().recipe.hsl[0], closeTo(0.4, 1e-4));
+      expect(state().recipe.hsl[1], closeTo(0.8, 1e-4));
+      expect(state().recipe.hsl[2], closeTo(-1.0, 1e-4)); // Clamped to -1.0
     });
   });
 }

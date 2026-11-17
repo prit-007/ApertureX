@@ -50,7 +50,10 @@ class _GestureAnimationPlayerState extends State<GestureAnimationPlayer>
   bool get _isTestEnvironment =>
       WidgetsBinding.instance.runtimeType.toString().contains('Test');
 
-  bool get _shouldAnimate => widget.isAnimating ?? !_isTestEnvironment;
+  bool get _shouldAnimate {
+    if (AppMotion.reduceMotion) return false;
+    return widget.isAnimating ?? !_isTestEnvironment;
+  }
 
   @override
   void initState() {
@@ -64,6 +67,18 @@ class _GestureAnimationPlayerState extends State<GestureAnimationPlayer>
       _controller.repeat();
     } else {
       _controller.value = 0.5;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final disable = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if ((disable || AppMotion.reduceMotion) && _controller.isAnimating) {
+      _controller.stop();
+      _controller.value = 0.5;
+    } else if (!disable && !AppMotion.reduceMotion && _shouldAnimate && !_controller.isAnimating) {
+      _controller.repeat();
     }
   }
 
