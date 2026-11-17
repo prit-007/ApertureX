@@ -534,6 +534,73 @@ pub fn export_full_with_branding(
     c2pa: C2paExportSpec,
 ) -> Result<ExportResult, String> {
     crate::validate::validate_rgba(&rgba, width, height)?;
+    export_full_with_branding_inner(
+        &rgba,
+        width,
+        height,
+        spec,
+        layers,
+        retouch_patches,
+        params,
+        curves,
+        hsl,
+        exif,
+        branding,
+        c2pa,
+        None,
+    )
+}
+
+/// Runs the complete export recipe using image memory already resident in Rust
+/// under [handle], avoiding bridge serialization of multi-megapixel RGBA buffers (P1).
+/// Also automatically reuses any cached depth map associated with the handle (P4).
+#[allow(clippy::too_many_arguments)]
+pub fn export_full_from_handle(
+    handle: u64,
+    spec: ExportSpec,
+    layers: Vec<MaskLayer>,
+    retouch_patches: Vec<ApiRetouchPatch>,
+    params: ColorParams,
+    curves: CurveParams,
+    hsl: Vec<f32>,
+    exif: Vec<u8>,
+    branding: ExportBrandingSpec,
+    c2pa: C2paExportSpec,
+) -> Result<ExportResult, String> {
+    let (source, width, height, cached_depth) = crate::preview::get_source_shared(handle)?;
+    export_full_with_branding_inner(
+        &source,
+        width,
+        height,
+        spec,
+        layers,
+        retouch_patches,
+        params,
+        curves,
+        hsl,
+        exif,
+        branding,
+        c2pa,
+        cached_depth,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn export_full_with_branding_inner(
+    rgba: &[u8],
+    width: u32,
+    height: u32,
+    spec: ExportSpec,
+    layers: Vec<MaskLayer>,
+    retouch_patches: Vec<ApiRetouchPatch>,
+    params: ColorParams,
+    curves: CurveParams,
+    hsl: Vec<f32>,
+    exif: Vec<u8>,
+    branding: ExportBrandingSpec,
+    c2pa: C2paExportSpec,
+    precomputed_depth: Option<Vec<f32>>,
+) -> Result<ExportResult, String> {
     let (w, h) = (width as usize, height as usize);
 
     let recipe = ExportRecipe {
@@ -554,7 +621,7 @@ pub fn export_full_with_branding(
         optics: spec.optics_params(),
         retouch: to_engine_patches(&retouch_patches),
         blur: spec.blur_params(),
-        precomputed_depth_map: None,
+        precomputed_depth_map: precomputed_depth,
         spatial: SpatialParams {
             shadows: spec.shadows,
             highlights: spec.highlights,
@@ -618,14 +685,19 @@ pub fn export_full_with_branding(
     let cancel = token_parts.as_ref().map(|(f, _)| f.clone());
     let progress = token_parts.as_ref().map(|(_, p)| p.clone());
     let band_rows = if spec.band_rows == 0 {
-        256
+        // For huge images (>50 MP), reduce band size to 128 rows to bound resident memory and prevent mobile OOM (F2).
+        if w * h > 50_000_000 {
+            128
+        } else {
+            256
+        }
     } else {
         spec.band_rows as usize
     };
 
     let outcome = export_pipeline::run_export_tiled(
         &recipe,
-        &rgba,
+        rgba,
         w,
         h,
         band_rows,
@@ -1212,5 +1284,44 @@ mod tests {
             .expect("must contain secondary gain map and XMP metadata");
         assert!(!gain_map.is_empty());
         assert!((meta.gain_map_max - 2.5).abs() < 1e-4);
+    }
+
+    #[test]
+    fn export_full_from_handle_matches_export_full() {
+        let rgba = solid(16, 16, 200, 100, 50);
+        let handle = crate::preview::open(rgba.clone(), 16, 16);
+        let s = spec();
+        let direct_res = export_full(
+            rgba,
+            16,
+            16,
+            s,
+            Vec::new(),
+            Vec::new(),
+            ColorParams::default(),
+            neutral_curves(),
+            vec![0.0; 24],
+            Vec::new(),
+        )
+        .unwrap();
+
+        let handle_res = export_full_from_handle(
+            handle,
+            spec(),
+            Vec::new(),
+            Vec::new(),
+            ColorParams::default(),
+            neutral_curves(),
+            vec![0.0; 24],
+            Vec::new(),
+            ExportBrandingSpec::default(),
+            C2paExportSpec::default(),
+        )
+        .unwrap();
+
+        assert!(!direct_res.cancelled);
+        assert!(!handle_res.cancelled);
+        assert_eq!(direct_res.jpeg, handle_res.jpeg);
+        crate::preview::close(handle);
     }
 }

@@ -1249,6 +1249,7 @@ class AxEngine {
     double hdrHeadroom = 2.0,
     int? outputSharpenMedia,
     double? outputSharpen,
+    int? bandRows,
   }) async {
     final exportSpec = rust_export.ExportSpec(
       flipH: geometry.flipH,
@@ -1317,7 +1318,7 @@ class AxEngine {
       blurSampleCount: blur.blurSampleCount,
       quality: quality,
       maxDim: maxDim ?? 0,
-      bandRows: 256,
+      bandRows: bandRows ?? 0,
       cancelToken: BigInt.from(cancelToken),
       colorSpace: colorSpace,
       ultraHdr: ultraHdr,
@@ -1370,6 +1371,141 @@ class AxEngine {
       return result.cancelled ? null : result.jpeg;
     } catch (e) {
       axLog(LogDomain.export, 'exportJpegFull failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
+
+  /// Runs the export recipe directly from Rust resident memory for [handle] (P1).
+  /// Avoids multi-megapixel RGBA bridge copies and reuses any cached depth map (P4).
+  static Future<Uint8List?> exportJpegFullFromHandle({
+    required int handle,
+    required GradeSpec spec,
+    SpatialSpec spatial = const SpatialSpec(),
+    OpticsSpec optics = const OpticsSpec(),
+    GeometrySpec geometry = const GeometrySpec(),
+    LensBlurSpec blur = const LensBlurSpec(),
+    List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
+    List<MaskGroup> maskGroups = const <MaskGroup>[],
+    List<RetouchPatch> retouchPatches = const <RetouchPatch>[],
+    List<int> exif = const <int>[],
+    rust_export.ExportBrandingSpec? branding,
+    rust_export.C2paExportSpec? c2pa,
+    Uint8List? lutAtlas,
+    int lutSize = 0,
+    int quality = 90,
+    int? maxDim,
+    int cancelToken = 0,
+    int colorSpace = 0,
+    bool ultraHdr = false,
+    double hdrHeadroom = 2.0,
+    int? outputSharpenMedia,
+    double? outputSharpen,
+    int? bandRows,
+  }) async {
+    final exportSpec = rust_export.ExportSpec(
+      flipH: geometry.flipH,
+      flipV: geometry.flipV,
+      turns: geometry.rotation,
+      angle: geometry.straighten,
+      cropL: geometry.crop[0],
+      cropT: geometry.crop[1],
+      cropR: geometry.crop[2],
+      cropB: geometry.crop[3],
+      perspectiveX: geometry.perspectiveX,
+      perspectiveY: geometry.perspectiveY,
+      skewX: geometry.skewX,
+      skewY: geometry.skewY,
+      shadows: spatial.shadows,
+      highlights: spatial.highlights,
+      clarity: spatial.clarity,
+      texture: spatial.texture,
+      sharpen: spatial.sharpen,
+      sharpenRadius: spatial.sharpenRadius,
+      sharpenDetail: spatial.sharpenDetail,
+      sharpenMasking: spatial.sharpenMasking,
+      outputSharpenMedia: outputSharpenMedia ?? spatial.outputSharpenMedia,
+      outputSharpen: outputSharpen ?? spatial.outputSharpen,
+      denoiseLuma: spatial.denoiseLuma,
+      denoiseChroma: spatial.denoiseChroma,
+      aiDenoise: spatial.aiDenoise,
+      dehaze: spatial.dehaze,
+      vignette: spatial.vignette,
+      vignetteMidpoint: spatial.vignetteMidpoint,
+      vignetteFeather: spatial.vignetteFeather,
+      vignetteRoundness: spatial.vignetteRoundness,
+      vignetteHighlights: spatial.vignetteHighlights,
+      grain: spatial.grain,
+      grainSize: spatial.grainSize,
+      grainRoughness: spatial.grainRoughness,
+      removeChromaticAberration: optics.removeChromaticAberration,
+      defringePurpleAmount: optics.defringePurpleAmount,
+      defringePurpleHueMin: optics.defringePurpleHueMin,
+      defringePurpleHueMax: optics.defringePurpleHueMax,
+      defringeGreenAmount: optics.defringeGreenAmount,
+      defringeGreenHueMin: optics.defringeGreenHueMin,
+      defringeGreenHueMax: optics.defringeGreenHueMax,
+      profileCorrections: optics.profileCorrections,
+      profileDistortion: optics.profileDistortion,
+      profileVignetting: optics.profileVignetting,
+      filmBloom: spatial.filmBloom,
+      filmBloomRadius: spatial.filmBloomRadius,
+      filmBloomThreshold: spatial.filmBloomThreshold,
+      filmDust: spatial.filmDust,
+      filmHalation: spatial.filmHalation,
+      filmHalationRadius: spatial.filmHalationRadius,
+      filmHalationThreshold: spatial.filmHalationThreshold,
+      filmScratches: spatial.filmScratches,
+      shaderLabPreset: spatial.shaderLabPreset,
+      shaderParam1: spatial.shaderParam1,
+      shaderParam2: spatial.shaderParam2,
+      shaderParam3: spatial.shaderParam3,
+      blurEnabled: blur.enabled,
+      blurAmount: blur.amount,
+      blurFocalPoint: blur.focalPoint,
+      blurFocalRange: blur.focalRange,
+      blurBokehShape: blur.bokehShape.index,
+      blurBokehBoost: blur.bokehBoost,
+      blurBackgroundBlur: blur.blurBackgroundBlur,
+      blurSampleCount: blur.blurSampleCount,
+      quality: quality,
+      maxDim: maxDim ?? 0,
+      bandRows: bandRows ?? 0,
+      cancelToken: BigInt.from(cancelToken),
+      colorSpace: colorSpace,
+      ultraHdr: ultraHdr,
+      hdrHeadroom: hdrHeadroom,
+      lutAtlas: lutAtlas ?? Uint8List(0),
+      lutSize: lutSize,
+    );
+
+    final mappedLayers = _mapLayers(layers, maskGroups);
+    final mappedPatches = _mapRetouchPatches(retouchPatches);
+    final colorP = _colorParams(spec);
+    final curveP = _curveParams(spec);
+
+    try {
+      final result = await rust_export.exportFullFromHandle(
+        handle: BigInt.from(handle),
+        spec: exportSpec,
+        layers: mappedLayers,
+        params: colorP,
+        curves: curveP,
+        hsl: spec.hsl,
+        exif: exif,
+        branding: branding ??
+            const ExportBrandingSettings().toRustBrandingSpec(),
+        c2Pa: c2pa ??
+            rust_export.C2paExportSpec(
+              enableC2Pa: false,
+              devicePrivateKey: Uint8List(0),
+              recipeJson: '',
+              exifSummary: '',
+            ),
+        retouchPatches: mappedPatches,
+      );
+      return result.cancelled ? null : result.jpeg;
+    } catch (e) {
+      axLog(LogDomain.export, 'exportJpegFullFromHandle failed: $e', level: LogLevel.error);
       rethrow;
     }
   }

@@ -60,6 +60,39 @@ class _ExportApi extends Fake implements RustLibApi {
   Future<int> crateApiExportExportProgressGet({required BigInt token}) async => 0;
 
   @override
+  Future<BigInt> crateApiPreviewPreviewOpenJpeg({
+    required List<int> jpegBytes,
+    required int maxDim,
+  }) async =>
+      BigInt.one;
+
+  @override
+  Future<BigInt> crateApiPreviewPreviewOpen({
+    required List<int> rgba,
+    required int width,
+    required int height,
+  }) async =>
+      BigInt.one;
+
+  @override
+  Future<void> crateApiPreviewPreviewClose({required BigInt handle}) async {}
+
+  @override
+  Future<rust_export.ExportResult> crateApiExportExportFullFromHandle({
+    required BigInt handle,
+    required rust_export.ExportSpec spec,
+    required List<MaskLayer> layers,
+    required List<ApiRetouchPatch> retouchPatches,
+    required rust_color.ColorParams params,
+    required rust_color.CurveParams curves,
+    required List<double> hsl,
+    required List<int> exif,
+    required rust_export.ExportBrandingSpec branding,
+    required rust_export.C2paExportSpec c2Pa,
+  }) async =>
+      rust_export.ExportResult(cancelled: false, jpeg: exportedJpeg);
+
+  @override
   Future<rust_export.ExportResult> crateApiExportExportFull({
     required List<int> rgba,
     required int width,

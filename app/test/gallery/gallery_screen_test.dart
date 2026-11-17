@@ -87,4 +87,35 @@ void main() {
     expect(appFades, isNotEmpty);
     expect(find.byType(AppBar), findsOneWidget);
   });
+
+  testWidgets('applies look preset to selected photos via batch preset sheet', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.pumpAndSettle();
+
+    // Select both photos
+    await tester.longPress(find.byType(Image).at(0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Image).at(1));
+    await tester.pumpAndSettle();
+    expect(find.text('2 selected'), findsOneWidget);
+
+    // Tap apply look action
+    await tester.tap(find.byKey(const Key('apply-look-action')));
+    await tester.pumpAndSettle();
+
+    // Verify sheet is open
+    expect(find.text('Apply Look (2 selected)'), findsOneWidget);
+    expect(find.byKey(const Key('apply-preset-confirm-button')), findsOneWidget);
+
+    // Confirm apply
+    await tester.tap(find.byKey(const Key('apply-preset-confirm-button')));
+    await tester.pumpAndSettle();
+
+    // Verify recipe store was updated for both photos
+    final store = container.read(recipeStoreProvider);
+    expect(store.containsKey(originalEntryId('a')), isTrue);
+    expect(store.containsKey(originalEntryId('b')), isTrue);
+  });
 }

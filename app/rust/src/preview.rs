@@ -130,6 +130,24 @@ pub fn get_source_rgba(handle: u64) -> Result<RgbaImage, String> {
     })
 }
 
+pub type ResidentSource = (Arc<[u8]>, u32, u32, Option<Vec<f32>>);
+
+/// Retrieves a clone of the resident source Arc, dimensions, and cached depth map for [handle].
+pub fn get_source_shared(handle: u64) -> Result<ResidentSource, String> {
+    let store = lock_store();
+    let resident = store
+        .images
+        .get(&handle)
+        .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+    let depth = resident.depth_map.as_ref().map(|d| d.data.to_vec());
+    Ok((
+        Arc::clone(&resident.source),
+        resident.width,
+        resident.height,
+        depth,
+    ))
+}
+
 /// Decodes a JPEG (or camera RAW format) into a resident proxy.
 pub fn open_jpeg(jpeg_bytes: Vec<u8>, max_dim: u32) -> Result<u64, String> {
     if let Ok(decoded) = crate::decode::decode_rgba(&jpeg_bytes) {

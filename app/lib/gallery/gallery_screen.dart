@@ -16,6 +16,7 @@ import '../edit/recipe_store.dart';
 import '../edit/settings_clipboard.dart';
 import '../engine/engine.dart';
 import '../features/editor/editor_screen.dart';
+import '../features/presets/preset_catalog.dart';
 import '../settings/settings_screen.dart';
 import '../ui/common/app_primitives.dart';
 import '../features/onboarding/onboarding_screen.dart';
@@ -806,6 +807,31 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     );
   }
 
+  Future<void> _showBatchPresetSheet() async {
+    final state = ref.read(galleryControllerProvider);
+    if (state.selected.isEmpty) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => _BatchPresetSheet(
+        selectedCount: state.selectedCount,
+        onApplyPreset: (preset, amount) {
+          final store = ref.read(recipeStoreProvider);
+          final recipeStore = ref.read(recipeStoreProvider.notifier);
+          for (final id in state.selected) {
+            final entryId = originalEntryId(id);
+            final base = store[entryId] ?? EditRecipe.neutral;
+            final updated = preset.tool.applyTo(base, amount: amount);
+            recipeStore.put(entryId, updated);
+          }
+          ref.read(galleryControllerProvider.notifier).clearSelection();
+          _snack('Applied look "${preset.name}" (${(amount * 100).round()}%) to ${state.selectedCount} photo(s)');
+        },
+      ),
+    );
+  }
+
   Future<void> _vcMenu(CatalogEntry entry, Offset position) async {
     final action = await showMenu<String>(
       context: context,
@@ -1119,6 +1145,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   onColorLabel: _showColorLabelSheet,
                   onKeywords: _showKeywordsSheet,
                   onPrint: _openPrintStudio,
+                  onApplyLook: _showBatchPresetSheet,
                 )
               : null,
         ),
@@ -2693,6 +2720,7 @@ class _SelectionBar extends StatelessWidget {
     this.onColorLabel,
     this.onKeywords,
     this.onPrint,
+    this.onApplyLook,
   });
 
   /// True only when exactly one photo is selected — the copy target must be
@@ -2715,6 +2743,7 @@ class _SelectionBar extends StatelessWidget {
   final VoidCallback? onColorLabel;
   final VoidCallback? onKeywords;
   final VoidCallback? onPrint;
+  final VoidCallback? onApplyLook;
 
   @override
   Widget build(BuildContext context) {
@@ -2767,6 +2796,15 @@ class _SelectionBar extends StatelessWidget {
                 child: const Tooltip(
                   message: 'Sync edits',
                   child: Icon(Icons.sync, size: 18),
+                ),
+              ),
+              const SizedBox(width: Insets.xs),
+              TextButton(
+                key: const Key('apply-look-action'),
+                onPressed: onApplyLook,
+                child: const Tooltip(
+                  message: 'Apply look to selected',
+                  child: Icon(Icons.auto_fix_high, size: 18),
                 ),
               ),
               const SizedBox(width: Insets.xs),
@@ -3016,6 +3054,211 @@ class _KeywordsSheetState extends State<_KeywordsSheet> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BatchPresetSheet extends StatefulWidget {
+  const _BatchPresetSheet({
+    required this.selectedCount,
+    required this.onApplyPreset,
+  });
+
+  final int selectedCount;
+  final void Function(PresetItem preset, double amount) onApplyPreset;
+
+  @override
+  State<_BatchPresetSheet> createState() => _BatchPresetSheetState();
+}
+
+class _BatchPresetSheetState extends State<_BatchPresetSheet> {
+  PresetCategory _selectedCategory = PresetCategory.all;
+  double _strength = 1.0;
+  late PresetItem _selectedPreset = PresetCatalog.allPresets.first;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<PresetItem> get _filteredPresets {
+    if (_searchQuery.isNotEmpty) {
+      return PresetCatalog.search(_searchQuery, category: _selectedCategory);
+    }
+    return PresetCatalog.getByCategory(_selectedCategory);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final presets = _filteredPresets;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: Insets.sm),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: Insets.sm),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Apply Look (${widget.selectedCount} selected)',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Insets.xs),
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search looks…',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  isDense: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                ),
+                onChanged: (q) => setState(() => _searchQuery = q.trim()),
+              ),
+              const SizedBox(height: Insets.xs),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final cat in PresetCategory.values)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: FilterChip(
+                          selected: _selectedCategory == cat,
+                          label: Text(cat.label),
+                          onSelected: (sel) {
+                            if (sel) setState(() => _selectedCategory = cat);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: Insets.xs),
+              Row(
+                children: [
+                  Text(
+                    'Strength: ${(_strength * 100).round()}%',
+                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: _strength,
+                      min: 0.0,
+                      max: 2.0,
+                      divisions: 20,
+                      label: '${(_strength * 100).round()}%',
+                      onChanged: (v) => setState(() => _strength = v),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: presets.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No looks found matching "$_searchQuery"',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        itemCount: presets.length,
+                        itemBuilder: (context, i) {
+                          final p = presets[i];
+                          final isSelected = p.id == _selectedPreset.id;
+                          return ListTile(
+                            key: Key('preset-item-${p.id}'),
+                            selected: isSelected,
+                            selectedTileColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            leading: CircleAvatar(
+                              backgroundColor: isSelected
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.surfaceContainerHighest,
+                              child: Icon(
+                                isSelected ? Icons.check : Icons.palette_outlined,
+                                size: 18,
+                                color: isSelected
+                                    ? theme.colorScheme.onPrimary
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            title: Text(
+                              p.name,
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${p.category.label} • ${p.reference.isNotEmpty ? p.reference : p.description}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onTap: () => setState(() => _selectedPreset = p),
+                          );
+                        },
+                      ),
+              ),
+              const SizedBox(height: Insets.sm),
+              FilledButton.icon(
+                key: const Key('apply-preset-confirm-button'),
+                icon: const Icon(Icons.check),
+                label: Text('Apply "${_selectedPreset.name}" to ${widget.selectedCount} Photo(s)'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  widget.onApplyPreset(_selectedPreset, _strength);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -16,9 +16,13 @@ Future<ImageDims> jpegDimensions({required List<int> jpeg}) =>
 Future<RgbaImage> decodeJpegRgba({required List<int> jpeg}) =>
     RustLib.instance.api.crateApiDecodeDecodeJpegRgba(jpeg: jpeg);
 
-/// Decodes a JPEG and returns only the RGBA pixels inside the given region of
-/// interest. This is the tile decode path: only the requested rect is produced,
-/// never the full image buffer.
+/// Decodes a JPEG and returns the RGBA pixels inside the given region of
+/// interest (ROI).
+///
+/// Current implementation decodes with `zune-jpeg` and crops the requested region,
+/// immediately dropping the full-frame buffer before returning so only the ROI
+/// buffer is retained. Native platform decoders (`BitmapRegionDecoder` on Android /
+/// `CGImageSource` on iOS) can replace this decode+crop path in future iterations.
 Future<RgbaImage> decodeJpegRoi({
   required List<int> jpeg,
   required int x,

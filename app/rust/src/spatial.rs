@@ -59,9 +59,7 @@ pub fn blur_rgb(src: &[u8], w: usize, h: usize, radius: usize, iterations: usize
         for _ in 0..iterations {
             buf = box_blur_1d(&buf, w, h, radius);
         }
-        for i in 0..n {
-            out[i * 4 + c] = buf[i].clamp(0.0, 255.0) as u8;
-        }
+        crate::simd::vector_clamp_store_channel_u8(&buf, &mut out, c);
     }
     out
 }
@@ -172,9 +170,7 @@ pub fn guided_filter_luma_rgb(rgba: &[u8], w: usize, h: usize, radius: usize, ep
 
         crate::simd::vector_linear_combination(&mean_a, &luma, &mean_b, &mut q);
 
-        for i in 0..n {
-            out[i * 4 + c] = q[i].clamp(0.0, 255.0) as u8;
-        }
+        crate::simd::vector_clamp_store_channel_u8(&q, &mut out, c);
     }
     out
 }

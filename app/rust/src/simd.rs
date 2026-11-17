@@ -481,6 +481,75 @@ pub fn vector_unsharp(src: &[u8], base: &[u8], amount: f32, out: &mut [u8]) {
     }
 }
 
+/// Clamps a channel buffer of floats to [0.0, 255.0] and writes it into strided RGBA buffer.
+pub fn vector_clamp_store_channel_u8(src: &[f32], out: &mut [u8], channel: usize) {
+    let len = src.len();
+    assert_eq!(out.len(), len * 4);
+    assert!(channel < 4);
+
+    let chunks = len / 4;
+    let remainder = chunks * 4;
+
+    #[cfg(target_arch = "x86_64")]
+    {
+        unsafe {
+            let v_zero = _mm_setzero_ps();
+            let v_255 = _mm_set1_ps(255.0);
+            for i in 0..chunks {
+                let offset = i * 4;
+                let v = _mm_loadu_ps(src.as_ptr().add(offset));
+                let clamped = _mm_min_ps(v_255, _mm_max_ps(v_zero, v));
+                let ints = _mm_cvttps_epi32(clamped);
+                let packed16 = _mm_packs_epi32(ints, ints);
+                let packed8 = _mm_packus_epi16(packed16, packed16);
+                let b = _mm_cvtsi128_si32(packed8) as u32;
+
+                out[offset * 4 + channel] = b as u8;
+                out[(offset + 1) * 4 + channel] = (b >> 8) as u8;
+                out[(offset + 2) * 4 + channel] = (b >> 16) as u8;
+                out[(offset + 3) * 4 + channel] = (b >> 24) as u8;
+            }
+        }
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    {
+        unsafe {
+            let v_zero = vdupq_n_f32(0.0);
+            let v_255 = vdupq_n_f32(255.0);
+            for i in 0..chunks {
+                let offset = i * 4;
+                let v = vld1q_f32(src.as_ptr().add(offset));
+                let clamped = vminq_f32(v_255, vmaxq_f32(v_zero, v));
+                let u32s = vcvtq_u32_f32(clamped);
+                let u16s = vqmovn_u32(u32s);
+                let u8s = vqmovn_u16(vcombine_u16(u16s, u16s));
+                let b = vget_lane_u32(vreinterpret_u32_u8(u8s), 0);
+
+                out[offset * 4 + channel] = b as u8;
+                out[(offset + 1) * 4 + channel] = (b >> 8) as u8;
+                out[(offset + 2) * 4 + channel] = (b >> 16) as u8;
+                out[(offset + 3) * 4 + channel] = (b >> 24) as u8;
+            }
+        }
+    }
+
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    {
+        for i in 0..chunks {
+            let offset = i * 4;
+            out[offset * 4 + channel] = src[offset].clamp(0.0, 255.0) as u8;
+            out[(offset + 1) * 4 + channel] = src[offset + 1].clamp(0.0, 255.0) as u8;
+            out[(offset + 2) * 4 + channel] = src[offset + 2].clamp(0.0, 255.0) as u8;
+            out[(offset + 3) * 4 + channel] = src[offset + 3].clamp(0.0, 255.0) as u8;
+        }
+    }
+
+    for i in remainder..len {
+        out[i * 4 + channel] = src[i].clamp(0.0, 255.0) as u8;
+    }
+}
+
 // ============================================================================
 // Scalar reference implementations for correctness verification
 // ============================================================================
@@ -524,6 +593,12 @@ pub fn scalar_unsharp(src: &[u8], base: &[u8], amount: f32, out: &mut [u8]) {
             out[i * 4 + c] = (o + (o - b) * amount).clamp(0.0, 255.0) as u8;
         }
         out[i * 4 + 3] = src[i * 4 + 3];
+    }
+}
+
+pub fn scalar_clamp_store_channel_u8(src: &[f32], out: &mut [u8], channel: usize) {
+    for i in 0..src.len() {
+        out[i * 4 + channel] = src[i].clamp(0.0, 255.0) as u8;
     }
 }
 
@@ -626,5 +701,26 @@ mod tests {
         scalar_unsharp(&src, &base, 0.5, &mut out_scalar);
 
         assert_eq!(out_simd, out_scalar);
+    }
+
+    #[test]
+    fn test_vector_clamp_store_channel_u8_matches_scalar() {
+        for size in [1, 3, 4, 7, 16, 33, 1024] {
+            let src: Vec<f32> = (0..size)
+                .map(|i| (i as f32 * 1.7) - 50.0) // covers negative, within range, and > 255.0
+                .collect();
+            for channel in 0..4 {
+                let mut out_simd = vec![128u8; size * 4];
+                let mut out_scalar = vec![128u8; size * 4];
+
+                vector_clamp_store_channel_u8(&src, &mut out_simd, channel);
+                scalar_clamp_store_channel_u8(&src, &mut out_scalar, channel);
+
+                assert_eq!(
+                    out_simd, out_scalar,
+                    "Mismatch for size {size} on channel {channel}"
+                );
+            }
+        }
     }
 }
