@@ -1007,7 +1007,9 @@ pub fn refine_mask_guided(
         return mask_alphas.to_vec();
     }
     let n = w * h;
-    assert_eq!(mask_alphas.len(), n);
+    if mask_alphas.len() != n {
+        return mask_alphas.to_vec();
+    }
 
     // 1. Compute guide image (normalized luminance in 0..1)
     let mut luma_guide = Vec::with_capacity(n);
@@ -2362,6 +2364,15 @@ mod tests {
             refined[idx_unbrushed], initial_mask[idx_unbrushed],
             "unbrushed region must remain completely untouched"
         );
+    }
+
+    #[test]
+    fn test_refine_mask_guided_mismatched_alpha_length_does_not_panic() {
+        let (w, h) = (16, 16);
+        let rgba = vec![255u8; w * h * 4];
+        let invalid_mask = vec![0.5f32; 10]; // length 10 instead of 256
+        let result = refine_mask_guided(&rgba, w, h, &invalid_mask, &[], 0.1, 2, 0.01);
+        assert_eq!(result, invalid_mask);
     }
 
     #[test]

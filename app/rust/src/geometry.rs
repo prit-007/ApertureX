@@ -356,15 +356,21 @@ pub fn apply_spec(rgba: &[u8], w: usize, h: usize, spec: &GeometrySpec) -> (Vec<
         w = cw;
         h = ch;
     }
-    buf = Cow::Owned(perspective_warp(
-        &buf,
-        w,
-        h,
-        spec.perspective_x,
-        spec.perspective_y,
-        spec.skew_x,
-        spec.skew_y,
-    ));
+    if spec.perspective_x != 0.0
+        || spec.perspective_y != 0.0
+        || spec.skew_x != 0.0
+        || spec.skew_y != 0.0
+    {
+        buf = Cow::Owned(perspective_warp(
+            &buf,
+            w,
+            h,
+            spec.perspective_x,
+            spec.perspective_y,
+            spec.skew_x,
+            spec.skew_y,
+        ));
+    }
 
     (buf.into_owned(), w, h)
 }

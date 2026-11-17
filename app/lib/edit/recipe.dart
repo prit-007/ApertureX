@@ -197,9 +197,16 @@ class EditRecipe {
       redCurve: ToneCurve.fromJson(json['redCurve']),
       greenCurve: ToneCurve.fromJson(json['greenCurve']),
       blueCurve: ToneCurve.fromJson(json['blueCurve']),
-      hsl:
-          (json['hsl'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
-          neutralHsl,
+      hsl: () {
+        final parsed = (json['hsl'] as List?)?.map((e) => (e as num).toDouble()).toList();
+        if (parsed == null) return neutralHsl;
+        if (parsed.length != 24) {
+          throw FormatException(
+            'Invalid recipe: hsl must contain 24 values, got ${parsed.length}',
+          );
+        }
+        return parsed;
+      }(),
       rotation: (json['rotation'] as num?)?.toInt() ?? 0,
       flipH: json['flipH'] as bool? ?? false,
       flipV: json['flipV'] as bool? ?? false,

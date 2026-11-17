@@ -176,6 +176,11 @@ class AxEngine {
   static Future<RgbaImage> decodeJpegRgba(Uint8List jpeg) =>
       rust_decode.decodeJpegRgba(jpeg: jpeg);
 
+  /// Decodes a JPEG and returns the RGBA pixels inside the requested region of
+  /// interest [x, y, width, height].
+  ///
+  /// Uses a memory-safe decode+crop strategy in the Rust engine with immediate
+  /// full-buffer deallocation.
   static Future<RgbaImage> decodeJpegRoi(
     Uint8List jpeg, {
     required int x,
@@ -283,8 +288,8 @@ class AxEngine {
     }
 
     // 2. Parse ispe box for dimensions: [size (4B)][ispe (4B)][version/flags (4B)][width (4B)][height (4B)]
-    var width = 64;
-    var height = 64;
+    int? width;
+    int? height;
     for (var i = 0; i < bytes.length - 15; i++) {
       if (bytes[i] == 0x69 && // 'i'
           bytes[i + 1] == 0x73 && // 's'
@@ -303,7 +308,13 @@ class AxEngine {
       }
     }
 
-    // Fallback: Valid RGBA buffer with parsed or default dimensions
+    if (width == null || height == null) {
+      throw UnsupportedError(
+        'Unsupported HEIC/AVIF: container contains no decodable image preview or ispe metadata.',
+      );
+    }
+
+    // Fallback: Valid RGBA buffer with parsed dimensions
     final length = width * height * 4;
     final rgba = Uint8List(length);
     for (var p = 0; p < width * height; p++) {

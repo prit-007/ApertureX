@@ -100,20 +100,32 @@ impl CurveParams {
     }
 }
 
-/// Pads/truncates a flat HSL list (8 bands × 3) to a fixed `[f32; 24]`.
-/// Logs a warning if the input length is not exactly 24.
-pub(crate) fn to_hsl24(v: &[f32]) -> [f32; 24] {
-    let mut a = [0.0f32; 24];
-    for (slot, value) in a.iter_mut().zip(v.iter().take(24)) {
-        *slot = *value;
+/// Converts a flat HSL slice (8 bands × 3) to a fixed `[f32; 24]`.
+/// Returns an error if the input length is not exactly 24 (or empty for neutral default).
+pub(crate) fn try_to_hsl24(v: &[f32]) -> Result<[f32; 24], String> {
+    if v.is_empty() {
+        return Ok([0.0f32; 24]);
     }
     if v.len() != 24 {
-        eprintln!(
-            "warning: to_hsl24 received {} values, expected 24 (padded/truncated)",
+        return Err(format!(
+            "invalid HSL array length: expected 24 (8 bands × 3), got {}",
             v.len()
-        );
+        ));
     }
-    a
+    let mut a = [0.0f32; 24];
+    a.copy_from_slice(v);
+    Ok(a)
+}
+
+/// Fallback wrapper for internal backward compatibility that converts HSL or logs an error.
+pub(crate) fn to_hsl24(v: &[f32]) -> [f32; 24] {
+    match try_to_hsl24(v) {
+        Ok(arr) => arr,
+        Err(e) => {
+            eprintln!("warning: {e} (falling back to neutral)");
+            [0.0f32; 24]
+        }
+    }
 }
 
 /// A colour pipeline baked into a 2D-packed RGBA8 LUT atlas.
@@ -657,5 +669,32 @@ mod tests {
     #[test]
     fn auto_tone_with_faces_invalid_jpeg_returns_none() {
         assert!(auto_tone_with_faces(vec![], vec![]).is_none());
+    }
+
+    #[test]
+    fn try_to_hsl24_valid_length() {
+        let input: Vec<f32> = (0..24).map(|i| i as f32 * 0.1).collect();
+        let res = try_to_hsl24(&input);
+        assert!(res.is_ok());
+        let arr = res.unwrap();
+        assert_eq!(arr.len(), 24);
+        assert!((arr[0] - 0.0).abs() < 1e-5);
+        assert!((arr[23] - 2.3).abs() < 1e-5);
+    }
+
+    #[test]
+    fn try_to_hsl24_empty_returns_neutral() {
+        let res = try_to_hsl24(&[]);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), [0.0f32; 24]);
+    }
+
+    #[test]
+    fn try_to_hsl24_wrong_length_returns_err() {
+        let short = vec![0.5f32; 10];
+        assert!(try_to_hsl24(&short).is_err());
+
+        let long = vec![0.5f32; 30];
+        assert!(try_to_hsl24(&long).is_err());
     }
 }

@@ -33,34 +33,40 @@ class GradeSpec {
     this.hsl = neutralHsl,
   });
 
-  factory GradeSpec.fromRecipe(EditRecipe recipe) => GradeSpec(
-    exposure: recipe.exposure,
-    contrast: recipe.contrast,
-    highlights: recipe.highlights,
-    shadows: recipe.shadows,
-    whites: recipe.whites,
-    blacks: recipe.blacks,
-    saturation: recipe.saturation,
-    temperature: recipe.temperature,
-    tint: recipe.tint,
-    vibrance: recipe.vibrance,
-    gradeShadowHue: recipe.gradeShadowHue,
-    gradeShadowSat: recipe.gradeShadowSat,
-    gradeShadowLum: recipe.gradeShadowLum,
-    gradeMidHue: recipe.gradeMidHue,
-    gradeMidSat: recipe.gradeMidSat,
-    gradeMidLum: recipe.gradeMidLum,
-    gradeHighlightHue: recipe.gradeHighlightHue,
-    gradeHighlightSat: recipe.gradeHighlightSat,
-    gradeHighlightLum: recipe.gradeHighlightLum,
-    gradeBlending: recipe.gradeBlending,
-    gradeBalance: recipe.gradeBalance,
-    masterCurve: recipe.masterCurve.points,
-    redCurve: recipe.redCurve.points,
-    greenCurve: recipe.greenCurve.points,
-    blueCurve: recipe.blueCurve.points,
-    hsl: recipe.hsl,
-  );
+  factory GradeSpec.fromRecipe(EditRecipe recipe) {
+    assert(
+      recipe.hsl.length == 24,
+      'GradeSpec.fromRecipe: recipe.hsl must contain exactly 24 values (8 bands × 3), got ${recipe.hsl.length}',
+    );
+    return GradeSpec(
+      exposure: recipe.exposure,
+      contrast: recipe.contrast,
+      highlights: recipe.highlights,
+      shadows: recipe.shadows,
+      whites: recipe.whites,
+      blacks: recipe.blacks,
+      saturation: recipe.saturation,
+      temperature: recipe.temperature,
+      tint: recipe.tint,
+      vibrance: recipe.vibrance,
+      gradeShadowHue: recipe.gradeShadowHue,
+      gradeShadowSat: recipe.gradeShadowSat,
+      gradeShadowLum: recipe.gradeShadowLum,
+      gradeMidHue: recipe.gradeMidHue,
+      gradeMidSat: recipe.gradeMidSat,
+      gradeMidLum: recipe.gradeMidLum,
+      gradeHighlightHue: recipe.gradeHighlightHue,
+      gradeHighlightSat: recipe.gradeHighlightSat,
+      gradeHighlightLum: recipe.gradeHighlightLum,
+      gradeBlending: recipe.gradeBlending,
+      gradeBalance: recipe.gradeBalance,
+      masterCurve: recipe.masterCurve.points,
+      redCurve: recipe.redCurve.points,
+      greenCurve: recipe.greenCurve.points,
+      blueCurve: recipe.blueCurve.points,
+      hsl: recipe.hsl,
+    );
+  }
 
   final double exposure;
   final double contrast;
@@ -120,8 +126,15 @@ class GradeSpec {
     List<double>? greenCurve,
     List<double>? blueCurve,
     List<double>? hsl,
-  }) => GradeSpec(
-    exposure: exposure ?? this.exposure,
+  }) {
+    if (hsl != null) {
+      assert(
+        hsl.length == 24,
+        'GradeSpec.copyWith: hsl must contain exactly 24 values (8 bands × 3), got ${hsl.length}',
+      );
+    }
+    return GradeSpec(
+      exposure: exposure ?? this.exposure,
     contrast: contrast ?? this.contrast,
     highlights: highlights ?? this.highlights,
     shadows: shadows ?? this.shadows,
@@ -147,5 +160,6 @@ class GradeSpec {
     greenCurve: greenCurve ?? this.greenCurve,
     blueCurve: blueCurve ?? this.blueCurve,
     hsl: hsl ?? this.hsl,
-  );
+    );
+  }
 }

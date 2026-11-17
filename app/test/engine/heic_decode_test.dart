@@ -72,6 +72,23 @@ void main() {
       expect(decoded.rgba.length, 120 * 80 * 4);
     });
 
+    test('decodeHeicRgba throws UnsupportedError when no preview and no ispe found', () async {
+      final builder = BytesBuilder();
+      builder.add([
+        0x00, 0x00, 0x00, 0x18,
+        0x66, 0x74, 0x79, 0x70,
+        0x68, 0x65, 0x69, 0x63,
+        0x00, 0x00, 0x00, 0x00,
+        0x6D, 0x69, 0x66, 0x31,
+        0x68, 0x65, 0x69, 0x63,
+      ]);
+      final bytes = builder.toBytes();
+      expect(
+        () => AxEngine.decodeHeicRgba(bytes),
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
     test('decodeHeicRgba extracts and decodes embedded JPEG preview', () async {
       // Create a small synthetic JPEG using package:image
       final imgCanvas = img.Image(width: 16, height: 16);

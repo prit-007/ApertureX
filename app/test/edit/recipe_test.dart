@@ -113,6 +113,13 @@ void main() {
       expect(restored.exposure, 1.0);
       expect(restored.exposure, isA<double>());
     });
+
+    test('fromJson throws FormatException when hsl array length is not 24', () {
+      final badJson = <String, Object?>{
+        'hsl': [0.1, 0.2, 0.3],
+      };
+      expect(() => EditRecipe.fromJson(badJson), throwsA(isA<FormatException>()));
+    });
   });
 
   group('migration', () {

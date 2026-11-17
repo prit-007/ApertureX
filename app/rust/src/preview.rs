@@ -39,7 +39,6 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::sync::{Arc, LazyLock, Mutex, PoisonError};
-use zune_jpeg::JpegDecoder;
 
 use crate::api::color::{to_hsl24, ColorParams, CurveParams};
 use crate::api::decode::RgbaImage;
@@ -133,42 +132,19 @@ pub fn get_source_rgba(handle: u64) -> Result<RgbaImage, String> {
 
 /// Decodes a JPEG (or camera RAW format) into a resident proxy.
 pub fn open_jpeg(jpeg_bytes: Vec<u8>, max_dim: u32) -> Result<u64, String> {
-    let mut decoder = JpegDecoder::new(std::io::Cursor::new(&jpeg_bytes));
-    if decoder.decode_headers().is_ok() {
-        if let Some((width, height)) = decoder.dimensions() {
-            if let Ok(rgba) = decoder.decode() {
-                let scale = (max_dim as f32 / width.max(height) as f32).min(1.0);
-                let target_w = (width as f32 * scale) as u32;
-                let target_h = (height as f32 * scale) as u32;
-
-                let mut rgba_buffer = Vec::with_capacity(target_w as usize * target_h as usize * 4);
-
-                for y in 0..target_h {
-                    let src_y = (y as f32 / scale) as usize;
-                    if src_y >= height {
-                        break;
-                    }
-                    for x in 0..target_w {
-                        let src_x = (x as f32 / scale) as usize;
-                        if src_x >= width {
-                            continue;
-                        }
-
-                        let idx = (src_y * width + src_x) * 3;
-                        if idx + 2 >= rgba.len() {
-                            continue;
-                        }
-
-                        rgba_buffer.push(rgba[idx]); // R
-                        rgba_buffer.push(rgba[idx + 1]); // G
-                        rgba_buffer.push(rgba[idx + 2]); // B
-                        rgba_buffer.push(255); // A
-                    }
-                }
-
-                return Ok(open(rgba_buffer, target_w, target_h));
-            }
-        }
+    if let Ok(decoded) = crate::decode::decode_rgba(&jpeg_bytes) {
+        let (rgba, w, h) = if max_dim > 0 && decoded.width.max(decoded.height) > max_dim as usize {
+            let (downscaled, nw, nh) = crate::geometry::downscale(
+                &decoded.rgba,
+                decoded.width,
+                decoded.height,
+                max_dim as usize,
+            );
+            (downscaled, nw as u32, nh as u32)
+        } else {
+            (decoded.rgba, decoded.width as u32, decoded.height as u32)
+        };
+        return Ok(open(rgba, w, h));
     }
 
     // Fallback 1: check for high-res embedded JPEG in RAW files (CR2, NEF, ARW, DNG)
@@ -180,34 +156,18 @@ pub fn open_jpeg(jpeg_bytes: Vec<u8>, max_dim: u32) -> Result<u64, String> {
 
     // Fallback 2: decode as camera RAW (DNG, CR2, NEF, ARW, etc.)
     if let Ok(decoded) = crate::api::raw::decode_raw_rgba(jpeg_bytes) {
-        let width = decoded.width;
-        let height = decoded.height;
-        let rgba = decoded.rgba;
-        let scale = (max_dim as f32 / width.max(height) as f32).min(1.0);
-        let target_w = (width as f32 * scale) as u32;
-        let target_h = (height as f32 * scale) as u32;
-
-        let mut downscaled = Vec::with_capacity(target_w as usize * target_h as usize * 4);
-        for y in 0..target_h {
-            let src_y = (y as f32 / scale) as usize;
-            if src_y >= height as usize {
-                break;
-            }
-            for x in 0..target_w {
-                let src_x = (x as f32 / scale) as usize;
-                if src_x >= width as usize {
-                    continue;
-                }
-                let idx = (src_y * width as usize + src_x) * 4;
-                if idx + 3 < rgba.len() {
-                    downscaled.push(rgba[idx]);
-                    downscaled.push(rgba[idx + 1]);
-                    downscaled.push(rgba[idx + 2]);
-                    downscaled.push(rgba[idx + 3]);
-                }
-            }
-        }
-        return Ok(open(downscaled, target_w, target_h));
+        let (rgba, w, h) = if max_dim > 0 && decoded.width.max(decoded.height) > max_dim {
+            let (downscaled, nw, nh) = crate::geometry::downscale(
+                &decoded.rgba,
+                decoded.width as usize,
+                decoded.height as usize,
+                max_dim as usize,
+            );
+            (downscaled, nw as u32, nh as u32)
+        } else {
+            (decoded.rgba, decoded.width, decoded.height)
+        };
+        return Ok(open(rgba, w, h));
     }
 
     Err("Failed to decode image as JPEG or RAW".to_string())

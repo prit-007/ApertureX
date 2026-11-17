@@ -99,13 +99,25 @@ EditRecipe applyToolDelta(EditRecipe recipe, GradeTool tool, double delta) {
 /// Resets [tool]'s field on [recipe] back to neutral. Pure.
 EditRecipe resetTool(EditRecipe recipe, GradeTool tool) {
   if (tool == GradeTool.shadowsGrade) {
-    return recipe.copyWith(gradeShadowHue: 0, gradeShadowSat: 0);
+    return recipe.copyWith(
+      gradeShadowHue: 0,
+      gradeShadowSat: 0,
+      gradeShadowLum: 0,
+    );
   }
   if (tool == GradeTool.midtonesGrade) {
-    return recipe.copyWith(gradeMidHue: 0, gradeMidSat: 0);
+    return recipe.copyWith(
+      gradeMidHue: 0,
+      gradeMidSat: 0,
+      gradeMidLum: 0,
+    );
   }
   if (tool == GradeTool.highlightsGrade) {
-    return recipe.copyWith(gradeHighlightHue: 0, gradeHighlightSat: 0);
+    return recipe.copyWith(
+      gradeHighlightHue: 0,
+      gradeHighlightSat: 0,
+      gradeHighlightLum: 0,
+    );
   }
   return _write(recipe, tool, 0);
 }

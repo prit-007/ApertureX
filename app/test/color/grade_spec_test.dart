@@ -49,6 +49,20 @@ void main() {
       expect(AxEngine.normalizeHue(0.12), closeTo(0.12, 1e-5));
       expect(AxEngine.normalizeHue(0.0), 0.0);
     });
+
+    test('GradeSpec.fromRecipe and copyWith assert on invalid hsl length', () {
+      const invalidRecipe = EditRecipe(hsl: [0.1, 0.2]);
+      expect(
+        () => GradeSpec.fromRecipe(invalidRecipe),
+        throwsA(isA<AssertionError>()),
+      );
+
+      const spec = GradeSpec();
+      expect(
+        () => spec.copyWith(hsl: [0.1, 0.2]),
+        throwsA(isA<AssertionError>()),
+      );
+    });
   });
 }
 
