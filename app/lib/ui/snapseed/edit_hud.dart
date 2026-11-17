@@ -33,16 +33,33 @@ class EditHud extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recipe = ref.watch(recipeControllerProvider).recipe;
-    final changed = [
-      for (final p in Parameter.values)
-        if ((valueOf(recipe, p) - specOf(p).neutral).abs() > neutralEpsilon) p,
-    ];
-    if (changed.isEmpty) return const SizedBox.shrink();
+    final hudData = ref.watch(
+      recipeControllerProvider.select((s) {
+        final recipe = s.recipe;
+        final changed = <Parameter>[];
+        for (final p in Parameter.values) {
+          if ((valueOf(recipe, p) - specOf(p).neutral).abs() > neutralEpsilon) {
+            changed.add(p);
+          }
+        }
+        if (changed.isEmpty) return const _HudData([], 0);
+        final visibleParams = changed.take(4);
+        final visible = [
+          for (final p in visibleParams)
+            _HudItem(
+              p,
+              '${_abbr[p] ?? p.name.toUpperCase()} '
+              '${valueOf(recipe, p) >= 0 ? '+' : ''}'
+              '${valueOf(recipe, p).toStringAsFixed(2)}',
+            ),
+        ];
+        return _HudData(visible, changed.length - visible.length);
+      }),
+    );
+
+    if (hudData.visible.isEmpty) return const SizedBox.shrink();
 
     final scheme = Theme.of(context).colorScheme;
-    final visible = changed.take(4).toList();
-    final overflowCount = changed.length - visible.length;
     return Align(
       alignment: Alignment.topRight,
       child: SafeArea(
@@ -50,54 +67,88 @@ class EditHud extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.all(8),
           child: Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          alignment: WrapAlignment.end,
-          children: [
-            for (final p in visible)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${_abbr[p] ?? p.name.toUpperCase()} '
-                  '${valueOf(recipe, p) >= 0 ? '+' : ''}'
-                  '${valueOf(recipe, p).toStringAsFixed(2)}',
-                  style: TextStyle(
-                    color: scheme.onSurface,
-                    fontSize: 11,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+            spacing: 6,
+            runSpacing: 4,
+            alignment: WrapAlignment.end,
+            children: [
+              for (final item in hudData.visible)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    item.text,
+                    style: TextStyle(
+                      color: scheme.onSurface,
+                      fontSize: 11,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
-              ),
-            if (overflowCount > 0)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '+$overflowCount more',
-                  style: TextStyle(
-                    color: scheme.onSurfaceVariant,
-                    fontSize: 11,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+              if (hudData.overflowCount > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '+${hudData.overflowCount} more',
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 11,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
+
+class _HudItem {
+  const _HudItem(this.param, this.text);
+
+  final Parameter param;
+  final String text;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _HudItem && other.param == param && other.text == text;
+
+  @override
+  int get hashCode => Object.hash(param, text);
+}
+
+class _HudData {
+  const _HudData(this.visible, this.overflowCount);
+
+  final List<_HudItem> visible;
+  final int overflowCount;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! _HudData) return false;
+    if (other.overflowCount != overflowCount || other.visible.length != visible.length) return false;
+    for (var i = 0; i < visible.length; i++) {
+      if (visible[i] != other.visible[i]) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(Object.hashAll(visible), overflowCount);
 }

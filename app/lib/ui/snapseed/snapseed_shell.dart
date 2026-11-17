@@ -319,26 +319,9 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
   @override
   Widget build(BuildContext context) {
-    final recipe = ref.watch(recipeControllerProvider).recipe;
     final parameter = snapseedToolParameters[widget.tool]!.first;
     final spec = specOf(parameter);
     final zoneMask = ref.watch(zoneMaskProvider);
-    final lockedLayer = (zoneMask.lockedLayerIndex != null &&
-            zoneMask.lockedLayerIndex! < recipe.layers.length)
-        ? recipe.layers[zoneMask.lockedLayerIndex!]
-        : null;
-    final value = lockedLayer != null
-        ? switch (parameter) {
-            Parameter.exposure => lockedLayer.exposure,
-            Parameter.contrast => lockedLayer.contrast,
-            Parameter.highlights => lockedLayer.highlights,
-            Parameter.shadows => lockedLayer.shadows,
-            Parameter.saturation => lockedLayer.saturation,
-            Parameter.temperature => lockedLayer.temperature,
-            Parameter.tint => lockedLayer.tint,
-            _ => valueOf(recipe, parameter),
-          }
-        : valueOf(recipe, parameter);
     final scheme = Theme.of(context).colorScheme;
     // Node mode swaps the bottom chrome for the node adjust bar, so the
     // tool pill (and its Selective entry) steps aside until Done.
@@ -458,38 +441,11 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           top: MediaQuery.paddingOf(context).top + 16,
           left: 16,
           right: 16,
-          child: AnimatedOpacity(
-            opacity: ((widget.gesturePhase == GesturePhase.scrubbing ||
-                        _scrubVisible) &&
-                    !nodeMode)
-                ? 1.0
-                : 0.0,
-            duration: AppMotion.responsive(context, AppMotion.shortDuration),
-            curve: AppMotion.scrubCurve,
-              child: IgnorePointer(
-                child: SnapseedScrubHud(
-                  key: const Key('snapseed-scrub-hud-root'),
-                  tool: widget.tool,
-                value: value,
-                hue: widget.tool.is2D
-                    ? switch (widget.tool) {
-                        GradeTool.shadowsGrade => recipe.gradeShadowHue,
-                        GradeTool.midtonesGrade => recipe.gradeMidHue,
-                        GradeTool.highlightsGrade => recipe.gradeHighlightHue,
-                        _ => null,
-                      }
-                    : null,
-                sat: widget.tool.is2D
-                    ? switch (widget.tool) {
-                        GradeTool.shadowsGrade => recipe.gradeShadowSat,
-                        GradeTool.midtonesGrade => recipe.gradeMidSat,
-                        GradeTool.highlightsGrade => recipe.gradeHighlightSat,
-                        _ => null,
-                      }
-                    : null,
-                visible: true,
-              ),
-            ),
+          child: _SnapseedScrubHudHost(
+            tool: widget.tool,
+            gesturePhase: widget.gesturePhase,
+            scrubVisible: _scrubVisible,
+            nodeMode: nodeMode,
           ),
         ),
 
@@ -497,15 +453,10 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
         if (widget.gesturePhase == GesturePhase.cycling && !nodeMode)
           Positioned.fill(
             child: IgnorePointer(
-              child: SnapseedParameterCarousel(
+              child: _SnapseedCarouselHost(
                 category: widget.category,
                 tools: widget.tools,
                 activeTool: widget.tool,
-                values: {
-                  for (final t in widget.tools)
-                    if (!t.is2D && snapseedToolParameters[t] != null)
-                      t: valueOf(recipe, snapseedToolParameters[t]!.first),
-                },
                 visible: true,
               ),
             ),
@@ -667,46 +618,10 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              if (widget.tool.is2D) ...[
-                                Builder(builder: (_) {
-                                  final (h, s) = switch (widget.tool) {
-                                    GradeTool.shadowsGrade => (recipe.gradeShadowHue, recipe.gradeShadowSat),
-                                    GradeTool.midtonesGrade => (recipe.gradeMidHue, recipe.gradeMidSat),
-                                    GradeTool.highlightsGrade => (recipe.gradeHighlightHue, recipe.gradeHighlightSat),
-                                    _ => (0.0, 0.0),
-                                  };
-                                  final swatch = HSVColor.fromAHSV(1.0, h, s, 0.85).toColor();
-                                  return Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: s > 0.01 ? swatch : scheme.outline,
-                                          border: Border.all(color: scheme.onSurfaceVariant.withValues(alpha: 0.5), width: 0.5),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'H:${h.round()}° S:${(s * 100).round()}%',
-                                        style: themeStyle(context, FontWeight.w700).copyWith(
-                                          color: scheme.primary,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                }),
-                              ] else
-                                Text(
-                                  '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
-                                  style: themeStyle(context, FontWeight.w700).copyWith(
-                                    color: scheme.primary,
-                                    fontSize: 11,
-                                  ),
-                                ),
+                              if (widget.tool.is2D)
+                                _Snapseed2DColorIndicator(tool: widget.tool)
+                              else
+                                _Snapseed1DValueIndicator(tool: widget.tool),
                               Container(
                                 width: 1,
                                 height: 18,
@@ -1149,6 +1064,204 @@ class _RadialItem extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SnapseedScrubHudHost extends ConsumerWidget {
+  const _SnapseedScrubHudHost({
+    required this.tool,
+    required this.gesturePhase,
+    required this.scrubVisible,
+    required this.nodeMode,
+  });
+
+  final GradeTool tool;
+  final GesturePhase gesturePhase;
+  final bool scrubVisible;
+  final bool nodeMode;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final parameter = snapseedToolParameters[tool]!.first;
+    final zoneMask = ref.watch(zoneMaskProvider);
+    final value = ref.watch(
+      recipeControllerProvider.select((s) {
+        final recipe = s.recipe;
+        if (zoneMask.lockedLayerIndex != null &&
+            zoneMask.lockedLayerIndex! < recipe.layers.length) {
+          final layer = recipe.layers[zoneMask.lockedLayerIndex!];
+          return switch (parameter) {
+            Parameter.exposure => layer.exposure,
+            Parameter.contrast => layer.contrast,
+            Parameter.highlights => layer.highlights,
+            Parameter.shadows => layer.shadows,
+            Parameter.saturation => layer.saturation,
+            Parameter.temperature => layer.temperature,
+            Parameter.tint => layer.tint,
+            _ => valueOf(recipe, parameter),
+          };
+        }
+        return valueOf(recipe, parameter);
+      }),
+    );
+
+    final (hue, sat) = tool.is2D
+        ? ref.watch(
+            recipeControllerProvider.select((s) {
+              final recipe = s.recipe;
+              return switch (tool) {
+                GradeTool.shadowsGrade => (recipe.gradeShadowHue, recipe.gradeShadowSat),
+                GradeTool.midtonesGrade => (recipe.gradeMidHue, recipe.gradeMidSat),
+                GradeTool.highlightsGrade => (recipe.gradeHighlightHue, recipe.gradeHighlightSat),
+                _ => (0.0, 0.0),
+              };
+            }),
+          )
+        : (null, null);
+
+    return AnimatedOpacity(
+      opacity: ((gesturePhase == GesturePhase.scrubbing || scrubVisible) && !nodeMode)
+          ? 1.0
+          : 0.0,
+      duration: AppMotion.responsive(context, AppMotion.shortDuration),
+      curve: AppMotion.scrubCurve,
+      child: IgnorePointer(
+        child: SnapseedScrubHud(
+          key: const Key('snapseed-scrub-hud-root'),
+          tool: tool,
+          value: value,
+          hue: hue,
+          sat: sat,
+          visible: true,
+        ),
+      ),
+    );
+  }
+}
+
+class _SnapseedCarouselHost extends ConsumerWidget {
+  const _SnapseedCarouselHost({
+    required this.category,
+    required this.tools,
+    required this.activeTool,
+    required this.visible,
+  });
+
+  final ToolCategory category;
+  final List<GradeTool> tools;
+  final GradeTool activeTool;
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final values = ref.watch(
+      recipeControllerProvider.select((s) {
+        final recipe = s.recipe;
+        return {
+          for (final t in tools)
+            if (!t.is2D && snapseedToolParameters[t] != null)
+              t: valueOf(recipe, snapseedToolParameters[t]!.first),
+        };
+      }),
+    );
+
+    return SnapseedParameterCarousel(
+      category: category,
+      tools: tools,
+      activeTool: activeTool,
+      values: values,
+      visible: visible,
+    );
+  }
+}
+
+class _Snapseed2DColorIndicator extends ConsumerWidget {
+  const _Snapseed2DColorIndicator({required this.tool});
+
+  final GradeTool tool;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final (h, s) = ref.watch(
+      recipeControllerProvider.select((s) {
+        final recipe = s.recipe;
+        return switch (tool) {
+          GradeTool.shadowsGrade => (recipe.gradeShadowHue, recipe.gradeShadowSat),
+          GradeTool.midtonesGrade => (recipe.gradeMidHue, recipe.gradeMidSat),
+          GradeTool.highlightsGrade => (recipe.gradeHighlightHue, recipe.gradeHighlightSat),
+          _ => (0.0, 0.0),
+        };
+      }),
+    );
+    final swatch = HSVColor.fromAHSV(1.0, h, s, 0.85).toColor();
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: s > 0.01 ? swatch : scheme.outline,
+            border: Border.all(
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+              width: 0.5,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          'H:${h.round()}° S:${(s * 100).round()}%',
+          style: themeStyle(context, FontWeight.w700).copyWith(
+            color: scheme.primary,
+            fontSize: 11,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Snapseed1DValueIndicator extends ConsumerWidget {
+  const _Snapseed1DValueIndicator({required this.tool});
+
+  final GradeTool tool;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final parameter = snapseedToolParameters[tool]!.first;
+    final zoneMask = ref.watch(zoneMaskProvider);
+    final value = ref.watch(
+      recipeControllerProvider.select((s) {
+        final recipe = s.recipe;
+        if (zoneMask.lockedLayerIndex != null &&
+            zoneMask.lockedLayerIndex! < recipe.layers.length) {
+          final layer = recipe.layers[zoneMask.lockedLayerIndex!];
+          return switch (parameter) {
+            Parameter.exposure => layer.exposure,
+            Parameter.contrast => layer.contrast,
+            Parameter.highlights => layer.highlights,
+            Parameter.shadows => layer.shadows,
+            Parameter.saturation => layer.saturation,
+            Parameter.temperature => layer.temperature,
+            Parameter.tint => layer.tint,
+            _ => valueOf(recipe, parameter),
+          };
+        }
+        return valueOf(recipe, parameter);
+      }),
+    );
+
+    return Text(
+      '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
+      style: themeStyle(context, FontWeight.w700).copyWith(
+        color: scheme.primary,
+        fontSize: 11,
+      ),
     );
   }
 }

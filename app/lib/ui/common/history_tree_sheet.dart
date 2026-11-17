@@ -46,9 +46,14 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(recipeControllerProvider);
-    final tree = state.historyTree ??
-        HistoryTree.initial(initialRecipe: state.committed);
+    final tree = ref.watch(
+      recipeControllerProvider.select(
+        (s) => s.historyTree ?? HistoryTree.initial(initialRecipe: s.committed),
+      ),
+    );
+    final layers = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.layers),
+    );
     final snapshots = ref.watch(snapshotsProvider);
     final scheme = Theme.of(context).colorScheme;
     final strings = AppStrings.of(context);
@@ -148,7 +153,7 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                   ),
                   ButtonSegment<int>(
                     value: 1,
-                    label: Text('Stacks (${state.recipe.layers.length + (lineage.length > 1 ? lineage.length - 1 : 0)})'),
+                    label: Text('Stacks (${layers.length + (lineage.length > 1 ? lineage.length - 1 : 0)})'),
                     icon: const Icon(Icons.layers, size: 16),
                   ),
                   ButtonSegment<int>(
@@ -419,9 +424,9 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   children: [
                     // Selective Adjustment Layers in reverse order (top of stack first)
-                    for (int i = state.recipe.layers.length - 1; i >= 0; i--) ...[
+                    for (int i = layers.length - 1; i >= 0; i--) ...[
                       Builder(builder: (context) {
-                        final layer = state.recipe.layers[i];
+                        final layer = layers[i];
                         final maskName = switch (layer.maskKind) {
                           MaskKind.linear => 'Linear Gradient',
                           MaskKind.radial => 'Radial Gradient',
@@ -560,7 +565,7 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('New Snapshot'),
                       onPressed: () =>
-                          _promptNewSnapshot(context, ref, state.recipe),
+                          _promptNewSnapshot(context, ref, ref.read(recipeControllerProvider).recipe),
                     ),
                   ],
                 ),
@@ -599,7 +604,7 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                             icon: const Icon(Icons.bookmark_add, size: 18),
                             label: const Text('Capture Current Edit'),
                             onPressed: () =>
-                                _promptNewSnapshot(context, ref, state.recipe),
+                                _promptNewSnapshot(context, ref, ref.read(recipeControllerProvider).recipe),
                           ),
                         ],
                       ),

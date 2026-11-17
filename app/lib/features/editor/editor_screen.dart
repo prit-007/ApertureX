@@ -1399,10 +1399,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       }
     });
 
-    final state = ref.watch(recipeControllerProvider);
+    final canUndo = ref.watch(
+      recipeControllerProvider.select((s) => s.index > 0),
+    );
+    final canRedo = ref.watch(
+      recipeControllerProvider.select((s) => s.index < s.history.length - 1),
+    );
     final notifier = ref.read(recipeControllerProvider.notifier);
-    final canUndo = state.index > 0;
-    final canRedo = state.index < state.history.length - 1;
     final active = ref.watch(editActivityProvider);
     final glassmorphic = ref.watch(glassmorphicUiProvider);
 

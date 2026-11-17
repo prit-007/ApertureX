@@ -281,7 +281,6 @@ class SnapseedToolsSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final recipe = ref.watch(recipeControllerProvider).recipe;
 
     return Material(
       color: scheme.surface,
@@ -349,54 +348,9 @@ class SnapseedToolsSheet extends ConsumerWidget {
                   itemCount: snapseedToolsList.length,
                   itemBuilder: (context, index) {
                     final tool = snapseedToolsList[index];
-                    final isModified = isSnapseedToolModified(recipe, tool.id);
-                    return InkWell(
-                      borderRadius: Radii.mdAll,
+                    return _SnapseedToolTile(
+                      tool: tool,
                       onTap: () => _handleToolTap(context, ref, tool),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Badge(
-                            isLabelVisible: isModified,
-                            smallSize: 7,
-                            backgroundColor: scheme.primary,
-                            alignment: const AlignmentDirectional(0.85, -0.85),
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isModified
-                                    ? scheme.primaryContainer.withValues(alpha: 0.5)
-                                    : scheme.surfaceContainerHighest,
-                                border: Border.all(
-                                  color: isModified
-                                      ? scheme.primary.withValues(alpha: 0.6)
-                                      : scheme.outlineVariant.withValues(alpha: 0.35),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Icon(
-                                tool.icon,
-                                size: 23,
-                                color: isModified ? scheme.primary : scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            tool.label,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: isModified ? FontWeight.w700 : FontWeight.w500,
-                              color: isModified ? scheme.primary : scheme.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
                     );
                   },
                 ),
@@ -404,6 +358,75 @@ class SnapseedToolsSheet extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SnapseedToolTile extends ConsumerWidget {
+  const _SnapseedToolTile({
+    required this.tool,
+    required this.onTap,
+  });
+
+  final SnapseedToolDef tool;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final isModified = ref.watch(
+      recipeControllerProvider.select(
+        (s) => isSnapseedToolModified(s.recipe, tool.id),
+      ),
+    );
+
+    return InkWell(
+      borderRadius: Radii.mdAll,
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Badge(
+            isLabelVisible: isModified,
+            smallSize: 7,
+            backgroundColor: scheme.primary,
+            alignment: const AlignmentDirectional(0.85, -0.85),
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isModified
+                    ? scheme.primaryContainer.withValues(alpha: 0.5)
+                    : scheme.surfaceContainerHighest,
+                border: Border.all(
+                  color: isModified
+                      ? scheme.primary.withValues(alpha: 0.6)
+                      : scheme.outlineVariant.withValues(alpha: 0.35),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                tool.icon,
+                size: 23,
+                color: isModified ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            tool.label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isModified ? FontWeight.w700 : FontWeight.w500,
+              color: isModified ? scheme.primary : scheme.onSurface,
+            ),
+          ),
+        ],
       ),
     );
   }

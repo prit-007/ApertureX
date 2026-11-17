@@ -78,6 +78,29 @@ enum _EffectsDetailSubTab { effects, detail, blur, film }
 enum _CropGeometrySubTab { straighten, transform, perspective }
 enum _ProToolsSubTab { retouch, optics, shaderLab }
 
+class _LightroomDirtyState {
+  const _LightroomDirtyState({
+    required this.hasTabChanges,
+    required this.modifiedMasterMask,
+    required this.modifiedSubTabMask,
+  });
+
+  final bool hasTabChanges;
+  final int modifiedMasterMask;
+  final int modifiedSubTabMask;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _LightroomDirtyState &&
+          other.hasTabChanges == hasTabChanges &&
+          other.modifiedMasterMask == modifiedMasterMask &&
+          other.modifiedSubTabMask == modifiedSubTabMask;
+
+  @override
+  int get hashCode => Object.hash(hasTabChanges, modifiedMasterMask, modifiedSubTabMask);
+}
+
 class ActiveSectionNotifier extends Notifier<RecipeSection> {
   @override
   RecipeSection build() => RecipeSection.light;
@@ -210,14 +233,72 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     _ProToolsSubTab.shaderLab => isSectionModified(recipe, RecipeSection.lab),
   };
 
+  int _computeMasterMask(EditRecipe recipe) {
+    int mask = 0;
+    for (int i = 0; i < _masterTabs.length; i++) {
+      if (_isMasterTabModified(recipe, _masterTabs[i])) {
+        mask |= (1 << i);
+      }
+    }
+    return mask;
+  }
+
+  int _computeSubTabMask(EditRecipe recipe, MasterTab activeTab) {
+    int mask = 0;
+    switch (activeTab) {
+      case MasterTab.lightColor:
+        const tabs = _LightColorSubTab.values;
+        for (int i = 0; i < tabs.length; i++) {
+          if (_isLightColorSubTabModified(recipe, tabs[i])) mask |= (1 << i);
+        }
+        break;
+      case MasterTab.effectsDetail:
+        const tabs = _EffectsDetailSubTab.values;
+        for (int i = 0; i < tabs.length; i++) {
+          if (_isEffectsDetailSubTabModified(recipe, tabs[i])) mask |= (1 << i);
+        }
+        break;
+      case MasterTab.cropGeometry:
+        const tabs = _CropGeometrySubTab.values;
+        for (int i = 0; i < tabs.length; i++) {
+          if (_isCropGeometrySubTabModified(recipe, tabs[i])) mask |= (1 << i);
+        }
+        break;
+      case MasterTab.proTools:
+        const tabs = _ProToolsSubTab.values;
+        for (int i = 0; i < tabs.length; i++) {
+          if (_isProToolsSubTabModified(recipe, tabs[i])) mask |= (1 << i);
+        }
+        break;
+      default:
+        break;
+    }
+    return mask;
+  }
+
+  _LightroomDirtyState _computeDirtyState(
+    EditRecipe recipe,
+    EditRecipe? tabEntry,
+    MasterTab activeTab,
+  ) {
+    final hasTabChanges = tabEntry != null && recipe != tabEntry;
+    return _LightroomDirtyState(
+      hasTabChanges: hasTabChanges,
+      modifiedMasterMask: _computeMasterMask(recipe),
+      modifiedSubTabMask: _computeSubTabMask(recipe, activeTab),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final currentRecipe = ref.watch(recipeControllerProvider).recipe;
-    // Capture the tab-entry baseline when switching into a tab. This is the
-    // reference point for dirty detection and modal apply/discard.
-    _tabEntryRecipe ??= currentRecipe;
-    final hasTabChanges = _tabEntryRecipe != null && currentRecipe != _tabEntryRecipe;
+    _tabEntryRecipe ??= ref.read(recipeControllerProvider).recipe;
+    final dirtyState = ref.watch(
+      recipeControllerProvider.select(
+        (s) => _computeDirtyState(s.recipe, _tabEntryRecipe, _activeTab),
+      ),
+    );
+    final hasTabChanges = dirtyState.hasTabChanges;
 
     final canUndo = ref.watch(
       recipeControllerProvider.select((s) => s.index > 0),
@@ -328,7 +409,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                     chip(
                       tab,
                       tab == _activeTab,
-                      _isMasterTabModified(currentRecipe, tab),
+                      (dirtyState.modifiedMasterMask & (1 << _masterTabs.indexOf(tab))) != 0,
                       () {
                         HapticFeedback.selectionClick();
                         // Modal guard: block switching tabs while the current
@@ -732,7 +813,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             Expanded(
               child: SafeArea(
                 bottom: false,
-                child: _sectionBody(currentRecipe, hasTabChanges, controller),
+                child: _sectionBody(dirtyState, hasTabChanges, controller),
               ),
             ),
           ],
@@ -756,7 +837,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
 
   /// The body for the active Master Tab.
   Widget _sectionBody(
-    EditRecipe currentRecipe,
+    _LightroomDirtyState dirtyState,
     bool hasTabChanges,
     RecipeController controller,
   ) {
@@ -766,11 +847,11 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
           children: [
             _subTabs(
               tabs: [
-                ('Light', _LightColorSubTab.light, 'light', _isLightColorSubTabModified(currentRecipe, _LightColorSubTab.light)),
-                ('Color', _LightColorSubTab.color, 'color', _isLightColorSubTabModified(currentRecipe, _LightColorSubTab.color)),
-                ('Curve', _LightColorSubTab.curve, 'curve', _isLightColorSubTabModified(currentRecipe, _LightColorSubTab.curve)),
-                ('Mix', _LightColorSubTab.mix, 'mix', _isLightColorSubTabModified(currentRecipe, _LightColorSubTab.mix)),
-                ('Grade', _LightColorSubTab.grade, 'grade', _isLightColorSubTabModified(currentRecipe, _LightColorSubTab.grade)),
+                ('Light', _LightColorSubTab.light, 'light', (dirtyState.modifiedSubTabMask & (1 << _LightColorSubTab.light.index)) != 0),
+                ('Color', _LightColorSubTab.color, 'color', (dirtyState.modifiedSubTabMask & (1 << _LightColorSubTab.color.index)) != 0),
+                ('Curve', _LightColorSubTab.curve, 'curve', (dirtyState.modifiedSubTabMask & (1 << _LightColorSubTab.curve.index)) != 0),
+                ('Mix', _LightColorSubTab.mix, 'mix', (dirtyState.modifiedSubTabMask & (1 << _LightColorSubTab.mix.index)) != 0),
+                ('Grade', _LightColorSubTab.grade, 'grade', (dirtyState.modifiedSubTabMask & (1 << _LightColorSubTab.grade.index)) != 0),
               ],
               current: _lightColorTab,
               hasTabChanges: hasTabChanges,
@@ -823,10 +904,10 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
           children: [
             _subTabs(
               tabs: [
-                ('Effects', _EffectsDetailSubTab.effects, 'effects', _isEffectsDetailSubTabModified(currentRecipe, _EffectsDetailSubTab.effects)),
-                ('Detail', _EffectsDetailSubTab.detail, 'detail', _isEffectsDetailSubTabModified(currentRecipe, _EffectsDetailSubTab.detail)),
-                ('Blur', _EffectsDetailSubTab.blur, 'blur', _isEffectsDetailSubTabModified(currentRecipe, _EffectsDetailSubTab.blur)),
-                ('Film', _EffectsDetailSubTab.film, 'film', _isEffectsDetailSubTabModified(currentRecipe, _EffectsDetailSubTab.film)),
+                ('Effects', _EffectsDetailSubTab.effects, 'effects', (dirtyState.modifiedSubTabMask & (1 << _EffectsDetailSubTab.effects.index)) != 0),
+                ('Detail', _EffectsDetailSubTab.detail, 'detail', (dirtyState.modifiedSubTabMask & (1 << _EffectsDetailSubTab.detail.index)) != 0),
+                ('Blur', _EffectsDetailSubTab.blur, 'blur', (dirtyState.modifiedSubTabMask & (1 << _EffectsDetailSubTab.blur.index)) != 0),
+                ('Film', _EffectsDetailSubTab.film, 'film', (dirtyState.modifiedSubTabMask & (1 << _EffectsDetailSubTab.film.index)) != 0),
               ],
               current: _effectsDetailTab,
               hasTabChanges: hasTabChanges,
@@ -889,9 +970,9 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
           children: [
             _subTabs(
               tabs: [
-                ('Straighten', _CropGeometrySubTab.straighten, 'straighten', _isCropGeometrySubTabModified(currentRecipe, _CropGeometrySubTab.straighten)),
-                ('Transform', _CropGeometrySubTab.transform, 'transform', _isCropGeometrySubTabModified(currentRecipe, _CropGeometrySubTab.transform)),
-                ('Perspective', _CropGeometrySubTab.perspective, 'perspective', _isCropGeometrySubTabModified(currentRecipe, _CropGeometrySubTab.perspective)),
+                ('Straighten', _CropGeometrySubTab.straighten, 'straighten', (dirtyState.modifiedSubTabMask & (1 << _CropGeometrySubTab.straighten.index)) != 0),
+                ('Transform', _CropGeometrySubTab.transform, 'transform', (dirtyState.modifiedSubTabMask & (1 << _CropGeometrySubTab.transform.index)) != 0),
+                ('Perspective', _CropGeometrySubTab.perspective, 'perspective', (dirtyState.modifiedSubTabMask & (1 << _CropGeometrySubTab.perspective.index)) != 0),
               ],
               current: _cropGeometryTab,
               hasTabChanges: hasTabChanges,
@@ -932,9 +1013,9 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
           children: [
             _subTabs(
               tabs: [
-                ('Retouch', _ProToolsSubTab.retouch, 'retouch', _isProToolsSubTabModified(currentRecipe, _ProToolsSubTab.retouch)),
-                ('Optics', _ProToolsSubTab.optics, 'optics', _isProToolsSubTabModified(currentRecipe, _ProToolsSubTab.optics)),
-                ('Shader Lab', _ProToolsSubTab.shaderLab, 'shaderLab', _isProToolsSubTabModified(currentRecipe, _ProToolsSubTab.shaderLab)),
+                ('Retouch', _ProToolsSubTab.retouch, 'retouch', (dirtyState.modifiedSubTabMask & (1 << _ProToolsSubTab.retouch.index)) != 0),
+                ('Optics', _ProToolsSubTab.optics, 'optics', (dirtyState.modifiedSubTabMask & (1 << _ProToolsSubTab.optics.index)) != 0),
+                ('Shader Lab', _ProToolsSubTab.shaderLab, 'shaderLab', (dirtyState.modifiedSubTabMask & (1 << _ProToolsSubTab.shaderLab.index)) != 0),
               ],
               current: _proToolsTab,
               hasTabChanges: hasTabChanges,
@@ -1549,7 +1630,6 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final recipe = ref.watch(recipeControllerProvider).recipe;
     final notifier = ref.read(recipeControllerProvider.notifier);
     final communityState = ref.watch(communityPresetsProvider);
 
@@ -1571,9 +1651,8 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
       if (!_matchesCategory(catLabel, _selectedCategory)) {
         continue;
       }
-      final isApplied = _looksMatch(p.tool, recipe);
       seenNames.add(p.name.toLowerCase());
-      allItems.add(_PresetItem.catalog(p, catLabel, isApplied, () {
+      allItems.add(_PresetItem.catalog(p, catLabel, () {
         HapticFeedback.lightImpact();
         setState(() {
           _activePresetTool = p.tool;
@@ -1603,13 +1682,12 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
     for (final preset in communityPresets) {
       if (seenNames.contains(preset.name.toLowerCase())) continue;
       seenNames.add(preset.name.toLowerCase());
-      final isApplied = _presetMatches(preset, recipe);
       final communityTool = ToolDefinition(
         name: preset.name,
         description: preset.description,
         params: preset.params ?? const {},
       );
-      allItems.add(_PresetItem.community(preset, isApplied, () {
+      allItems.add(_PresetItem.community(preset, () {
         HapticFeedback.lightImpact();
         setState(() {
           _activePresetTool = communityTool;
@@ -1629,8 +1707,7 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
           continue;
         }
       }
-      final isApplied = _looksMatch(tool, recipe);
-      allItems.add(_PresetItem.builtin(tool, 'Film', isApplied, () {
+      allItems.add(_PresetItem.builtin(tool, 'Film', () {
         HapticFeedback.lightImpact();
         setState(() {
           _activePresetTool = tool;
@@ -1816,7 +1893,6 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
                     final item = allItems[idx];
                     return _PresetStripItem(
                       item: item,
-                      recipe: recipe,
                       notifier: notifier,
                     );
                   },
@@ -1838,35 +1914,24 @@ class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
       ],
     );
   }
+}
 
-  bool _looksMatch(ToolDefinition tool, EditRecipe recipe) {
-    for (final entry in tool.params.entries) {
-      final param = _parameterByName(entry.key);
-      if (param == null) continue;
-      final current = valueOf(recipe, param);
-      if ((current - entry.value).abs() > 0.01) return false;
-    }
-    return true;
+Parameter? _parameterByName(String name) {
+  for (final p in Parameter.values) {
+    if (p.name == name) return p;
   }
+  return null;
+}
 
-  bool _presetMatches(CommunityPreset preset, EditRecipe recipe) {
-    final params = preset.params;
-    if (params == null || params.isEmpty) return false;
-    for (final entry in params.entries) {
-      final param = _parameterByName(entry.key);
-      if (param == null) continue;
-      final current = valueOf(recipe, param);
-      if ((current - entry.value).abs() > 0.01) return false;
-    }
-    return true;
+bool _itemMatches(_PresetItem item, EditRecipe recipe) {
+  if (item.params.isEmpty) return false;
+  for (final entry in item.params.entries) {
+    final param = _parameterByName(entry.key);
+    if (param == null) continue;
+    final current = valueOf(recipe, param);
+    if ((current - entry.value).abs() > 0.01) return false;
   }
-
-  Parameter? _parameterByName(String name) {
-    for (final p in Parameter.values) {
-      if (p.name == name) return p;
-    }
-    return null;
-  }
+  return true;
 }
 
 /// Union of built-in looks and community presets for the cinema strip.
@@ -1877,8 +1942,8 @@ class _PresetItem {
     required this.description,
     required this.params,
     required this.category,
-    required this.isApplied,
     required this.onTap,
+    this.isApplied = false,
     this.tool,
     this.author,
     this.rating,
@@ -1890,9 +1955,9 @@ class _PresetItem {
   factory _PresetItem.catalog(
     PresetItem item,
     String category,
-    bool isApplied,
-    VoidCallback onTap,
-  ) {
+    VoidCallback onTap, {
+    bool isApplied = false,
+  }) {
     return _PresetItem._(
       kind: 'catalog',
       name: item.name,
@@ -1911,9 +1976,9 @@ class _PresetItem {
   factory _PresetItem.builtin(
     ToolDefinition tool,
     String category,
-    bool isApplied,
-    VoidCallback onTap,
-  ) {
+    VoidCallback onTap, {
+    bool isApplied = false,
+  }) {
     return _PresetItem._(
       kind: 'builtin',
       name: tool.name,
@@ -1928,9 +1993,9 @@ class _PresetItem {
 
   factory _PresetItem.community(
     CommunityPreset preset,
-    bool isApplied,
-    VoidCallback onTap,
-  ) {
+    VoidCallback onTap, {
+    bool isApplied = false,
+  }) {
     final tool = ToolDefinition(
       name: preset.name,
       description: preset.description,
@@ -1969,18 +2034,18 @@ class _PresetItem {
 class _PresetStripItem extends ConsumerWidget {
   const _PresetStripItem({
     required this.item,
-    required this.recipe,
     required this.notifier,
   });
 
   final _PresetItem item;
-  final EditRecipe recipe;
   final RecipeController notifier;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final isApplied = item.isApplied;
+    final isApplied = ref.watch(
+      recipeControllerProvider.select((s) => _itemMatches(item, s.recipe)),
+    );
     final matrix = computePresetColorMatrix(item.params);
 
     return GestureDetector(
