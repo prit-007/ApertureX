@@ -18,6 +18,8 @@
         android:label="ApertureX"
         android:name=".AxApplication"
         android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:requestLegacyExternalStorage="true">
         <activity
             android:name=".MainActivity"

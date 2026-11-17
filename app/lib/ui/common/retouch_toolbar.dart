@@ -21,8 +21,9 @@ class RetouchToolbar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recipe = ref.watch(recipeControllerProvider).recipe;
-    final patches = recipe.retouchPatches;
+    final patches = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.retouchPatches),
+    );
     final selectedIdx = ref.watch(selectedRetouchPatchIndexProvider);
     final brush = ref.watch(retouchBrushProvider);
     final brushNotifier = ref.read(retouchBrushProvider.notifier);

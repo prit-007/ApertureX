@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -175,6 +176,27 @@ ExportSpecs specsFor(EditRecipe recipe) => ExportSpecs(
   maskGroups: recipe.maskGroups,
 );
 
+/// Global lock to ensure at most 1 large RAW decode runs in memory at a time.
+class _RawDecodeLock {
+  Future<void>? _current;
+
+  Future<T> run<T>(Future<T> Function() action) async {
+    while (_current != null) {
+      await _current;
+    }
+    final completer = Completer<void>();
+    _current = completer.future;
+    try {
+      return await action();
+    } finally {
+      _current = null;
+      completer.complete();
+    }
+  }
+}
+
+final _RawDecodeLock _rawLock = _RawDecodeLock();
+
 /// Exports gallery assets to the device Photos/DCIM (batch or single), applying
 /// each asset's recipe. Grading reuses the exact preview path, and the source
 /// EXIF is preserved (#12/#13).
@@ -246,7 +268,7 @@ class GalleryExporter {
     final int height;
     var exif = Uint8List(0);
     if (isRawImage(src)) {
-      final decoded = await AxEngine.decodeRawRgba(src);
+      final decoded = await _rawLock.run(() => AxEngine.decodeRawRgba(src));
       rgba = decoded.rgba;
       width = decoded.width;
       height = decoded.height;

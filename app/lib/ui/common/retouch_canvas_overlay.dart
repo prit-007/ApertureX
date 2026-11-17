@@ -79,7 +79,9 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final recipe = ref.watch(recipeControllerProvider).recipe;
+    final patches = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.retouchPatches),
+    );
     final selectedIndex = ref.watch(selectedRetouchPatchIndexProvider);
     final brush = ref.watch(retouchBrushProvider);
     final notifier = ref.read(recipeControllerProvider.notifier);
@@ -349,7 +351,7 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
           child: CustomPaint(
             size: Size(w, h),
             painter: _RetouchPainter(
-              patches: recipe.retouchPatches,
+              patches: patches,
               selectedIndex: selectedIndex,
               themeScheme: Theme.of(context).colorScheme,
               transform: transform,

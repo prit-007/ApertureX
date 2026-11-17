@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide GlobalMaterialLocalizations;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/error/boundaries.dart';
 import 'core/error/crash_marker.dart';
@@ -26,6 +27,7 @@ import 'gallery/gallery_screen.dart';
 import 'gallery/gallery_source_factory.dart';
 import 'l10n/app_strings.dart';
 import 'settings/app_settings.dart';
+import 'settings/shared_preferences_provider.dart';
 import 'ui/desktop/desktop_menu_bar.dart';
 import 'ui/precision_gear.dart';
 import 'viewport/shader_warmup.dart';
@@ -49,10 +51,15 @@ void main() {
       // Degrade, don't die: every later engine call re-hits the boundary.
       reporter.report(error, stack, fatal: true);
     }
+    SharedPreferences? prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (_) {}
     runApp(
       bootstrapApp(
         overrides: [
           gallerySourceProvider.overrideWithValue(defaultGallerySource()),
+          if (prefs != null) sharedPreferencesProvider.overrideWithValue(prefs),
         ],
         child: const PrecisionListener(child: ApertureXApp()),
       ),

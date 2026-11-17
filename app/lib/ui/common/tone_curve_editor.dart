@@ -113,8 +113,9 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final recipe = ref.watch(recipeControllerProvider).recipe;
-    final curve = _curveOf(recipe);
+    final curve = ref.watch(
+      recipeControllerProvider.select((s) => _curveOf(s.recipe)),
+    );
     final pts = _toPoints(curve);
     final histogram = ref.watch(histogramProvider);
     final notifier = ref.read(recipeControllerProvider.notifier);

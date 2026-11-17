@@ -39,10 +39,15 @@ class BlurControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recipe = ref.watch(recipeControllerProvider).recipe;
+    final blurEnabled = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.blurEnabled),
+    );
+    final blurBokehShape = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.blurBokehShape),
+    );
     final notifier = ref.read(recipeControllerProvider.notifier);
 
-    final currentShapeIndex = recipe.blurBokehShape.clamp(0, BokehShape.values.length - 1);
+    final currentShapeIndex = blurBokehShape.clamp(0, BokehShape.values.length - 1);
     final currentShape = BokehShape.values[currentShapeIndex];
 
     return Theme(
@@ -69,7 +74,7 @@ class BlurControls extends ConsumerWidget {
                 title: Text(AppStrings.of(context).blurDepthAware),
                 subtitle: Text(AppStrings.of(context).blurDepthAwareSubtitle),
                 visualDensity: VisualDensity.compact,
-                value: recipe.blurEnabled,
+                value: blurEnabled,
                 onChanged: (val) async {
                   notifier.setBlurEnabled(val);
                   if (val) {
@@ -77,7 +82,7 @@ class BlurControls extends ConsumerWidget {
                   }
                 },
               ),
-              if (recipe.blurEnabled)
+              if (blurEnabled)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   child: Align(
@@ -93,14 +98,14 @@ class BlurControls extends ConsumerWidget {
                     ),
                   ),
                 ),
-              if (recipe.blurEnabled) ...[
+              if (blurEnabled) ...[
                 const _ParamPad(Parameter.blurAmount),
                 const _ParamPad(Parameter.blurFocalPoint),
                 const _ParamPad(Parameter.blurFocalRange),
               ],
             ],
           ),
-          if (recipe.blurEnabled) ...[
+          if (blurEnabled) ...[
             ExpansionTile(
               initiallyExpanded: false, // Collapsed by default to save space!
               title: _PanelTitle(AppStrings.of(context).blurSectionBokehShape),

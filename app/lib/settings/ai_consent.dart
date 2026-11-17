@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'shared_preferences_provider.dart';
+
 /// SharedPreferences key for on-device AI user data consent.
 const String kAiConsentPrefKey = 'ai_processing_consent';
 
@@ -26,6 +28,15 @@ class AiConsentNotifier extends Notifier<AiConsentStatus> {
 
   @override
   AiConsentStatus build() {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    if (prefs != null) {
+      if (prefs.containsKey(kAiConsentPrefKey)) {
+        final granted = prefs.getBool(kAiConsentPrefKey);
+        if (granted == true) return AiConsentStatus.granted;
+        if (granted == false) return AiConsentStatus.declined;
+      }
+      return AiConsentStatus.unprompted;
+    }
     _restore();
     return AiConsentStatus.unprompted;
   }

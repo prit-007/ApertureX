@@ -1,0 +1,11 @@
+# Example release signing configuration template for ApertureX.
+# DO NOT COMMIT REAL PASSWORDS OR PRIVATE KEYSTORES TO SOURCE CONTROL.
+#
+# To sign production release builds:
+# 1. Copy this file to `key.properties` in `app/android/`
+# 2. Fill in the values below pointing to your secured release keystore:
+#
+# storeFile=upload-keystore.jks
+# storePassword=YOUR_SECURE_STORE_PASSWORD
+# keyAlias=aperturex
+# keyPassword=YOUR_SECURE_KEY_PASSWORD

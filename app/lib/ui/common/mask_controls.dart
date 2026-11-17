@@ -267,9 +267,9 @@ class MaskControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recipe = ref.watch(recipeControllerProvider).recipe;
-    final layers = recipe.layers;
-    final maskGroups = recipe.maskGroups;
+    final (layers, maskGroups) = ref.watch(
+      recipeControllerProvider.select((s) => (s.recipe.layers, s.recipe.maskGroups)),
+    );
     final notifier = ref.read(recipeControllerProvider.notifier);
     final stylusOnly = ref.watch(stylusOnlyModeProvider);
     final nodeMode = ref.watch(nodeEditorProvider.select((s) => s.enabled));

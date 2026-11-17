@@ -71,9 +71,10 @@ class RetouchControls extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final recipe = ref.watch(recipeControllerProvider).recipe;
+    final patches = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.retouchPatches),
+    );
     final notifier = ref.read(recipeControllerProvider.notifier);
-    final patches = recipe.retouchPatches;
     final selectedIndex = ref.watch(selectedRetouchPatchIndexProvider);
     final brush = ref.watch(retouchBrushProvider);
     final brushNotifier = ref.read(retouchBrushProvider.notifier);

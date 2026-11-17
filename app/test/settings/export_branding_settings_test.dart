@@ -23,7 +23,7 @@ void main() {
       expect(settings.signatureDropShadow, isTrue);
       expect(settings.enableTiledWatermark, isFalse);
       expect(settings.enableFossBadge, isFalse);
-      expect(settings.enableC2pa, isTrue);
+      expect(settings.enableC2pa, isFalse);
     });
 
     test('toRustBrandingSpec maps correctly', () {

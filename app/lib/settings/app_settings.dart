@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
+import 'shared_preferences_provider.dart';
 
 /// App-wide appearance preference. Photo editing defaults to **dark chrome** so
 /// the UI never biases perception of the image (ADR 0011); the choice is
@@ -14,7 +15,13 @@ class AppSettings extends Notifier<ThemeMode> {
 
   @override
   ThemeMode build() {
-    _restore();
+    final prefs = ref.watch(sharedPreferencesProvider);
+    if (prefs != null) {
+      final name = prefs.getString(_key);
+      if (name != null) return _fromName(name);
+    } else {
+      _restore();
+    }
     return ThemeMode.dark;
   }
 

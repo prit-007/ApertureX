@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
+import 'shared_preferences_provider.dart';
 
 /// Which UI shell is active (ADR 0008). Lightroom is the default; neither shell
 /// owns edit state — both render the same recipe through the same canvas. The
@@ -17,7 +18,17 @@ class ShellPreference extends Notifier<AppShellKind> {
 
   @override
   AppShellKind build() {
-    _restore();
+    final prefs = ref.watch(sharedPreferencesProvider);
+    if (prefs != null) {
+      final name = prefs.getString(_key);
+      if (name != null) {
+        return name == AppShellKind.snapseed.name
+            ? AppShellKind.snapseed
+            : AppShellKind.lightroom;
+      }
+    } else {
+      _restore();
+    }
     return AppShellKind.lightroom;
   }
 

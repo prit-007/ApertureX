@@ -414,6 +414,8 @@ pub struct BrandedFrame {
 // carries a progress cell (permille 0–1000) the worker updates between bands
 // and the UI polls via `export_progress_get` for a determinate bar.
 
+const MAX_CANCEL_TOKENS: usize = 256;
+
 struct CancelStore {
     /// Starts at 1: token 0 is reserved as the "no cancellation" sentinel.
     next: u64,
@@ -433,8 +435,16 @@ fn lock_cancels() -> std::sync::MutexGuard<'static, CancelStore> {
 
 /// Creates a cancel token. Pass it to [`export_full`], call
 /// [`export_cancel_set`] from the UI to abort, then [`export_cancel_drop`].
+///
+/// Limits in-flight tokens to [`MAX_CANCEL_TOKENS`] with oldest-first eviction
+/// to prevent unbounded memory growth from forgotten or leaked tokens.
 pub fn export_cancel_new() -> u64 {
     let mut store = lock_cancels();
+    if store.tokens.len() >= MAX_CANCEL_TOKENS {
+        if let Some(&oldest) = store.tokens.keys().min() {
+            store.tokens.remove(&oldest);
+        }
+    }
     let id = store.next;
     store.next += 1;
     store.tokens.insert(
@@ -1069,6 +1079,29 @@ mod tests {
             cancel_flag(token).is_none(),
             "dropped token resolves to None"
         );
+    }
+
+    #[test]
+    fn cancel_store_bounds_growth_via_oldest_eviction() {
+        let first = export_cancel_new();
+        assert!(cancel_flag(first).is_some());
+
+        // Allocate up to MAX_CANCEL_TOKENS + 10 to trigger eviction
+        let mut tokens = vec![first];
+        for _ in 0..MAX_CANCEL_TOKENS + 10 {
+            tokens.push(export_cancel_new());
+        }
+
+        // The earliest token must have been evicted to respect memory budget
+        assert!(
+            cancel_flag(first).is_none(),
+            "oldest token must be evicted when capacity is reached"
+        );
+
+        // Clean up remaining tokens
+        for t in tokens {
+            export_cancel_drop(t);
+        }
     }
 
     #[test]

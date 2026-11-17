@@ -18,6 +18,7 @@ import '../edit/muted_parameters.dart';
 import '../edit/parameter.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_controller.dart';
+import '../edit/recipe_state.dart';
 import '../edit/snapshots_provider.dart';
 import '../engine/engine.dart';
 import '../engine/image_format.dart';
@@ -229,6 +230,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   bool _multi = false;
   bool _zoneTargeting = false;
   bool _wiperDragging = false;
+  final List<ProviderSubscription<dynamic>> _subscriptions = [];
+
+  static int _selectGeometryTransform(RecipeState s) => Object.hash(
+        s.recipe.straighten,
+        s.recipe.perspectiveX,
+        s.recipe.perspectiveY,
+        s.recipe.skewX,
+        s.recipe.skewY,
+      );
 
   @override
   void initState() {
@@ -249,7 +259,207 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     // fade runs on the shader path, idle returns to zero-copy (#54).
     _compare.addStatusListener(_onDeliveryGestureSettled);
     _maskPeek.addStatusListener(_onDeliveryGestureSettled);
+    _setupListeners();
     _load();
+  }
+
+  void _setupListeners() {
+    _subscriptions.add(
+      ref.listenManual<Uint8List?>(activeImageBytesProvider, (previous, next) {
+        if (next != null && next.isNotEmpty && next != _roiBytes) {
+          _upgradeRoiBytes(next);
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(recipeControllerProvider, (previous, next) {
+        if (previous?.recipe != next.recipe) {
+          _scheduleBake(next.recipe);
+          _scheduleRoi(); // spatial/mask changes must re-bake the overlay band
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual<bool>(
+        recipeControllerProvider.select((s) => s.recipe.blurEnabled),
+        (previous, next) {
+          if (next && previous != true) unawaited(_ensureEmbeddedDepth());
+        },
+      ),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(
+        importedLutProvider,
+        (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
+      ),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(
+        mutedParametersProvider,
+        (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
+      ),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(zeroCopyTextureProvider, (_, enabled) {
+        setState(() {
+          _useTexture = _computeUseTexture();
+          _needsReset = true;
+        });
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual<ExposureAssistState>(exposureAssistProvider, (previous, next) {
+        if (next.mode == ExposureAssistMode.zebras) {
+          if (!_reduceMotion && !_zebraTicker.isAnimating) {
+            _zebraTicker.repeat();
+          }
+        } else {
+          if (_zebraTicker.isAnimating) {
+            _zebraTicker.stop();
+          }
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual<bool>(editActivityProvider, (previous, active) {
+        if (previous == true && !active) {
+          _settleDebounce?.cancel();
+          _settleFullRes();
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(maskPeekProvider, (previous, next) {
+        if (previous == next) return;
+        if (_reduceMotion) {
+          _maskPeek.value = next ? 1.0 : 0.0;
+        } else {
+          if (next) {
+            _maskPeek.forward();
+          } else {
+            _maskPeek.reverse();
+          }
+        }
+        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(compareHoldProvider, (previous, next) {
+        if (previous == next) return;
+        if (_reduceMotion) {
+          _compare.value = next ? 1.0 : 0.0;
+        } else {
+          setState(() => _comparing = next);
+          if (next) {
+            _compare.forward();
+          } else {
+            _compare.reverse();
+          }
+        }
+        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual<bool>(snapshotCompareEnabledProvider, (_, enabled) {
+        if (enabled) {
+          final snapshot = ref.read(snapshotCompareRecipeProvider);
+          if (snapshot != null) {
+            _scheduleSnapshotBake(snapshot);
+          }
+        } else {
+          _snapshotImage?.dispose();
+          _snapshotImage = null;
+          setState(() {});
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual<EditRecipe?>(snapshotCompareRecipeProvider, (_, recipe) {
+        if (ref.read(snapshotCompareEnabledProvider) && recipe != null) {
+          _scheduleSnapshotBake(recipe);
+        } else if (recipe == null) {
+          _snapshotImage?.dispose();
+          _snapshotImage = null;
+          if (mounted) setState(() {});
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(zoneMaskProvider, (previous, next) {
+        if (previous?.isTargeting != next.isTargeting) {
+          _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(wiperCompareProvider, (previous, next) {
+        if (previous?.isActive != next.isActive) {
+          _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(splitCompareProvider, (previous, next) {
+        if (previous?.isEnabled != next.isEnabled) {
+          _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(softProofingProvider, (previous, next) {
+        if (previous?.enabled != next.enabled) {
+          _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(canvasGestureProvider, (previous, next) {
+        if (next == null) return;
+        if (next.isStart && next.focalPoint != null) {
+          _multi = true;
+          _startScale = _scale;
+          _startOffset = _offset;
+          _startFocal = next.focalPoint!;
+        } else if (next.isEnd) {
+          _onScaleEnd();
+        } else if (_multi && next.focalPoint != null) {
+          final scale = (_scale * next.scaleDelta).clamp(_minScale, _maxScale);
+          final offset = _offset + next.focalDelta;
+          setState(() {
+            _scale = scale;
+            _offset = _clampOffset(offset, scale, _lastFitted, _lastBounds);
+          });
+          _scheduleRoi();
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual<bool>(tatModeProvider, (previous, next) {
+        if (!next && _baseRgba != null) {
+          _baseRgba = null;
+          _updatePixelSampler();
+        } else if (next && _baseRgba == null) {
+          _scheduleBake(ref.read(recipeControllerProvider).recipe);
+        }
+      }),
+    );
   }
 
   @override
@@ -1042,10 +1252,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       image.dispose();
       return;
     }
+    final keepRgba = ref.read(tatModeProvider);
     setState(() {
       _baseImage?.dispose();
       _baseImage = image;
-      _baseRgba = frame.rgba;
+      _baseRgba = keepRgba ? frame.rgba : null;
       _baseW = frame.width;
       _baseH = frame.height;
       _isBaseProxy = useFastProxy;
@@ -1232,6 +1443,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (fastHandle != null) {
       unawaited(AxEngine.previewClose(fastHandle));
     }
+    for (final sub in _subscriptions) {
+      sub.close();
+    }
+    _subscriptions.clear();
     super.dispose();
   }
 
@@ -1243,160 +1458,6 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   Widget build(BuildContext context) {
     _devicePixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ??
         View.of(context).devicePixelRatio;
-
-    ref.listen<Uint8List?>(activeImageBytesProvider, (previous, next) {
-      if (next != null && next.isNotEmpty && next != _roiBytes) {
-        _upgradeRoiBytes(next);
-      }
-    });
-
-    ref.listen(recipeControllerProvider, (previous, next) {
-      if (previous?.recipe != next.recipe) {
-        _scheduleBake(next.recipe);
-        _scheduleRoi(); // spatial/mask changes must re-bake the overlay band
-      }
-    });
-    ref.listen<bool>(
-      recipeControllerProvider.select((s) => s.recipe.blurEnabled),
-      (previous, next) {
-        if (next && previous != true) unawaited(_ensureEmbeddedDepth());
-      },
-    );
-    ref.listen(
-      importedLutProvider,
-      (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
-    );
-    // Toggling a mute re-renders with that parameter neutralised.
-    ref.listen(
-      mutedParametersProvider,
-      (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
-    );
-    ref.listen(zeroCopyTextureProvider, (_, enabled) {
-      setState(() {
-        _useTexture = _computeUseTexture();
-        _needsReset = true;
-      });
-    });
-    ref.listen<ExposureAssistState>(exposureAssistProvider, (previous, next) {
-      if (next.mode == ExposureAssistMode.zebras) {
-        if (!_reduceMotion && !_zebraTicker.isAnimating) {
-          _zebraTicker.repeat();
-        }
-      } else {
-        if (_zebraTicker.isAnimating) {
-          _zebraTicker.stop();
-        }
-      }
-    });
-    // Universal fast-proxy scrub settling: on pointer release / gesture end,
-    // settle to tack-sharp full-res frame immediately.
-    ref.listen<bool>(editActivityProvider, (previous, active) {
-      if (previous == true && !active) {
-        _settleDebounce?.cancel();
-        _settleFullRes();
-      }
-    });
-    // Auto-peeking mask view (issue #27): crossfade while a detail slider is
-    // held, back to the graded image on release.
-    ref.listen(maskPeekProvider, (previous, next) {
-      if (previous == next) return;
-      if (_reduceMotion) {
-        _maskPeek.value = next ? 1.0 : 0.0;
-      } else {
-        if (next) {
-          _maskPeek.forward();
-        } else {
-          _maskPeek.reverse();
-        }
-      }
-      // The crossfade only renders on the shader path — switch delivery for
-      // the gesture and back (#54).
-      _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
-    });
-    // Before/after compare: long-press on the photo or the panel's Compare
-    // button both drive the same flag (issue #28).
-    ref.listen(compareHoldProvider, (previous, next) {
-      if (previous == next) return;
-      if (_reduceMotion) {
-        _compare.value = next ? 1.0 : 0.0;
-      } else {
-        setState(() => _comparing = next);
-        if (next) {
-          _compare.forward();
-        } else {
-          _compare.reverse();
-        }
-      }
-      _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
-    });
-    // Snapshot A/B compare: bake the snapshot recipe when the toggle is on
-    // and a snapshot recipe is set, so it can serve as the compare "before."
-    ref.listen<bool>(snapshotCompareEnabledProvider, (_, enabled) {
-      if (enabled) {
-        final snapshot = ref.read(snapshotCompareRecipeProvider);
-        if (snapshot != null) {
-          _scheduleSnapshotBake(snapshot);
-        }
-      } else {
-        _snapshotImage?.dispose();
-        _snapshotImage = null;
-        setState(() {});
-      }
-    });
-    ref.listen<EditRecipe?>(snapshotCompareRecipeProvider, (_, recipe) {
-      if (ref.read(snapshotCompareEnabledProvider) && recipe != null) {
-        _scheduleSnapshotBake(recipe);
-      } else if (recipe == null) {
-        _snapshotImage?.dispose();
-        _snapshotImage = null;
-        if (mounted) setState(() {});
-      }
-    });
-    // Haptic Zone Masking: switch to shader path during 2-finger zone targeting
-    ref.listen(zoneMaskProvider, (previous, next) {
-      if (previous?.isTargeting != next.isTargeting) {
-        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
-      }
-    });
-    // Wiper split curtain compare: schedule bake for shader path
-    ref.listen(wiperCompareProvider, (previous, next) {
-      if (previous?.isActive != next.isActive) {
-        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
-      }
-    });
-    // Split compare: schedule bake for shader path
-    ref.listen(splitCompareProvider, (previous, next) {
-      if (previous?.isEnabled != next.isEnabled) {
-        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
-      }
-    });
-    // Soft proofing: schedule bake for shader path
-    ref.listen(softProofingProvider, (previous, next) {
-      if (previous?.enabled != next.enabled) {
-        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
-      }
-    });
-
-    // Multi-touch pan & pinch-to-zoom forwarded by overlays (Retouch, NodeOverlay)
-    ref.listen(canvasGestureProvider, (previous, next) {
-      if (next == null) return;
-      if (next.isStart && next.focalPoint != null) {
-        _multi = true;
-        _startScale = _scale;
-        _startOffset = _offset;
-        _startFocal = next.focalPoint!;
-      } else if (next.isEnd) {
-        _onScaleEnd();
-      } else if (_multi && next.focalPoint != null) {
-        final scale = (_scale * next.scaleDelta).clamp(_minScale, _maxScale);
-        final offset = _offset + next.focalDelta;
-        setState(() {
-          _scale = scale;
-          _offset = _clampOffset(offset, scale, _lastFitted, _lastBounds);
-        });
-        _scheduleRoi();
-      }
-    });
 
     final program = _program;
     final shader = _shader;
@@ -1439,20 +1500,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final tatComponent = ref.watch(tatComponentProvider);
     // Warp params no longer schedule a CPU bake (issue #36), so rebuild the
     // Transform directly when they move.
-    ref.watch(
-      recipeControllerProvider.select(
-        (s) => Object.hash(
-          s.recipe.straighten,
-          Object.hash(
-            s.recipe.perspectiveX,
-            Object.hash(
-              s.recipe.perspectiveY,
-              Object.hash(s.recipe.skewX, s.recipe.skewY),
-            ),
-          ),
-        ),
-      ),
-    );
+    ref.watch(recipeControllerProvider.select(_selectGeometryTransform));
     // The texture frame carries its own (possibly cropped/rotated) dimensions;
     // fall back to the proxy source until the first render reports them.
     final content = zeroCopy && _baseW > 0 && _baseH > 0

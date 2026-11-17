@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
+import 'shared_preferences_provider.dart';
 
 /// Pro Image Sizing mode aligned with Lightroom Classic and Photoshop.
 enum ExportResizeMode {
@@ -311,8 +312,36 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
 
   @override
   ExportSettings build() {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    if (prefs != null) {
+      return _readFromPrefs(prefs);
+    }
     _restore();
     return const ExportSettings();
+  }
+
+  ExportSettings _readFromPrefs(SharedPreferences prefs) {
+    final modeIndex = prefs.getInt(_resizeModeKey);
+    final metaIndex = prefs.getInt(_metadataModeKey);
+    return ExportSettings(
+      quality: prefs.getInt(_qualityKey) ?? 90,
+      maxDim: prefs.getInt(_maxDimKey) ?? 0,
+      colorSpace: prefs.getInt(_colorSpaceKey) ?? 0,
+      ultraHdr: prefs.getBool(_ultraHdrKey) ?? false,
+      hdrHeadroom: prefs.getDouble(_hdrHeadroomKey) ?? 2.0,
+      filenamePattern:
+          prefs.getString(_filenamePatternKey) ?? '{original}_{date}',
+      resizeMode: modeIndex != null && modeIndex < ExportResizeMode.values.length
+          ? ExportResizeMode.values[modeIndex]
+          : ExportResizeMode.original,
+      resizeDimension: prefs.getInt(_resizeDimensionKey) ?? 2048,
+      dontEnlarge: prefs.getBool(_dontEnlargeKey) ?? true,
+      outputSharpenMedia: prefs.getInt(_sharpenMediaKey) ?? 0,
+      outputSharpen: prefs.getDouble(_sharpenAmountKey) ?? 0.0,
+      metadataMode: metaIndex != null && metaIndex < ExportMetadataMode.values.length
+          ? ExportMetadataMode.values[metaIndex]
+          : ExportMetadataMode.all,
+    );
   }
 
   void setQuality(int quality) {
@@ -472,27 +501,7 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
-      final modeIndex = prefs.getInt(_resizeModeKey);
-      final metaIndex = prefs.getInt(_metadataModeKey);
-      state = ExportSettings(
-        quality: prefs.getInt(_qualityKey) ?? 90,
-        maxDim: prefs.getInt(_maxDimKey) ?? 0,
-        colorSpace: prefs.getInt(_colorSpaceKey) ?? 0,
-        ultraHdr: prefs.getBool(_ultraHdrKey) ?? false,
-        hdrHeadroom: prefs.getDouble(_hdrHeadroomKey) ?? 2.0,
-        filenamePattern:
-            prefs.getString(_filenamePatternKey) ?? '{original}_{date}',
-        resizeMode: modeIndex != null && modeIndex < ExportResizeMode.values.length
-            ? ExportResizeMode.values[modeIndex]
-            : ExportResizeMode.original,
-        resizeDimension: prefs.getInt(_resizeDimensionKey) ?? 2048,
-        dontEnlarge: prefs.getBool(_dontEnlargeKey) ?? true,
-        outputSharpenMedia: prefs.getInt(_sharpenMediaKey) ?? 0,
-        outputSharpen: prefs.getDouble(_sharpenAmountKey) ?? 0.0,
-        metadataMode: metaIndex != null && metaIndex < ExportMetadataMode.values.length
-            ? ExportMetadataMode.values[metaIndex]
-            : ExportMetadataMode.all,
-      );
+      state = _readFromPrefs(prefs);
     } catch (_) {
       // No storage available (e.g. tests) — keep defaults.
     }

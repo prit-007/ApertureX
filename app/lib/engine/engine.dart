@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import 'image_format.dart';
 import '../color/blur_spec.dart';
 import '../color/grade_spec.dart';
@@ -173,8 +175,14 @@ class AxEngine {
   static Future<ImageDims> jpegDimensions(Uint8List jpeg) =>
       rust_decode.jpegDimensions(jpeg: jpeg);
 
-  static Future<RgbaImage> decodeJpegRgba(Uint8List jpeg) =>
-      rust_decode.decodeJpegRgba(jpeg: jpeg);
+  static Future<RgbaImage> decodeJpegRgba(Uint8List jpeg) async {
+    try {
+      return await rust_decode.decodeJpegRgba(jpeg: jpeg);
+    } catch (e) {
+      axLog(LogDomain.engine, 'decodeJpegRgba failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   /// Decodes a JPEG and returns the RGBA pixels inside the requested region of
   /// interest [x, y, width, height].
@@ -187,13 +195,20 @@ class AxEngine {
     required int y,
     required int width,
     required int height,
-  }) => rust_decode.decodeJpegRoi(
-    jpeg: jpeg,
-    x: x,
-    y: y,
-    width: width,
-    height: height,
-  );
+  }) async {
+    try {
+      return await rust_decode.decodeJpegRoi(
+        jpeg: jpeg,
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+      );
+    } catch (e) {
+      axLog(LogDomain.engine, 'decodeJpegRoi failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   // --- RAW/DNG decode (P3) --------------------------------------------------
 
@@ -212,8 +227,14 @@ class AxEngine {
   }
 
   /// Decodes a RAW/DNG to a full sRGB RGBA8 buffer (demosaic + camera colour).
-  static Future<RgbaImage> decodeRawRgba(Uint8List raw) =>
-      rust_raw.decodeRawRgba(raw: raw);
+  static Future<RgbaImage> decodeRawRgba(Uint8List raw) async {
+    try {
+      return await rust_raw.decodeRawRgba(raw: raw);
+    } catch (e) {
+      axLog(LogDomain.engine, 'decodeRawRgba failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   /// Decodes only the RGBA pixels inside the region of interest (tile path).
   static Future<RgbaImage> decodeRawRoi(
@@ -952,6 +973,15 @@ class AxEngine {
 
   // --- Rust-resident preview (#37 spike A) -----------------------------------
 
+  static int _safeBigIntHandle(BigInt val, String handleName) {
+    if (val.isValidInt && val >= BigInt.zero) {
+      return val.toInt();
+    }
+    throw RangeError(
+      'Bridge handle $handleName: $val out of safe platform integer range [0, 2^53 - 1]',
+    );
+  }
+
   /// Uploads decoded proxy pixels into the Rust-resident store and returns an
   /// opaque handle. This is the only bridge crossing for source pixels —
   /// every later bake references the handle instead.
@@ -959,25 +989,35 @@ class AxEngine {
     required Uint8List rgba,
     required int width,
     required int height,
-  }) async =>
-      (
-        await rust_preview.previewOpen(
-          rgba: rgba,
-          width: width,
-          height: height,
-        )
-      ).toInt();
+  }) async {
+    try {
+      final handle = await rust_preview.previewOpen(
+        rgba: rgba,
+        width: width,
+        height: height,
+      );
+      return _safeBigIntHandle(handle, 'previewOpen');
+    } catch (e) {
+      axLog(LogDomain.engine, 'previewOpen failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   static Future<int> previewOpenJpeg({
     required Uint8List jpegBytes,
     int maxDim = 1440,
-  }) async =>
-      (
-        await rust_preview.previewOpenJpeg(
-          jpegBytes: jpegBytes,
-          maxDim: maxDim,
-        )
-      ).toInt();
+  }) async {
+    try {
+      final handle = await rust_preview.previewOpenJpeg(
+        jpegBytes: jpegBytes,
+        maxDim: maxDim,
+      );
+      return _safeBigIntHandle(handle, 'previewOpenJpeg');
+    } catch (e) {
+      axLog(LogDomain.engine, 'previewOpenJpeg failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   /// Drops the resident image for [handle]. Unknown and double closes are
   /// safe, so widget teardown can call it unconditionally.
@@ -1016,12 +1056,19 @@ class AxEngine {
     required List<AdjustmentLayer> layers,
     List<MaskGroup> maskGroups = const [],
     List<RetouchPatch> retouchPatches = const <RetouchPatch>[],
-  }) => rust_preview.previewBase(
-    handle: BigInt.from(handle),
-    spec: spec,
-    layers: _mapLayers(layers, maskGroups),
-    retouchPatches: _mapRetouchPatches(retouchPatches),
-  );
+  }) async {
+    try {
+      return await rust_preview.previewBase(
+        handle: BigInt.from(handle),
+        spec: spec,
+        layers: _mapLayers(layers, maskGroups),
+        retouchPatches: _mapRetouchPatches(retouchPatches),
+      );
+    } catch (e) {
+      axLog(LogDomain.engine, 'previewBase failed on handle $handle: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   /// Halo rows of context ([spatial margin]) the high-zoom ROI overlay (#55)
   /// must decode above and below its output band so [bakeRoiBand] sees true
@@ -1285,41 +1332,46 @@ class AxEngine {
     final colorP = _colorParams(spec);
     final curveP = _curveParams(spec);
 
-    final result = (branding != null || c2pa != null)
-        ? await rust_export.exportFullWithBranding(
-            rgba: rgba,
-            width: width,
-            height: height,
-            spec: exportSpec,
-            layers: mappedLayers,
-            params: colorP,
-            curves: curveP,
-            hsl: spec.hsl,
-            exif: exif,
-            branding: branding ??
-                const ExportBrandingSettings().toRustBrandingSpec(),
-            c2Pa: c2pa ??
-                rust_export.C2paExportSpec(
-                  enableC2Pa: false,
-                  devicePrivateKey: Uint8List(0),
-                  recipeJson: '',
-                  exifSummary: '',
-                ),
-            retouchPatches: mappedPatches,
-          )
-        : await rust_export.exportFull(
-            rgba: rgba,
-            width: width,
-            height: height,
-            spec: exportSpec,
-            layers: mappedLayers,
-            params: colorP,
-            curves: curveP,
-            hsl: spec.hsl,
-            exif: exif,
-            retouchPatches: mappedPatches,
-          );
-    return result.cancelled ? null : result.jpeg;
+    try {
+      final result = (branding != null || c2pa != null)
+          ? await rust_export.exportFullWithBranding(
+              rgba: rgba,
+              width: width,
+              height: height,
+              spec: exportSpec,
+              layers: mappedLayers,
+              params: colorP,
+              curves: curveP,
+              hsl: spec.hsl,
+              exif: exif,
+              branding: branding ??
+                  const ExportBrandingSettings().toRustBrandingSpec(),
+              c2Pa: c2pa ??
+                  rust_export.C2paExportSpec(
+                    enableC2Pa: false,
+                    devicePrivateKey: Uint8List(0),
+                    recipeJson: '',
+                    exifSummary: '',
+                  ),
+              retouchPatches: mappedPatches,
+            )
+          : await rust_export.exportFull(
+              rgba: rgba,
+              width: width,
+              height: height,
+              spec: exportSpec,
+              layers: mappedLayers,
+              params: colorP,
+              curves: curveP,
+              hsl: spec.hsl,
+              exif: exif,
+              retouchPatches: mappedPatches,
+            );
+      return result.cancelled ? null : result.jpeg;
+    } catch (e) {
+      axLog(LogDomain.export, 'exportJpegFull failed: $e', level: LogLevel.error);
+      rethrow;
+    }
   }
 
   /// Non-cancellable [exportJpegFull] for callers (and the reference tests)
@@ -1367,8 +1419,11 @@ class AxEngine {
       ultraHdr: ultraHdr,
       hdrHeadroom: hdrHeadroom,
     );
-    // Token 0 never cancels, so this is always non-null.
-    return jpeg!;
+    // Token 0 never cancels, so this is expected to be non-null.
+    if (jpeg == null) {
+      throw StateError('Export pipeline returned null JPEG buffer unexpectedly');
+    }
+    return jpeg;
   }
 
   /// Exports raw camera CFA samples into a lossless DNG format with injected
@@ -1473,8 +1528,15 @@ class AxEngine {
 
   /// Creates an opaque cancel token for [exportJpegFull]. Call
   /// [exportCancelSet] to abort a running export, then [exportCancelDrop].
-  static Future<int> exportCancelNew() async =>
-      (await rust_export.exportCancelNew()).toInt();
+  static Future<int> exportCancelNew() async {
+    try {
+      final token = await rust_export.exportCancelNew();
+      return _safeBigIntHandle(token, 'exportCancelNew');
+    } catch (e) {
+      axLog(LogDomain.engine, 'exportCancelNew failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   /// Signals the export running with [token] to stop at its next band boundary.
   static Future<void> exportCancelSet(int token) =>

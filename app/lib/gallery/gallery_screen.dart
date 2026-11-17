@@ -244,9 +244,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
   Future<void> _openSavedPreview(EditPreview preview) async {
     final file = File(preview.path);
-    if (!file.existsSync()) return;
-    final bytes = file.readAsBytesSync();
+    if (!await file.exists()) return;
+    final bytes = await file.readAsBytes();
     axLog(LogDomain.editor, 'Opened saved edit ${preview.entryId}');
+    if (!mounted) return;
     await Navigator.of(context).push<dynamic>(
       PageRouteBuilder<dynamic>(
         transitionDuration: const Duration(milliseconds: 400),

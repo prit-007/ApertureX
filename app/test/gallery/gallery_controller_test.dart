@@ -195,6 +195,31 @@ void main() {
     expect(state().selectedCount, 3);
   });
 
+  test('concurrent load calls are deduplicated and guarded', () async {
+    final countingSource = DelayedAlbumsSource(
+      assets: const [
+        GalleryAsset(id: 'a', width: 100, height: 100),
+        GalleryAsset(id: 'b', width: 100, height: 100),
+        GalleryAsset(id: 'c', width: 100, height: 100),
+      ],
+      albums: const [GalleryAlbum(id: '1', name: 'Test', count: 3)],
+      albumDelay: const Duration(milliseconds: 20),
+    );
+    final countingContainer = ProviderContainer(
+      overrides: [
+        gallerySourceProvider.overrideWithValue(countingSource),
+      ],
+    );
+    addTearDown(countingContainer.dispose);
+
+    final ctrl = countingContainer.read(galleryControllerProvider.notifier);
+    final f1 = ctrl.load();
+    final f2 = ctrl.load(); // Should be dropped / no-op due to in-flight guard
+    await Future.wait([f1, f2]);
+
+    expect(countingContainer.read(galleryControllerProvider).assets.length, 3);
+  });
+
   test('clearSelection empties and exits selection mode', () {
     controller().startSelection('a');
     controller().clearSelection();

@@ -87,10 +87,14 @@ final gallerySourceProvider = Provider<GallerySource>(
 );
 
 class GalleryController extends Notifier<GalleryState> {
+  bool _loadingInFlight = false;
+
   @override
   GalleryState build() => const GalleryState();
 
   Future<void> load() async {
+    if (_loadingInFlight) return;
+    _loadingInFlight = true;
     state = state.copyWith(loading: true, error: null, albumsLoading: true);
     final source = ref.read(gallerySourceProvider);
     try {
@@ -115,6 +119,8 @@ class GalleryController extends Notifier<GalleryState> {
     } catch (e) {
       axLog(LogDomain.gallery, 'Gallery load failed: $e', level: LogLevel.error);
       state = state.copyWith(loading: false, albumsLoading: false, error: '$e');
+    } finally {
+      _loadingInFlight = false;
     }
   }
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -17,6 +18,54 @@ enum GeometrySubTab {
   perspective,
 }
 
+class _GeometryParams {
+  const _GeometryParams({
+    required this.crop,
+    required this.flipH,
+    required this.flipV,
+    required this.straighten,
+    required this.perspectiveX,
+    required this.perspectiveY,
+    required this.skewX,
+    required this.skewY,
+  });
+
+  final List<double> crop;
+  final bool flipH;
+  final bool flipV;
+  final double straighten;
+  final double perspectiveX;
+  final double perspectiveY;
+  final double skewX;
+  final double skewY;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _GeometryParams &&
+          runtimeType == other.runtimeType &&
+          listEquals(crop, other.crop) &&
+          flipH == other.flipH &&
+          flipV == other.flipV &&
+          straighten == other.straighten &&
+          perspectiveX == other.perspectiveX &&
+          perspectiveY == other.perspectiveY &&
+          skewX == other.skewX &&
+          skewY == other.skewY;
+
+  @override
+  int get hashCode => Object.hash(
+        Object.hashAll(crop),
+        flipH,
+        flipV,
+        straighten,
+        perspectiveX,
+        perspectiveY,
+        skewX,
+        skewY,
+      );
+}
+
 /// Geometry controls: aspect crop, rotate (90°), flip, straighten, perspective & skew.
 /// Writes to the shared recipe; the transform is non-destructive.
 class GeometryControls extends ConsumerWidget {
@@ -28,7 +77,20 @@ class GeometryControls extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final recipe = ref.watch(recipeControllerProvider).recipe;
+    final geo = ref.watch(
+      recipeControllerProvider.select(
+        (s) => _GeometryParams(
+          crop: s.recipe.crop,
+          flipH: s.recipe.flipH,
+          flipV: s.recipe.flipV,
+          straighten: s.recipe.straighten,
+          perspectiveX: s.recipe.perspectiveX,
+          perspectiveY: s.recipe.perspectiveY,
+          skewX: s.recipe.skewX,
+          skewY: s.recipe.skewY,
+        ),
+      ),
+    );
     final notifier = ref.read(recipeControllerProvider.notifier);
 
     final autoStraightenBtn = FilledButton.tonalIcon(
@@ -253,7 +315,7 @@ class GeometryControls extends ConsumerWidget {
       notifier.applyCrop(crop: [l, t, r, b]);
     }
 
-    final isCurrentlyFullCrop = isFullCrop(recipe.crop);
+    final isCurrentlyFullCrop = isFullCrop(geo.crop);
 
     final aspectPresets = SizedBox(
       height: 34,
@@ -343,8 +405,8 @@ class GeometryControls extends ConsumerWidget {
           style: OutlinedButton.styleFrom(
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 8),
-            backgroundColor: recipe.flipH ? scheme.primary.withValues(alpha: 0.15) : null,
-            foregroundColor: recipe.flipH ? scheme.primary : null,
+            backgroundColor: geo.flipH ? scheme.primary.withValues(alpha: 0.15) : null,
+            foregroundColor: geo.flipH ? scheme.primary : null,
           ),
           onPressed: () {
             HapticFeedback.selectionClick();
@@ -358,8 +420,8 @@ class GeometryControls extends ConsumerWidget {
           style: OutlinedButton.styleFrom(
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 8),
-            backgroundColor: recipe.flipV ? scheme.primary.withValues(alpha: 0.15) : null,
-            foregroundColor: recipe.flipV ? scheme.primary : null,
+            backgroundColor: geo.flipV ? scheme.primary.withValues(alpha: 0.15) : null,
+            foregroundColor: geo.flipV ? scheme.primary : null,
           ),
           onPressed: () {
             HapticFeedback.selectionClick();
@@ -385,7 +447,7 @@ class GeometryControls extends ConsumerWidget {
               const SizedBox(width: 8),
               autoFrameBtn,
               const SizedBox(width: 8),
-              if (recipe.straighten.abs() >= 0.05)
+              if (geo.straighten.abs() >= 0.05)
                 TextButton.icon(
                   style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
@@ -396,7 +458,7 @@ class GeometryControls extends ConsumerWidget {
                     notifier.commit(label: 'Reset Straighten');
                   },
                   icon: const Icon(Icons.refresh, size: 14),
-                  label: Text('${recipe.straighten > 0 ? '+' : ''}${recipe.straighten.toStringAsFixed(1)}°'),
+                  label: Text('${geo.straighten > 0 ? '+' : ''}${geo.straighten.toStringAsFixed(1)}°'),
                 ),
             ],
           ),
@@ -470,7 +532,7 @@ class GeometryControls extends ConsumerWidget {
         children: [
           geoSliderRow(
             label: 'Perspective X',
-            value: recipe.perspectiveX,
+            value: geo.perspectiveX,
             onChanged: (v) => notifier.setPerspectiveX(v),
             onChangeEnd: () => notifier.commit(label: 'Perspective X'),
             onReset: () {
@@ -480,7 +542,7 @@ class GeometryControls extends ConsumerWidget {
           ),
           geoSliderRow(
             label: 'Perspective Y',
-            value: recipe.perspectiveY,
+            value: geo.perspectiveY,
             onChanged: (v) => notifier.setPerspectiveY(v),
             onChangeEnd: () => notifier.commit(label: 'Perspective Y'),
             onReset: () {
@@ -490,7 +552,7 @@ class GeometryControls extends ConsumerWidget {
           ),
           geoSliderRow(
             label: 'Skew X',
-            value: recipe.skewX,
+            value: geo.skewX,
             onChanged: (v) => notifier.setSkewX(v),
             onChangeEnd: () => notifier.commit(label: 'Skew X'),
             onReset: () {
@@ -500,7 +562,7 @@ class GeometryControls extends ConsumerWidget {
           ),
           geoSliderRow(
             label: 'Skew Y',
-            value: recipe.skewY,
+            value: geo.skewY,
             onChanged: (v) => notifier.setSkewY(v),
             onChangeEnd: () => notifier.commit(label: 'Skew Y'),
             onReset: () {

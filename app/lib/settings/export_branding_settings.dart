@@ -1,8 +1,10 @@
+import 'dart:async' show unawaited;
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../src/rust/api/export.dart';
+import 'shared_preferences_provider.dart';
 
 /// Predefined watermark presets for quick 1-tap professional styling.
 enum WatermarkPreset {
@@ -45,7 +47,7 @@ class ExportBrandingSettings {
     this.tiledSizePct = 3.0,
     this.tiledSpacingPct = 30.0,
     this.enableFossBadge = false,
-    this.enableC2pa = true,
+    this.enableC2pa = false,
     this.format = 'jpeg',
     this.quality = 92,
     this.maxDim = 0,
@@ -185,44 +187,61 @@ class ExportBrandingSettings {
 class ExportBrandingNotifier extends Notifier<ExportBrandingSettings> {
   @override
   ExportBrandingSettings build() {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    if (prefs != null) {
+      final initial = _readFromPrefs(prefs);
+      final savedLogoPath = prefs.getString('branding_logo_path');
+      if (savedLogoPath != null && savedLogoPath.isNotEmpty) {
+        unawaited(_loadLogoImage(savedLogoPath));
+      }
+      return initial;
+    }
     _loadPreferences();
     return const ExportBrandingSettings();
+  }
+
+  ExportBrandingSettings _readFromPrefs(SharedPreferences prefs) {
+    return const ExportBrandingSettings().copyWith(
+      enableMuseumFrame: prefs.getBool('branding_museum_frame') ?? false,
+      frameThemeIndex: prefs.getInt('branding_frame_theme') ?? 0,
+      enableSignature: prefs.getBool('branding_signature_enabled') ?? false,
+      signatureText: prefs.getString('branding_signature_text') ?? '',
+      signatureOpacity: prefs.getDouble('branding_signature_opacity') ?? 0.8,
+      signatureAnchorIndex: prefs.getInt('branding_signature_anchor') ?? 8,
+      signatureInsetPct: prefs.getDouble('branding_signature_inset') ?? 3.0,
+      signatureColor: prefs.getInt('branding_signature_color') ?? 0,
+      signatureDropShadow: prefs.getBool('branding_signature_shadow') ?? true,
+      enableLogo: prefs.getBool('branding_logo_enabled') ?? false,
+      logoOpacity: prefs.getDouble('branding_logo_opacity') ?? 0.8,
+      logoScalePct: prefs.getDouble('branding_logo_scale') ?? 10.0,
+      logoAnchorIndex: prefs.getInt('branding_logo_anchor') ?? 8,
+      logoInsetPct: prefs.getDouble('branding_logo_inset') ?? 3.0,
+      logoPath: prefs.getString('branding_logo_path'),
+      enableTiledWatermark: prefs.getBool('branding_tiled_enabled') ?? false,
+      tiledText: prefs.getString('branding_tiled_text') ?? 'PROOF - DO NOT COPY',
+      tiledOpacity: prefs.getDouble('branding_tiled_opacity') ?? 0.25,
+      enableFossBadge: prefs.getBool('branding_foss_badge') ?? false,
+      enableC2pa: prefs.getBool('branding_c2pa_enabled') ?? false,
+      quality: prefs.getInt('export_quality') ?? 92,
+    );
+  }
+
+  Future<void> _loadLogoImage(String savedLogoPath) async {
+    final file = File(savedLogoPath);
+    if (await file.exists()) {
+      final bytes = await file.readAsBytes();
+      state = state.copyWith(logoBytes: bytes);
+    }
   }
 
   Future<void> _loadPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      state = state.copyWith(
-        enableMuseumFrame: prefs.getBool('branding_museum_frame') ?? false,
-        frameThemeIndex: prefs.getInt('branding_frame_theme') ?? 0,
-        enableSignature: prefs.getBool('branding_signature_enabled') ?? false,
-        signatureText: prefs.getString('branding_signature_text') ?? '',
-        signatureOpacity: prefs.getDouble('branding_signature_opacity') ?? 0.8,
-        signatureAnchorIndex: prefs.getInt('branding_signature_anchor') ?? 8,
-        signatureInsetPct: prefs.getDouble('branding_signature_inset') ?? 3.0,
-        signatureColor: prefs.getInt('branding_signature_color') ?? 0,
-        signatureDropShadow: prefs.getBool('branding_signature_shadow') ?? true,
-        enableLogo: prefs.getBool('branding_logo_enabled') ?? false,
-        logoOpacity: prefs.getDouble('branding_logo_opacity') ?? 0.8,
-        logoScalePct: prefs.getDouble('branding_logo_scale') ?? 10.0,
-        logoAnchorIndex: prefs.getInt('branding_logo_anchor') ?? 8,
-        logoInsetPct: prefs.getDouble('branding_logo_inset') ?? 3.0,
-        logoPath: prefs.getString('branding_logo_path'),
-        enableTiledWatermark: prefs.getBool('branding_tiled_enabled') ?? false,
-        tiledText: prefs.getString('branding_tiled_text') ?? 'PROOF - DO NOT COPY',
-        tiledOpacity: prefs.getDouble('branding_tiled_opacity') ?? 0.25,
-        enableFossBadge: prefs.getBool('branding_foss_badge') ?? false,
-        enableC2pa: prefs.getBool('branding_c2pa_enabled') ?? true,
-        quality: prefs.getInt('export_quality') ?? 92,
-      );
+      state = _readFromPrefs(prefs);
 
       final savedLogoPath = prefs.getString('branding_logo_path');
       if (savedLogoPath != null && savedLogoPath.isNotEmpty) {
-        final file = File(savedLogoPath);
-        if (await file.exists()) {
-          final bytes = await file.readAsBytes();
-          state = state.copyWith(logoBytes: bytes);
-        }
+        await _loadLogoImage(savedLogoPath);
       }
     } catch (_) {}
   }

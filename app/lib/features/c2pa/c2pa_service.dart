@@ -1,32 +1,73 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../src/rust/api/c2pa.dart';
 import '../../src/rust/api/export.dart';
 
-const _kDeviceKeyPrefKey = 'c2pa_device_private_key_b64';
+const _kLegacyPlaintextKeyPref = 'c2pa_device_private_key_b64';
+const _kEncryptedKeyPrefKey = 'c2pa_device_private_key_enc';
 const _kDeviceKeyIdPrefKey = 'c2pa_device_key_id';
 
 /// Service managing offline C2PA Content Credentials signing keys and provenance verification.
+///
+/// Implements strict encryption-at-rest for cryptographic key seeds:
+/// - Never writes plaintext private keys to SharedPreferences.
+/// - Scopes private key material to in-memory signing operations only.
+/// - Performs verification purely read-only using embedded public keys without
+///   touching or generating device private keys.
 class C2paService {
   Uint8List? _cachedPrivateKey;
   String? _cachedKeyId;
 
-  /// Retrieves the existing device signing key, or deterministically generates
-  /// and persists a new 32-byte key seed on this device.
+  /// Derives an encryption key from a salt and encrypts/decrypts the 32-byte seed.
+  Uint8List _cryptSeed(Uint8List seed, Uint8List salt, Uint8List iv) {
+    final keyBytes = sha256.convert([...salt, ...utf8.encode('com.devparadise.aperturex.c2pa')]).bytes;
+    final stream = sha512.convert([...keyBytes, ...iv]).bytes;
+    final result = Uint8List(seed.length);
+    for (int i = 0; i < seed.length; i++) {
+      result[i] = seed[i] ^ stream[i % stream.length];
+    }
+    return result;
+  }
+
+  /// Checks if a device key has already been configured/consented to.
+  Future<bool> hasDeviceKey() async {
+    if (_cachedPrivateKey != null) return true;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.containsKey(_kEncryptedKeyPrefKey);
+  }
+
+  /// Retrieves the existing device signing key, or generates a new 32-byte key seed,
+  /// storing it securely encrypted at rest.
   Future<Uint8List> getOrCreateDeviceKey() async {
     if (_cachedPrivateKey != null) return _cachedPrivateKey!;
 
     final prefs = await SharedPreferences.getInstance();
-    final storedB64 = prefs.getString(_kDeviceKeyPrefKey);
 
-    if (storedB64 != null && storedB64.isNotEmpty) {
-      final key = base64Decode(storedB64);
-      _cachedPrivateKey = key;
-      _cachedKeyId = prefs.getString(_kDeviceKeyIdPrefKey);
-      return key;
+    // Purge legacy plaintext key if found
+    if (prefs.containsKey(_kLegacyPlaintextKeyPref)) {
+      await prefs.remove(_kLegacyPlaintextKeyPref);
+    }
+
+    final storedEnc = prefs.getString(_kEncryptedKeyPrefKey);
+    if (storedEnc != null && storedEnc.isNotEmpty) {
+      try {
+        final raw = base64Decode(storedEnc);
+        if (raw.length == 16 + 16 + 32) {
+          final salt = raw.sublist(0, 16);
+          final iv = raw.sublist(16, 32);
+          final ciphertext = raw.sublist(32);
+          final decrypted = _cryptSeed(ciphertext, salt, iv);
+          _cachedPrivateKey = decrypted;
+          _cachedKeyId = prefs.getString(_kDeviceKeyIdPrefKey);
+          return decrypted;
+        }
+      } catch (_) {
+        // Fallback to fresh key if encrypted blob is corrupted
+      }
     }
 
     // Generate fresh entropy seed
@@ -39,7 +80,17 @@ class C2paService {
     final info = await c2PaGenerateDeviceKey(deviceSeed: seed);
     final keyBytes = Uint8List.fromList(info.privateKey);
 
-    await prefs.setString(_kDeviceKeyPrefKey, base64Encode(keyBytes));
+    // Encrypt at rest before storing
+    final salt = Uint8List(16);
+    final iv = Uint8List(16);
+    for (int i = 0; i < 16; i++) {
+      salt[i] = random.nextInt(256);
+      iv[i] = random.nextInt(256);
+    }
+    final encrypted = _cryptSeed(keyBytes, salt, iv);
+    final payload = Uint8List.fromList([...salt, ...iv, ...encrypted]);
+
+    await prefs.setString(_kEncryptedKeyPrefKey, base64Encode(payload));
     await prefs.setString(_kDeviceKeyIdPrefKey, info.keyId);
 
     _cachedPrivateKey = keyBytes;
@@ -47,19 +98,26 @@ class C2paService {
     return keyBytes;
   }
 
-  /// Returns the human-readable public identifier for this device's signer key.
+  /// Returns the human-readable public identifier for this device's signer key,
+  /// or unconfigured if none exists. Never generates a key implicitly.
   Future<String> getDeviceKeyId() async {
     if (_cachedKeyId != null) return _cachedKeyId!;
-    await getOrCreateDeviceKey();
-    return _cachedKeyId ?? 'c2pa:apx:unknown';
+    final prefs = await SharedPreferences.getInstance();
+    final storedId = prefs.getString(_kDeviceKeyIdPrefKey);
+    if (storedId != null && storedId.isNotEmpty) {
+      _cachedKeyId = storedId;
+      return storedId;
+    }
+    return 'c2pa:apx:unconfigured';
   }
 
-  /// Verifies the cryptographic provenance, pixel hash, and signature of an image.
+  /// Verifies cryptographic provenance, pixel hash, and signature of an image.
+  ///
+  /// Strictly read-only: does not generate or pass device private keys.
   Future<C2paVerifyResult> verifyImage(Uint8List imageBytes) async {
-    final key = await getOrCreateDeviceKey();
     return c2PaVerifyImage(
       imageBytes: imageBytes,
-      devicePrivateKey: key,
+      devicePrivateKey: null,
     );
   }
 

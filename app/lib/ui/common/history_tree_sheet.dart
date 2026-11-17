@@ -730,31 +730,13 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
   }
 
   Future<void> _promptNewBranch(BuildContext context, WidgetRef ref) async {
-    final textController = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Create New Branch'),
-        content: TextField(
-          controller: textController,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Branch Name',
-            hintText: 'e.g. bw-moody, film-gold, high-contrast',
-          ),
-          onSubmitted: (val) => Navigator.of(dialogCtx).pop(val.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () =>
-                Navigator.of(dialogCtx).pop(textController.text.trim()),
-            child: const Text('Create'),
-          ),
-        ],
+      builder: (_) => const _TextInputDialog(
+        title: 'Create New Branch',
+        labelText: 'Branch Name',
+        hintText: 'e.g. bw-moody, film-gold, high-contrast',
+        confirmLabel: 'Create',
       ),
     );
 
@@ -769,31 +751,13 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
     WidgetRef ref,
     EditRecipe recipe,
   ) async {
-    final textController = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Create New Snapshot'),
-        content: TextField(
-          controller: textController,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Snapshot Name',
-            hintText: 'e.g. Golden Hour, Moody B&W, High Contrast',
-          ),
-          onSubmitted: (val) => Navigator.of(dialogCtx).pop(val.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () =>
-                Navigator.of(dialogCtx).pop(textController.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (_) => const _TextInputDialog(
+        title: 'Create New Snapshot',
+        labelText: 'Snapshot Name',
+        hintText: 'e.g. Golden Hour, Moody B&W, High Contrast',
+        confirmLabel: 'Save',
       ),
     );
 
@@ -804,5 +768,64 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
           );
       HapticFeedback.mediumImpact();
     }
+  }
+}
+
+class _TextInputDialog extends StatefulWidget {
+  const _TextInputDialog({
+    required this.title,
+    required this.labelText,
+    required this.hintText,
+    required this.confirmLabel,
+  });
+
+  final String title;
+  final String labelText;
+  final String hintText;
+  final String confirmLabel;
+
+  @override
+  State<_TextInputDialog> createState() => _TextInputDialogState();
+}
+
+class _TextInputDialogState extends State<_TextInputDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: InputDecoration(
+          labelText: widget.labelText,
+          hintText: widget.hintText,
+        ),
+        onSubmitted: (val) => Navigator.of(context).pop(val.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: Text(widget.confirmLabel),
+        ),
+      ],
+    );
   }
 }
