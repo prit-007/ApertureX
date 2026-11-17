@@ -189,7 +189,11 @@ class ParameterControl extends ConsumerWidget {
                 tooltip: 'Jog Dial (${spec.label})',
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  minimumSize: const Size(32, 32),
+                ),
                 onPressed: aiGated
                     ? null
                     : () {
@@ -328,6 +332,8 @@ class _ValueField extends StatelessWidget {
       onPressed: () => _prompt(context),
       style: TextButton.styleFrom(
         minimumSize: const Size(56, 32),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: Insets.sm),
         backgroundColor: isNeutral
             ? null

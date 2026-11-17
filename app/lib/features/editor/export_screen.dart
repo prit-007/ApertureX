@@ -505,8 +505,8 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                 SegmentedButton<String>(
                   segments: [
                     const ButtonSegment(value: 'jpeg', label: Text('JPEG')),
-                    const ButtonSegment(value: 'heic', label: Text('HEIC')),
-                    const ButtonSegment(value: 'avif', label: Text('AVIF')),
+                    const ButtonSegment(value: 'heic', label: Text('HEIF (ISO-BMFF)')),
+                    const ButtonSegment(value: 'avif', label: Text('AVIF (ISO-BMFF)')),
                     const ButtonSegment(value: 'png', label: Text('PNG')),
                     const ButtonSegment(value: 'tiff16', label: Text('TIFF 16-bit')),
                     if (widget.isRaw)
@@ -518,6 +518,31 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                     brandingNotifier.setFormat(set.first);
                   },
                 ),
+                if (_selectedFormat == 'heic' || _selectedFormat == 'avif') ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: Insets.xs, bottom: 2),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 14,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: Insets.xs),
+                        Expanded(
+                          child: Text(
+                            'Standard ISO-BMFF container (mif1 brand with JPEG image item). Fully compatible with standard HEIF readers without proprietary codecs.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: Insets.sm),
                 if (_selectedFormat == 'jpeg' ||
                     _selectedFormat == 'heic' ||

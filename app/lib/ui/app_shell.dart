@@ -828,16 +828,32 @@ class _AppShellState extends ConsumerState<AppShell> {
                 color: scheme.surface,
                 child: Column(
                   children: [
-                    Expanded(child: canvas),
+                    Expanded(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: _sheetSnap == _SheetSnap.full
+                              ? 0.0
+                              : constraints.maxHeight * 0.75,
+                          maxHeight: _sheetSnap == _SheetSnap.hidden
+                              ? constraints.maxHeight
+                              : constraints.maxHeight * 0.80,
+                        ),
+                        child: canvas,
+                      ),
+                    ),
                     RepaintBoundary(
-                      child: _LightroomSheet(
-                        availableHeight: constraints.maxHeight,
-                        snap: _sheetSnap,
-                        onSnap: (s) => setState(() => _sheetSnap = s),
-                        hasHistogram: hasHistogram,
-                        histogramOpen: _histogramOpen,
-                        setHistogramOpen: (v) =>
-                            setState(() => _histogramOpen = v),
+                      child: SafeArea(
+                        top: false,
+                        bottom: true,
+                        child: _LightroomSheet(
+                          availableHeight: constraints.maxHeight,
+                          snap: _sheetSnap,
+                          onSnap: (s) => setState(() => _sheetSnap = s),
+                          hasHistogram: hasHistogram,
+                          histogramOpen: _histogramOpen,
+                          setHistogramOpen: (v) =>
+                              setState(() => _histogramOpen = v),
+                        ),
                       ),
                     ),
                   ],
@@ -974,23 +990,21 @@ class _PanelHandle extends ConsumerWidget {
 /// the available height: fully hidden, a small peek, half, and near-full.
 enum _SheetSnap { hidden, peek, half, full }
 
-// Raised from {0.20, 0.24, 0.38}: at 0.24 the docked tray only fit a single
-// slider between the grab bar and the tabs (bug: "bottom-sheet height, only 1
-// slider visible"). Half now fits ~3 sliders; full ~6. Tap the canvas /
-// grab bar still collapses the tray for the full-height photo.
-// Peek raised 0.20 → 0.28 plus a hard 236px floor (see _minPeekHeight) so
-// short viewports still show ~2 content rows (issue: peek sheet buries the
-// Lightroom panel).
+// Snap fractions for the docked / floating Lightroom sheet.
+// Docked snap (`half`) is 0.24, allowing the image canvas to occupy 76% (in the 75–80%
+// range specified in AGENTS.md) while the docked instrument tray resides in the 24%
+// thumb reach zone below.
 const Map<_SheetSnap, double> _sheetFractions = {
   _SheetSnap.hidden: 0.0,
-  _SheetSnap.peek: 0.28,
-  _SheetSnap.half: 0.36,
+  _SheetSnap.peek: 0.18,
+  _SheetSnap.half: 0.22,
   _SheetSnap.full: 0.62,
 };
 
 /// Minimum peek body height: grab bar handle (~30) + panel chrome (~114) +
-/// ~2 content rows. Keeps controls usable on short devices.
-const double _minPeekHeight = 236.0;
+/// ~1 content row. Keeps controls usable on short devices while preserving
+/// 75–80% portrait canvas height.
+const double _minPeekHeight = 200.0;
 
 /// A draggable, floating bottom sheet holding the Lightroom tools over the
 /// edge-to-edge photo. Drag the grab bar to move between snap points, or tap it

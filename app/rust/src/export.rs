@@ -272,19 +272,33 @@ fn encode_isobmff_container(
 
 /// Encodes an RGBA8 buffer into an ISO-BMFF HEIF container with JPEG payload (#175).
 ///
-/// Honest brands: major `mif1`, compatible `jpeg`. Does NOT claim HEVC
+/// Honest brands: major `mif1`, compatible `jpeg`. Does NOT claim proprietary HEVC
 /// compatibility (no `heic` brand) since the payload is plain JPEG.
-pub fn encode_heic(rgba: &[u8], width: u32, height: u32, quality: u8) -> Result<Vec<u8>, String> {
+pub fn encode_heif_isobmff(
+    rgba: &[u8],
+    width: u32,
+    height: u32,
+    quality: u8,
+) -> Result<Vec<u8>, String> {
     encode_isobmff_container(rgba, width, height, quality, b"mif1", &[b"mif1", b"jpeg"])
 }
 
-/// Encodes an RGBA8 buffer into an ISO-BMFF container with JPEG payload (#175).
+/// Encodes an RGBA8 buffer into an ISO-BMFF container with JPEG payload.
 ///
-/// Honest brands: major `mif1`, compatible `jpeg`. The `avif` name is retained
-/// for API compatibility but the container is really HEIF/JPEG — no AV1 item
-/// exists (no AV1 encoder available). A real AVIF would require rav1e/svt-av1.
+/// Honest branding: declares major brand `mif1` and compatible brand `jpeg`.
+/// Pure-Rust F-Droid builds avoid patent-encumbered HEVC codec pools by encapsulating
+/// compliant JPEG bitstreams in ISO-BMFF containers.
+pub fn encode_heic(rgba: &[u8], width: u32, height: u32, quality: u8) -> Result<Vec<u8>, String> {
+    encode_heif_isobmff(rgba, width, height, quality)
+}
+
+/// Encodes an RGBA8 buffer into an ISO-BMFF container with JPEG payload.
+///
+/// Honest branding: declares major brand `mif1` and compatible brand `jpeg`.
+/// Pure-Rust builds omit rav1e/libavif AV1 codec dependencies; output is a conformant
+/// ISO-BMFF HEIF/JPEG container rather than an `av01` bitstream.
 pub fn encode_avif(rgba: &[u8], width: u32, height: u32, quality: u8) -> Result<Vec<u8>, String> {
-    encode_isobmff_container(rgba, width, height, quality, b"mif1", &[b"mif1", b"jpeg"])
+    encode_heif_isobmff(rgba, width, height, quality)
 }
 
 #[cfg(test)]

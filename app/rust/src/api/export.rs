@@ -685,25 +685,43 @@ pub fn export_full_with_branding(
     }
 
     // If C2PA is requested, sign claims and inject JUMBF APP11
-    if c2pa.enable_c2pa && !c2pa.device_private_key.is_empty() {
-        let pixel_hash_hex = crate::sha256::sha256_hex(&branded_rgba);
-        let recipe_hash = crate::sha256::sha256_hex(c2pa.recipe_json.as_bytes());
-        let (priv_key, key_id) = crate::c2pa::generate_device_key(&c2pa.device_private_key);
-        let pk_hex = crate::c2pa::public_key_hex_from_seed(&priv_key);
+    if c2pa.enable_c2pa {
+        let (mut priv_key, key_id) = if !c2pa.device_private_key.is_empty() {
+            crate::c2pa::generate_device_key(&c2pa.device_private_key)
+        } else if let Some(ks_seed) = crate::c2pa::get_key_from_keystore(&c2pa.exif_summary) {
+            (ks_seed.to_vec(), c2pa.exif_summary.clone())
+        } else {
+            (Vec::new(), String::new())
+        };
 
-        let actions = ["c2pa.opened", "c2pa.color_adjustments"];
-        let claim = crate::c2pa::build_c2pa_claim(
-            &pixel_hash_hex,
-            None,
-            &actions,
-            &c2pa.exif_summary,
-            &recipe_hash,
-            &key_id,
-            &pk_hex,
-        );
-        let sig_hex = crate::c2pa::sign_c2pa_claim(&claim, &priv_key);
-        let manifest = crate::c2pa::create_c2pa_manifest(&claim, &sig_hex, &key_id, &pk_hex);
-        jpeg = crate::c2pa::inject_c2pa_app11(jpeg, &manifest);
+        if !priv_key.is_empty() {
+            let pixel_hash_hex = crate::sha256::sha256_hex(&branded_rgba);
+            let recipe_hash = crate::sha256::sha256_hex(c2pa.recipe_json.as_bytes());
+            let pk_hex = crate::c2pa::public_key_hex_from_seed(&priv_key);
+
+            let actions = ["c2pa.opened", "c2pa.color_adjustments"];
+            let claim = crate::c2pa::build_c2pa_claim(
+                &pixel_hash_hex,
+                None,
+                &actions,
+                &c2pa.exif_summary,
+                &recipe_hash,
+                &key_id,
+                &pk_hex,
+            );
+            let sig_hex = crate::c2pa::sign_c2pa_claim(&claim, &priv_key);
+            let manifest = crate::c2pa::create_c2pa_manifest(&claim, &sig_hex, &key_id, &pk_hex);
+            jpeg = crate::c2pa::inject_c2pa_app11(jpeg, &manifest);
+
+            // Zeroize private key material immediately after signing pass
+            priv_key.fill(0);
+            std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
+        }
+
+        // Scrub bridge-passed private key buffer in-place
+        let mut dev_key = c2pa.device_private_key;
+        dev_key.fill(0);
+        std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
     }
 
     // Encode is the last stage; report a finished export as 1000 permille.

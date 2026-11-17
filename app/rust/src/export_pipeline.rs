@@ -104,13 +104,7 @@ pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) 
     if !recipe.layers.is_empty() {
         buf = mask::apply_local(&buf, gw, gh, &recipe.layers);
     }
-    let mut grade = recipe.grade;
-    if recipe.spatial.shadows != 0.0 {
-        grade.shadows = 0.0;
-    }
-    if recipe.spatial.highlights != 0.0 {
-        grade.highlights = 0.0;
-    }
+    let grade = recipe.grade;
     let lut = if recipe.lut_size > 0 && !recipe.lut_atlas.is_empty() {
         Some((recipe.lut_atlas.as_slice(), recipe.lut_size))
     } else {
@@ -195,13 +189,7 @@ pub fn run_export_tiled(
         if !recipe.layers.is_empty() {
             band = mask::apply_local_band(&band, gw, gh, y0, &recipe.layers);
         }
-        let mut grade = recipe.grade;
-        if recipe.spatial.shadows != 0.0 {
-            grade.shadows = 0.0;
-        }
-        if recipe.spatial.highlights != 0.0 {
-            grade.highlights = 0.0;
-        }
+        let grade = recipe.grade;
         let lut = if recipe.lut_size > 0 && !recipe.lut_atlas.is_empty() {
             Some((recipe.lut_atlas.as_slice(), recipe.lut_size))
         } else {
@@ -473,6 +461,32 @@ mod tests {
         assert_eq!(
             single.rgba, tiled.rgba,
             "output_sharpen single-frame (preview path) and tiled (export path) must have exact byte-for-byte parity"
+        );
+    }
+
+    #[test]
+    fn grade_shadows_and_highlights_preserved_when_spatial_is_active() {
+        // Audit Item A7:
+        // Asserts that user-specified grade shadows and highlights are not
+        // silently zeroed out or dropped when spatial shadows/highlights are active.
+        let (w, h) = (32, 32);
+        let src = noise(w, h);
+        let mut recipe_spatial_only = neutral();
+        recipe_spatial_only.spatial.shadows = 0.5;
+        recipe_spatial_only.spatial.highlights = -0.4;
+
+        let mut recipe_both = neutral();
+        recipe_both.spatial.shadows = 0.5;
+        recipe_both.spatial.highlights = -0.4;
+        recipe_both.grade.shadows = 0.3;
+        recipe_both.grade.highlights = -0.2;
+
+        let out_spatial = run_export_single(&recipe_spatial_only, &src, w, h);
+        let out_both = run_export_single(&recipe_both, &src, w, h);
+
+        assert_ne!(
+            out_spatial.rgba, out_both.rgba,
+            "Grade shadows/highlights must be applied and not discarded when spatial shadows/highlights are active"
         );
     }
 
