@@ -33,14 +33,9 @@ pub fn encode_jpeg(
         ));
     }
 
-    let mut rgb = Vec::with_capacity(width as usize * height as usize * 3);
-    for px in rgba.as_chunks::<4>().0 {
-        rgb.extend_from_slice(&[px[0], px[1], px[2]]);
-    }
-
     let mut out = Vec::new();
     Encoder::new(&mut out, quality)
-        .encode(&rgb, width as u16, height as u16, ColorType::Rgb)
+        .encode(rgba, width as u16, height as u16, ColorType::Rgba)
         .map_err(|e| format!("jpeg encode failed: {e}"))?;
     let final_exif = if !exif.is_empty() {
         let mut exif_buf = exif.to_vec();

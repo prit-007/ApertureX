@@ -288,6 +288,7 @@ pub fn preview_render(
     hsl: Vec<f32>,
     base_changed: bool,
 ) -> Result<RenderedSize, String> {
+    let _fast_guard = crate::spatial::ScopedFastAccumulator::new();
     let patches = to_engine_patches(&retouch_patches);
     let (width, height) = crate::preview::render(
         handle,

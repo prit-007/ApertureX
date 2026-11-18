@@ -568,6 +568,15 @@ pub fn export_full_from_handle(
     c2pa: C2paExportSpec,
 ) -> Result<ExportResult, String> {
     let (source, width, height, cached_depth) = crate::preview::get_source_shared(handle)?;
+    let depth_map = if cached_depth.is_some() {
+        cached_depth
+    } else if !spec.blur_params().is_neutral() {
+        crate::preview::ensure_depth_map(handle)
+            .ok()
+            .map(|d| d.data.to_vec())
+    } else {
+        None
+    };
     export_full_with_branding_inner(
         &source,
         width,
@@ -581,7 +590,7 @@ pub fn export_full_from_handle(
         exif,
         branding,
         c2pa,
-        cached_depth,
+        depth_map,
     )
 }
 

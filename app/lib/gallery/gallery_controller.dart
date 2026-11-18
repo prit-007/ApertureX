@@ -157,6 +157,10 @@ class GalleryController extends Notifier<GalleryState> {
   /// Switches to [albumId] (null = Recent) and reloads that album's photos.
   Future<void> selectAlbum(String? albumId) async {
     if (state.selectedAlbumId == albumId) return;
+    if (_inFlightLoad != null) {
+      await _inFlightLoad;
+      if (!ref.mounted) return;
+    }
     axLog(LogDomain.gallery, 'Opened album ${albumId ?? 'Recent'}');
     final assetGen = ++_assetGeneration;
     // Keep showing existing assets while loading the new album's photos,
@@ -181,7 +185,10 @@ class GalleryController extends Notifier<GalleryState> {
   }
 
   /// Re-requests a denied permission (the "prompt again" path).
-  Future<void> requestAccessAgain() => load();
+  Future<void> requestAccessAgain() {
+    if (_inFlightLoad != null) return _inFlightLoad!;
+    return load();
+  }
 
   /// Opens the OS settings page for a permanently-denied permission.
   Future<void> openSettings() =>

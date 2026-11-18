@@ -148,6 +148,39 @@ pub fn get_source_shared(handle: u64) -> Result<ResidentSource, String> {
     ))
 }
 
+/// Retrieves or estimates the cached depth map for [handle] and maps it through the export geometry
+/// to [out_w] x [out_h], avoiding redundant ML inference during export (P4).
+pub fn get_transformed_depth_map_for_export(
+    handle: u64,
+    spec: &crate::api::export::ExportSpec,
+    out_w: usize,
+    out_h: usize,
+) -> Option<Vec<f32>> {
+    let depth_arc = ensure_depth_map(handle).ok()?;
+    let preview_spec = PreviewBaseSpec {
+        flip_h: spec.flip_h,
+        flip_v: spec.flip_v,
+        turns: spec.turns,
+        crop_l: spec.crop_l,
+        crop_t: spec.crop_t,
+        crop_r: spec.crop_r,
+        crop_b: spec.crop_b,
+        ..Default::default()
+    };
+    let store = lock_store();
+    let resident = store.images.get(&handle)?;
+    let src_w = resident.width as usize;
+    let src_h = resident.height as usize;
+    Some(transform_depth_map(
+        &depth_arc,
+        &preview_spec,
+        src_w,
+        src_h,
+        out_w,
+        out_h,
+    ))
+}
+
 /// Decodes a JPEG (or camera RAW format) into a resident proxy.
 pub fn open_jpeg(jpeg_bytes: Vec<u8>, max_dim: u32) -> Result<u64, String> {
     if let Ok(decoded) = crate::decode::decode_rgba(&jpeg_bytes) {

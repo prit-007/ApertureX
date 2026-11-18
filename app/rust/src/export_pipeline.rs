@@ -82,6 +82,7 @@ impl ExportOutcome {
 /// Full-frame export — the parity oracle and the small-image path. Runs
 /// geometry → spatial → masks → grade over the whole buffer, no banding.
 pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) -> ExportFrame {
+    let _precision_guard = crate::spatial::ScopedPreciseAccumulator::new();
     let (mut buf, gw, gh) = geometry::apply_spec(src, w, h, &recipe.geometry);
     if !recipe.optics.is_neutral() {
         buf = optics::apply_optics(&buf, gw, gh, recipe.optics);
@@ -92,11 +93,20 @@ pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) 
         }
     }
     if !recipe.blur.is_neutral() {
-        // Compute an on-device depth map so subjects stay sharp while
-        // background blurs (mirrors the preview pipeline's cached depth map).
-        let depth_map =
-            crate::api::blur::estimate_depth_map(buf.clone(), gw as u32, gh as u32).ok();
-        buf = blur::apply_lens_blur(&buf, gw, gh, recipe.blur, depth_map.as_deref());
+        let transformed_depth;
+        let fallback_depth;
+        let depth_slice = match &recipe.precomputed_depth_map {
+            Some(dm) if dm.len() == gw * gh => Some(dm.as_slice()),
+            Some(dm) if dm.len() == w * h => {
+                transformed_depth = crate::ml::resize_mask(dm, w, h, gw, gh);
+                Some(transformed_depth.as_slice())
+            }
+            _ => {
+                fallback_depth = estimate_fallback_depth(&buf, gw, gh);
+                fallback_depth.as_deref()
+            }
+        };
+        buf = blur::apply_lens_blur(&buf, gw, gh, recipe.blur, depth_slice);
     }
     if !recipe.spatial.is_neutral() {
         buf = spatial::apply_spatial(&buf, gw, gh, recipe.spatial);
@@ -143,6 +153,7 @@ pub fn run_export_tiled(
         ));
     }
 
+    let _precision_guard = crate::spatial::ScopedPreciseAccumulator::new();
     let (mut frame, gw, gh) = geometry::apply_spec(src, w, h, &recipe.geometry);
     if !recipe.optics.is_neutral() {
         frame = optics::apply_optics(&frame, gw, gh, recipe.optics);
@@ -153,12 +164,16 @@ pub fn run_export_tiled(
         }
     }
     if !recipe.blur.is_neutral() {
+        let transformed_depth;
         let fallback_depth;
         let depth_slice = match &recipe.precomputed_depth_map {
-            Some(dm) => Some(dm.as_slice()),
-            None => {
-                fallback_depth =
-                    crate::api::blur::estimate_depth_map(frame.clone(), gw as u32, gh as u32).ok();
+            Some(dm) if dm.len() == gw * gh => Some(dm.as_slice()),
+            Some(dm) if dm.len() == w * h => {
+                transformed_depth = crate::ml::resize_mask(dm, w, h, gw, gh);
+                Some(transformed_depth.as_slice())
+            }
+            _ => {
+                fallback_depth = estimate_fallback_depth(&frame, gw, gh);
                 fallback_depth.as_deref()
             }
         };
@@ -172,6 +187,30 @@ pub fn run_export_tiled(
     if film_shader_engaged {
         frame = spatial::apply_spatial(&frame, gw, gh, recipe.spatial);
     }
+
+    // Optimization for F2: when spatial ops and local layers are neutral, grade in-place
+    // on `frame` directly to avoid allocating a second full-resolution `out` buffer (saves ~200MB).
+    if cancel.is_some_and(|c| c.load(Ordering::Acquire)) {
+        return Ok(ExportOutcome::Cancelled);
+    }
+    if (recipe.spatial.is_neutral() || film_shader_engaged) && recipe.layers.is_empty() {
+        let grade = recipe.grade;
+        let lut = if recipe.lut_size > 0 && !recipe.lut_atlas.is_empty() {
+            Some((recipe.lut_atlas.as_slice(), recipe.lut_size))
+        } else {
+            None
+        };
+        grade_in_place(&mut frame, grade, &recipe.curves, &recipe.hsl, lut);
+        if let Some(p) = progress {
+            p.store(1000, Ordering::Release);
+        }
+        return Ok(ExportOutcome::Done(ExportFrame {
+            rgba: frame,
+            width: gw as u32,
+            height: gh as u32,
+        }));
+    }
+
     let band_rows = band_rows.min(gh.max(1));
     let mut out = vec![0u8; gw * gh * 4];
 
@@ -239,6 +278,22 @@ fn grade_in_place(
             px[1] = graded[1];
             px[2] = graded[2];
         });
+    }
+}
+
+/// Estimates depth from a downscaled proxy without cloning the multi-megapixel frame (P4).
+fn estimate_fallback_depth(frame: &[u8], gw: usize, gh: usize) -> Option<Vec<f32>> {
+    const MAX_DIM: usize = 1024;
+    let (proxy, dw, dh) = if gw > MAX_DIM || gh > MAX_DIM {
+        geometry::downscale(frame, gw, gh, MAX_DIM)
+    } else {
+        (frame.to_vec(), gw, gh)
+    };
+    let depth_low = crate::ml::estimate_depth_map(&proxy, dw, dh, dw, dh).ok()?;
+    if dw != gw || dh != gh {
+        Some(crate::ml::resize_mask(&depth_low, dw, dh, gw, gh))
+    } else {
+        Some(depth_low)
     }
 }
 

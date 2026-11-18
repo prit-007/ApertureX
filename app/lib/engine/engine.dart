@@ -1510,6 +1510,61 @@ class AxEngine {
     }
   }
 
+  /// Runs streaming/tiled export directly from resident memory for [handle] (F2).
+  ///
+  /// Splits processing into [bandRows] (defaults to 128 rows for >50MP images to prevent mobile OOM),
+  /// keeping working buffers tightly bounded instead of loading full multi-megapixel graded frames.
+  static Future<Uint8List?> exportJpegTiledFromHandle({
+    required int handle,
+    required GradeSpec spec,
+    SpatialSpec spatial = const SpatialSpec(),
+    OpticsSpec optics = const OpticsSpec(),
+    GeometrySpec geometry = const GeometrySpec(),
+    LensBlurSpec blur = const LensBlurSpec(),
+    List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
+    List<MaskGroup> maskGroups = const <MaskGroup>[],
+    List<RetouchPatch> retouchPatches = const <RetouchPatch>[],
+    List<int> exif = const <int>[],
+    rust_export.ExportBrandingSpec? branding,
+    rust_export.C2paExportSpec? c2pa,
+    Uint8List? lutAtlas,
+    int lutSize = 0,
+    int quality = 90,
+    int? maxDim,
+    int cancelToken = 0,
+    int colorSpace = 0,
+    bool ultraHdr = false,
+    double hdrHeadroom = 2.0,
+    int? outputSharpenMedia,
+    double? outputSharpen,
+    int bandRows = 128,
+  }) =>
+      exportJpegFullFromHandle(
+        handle: handle,
+        spec: spec,
+        spatial: spatial,
+        optics: optics,
+        geometry: geometry,
+        blur: blur,
+        layers: layers,
+        maskGroups: maskGroups,
+        retouchPatches: retouchPatches,
+        exif: exif,
+        branding: branding,
+        c2pa: c2pa,
+        lutAtlas: lutAtlas,
+        lutSize: lutSize,
+        quality: quality,
+        maxDim: maxDim,
+        cancelToken: cancelToken,
+        colorSpace: colorSpace,
+        ultraHdr: ultraHdr,
+        hdrHeadroom: hdrHeadroom,
+        outputSharpenMedia: outputSharpenMedia,
+        outputSharpen: outputSharpen,
+        bandRows: bandRows,
+      );
+
   /// Non-cancellable [exportJpegFull] for callers (and the reference tests)
   /// that just want the bytes. Routes through the same single-call pipeline, so
   /// preview == export by construction.
