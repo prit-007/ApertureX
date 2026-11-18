@@ -900,12 +900,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         if (!mounted) return;
         setState(() => _exportPhase = ExportPhase.saving);
 
-        final baked = await AxEngine.decodeJpegRgba(jpeg);
+        final (rawRgba, rawW, rawH) = rgba.isNotEmpty
+            ? (rgba, width, height)
+            : await () async {
+                final baked = await AxEngine.decodeJpegRgba(jpeg);
+                return (baked.rgba, baked.width, baked.height);
+              }();
         final xmp = writeXmp(recipe);
         final tiff = await AxEngine.exportTiff16(
-          rgba: baked.rgba,
-          width: baked.width,
-          height: baked.height,
+          rgba: rawRgba,
+          width: rawW,
+          height: rawH,
           xmp: xmp,
         );
 

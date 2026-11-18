@@ -35,6 +35,7 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 | [`ort`](https://crates.io/crates/ort) | =2.0.0-rc.15 | MIT OR Apache-2.0 | Safe Rust bindings for ONNX Runtime Mobile (`ai` feature; not in the default build) | ✅ |
 | [`ort-sys`](https://crates.io/crates/ort-sys) | =2.0.0-rc.15 | MIT OR Apache-2.0 | Low-level ONNX Runtime bindings and native runtime (`ai` feature; not in the default build) | ✅ |
 | [`zune-jpeg`](https://crates.io/crates/zune-jpeg) | ^0.5.15 | MIT OR Apache-2.0 OR Zlib | Rust JPEG decode for the ROI/proxy path | ✅ |
+| [`Pat David Film Curves`](https://pixls.us) | PIXLS.US / G'MIC | CC-BY-SA-4.0 | Analog film curve reference models and color transfer profiles | ✅ |
 
 Apache-2.0 and GPL-3.0 are mutually compatible (both are modern, patent-granting
 licenses); the Apache NOTICE must be carried through, which we do here.
@@ -48,6 +49,11 @@ preserving rawler's notice.
 (Independent JPEG Group) JPEG reference implementation, whose permissive license
 permits use in free and proprietary software provided the IJG notice is carried.
 The IJG notice must be included in the app's license bundle.
+
+`Pat David Film Curves` are licensed under **CC-BY-SA-4.0** (or CC0 public domain
+derivations hosted on PIXLS.US). Creative Commons BY-SA 4.0 is one-way compatible
+with GPL-3.0 inbound via Creative Commons compatible licenses declaration;
+attribution notices and look origins are documented in `about_screen.dart`.
 
 ### Optional ONNX Runtime Mobile — release builds
 

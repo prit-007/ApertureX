@@ -31,7 +31,6 @@ import 'xmp_import_sheet.dart';
 import 'editor_guide_sheet.dart';
 import '../../features/editor/image_info_sheet.dart';
 import '../../core/updater/app_updater.dart';
-import '../../features/crop/crop_screen.dart';
 import '../../viewport/exposure_assist.dart';
 import 'history_tree_sheet.dart';
 
@@ -453,21 +452,6 @@ class SettingsSheet extends ConsumerWidget {
               onTap: () {
                 Navigator.of(context).maybePop();
                 HistoryTreeSheet.show(context);
-              },
-            ),
-            _Action(
-              icon: Icons.crop,
-              title: 'Crop & rotate...',
-              onTap: () {
-                final bytes = ref.read(activeImageBytesProvider);
-                Navigator.of(context).maybePop();
-                if (bytes != null) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => CropScreen(imageBytes: bytes),
-                    ),
-                  );
-                }
               },
             ),
             _Action(

@@ -34,6 +34,7 @@ enum ExportMetadataMode {
 enum ExportPresetKind {
   fullRes('Full Res Master', 'Original size, JPEG 95%, sRGB, all metadata'),
   webSocial('Web & Social (2048px)', 'Max 2048px, JPEG 85%, screen sharpen, copyright only'),
+  instagram('Instagram (1080px)', 'Max 1080px, JPEG 90%, screen sharpen, sRGB'),
   printLossless('Print / Lossless', 'Full resolution, Lossless PNG or 16-bit TIFF'),
   clientProof('Client Proof', 'Max 1600px, JPEG 75%, proof watermark'),
   proDisplay('Pro HDR (P3)', 'Display-P3 with Ultra HDR gain map');
@@ -452,6 +453,19 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
           ultraHdr: false,
           outputSharpenMedia: 1, // Screen
           outputSharpen: 0.5,
+          metadataMode: ExportMetadataMode.copyrightOnly,
+        );
+        break;
+      case ExportPresetKind.instagram:
+        state = state.copyWith(
+          quality: 90,
+          maxDim: 1080,
+          resizeMode: ExportResizeMode.longEdge,
+          resizeDimension: 1080,
+          colorSpace: 0,
+          ultraHdr: false,
+          outputSharpenMedia: 1, // Screen
+          outputSharpen: 0.6,
           metadataMode: ExportMetadataMode.copyrightOnly,
         );
         break;

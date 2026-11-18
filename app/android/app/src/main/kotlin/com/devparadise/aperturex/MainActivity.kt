@@ -1,11 +1,13 @@
 package com.devparadise.aperturex
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
 import android.graphics.Rect
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.Surface
@@ -37,6 +39,39 @@ import java.util.concurrent.Executors
 class MainActivity : FlutterActivity() {
     private val producers = mutableMapOf<Long, TextureRegistry.SurfaceProducer>()
     private val roiExecutor = Executors.newSingleThreadExecutor()
+    private var intentChannel: MethodChannel? = null
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val bytes = readImageBytesFromIntent(intent)
+        if (bytes != null) {
+            intentChannel?.invokeMethod("onImageReceived", bytes)
+        }
+    }
+
+    private fun readImageBytesFromIntent(intent: Intent?): ByteArray? {
+        if (intent == null) return null
+        val uri: Uri? = when (intent.action) {
+            Intent.ACTION_VIEW, Intent.ACTION_EDIT -> intent.data
+            Intent.ACTION_SEND -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
+                }
+            }
+            else -> null
+        }
+        if (uri == null) return null
+        return try {
+            contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        } catch (t: Throwable) {
+            NativeLog.record("Failed to read image bytes from intent URI: $uri", t, level = "warning")
+            null
+        }
+    }
 
     // Android 10 (API 29) and below require READ_EXTERNAL_STORAGE at runtime.
     // Android 13+ (API 33) uses READ_MEDIA_IMAGES via the photo_manager plugin.
@@ -176,6 +211,18 @@ class MainActivity : FlutterActivity() {
                     result.error("native_error", t.message, null)
                 }
             }
+
+        val inChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, INTENT_CHANNEL)
+        intentChannel = inChannel
+        inChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getInitialImage" -> {
+                    val bytes = readImageBytesFromIntent(intent)
+                    result.success(bytes)
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     private fun createTexture(flutterEngine: FlutterEngine, widthArg: Int?, heightArg: Int?, result: MethodChannel.Result) {
@@ -280,6 +327,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        intentChannel = null
         roiExecutor.shutdown()
         for (producer in producers.values) producer.release()
         producers.clear()
@@ -294,6 +342,7 @@ class MainActivity : FlutterActivity() {
         private const val CHANNEL = "aperturex/preview_texture"
         private const val ROI_CHANNEL = "aperturex/roi_decode"
         private const val NATIVE_CHANNEL = "aperturex/native_log"
+        private const val INTENT_CHANNEL = "aperturex/incoming_intent"
         private const val REQUEST_STORAGE_PERMISSION = 1001
 
         init {

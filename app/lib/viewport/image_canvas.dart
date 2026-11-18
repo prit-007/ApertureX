@@ -475,21 +475,32 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// resolution when master bytes arrive from background load.
   /// Preserves the user's active viewport scale and pan position perfectly.
   Future<void> _upgradeRoiBytes(Uint8List bytes) async {
-    if (_disposed || !mounted || isRawImage(bytes)) return;
+    if (_disposed || !mounted) return;
     try {
       int width = 0;
       int height = 0;
-      try {
-        final dims = await AxEngine.jpegDimensions(bytes);
-        width = dims.width;
-        height = dims.height;
-      } catch (_) {
-        final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-        final descriptor = await ui.ImageDescriptor.encoded(buffer);
-        width = descriptor.width;
-        height = descriptor.height;
-        descriptor.dispose();
-        buffer.dispose();
+      if (isRawImage(bytes)) {
+        try {
+          final dims = await AxEngine.rawDimensions(bytes);
+          width = dims.width;
+          height = dims.height;
+        } catch (_) {
+          width = 0;
+          height = 0;
+        }
+      } else {
+        try {
+          final dims = await AxEngine.jpegDimensions(bytes);
+          width = dims.width;
+          height = dims.height;
+        } catch (_) {
+          final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+          final descriptor = await ui.ImageDescriptor.encoded(buffer);
+          width = descriptor.width;
+          height = descriptor.height;
+          descriptor.dispose();
+          buffer.dispose();
+        }
       }
       if (_disposed || !mounted) return;
       if (width > _fullW || height > _fullH) {
@@ -522,9 +533,20 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       // excluded (no region decode path for demosaiced data).
       _roiBytes = jpeg;
       if (isRawImage(jpeg)) {
-        _fullW = 0;
-        _fullH = 0;
-        _tileGrid = null;
+        try {
+          final dims = await AxEngine.rawDimensions(jpeg);
+          _fullW = dims.width;
+          _fullH = dims.height;
+          _tileGrid = TileGrid(
+            imageWidth: _fullW,
+            imageHeight: _fullH,
+            tileSize: _tileSize,
+          );
+        } catch (_) {
+          _fullW = 0;
+          _fullH = 0;
+          _tileGrid = null;
+        }
       } else {
         try {
           final dims = await AxEngine.jpegDimensions(jpeg);
@@ -739,8 +761,6 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (fitted == Size.zero || bounds == Size.zero) return;
     final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
 
-    if (isRawImage(bytes)) return;
-
     final plan = planRoiOverlay(
       imageW: _fullW,
       imageH: _fullH,
@@ -948,12 +968,28 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
   }
 
-  /// RAW/DNG branch of [_decode]: the Rust engine demosaics + applies the
-  /// camera colour matrix, then we bilinearly downscale to the proxy size.
+  /// RAW/DNG branch of [_decode]: fast-loads embedded preview JPEG if available,
+  /// then demosaics with the camera colour matrix and downscales to the proxy size.
   Future<(ui.Image, Uint8List, int, int)> _decodeRaw(
     Uint8List bytes, {
     int? maxDim,
   }) async {
+    final embedded = await AxEngine.extractRawEmbeddedPreview(bytes);
+    if (embedded != null && embedded.isNotEmpty) {
+      try {
+        final buffer = await ui.ImmutableBuffer.fromUint8List(embedded);
+        final descriptor = await ui.ImageDescriptor.encoded(buffer);
+        final targetW = maxDim != null && descriptor.width > maxDim ? maxDim : descriptor.width;
+        final targetH = maxDim != null && descriptor.height > maxDim
+            ? ((descriptor.height * targetW) / descriptor.width).round()
+            : descriptor.height;
+        final codec = await descriptor.instantiateCodec(targetWidth: targetW, targetHeight: targetH);
+        final frame = await codec.getNextFrame();
+        descriptor.dispose();
+        buffer.dispose();
+        return (frame.image, embedded, frame.image.width, frame.image.height);
+      } catch (_) {}
+    }
     final decoded = await AxEngine.decodeRawRgba(bytes);
     var w = decoded.width;
     var h = decoded.height;

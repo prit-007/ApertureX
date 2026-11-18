@@ -65,6 +65,12 @@ void main() {
     expect(container.read(exportSettingsProvider).outputSharpenMedia, 1);
     expect(container.read(exportSettingsProvider).metadataMode, ExportMetadataMode.copyrightOnly);
 
+    n.applyPreset(ExportPresetKind.instagram);
+    expect(container.read(exportSettingsProvider).quality, 90);
+    expect(container.read(exportSettingsProvider).maxDim, 1080);
+    expect(container.read(exportSettingsProvider).outputSharpenMedia, 1);
+    expect(container.read(exportSettingsProvider).metadataMode, ExportMetadataMode.copyrightOnly);
+
     n.applyPreset(ExportPresetKind.proDisplay);
     expect(container.read(exportSettingsProvider).colorSpace, 1);
     expect(container.read(exportSettingsProvider).ultraHdr, isTrue);

@@ -9,7 +9,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../color/tat.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../edit/active_image.dart' show activeImageBytesProvider;
 import '../../edit/node_editor.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
@@ -22,7 +21,6 @@ import '../common/history_tree_sheet.dart';
 import '../common/mask_controls.dart';
 import '../common/precision_rotation_dial.dart';
 import '../common/preset_preview_thumbnail.dart';
-import '../../features/crop/crop_screen.dart';
 import 'edit_hud.dart';
 import 'snapseed_gesture_hud.dart';
 import 'snapseed_tools_sheet.dart';
@@ -181,14 +179,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                 setState(() => _straightenOpen = true);
               },
               onOpenCrop: () {
-                final bytes = ref.read(activeImageBytesProvider);
-                if (bytes != null) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => CropScreen(imageBytes: bytes),
-                    ),
-                  );
-                }
+                setState(() => _straightenOpen = true);
               },
             ),
           ),
