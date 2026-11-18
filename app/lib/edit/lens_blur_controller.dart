@@ -255,6 +255,99 @@ class LensBlurController extends Notifier<LensBlurState> {
     );
     await DepthSidecar.save(sidecarFile, data);
   }
+
+  /// Applies manual touchups to the cached depth field using brush strokes (Item 4.6).
+  /// [strokePoints] are normalized `(x, y)` pairs in `[0.0, 1.0]`.
+  /// [targetDepth] is the depth value to paint (e.g. focalPoint for subject focus, or 1.0 for background).
+  void applyDepthBrush(
+    List<double> strokePoints, {
+    double brushRadius = 0.05,
+    double targetDepth = 0.0,
+    double opacity = 0.8,
+  }) {
+    final depth = state.cachedDepth;
+    final w = state.depthWidth;
+    final h = state.depthHeight;
+    if (depth == null || w <= 0 || h <= 0 || strokePoints.isEmpty) return;
+
+    final updated = Float32List.fromList(depth);
+    final maxDim = w > h ? w : h;
+    final rPx = (brushRadius * maxDim).clamp(2.0, 100.0);
+    final rPx2 = rPx * rPx;
+
+    for (var i = 0; i < strokePoints.length - 1; i += 2) {
+      final cx = strokePoints[i] * (w - 1);
+      final cy = strokePoints[i + 1] * (h - 1);
+
+      final minX = (cx - rPx).floor().clamp(0, w - 1);
+      final maxX = (cx + rPx).ceil().clamp(0, w - 1);
+      final minY = (cy - rPx).floor().clamp(0, h - 1);
+      final maxY = (cy + rPx).ceil().clamp(0, h - 1);
+
+      for (var y = minY; y <= maxY; y++) {
+        final dy = y - cy;
+        final dy2 = dy * dy;
+        final row = y * w;
+        for (var x = minX; x <= maxX; x++) {
+          final dx = x - cx;
+          final dist2 = dx * dx + dy2;
+          if (dist2 <= rPx2) {
+            final falloff = 1.0 - (dist2 / rPx2);
+            final weight = falloff * opacity;
+            final idx = row + x;
+            updated[idx] =
+                (updated[idx] * (1.0 - weight) + targetDepth * weight).clamp(0.0, 1.0);
+          }
+        }
+      }
+    }
+
+    final data = DepthSidecarData(
+      width: w,
+      height: h,
+      confidence: state.depthConfidence,
+      source: DepthSourceType.neural,
+      contentHash: 0,
+      plane: updated,
+    );
+    ref.read(recipeControllerProvider.notifier).setDepthField(data);
+
+    state = state.copyWith(cachedDepth: updated);
+  }
+
+  /// Snaps depth map edges to photographic boundaries using the color image as guide (Item 4.6).
+  Future<void> refineDepthEdges(Uint8List imageBytes) async {
+    final depth = state.cachedDepth;
+    final w = state.depthWidth;
+    final h = state.depthHeight;
+    if (depth == null || w <= 0 || h <= 0) return;
+
+    try {
+      final decoded = await AxEngine.decodeAnalysisProxy(imageBytes);
+      final refined = await AxEngine.refineMask(
+        rgba: decoded.rgba,
+        width: decoded.width,
+        height: decoded.height,
+        maskKind: 0,
+        maskParams: [w.toDouble(), h.toDouble(), ...depth],
+      );
+      if (refined.length == w * h) {
+        final floatPlane = Float32List.fromList(refined);
+        final data = DepthSidecarData(
+          width: w,
+          height: h,
+          confidence: state.depthConfidence,
+          source: DepthSourceType.neural,
+          contentHash: 0,
+          plane: floatPlane,
+        );
+        ref.read(recipeControllerProvider.notifier).setDepthField(data);
+        state = state.copyWith(cachedDepth: floatPlane);
+      }
+    } catch (_) {
+      // Fallback: keep existing depth
+    }
+  }
 }
 
 final lensBlurControllerProvider =

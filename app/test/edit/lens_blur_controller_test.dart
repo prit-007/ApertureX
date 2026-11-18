@@ -106,5 +106,36 @@ void main() {
       expect(secondNotifier.state.cachedDepth?.length, 4);
       expect(secondNotifier.state.cachedDepth?[0], closeTo(0.2, 1e-5));
     });
+
+    test('applyDepthBrush paints depth touchups into cached depth and commits to recipe', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(lensBlurControllerProvider.notifier);
+      // 4x4 uniform background depth at 0.8
+      final initial = Float32List.fromList(List.filled(16, 0.8));
+      notifier.state = notifier.state.copyWith(
+        status: LensBlurStatus.ready,
+        cachedDepth: initial,
+        depthWidth: 4,
+        depthHeight: 4,
+        depthConfidence: 0.9,
+      );
+
+      // Paint sharp subject focal point at 0.2 at center (x=0.5, y=0.5)
+      notifier.applyDepthBrush([0.5, 0.5], brushRadius: 0.5, targetDepth: 0.2, opacity: 1.0);
+
+      final updated = notifier.state.cachedDepth!;
+      expect(updated.length, 16);
+      // Center pixels should be modified towards 0.2
+      const centerIdx = 2 * 4 + 2; // (x=2, y=2)
+      expect(updated[centerIdx], lessThan(0.8));
+
+      // Also verifies recipe depthField was updated
+      final recipeField = container.read(recipeControllerProvider).recipe.depthField;
+      expect(recipeField, isNotNull);
+      expect(recipeField!.plane.length, 16);
+      expect(recipeField.plane[centerIdx], lessThan(0.8));
+    });
   });
 }

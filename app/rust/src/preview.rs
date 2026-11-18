@@ -44,6 +44,7 @@ use crate::api::color::{to_hsl24, ColorParams, CurveParams};
 use crate::api::decode::RgbaImage;
 use crate::api::mask::MaskLayer;
 use crate::api::preview::PreviewBaseSpec;
+use crate::blur::LensBlurParams;
 use crate::color;
 use crate::geometry;
 use crate::histogram;
@@ -68,6 +69,32 @@ pub(crate) struct DepthMap {
     pub(crate) height: usize,
 }
 
+/// Key capturing all input stages preceding the blur stage (geometry, optics, retouch, blur, depth)
+#[derive(Clone, PartialEq, Debug)]
+pub struct BlurStageKey {
+    pub turns: u32,
+    pub flip_h: bool,
+    pub flip_v: bool,
+    pub crop_l: f32,
+    pub crop_t: f32,
+    pub crop_r: f32,
+    pub crop_b: f32,
+    pub optics: OpticsParams,
+    pub blur: LensBlurParams,
+    pub patches: Vec<RetouchPatch>,
+    pub depth_len: usize,
+}
+
+/// Cached intermediate buffer after geometry, optics, retouch, and lens blur
+#[derive(Clone)]
+pub struct BlurStageCache {
+    pub key: BlurStageKey,
+    pub buf: Arc<Vec<u8>>,
+    pub width: u32,
+    pub height: u32,
+    pub focus_mask: Option<Arc<Vec<f32>>>,
+}
+
 struct Resident {
     /// Shared so [`run_base`] can borrow the pixels after dropping the
     /// store lock (cloning the `Arc` is a pointer copy, not an 8 MB memcpy).
@@ -85,6 +112,7 @@ struct Resident {
     /// from the source by [`ensure_depth_map`].
     depth_map: Option<Arc<DepthMap>>,
     pub(crate) depth_field: Option<Arc<crate::depth::DepthField>>,
+    pub(crate) blur_cache: Option<BlurStageCache>,
     /// Spike B: platform window backing a Flutter `Texture` (an
     /// `ANativeWindow*` on Android, as `usize`). 0 = unbound; unbound
     /// handles use the return-frame path instead.
@@ -116,6 +144,7 @@ pub fn open(rgba: Vec<u8>, width: u32, height: u32) -> u64 {
             base_has_spatial_highlights: false,
             depth_map: None,
             depth_field: None,
+            blur_cache: None,
             window: 0,
         },
     );
@@ -719,32 +748,6 @@ fn bake_base(
 ) -> RgbaImage {
     let (mut buf, mut w, mut h): (Cow<'_, [u8]>, u32, u32) = (Cow::Borrowed(source), src_w, src_h);
 
-    if spec.flip_h {
-        buf = Cow::Owned(geometry::flip_h(&buf, w as usize, h as usize));
-    }
-    if spec.flip_v {
-        buf = Cow::Owned(geometry::flip_v(&buf, w as usize, h as usize));
-    }
-    if !spec.turns.is_multiple_of(4) {
-        let (b, nw, nh) = geometry::rotate_quarter(&buf, w as usize, h as usize, spec.turns);
-        buf = Cow::Owned(b);
-        w = nw as u32;
-        h = nh as u32;
-    }
-    if let Some((b, cw, ch)) = crop_opt(
-        &buf,
-        w,
-        h,
-        spec.crop_l,
-        spec.crop_t,
-        spec.crop_r,
-        spec.crop_b,
-    ) {
-        buf = Cow::Owned(b);
-        w = cw;
-        h = ch;
-    }
-
     let spatial_params = SpatialParams {
         shadows: spec.shadows,
         highlights: spec.highlights,
@@ -793,59 +796,191 @@ fn bake_base(
         profile_distortion: spec.profile_distortion,
         profile_vignetting: spec.profile_vignetting,
     };
-    if !optics_params.is_neutral() {
-        buf = Cow::Owned(optics::apply_optics(
-            &buf,
-            w as usize,
-            h as usize,
-            optics_params,
-        ));
-    }
-    if !patches.is_empty() {
-        let buf = buf.to_mut();
-        for patch in patches {
-            crate::retouch::apply_patch(buf, w as usize, h as usize, patch);
-        }
-    }
-    // Depth-aware lens blur sits at the same stage as the export pipeline
-    // (geometry → optics → blur → spatial → masks) so preview == export.
     let blur_params = spec.blur_params();
+    let mut focus_mask_out: Option<Arc<Vec<f32>>> = None;
+
     if !blur_params.is_neutral() {
-        // Use the model-supplied depth if present, otherwise estimate it from
-        // the resident source. The map is transformed through the same
-        // flip/rotate/crop chain as the pixels, so it stays aligned.
-        let depth_map = match ensure_depth_map(handle) {
-            Ok(depth) => Some(transform_depth_map(
-                &depth,
-                spec,
-                src_w as usize,
-                src_h as usize,
+        let depth_len = {
+            let store = lock_store();
+            store
+                .images
+                .get(&handle)
+                .and_then(|r| r.depth_map.as_ref().map(|d| d.data.len()))
+                .unwrap_or(0)
+        };
+        let blur_key = BlurStageKey {
+            turns: spec.turns,
+            flip_h: spec.flip_h,
+            flip_v: spec.flip_v,
+            crop_l: spec.crop_l,
+            crop_t: spec.crop_t,
+            crop_r: spec.crop_r,
+            crop_b: spec.crop_b,
+            optics: optics_params,
+            blur: blur_params,
+            patches: patches.to_vec(),
+            depth_len,
+        };
+
+        let cached_stage = {
+            let store = lock_store();
+            store.images.get(&handle).and_then(|r| {
+                if let Some(c) = &r.blur_cache {
+                    if c.key == blur_key {
+                        Some((Arc::clone(&c.buf), c.width, c.height, c.focus_mask.clone()))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+        };
+
+        if let Some((cached_buf, cw, ch, cached_fm)) = cached_stage {
+            buf = Cow::Owned((*cached_buf).clone());
+            w = cw;
+            h = ch;
+            focus_mask_out = cached_fm;
+        } else {
+            if spec.flip_h {
+                buf = Cow::Owned(geometry::flip_h(&buf, w as usize, h as usize));
+            }
+            if spec.flip_v {
+                buf = Cow::Owned(geometry::flip_v(&buf, w as usize, h as usize));
+            }
+            if !spec.turns.is_multiple_of(4) {
+                let (b, nw, nh) =
+                    geometry::rotate_quarter(&buf, w as usize, h as usize, spec.turns);
+                buf = Cow::Owned(b);
+                w = nw as u32;
+                h = nh as u32;
+            }
+            if let Some((b, cw, ch)) = crop_opt(
+                &buf,
+                w,
+                h,
+                spec.crop_l,
+                spec.crop_t,
+                spec.crop_r,
+                spec.crop_b,
+            ) {
+                buf = Cow::Owned(b);
+                w = cw;
+                h = ch;
+            }
+            if !optics_params.is_neutral() {
+                buf = Cow::Owned(optics::apply_optics(
+                    &buf,
+                    w as usize,
+                    h as usize,
+                    optics_params,
+                ));
+            }
+            if !patches.is_empty() {
+                let buf = buf.to_mut();
+                for patch in patches {
+                    crate::retouch::apply_patch(buf, w as usize, h as usize, patch);
+                }
+            }
+
+            let depth_map = match ensure_depth_map(handle) {
+                Ok(depth) => Some(transform_depth_map(
+                    &depth,
+                    spec,
+                    src_w as usize,
+                    src_h as usize,
+                    w as usize,
+                    h as usize,
+                )),
+                Err(err) => {
+                    crate::api::logging::record_engine_error(
+                        "Depth estimation failed; using synthetic depth",
+                        &err,
+                    );
+                    None
+                }
+            };
+
+            let focus_mask = depth_map.as_deref().map(|dm| {
+                Arc::new(crate::blur::compute_focus_mask(
+                    dm,
+                    blur_params.focal_point,
+                    blur_params.focal_range,
+                    blur_params.amount,
+                ))
+            });
+            focus_mask_out = focus_mask.clone();
+
+            buf = Cow::Owned(crate::blur::apply_lens_blur(
+                &buf,
                 w as usize,
                 h as usize,
-            )),
-            Err(err) => {
-                crate::api::logging::record_engine_error(
-                    "Depth estimation failed; using synthetic depth",
-                    &err,
-                );
-                None
+                blur_params,
+                depth_map.as_deref(),
+            ));
+
+            let mut store = lock_store();
+            if let Some(r) = store.images.get_mut(&handle) {
+                r.blur_cache = Some(BlurStageCache {
+                    key: blur_key,
+                    buf: Arc::new(buf.clone().into_owned()),
+                    width: w,
+                    height: h,
+                    focus_mask,
+                });
             }
-        };
-        buf = Cow::Owned(crate::blur::apply_lens_blur(
+        }
+    } else {
+        if spec.flip_h {
+            buf = Cow::Owned(geometry::flip_h(&buf, w as usize, h as usize));
+        }
+        if spec.flip_v {
+            buf = Cow::Owned(geometry::flip_v(&buf, w as usize, h as usize));
+        }
+        if !spec.turns.is_multiple_of(4) {
+            let (b, nw, nh) = geometry::rotate_quarter(&buf, w as usize, h as usize, spec.turns);
+            buf = Cow::Owned(b);
+            w = nw as u32;
+            h = nh as u32;
+        }
+        if let Some((b, cw, ch)) = crop_opt(
             &buf,
-            w as usize,
-            h as usize,
-            blur_params,
-            depth_map.as_deref(),
-        ));
+            w,
+            h,
+            spec.crop_l,
+            spec.crop_t,
+            spec.crop_r,
+            spec.crop_b,
+        ) {
+            buf = Cow::Owned(b);
+            w = cw;
+            h = ch;
+        }
+        if !optics_params.is_neutral() {
+            buf = Cow::Owned(optics::apply_optics(
+                &buf,
+                w as usize,
+                h as usize,
+                optics_params,
+            ));
+        }
+        if !patches.is_empty() {
+            let buf = buf.to_mut();
+            for patch in patches {
+                crate::retouch::apply_patch(buf, w as usize, h as usize, patch);
+            }
+        }
     }
+
     // apply_spatial clones on the neutral path — skip it entirely.
     if !spatial_params.is_neutral() {
-        buf = Cow::Owned(spatial::apply_spatial(
+        buf = Cow::Owned(spatial::apply_spatial_with_focus_mask(
             &buf,
             w as usize,
             h as usize,
             spatial_params,
+            focus_mask_out.as_deref().map(|v| v.as_slice()),
         ));
     }
 

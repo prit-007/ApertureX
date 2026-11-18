@@ -168,12 +168,45 @@ fn unsharp(src: &[u8], base: &[u8], amount: f32) -> Vec<u8> {
     out
 }
 
-/// Texture: fine-detail (high-frequency) boost — small blur radius.
-pub fn apply_texture(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
+/// Unsharp form with optional per-pixel focus mask attenuation.
+fn unsharp_masked(src: &[u8], base: &[u8], amount: f32, mask: Option<&[f32]>) -> Vec<u8> {
+    if let Some(m) = mask {
+        let n = src.len() / 4;
+        let mut out = src.to_vec();
+        for i in 0..n {
+            let eff_amount = amount * m[i].clamp(0.0, 1.0);
+            if eff_amount.abs() <= 1e-4 {
+                continue;
+            }
+            for c in 0..3 {
+                let s = src[i * 4 + c] as f32;
+                let b = base[i * 4 + c] as f32;
+                out[i * 4 + c] = (s + (s - b) * eff_amount).clamp(0.0, 255.0) as u8;
+            }
+        }
+        out
+    } else {
+        unsharp(src, base, amount)
+    }
+}
+
+/// Texture: fine-detail (high-frequency) boost — small blur radius with focus mask attenuation.
+pub fn apply_texture_masked(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    amount: f32,
+    mask: Option<&[f32]>,
+) -> Vec<u8> {
     if amount == 0.0 {
         return rgba.to_vec();
     }
-    unsharp(rgba, &blur_rgb(rgba, w, h, 2, 1), amount)
+    unsharp_masked(rgba, &blur_rgb(rgba, w, h, 2, 1), amount, mask)
+}
+
+/// Texture: fine-detail (high-frequency) boost — small blur radius.
+pub fn apply_texture(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
+    apply_texture_masked(rgba, w, h, amount, None)
 }
 
 /// Guided filter for a single channel `src` using `guide` as the guidance image.
@@ -284,13 +317,25 @@ pub fn apply_clarity(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
     apply_clarity_r(rgba, w, h, amount, clarity_radius(w, h))
 }
 
-/// [`apply_clarity`] with an explicit radius (for banded processing).
-pub fn apply_clarity_r(rgba: &[u8], w: usize, h: usize, amount: f32, radius: usize) -> Vec<u8> {
+/// [`apply_clarity`] with an explicit radius (for banded processing) and optional focus mask attenuation.
+pub fn apply_clarity_r_masked(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    amount: f32,
+    radius: usize,
+    mask: Option<&[f32]>,
+) -> Vec<u8> {
     if amount == 0.0 || w == 0 || h == 0 {
         return rgba.to_vec();
     }
     let base = guided_filter_luma_rgb(rgba, w, h, radius, 250.0);
-    unsharp(rgba, &base, amount)
+    unsharp_masked(rgba, &base, amount, mask)
+}
+
+/// [`apply_clarity`] with an explicit radius (for banded processing).
+pub fn apply_clarity_r(rgba: &[u8], w: usize, h: usize, amount: f32, radius: usize) -> Vec<u8> {
+    apply_clarity_r_masked(rgba, w, h, amount, radius, None)
 }
 
 /// Computes an edge mask (0..1 per pixel) from luminance gradients.
@@ -340,8 +385,9 @@ pub fn sharpen_edge_mask(rgba: &[u8], w: usize, h: usize, masking: f32) -> Vec<f
     mask
 }
 
-/// Unsharp sharpening with advanced radius, detail, and edge masking.
-pub fn apply_sharpen_advanced(
+/// Unsharp sharpening with advanced radius, detail, edge masking, and optional focus mask attenuation.
+#[allow(clippy::too_many_arguments)]
+pub fn apply_sharpen_advanced_masked(
     rgba: &[u8],
     w: usize,
     h: usize,
@@ -349,6 +395,7 @@ pub fn apply_sharpen_advanced(
     radius: f32,
     detail: f32,
     masking: f32,
+    focus_mask: Option<&[f32]>,
 ) -> Vec<u8> {
     if amount == 0.0 || w == 0 || h == 0 {
         return rgba.to_vec();
@@ -367,10 +414,16 @@ pub fn apply_sharpen_advanced(
 
     for i in 0..w * h {
         let m = if masking > 0.0 { mask[i] } else { 1.0 };
-        if m == 0.0 {
+        let fm = if let Some(focus) = focus_mask {
+            focus[i].clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+        let effective_m = m * fm;
+        if effective_m <= 1e-4 {
             continue;
         }
-        let effective_amount = amount * m * detail_factor;
+        let effective_amount = amount * effective_m * detail_factor;
         for c in 0..3 {
             let o = rgba[i * 4 + c] as f32;
             let b = base[i * 4 + c] as f32;
@@ -378,6 +431,19 @@ pub fn apply_sharpen_advanced(
         }
     }
     out
+}
+
+/// Unsharp sharpening with advanced radius, detail, and edge masking.
+pub fn apply_sharpen_advanced(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    amount: f32,
+    radius: f32,
+    detail: f32,
+    masking: f32,
+) -> Vec<u8> {
+    apply_sharpen_advanced_masked(rgba, w, h, amount, radius, detail, masking, None)
 }
 
 /// Sharpening: unsharp mask with a caller-chosen radius/amount.
@@ -405,13 +471,14 @@ impl OutputSharpenMedia {
     }
 }
 
-/// Output-specific sharpening targeting screen, print (matte/glossy), or web delivery.
-pub fn apply_output_sharpen(
+/// Output-specific sharpening targeting screen, print (matte/glossy), or web delivery with optional focus mask attenuation.
+pub fn apply_output_sharpen_masked(
     rgba: &[u8],
     w: usize,
     h: usize,
     media: OutputSharpenMedia,
     amount: f32,
+    focus_mask: Option<&[f32]>,
 ) -> Vec<u8> {
     if amount <= 0.0 || w == 0 || h == 0 {
         return rgba.to_vec();
@@ -422,7 +489,7 @@ pub fn apply_output_sharpen(
         OutputSharpenMedia::PrintGlossy => (1.3, 0.55, 1.10),
         OutputSharpenMedia::Web => (0.7, 0.25, 0.70),
     };
-    apply_sharpen_advanced(
+    apply_sharpen_advanced_masked(
         rgba,
         w,
         h,
@@ -430,7 +497,19 @@ pub fn apply_output_sharpen(
         radius,
         detail,
         0.05,
+        focus_mask,
     )
+}
+
+/// Output-specific sharpening targeting screen, print (matte/glossy), or web delivery.
+pub fn apply_output_sharpen(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    media: OutputSharpenMedia,
+    amount: f32,
+) -> Vec<u8> {
+    apply_output_sharpen_masked(rgba, w, h, media, amount, None)
 }
 
 /// Edge-aware shadows/highlights: split into a large-radius base and a detail
@@ -1232,14 +1311,18 @@ pub fn shader_lab_effect(
     }
 }
 
-/// Applies the full spatial pass in a fixed order: denoise → shadows/highlights
-/// → clarity → texture → sharpen → dehaze → vignette → grain → film → shader lab. A neutral set
-/// returns the input unchanged.
-pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u8> {
+/// Applies the full spatial pass with optional focus mask attenuation for blur protection.
+pub fn apply_spatial_with_focus_mask(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    p: SpatialParams,
+    focus_mask: Option<&[f32]>,
+) -> Vec<u8> {
     if p.is_neutral() {
         return rgba.to_vec();
     }
-    let mut out = apply_spatial_local(rgba, w, h, p);
+    let mut out = apply_spatial_local_masked(rgba, w, h, p, focus_mask);
     if p.vignette != 0.0 {
         let mid = if p.vignette_midpoint == 0.0 && p.vignette_feather == 0.0 {
             0.5
@@ -1318,6 +1401,25 @@ pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u
     out
 }
 
+/// Applies the full spatial pass in a fixed order: denoise → shadows/highlights
+/// → clarity → texture → sharpen → dehaze → vignette → grain → film → shader lab. A neutral set
+/// returns the input unchanged.
+pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u8> {
+    apply_spatial_with_focus_mask(rgba, w, h, p, None)
+}
+
+/// The neighbour-aware portion of the spatial pass — the ops that read pixels
+/// around the target, with optional focus mask attenuation.
+pub fn apply_spatial_local_masked(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    p: SpatialParams,
+    focus_mask: Option<&[f32]>,
+) -> Vec<u8> {
+    apply_spatial_local_ctx_masked(rgba, w, h, p, clarity_radius(w, h), focus_mask)
+}
+
 /// The neighbour-aware portion of the spatial pass — the ops that read pixels
 /// around the target. Split out so it can run padded over an export band. The
 /// position-dependent ops (vignette, grain) are deliberately excluded: their
@@ -1326,16 +1428,17 @@ pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u
 /// The radius is derived from the passed `(w, h)`; callers processing a band
 /// must call [`apply_spatial_local_ctx`] with the **full** image radius.
 pub fn apply_spatial_local(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u8> {
-    apply_spatial_local_ctx(rgba, w, h, p, clarity_radius(w, h))
+    apply_spatial_local_masked(rgba, w, h, p, None)
 }
 
-/// [`apply_spatial_local`] with an explicit clarity/shadows radius.
-pub fn apply_spatial_local_ctx(
+/// [`apply_spatial_local`] with an explicit clarity/shadows radius and focus mask attenuation.
+pub fn apply_spatial_local_ctx_masked(
     rgba: &[u8],
     w: usize,
     h: usize,
     p: SpatialParams,
     radius: usize,
+    focus_mask: Option<&[f32]>,
 ) -> Vec<u8> {
     // Run only the ops that are actually engaged — each is a full-image pass, so
     // touching a single slider must not pay for the other four.
@@ -1350,10 +1453,10 @@ pub fn apply_spatial_local_ctx(
         out = apply_shadow_highlight_r(&out, w, h, p.shadows, p.highlights, radius);
     }
     if p.clarity != 0.0 {
-        out = apply_clarity_r(&out, w, h, p.clarity, radius);
+        out = apply_clarity_r_masked(&out, w, h, p.clarity, radius, focus_mask);
     }
     if p.texture != 0.0 {
-        out = apply_texture(&out, w, h, p.texture);
+        out = apply_texture_masked(&out, w, h, p.texture, focus_mask);
     }
     if p.sharpen != 0.0 {
         let r = if p.sharpen_radius <= 0.0 {
@@ -1361,7 +1464,7 @@ pub fn apply_spatial_local_ctx(
         } else {
             p.sharpen_radius
         };
-        out = apply_sharpen_advanced(
+        out = apply_sharpen_advanced_masked(
             &out,
             w,
             h,
@@ -1369,6 +1472,7 @@ pub fn apply_spatial_local_ctx(
             r,
             p.sharpen_detail,
             p.sharpen_masking,
+            focus_mask,
         );
     }
     if p.dehaze != 0.0 {
@@ -1376,9 +1480,20 @@ pub fn apply_spatial_local_ctx(
     }
     if p.output_sharpen > 0.0 {
         let media = OutputSharpenMedia::from_u8(p.output_sharpen_media);
-        out = apply_output_sharpen(&out, w, h, media, p.output_sharpen);
+        out = apply_output_sharpen_masked(&out, w, h, media, p.output_sharpen, focus_mask);
     }
     out
+}
+
+/// [`apply_spatial_local`] with an explicit clarity/shadows radius.
+pub fn apply_spatial_local_ctx(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    p: SpatialParams,
+    radius: usize,
+) -> Vec<u8> {
+    apply_spatial_local_ctx_masked(rgba, w, h, p, radius, None)
 }
 
 /// Vertical halo (in rows) needed for [`apply_spatial_local_ctx`] to be exact.
@@ -2871,6 +2986,57 @@ mod tests {
             (right_val - left_val) > 100.0,
             "Edge between left and right must be preserved across AI denoise (step: {})",
             right_val - left_val
+        );
+    }
+
+    #[test]
+    fn test_blur_aware_spatial_attenuation_protects_bokeh() {
+        let (w, h) = (32, 32);
+        let mut src = vec![128u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                // High frequency checkerboard pattern
+                let delta = if (x + y) % 2 == 0 { 20 } else { -20 };
+                let val = (128 + delta) as u8;
+                src[idx] = val;
+                src[idx + 1] = val;
+                src[idx + 2] = val;
+                src[idx + 3] = 255;
+            }
+        }
+
+        // Left half in-focus (1.0), right half out-of-focus (0.0)
+        let mut focus_mask = vec![0.0f32; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                if x < 16 {
+                    focus_mask[y * w + x] = 1.0;
+                }
+            }
+        }
+
+        let p = SpatialParams {
+            clarity: 0.5,
+            texture: 0.5,
+            sharpen: 0.8,
+            ..Default::default()
+        };
+
+        let out = apply_spatial_with_focus_mask(&src, w, h, p, Some(&focus_mask));
+
+        // In-focus left half should be noticeably sharpened
+        let left_diff = (out[(16 * w + 8) * 4] as i32 - src[(16 * w + 8) * 4] as i32).abs();
+        assert!(
+            left_diff > 0,
+            "in-focus left half must receive spatial boost"
+        );
+
+        // Out-of-focus right half should be completely protected from unsharp crunchiness
+        let right_diff = (out[(16 * w + 24) * 4] as i32 - src[(16 * w + 24) * 4] as i32).abs();
+        assert_eq!(
+            right_diff, 0,
+            "out-of-focus right half must be protected by focus mask"
         );
     }
 }

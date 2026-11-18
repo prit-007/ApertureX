@@ -182,6 +182,25 @@ pub fn circle_of_confusion(depth: f32, focal_point: f32, focal_range: f32, amoun
     }
 }
 
+/// Computes an in-focus attenuation mask in `[0.0, 1.0]` where 1.0 represents
+/// an in-focus subject pixel and 0.0 represents an out-of-focus bokeh pixel.
+/// Used to attenuate spatial sharpness, clarity, and texture so out-of-focus
+/// regions do not exhibit artificial crunchy halos or plastic artifacts.
+pub fn compute_focus_mask(
+    depth: &[f32],
+    focal_point: f32,
+    focal_range: f32,
+    amount: f32,
+) -> Vec<f32> {
+    depth
+        .iter()
+        .map(|&d| {
+            let coc = circle_of_confusion(d, focal_point, focal_range, amount);
+            (1.0 - (coc * 8.0)).clamp(0.0, 1.0)
+        })
+        .collect()
+}
+
 /// Evaluates aperture blade distance threshold at polar angle `theta`.
 #[inline(always)]
 fn aperture_radius_limit(theta: f32, shape: BokehShape) -> f32 {
@@ -591,12 +610,14 @@ pub fn apply_lens_blur(
         0.45
     };
 
-    // 3.1: Foreground dilation grid: detects nearby out-of-focus foreground so sharp pixels
-    // receive natural foreground bokeh bleed rather than hard cut-out edges.
+    // 3.1 & 3.11: Foreground dilation & Tile-Max-CoC culling grid:
+    // Identifies tiles that are completely in-focus without foreground bleed
+    // so they can be block-copied directly, skipping per-pixel gather passes.
     const TILE_SZ: usize = 16;
     let grid_w = w.div_ceil(TILE_SZ);
     let grid_h = h.div_ceil(TILE_SZ);
     let mut fg_tile_coc = vec![0.0f32; grid_w * grid_h];
+    let mut all_tile_coc = vec![0.0f32; grid_w * grid_h];
     let fg_threshold = params.focal_point - params.focal_range * 0.5;
 
     for ty in 0..grid_h {
@@ -605,204 +626,300 @@ pub fn apply_lens_blur(
         for tx in 0..grid_w {
             let x_start = tx * TILE_SZ;
             let x_end = (x_start + TILE_SZ).min(w);
-            let mut max_coc = 0.0f32;
+            let mut max_fg_coc = 0.0f32;
+            let mut max_all_coc = 0.0f32;
             for y in y_start..y_end {
                 let row = y * w;
                 for x in x_start..x_end {
                     let d = depth_buffer[row + x];
-                    if d < fg_threshold {
-                        let c = circle_of_confusion(
+                    let c = if params.background_blur
+                        && d <= params.focal_point + params.focal_range * 0.5
+                    {
+                        0.0
+                    } else {
+                        circle_of_confusion(
                             d,
                             params.focal_point,
                             params.focal_range,
                             params.amount,
-                        );
-                        if c > max_coc {
-                            max_coc = c;
-                        }
+                        )
+                    };
+                    if c > max_all_coc {
+                        max_all_coc = c;
+                    }
+                    if d < fg_threshold && c > max_fg_coc {
+                        max_fg_coc = c;
                     }
                 }
             }
-            fg_tile_coc[ty * grid_w + tx] = max_coc;
+            let tidx = ty * grid_w + tx;
+            fg_tile_coc[tidx] = max_fg_coc;
+            all_tile_coc[tidx] = max_all_coc;
         }
     }
+
+    let tile_radius = ((max_radius / TILE_SZ as f32).ceil() as isize).clamp(0, 3);
+    let mut tile_local_fg_coc = vec![0.0f32; grid_w * grid_h];
+    let mut tile_culled = vec![false; grid_w * grid_h];
+
+    for ty in 0..grid_h {
+        for tx in 0..grid_w {
+            let mut local_fg = 0.0f32;
+            for dy_t in -tile_radius..=tile_radius {
+                let nty = ty as isize + dy_t;
+                if nty < 0 || nty >= grid_h as isize {
+                    continue;
+                }
+                for dx_t in -tile_radius..=tile_radius {
+                    let ntx = tx as isize + dx_t;
+                    if ntx < 0 || ntx >= grid_w as isize {
+                        continue;
+                    }
+                    let c = fg_tile_coc[nty as usize * grid_w + ntx as usize];
+                    if c > local_fg {
+                        local_fg = c;
+                    }
+                }
+            }
+            let tidx = ty * grid_w + tx;
+            tile_local_fg_coc[tidx] = local_fg;
+            if all_tile_coc[tidx] <= 1e-3 && local_fg <= 1e-3 {
+                tile_culled[tidx] = true;
+            }
+        }
+    }
+
+    // 3.13: Multi-resolution far-field MIP: for large bokeh radii, pre-filtered
+    // downsampled samples reduce memory bandwidth and cache thrashing.
+    let half_rgba = if max_radius >= 12.0 && w >= 64 && h >= 64 {
+        let w_half = w / 2;
+        let h_half = h / 2;
+        let mut half = vec![0u8; w_half * h_half * 4];
+        for hy in 0..h_half {
+            let y0 = hy * 2;
+            let y1 = (y0 + 1).min(h - 1);
+            for hx in 0..w_half {
+                let x0 = hx * 2;
+                let x1 = (x0 + 1).min(w - 1);
+                let idx00 = (y0 * w + x0) * 4;
+                let idx01 = (y0 * w + x1) * 4;
+                let idx10 = (y1 * w + x0) * 4;
+                let idx11 = (y1 * w + x1) * 4;
+                let out_idx = (hy * w_half + hx) * 4;
+                for c in 0..4 {
+                    let sum = rgba[idx00 + c] as u32
+                        + rgba[idx01 + c] as u32
+                        + rgba[idx10 + c] as u32
+                        + rgba[idx11 + c] as u32;
+                    half[out_idx + c] = (sum / 4) as u8;
+                }
+            }
+        }
+        Some((half, w_half, h_half))
+    } else {
+        None
+    };
 
     out.par_chunks_exact_mut(w * 4)
         .enumerate()
         .for_each(|(y, row)| {
-            for x in 0..w {
-                let idx = x * 4;
-                let src_idx = (y * w + x) * 4;
-                let pixel_depth = depth_buffer[y * w + x];
-                let coc = if params.background_blur
-                    && pixel_depth <= params.focal_point + params.focal_range * 0.5
-                {
-                    0.0
-                } else {
-                    circle_of_confusion(
-                        pixel_depth,
-                        params.focal_point,
-                        params.focal_range,
-                        params.amount,
-                    )
-                };
-
+            let ty = y / TILE_SZ;
+            let mut x = 0;
+            while x < w {
                 let tx = x / TILE_SZ;
-                let ty = y / TILE_SZ;
-                let tile_radius = ((max_radius / TILE_SZ as f32).ceil() as isize).clamp(0, 3);
-                let mut local_fg_coc = 0.0f32;
-                for dy_t in -tile_radius..=tile_radius {
-                    let nty = ty as isize + dy_t;
-                    if nty < 0 || nty >= grid_h as isize {
-                        continue;
-                    }
-                    for dx_t in -tile_radius..=tile_radius {
-                        let ntx = tx as isize + dx_t;
-                        if ntx < 0 || ntx >= grid_w as isize {
-                            continue;
-                        }
-                        let c = fg_tile_coc[nty as usize * grid_w + ntx as usize];
-                        if c > local_fg_coc {
-                            local_fg_coc = c;
-                        }
-                    }
-                }
+                let x_tile_end = ((tx + 1) * TILE_SZ).min(w);
+                let tidx = ty * grid_w + tx;
 
-                let is_sharp = coc <= 1e-3;
-                if is_sharp && local_fg_coc <= 1e-3 {
-                    row[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
+                if tile_culled[tidx] {
+                    let b_start = x * 4;
+                    let b_end = x_tile_end * 4;
+                    let src_start = (y * w + x) * 4;
+                    let src_end = (y * w + x_tile_end) * 4;
+                    row[b_start..b_end].copy_from_slice(&rgba[src_start..src_end]);
+                    x = x_tile_end;
                     continue;
                 }
 
-                let effective_coc = if is_sharp { local_fg_coc } else { coc };
-                let kernel_r = (effective_coc * max_radius).max(1.0);
-                let mut r_acc = 0.0f32;
-                let mut g_acc = 0.0f32;
-                let mut b_acc = 0.0f32;
-                let mut weight_acc = 0.0f32;
-
-                for sample in &kernel {
-                    let nx = (x as f32 + sample.dx * kernel_r).round() as isize;
-                    let ny = (y as f32 + sample.dy * kernel_r).round() as isize;
-                    if nx < 0 || nx >= w as isize || ny < 0 || ny >= h as isize {
-                        continue;
-                    }
-                    let s_x = nx as usize;
-                    let s_y = ny as usize;
-                    let sample_depth = depth_buffer[s_y * w + s_x];
-                    // Occlusion-aware gather: asymmetric depth weighting prevents background-to-foreground
-                    // bleed, eliminates sharp halos, and permits foreground out-of-focus bokeh bleed.
-                    let depth_delta = sample_depth - pixel_depth;
-                    let depth_weight = if depth_delta > depth_edge_threshold {
-                        // Sample is in the distant background behind this pixel.
-                        // Background cannot bleed forward over foreground or in-focus subjects.
-                        0.0f32
-                    } else if depth_delta < -depth_edge_threshold {
-                        // Sample is in the foreground in front of this pixel.
-                        // Bleeds naturally over this pixel (even if this pixel is sharp in-focus!)
-                        let sample_coc = circle_of_confusion(
-                            sample_depth,
+                let local_fg_coc = tile_local_fg_coc[tidx];
+                for px in x..x_tile_end {
+                    let idx = px * 4;
+                    let src_idx = (y * w + px) * 4;
+                    let pixel_depth = depth_buffer[y * w + px];
+                    let coc = if params.background_blur
+                        && pixel_depth <= params.focal_point + params.focal_range * 0.5
+                    {
+                        0.0
+                    } else {
+                        circle_of_confusion(
+                            pixel_depth,
                             params.focal_point,
                             params.focal_range,
                             params.amount,
-                        );
-                        let sample_r = (sample_coc * max_radius).max(1.0);
-                        let dist = ((sample.dx * kernel_r).powi(2)
-                            + (sample.dy * kernel_r).powi(2))
-                        .sqrt();
-                        if sample_r >= dist && sample_r > 0.0 {
-                            ((sample_r - dist) / sample_r).clamp(0.0, 1.0)
-                        } else {
-                            0.0f32
+                        )
+                    };
+
+                    let is_sharp = coc <= 1e-3;
+                    if is_sharp && local_fg_coc <= 1e-3 {
+                        row[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
+                        continue;
+                    }
+
+                    let effective_coc = if is_sharp { local_fg_coc } else { coc };
+                    let kernel_r = (effective_coc * max_radius).max(1.0);
+                    let mut r_acc = 0.0f32;
+                    let mut g_acc = 0.0f32;
+                    let mut b_acc = 0.0f32;
+                    let mut weight_acc = 0.0f32;
+
+                    for sample in &kernel {
+                        let nx = (px as f32 + sample.dx * kernel_r).round() as isize;
+                        let ny = (y as f32 + sample.dy * kernel_r).round() as isize;
+                        if nx < 0 || nx >= w as isize || ny < 0 || ny >= h as isize {
+                            continue;
                         }
-                    } else {
-                        // Sample is in the same focal plane as this pixel
-                        if is_sharp {
-                            if sample.dx == 0.0 && sample.dy == 0.0 {
-                                1.0f32
+                        let s_x = nx as usize;
+                        let s_y = ny as usize;
+                        let sample_depth = depth_buffer[s_y * w + s_x];
+                        // Occlusion-aware gather: asymmetric depth weighting prevents background-to-foreground
+                        // bleed, eliminates sharp halos, and permits foreground out-of-focus bokeh bleed.
+                        let depth_delta = sample_depth - pixel_depth;
+                        let depth_weight = if depth_delta > depth_edge_threshold {
+                            // Sample is in the distant background behind this pixel.
+                            // Background cannot bleed forward over foreground or in-focus subjects.
+                            0.0f32
+                        } else if depth_delta < -depth_edge_threshold {
+                            // Sample is in the foreground in front of this pixel.
+                            // Bleeds naturally over this pixel (even if this pixel is sharp in-focus!)
+                            let sample_coc = circle_of_confusion(
+                                sample_depth,
+                                params.focal_point,
+                                params.focal_range,
+                                params.amount,
+                            );
+                            let sample_r = (sample_coc * max_radius).max(1.0);
+                            let dist = ((sample.dx * kernel_r).powi(2)
+                                + (sample.dy * kernel_r).powi(2))
+                            .sqrt();
+                            if sample_r >= dist && sample_r > 0.0 {
+                                ((sample_r - dist) / sample_r).clamp(0.0, 1.0)
                             } else {
                                 0.0f32
                             }
                         } else {
-                            1.0f32
+                            // Sample is in the same focal plane as this pixel
+                            if is_sharp {
+                                if sample.dx == 0.0 && sample.dy == 0.0 {
+                                    1.0f32
+                                } else {
+                                    0.0f32
+                                }
+                            } else {
+                                1.0f32
+                            }
+                        };
+
+                        if depth_weight <= 0.0 {
+                            continue;
                         }
-                    };
 
-                    if depth_weight <= 0.0 {
-                        continue;
-                    }
+                        let (mut sr, mut sg, mut sb) =
+                            if kernel_r >= 10.0 && depth_delta <= -depth_edge_threshold {
+                                if let Some((ref half, hw, hh)) = half_rgba.as_ref() {
+                                    let hsx = (s_x / 2).min(hw - 1);
+                                    let hsy = (s_y / 2).min(hh - 1);
+                                    let h_idx = (hsy * hw + hsx) * 4;
+                                    (
+                                        crate::color::srgb_u8_to_linear(half[h_idx]),
+                                        crate::color::srgb_u8_to_linear(half[h_idx + 1]),
+                                        crate::color::srgb_u8_to_linear(half[h_idx + 2]),
+                                    )
+                                } else {
+                                    let s_idx = (s_y * w + s_x) * 4;
+                                    (
+                                        crate::color::srgb_u8_to_linear(rgba[s_idx]),
+                                        crate::color::srgb_u8_to_linear(rgba[s_idx + 1]),
+                                        crate::color::srgb_u8_to_linear(rgba[s_idx + 2]),
+                                    )
+                                }
+                            } else {
+                                let s_idx = (s_y * w + s_x) * 4;
+                                (
+                                    crate::color::srgb_u8_to_linear(rgba[s_idx]),
+                                    crate::color::srgb_u8_to_linear(rgba[s_idx + 1]),
+                                    crate::color::srgb_u8_to_linear(rgba[s_idx + 2]),
+                                )
+                            };
 
-                    let s_idx = (s_y * w + s_x) * 4;
-                    let mut sr = crate::color::srgb_u8_to_linear(rgba[s_idx]);
-                    let mut sg = crate::color::srgb_u8_to_linear(rgba[s_idx + 1]);
-                    let mut sb = crate::color::srgb_u8_to_linear(rgba[s_idx + 2]);
-
-                    // Specular highlight boost: amplify bright out-of-focus spots in linear light
-                    if params.bokeh_boost > 0.0 {
-                        let luma = 0.2126 * sr + 0.7152 * sg + 0.0722 * sb;
-                        if luma > p99_luma {
-                            let boost = 1.0
-                                + params.bokeh_boost
-                                    * 2.0
-                                    * ((luma - p99_luma) / (1.0 - p99_luma).max(0.01));
-                            sr *= boost;
-                            sg *= boost;
-                            sb *= boost;
-                        }
-                    }
-
-                    // Longitudinal chromatic fringing at outer bokeh boundary
-                    if effective_coc > 0.05 {
-                        let r_norm = (sample.dx * sample.dx + sample.dy * sample.dy).sqrt();
-                        if r_norm > 0.70 {
-                            if pixel_depth > params.focal_point + params.focal_range * 0.5 {
-                                // Background: cyan/green fringing
-                                let f = 0.08 * (r_norm - 0.70) / 0.30;
-                                sg *= 1.0 + f;
-                                sb *= 1.0 + f * 0.7;
-                            } else if pixel_depth < params.focal_point - params.focal_range * 0.5 {
-                                // Foreground: red/magenta fringing
-                                let f = 0.10 * (r_norm - 0.70) / 0.30;
-                                sr *= 1.0 + f;
-                                sb *= 1.0 + f * 0.6;
+                        // Specular highlight boost: amplify bright out-of-focus spots in linear light
+                        if params.bokeh_boost > 0.0 {
+                            let luma = 0.2126 * sr + 0.7152 * sg + 0.0722 * sb;
+                            if luma > p99_luma {
+                                let boost = 1.0
+                                    + params.bokeh_boost
+                                        * 2.0
+                                        * ((luma - p99_luma) / (1.0 - p99_luma).max(0.01));
+                                sr *= boost;
+                                sg *= boost;
+                                sb *= boost;
                             }
                         }
+
+                        // Longitudinal chromatic fringing at outer bokeh boundary
+                        if effective_coc > 0.05 {
+                            let r_norm = (sample.dx * sample.dx + sample.dy * sample.dy).sqrt();
+                            if r_norm > 0.70 {
+                                if pixel_depth > params.focal_point + params.focal_range * 0.5 {
+                                    // Background: cyan/green fringing
+                                    let f = 0.08 * (r_norm - 0.70) / 0.30;
+                                    sg *= 1.0 + f;
+                                    sb *= 1.0 + f * 0.7;
+                                } else if pixel_depth
+                                    < params.focal_point - params.focal_range * 0.5
+                                {
+                                    // Foreground: red/magenta fringing
+                                    let f = 0.10 * (r_norm - 0.70) / 0.30;
+                                    sr *= 1.0 + f;
+                                    sb *= 1.0 + f * 0.6;
+                                }
+                            }
+                        }
+
+                        let w_val = depth_weight * sample.weight;
+                        r_acc += sr * w_val;
+                        g_acc += sg * w_val;
+                        b_acc += sb * w_val;
+                        weight_acc += w_val;
                     }
 
-                    let w_val = depth_weight * sample.weight;
-                    r_acc += sr * w_val;
-                    g_acc += sg * w_val;
-                    b_acc += sb * w_val;
-                    weight_acc += w_val;
+                    if weight_acc > 0.0 {
+                        let mut r_lin = r_acc / weight_acc;
+                        let mut g_lin = g_acc / weight_acc;
+                        let mut b_lin = b_acc / weight_acc;
+
+                        // Sensor noise reinjection: restore subtle dithered photon shot noise
+                        // in heavily blurred patches to eliminate plastic banding and quantization flatness.
+                        let luma = (0.2126 * r_lin + 0.7152 * g_lin + 0.0722 * b_lin).max(0.0);
+                        let noise = crate::spatial::hash_noise(px as u32, y as u32);
+                        let noise_scale = 0.001 * coc * luma.sqrt().clamp(0.1, 1.0);
+                        r_lin = (r_lin + noise * noise_scale).max(0.0);
+                        g_lin = (g_lin + noise * noise_scale).max(0.0);
+                        b_lin = (b_lin + noise * noise_scale).max(0.0);
+
+                        row[idx] = (crate::color::linear_to_srgb(r_lin) * 255.0)
+                            .round()
+                            .clamp(0.0, 255.0) as u8;
+                        row[idx + 1] = (crate::color::linear_to_srgb(g_lin) * 255.0)
+                            .round()
+                            .clamp(0.0, 255.0) as u8;
+                        row[idx + 2] = (crate::color::linear_to_srgb(b_lin) * 255.0)
+                            .round()
+                            .clamp(0.0, 255.0) as u8;
+                        row[idx + 3] = rgba[src_idx + 3];
+                    } else {
+                        row[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
+                    }
                 }
-
-                if weight_acc > 0.0 {
-                    let mut r_lin = r_acc / weight_acc;
-                    let mut g_lin = g_acc / weight_acc;
-                    let mut b_lin = b_acc / weight_acc;
-
-                    // Sensor noise reinjection: restore subtle dithered photon shot noise
-                    // in heavily blurred patches to eliminate plastic banding and quantization flatness.
-                    let luma = (0.2126 * r_lin + 0.7152 * g_lin + 0.0722 * b_lin).max(0.0);
-                    let noise = crate::spatial::hash_noise(x as u32, y as u32);
-                    let noise_scale = 0.001 * coc * luma.sqrt().clamp(0.1, 1.0);
-                    r_lin = (r_lin + noise * noise_scale).max(0.0);
-                    g_lin = (g_lin + noise * noise_scale).max(0.0);
-                    b_lin = (b_lin + noise * noise_scale).max(0.0);
-
-                    row[idx] = (crate::color::linear_to_srgb(r_lin) * 255.0)
-                        .round()
-                        .clamp(0.0, 255.0) as u8;
-                    row[idx + 1] = (crate::color::linear_to_srgb(g_lin) * 255.0)
-                        .round()
-                        .clamp(0.0, 255.0) as u8;
-                    row[idx + 2] = (crate::color::linear_to_srgb(b_lin) * 255.0)
-                        .round()
-                        .clamp(0.0, 255.0) as u8;
-                    row[idx + 3] = rgba[src_idx + 3];
-                } else {
-                    row[idx..idx + 4].copy_from_slice(&rgba[src_idx..src_idx + 4]);
-                }
+                x = x_tile_end;
             }
         });
 

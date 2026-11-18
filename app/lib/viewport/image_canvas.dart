@@ -1158,10 +1158,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
   }
 
+  bool _isDraftBlur = false;
+
   void _settleFullRes() {
     if (_disposed || !mounted || _program == null || _previewHandle == null) return;
     final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
-    if (_isBaseProxy || _lastBaseKey != _baseKey(recipe) || _activeLutSize != _previewLutSize) {
+    if (_isBaseProxy || _lastBaseKey != _baseKey(recipe) || _activeLutSize != _previewLutSize || _isDraftBlur) {
       _scheduleBake(recipe, forceFullRes: true);
     }
   }
@@ -1184,6 +1186,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           token,
           baseChanged: baseChanged,
           gradeChanged: gradeChanged,
+          forceFullRes: forceFullRes,
         );
       } else {
         if (baseChanged) {
@@ -1225,7 +1228,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// Spike B: one Rust round trip (params in, size out) bakes base + grade
   /// straight into the platform texture. On any failure the texture is dropped
   /// and we rebuild through the return-frame path so the preview never stalls.
-  PreviewBaseSpec _baseSpec(EditRecipe recipe) => baseSpecFromRecipe(recipe);
+  PreviewBaseSpec _baseSpec(EditRecipe recipe, {bool forceFullRes = false}) {
+    final isScrub = !forceFullRes && (_isScrubbing || ref.read(editActivityProvider));
+    final sampleCount = isScrub ? 12 : (recipe.blurSampleCount >= 36 ? recipe.blurSampleCount : 36);
+    _isDraftBlur = isScrub && recipe.blurEnabled;
+    return baseSpecFromRecipe(recipe.copyWith(blurSampleCount: sampleCount));
+  }
   void _setBusy(bool value) {
     if (!_disposed) _busy.value = value;
   }
@@ -1243,7 +1251,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
     final frame = await AxEngine.previewBase(
       handle,
-      spec: _baseSpec(recipe),
+      spec: _baseSpec(recipe, forceFullRes: forceFullRes),
       layers: recipe.layers,
       maskGroups: recipe.maskGroups,
       retouchPatches: recipe.retouchPatches,
@@ -1366,13 +1374,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     int token, {
     required bool baseChanged,
     required bool gradeChanged,
+    bool forceFullRes = false,
   }) async {
     final handle = _previewHandle;
     if (handle == null) return;
     try {
       final size = await AxEngine.previewRender(
         handle,
-        spec: _baseSpec(recipe),
+        spec: _baseSpec(recipe, forceFullRes: forceFullRes),
         layers: recipe.layers,
         maskGroups: recipe.maskGroups,
         retouchPatches: recipe.retouchPatches,
@@ -1711,23 +1720,34 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                   ),
                 ),
               ),
-            if (blurEnabled && lensBlur.focusPointNormalized != null)
-              Positioned(
-                left: (bounds.width - fitted.width) / 2 +
-                    _offset.dx +
-                    lensBlur.focusPointNormalized!.$1 * fitted.width * _scale -
-                    18,
-                top: (bounds.height - fitted.height) / 2 +
-                    _offset.dy +
-                    lensBlur.focusPointNormalized!.$2 * fitted.height * _scale -
-                    18,
-                child: const IgnorePointer(
-                  child: CustomPaint(
-                    size: Size(36, 36),
-                    painter: _FocusRingPainter(),
-                  ),
-                ),
+            if (blurEnabled && lensBlur.focusPointNormalized != null) ...[
+              Builder(
+                builder: (context) {
+                  final recipe = ref.watch(recipeControllerProvider.select((s) => s.recipe));
+                  final outerRadius = 26.0 + recipe.blurFocalRange.clamp(0.01, 1.0) * 44.0;
+                  final widgetSize = (outerRadius + 16.0) * 2;
+                  final cx = (bounds.width - fitted.width) / 2 +
+                      _offset.dx +
+                      lensBlur.focusPointNormalized!.$1 * fitted.width * _scale;
+                  final cy = (bounds.height - fitted.height) / 2 +
+                      _offset.dy +
+                      lensBlur.focusPointNormalized!.$2 * fitted.height * _scale;
+                  return Positioned(
+                    left: cx - widgetSize / 2,
+                    top: cy - widgetSize / 2,
+                    child: FocusRingWidget(
+                      focalRange: recipe.blurFocalRange,
+                      onFocalRangeChanged: (range) {
+                        ref.read(recipeControllerProvider.notifier).update(Parameter.blurFocalRange, range);
+                      },
+                      onFocalRangeCommit: () {
+                        ref.read(recipeControllerProvider.notifier).commit(label: 'Focus Range');
+                      },
+                    ),
+                  );
+                },
               ),
+            ],
             Positioned(
               top: 0,
               left: 0,
@@ -2722,9 +2742,84 @@ class _CanvasPainter extends CustomPainter {
   }
 }
 
-/// Renders a gold-amber focus target ring with crosshair ticks for direct focus manipulation.
+/// Interactive gold-amber focus target ring with draggable outer range boundary (Item 4.3).
+/// Dragging the outer perimeter dynamically calibrates blurFocalRange.
+class FocusRingWidget extends StatefulWidget {
+  const FocusRingWidget({
+    super.key,
+    required this.focalRange,
+    required this.onFocalRangeChanged,
+    required this.onFocalRangeCommit,
+  });
+
+  final double focalRange;
+  final ValueChanged<double> onFocalRangeChanged;
+  final VoidCallback onFocalRangeCommit;
+
+  @override
+  State<FocusRingWidget> createState() => _FocusRingWidgetState();
+}
+
+class _FocusRingWidgetState extends State<FocusRingWidget> {
+  double? _dragRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final outerRadius = _dragRadius ?? (26.0 + widget.focalRange.clamp(0.01, 1.0) * 44.0);
+    final size = (outerRadius + 16.0) * 2;
+    final center = Offset(size / 2, size / 2);
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onPanStart: (details) {
+          final dist = (details.localPosition - center).distance;
+          if ((dist - outerRadius).abs() < 24.0) {
+            _dragRadius = dist;
+            setState(() {});
+          }
+        },
+        onPanUpdate: (details) {
+          final dist = (details.localPosition - center).distance;
+          if (_dragRadius != null || (dist - outerRadius).abs() < 24.0) {
+            final newRadius = dist.clamp(26.0, 70.0);
+            _dragRadius = newRadius;
+            final range = ((newRadius - 26.0) / 44.0).clamp(0.01, 1.0);
+            widget.onFocalRangeChanged(range);
+            HapticFeedback.selectionClick();
+            setState(() {});
+          }
+        },
+        onPanEnd: (_) {
+          if (_dragRadius != null) {
+            _dragRadius = null;
+            widget.onFocalRangeCommit();
+            setState(() {});
+          }
+        },
+        child: CustomPaint(
+          size: Size(size, size),
+          painter: _FocusRingPainter(
+            outerRadius: outerRadius,
+            isDraggingOuter: _dragRadius != null,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Renders a gold-amber focus target ring with crosshairs and depth-of-field boundary ring.
 class _FocusRingPainter extends CustomPainter {
-  const _FocusRingPainter();
+  const _FocusRingPainter({
+    this.outerRadius = 36.0,
+    this.isDraggingOuter = false,
+  });
+
+  final double outerRadius;
+  final bool isDraggingOuter;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2737,6 +2832,7 @@ class _FocusRingPainter extends CustomPainter {
       ..color = const Color(0xFFFFB300)
       ..style = PaintingStyle.fill;
 
+    // Center bullseye
     canvas.drawCircle(center, 13.0, ringPaint);
     canvas.drawCircle(center, 2.5, dotPaint);
 
@@ -2744,9 +2840,29 @@ class _FocusRingPainter extends CustomPainter {
     canvas.drawLine(center + const Offset(13, 0), center + const Offset(18, 0), ringPaint);
     canvas.drawLine(center - const Offset(0, 18), center - const Offset(0, 13), ringPaint);
     canvas.drawLine(center + const Offset(0, 13), center + const Offset(0, 18), ringPaint);
+
+    // Outer depth-of-field range ring
+    final outerPaint = Paint()
+      ..color = isDraggingOuter
+          ? const Color(0xFFFFD54F)
+          : const Color(0xFFFFB300).withValues(alpha: 0.65)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isDraggingOuter ? 2.5 : 1.5;
+    canvas.drawCircle(center, outerRadius, outerPaint);
+
+    // 4 cardinal drag handles
+    final pipPaint = Paint()
+      ..color = const Color(0xFFFFB300)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center + Offset(outerRadius, 0), 3.0, pipPaint);
+    canvas.drawCircle(center - Offset(outerRadius, 0), 3.0, pipPaint);
+    canvas.drawCircle(center + Offset(0, outerRadius), 3.0, pipPaint);
+    canvas.drawCircle(center - Offset(0, outerRadius), 3.0, pipPaint);
   }
 
   @override
-  bool shouldRepaint(_FocusRingPainter oldDelegate) => false;
+  bool shouldRepaint(_FocusRingPainter oldDelegate) =>
+      oldDelegate.outerRadius != outerRadius ||
+      oldDelegate.isDraggingOuter != isDraggingOuter;
 }
 

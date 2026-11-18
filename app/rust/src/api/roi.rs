@@ -17,11 +17,17 @@ use crate::spatial::{self, SpatialParams};
 /// and below the requested output so [`bake_roi_band`] sees true neighbours.
 /// Geometry never affects the halo — ROI bands are geometry-identity only.
 pub fn roi_halo(spec: PreviewBaseSpec, full_width: u32, full_height: u32) -> u32 {
-    spatial::spatial_local_margin(
+    let mut margin = spatial::spatial_local_margin(
         spatial_params(&spec),
         full_width as usize,
         full_height as usize,
-    ) as u32
+    ) as u32;
+    if spec.blur_enabled && spec.blur_amount > 0.0 {
+        let max_dim = full_width.max(full_height) as f32;
+        let blur_r = (max_dim * 0.045).clamp(8.0, 48.0) as u32;
+        margin += blur_r;
+    }
+    margin
 }
 
 /// Bakes the preview base chain (spatial → mask layers) onto a decoded
@@ -63,8 +69,14 @@ pub fn bake_roi_band(
     }
 
     let full = (full_width as usize, full_height as usize);
+    let mut band_buf = band;
+    if spec.blur_enabled && spec.blur_amount > 0.0 {
+        let decode_h = band_buf.len() / (full.0 * 4);
+        band_buf =
+            crate::blur::apply_lens_blur(&band_buf, full.0, decode_h, spec.blur_params(), None);
+    }
     let mut out = spatial::apply_spatial_roi(
-        &band,
+        &band_buf,
         full,
         decode_top as usize,
         out_top as usize,
@@ -144,8 +156,18 @@ pub fn bake_roi_rect(
     }
 
     let full = (full_width as usize, full_height as usize);
+    let mut rect_buf = rect;
+    if spec.blur_enabled && spec.blur_amount > 0.0 {
+        rect_buf = crate::blur::apply_lens_blur(
+            &rect_buf,
+            decode_w as usize,
+            decode_h as usize,
+            spec.blur_params(),
+            None,
+        );
+    }
     let mut out = spatial::apply_spatial_rect(
-        &rect,
+        &rect_buf,
         full,
         decode_x as usize,
         decode_y as usize,
@@ -400,6 +422,19 @@ mod tests {
         );
         assert!(halo > 0, "engaged ops must demand context");
         assert_eq!(roi_halo(identity_spec(), 64, 320), 0, "neutral needs none");
+    }
+
+    #[test]
+    fn test_roi_halo_with_blur_enabled_demands_extra_margin() {
+        let mut spec = identity_spec();
+        spec.blur_enabled = true;
+        spec.blur_amount = 0.5;
+        let halo = roi_halo(spec, 1000, 1000);
+        assert!(
+            halo >= 40,
+            "blur enabled on 1000x1000 image must demand at least 40px halo margin, got {}",
+            halo
+        );
     }
 
     #[test]
