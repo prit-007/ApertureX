@@ -629,11 +629,10 @@ class _AppShellState extends ConsumerState<AppShell> {
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              final widthClass = windowSizeClassFor(
-                MediaQuery.sizeOf(context).width,
-              );
-              final wide =
-                  widthClass != WindowSizeClass.compact;
+              final size = MediaQuery.sizeOf(context);
+              final isLandscape = size.width > size.height;
+              final widthClass = windowSizeClassFor(constraints.maxWidth);
+              final wide = widthClass != WindowSizeClass.compact || (isLandscape && size.width >= 560);
               final canvas = Stack(
                 children: [
                   Positioned.fill(child: _canvas()),
@@ -1036,12 +1035,14 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
   bool _dragging = false;
 
   double get _height {
+    final isLandscape = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+    final maxAvailable = isLandscape ? widget.availableHeight * 0.40 : widget.availableHeight;
     var base = _sheetFractions[widget.snap]! * widget.availableHeight;
-    if (widget.snap == _SheetSnap.peek && base < _minPeekHeight) {
-      base = _minPeekHeight;
+    if (widget.snap == _SheetSnap.peek && base < (isLandscape ? 120.0 : _minPeekHeight)) {
+      base = isLandscape ? 120.0 : _minPeekHeight;
     }
     final raw = base + _dragDy;
-    return raw.clamp(0.0, widget.availableHeight).toDouble();
+    return raw.clamp(0.0, maxAvailable).toDouble();
   }
 
   void _onDragStart(DragStartDetails _) {

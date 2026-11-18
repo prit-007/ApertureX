@@ -152,11 +152,27 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
     GradeTool.highlightsGrade => Icons.wb_sunny,
   };
 
+  BoxConstraints _sheetConstraints(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final widthClass = windowSizeClassFor(size.width);
+    final maxW = switch (widthClass) {
+      WindowSizeClass.compact => double.infinity,
+      WindowSizeClass.medium => 600.0,
+      WindowSizeClass.expanded || WindowSizeClass.large || WindowSizeClass.extraLarge =>
+        math.min(size.width * 0.70, 840.0),
+    };
+    return BoxConstraints(maxWidth: maxW);
+  }
+
+  double _sheetHeight(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final isCompact = windowSizeClassFor(size.width) == WindowSizeClass.compact;
+    return isCompact ? size.height * 0.70 : math.min(size.height * 0.75, 620.0);
+  }
+
   void _openToolsSheet(BuildContext context) {
     HapticFeedback.lightImpact();
-    final size = MediaQuery.sizeOf(context);
-    final isWide = size.width >= 600;
-    final sheetH = isWide ? math.min(size.height * 0.75, 620.0) : size.height * 0.70;
+    final sheetH = _sheetHeight(context);
 
     showModalBottomSheet<void>(
       context: context,
@@ -164,7 +180,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 580),
+          constraints: _sheetConstraints(context),
           child: SizedBox(
             height: sheetH,
             child: SnapseedToolsSheet(
@@ -190,9 +206,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
   void _openMasksSheet(BuildContext context) {
     HapticFeedback.lightImpact();
-    final size = MediaQuery.sizeOf(context);
-    final isWide = size.width >= 600;
-    final sheetH = isWide ? math.min(size.height * 0.75, 620.0) : size.height * 0.70;
+    final sheetH = _sheetHeight(context);
 
     showModalBottomSheet<void>(
       context: context,
@@ -200,7 +214,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 580),
+          constraints: _sheetConstraints(context),
           child: Material(
             color: Theme.of(context).colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.lg)),
@@ -250,9 +264,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
   void _openLensBlurSheet(BuildContext context) {
     HapticFeedback.lightImpact();
-    final size = MediaQuery.sizeOf(context);
-    final isWide = size.width >= 600;
-    final sheetH = isWide ? math.min(size.height * 0.75, 620.0) : size.height * 0.70;
+    final sheetH = _sheetHeight(context);
 
     showModalBottomSheet<void>(
       context: context,
@@ -260,7 +272,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 580),
+          constraints: _sheetConstraints(context),
           child: Material(
             color: Theme.of(context).colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.lg)),
@@ -322,6 +334,12 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
       builder: (context, constraints) {
         final widthClass = windowSizeClassFor(constraints.maxWidth);
         final isWide = widthClass != WindowSizeClass.compact;
+        final isLargeScreen = widthClass == WindowSizeClass.large ||
+            widthClass == WindowSizeClass.extraLarge;
+        final dockButtonConstraints = isLargeScreen
+            ? const BoxConstraints(minWidth: 52, minHeight: 52)
+            : const BoxConstraints(minWidth: 48, minHeight: 48);
+        final dockIconSize = isLargeScreen ? 19.0 : 17.0;
 
         return Stack(
           children: [
@@ -440,6 +458,66 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           ),
         ),
 
+        // Persistent gesture discovery affordance when idle
+        if (widget.gesturePhase == GesturePhase.idle && !_scrubVisible && !nodeMode)
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 16,
+            left: 16,
+            right: 16,
+            child: Center(
+              child: GestureDetector(
+                key: const Key('snapseed-gesture-hint-pill'),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  setState(() => _radialOpen = true);
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(gradeToolIcon(widget.tool), size: 14, color: scheme.primary),
+                            const SizedBox(width: 5),
+                            Text(
+                              gradeToolLabel(widget.tool),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: scheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '↕ Tool  ↔ Adjust',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: scheme.onSurfaceVariant.withValues(alpha: 0.8),
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
         // Live Snapseed-style vertical parameter selection carousel
         if (widget.gesturePhase == GesturePhase.cycling && !nodeMode)
           Positioned.fill(
@@ -485,6 +563,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -493,78 +572,78 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                 tooltip: 'All Tools',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 onPressed: () => _openToolsSheet(context),
-                                icon: const Icon(Icons.grid_view, size: 17),
+                                icon: Icon(Icons.grid_view, size: dockIconSize),
                               ),
                               IconButton(
                                 key: const Key('snapseed-stacks-toggle'),
                                 tooltip: 'View Edits (Stacks)',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   HistoryTreeSheet.show(context);
                                 },
-                                icon: const Icon(Icons.layers, size: 17),
+                                icon: Icon(Icons.layers, size: dockIconSize),
                               ),
                               IconButton(
                                 key: const Key('snapseed-looks-toggle'),
                                 tooltip: 'Looks & Presets',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 isSelected: _looksOpen,
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   setState(() => _looksOpen = !_looksOpen);
                                 },
-                                icon: const Icon(Icons.style_outlined, size: 17),
-                                selectedIcon: Icon(Icons.style, size: 17, color: scheme.primary),
+                                icon: Icon(Icons.style_outlined, size: dockIconSize),
+                                selectedIcon: Icon(Icons.style, size: dockIconSize, color: scheme.primary),
                               ),
                               IconButton(
                                 key: const Key('snapseed-mask-toggle'),
                                 tooltip: 'Masks & Layers',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 onPressed: () => _openMasksSheet(context),
-                                icon: const Icon(Icons.layers_outlined, size: 17),
+                                icon: Icon(Icons.layers_outlined, size: dockIconSize),
                               ),
                               IconButton(
                                 key: const Key('snapseed-lens-blur-toggle'),
                                 tooltip: 'Lens Blur & Bokeh',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 onPressed: () => _openLensBlurSheet(context),
-                                icon: const Icon(Icons.blur_on, size: 17),
+                                icon: Icon(Icons.blur_on, size: dockIconSize),
                               ),
                               IconButton(
                                 key: const Key('snapseed-straighten-toggle'),
                                 tooltip: 'Straighten & Rotate',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 isSelected: _straightenOpen,
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   setState(() => _straightenOpen = !_straightenOpen);
                                 },
-                                icon: const Icon(Icons.crop_rotate, size: 17),
-                                selectedIcon: Icon(Icons.crop_rotate, size: 17, color: scheme.primary),
+                                icon: Icon(Icons.crop_rotate, size: dockIconSize),
+                                selectedIcon: Icon(Icons.crop_rotate, size: dockIconSize, color: scheme.primary),
                               ),
                               IconButton(
                                 tooltip: 'Tools',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   setState(() => _radialOpen = true);
                                 },
-                                icon: const Icon(Icons.radio_button_checked, size: 17),
+                                icon: Icon(Icons.radio_button_checked, size: dockIconSize),
                               ),
                               Container(
                                 width: 1,
@@ -624,26 +703,26 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                     'drag to adjust it',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 isSelected: ref.watch(tatModeProvider),
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   ref.read(tatModeProvider.notifier).toggle();
                                 },
-                                icon: const Icon(Icons.colorize, size: 17),
-                                selectedIcon: Icon(Icons.colorize, size: 17, color: scheme.primary),
+                                icon: Icon(Icons.colorize, size: dockIconSize),
+                                selectedIcon: Icon(Icons.colorize, size: dockIconSize, color: scheme.primary),
                               ),
                               IconButton(
                                 key: const Key('selective-toggle'),
                                 tooltip: 'Selective',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   ref.read(nodeEditorProvider.notifier).enable();
                                 },
-                                icon: const Icon(Icons.add_location_alt, size: 17),
+                                icon: Icon(Icons.add_location_alt, size: dockIconSize),
                               ),
                               if (widget.hasHistogram)
                                 IconButton(
@@ -651,14 +730,14 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                   tooltip: widget.histogramOpen ? 'Hide histogram' : 'Show histogram',
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                  constraints: dockButtonConstraints,
                                   isSelected: widget.histogramOpen,
                                   onPressed: () {
                                     HapticFeedback.selectionClick();
                                     widget.onToggleHistogram?.call();
                                   },
-                                  icon: const Icon(Icons.bar_chart, size: 17),
-                                  selectedIcon: Icon(Icons.bar_chart, size: 17, color: scheme.primary),
+                                  icon: Icon(Icons.bar_chart, size: dockIconSize),
+                                  selectedIcon: Icon(Icons.bar_chart, size: dockIconSize, color: scheme.primary),
                                 ),
                             ],
             ),

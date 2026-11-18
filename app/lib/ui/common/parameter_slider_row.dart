@@ -77,23 +77,41 @@ class ParameterSliderRow extends StatelessWidget {
 
             // 2. Pro slider track
             Expanded(
-              child: SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  trackHeight: 2,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                ),
-                child: Slider(
-                  key: sliderKey,
-                  value: value.clamp(min, max),
-                  min: min,
-                  max: max,
-                  onChangeStart: onChangeStart,
-                  onChangeEnd: onChangeEnd,
-                  onChanged: (val) {
-                    onChanged(val);
-                  },
-                ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 2,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                    ),
+                    child: Slider(
+                      key: sliderKey,
+                      value: value.clamp(min, max),
+                      min: min,
+                      max: max,
+                      onChangeStart: onChangeStart,
+                      onChangeEnd: onChangeEnd,
+                      onChanged: (val) {
+                        onChanged(val);
+                      },
+                    ),
+                  ),
+                  if (min < 0 && max > 0)
+                    Positioned(
+                      child: IgnorePointer(
+                        child: Container(
+                          width: 2,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: scheme.onSurfaceVariant.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
 

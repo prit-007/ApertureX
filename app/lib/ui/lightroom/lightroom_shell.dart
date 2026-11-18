@@ -412,10 +412,13 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                       (dirtyState.modifiedMasterMask & (1 << _masterTabs.indexOf(tab))) != 0,
                       () {
                         HapticFeedback.selectionClick();
+                        // Tapping the currently active tab should never silently commit changes.
+                        if (tab == _activeTab) return;
+
                         // Modal guard: block switching tabs while the current
                         // tab has uncommitted changes. Offer Apply / Discard /
                         // Cancel so the user is never stuck.
-                        if (hasTabChanges && tab != _activeTab) {
+                        if (hasTabChanges) {
                           HapticFeedback.heavyImpact();
                           showUncommittedChangesDialog(
                             dialogContext: context,
@@ -474,10 +477,6 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                             },
                           );
                           return;
-                        }
-                        // Commit any changes in the current tab before leaving.
-                        if (hasTabChanges) {
-                          controller.commit(label: 'Applied ${_masterTabLabel(_activeTab)}');
                         }
                         setState(() {
                           _activeTab = tab;

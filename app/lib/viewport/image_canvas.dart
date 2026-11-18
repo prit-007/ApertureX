@@ -770,8 +770,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       offset: _offset,
       viewport: bounds,
       devicePixelRatio: _devicePixelRatio,
-      geometryActive: roiBlockedByGeometry(recipe),
+      geometryActive: roiBlockedByWarp(recipe),
       roiSupported: _fullW > 0 && _fullH > 0,
+      crop: recipe.crop,
     );
     if (plan == null) {
       if (!_tilesActive && _tiles.length == 0) return;
@@ -787,11 +788,24 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
     final grid = _tileGrid;
     if (grid == null || fitted.width <= 0 || fitted.height <= 0) return;
-    final scaleToImageX = _fullW / fitted.width;
-    final scaleToImageY = _fullH / fitted.height;
+    final crop = recipe.crop;
+    final cropL = crop.length >= 4 ? crop[0] : 0.0;
+    final cropT = crop.length >= 4 ? crop[1] : 0.0;
+    final cropR = crop.length >= 4 ? crop[2] : 1.0;
+    final cropB = crop.length >= 4 ? crop[3] : 1.0;
+    final cropW = (cropR - cropL).clamp(0.0001, 1.0);
+    final cropH = (cropB - cropT).clamp(0.0001, 1.0);
+
+    final imageCropX = cropL * _fullW;
+    final imageCropY = cropT * _fullH;
+    final imageCropW = cropW * _fullW;
+    final imageCropH = cropH * _fullH;
+
+    final scaleToImageX = imageCropW / fitted.width;
+    final scaleToImageY = imageCropH / fitted.height;
     final imagePixelRect = Rect.fromLTWH(
-      plan.dstRect.left * scaleToImageX,
-      plan.dstRect.top * scaleToImageY,
+      imageCropX + plan.dstRect.left * scaleToImageX,
+      imageCropY + plan.dstRect.top * scaleToImageY,
       plan.dstRect.width * scaleToImageX,
       plan.dstRect.height * scaleToImageY,
     );
@@ -1512,12 +1526,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final lut = _lut;
     final zeroCopy = _useTexture && _textureId != null;
     final effectiveUseTexture = zeroCopy &&
-        !_tilesActive &&
-        !ref.read(zoneMaskProvider).isTargeting &&
-        !ref.read(wiperCompareProvider).isActive &&
-        !ref.read(splitCompareProvider).isEnabled &&
-        !ref.read(exposureAssistProvider).isActive &&
-        !ref.read(softProofingProvider).enabled;
+        (!_tilesActive &&
+         !ref.read(zoneMaskProvider).isTargeting &&
+         !ref.read(wiperCompareProvider).isActive &&
+         !ref.read(splitCompareProvider).isEnabled &&
+         !ref.read(exposureAssistProvider).isActive &&
+         !ref.read(softProofingProvider).enabled ||
+         lut == null);
     final needsPlaceholder = previewNeedsPlaceholder(
       failed: _failed,
       hasProgram: program != null,
@@ -1623,20 +1638,16 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                   // writing into; the shader paint is the fallback
                   // (imported LUTs, iOS/tests, compare/peek fades,
                   // tile overlay, geometry edits, wiper split curtain, split compare, exposure assist, soft proofing).
-                  textureId:
-                      zeroCopy &&
-                          !_tilesActive &&
-                          tiles.isEmpty &&
-                          !zoneMask.isTargeting &&
-                          !wiper.isActive &&
-                          !splitCompare.isEnabled &&
-                          !exposureAssist.isActive &&
-                          !softProof.enabled
-                      ? _textureId
-                      : null,
+                  textureId: effectiveUseTexture ? _textureId : null,
                   fallback: (_) {
                     if (lut == null) {
-                      return _placeholder();
+                      return SizedBox.fromSize(
+                        size: fitted,
+                        child: RawImage(
+                          image: proxySource,
+                          fit: BoxFit.fill,
+                        ),
+                      );
                     }
                     return CustomPaint(
                       size: fitted,
@@ -1914,10 +1925,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       final scale = (_startScale * d.scale).clamp(_minScale, _maxScale);
       final scene = (_startFocal - _startOffset) / _startScale;
       final offset = d.localFocalPoint - scene * scale;
+      final clampedOffset = _clampOffset(offset, scale, fitted, bounds);
       setState(() {
         _scale = scale;
-        _offset = _clampOffset(offset, scale, fitted, bounds);
+        _offset = clampedOffset;
       });
+      _publishTransform(
+        CanvasTransform(fitted: fitted, offset: clampedOffset, scale: scale),
+        immediate: true,
+      );
       _scheduleRoi();
       return;
     }
@@ -1927,14 +1943,19 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     } else if (_editing) {
       widget.editInterpreter!.onPanUpdate(d.focalPointDelta);
     } else {
+      final clampedOffset = _clampOffset(
+        _offset + d.focalPointDelta,
+        _scale,
+        fitted,
+        bounds,
+      );
       setState(() {
-        _offset = _clampOffset(
-          _offset + d.focalPointDelta,
-          _scale,
-          fitted,
-          bounds,
-        );
+        _offset = clampedOffset;
       });
+      _publishTransform(
+        CanvasTransform(fitted: fitted, offset: clampedOffset, scale: _scale),
+        immediate: true,
+      );
       if (_scale > 1.0) {
         _scheduleRoi();
       }
@@ -1980,10 +2001,17 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     return Offset(cx, cy);
   }
 
-  /// Hands the current view to [canvasTransformProvider], deferred to a
-  /// microtask so a widget build never mutates another provider
-  /// synchronously; the write is skipped when the value is unchanged.
-  void _publishTransform(CanvasTransform next) {
+  /// Hands the current view to [canvasTransformProvider]. When called from
+  /// gesture event handlers outside the build phase, [immediate] allows updating
+  /// the provider synchronously so overlay pins and nodes track the finger with
+  /// zero frame lag. Inside widget build, updates stay deferred to a microtask.
+  void _publishTransform(CanvasTransform next, {bool immediate = false}) {
+    if (immediate) {
+      if (!mounted) return;
+      if (ref.read(canvasTransformProvider) == next) return;
+      ref.read(canvasTransformProvider.notifier).set(next);
+      return;
+    }
     Future.microtask(() {
       if (!mounted) return;
       if (ref.read(canvasTransformProvider) == next) return;
@@ -2018,7 +2046,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _scale = next.scale;
       _offset = next.offset;
     });
-    _publishTransform(next);
+    _publishTransform(next, immediate: true);
     _scheduleRoi();
     HapticFeedback.selectionClick();
   }
@@ -2043,17 +2071,30 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _lastBounds.height / scale,
     ).intersect(Rect.fromLTWH(0, 0, fitted.width, fitted.height));
     if (visibleFitted.width <= 0 || visibleFitted.height <= 0) return const [];
-    final scaleToImageX = _fullW / fitted.width;
-    final scaleToImageY = _fullH / fitted.height;
+
+    final recipe = ref.read(recipeControllerProvider).recipe;
+    final crop = recipe.crop;
+    final cropL = crop.length >= 4 ? crop[0] : 0.0;
+    final cropT = crop.length >= 4 ? crop[1] : 0.0;
+    final cropR = crop.length >= 4 ? crop[2] : 1.0;
+    final cropB = crop.length >= 4 ? crop[3] : 1.0;
+    final cropW = (cropR - cropL).clamp(0.0001, 1.0);
+    final cropH = (cropB - cropT).clamp(0.0001, 1.0);
+
+    final imageCropX = cropL * _fullW;
+    final imageCropY = cropT * _fullH;
+    final imageCropW = cropW * _fullW;
+    final imageCropH = cropH * _fullH;
+
+    final scaleToImageX = imageCropW / fitted.width;
+    final scaleToImageY = imageCropH / fitted.height;
     final visibleWorld = Rect.fromLTWH(
-      visibleFitted.left * scaleToImageX,
-      visibleFitted.top * scaleToImageY,
+      imageCropX + visibleFitted.left * scaleToImageX,
+      imageCropY + visibleFitted.top * scaleToImageY,
       visibleFitted.width * scaleToImageX,
       visibleFitted.height * scaleToImageY,
     );
 
-    final sx = fitted.width / _fullW;
-    final sy = fitted.height / _fullH;
     final out = <_CanvasTile>[];
     for (final t in grid.visibleTiles(visibleWorld)) {
       final img = _tiles.get(t.coord);
@@ -2063,10 +2104,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _CanvasTile(
           image: img,
           dst: Rect.fromLTWH(
-            r.left * sx,
-            r.top * sy,
-            r.width * sx,
-            r.height * sy,
+            (r.left - imageCropX) / imageCropW * fitted.width,
+            (r.top - imageCropY) / imageCropH * fitted.height,
+            r.width / imageCropW * fitted.width,
+            r.height / imageCropH * fitted.height,
           ),
         ),
       );

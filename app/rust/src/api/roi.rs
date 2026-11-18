@@ -54,16 +54,9 @@ pub fn bake_roi_band(
     spec: PreviewBaseSpec,
     layers: Vec<MaskLayer>,
 ) -> Result<RgbaImage, String> {
-    if spec.flip_h
-        || spec.flip_v
-        || spec.turns != 0
-        || spec.crop_l != 0.0
-        || spec.crop_t != 0.0
-        || spec.crop_r != 1.0
-        || spec.crop_b != 1.0
-    {
+    if spec.flip_h || spec.flip_v || spec.turns != 0 {
         return Err(
-            "ROI bands require identity geometry; the viewport must gate on crop/rotate/flip"
+            "ROI bands require identity rotation/flip; the viewport must gate on rotate/flip"
                 .to_string(),
         );
     }
@@ -141,16 +134,9 @@ pub fn bake_roi_rect(
     spec: PreviewBaseSpec,
     layers: Vec<MaskLayer>,
 ) -> Result<RgbaImage, String> {
-    if spec.flip_h
-        || spec.flip_v
-        || spec.turns != 0
-        || spec.crop_l != 0.0
-        || spec.crop_t != 0.0
-        || spec.crop_r != 1.0
-        || spec.crop_b != 1.0
-    {
+    if spec.flip_h || spec.flip_v || spec.turns != 0 {
         return Err(
-            "ROI rects require identity geometry; the viewport must gate on crop/rotate/flip"
+            "ROI rects require identity rotation/flip; the viewport must gate on rotate/flip"
                 .to_string(),
         );
     }
@@ -596,6 +582,32 @@ mod tests {
             Vec::new(),
         );
         assert!(err.is_err(), "short left halo must be rejected");
+    }
+
+    #[test]
+    fn rect_crop_spec_is_accepted_for_roi_tiles() {
+        let src = noise(16, 32);
+        let mut spec = identity_spec();
+        spec.crop_l = 0.1;
+        spec.crop_t = 0.1;
+        spec.crop_r = 0.9;
+        spec.crop_b = 0.9;
+        let res = bake_roi_rect(
+            src[..16 * 8 * 4].to_vec(),
+            0,
+            0,
+            16,
+            8,
+            0,
+            0,
+            16,
+            8,
+            16,
+            32,
+            spec,
+            Vec::new(),
+        );
+        assert!(res.is_ok(), "crop should be allowed for roi rect tiles");
     }
 
     #[test]

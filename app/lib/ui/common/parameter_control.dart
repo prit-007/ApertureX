@@ -670,14 +670,14 @@ class _TrackPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // Neutral graduation notch
+    // Neutral graduation notch / center detent marker
     final nx = math.neutralFraction * size.width;
     canvas.drawLine(
-      Offset(nx, cy - 7),
-      Offset(nx, cy + 7),
+      Offset(nx, cy - 8),
+      Offset(nx, cy + 8),
       Paint()
-        ..color = scheme.onSurfaceVariant.withValues(alpha: 0.55)
-        ..strokeWidth = 1.5
+        ..color = scheme.onSurfaceVariant.withValues(alpha: 0.75)
+        ..strokeWidth = 2.0
         ..strokeCap = StrokeCap.round,
     );
 

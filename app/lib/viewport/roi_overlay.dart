@@ -86,6 +86,18 @@ bool roiBlockedByGeometry(EditRecipe recipe) =>
     recipe.skewX != 0.0 ||
     recipe.skewY != 0.0;
 
+/// True when warp, rotation, or flip geometry is active that prevents
+/// rectangular ROI tile mapping. Rectangular crop is supported when warp is false.
+bool roiBlockedByWarp(EditRecipe recipe) =>
+    recipe.rotation != 0 ||
+    recipe.flipH ||
+    recipe.flipV ||
+    recipe.straighten != 0.0 ||
+    recipe.perspectiveX != 0.0 ||
+    recipe.perspectiveY != 0.0 ||
+    recipe.skewX != 0.0 ||
+    recipe.skewY != 0.0;
+
 /// World-space rect of the decoded band's full-width strip: the overlay draw
 /// surface. X spans the whole width-fit content (the viewport transform
 /// positions it); Y follows the band's rows in the full frame.
@@ -117,6 +129,7 @@ RoiOverlayPlan? planRoiOverlay({
   int maxRoiBandBytes = kDefaultRoiBandBytes,
   bool geometryActive = false,
   bool roiSupported = true,
+  List<double>? crop,
 }) {
   if (geometryActive || !roiSupported) return null;
   if (imageW <= 0 || imageH <= 0 || fitted.width <= 0 || fitted.height <= 0) {
@@ -149,10 +162,17 @@ RoiOverlayPlan? planRoiOverlay({
   final world = visible.intersect(fittedRect);
   if (world.width <= 0 || world.height <= 0) return null;
 
+  final cropT = crop != null && crop.length >= 4 ? crop[1] : 0.0;
+  final cropB = crop != null && crop.length >= 4 ? crop[3] : 1.0;
+  final cropH = (cropB - cropT).clamp(0.0001, 1.0);
+
+  final imageCropTop = cropT * imageH;
+  final imageCropH = cropH * imageH;
+
   // World → image pixels.
   final rowsNeeded = math.max(
     1,
-    (world.height / fitted.height * imageH).ceil(),
+    (world.height / fitted.height * imageCropH).ceil(),
   );
   var bandRows = rowsNeeded;
   if (imageW > 0) {
@@ -162,7 +182,7 @@ RoiOverlayPlan? planRoiOverlay({
 
   final top = math.min(
     imageH - 1,
-    math.max(0, (world.top / fitted.height * imageH).floor()),
+    math.max(0, (imageCropTop + world.top / fitted.height * imageCropH).floor()),
   );
   final bottom = math.min(imageH, top + bandRows);
 
