@@ -59,6 +59,23 @@ Future<Uint8List> blurApplyPortrait({
   amount: amount,
 );
 
+/// Applies one-tap AI portrait blur with custom bokeh shape and specular boost.
+Future<Uint8List> blurApplyPortraitWithParams({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required double amount,
+  required int bokehShape,
+  required double bokehBoost,
+}) => RustLib.instance.api.crateApiBlurBlurApplyPortraitWithParams(
+  rgba: rgba,
+  width: width,
+  height: height,
+  amount: amount,
+  bokehShape: bokehShape,
+  bokehBoost: bokehBoost,
+);
+
 /// Computes an on-device monocular depth map from RGBA pixels.
 /// Returns a `width * height` plane of `f32` values in `[0.0, 1.0]`
 /// where lower = closer (more in focus).

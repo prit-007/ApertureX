@@ -120,6 +120,8 @@ struct Resident {
 }
 
 static STORE: LazyLock<Mutex<Store>> = LazyLock::new(|| Mutex::new(Store::default()));
+static DEPTH_COMPUTE_LOCKS: LazyLock<Mutex<HashMap<u64, Arc<Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 fn lock_store() -> std::sync::MutexGuard<'static, Store> {
     // A panic inside one call must not brick every later call.
@@ -281,6 +283,12 @@ pub fn close(handle: u64) {
         let mut store = lock_store();
         store.images.remove(&handle).map(|r| r.window)
     };
+    {
+        let mut locks = DEPTH_COMPUTE_LOCKS
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        locks.remove(&handle);
+    }
     // Release outside the lock — ANativeWindow_release may block on the compositor.
     if let Some(w) = window.filter(|w| *w != 0) {
         anative_window::release(w);
@@ -335,6 +343,33 @@ pub fn set_depth_map(handle: u64, depth_map: Vec<f32>) -> Result<(), String> {
 /// Returns the stored depth map, lazily computing the in-tree heuristic depth
 /// from the resident source when no model-supplied map has been set.
 pub(crate) fn ensure_depth_map(handle: u64) -> Result<Arc<DepthMap>, String> {
+    // 1. Fast path: depth already computed in resident store
+    {
+        let store = lock_store();
+        let resident = store
+            .images
+            .get(&handle)
+            .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+        if let Some(depth) = &resident.depth_map {
+            return Ok(Arc::clone(depth));
+        }
+    }
+
+    // 2. Synchronize per-handle so concurrent callers (e.g. background prewarm and live scrub)
+    // do not duplicate depth estimation or stall the engine.
+    let compute_lock = {
+        let mut locks = DEPTH_COMPUTE_LOCKS
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        locks
+            .entry(handle)
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    };
+
+    let _guard = compute_lock.lock().unwrap_or_else(PoisonError::into_inner);
+
+    // 3. Double-checked locking: check if another thread finished while we waited for the lock
     {
         let store = lock_store();
         let resident = store

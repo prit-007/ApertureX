@@ -61,6 +61,11 @@ Future<void> previewSetDepthMap({
   depthMap: depthMap,
 );
 
+/// Estimates depth from the resident image source (without passing
+/// raw pixels across FFI) and caches the result for instant lens blur preview.
+Future<Float32List> previewEstimateDepth({required BigInt handle}) =>
+    RustLib.instance.api.crateApiPreviewPreviewEstimateDepth(handle: handle);
+
 /// Stores an embedded JPEG GDepth plane for [handle]. Values are normalized so
 /// 255 is nearest; the engine inverts them into the preview's lower-is-closer
 /// convention and resizes to the source proxy.

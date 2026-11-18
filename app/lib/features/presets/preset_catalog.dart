@@ -5,6 +5,7 @@
 import '../../color/blur_spec.dart';
 import '../../edit/tool_definition.dart';
 import 'cultural_travel_presets.dart';
+import 'lens_blur_presets.dart';
 import 'movie_presets.dart';
 import 'nature_presets.dart';
 
@@ -63,6 +64,9 @@ class PresetCatalog {
 
     // ─── 1. Classic & Analog Film Emulation Presets (Punch first) ──
     for (final f in ToolLibrary.builtins) {
+      if (f.params.containsKey('blurEnabled') && (f.params['blurEnabled'] ?? 0.0) > 0.0) {
+        continue;
+      }
       final isFilm = f.description.toLowerCase().contains('film') ||
           f.description.toLowerCase().contains('analog') ||
           f.name.toLowerCase().contains('kodak') ||
@@ -174,6 +178,9 @@ class PresetCatalog {
         ),
       );
     }
+
+    // ─── 5. Dedicated Lens Blur & Optical Depth Presets ────────────
+    list.addAll(lensBlurPresetItems());
 
     return List.unmodifiable(list);
   }

@@ -692,6 +692,171 @@ class ToolLibrary {
         0.0, -1.0, 0.0, // Magenta
       ],
     ),
+    ToolDefinition(
+      name: 'Portrait 85/f1.8',
+      description: 'Classic 85mm f/1.8 optical portrait isolation with circular aperture blades',
+      params: {
+        'blurEnabled': 1.0,
+        'blurAmount': 0.85,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.15,
+        'blurBokehShape': 0.0, // circle
+        'blurBokehBoost': 0.30,
+        'gradeShadowHue': 0.0,
+        'gradeShadowSat': 0.0,
+        'gradeShadowLum': 0.0,
+        'gradeMidHue': 0.0,
+        'gradeMidSat': 0.0,
+        'gradeMidLum': 0.0,
+        'gradeHighlightHue': 0.0,
+        'gradeHighlightSat': 0.0,
+        'gradeHighlightLum': 0.0,
+        'gradeBlending': 0.50,
+        'gradeBalance': 0.0,
+      },
+      hsl: [
+        0.0, 0.05, 0.0,  // Red
+        0.0, 0.08, 0.05, // Orange
+        0.0, 0.02, 0.0,  // Yellow
+        0.0, 0.0, 0.0,   // Green
+        0.0, 0.0, 0.0,   // Aqua
+        0.0, -0.05, 0.0, // Blue
+        0.0, 0.0, 0.0,   // Purple
+        0.0, 0.0, 0.0,   // Magenta
+      ],
+    ),
+    ToolDefinition(
+      name: 'Street 35/f1.4',
+      description: 'Fast 35mm f/1.4 environmental portrait look with gentle falloff',
+      params: {
+        'blurEnabled': 1.0,
+        'blurAmount': 0.65,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.25,
+        'blurBokehShape': 2.0, // hexagon
+        'blurBokehBoost': 0.20,
+        'gradeShadowHue': 0.0,
+        'gradeShadowSat': 0.0,
+        'gradeShadowLum': 0.0,
+        'gradeMidHue': 0.0,
+        'gradeMidSat': 0.0,
+        'gradeMidLum': 0.0,
+        'gradeHighlightHue': 0.0,
+        'gradeHighlightSat': 0.0,
+        'gradeHighlightLum': 0.0,
+        'gradeBlending': 0.50,
+        'gradeBalance': 0.0,
+      },
+      hsl: [
+        0.0, 0.0, 0.0,   // Red
+        0.0, 0.05, 0.0,  // Orange
+        0.0, 0.0, 0.0,   // Yellow
+        0.0, -0.05, 0.0, // Green
+        0.0, -0.10, 0.0, // Aqua
+        0.0, -0.08, 0.0, // Blue
+        0.0, 0.0, 0.0,   // Purple
+        0.0, 0.0, 0.0,   // Magenta
+      ],
+    ),
+    ToolDefinition(
+      name: 'Anamorphic 50',
+      description: 'Cinema anamorphic lens with cat\'s eye mechanical vignetting',
+      params: {
+        'blurEnabled': 1.0,
+        'blurAmount': 0.75,
+        'blurFocalPoint': 0.45,
+        'blurFocalRange': 0.20,
+        'blurBokehShape': 4.0, // catsEye
+        'blurBokehBoost': 0.40,
+        'gradeShadowHue': 0.0,
+        'gradeShadowSat': 0.0,
+        'gradeShadowLum': 0.0,
+        'gradeMidHue': 0.0,
+        'gradeMidSat': 0.0,
+        'gradeMidLum': 0.0,
+        'gradeHighlightHue': 0.0,
+        'gradeHighlightSat': 0.0,
+        'gradeHighlightLum': 0.0,
+        'gradeBlending': 0.50,
+        'gradeBalance': 0.0,
+      },
+      hsl: [
+        0.0, 0.0, 0.0,   // Red
+        0.0, 0.0, 0.0,   // Orange
+        0.0, 0.0, 0.0,   // Yellow
+        0.0, 0.0, 0.0,   // Green
+        0.0, 0.10, 0.05, // Aqua
+        0.0, 0.12, 0.05, // Blue
+        0.0, 0.0, 0.0,   // Purple
+        0.0, 0.0, 0.0,   // Magenta
+      ],
+    ),
+    ToolDefinition(
+      name: 'Vintage Swirl',
+      description: 'Classic Petzval optical formula with tangential swirl and spherical aberration',
+      params: {
+        'blurEnabled': 1.0,
+        'blurAmount': 0.90,
+        'blurFocalPoint': 0.50,
+        'blurFocalRange': 0.15,
+        'blurBokehShape': 6.0, // swirl
+        'blurBokehBoost': 0.25,
+        'gradeShadowHue': 0.0,
+        'gradeShadowSat': 0.0,
+        'gradeShadowLum': 0.0,
+        'gradeMidHue': 0.0,
+        'gradeMidSat': 0.0,
+        'gradeMidLum': 0.0,
+        'gradeHighlightHue': 0.0,
+        'gradeHighlightSat': 0.0,
+        'gradeHighlightLum': 0.0,
+        'gradeBlending': 0.50,
+        'gradeBalance': 0.0,
+      },
+      hsl: [
+        0.0, 0.05, 0.0,  // Red
+        0.0, 0.10, 0.02, // Orange
+        0.0, 0.15, 0.05, // Yellow
+        0.0, -0.05, 0.0, // Green
+        0.0, 0.0, 0.0,   // Aqua
+        0.0, -0.08, 0.0, // Blue
+        0.0, 0.0, 0.0,   // Purple
+        0.0, 0.0, 0.0,   // Magenta
+      ],
+    ),
+    ToolDefinition(
+      name: 'Creamy Macro',
+      description: 'Ultra-shallow macro depth of field with soap bubble caustic rims',
+      params: {
+        'blurEnabled': 1.0,
+        'blurAmount': 1.0,
+        'blurFocalPoint': 0.35,
+        'blurFocalRange': 0.10,
+        'blurBokehShape': 5.0, // soapBubble
+        'blurBokehBoost': 0.50,
+        'gradeShadowHue': 0.0,
+        'gradeShadowSat': 0.0,
+        'gradeShadowLum': 0.0,
+        'gradeMidHue': 0.0,
+        'gradeMidSat': 0.0,
+        'gradeMidLum': 0.0,
+        'gradeHighlightHue': 0.0,
+        'gradeHighlightSat': 0.0,
+        'gradeHighlightLum': 0.0,
+        'gradeBlending': 0.50,
+        'gradeBalance': 0.0,
+      },
+      hsl: [
+        0.0, 0.08, 0.0,  // Red
+        0.0, 0.05, 0.0,  // Orange
+        0.0, 0.10, 0.0,  // Yellow
+        0.0, 0.15, 0.05, // Green
+        0.0, 0.08, 0.0,  // Aqua
+        0.0, 0.0, 0.0,   // Blue
+        0.0, 0.0, 0.0,   // Purple
+        0.0, 0.0, 0.0,   // Magenta
+      ],
+    ),
   ];
 
   /// All built-in looks including movie, anime, nature, Indian cultural, travel, film, and lens blur presets.
@@ -700,72 +865,14 @@ class ToolLibrary {
         ...movieLookTools(),
         ...natureLookTools(),
         ...culturalTravelLookTools(),
-        ...lensBlurLookTools(),
       ];
 
-  /// Optical lens blur reference presets.
-  static List<ToolDefinition> lensBlurLookTools() => [
-        const ToolDefinition(
-          name: 'Portrait 85/f1.8',
-          description: 'Classic 85mm f/1.8 optical portrait isolation with circular aperture blades',
-          params: {
-            'blurEnabled': 1.0,
-            'blurAmount': 0.85,
-            'blurFocalPoint': 0.50,
-            'blurFocalRange': 0.15,
-            'blurBokehShape': 0.0, // circle
-            'blurBokehBoost': 0.30,
-          },
-        ),
-        const ToolDefinition(
-          name: 'Street 35/f1.4',
-          description: 'Fast 35mm f/1.4 environmental portrait look with gentle falloff',
-          params: {
-            'blurEnabled': 1.0,
-            'blurAmount': 0.55,
-            'blurFocalPoint': 0.40,
-            'blurFocalRange': 0.25,
-            'blurBokehShape': 2.0, // hexagon
-            'blurBokehBoost': 0.20,
-          },
-        ),
-        const ToolDefinition(
-          name: 'Anamorphic 50',
-          description: 'Cinema anamorphic lens with cat\'s eye mechanical vignetting',
-          params: {
-            'blurEnabled': 1.0,
-            'blurAmount': 0.75,
-            'blurFocalPoint': 0.45,
-            'blurFocalRange': 0.20,
-            'blurBokehShape': 4.0, // catsEye
-            'blurBokehBoost': 0.40,
-          },
-        ),
-        const ToolDefinition(
-          name: 'Vintage Swirl',
-          description: 'Classic Petzval optical formula with tangential swirl and spherical aberration',
-          params: {
-            'blurEnabled': 1.0,
-            'blurAmount': 0.90,
-            'blurFocalPoint': 0.50,
-            'blurFocalRange': 0.15,
-            'blurBokehShape': 6.0, // swirl
-            'blurBokehBoost': 0.25,
-          },
-        ),
-        const ToolDefinition(
-          name: 'Creamy Macro',
-          description: 'Ultra-shallow macro depth of field with soap bubble caustic rims',
-          params: {
-            'blurEnabled': 1.0,
-            'blurAmount': 1.0,
-            'blurFocalPoint': 0.35,
-            'blurFocalRange': 0.10,
-            'blurBokehShape': 5.0, // soapBubble
-            'blurBokehBoost': 0.50,
-          },
-        ),
-      ];
+  /// Optical lens blur reference presets from builtins.
+  static List<ToolDefinition> lensBlurLookTools() => builtins
+      .where((t) =>
+          t.params.containsKey('blurEnabled') &&
+          (t.params['blurEnabled'] ?? 0.0) > 0.0)
+      .toList();
 
   static List<ToolDefinition> search(String query) {
     final q = query.trim().toLowerCase();

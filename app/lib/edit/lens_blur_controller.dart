@@ -109,7 +109,7 @@ class LensBlurController extends Notifier<LensBlurState> {
   }
 
   /// Estimates depth map and confidence from active image proxy or cached sources.
-  Future<void> analyzeDepth(Uint8List imageBytes) async {
+  Future<void> analyzeDepth(Uint8List imageBytes, {int? handle}) async {
     if (state.cachedDepth != null && state.depthWidth > 0 && state.depthHeight > 0) {
       return;
     }
@@ -172,7 +172,43 @@ class LensBlurController extends Notifier<LensBlurState> {
         return;
       }
 
-      // Priority 2: Monocular depth estimation via proxy
+      // Priority 2: Reuse pre-computed resident depth from handle if available (non-blocking)
+      if (handle != null && handle > 0) {
+        try {
+          final residentDepth = await AxEngine.previewEstimateDepth(handle);
+          if (residentDepth.isNotEmpty) {
+            final decoded = await AxEngine.decodeAnalysisProxy(imageBytes);
+            final confidence = await AxEngine.depthConfidence(
+              rgba: decoded.rgba,
+              width: decoded.width,
+              height: decoded.height,
+            );
+            final data = DepthSidecarData(
+              width: decoded.width,
+              height: decoded.height,
+              confidence: confidence,
+              source: DepthSourceType.neural,
+              contentHash: 0,
+              plane: residentDepth,
+            );
+            ref.read(recipeControllerProvider.notifier).setDepthField(data);
+
+            state = state.copyWith(
+              status: LensBlurStatus.ready,
+              depthConfidence: confidence,
+              cachedDepth: residentDepth,
+              depthWidth: decoded.width,
+              depthHeight: decoded.height,
+              statusMessage: null,
+            );
+            return;
+          }
+        } catch (_) {
+          // Fall back to standard decoding proxy pipeline
+        }
+      }
+
+      // Priority 3: Monocular depth estimation via proxy
       final decoded = await AxEngine.decodeAnalysisProxy(imageBytes);
       final depth = await AxEngine.estimateDepthMap(
         rgba: decoded.rgba,

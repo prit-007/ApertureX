@@ -7,7 +7,7 @@ import '../frb_generated.dart';
 import 'decode.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `decode_raw_to_srgb`
+// These functions are ignored because they are not marked as `pub`: `decode_raw_to_srgb`, `get_cached_or_decode_raw`, `raw_buffer_hash`
 
 /// Reads RAW/DNG dimensions without demosaicing, in **display** orientation
 /// (axes swapped for the 90°/270°/transpose EXIF cases, matching `decode_*`).
