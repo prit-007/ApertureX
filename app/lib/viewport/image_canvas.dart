@@ -14,6 +14,7 @@ import '../color/lut_atlas.dart';
 import '../color/lut_texture.dart';
 import '../color/tat.dart';
 import '../edit/active_image.dart';
+import '../edit/lens_blur_controller.dart';
 import '../edit/muted_parameters.dart';
 import '../edit/parameter.dart';
 import '../edit/recipe.dart';
@@ -1629,12 +1630,29 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           return Hero(tag: widget.heroTag!, child: sized);
         }
 
+        final blurEnabled =
+            ref.watch(recipeControllerProvider.select((s) => s.recipe.blurEnabled));
+        final lensBlur = ref.watch(lensBlurControllerProvider);
+
         return Stack(
           children: [
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: widget.onTap,
+                onTap: () {
+                  if (!blurEnabled) {
+                    widget.onTap?.call();
+                  }
+                },
+                onTapUp: (d) {
+                  if (blurEnabled) {
+                    final originX = (bounds.width - fitted.width) / 2 + _offset.dx;
+                    final originY = (bounds.height - fitted.height) / 2 + _offset.dy;
+                    final nx = ((d.localPosition.dx - originX) / (fitted.width * _scale)).clamp(0.0, 1.0);
+                    final ny = ((d.localPosition.dy - originY) / (fitted.height * _scale)).clamp(0.0, 1.0);
+                    ref.read(lensBlurControllerProvider.notifier).setFocusPoint(nx, ny);
+                  }
+                },
                 onScaleStart: (d) => _onScaleStart(d, fitted, tat),
                 onScaleUpdate: (d) => _onScaleUpdate(d, fitted, bounds, tat),
                 onScaleEnd: (_) => _onScaleEnd(),
@@ -1682,6 +1700,33 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 top: 8,
                 right: 8,
                 child: IgnorePointer(child: _Badge(text: 'BEFORE')),
+              ),
+            if (blurEnabled && lensBlur.showDepthVisualizer)
+              const Positioned(
+                top: 8,
+                left: 8,
+                child: IgnorePointer(
+                  child: _Chip(
+                    text: 'Depth Visualizer · Amber=Near, Teal=Far',
+                  ),
+                ),
+              ),
+            if (blurEnabled && lensBlur.focusPointNormalized != null)
+              Positioned(
+                left: (bounds.width - fitted.width) / 2 +
+                    _offset.dx +
+                    lensBlur.focusPointNormalized!.$1 * fitted.width * _scale -
+                    18,
+                top: (bounds.height - fitted.height) / 2 +
+                    _offset.dy +
+                    lensBlur.focusPointNormalized!.$2 * fitted.height * _scale -
+                    18,
+                child: const IgnorePointer(
+                  child: CustomPaint(
+                    size: Size(36, 36),
+                    painter: _FocusRingPainter(),
+                  ),
+                ),
               ),
             Positioned(
               top: 0,
@@ -2676,3 +2721,32 @@ class _CanvasPainter extends CustomPainter {
     tp.paint(canvas, Offset(pos.dx + 6, pos.dy + 3));
   }
 }
+
+/// Renders a gold-amber focus target ring with crosshair ticks for direct focus manipulation.
+class _FocusRingPainter extends CustomPainter {
+  const _FocusRingPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final ringPaint = Paint()
+      ..color = const Color(0xFFFFB300)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    final dotPaint = Paint()
+      ..color = const Color(0xFFFFB300)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(center, 13.0, ringPaint);
+    canvas.drawCircle(center, 2.5, dotPaint);
+
+    canvas.drawLine(center - const Offset(18, 0), center - const Offset(13, 0), ringPaint);
+    canvas.drawLine(center + const Offset(13, 0), center + const Offset(18, 0), ringPaint);
+    canvas.drawLine(center - const Offset(0, 18), center - const Offset(0, 13), ringPaint);
+    canvas.drawLine(center + const Offset(0, 13), center + const Offset(0, 18), ringPaint);
+  }
+
+  @override
+  bool shouldRepaint(_FocusRingPainter oldDelegate) => false;
+}
+

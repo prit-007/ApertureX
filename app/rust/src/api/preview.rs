@@ -217,6 +217,12 @@ pub fn preview_set_depth_map(handle: u64, depth_map: Vec<f32>) -> Result<(), Str
     crate::preview::set_depth_map(handle, depth_map)
 }
 
+/// Estimates depth from the resident image source (without passing
+/// raw pixels across FFI) and caches the result for instant lens blur preview.
+pub fn preview_estimate_depth(handle: u64) -> Result<Vec<f32>, String> {
+    crate::preview::estimate_resident_depth(handle)
+}
+
 /// Stores an embedded JPEG GDepth plane for [handle]. Values are normalized so
 /// 255 is nearest; the engine inverts them into the preview's lower-is-closer
 /// convention and resizes to the source proxy.
@@ -610,6 +616,19 @@ mod tests {
         let unchanged = preview_base(h2, neutral, Vec::new(), Vec::new()).unwrap();
         preview_close(h2);
         assert_eq!(unchanged.rgba, src);
+    }
+
+    #[test]
+    fn test_preview_estimate_depth_computes_and_caches_on_handle() {
+        let (w, h) = (32, 32);
+        let src = vec![128u8; w * h * 4];
+        let handle = preview_open(src, w as u32, h as u32).expect("preview_open must succeed");
+        let depth = preview_estimate_depth(handle).expect("preview_estimate_depth must succeed");
+        assert_eq!(depth.len(), w * h);
+        for &d in &depth {
+            assert!((0.0..=1.0).contains(&d));
+        }
+        preview_close(handle);
     }
 
     /// The retouch patches must reach the baked base: a clone patch carries

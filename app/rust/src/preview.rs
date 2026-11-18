@@ -77,11 +77,14 @@ struct Resident {
     /// Last `run_base` output — the histogram bins from this, never from
     /// the raw source, so the drawer reflects geometry + spatial + masks.
     base: Option<Arc<RgbaImage>>,
+    base_has_spatial_shadows: bool,
+    base_has_spatial_highlights: bool,
     /// Cached depth map for lens blur subject protection. Values are in
     /// `[0.0, 1.0]` and lower = closer. Set via
     /// [`crate::api::preview::preview_set_depth_map`] or lazily estimated
     /// from the source by [`ensure_depth_map`].
     depth_map: Option<Arc<DepthMap>>,
+    pub(crate) depth_field: Option<Arc<crate::depth::DepthField>>,
     /// Spike B: platform window backing a Flutter `Texture` (an
     /// `ANativeWindow*` on Android, as `usize`). 0 = unbound; unbound
     /// handles use the return-frame path instead.
@@ -109,10 +112,24 @@ pub fn open(rgba: Vec<u8>, width: u32, height: u32) -> u64 {
             width,
             height,
             base: None,
+            base_has_spatial_shadows: false,
+            base_has_spatial_highlights: false,
             depth_map: None,
+            depth_field: None,
             window: 0,
         },
     );
+    drop(store);
+
+    // Async resident depth pre-warming: kick off depth estimation on a background worker thread
+    // so that by the time the user toggles Lens Blur or drags a slider, the resident depth map
+    // is already resident in memory and the first scrub never stalls.
+    let _ = std::thread::Builder::new()
+        .name(format!("depth-prewarm-{id}"))
+        .spawn(move || {
+            let _ = ensure_depth_map(id);
+        });
+
     id
 }
 
@@ -195,7 +212,11 @@ pub fn open_jpeg(jpeg_bytes: Vec<u8>, max_dim: u32) -> Result<u64, String> {
         } else {
             (decoded.rgba, decoded.width as u32, decoded.height as u32)
         };
-        return Ok(open(rgba, w, h));
+        let handle = open(rgba, w, h);
+        if let Some((depth_u8, dw, dh)) = crate::exif::extract_embedded_depth(&jpeg_bytes) {
+            let _ = set_embedded_depth(handle, depth_u8, dw as u32, dh as u32);
+        }
+        return Ok(handle);
     }
 
     // Fallback 1: check for high-res embedded JPEG in RAW files (CR2, NEF, ARW, DNG)
@@ -266,10 +287,19 @@ pub fn set_depth_map(handle: u64, depth_map: Vec<f32>) -> Result<(), String> {
         .get_mut(&handle)
         .ok_or_else(|| format!("unknown preview handle {handle}"))?;
     resident.depth_map = Some(Arc::new(DepthMap {
-        data: depth_map.into(),
+        data: depth_map.clone().into(),
         width,
         height,
     }));
+    resident.depth_field = Some(Arc::new(crate::depth::DepthField::new(
+        depth_map,
+        width as u32,
+        height as u32,
+        1.0,
+        crate::depth::DepthSource::Approximate,
+        None,
+        0,
+    )));
     Ok(())
 }
 
@@ -301,7 +331,48 @@ pub(crate) fn ensure_depth_map(handle: u64) -> Result<Arc<DepthMap>, String> {
     };
 
     let (target_w, target_h) = depth_target_dims(width, height);
+
+    // Priority 1: Check embedded container depth metadata (JPEG GDepth, Apple disparity)
+    // before running compute-heavy neural inference.
+    if let Some((depth_u8, dw, dh)) = crate::exif::extract_embedded_depth(&source) {
+        let f32_depth: Vec<f32> = depth_u8.iter().map(|&b| 1.0 - (b as f32 / 255.0)).collect();
+        let resized = crate::ml::resize_mask(&f32_depth, dw, dh, target_w, target_h);
+        let field = Arc::new(crate::depth::DepthField::new(
+            resized.clone(),
+            target_w as u32,
+            target_h as u32,
+            0.95,
+            crate::depth::DepthSource::EmbeddedGDepth,
+            None,
+            0,
+        ));
+        let computed = Arc::new(DepthMap {
+            data: resized.into(),
+            width: target_w,
+            height: target_h,
+        });
+
+        let mut store = lock_store();
+        if let Some(resident) = store.images.get_mut(&handle) {
+            resident.depth_map = Some(Arc::clone(&computed));
+            resident.depth_field = Some(field);
+        }
+        return Ok(computed);
+    }
+
     let data = crate::ml::estimate_depth_map(&source, width, height, target_w, target_h)?;
+    let confidence =
+        crate::api::blur::depth_confidence(source.to_vec(), width as u32, height as u32)
+            .unwrap_or(0.85);
+    let field = Arc::new(crate::depth::DepthField::new(
+        data.clone(),
+        target_w as u32,
+        target_h as u32,
+        confidence,
+        crate::depth::DepthSource::Neural,
+        None,
+        0,
+    ));
     let computed = Arc::new(DepthMap {
         data: data.into(),
         width: target_w,
@@ -317,7 +388,41 @@ pub(crate) fn ensure_depth_map(handle: u64) -> Result<Arc<DepthMap>, String> {
         return Ok(Arc::clone(existing));
     }
     resident.depth_map = Some(Arc::clone(&computed));
+    resident.depth_field = Some(field);
     Ok(computed)
+}
+
+/// Retrieves the resident canonical [`DepthField`] for [handle] if available.
+pub fn get_resident_depth_field(handle: u64) -> Option<Arc<crate::depth::DepthField>> {
+    let store = lock_store();
+    store
+        .images
+        .get(&handle)
+        .and_then(|r| r.depth_field.clone())
+}
+
+/// Returns the precomputed depth map if already cached, without blocking.
+pub fn get_cached_depth(handle: u64) -> Option<Vec<f32>> {
+    let store = lock_store();
+    store
+        .images
+        .get(&handle)
+        .and_then(|r| r.depth_map.as_ref().map(|d| d.data.to_vec()))
+}
+
+/// Asynchronously kicks off depth precomputation in the background for [handle].
+pub fn precompute_depth_async(handle: u64) {
+    let _ = std::thread::Builder::new()
+        .name(format!("depth-prewarm-{handle}"))
+        .spawn(move || {
+            let _ = ensure_depth_map(handle);
+        });
+}
+
+/// Computes or retrieves the cached depth map for [handle] from the resident source.
+pub fn estimate_resident_depth(handle: u64) -> Result<Vec<f32>, String> {
+    let depth_map = ensure_depth_map(handle)?;
+    Ok(depth_map.data.to_vec())
 }
 
 fn depth_target_dims(width: usize, height: usize) -> (usize, usize) {
@@ -333,64 +438,8 @@ fn depth_target_dims(width: usize, height: usize) -> (usize, usize) {
     )
 }
 
-fn flip_h_depth(src: &[f32], w: usize, h: usize) -> Vec<f32> {
-    let mut out = vec![0.0; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            out[y * w + x] = src[y * w + (w - 1 - x)];
-        }
-    }
-    out
-}
-
-fn flip_v_depth(src: &[f32], w: usize, h: usize) -> Vec<f32> {
-    let mut out = vec![0.0; w * h];
-    for y in 0..h {
-        let src_row = (h - 1 - y) * w;
-        out[y * w..(y + 1) * w].copy_from_slice(&src[src_row..src_row + w]);
-    }
-    out
-}
-
-fn rotate_depth_quarter(src: &[f32], w: usize, h: usize, turns: u32) -> (Vec<f32>, usize, usize) {
-    let mut data = src.to_vec();
-    let (mut w, mut h) = (w, h);
-    for _ in 0..(turns % 4) {
-        let (nw, nh) = (h, w);
-        let mut out = vec![0.0; nw * nh];
-        for y in 0..h {
-            for x in 0..w {
-                let nx = h - 1 - y;
-                let ny = x;
-                out[ny * nw + nx] = data[y * w + x];
-            }
-        }
-        data = out;
-        w = nw;
-        h = nh;
-    }
-    (data, w, h)
-}
-
-fn crop_depth(
-    src: &[f32],
-    w: usize,
-    _h: usize,
-    x: usize,
-    y: usize,
-    cw: usize,
-    ch: usize,
-) -> Vec<f32> {
-    let mut out = Vec::with_capacity(cw * ch);
-    for row in 0..ch {
-        let start = (y + row) * w + x;
-        out.extend_from_slice(&src[start..start + cw]);
-    }
-    out
-}
-
-/// Maps a source-frame depth map through the same flip → rotate → crop chain
-/// as [`bake_base`], resampling to the baked frame size.
+/// Maps a source-frame depth map through the shared geometry pipeline
+/// (flip, rotate, crop, resize) to match the baked preview frame.
 fn transform_depth_map(
     depth: &DepthMap,
     spec: &PreviewBaseSpec,
@@ -399,28 +448,29 @@ fn transform_depth_map(
     out_w: usize,
     out_h: usize,
 ) -> Vec<f32> {
-    let mut data = crate::ml::resize_mask(&depth.data, depth.width, depth.height, src_w, src_h);
-    let (mut w, mut h) = (src_w, src_h);
-    if spec.flip_h {
-        data = flip_h_depth(&data, w, h);
-    }
-    if spec.flip_v {
-        data = flip_v_depth(&data, w, h);
-    }
-    if !spec.turns.is_multiple_of(4) {
-        (data, w, h) = rotate_depth_quarter(&data, w, h, spec.turns);
-    }
-    if let Some((x, y, cw, ch)) =
-        geometry::crop_rect(w, h, spec.crop_l, spec.crop_t, spec.crop_r, spec.crop_b)
-    {
-        data = crop_depth(&data, w, h, x, y, cw, ch);
-        w = cw;
-        h = ch;
-    }
-    if w != out_w || h != out_h {
-        data = crate::ml::resize_mask(&data, w, h, out_w, out_h);
-    }
-    data
+    let resized_source_depth = if depth.width != src_w || depth.height != src_h {
+        crate::ml::resize_mask(&depth.data, depth.width, depth.height, src_w, src_h)
+    } else {
+        depth.data.to_vec()
+    };
+    let geom_spec = geometry::GeometrySpec {
+        flip_h: spec.flip_h,
+        flip_v: spec.flip_v,
+        turns: spec.turns,
+        crop_l: spec.crop_l,
+        crop_t: spec.crop_t,
+        crop_r: spec.crop_r,
+        crop_b: spec.crop_b,
+        ..Default::default()
+    };
+    geometry::transform_plane(
+        &resized_source_depth,
+        src_w,
+        src_h,
+        &geom_spec,
+        out_w,
+        out_h,
+    )
 }
 
 /// Converts a JPEG GDepth plane (near = 255) into the preview depth convention
@@ -471,10 +521,19 @@ pub fn set_embedded_depth(
         resident.height as usize,
     )?;
     resident.depth_map = Some(Arc::new(DepthMap {
-        data: data.into(),
+        data: data.clone().into(),
         width: resident.width as usize,
         height: resident.height as usize,
     }));
+    resident.depth_field = Some(Arc::new(crate::depth::DepthField::new(
+        data,
+        resident.width,
+        resident.height,
+        1.0,
+        crate::depth::DepthSource::EmbeddedGDepth,
+        None,
+        0,
+    )));
     Ok(())
 }
 
@@ -563,7 +622,7 @@ pub fn render(
         Some(base) => (*base).clone(),
         None => {
             let fb = bake_base(handle, &source, src_w, src_h, spec, layers, patches);
-            cache_base(handle, &fb);
+            cache_base(handle, &fb, spec.shadows, spec.highlights);
             fb
         }
     };
@@ -640,7 +699,7 @@ pub fn run_base(
     let frame = bake_base(handle, &source, src_w, src_h, spec, layers, patches);
 
     // 3. Re-lock only to cache an Arc of the result for the histogram.
-    cache_base(handle, &frame);
+    cache_base(handle, &frame, spec.shadows, spec.highlights);
 
     Ok(frame)
 }
@@ -819,7 +878,7 @@ fn bake_base(
 
 /// Stores an Arc of [frame] as the histogram source for [handle]. A missing
 /// handle (closed mid-bake) is fine — the result is simply dropped.
-fn cache_base(handle: u64, frame: &RgbaImage) {
+fn cache_base(handle: u64, frame: &RgbaImage, shadows: f32, highlights: f32) {
     let mut store = lock_store();
     if let Some(resident) = store.images.get_mut(&handle) {
         resident.base = Some(Arc::new(RgbaImage {
@@ -827,6 +886,8 @@ fn cache_base(handle: u64, frame: &RgbaImage) {
             height: frame.height,
             rgba: frame.rgba.clone(),
         }));
+        resident.base_has_spatial_shadows = shadows != 0.0;
+        resident.base_has_spatial_highlights = highlights != 0.0;
     }
 }
 
@@ -842,7 +903,7 @@ pub fn histogram_from_base(
     curves: &crate::api::color::CurveParams,
     hsl: &[f32],
 ) -> Result<histogram::Histogram, String> {
-    let base = {
+    let (base, has_shadows, has_highlights) = {
         let store = lock_store();
         let resident = store
             .images
@@ -851,14 +912,22 @@ pub fn histogram_from_base(
         let base = resident.base.as_ref().ok_or_else(|| {
             format!("preview handle {handle} has no base; call preview_base first")
         })?;
-        Arc::clone(base)
+        (
+            Arc::clone(base),
+            resident.base_has_spatial_shadows,
+            resident.base_has_spatial_highlights,
+        )
     };
 
     let set = curves.to_set();
     let mut core_p = params.to_core();
-    // #160: Base image already contains spatial shadows/highlights; zero them in the pointwise grade.
-    core_p.shadows = 0.0;
-    core_p.highlights = 0.0;
+    // #160: When base image already contains spatial shadows/highlights, zero them in the pointwise grade.
+    if has_shadows {
+        core_p.shadows = 0.0;
+    }
+    if has_highlights {
+        core_p.highlights = 0.0;
+    }
     Ok(histogram::histogram_graded(
         &base.rgba,
         base.width,

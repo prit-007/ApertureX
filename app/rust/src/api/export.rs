@@ -548,6 +548,7 @@ pub fn export_full_with_branding(
         branding,
         c2pa,
         None,
+        None,
     )
 }
 
@@ -568,9 +569,10 @@ pub fn export_full_from_handle(
     c2pa: C2paExportSpec,
 ) -> Result<ExportResult, String> {
     let (source, width, height, cached_depth) = crate::preview::get_source_shared(handle)?;
+    let depth_field = crate::preview::get_resident_depth_field(handle);
     let depth_map = if cached_depth.is_some() {
         cached_depth
-    } else if !spec.blur_params().is_neutral() {
+    } else if depth_field.is_none() && !spec.blur_params().is_neutral() {
         crate::preview::ensure_depth_map(handle)
             .ok()
             .map(|d| d.data.to_vec())
@@ -591,6 +593,7 @@ pub fn export_full_from_handle(
         branding,
         c2pa,
         depth_map,
+        depth_field,
     )
 }
 
@@ -609,6 +612,7 @@ fn export_full_with_branding_inner(
     branding: ExportBrandingSpec,
     c2pa: C2paExportSpec,
     precomputed_depth: Option<Vec<f32>>,
+    depth_field: Option<std::sync::Arc<crate::depth::DepthField>>,
 ) -> Result<ExportResult, String> {
     let (w, h) = (width as usize, height as usize);
 
@@ -631,6 +635,7 @@ fn export_full_with_branding_inner(
         retouch: to_engine_patches(&retouch_patches),
         blur: spec.blur_params(),
         precomputed_depth_map: precomputed_depth,
+        depth_field,
         spatial: SpatialParams {
             shadows: spec.shadows,
             highlights: spec.highlights,

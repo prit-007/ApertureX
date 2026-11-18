@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show listEquals;
 
 import 'adjustment_layer.dart';
+import 'depth_sidecar.dart';
 import 'retouch_patch.dart';
 import 'tone_curve.dart';
 
@@ -112,6 +113,9 @@ class EditRecipe {
     this.blurBokehBoost = 0,
     this.blurBackgroundBlur = false,
     this.blurSampleCount = 12,
+    this.depthSidecar,
+    this.depthSidecarPath,
+    this.depthField,
     // Film emulation physics.
     this.filmHalation = 0,
     this.filmHalationRadius = 0.5,
@@ -247,6 +251,23 @@ class EditRecipe {
       blurBokehBoost: asDouble('blurBokehBoost'),
       blurBackgroundBlur: json['blurBackgroundBlur'] as bool? ?? false,
       blurSampleCount: (json['blurSampleCount'] as num?)?.toInt() ?? 12,
+      depthSidecar: (json['depthSidecar'] ??
+              json['depth_sidecar'] ??
+              json['depthSidecarPath'] ??
+              json['depth_field_path']) as String?,
+      depthSidecarPath: (json['depthSidecarPath'] ??
+              json['depth_sidecar'] ??
+              json['depthSidecar'] ??
+              json['depth_field_path']) as String?,
+      depthField: json['depth_field'] is Map
+          ? DepthSidecarData.fromJson(
+              (json['depth_field'] as Map).cast<String, Object?>(),
+            )
+          : (json['depthField'] is Map
+              ? DepthSidecarData.fromJson(
+                  (json['depthField'] as Map).cast<String, Object?>(),
+                )
+              : null),
       filmHalation: asDouble('filmHalation'),
       filmHalationRadius:
           (json['filmHalationRadius'] as num?)?.toDouble() ?? 0.5,
@@ -382,6 +403,9 @@ class EditRecipe {
   final double blurBokehBoost;
   final bool blurBackgroundBlur;
   final int blurSampleCount;
+  final String? depthSidecar;
+  final String? depthSidecarPath;
+  final DepthSidecarData? depthField;
   // Film emulation physics.
   final double filmHalation;
   final double filmHalationRadius;
@@ -484,6 +508,9 @@ class EditRecipe {
     double? blurBokehBoost,
     bool? blurBackgroundBlur,
     int? blurSampleCount,
+    String? depthSidecar,
+    String? depthSidecarPath,
+    DepthSidecarData? depthField,
     double? filmHalation,
     double? filmHalationRadius,
     double? filmHalationThreshold,
@@ -576,6 +603,9 @@ class EditRecipe {
       blurBokehBoost: blurBokehBoost ?? this.blurBokehBoost,
       blurBackgroundBlur: blurBackgroundBlur ?? this.blurBackgroundBlur,
       blurSampleCount: blurSampleCount ?? this.blurSampleCount,
+      depthSidecar: depthSidecar ?? this.depthSidecar,
+      depthSidecarPath: depthSidecarPath ?? this.depthSidecarPath,
+      depthField: depthField ?? this.depthField,
       filmHalation: filmHalation ?? this.filmHalation,
       filmHalationRadius: filmHalationRadius ?? this.filmHalationRadius,
       filmHalationThreshold: filmHalationThreshold ?? this.filmHalationThreshold,
@@ -754,6 +784,11 @@ class EditRecipe {
     'blurBokehBoost': blurBokehBoost,
     'blurBackgroundBlur': blurBackgroundBlur,
     'blurSampleCount': blurSampleCount,
+    if (depthSidecar != null) 'depthSidecar': depthSidecar,
+    if (depthSidecarPath != null) 'depthSidecarPath': depthSidecarPath,
+    if (depthSidecar != null || depthSidecarPath != null)
+      'depth_sidecar': depthSidecar ?? depthSidecarPath,
+    if (depthField != null) 'depth_field': depthField!.toJson(),
     'filmHalation': filmHalation,
     'filmHalationRadius': filmHalationRadius,
     'filmHalationThreshold': filmHalationThreshold,
@@ -848,6 +883,9 @@ class EditRecipe {
       other.blurBokehBoost == blurBokehBoost &&
       other.blurBackgroundBlur == blurBackgroundBlur &&
       other.blurSampleCount == blurSampleCount &&
+      other.depthSidecar == depthSidecar &&
+      other.depthSidecarPath == depthSidecarPath &&
+      other.depthField == depthField &&
       other.filmHalation == filmHalation &&
       other.filmHalationRadius == filmHalationRadius &&
       other.filmHalationThreshold == filmHalationThreshold &&
@@ -938,6 +976,9 @@ class EditRecipe {
       blurBokehBoost,
       blurBackgroundBlur,
       blurSampleCount,
+      depthSidecar,
+      depthSidecarPath,
+      depthField,
     ),
     Object.hash(
       filmHalation,

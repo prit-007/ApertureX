@@ -20,7 +20,7 @@ pub struct ScopedPreciseAccumulator(bool);
 
 impl ScopedPreciseAccumulator {
     pub fn new() -> Self {
-        let prev = PRECISE_ACCUMULATOR.swap(true, Ordering::Relaxed);
+        let prev = PRECISE_ACCUMULATOR.swap(true, Ordering::SeqCst);
         Self(prev)
     }
 }
@@ -33,7 +33,7 @@ impl Default for ScopedPreciseAccumulator {
 
 impl Drop for ScopedPreciseAccumulator {
     fn drop(&mut self) {
-        PRECISE_ACCUMULATOR.store(self.0, Ordering::Relaxed);
+        PRECISE_ACCUMULATOR.store(self.0, Ordering::SeqCst);
     }
 }
 
@@ -43,7 +43,7 @@ pub struct ScopedFastAccumulator(bool);
 
 impl ScopedFastAccumulator {
     pub fn new() -> Self {
-        let prev = PRECISE_ACCUMULATOR.swap(false, Ordering::Relaxed);
+        let prev = PRECISE_ACCUMULATOR.swap(false, Ordering::SeqCst);
         Self(prev)
     }
 }
@@ -56,25 +56,25 @@ impl Default for ScopedFastAccumulator {
 
 impl Drop for ScopedFastAccumulator {
     fn drop(&mut self) {
-        PRECISE_ACCUMULATOR.store(self.0, Ordering::Relaxed);
+        PRECISE_ACCUMULATOR.store(self.0, Ordering::SeqCst);
     }
 }
 
 /// Sets whether box_blur_1d uses f64 prefix accumulation (exact) or f32 (fast).
 pub fn set_precise_accumulator(precise: bool) {
-    PRECISE_ACCUMULATOR.store(precise, Ordering::Relaxed);
+    PRECISE_ACCUMULATOR.store(precise, Ordering::SeqCst);
 }
 
 /// Returns true if f64 prefix accumulation is active.
 pub fn is_precise_accumulator() -> bool {
-    PRECISE_ACCUMULATOR.load(Ordering::Relaxed)
+    PRECISE_ACCUMULATOR.load(Ordering::SeqCst)
 }
 
 fn box_blur_1d(src: &[f32], w: usize, h: usize, radius: usize) -> Vec<f32> {
     if radius == 0 {
         return src.to_vec();
     }
-    if PRECISE_ACCUMULATOR.load(Ordering::Relaxed) {
+    if PRECISE_ACCUMULATOR.load(Ordering::SeqCst) {
         box_blur_1d_f64(src, w, h, radius)
     } else {
         box_blur_1d_f32(src, w, h, radius)
@@ -775,7 +775,7 @@ pub fn grain(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
     grain_advanced(rgba, w, h, amount, 0.25, 0.5)
 }
 
-fn hash_noise(x: u32, y: u32) -> f32 {
+pub(crate) fn hash_noise(x: u32, y: u32) -> f32 {
     let mut h = x
         .wrapping_mul(374_761_393)
         .wrapping_add(y.wrapping_mul(668_265_263));

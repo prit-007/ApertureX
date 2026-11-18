@@ -375,6 +375,73 @@ pub fn apply_spec(rgba: &[u8], w: usize, h: usize, spec: &GeometrySpec) -> (Vec<
     (buf.into_owned(), w, h)
 }
 
+/// Transforms a single-channel float plane (e.g. depth map or segmentation mask)
+/// through the geometry pipeline (flip, rotate, crop, resize to target).
+pub fn transform_plane(
+    plane: &[f32],
+    src_w: usize,
+    src_h: usize,
+    spec: &GeometrySpec,
+    out_w: usize,
+    out_h: usize,
+) -> Vec<f32> {
+    if src_w == 0 || src_h == 0 || plane.len() != src_w * src_h {
+        return Vec::new();
+    }
+    let mut data = plane.to_vec();
+    let (mut w, mut h) = (src_w, src_h);
+
+    if spec.flip_h {
+        let mut out = vec![0.0f32; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                out[y * w + x] = data[y * w + (w - 1 - x)];
+            }
+        }
+        data = out;
+    }
+    if spec.flip_v {
+        let mut out = vec![0.0f32; w * h];
+        for y in 0..h {
+            let src_row = (h - 1 - y) * w;
+            out[y * w..(y + 1) * w].copy_from_slice(&data[src_row..src_row + w]);
+        }
+        data = out;
+    }
+    if !spec.turns.is_multiple_of(4) {
+        for _ in 0..(spec.turns % 4) {
+            let (nw, nh) = (h, w);
+            let mut out = vec![0.0f32; nw * nh];
+            for y in 0..h {
+                for x in 0..w {
+                    let nx = h - 1 - y;
+                    let ny = x;
+                    out[ny * nw + nx] = data[y * w + x];
+                }
+            }
+            data = out;
+            w = nw;
+            h = nh;
+        }
+    }
+    if let Some((x, y, cw, ch)) =
+        crop_rect(w, h, spec.crop_l, spec.crop_t, spec.crop_r, spec.crop_b)
+    {
+        let mut out = Vec::with_capacity(cw * ch);
+        for row in 0..ch {
+            let start = (y + row) * w + x;
+            out.extend_from_slice(&data[start..start + cw]);
+        }
+        data = out;
+        w = cw;
+        h = ch;
+    }
+    if w != out_w || h != out_h {
+        data = crate::ml::resize_mask(&data, w, h, out_w, out_h);
+    }
+    data
+}
+
 /// Automatically detects the corrective horizon/straighten angle in degrees.
 /// Uses gradient orientation voting on edge pixels within +/- 20 degrees.
 /// Returns the correction angle in degrees to straighten the photo (e.g., -4.0 to correct +4.0 tilt).
@@ -784,6 +851,23 @@ mod tests {
         let blank = vec![128u8; 64 * 64 * 4];
         let angle = detect_straighten_angle(&blank, 64, 64);
         assert_eq!(angle, 0.0);
+    }
+
+    #[test]
+    fn test_transform_plane_flip_rotate_and_crop() {
+        let (w, h) = (4, 2);
+        let plane: Vec<f32> = (0..w * h).map(|i| i as f32).collect();
+        let spec = GeometrySpec {
+            flip_h: true,
+            turns: 1,
+            crop_l: 0.0,
+            crop_t: 0.0,
+            crop_r: 1.0,
+            crop_b: 0.5,
+            ..Default::default()
+        };
+        let transformed = transform_plane(&plane, w, h, &spec, 2, 2);
+        assert_eq!(transformed.len(), 4);
     }
 
     #[test]

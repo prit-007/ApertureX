@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -6,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../color/blur_spec.dart';
 import '../../edit/active_image.dart';
+import '../../edit/lens_blur_controller.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
@@ -82,23 +84,70 @@ class BlurControls extends ConsumerWidget {
                   }
                 },
               ),
-              if (blurEnabled)
+              if (blurEnabled) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: ActionChip(
-                      key: const Key('blur-subject-focus'),
-                      visualDensity: VisualDensity.compact,
-                      avatar: const Icon(Icons.psychology, size: 14),
-                      label: Text(AppStrings.of(context).blurReRunSubjectFocus, style: const TextStyle(fontSize: 12)),
-                      onPressed: () async {
-                    await _applySubjectFocus(context, ref);
-                      },
-                    ),
+                  child: Row(
+                    children: [
+                      ActionChip(
+                        key: const Key('blur-subject-focus'),
+                        visualDensity: VisualDensity.compact,
+                        avatar: const Icon(Icons.psychology, size: 14),
+                        label: Text(AppStrings.of(context).blurReRunSubjectFocus, style: const TextStyle(fontSize: 12)),
+                        onPressed: () async {
+                          await _applySubjectFocus(context, ref);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final confidence = ref.watch(
+                            lensBlurControllerProvider.select((s) => s.depthConfidence),
+                          );
+                          if (confidence <= 0.0) return const SizedBox.shrink();
+                          final isLow = confidence < 0.35;
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isLow ? Icons.warning_amber_rounded : Icons.auto_awesome,
+                                size: 13,
+                                color: isLow
+                                    ? Theme.of(context).colorScheme.error
+                                    : Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                isLow
+                                    ? AppStrings.of(context).blurConfidenceLow
+                                    : AppStrings.of(context).blurConfidenceReliable((confidence * 100).round()),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
-              if (blurEnabled) ...[
+                Consumer(
+                  builder: (context, ref, _) {
+                    final visualizer = ref.watch(
+                      lensBlurControllerProvider.select((s) => s.showDepthVisualizer),
+                    );
+                    return SwitchListTile(
+                      key: const Key('blur-depth-visualizer-toggle'),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      title: Text(AppStrings.of(context).blurDepthVisualizer),
+                      subtitle: Text(AppStrings.of(context).blurDepthVisualizerSubtitle),
+                      visualDensity: VisualDensity.compact,
+                      value: visualizer,
+                      onChanged: (val) {
+                        ref.read(lensBlurControllerProvider.notifier).toggleDepthVisualizer(val);
+                      },
+                    );
+                  },
+                ),
                 const _ParamPad(Parameter.blurAmount),
                 const _ParamPad(Parameter.blurFocalPoint),
                 const _ParamPad(Parameter.blurFocalRange),
@@ -171,11 +220,12 @@ class _PanelTitle extends StatelessWidget {
 /// when the user taps "Re-run Subject Focus". Avoids duplicating the
 /// consent → detect → apply focal plane → report UX.
 Future<void> _applySubjectFocus(BuildContext context, WidgetRef ref) async {
+  final strings = AppStrings.of(context);
   final bytes = ref.read(activeImageBytesProvider);
   if (bytes == null) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppStrings.of(context).blurNoPhotoFocus)),
+        SnackBar(content: Text(strings.blurNoPhotoFocus)),
       );
     }
     return;
@@ -193,11 +243,12 @@ Future<void> _applySubjectFocus(BuildContext context, WidgetRef ref) async {
 
   ref.read(aiMaskInferringProvider.notifier).setInferring(true);
   ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
-      'Finding subject… Please wait a moment');
+      strings.blurFindingSubject);
 
   try {
     final detector = ref.read(subjectDetectorProvider);
     final subject = await detector(bytes);
+    unawaited(ref.read(lensBlurControllerProvider.notifier).analyzeDepth(bytes));
     final focalPoint = subject != null
         ? (0.25 + 0.40 * subject.cy).clamp(0.20, 0.80)
         : 0.40;
@@ -220,24 +271,30 @@ Future<void> _applySubjectFocus(BuildContext context, WidgetRef ref) async {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Subject focus placed: focal point ${(focalPoint * 100).round()}%, range ${(focalRange * 100).round()}%',
+            strings.blurSubjectFocusPlaced(
+              (focalPoint * 100).round(),
+              (focalRange * 100).round(),
+            ),
           ),
           duration: const Duration(seconds: 2),
         ),
       );
     }
-  } catch (_) {
+  } catch (error, stackTrace) {
+    debugPrint('Subject focus detection error: $error\n$stackTrace');
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppStrings.of(context).blurSubjectNotDetected),
+          content: Text(strings.blurSubjectNotDetected),
           duration: const Duration(seconds: 2),
         ),
       );
     }
   } finally {
-    ref.read(aiMaskInferringProvider.notifier).setInferring(false);
-    ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+    if (context.mounted) {
+      ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+      ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+    }
   }
 }
 

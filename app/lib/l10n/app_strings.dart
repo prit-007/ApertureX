@@ -899,6 +899,62 @@ class AppStrings {
         'zh': '博ケ形状 & 高光',
       }, 'Bokeh Shape & Specular');
 
+  String get blurDepthVisualizer => _t({
+        'es': 'Visualizador de mapa de profundidad',
+        'de': 'Tiefenkarten-Visualisierer',
+        'fr': 'Visualiseur de carte de profondeur',
+        'ja': '深度マップビジュアライザー',
+        'zh': '深度图可视化器',
+      }, 'Depth Map Visualizer');
+
+  String get blurDepthVisualizerSubtitle => _t({
+        'es': 'Superponer plano focal de color falso y gradiente de profundidad',
+        'de': 'Falschfarben-Fokusebene und Tiefengradient überlagern',
+        'fr': 'Superposer plan focal en fausses couleurs et gradient de profondeur',
+        'ja': '疑似カラーのフォーカス面と深度グラデーションをオーバーレイ',
+        'zh': '叠加伪彩色焦平面和深度渐变',
+      }, 'Overlay false-color focal plane & depth gradient');
+
+  String get blurFindingSubject => _t({
+        'es': 'Buscando sujeto… Por favor espere',
+        'de': 'Motiv wird gesucht… Bitte warten',
+        'fr': 'Recherche du sujet… Veuillez patienter',
+        'ja': '被写体を検出中… しばらくお待ちください',
+        'zh': '正在寻找主体… 请稍候',
+      }, 'Finding subject… Please wait a moment');
+
+  String blurConfidenceReliable(int pct) => _t({
+        'es': '$pct% confiable',
+        'de': '$pct% zuverlässig',
+        'fr': '$pct% fiable',
+        'ja': '$pct% 信頼性',
+        'zh': '$pct% 可靠',
+      }, '$pct% reliable');
+
+  String get blurConfidenceLow => _t({
+        'es': 'Baja confianza de profundidad en esta escena',
+        'de': 'Geringes Tiefenvertrauen in dieser Szene',
+        'fr': 'Faible confiance de profondeur sur cette scène',
+        'ja': 'このシーンの深度信頼度が低いです',
+        'zh': '此场景的深度置信度较低',
+      }, 'Low depth confidence in this scene');
+
+  String get blurUseOpticalGradient => _t({
+        'es': 'Usar gradiente óptico',
+        'de': 'Optischen Gradienten verwenden',
+        'fr': 'Utiliser le gradient optique',
+        'ja': '光学グラデーションを使用',
+        'zh': '使用光学渐变',
+      }, 'Use Optical Gradient');
+
+  String blurSubjectFocusPlaced(int focalPoint, int focalRange) => _t({
+        'es': 'Enfoque de sujeto fijado: punto focal $focalPoint%, rango $focalRange%',
+        'de': 'Motivfokus gesetzt: Fokuspunkt $focalPoint%, Bereich $focalRange%',
+        'fr': 'Mise au point sur le sujet : point focal $focalPoint%, plage $focalRange%',
+        'ja': '被写体フォーカス設定完了: フォーカス位置 $focalPoint%、範囲 $focalRange%',
+        'zh': '主体对焦完成：焦点 $focalPoint%，范围 $focalRange%',
+      }, 'Subject focus placed: focal point $focalPoint%, range $focalRange%');
+
   // --- Optics Controls ---
   String get opticsRemoveCA => _t({
         'es': 'Eliminar aberración cromática',

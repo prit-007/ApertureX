@@ -66,7 +66,7 @@ class LensBlurSpec {
 
   /// True when blur is disabled or zero.
   bool get isNeutral =>
-      amount <= 1e-4 && !blurBackgroundBlur;
+      !enabled || (amount <= 1e-4 && !blurBackgroundBlur);
 
   @override
   bool operator ==(Object other) =>

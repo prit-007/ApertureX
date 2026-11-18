@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
 import 'adjustment_layer.dart';
+import 'depth_sidecar.dart';
 import 'history_tree.dart';
 import 'parameter.dart';
 import 'recipe.dart';
@@ -220,6 +221,16 @@ class RecipeController extends Notifier<RecipeState> {
       recipe: state.recipe.copyWith(blurBokehShape: shapeIndex),
     );
     commit(label: 'Bokeh Shape');
+  }
+
+  void setDepthField(DepthSidecarData? data, {String? sidecarPath}) {
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(
+        depthField: data,
+        depthSidecar: sidecarPath ?? state.recipe.depthSidecar,
+        depthSidecarPath: sidecarPath ?? state.recipe.depthSidecarPath,
+      ),
+    );
   }
 
   void setShaderLabPreset(int preset) {

@@ -45,6 +45,7 @@ pub struct ExportRecipe {
     pub retouch: Vec<RetouchPatch>,
     pub blur: LensBlurParams,
     pub precomputed_depth_map: Option<Vec<f32>>,
+    pub depth_field: Option<std::sync::Arc<crate::depth::DepthField>>,
     pub spatial: SpatialParams,
     pub layers: Vec<LocalAdjustment>,
     pub grade: GradeParams,
@@ -93,20 +94,41 @@ pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) 
         }
     }
     if !recipe.blur.is_neutral() {
+        let mut blur_params = recipe.blur;
+        if blur_params.sample_count < 64 {
+            blur_params.sample_count = 64;
+        }
         let transformed_depth;
         let fallback_depth;
-        let depth_slice = match &recipe.precomputed_depth_map {
-            Some(dm) if dm.len() == gw * gh => Some(dm.as_slice()),
-            Some(dm) if dm.len() == w * h => {
-                transformed_depth = crate::ml::resize_mask(dm, w, h, gw, gh);
+        let depth_slice = if let Some(df) = &recipe.depth_field {
+            if df.width as usize == gw && df.height as usize == gh {
+                Some(&df.plane[..])
+            } else if df.width as usize == w && df.height as usize == h {
+                transformed_depth =
+                    geometry::transform_plane(&df.plane, w, h, &recipe.geometry, gw, gh);
+                Some(transformed_depth.as_slice())
+            } else {
+                let resized =
+                    crate::ml::resize_mask(&df.plane, df.width as usize, df.height as usize, w, h);
+                transformed_depth =
+                    geometry::transform_plane(&resized, w, h, &recipe.geometry, gw, gh);
                 Some(transformed_depth.as_slice())
             }
-            _ => {
-                fallback_depth = estimate_fallback_depth(&buf, gw, gh);
-                fallback_depth.as_deref()
+        } else {
+            match &recipe.precomputed_depth_map {
+                Some(dm) if dm.len() == gw * gh => Some(dm.as_slice()),
+                Some(dm) if dm.len() == w * h => {
+                    transformed_depth =
+                        geometry::transform_plane(dm, w, h, &recipe.geometry, gw, gh);
+                    Some(transformed_depth.as_slice())
+                }
+                _ => {
+                    fallback_depth = estimate_fallback_depth(&buf, gw, gh);
+                    fallback_depth.as_deref()
+                }
             }
         };
-        buf = blur::apply_lens_blur(&buf, gw, gh, recipe.blur, depth_slice);
+        buf = blur::apply_lens_blur(&buf, gw, gh, blur_params, depth_slice);
     }
     if !recipe.spatial.is_neutral() {
         buf = spatial::apply_spatial(&buf, gw, gh, recipe.spatial);
@@ -164,20 +186,41 @@ pub fn run_export_tiled(
         }
     }
     if !recipe.blur.is_neutral() {
+        let mut blur_params = recipe.blur;
+        if blur_params.sample_count < 64 {
+            blur_params.sample_count = 64;
+        }
         let transformed_depth;
         let fallback_depth;
-        let depth_slice = match &recipe.precomputed_depth_map {
-            Some(dm) if dm.len() == gw * gh => Some(dm.as_slice()),
-            Some(dm) if dm.len() == w * h => {
-                transformed_depth = crate::ml::resize_mask(dm, w, h, gw, gh);
+        let depth_slice = if let Some(df) = &recipe.depth_field {
+            if df.width as usize == gw && df.height as usize == gh {
+                Some(&df.plane[..])
+            } else if df.width as usize == w && df.height as usize == h {
+                transformed_depth =
+                    geometry::transform_plane(&df.plane, w, h, &recipe.geometry, gw, gh);
+                Some(transformed_depth.as_slice())
+            } else {
+                let resized =
+                    crate::ml::resize_mask(&df.plane, df.width as usize, df.height as usize, w, h);
+                transformed_depth =
+                    geometry::transform_plane(&resized, w, h, &recipe.geometry, gw, gh);
                 Some(transformed_depth.as_slice())
             }
-            _ => {
-                fallback_depth = estimate_fallback_depth(&frame, gw, gh);
-                fallback_depth.as_deref()
+        } else {
+            match &recipe.precomputed_depth_map {
+                Some(dm) if dm.len() == gw * gh => Some(dm.as_slice()),
+                Some(dm) if dm.len() == w * h => {
+                    transformed_depth =
+                        geometry::transform_plane(dm, w, h, &recipe.geometry, gw, gh);
+                    Some(transformed_depth.as_slice())
+                }
+                _ => {
+                    fallback_depth = estimate_fallback_depth(&frame, gw, gh);
+                    fallback_depth.as_deref()
+                }
             }
         };
-        frame = blur::apply_lens_blur(&frame, gw, gh, recipe.blur, depth_slice);
+        frame = blur::apply_lens_blur(&frame, gw, gh, blur_params, depth_slice);
     }
     let film_shader_engaged = recipe.spatial.film_halation != 0.0
         || recipe.spatial.film_bloom != 0.0
@@ -353,6 +396,7 @@ mod tests {
                 sample_count: 36,
             },
             precomputed_depth_map: None,
+            depth_field: None,
             spatial: SpatialParams {
                 shadows: 0.3,
                 highlights: -0.2,
@@ -419,6 +463,7 @@ mod tests {
             retouch: Vec::new(),
             blur: LensBlurParams::default(),
             precomputed_depth_map: None,
+            depth_field: None,
             spatial: SpatialParams::default(),
             layers: Vec::new(),
             grade: GradeParams::default(),
@@ -641,6 +686,27 @@ mod tests {
         let mut recipe = fully_engaged();
         recipe.geometry = GeometrySpec::default();
         recipe.precomputed_depth_map = Some(vec![0.5f32; w * h]);
+        let out = run_export_single(&recipe, &src, w, h);
+        assert_eq!(out.width, w as u32);
+        assert_eq!(out.height, h as u32);
+        assert!(!out.rgba.is_empty());
+    }
+
+    #[test]
+    fn test_export_uses_depth_field_when_provided() {
+        let (w, h) = (16, 16);
+        let src = noise(w, h);
+        let mut recipe = fully_engaged();
+        recipe.geometry = GeometrySpec::default();
+        recipe.depth_field = Some(std::sync::Arc::new(crate::depth::DepthField::new(
+            vec![0.5f32; w * h],
+            w as u32,
+            h as u32,
+            0.95,
+            crate::depth::DepthSource::Neural,
+            None,
+            42,
+        )));
         let out = run_export_single(&recipe, &src, w, h);
         assert_eq!(out.width, w as u32);
         assert_eq!(out.height, h as u32);
