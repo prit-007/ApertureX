@@ -135,4 +135,18 @@ void main() {
       expect(recipe.blurAmount, greaterThan(0.0));
     }
   });
+
+  test('lens blur presets preserve bokeh shape and enabled state when scaled with amount < 1.0', () {
+    final anamorphic = ToolLibrary.lensBlurLookTools().firstWhere((t) => t.name == 'Anamorphic 50');
+    // At 40% strength, blur should still be enabled and bokehShape must remain 4 (catsEye)
+    final recipe40 = anamorphic.applyTo(EditRecipe.neutral, amount: 0.4);
+    expect(recipe40.blurEnabled, isTrue);
+    expect(recipe40.blurBokehShape, 4);
+    expect(recipe40.blurAmount, closeTo(0.75 * 0.4, 1e-4));
+
+    // At 0% strength, amount is zero
+    final recipe0 = anamorphic.applyTo(EditRecipe.neutral, amount: 0.0);
+    expect(recipe0.blurEnabled, isFalse);
+    expect(recipe0.blurAmount, 0.0);
+  });
 }

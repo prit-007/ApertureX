@@ -1037,6 +1037,12 @@ class AxEngine {
   static Future<Float32List> previewEstimateDepth(int handle) =>
       rust_preview.previewEstimateDepth(handle: BigInt.from(handle));
 
+  /// Returns the precomputed depth map if already cached in resident memory, without blocking.
+  static Future<Float32List?> previewGetCachedDepth(int handle) async {
+    final depth = await rust_preview.previewGetCachedDepth(handle: BigInt.from(handle));
+    return depth != null ? Float32List.fromList(depth) : null;
+  }
+
   /// Stores an embedded JPEG GDepth plane (255 = nearest) for [handle].
   /// Rust inverts it into the preview convention and resizes it to the proxy.
   static Future<void> previewSetEmbeddedDepth(

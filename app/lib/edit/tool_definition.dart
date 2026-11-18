@@ -52,11 +52,22 @@ class ToolDefinition {
         if ((amount - 1.0).abs() < 0.001) {
           recipe = withValue(recipe, parameter, entry.value);
         } else {
-          final spec = specOf(parameter);
-          final baseVal = spec.neutral;
-          final targetVal = entry.value;
-          final effectiveVal = clampParameter(parameter, baseVal + (targetVal - baseVal) * amount);
-          recipe = withValue(recipe, parameter, effectiveVal);
+          // Discrete flags and categorical shapes must not be continuously interpolated.
+          if (parameter == Parameter.blurBokehShape ||
+              parameter == Parameter.blurEnabled ||
+              parameter == Parameter.blurBackgroundBlur ||
+              parameter == Parameter.removeChromaticAberration ||
+              parameter == Parameter.profileCorrections) {
+            if (amount > 0.0) {
+              recipe = withValue(recipe, parameter, entry.value);
+            }
+          } else {
+            final spec = specOf(parameter);
+            final baseVal = spec.neutral;
+            final targetVal = entry.value;
+            final effectiveVal = clampParameter(parameter, baseVal + (targetVal - baseVal) * amount);
+            recipe = withValue(recipe, parameter, effectiveVal);
+          }
         }
       }
     }

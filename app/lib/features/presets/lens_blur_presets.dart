@@ -14,7 +14,7 @@ import 'preset_catalog.dart';
 
 /// Predefined lens blur preset definitions with complete 3-way color grading wheels,
 /// 8-band HSL mixes, and Depth Anything V2 optical parameters.
-final List<ToolDefinition> lensBlurPresets = ToolLibrary.lensBlurLookTools();
+List<ToolDefinition> get lensBlurPresets => ToolLibrary.lensBlurLookTools();
 
 /// Maps lens blur tools to categorized [PresetItem]s for [PresetCatalog].
 List<PresetItem> lensBlurPresetItems() => [

@@ -223,6 +223,11 @@ pub fn preview_estimate_depth(handle: u64) -> Result<Vec<f32>, String> {
     crate::preview::estimate_resident_depth(handle)
 }
 
+/// Returns the precomputed depth map if already resident and cached, without blocking.
+pub fn preview_get_cached_depth(handle: u64) -> Option<Vec<f32>> {
+    crate::preview::get_cached_depth(handle)
+}
+
 /// Stores an embedded JPEG GDepth plane for [handle]. Values are normalized so
 /// 255 is nearest; the engine inverts them into the preview's lower-is-closer
 /// convention and resizes to the source proxy.
@@ -628,6 +633,12 @@ mod tests {
         for &d in &depth {
             assert!((0.0..=1.0).contains(&d));
         }
+
+        // Verify non-blocking cached retrieval
+        let cached = preview_get_cached_depth(handle);
+        assert!(cached.is_some());
+        assert_eq!(cached.unwrap().len(), w * h);
+
         preview_close(handle);
     }
 

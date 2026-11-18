@@ -175,7 +175,8 @@ class LensBlurController extends Notifier<LensBlurState> {
       // Priority 2: Reuse pre-computed resident depth from handle if available (non-blocking)
       if (handle != null && handle > 0) {
         try {
-          final residentDepth = await AxEngine.previewEstimateDepth(handle);
+          final cachedDepth = await AxEngine.previewGetCachedDepth(handle);
+          final residentDepth = cachedDepth ?? await AxEngine.previewEstimateDepth(handle);
           if (residentDepth.isNotEmpty) {
             final decoded = await AxEngine.decodeAnalysisProxy(imageBytes);
             final confidence = await AxEngine.depthConfidence(
