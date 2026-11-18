@@ -511,6 +511,18 @@ pub fn apply_lens_blur(
     params: LensBlurParams,
     depth_map: Option<&[f32]>,
 ) -> Vec<u8> {
+    apply_lens_blur_inner(rgba, w, h, params, depth_map, 0, h)
+}
+
+fn apply_lens_blur_inner(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    params: LensBlurParams,
+    depth_map: Option<&[f32]>,
+    y_offset: usize,
+    full_h: usize,
+) -> Vec<u8> {
     if params.is_neutral() || w <= 1 || h <= 1 {
         return rgba.to_vec();
     }
@@ -527,7 +539,7 @@ pub fn apply_lens_blur(
         return rgba.to_vec();
     }
 
-    let diag = ((w * w + h * h) as f32).sqrt();
+    let diag = ((w * w + full_h * full_h) as f32).sqrt();
     // Power curve: low amounts stay subtle, 100% gives a creamy DSLR blur.
     // Scaled proportionally to image diagonal (~5% of diagonal at 100% amount),
     // ensuring preview and high-res export produce identical optical bokeh circles.
@@ -899,7 +911,7 @@ pub fn apply_lens_blur(
                         // Sensor noise reinjection: restore subtle dithered photon shot noise
                         // in heavily blurred patches to eliminate plastic banding and quantization flatness.
                         let luma = (0.2126 * r_lin + 0.7152 * g_lin + 0.0722 * b_lin).max(0.0);
-                        let noise = crate::spatial::hash_noise(px as u32, y as u32);
+                        let noise = crate::spatial::hash_noise(px as u32, (y_offset + y) as u32);
                         let noise_scale = 0.001 * coc * luma.sqrt().clamp(0.1, 1.0);
                         r_lin = (r_lin + noise * noise_scale).max(0.0);
                         g_lin = (g_lin + noise * noise_scale).max(0.0);
@@ -924,6 +936,45 @@ pub fn apply_lens_blur(
         });
 
     out
+}
+
+/// Applies lens blur to a horizontal band slice with top/bottom halo padding (Phase 3.12).
+///
+/// `band_with_halo` has dimensions `w` x `band_total_h`.
+/// `halo_top` is the number of rows at the top that are halo padding.
+/// `target_h` is the height of the core band to return.
+/// `depth_slice` has length `w * band_total_h`.
+/// `y_offset` is the vertical coordinate in the full frame corresponding to `band_with_halo[0]`.
+/// `full_h` is the height of the full exported image frame.
+#[allow(clippy::too_many_arguments)]
+pub fn apply_lens_blur_band(
+    band_with_halo: &[u8],
+    w: usize,
+    band_total_h: usize,
+    halo_top: usize,
+    target_h: usize,
+    params: LensBlurParams,
+    depth_slice: Option<&[f32]>,
+    y_offset: usize,
+    full_h: usize,
+) -> Vec<u8> {
+    if params.is_neutral() || w <= 1 || target_h == 0 {
+        let start = halo_top * w * 4;
+        let end = (halo_top + target_h) * w * 4;
+        return band_with_halo[start..end.min(band_with_halo.len())].to_vec();
+    }
+    let blurred = apply_lens_blur_inner(
+        band_with_halo,
+        w,
+        band_total_h,
+        params,
+        depth_slice,
+        y_offset,
+        full_h,
+    );
+    let start = halo_top * w * 4;
+    let end = (halo_top + target_h) * w * 4;
+    blurred[start..end.min(blurred.len())].to_vec()
 }
 
 #[cfg(test)]
@@ -1706,6 +1757,78 @@ mod tests {
             psnr >= 38.0,
             "Preview vs Export resolution invariance PSNR must be >= 38.0 dB (got {:.2} dB)",
             psnr
+        );
+    }
+
+    #[test]
+    fn test_apply_lens_blur_band_matches_full_frame() {
+        let (w, h) = (32, 32);
+        let mut src = vec![0u8; w * h * 4];
+        let mut depth = vec![0.5f32; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                src[idx] = (x * 7) as u8;
+                src[idx + 1] = (y * 7) as u8;
+                src[idx + 2] = 200;
+                src[idx + 3] = 255;
+                depth[y * w + x] = (x as f32 / w as f32).clamp(0.0, 1.0);
+            }
+        }
+
+        let params = LensBlurParams {
+            enabled: true,
+            amount: 0.5,
+            focal_point: 0.5,
+            focal_range: 0.1,
+            bokeh_shape: BokehShape::Circle,
+            bokeh_boost: 0.0,
+            background_blur: false,
+            sample_count: 24,
+        };
+
+        let full = apply_lens_blur(&src, w, h, params, Some(&depth));
+
+        // Process in 2 bands with halo of 4 rows
+        let halo: usize = 4;
+        let mut banded = Vec::with_capacity(w * h * 4);
+        for band_idx in 0..2usize {
+            let y0: usize = band_idx * 16;
+            let bh: usize = 16;
+            let band_top = y0.saturating_sub(halo);
+            let band_bot = (y0 + bh + halo).min(h);
+            let halo_top = y0 - band_top;
+            let band_total_h = band_bot - band_top;
+
+            let band_src = &src[band_top * w * 4..band_bot * w * 4];
+            let band_depth = &depth[band_top * w..band_bot * w];
+            let band_out = apply_lens_blur_band(
+                band_src,
+                w,
+                band_total_h,
+                halo_top,
+                bh,
+                params,
+                Some(band_depth),
+                band_top,
+                h,
+            );
+            banded.extend_from_slice(&band_out);
+        }
+
+        assert_eq!(banded.len(), full.len());
+        // Center region should match full frame closely
+        let mut max_diff = 0i32;
+        for i in 0..full.len() {
+            let diff = (banded[i] as i32 - full[i] as i32).abs();
+            if diff > max_diff {
+                max_diff = diff;
+            }
+        }
+        assert!(
+            max_diff <= 2,
+            "Banded blur matches full frame within halo margin (got max_diff={})",
+            max_diff
         );
     }
 }

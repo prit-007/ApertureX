@@ -220,7 +220,13 @@ pub fn run_export_tiled(
                 }
             }
         };
+        if cancel.is_some_and(|c| c.load(Ordering::Acquire)) {
+            return Ok(ExportOutcome::Cancelled);
+        }
         frame = blur::apply_lens_blur(&frame, gw, gh, blur_params, depth_slice);
+        if cancel.is_some_and(|c| c.load(Ordering::Acquire)) {
+            return Ok(ExportOutcome::Cancelled);
+        }
     }
     let film_shader_engaged = recipe.spatial.film_halation != 0.0
         || recipe.spatial.film_bloom != 0.0

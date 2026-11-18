@@ -131,6 +131,7 @@ flutter:
 
   shaders:
     - shaders/lut.frag
+    - shaders/blur.frag
 
   assets:
     - icons/app_icon_monochrome.png

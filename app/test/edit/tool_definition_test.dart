@@ -124,4 +124,15 @@ void main() {
       expect(recipe.hsl[2], closeTo(-1.0, 1e-4)); // Clamped to -1.0
     });
   });
+
+  test('lens blur presets apply with no unknown parameters', () {
+    final blurTools = ToolLibrary.lensBlurLookTools();
+    expect(blurTools.length, 5);
+    for (final tool in blurTools) {
+      expect(tool.unknownParams(), isEmpty, reason: tool.name);
+      final recipe = tool.applyTo(EditRecipe.neutral);
+      expect(recipe.blurEnabled, isTrue);
+      expect(recipe.blurAmount, greaterThan(0.0));
+    }
+  });
 }

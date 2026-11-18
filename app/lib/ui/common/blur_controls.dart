@@ -132,6 +132,48 @@ class BlurControls extends ConsumerWidget {
                 ),
                 Consumer(
                   builder: (context, ref, _) {
+                    final confidence = ref.watch(
+                      lensBlurControllerProvider.select((s) => s.depthConfidence),
+                    );
+                    // Low-confidence banner with gradient mode switch: confidence < 0.35
+                    if (confidence > 0.0 && confidence < 0.35) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        child: Container(
+                          key: const Key('low-confidence-banner'), // low confidence banner
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warning, color: Colors.orange, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  AppStrings.of(context).blurLowConfidence,
+                                  style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  notifier.update(Parameter.blurEnabled, 0.0);
+                                  notifier.commit(label: 'Switch to Gradient');
+                                },
+                                child: Text(AppStrings.of(context).blurSwitchToGradient),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                Consumer(
+                  builder: (context, ref, _) {
                     final visualizer = ref.watch(
                       lensBlurControllerProvider.select((s) => s.showDepthVisualizer),
                     );
@@ -308,4 +350,79 @@ class _ParamPad extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         child: ParameterControl(parameter: param),
       );
+}
+
+/// Custom painter for interactive focus ring showing focal point and depth-of-field range.
+class FocusRingPainter extends CustomPainter {
+  const FocusRingPainter({
+    required this.focalPoint,
+    required this.focalRange,
+    this.center = const Offset(100, 100),
+  });
+
+  final double focalPoint;
+  final double focalRange;
+  final Offset center;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final maxR = (size.shortestSide / 2) * 0.9;
+    final innerR = (maxR * focalPoint).clamp(8.0, maxR);
+    final outerR = (innerR + maxR * focalRange).clamp(innerR + 6.0, maxR);
+
+    final innerPaint = Paint()
+      ..color = const Color(0xFF26C6DA)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    final outerPaint = Paint()
+      ..color = const Color(0xFFFFB300)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    canvas.drawCircle(c, innerR, innerPaint);
+    canvas.drawCircle(c, outerR, outerPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant FocusRingPainter oldDelegate) =>
+      oldDelegate.focalPoint != focalPoint || oldDelegate.focalRange != focalRange;
+}
+
+/// Interactive focus ring widget: dragging the outer ring perimeter changes focal range.
+class FocusRingWidget extends ConsumerWidget {
+  const FocusRingWidget({super.key, this.size = 200.0});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final focalPoint = ref.watch(recipeControllerProvider.select((s) => s.recipe.blurFocalPoint));
+    final focalRange = ref.watch(recipeControllerProvider.select((s) => s.recipe.blurFocalRange));
+    final notifier = ref.read(recipeControllerProvider.notifier);
+    final center = Offset(size / 2, size / 2);
+    final maxRadius = size / 2;
+
+    return Semantics(
+      label: 'Focus Ring Controller',
+      slider: true,
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          final r = (details.localPosition - center).distance;
+          final newRange = (r / maxRadius).clamp(0.05, 0.75);
+          notifier.update(Parameter.blurFocalRange, newRange);
+          notifier.commit(label: 'Focus Range');
+        },
+        child: CustomPaint(
+          size: Size(size, size),
+          painter: FocusRingPainter(
+            focalPoint: focalPoint,
+            focalRange: focalRange,
+            center: center,
+          ),
+        ),
+      ),
+    );
+  }
 }

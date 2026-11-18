@@ -694,12 +694,77 @@ class ToolLibrary {
     ),
   ];
 
-  /// All built-in looks including movie, anime, nature, Indian cultural, travel, and film presets.
+  /// All built-in looks including movie, anime, nature, Indian cultural, travel, film, and lens blur presets.
   static List<ToolDefinition> get allBuiltins => [
         ...builtins,
         ...movieLookTools(),
         ...natureLookTools(),
         ...culturalTravelLookTools(),
+        ...lensBlurLookTools(),
+      ];
+
+  /// Optical lens blur reference presets.
+  static List<ToolDefinition> lensBlurLookTools() => [
+        const ToolDefinition(
+          name: 'Portrait 85/f1.8',
+          description: 'Classic 85mm f/1.8 optical portrait isolation with circular aperture blades',
+          params: {
+            'blurEnabled': 1.0,
+            'blurAmount': 0.85,
+            'blurFocalPoint': 0.50,
+            'blurFocalRange': 0.15,
+            'blurBokehShape': 0.0, // circle
+            'blurBokehBoost': 0.30,
+          },
+        ),
+        const ToolDefinition(
+          name: 'Street 35/f1.4',
+          description: 'Fast 35mm f/1.4 environmental portrait look with gentle falloff',
+          params: {
+            'blurEnabled': 1.0,
+            'blurAmount': 0.55,
+            'blurFocalPoint': 0.40,
+            'blurFocalRange': 0.25,
+            'blurBokehShape': 2.0, // hexagon
+            'blurBokehBoost': 0.20,
+          },
+        ),
+        const ToolDefinition(
+          name: 'Anamorphic 50',
+          description: 'Cinema anamorphic lens with cat\'s eye mechanical vignetting',
+          params: {
+            'blurEnabled': 1.0,
+            'blurAmount': 0.75,
+            'blurFocalPoint': 0.45,
+            'blurFocalRange': 0.20,
+            'blurBokehShape': 4.0, // catsEye
+            'blurBokehBoost': 0.40,
+          },
+        ),
+        const ToolDefinition(
+          name: 'Vintage Swirl',
+          description: 'Classic Petzval optical formula with tangential swirl and spherical aberration',
+          params: {
+            'blurEnabled': 1.0,
+            'blurAmount': 0.90,
+            'blurFocalPoint': 0.50,
+            'blurFocalRange': 0.15,
+            'blurBokehShape': 6.0, // swirl
+            'blurBokehBoost': 0.25,
+          },
+        ),
+        const ToolDefinition(
+          name: 'Creamy Macro',
+          description: 'Ultra-shallow macro depth of field with soap bubble caustic rims',
+          params: {
+            'blurEnabled': 1.0,
+            'blurAmount': 1.0,
+            'blurFocalPoint': 0.35,
+            'blurFocalRange': 0.10,
+            'blurBokehShape': 5.0, // soapBubble
+            'blurBokehBoost': 0.50,
+          },
+        ),
       ];
 
   static List<ToolDefinition> search(String query) {

@@ -939,6 +939,64 @@ class AppStrings {
         'zh': '此场景的深度置信度较低',
       }, 'Low depth confidence in this scene');
 
+  String get blurLowConfidence => blurConfidenceLow;
+
+  String get blurSwitchToGradient => _t({
+        'es': 'Cambiar a gradiente',
+        'de': 'Zu Gradient wechseln',
+        'fr': 'Passer au dégradé',
+        'ja': 'グラデーションに切り替え',
+        'zh': '切换到渐变',
+      }, 'Switch to Gradient');
+
+  String get blurRefineBrush => _t({
+        'es': 'Pincel de refinamiento de enfoque',
+        'de': 'Fokus-Verfeinerungspinsel',
+        'fr': 'Pinceau d’affinage de mise au point',
+        'ja': 'フォーカス調整ブラシ',
+        'zh': '焦点微调画笔',
+      }, 'Refine Focus Brush');
+
+  String get blurPortrait85 => _t({
+        'es': 'Retrato 85mm f/1.8',
+        'de': 'Porträt 85mm f/1.8',
+        'fr': 'Portrait 85mm f/1.8',
+        'ja': 'ポートレート 85mm f/1.8',
+        'zh': '人像 85mm f/1.8',
+      }, 'Portrait 85mm f/1.8');
+
+  String get blurStreet35 => _t({
+        'es': 'Calle 35mm f/1.4',
+        'de': 'Street 35mm f/1.4',
+        'fr': 'Rue 35mm f/1.4',
+        'ja': 'ストリート 35mm f/1.4',
+        'zh': '街头 35mm f/1.4',
+      }, 'Street 35mm f/1.4');
+
+  String get blurAnamorphic => _t({
+        'es': 'Anamórfico 50mm',
+        'de': 'Anamorph 50mm',
+        'fr': 'Anamorphique 50mm',
+        'ja': 'アナモルフィック 50mm',
+        'zh': '变形 50mm',
+      }, 'Anamorphic 50mm');
+
+  String get blurVintageSwirl => _t({
+        'es': 'Remolino Vintage (Petzval)',
+        'de': 'Vintage Swirl (Petzval)',
+        'fr': 'Tourbillon Vintage (Petzval)',
+        'ja': 'ビンテージスワール (ペッツバール)',
+        'zh': '复古旋涡 (匹兹瓦)',
+      }, 'Vintage Swirl (Petzval)');
+
+  String get blurCreamyMacro => _t({
+        'es': 'Macro Cremoso',
+        'de': 'Cremiges Makro',
+        'fr': 'Macro crémeux',
+        'ja': 'クリーミーマクロ',
+        'zh': '柔顺微距',
+      }, 'Creamy Macro');
+
   String get blurUseOpticalGradient => _t({
         'es': 'Usar gradiente óptico',
         'de': 'Optischen Gradienten verwenden',

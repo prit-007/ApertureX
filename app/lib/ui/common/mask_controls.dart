@@ -1197,6 +1197,18 @@ class MaskControls extends ConsumerWidget {
                     padding: EdgeInsets.zero,
                     onPressed: () => notifier.addLayer(layer.copyWith()),
                   ),
+                  if (layer.maskKind == MaskKind.depthRange || layer.aiIntent == 'depth')
+                    ActionChip(
+                      key: const Key('mask-blur-refine-brush'),
+                      avatar: const Icon(Icons.brush, size: 14),
+                      label: Text(AppStrings.of(context).blurRefineBrush, style: const TextStyle(fontSize: 11)),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        ref.read(nodeEditorProvider.notifier).setRefineBrushMode(true);
+                        ref.read(nodeEditorProvider.notifier).enable();
+                      },
+                    ),
                   if (layer.maskKind == MaskKind.luminance)
                     ActionChip(
                       key: const Key('mask-luma-eyedropper'),
