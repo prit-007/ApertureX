@@ -242,7 +242,7 @@ class _VideoEditorScreenState extends ConsumerState<VideoEditorScreen>
                       '3D LUT APPLIED',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 10.5,
+                        fontSize: 12.0,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.8,
                       ),

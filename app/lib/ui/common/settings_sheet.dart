@@ -38,7 +38,7 @@ import 'history_tree_sheet.dart';
 /// About dialog, and enforced against pubspec drift by
 /// `test/core/offline_guard_test.dart`.
 const String kOfflineClaim =
-    '100% Offline. Zero Cloud Analytics. No AI training on your photos. '
+    '100% On-Device Processing. Zero Cloud Analytics. No AI training on your photos. '
     'You own your data.';
 
 /// The settings sheet: categorized into clean cards for quick tools, assist & peaking,

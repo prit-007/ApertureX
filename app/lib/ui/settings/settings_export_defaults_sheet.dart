@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../settings/export_branding_settings.dart';
 import '../../settings/export_settings.dart';
 
@@ -29,6 +30,7 @@ class SettingsExportDefaultsSheet extends ConsumerWidget {
     final settings = ref.watch(exportSettingsProvider);
     final notifier = ref.read(exportSettingsProvider.notifier);
     final branding = ref.watch(exportBrandingProvider);
+    final strings = AppStrings.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -40,13 +42,13 @@ class SettingsExportDefaultsSheet extends ConsumerWidget {
             children: [
               Icon(Icons.save_alt_rounded, size: 20, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
-              Text('Export Defaults', style: theme.textTheme.titleMedium),
+              Text(strings.exportDefaults, style: theme.textTheme.titleMedium),
             ],
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              const SizedBox(width: 72, child: Text('Quality', style: TextStyle(fontSize: 12))),
+              SizedBox(width: 72, child: Text(strings.quality, style: const TextStyle(fontSize: 12.0))),
               Expanded(
                 child: Slider(
                   value: settings.quality.toDouble(),
@@ -58,22 +60,22 @@ class SettingsExportDefaultsSheet extends ConsumerWidget {
                 ),
               ),
               SizedBox(
-                width: 32,
-                child: Text('${settings.quality}%', textAlign: TextAlign.right, style: const TextStyle(fontSize: 11)),
+                width: 36,
+                child: Text('${settings.quality}%', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12.0)),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 4),
-            child: Text('Max size (long side)', style: TextStyle(fontSize: 12)),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(strings.maxSizeLongSide, style: const TextStyle(fontSize: 12.0)),
           ),
           Wrap(
             spacing: 8,
             children: [
               for (final (label, dim) in _sizes)
                 ChoiceChip(
-                  label: Text(label, style: const TextStyle(fontSize: 11)),
+                  label: Text(dim == 0 ? strings.sizeOriginal : label, style: const TextStyle(fontSize: 12.0)),
                   selected: settings.maxDim == dim,
                   showCheckmark: false,
                   onSelected: (_) => notifier.setMaxDim(dim),
@@ -84,8 +86,8 @@ class SettingsExportDefaultsSheet extends ConsumerWidget {
           SwitchListTile.adaptive(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            title: const Text('C2PA Content Credentials', style: TextStyle(fontSize: 12)),
-            subtitle: const Text('Cryptographically signs image provenance offline with Ed25519', style: TextStyle(fontSize: 11)),
+            title: Text(strings.c2paContentCredentials, style: const TextStyle(fontSize: 12.0)),
+            subtitle: Text(strings.c2paDesc, style: const TextStyle(fontSize: 12.0)),
             value: branding.enableC2pa,
             onChanged: (val) {
               ref.read(exportBrandingProvider.notifier).setC2pa(val);

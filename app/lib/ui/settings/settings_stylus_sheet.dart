@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../settings/app_settings.dart';
 
 /// Settings sheet for Stylus & Pen Input (Pressure, Palm Rejection, Inverted Stylus).
@@ -19,6 +20,7 @@ class SettingsStylusSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final stylus = ref.watch(stylusSettingsProvider);
+    final strings = AppStrings.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -30,7 +32,7 @@ class SettingsStylusSheet extends ConsumerWidget {
             children: [
               Icon(Icons.draw_outlined, size: 20, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
-              Text('Stylus & Input', style: theme.textTheme.titleMedium),
+              Text(strings.stylusAndInput, style: theme.textTheme.titleMedium),
             ],
           ),
           const SizedBox(height: 16),
@@ -38,13 +40,13 @@ class SettingsStylusSheet extends ConsumerWidget {
             dense: true,
             key: const Key('settings-stylus-palm-rejection'),
             contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Palm Rejection',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            title: Text(
+              strings.palmRejection,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
-            subtitle: const Text(
-              'Reject touch pointer events when using active pen',
-              style: TextStyle(fontSize: 11),
+            subtitle: Text(
+              strings.palmRejectionDesc,
+              style: const TextStyle(fontSize: 12.0),
             ),
             value: stylus.palmRejection,
             onChanged: (val) =>
@@ -55,13 +57,13 @@ class SettingsStylusSheet extends ConsumerWidget {
             dense: true,
             key: const Key('settings-stylus-pressure-sensitivity'),
             contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Pressure Sensitivity',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            title: Text(
+              strings.pressureSensitivity,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
-            subtitle: const Text(
-              'Vary brush flow with dynamic pen pressure (event.pressure)',
-              style: TextStyle(fontSize: 11),
+            subtitle: Text(
+              strings.pressureSensitivityDesc,
+              style: const TextStyle(fontSize: 12.0),
             ),
             value: stylus.pressureSensitivity,
             onChanged: (val) =>
@@ -74,18 +76,18 @@ class SettingsStylusSheet extends ConsumerWidget {
               children: [
                 Icon(Icons.cleaning_services_outlined, size: 20, color: theme.colorScheme.secondary),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Inverted Stylus Support',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                        strings.invertedStylusSupport,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
-                        'Flip active pen to instantly switch to precision eraser mode',
-                        style: TextStyle(fontSize: 11),
+                        strings.invertedStylusSupportDesc,
+                        style: const TextStyle(fontSize: 12.0),
                       ),
                     ],
                   ),

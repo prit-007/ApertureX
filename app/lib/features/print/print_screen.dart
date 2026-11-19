@@ -334,7 +334,7 @@ class _PrintScreenState extends ConsumerState<PrintScreen>
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.black54,
-                fontSize: 10.5,
+                fontSize: 12.0,
                 fontWeight: FontWeight.w500,
               ),
             ),

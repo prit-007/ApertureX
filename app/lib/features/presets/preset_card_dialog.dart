@@ -321,7 +321,7 @@ class _PresetCardDialogState extends ConsumerState<PresetCardDialog> {
                                       Text(
                                         'Scan in ApertureX to apply look',
                                         style: TextStyle(
-                                          fontSize: 10.5,
+                                          fontSize: 12.0,
                                           color: Colors.white.withValues(alpha: 0.6),
                                         ),
                                       ),

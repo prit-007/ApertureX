@@ -201,7 +201,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                   child: Text(
                     label,
                     style: TextStyle(
-                      fontSize: compact ? 10.5 : 11.5,
+                      fontSize: 12.0,
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.2,
@@ -211,7 +211,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                 Text(
                   formatted,
                   style: TextStyle(
-                    fontSize: compact ? 10 : 11,
+                    fontSize: 12.0,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.bold,
                     color: scheme.primary,
@@ -296,7 +296,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                     Text(
                       '${zHue.toStringAsFixed(0)}° · ${(zSat * 100).toStringAsFixed(0)}%',
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 12.0,
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.w600,
                         color: scheme.onSurfaceVariant,
@@ -501,7 +501,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                 child: Text(
                   'Hue: ${hue.toStringAsFixed(0)}°   Sat: ${(sat * 100).toStringAsFixed(0)}%   Lum: ${(lum * 100).toStringAsFixed(0)}%',
                   style: TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 12.0,
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                     fontFamily: 'monospace',

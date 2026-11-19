@@ -910,9 +910,12 @@ class MaskControls extends ConsumerWidget {
                               children: [
                                 const Icon(Icons.auto_awesome, size: 10),
                                 const SizedBox(width: 2),
-                                Text(
-                                  'AI ${layer.aiIntent} ✓',
-                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                                Flexible(
+                                  child: Text(
+                                    'AI ${layer.aiIntent} ✓',
+                                    style: const TextStyle(fontSize: 12.0, fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ],
                             ),
@@ -2727,7 +2730,7 @@ class _CreateMaskCategorizedSection extends StatelessWidget {
                     child: Text(
                       'On-Device AI',
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 12.0,
                         fontWeight: FontWeight.bold,
                         color: scheme.primary,
                       ),

@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/theme/design_tokens.dart';
+import '../../l10n/app_strings.dart';
 import '../../settings/about_screen.dart';
 
 /// The verifiable trust line (#76): stated in the settings footer and the
 /// About dialog, and enforced against pubspec drift by
 /// `test/core/offline_guard_test.dart`.
 const String kOfflineClaim =
-    '100% Offline. Zero Cloud Analytics. No AI training on your photos. '
+    '100% On-Device Processing. Zero Cloud Analytics. No AI training on your photos. '
     'You own your data.';
 
 /// Settings sheet for About ApertureX, developers, and open-source licenses.
@@ -26,6 +27,7 @@ class SettingsAboutSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = AppStrings.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -37,14 +39,14 @@ class SettingsAboutSheet extends StatelessWidget {
             children: [
               Icon(Icons.info_outline, size: 20, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
-              Text('About ApertureX', style: theme.textTheme.titleMedium),
+              Text(strings.aboutApertureX, style: theme.textTheme.titleMedium),
             ],
           ),
           const SizedBox(height: 16),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.info_outline),
-            title: const Text('App Overview & Philosophy', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            title: Text(strings.appOverviewAndPhilosophy, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).maybePop();
@@ -63,7 +65,7 @@ class SettingsAboutSheet extends StatelessWidget {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.people_outline),
-            title: const Text('Developers & Maintainers', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            title: Text(strings.developersAndMaintainers, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).maybePop();
@@ -75,7 +77,7 @@ class SettingsAboutSheet extends StatelessWidget {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.article_outlined),
-            title: const Text('Open-Source Licenses', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            title: Text(strings.openSourceLicenses, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).maybePop();
@@ -113,7 +115,7 @@ class SettingsAboutSheet extends StatelessWidget {
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.primary,
                   fontWeight: FontWeight.w600,
-                  fontSize: 10,
+                  fontSize: 12.0,
                 ),
               ),
             ),

@@ -1735,7 +1735,7 @@ class _FalseColorLegendOverlay extends StatelessWidget {
                   Text(
                     label,
                     style: const TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 12.0,
                       fontWeight: FontWeight.w700,
                       color: Colors.white70,
                       letterSpacing: 0.3,

@@ -43,7 +43,7 @@ class SettingsHub extends ConsumerWidget {
       child: ListTile(
         leading: Icon(icon, color: theme.colorScheme.primary),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 11)),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12.0)),
         trailing: const Icon(Icons.chevron_right, size: 20),
         onTap: onTap,
       ),

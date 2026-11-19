@@ -718,7 +718,7 @@ class _ImageInfoSheetState extends ConsumerState<ImageInfoSheet> {
             Text(
               title,
               style: theme.textTheme.labelSmall?.copyWith(
-                fontSize: 10.5,
+                fontSize: 12.0,
                 color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,

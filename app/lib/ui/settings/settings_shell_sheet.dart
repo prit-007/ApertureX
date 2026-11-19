@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' show ThemeMode;
 
+import '../../l10n/app_strings.dart';
 import '../../settings/app_settings.dart';
 import '../../settings/shell_preference.dart';
 
@@ -22,6 +23,7 @@ class SettingsShellSheet extends ConsumerWidget {
     final theme = Theme.of(context);
     final shell = ref.watch(shellPreferenceProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final strings = AppStrings.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -33,24 +35,24 @@ class SettingsShellSheet extends ConsumerWidget {
             children: [
               Icon(Icons.dashboard_customize_outlined, size: 20, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
-              Text('Workspace & Shell', style: theme.textTheme.titleMedium),
+              Text(strings.workspaceAndShell, style: theme.textTheme.titleMedium),
             ],
           ),
           const SizedBox(height: 16),
-          Text('Editor Shell Layout', style: theme.textTheme.labelMedium),
+          Text(strings.editorShellLayout, style: theme.textTheme.labelMedium),
           const SizedBox(height: 6),
           SegmentedButton<AppShellKind>(
             key: const Key('shell-selector-segmented'),
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: AppShellKind.lightroom,
-                icon: Icon(Icons.tune),
-                label: Text('Panels (Lightroom)'),
+                icon: const Icon(Icons.tune),
+                label: Text(strings.panelsLightroom),
               ),
               ButtonSegment(
                 value: AppShellKind.snapseed,
-                icon: Icon(Icons.gesture),
-                label: Text('Gestures (Snapseed)'),
+                icon: const Icon(Icons.gesture),
+                label: Text(strings.gesturesSnapseed),
               ),
             ],
             selected: {shell},
@@ -58,14 +60,14 @@ class SettingsShellSheet extends ConsumerWidget {
                 ref.read(shellPreferenceProvider.notifier).select(s.first),
           ),
           const SizedBox(height: 16),
-          Text('Theme Mode', style: theme.textTheme.labelMedium),
+          Text(strings.themeMode, style: theme.textTheme.labelMedium),
           const SizedBox(height: 6),
           SegmentedButton<ThemeMode>(
             key: const Key('theme-selector-segmented'),
-            segments: const [
-              ButtonSegment(value: ThemeMode.system, label: Text('System')),
-              ButtonSegment(value: ThemeMode.light, label: Text('Light')),
-              ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
+            segments: [
+              ButtonSegment(value: ThemeMode.system, label: Text(strings.systemTheme)),
+              ButtonSegment(value: ThemeMode.light, label: Text(strings.lightTheme)),
+              ButtonSegment(value: ThemeMode.dark, label: Text(strings.darkTheme)),
             ],
             selected: {themeMode},
             onSelectionChanged: (s) =>
@@ -76,13 +78,13 @@ class SettingsShellSheet extends ConsumerWidget {
             dense: true,
             key: const Key('settings-glassmorphic-toggle'),
             contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Glassmorphic UI',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            title: Text(
+              strings.glassmorphicUi,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
-            subtitle: const Text(
-              'Translucent frosted-glass panels and HUD so photo stays visible',
-              style: TextStyle(fontSize: 11),
+            subtitle: Text(
+              strings.glassmorphicUiDesc,
+              style: const TextStyle(fontSize: 12.0),
             ),
             value: ref.watch(glassmorphicUiProvider),
             onChanged: (val) =>

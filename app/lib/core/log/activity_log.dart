@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'log_providers.dart' show axLog;
+
 /// Severity of an [LogEntry].
 enum LogLevel { debug, info, warning, error }
 

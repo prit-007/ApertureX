@@ -103,6 +103,6 @@ void main() {
     );
 
     expect(find.text('About ApertureX'), findsOneWidget);
-    expect(find.textContaining('100% Offline. Zero Cloud Analytics.'), findsOneWidget);
+    expect(find.textContaining('100% On-Device Processing. Zero Cloud Analytics.'), findsOneWidget);
   });
 }

@@ -2359,7 +2359,7 @@ class _Cell extends StatelessWidget {
                     'RAW',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 10.5,
+                      fontSize: 12.0,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.5,
                     ),

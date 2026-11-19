@@ -139,6 +139,227 @@ class AppStrings {
         'zh': '应用版本、开发者、开源许可证、设备端保证',
       }, 'App version, developers, open-source licenses, on-device guarantee');
 
+  // --- Workspace & Shell Sheet Strings ---
+  String get editorShellLayout => _t({
+        'es': 'Estructura del editor',
+        'de': 'Editor-Shell-Layout',
+        'fr': 'Disposition de l\'éditeur',
+        'ja': 'エディターシェル配置',
+        'zh': '编辑器界面布局',
+      }, 'Editor Shell Layout');
+
+  String get panelsLightroom => _t({
+        'es': 'Paneles (Lightroom)',
+        'de': 'Panels (Lightroom)',
+        'fr': 'Panneaux (Lightroom)',
+        'ja': 'パネル（Lightroom）',
+        'zh': '面板（Lightroom）',
+      }, 'Panels (Lightroom)');
+
+  String get gesturesSnapseed => _t({
+        'es': 'Gestos (Snapseed)',
+        'de': 'Gesten (Snapseed)',
+        'fr': 'Gestes (Snapseed)',
+        'ja': 'ジェスチャー（Snapseed）',
+        'zh': '手势（Snapseed）',
+      }, 'Gestures (Snapseed)');
+
+  String get themeMode => _t({
+        'es': 'Modo de tema',
+        'de': 'Theme-Modus',
+        'fr': 'Mode de thème',
+        'ja': 'テーマモード',
+        'zh': '主题模式',
+      }, 'Theme Mode');
+
+  String get systemTheme => _t({
+        'es': 'Sistema',
+        'de': 'System',
+        'fr': 'Système',
+        'ja': 'システム',
+        'zh': '跟随系统',
+      }, 'System');
+
+  String get lightTheme => _t({
+        'es': 'Claro',
+        'de': 'Hell',
+        'fr': 'Clair',
+        'ja': 'ライト',
+        'zh': '浅色',
+      }, 'Light');
+
+  String get darkTheme => _t({
+        'es': 'Oscuro',
+        'de': 'Dunkel',
+        'fr': 'Sombre',
+        'ja': 'ダーク',
+        'zh': '深色',
+      }, 'Dark');
+
+  String get glassmorphicUi => _t({
+        'es': 'Interfaz translúcida',
+        'de': 'Glasmorphismus-UI',
+        'fr': 'Interface translucide',
+        'ja': 'グラスモフィズムUI',
+        'zh': '拟玻质感UI',
+      }, 'Glassmorphic UI');
+
+  String get glassmorphicUiDesc => _t({
+        'es': 'Paneles y HUD de cristal esmerilado translúcido para ver la foto detrás',
+        'de': 'Durchscheinende Milchglas-Panels und HUD, damit das Foto sichtbar bleibt',
+        'fr': 'Panneaux et affichage translucides en verre dépoli pour voir la photo',
+        'ja': '写真が見通せる半透明すりガラス調パネルとHUD',
+        'zh': '半透明磨砂玻璃面板与HUD，使照片在控件下方隐现',
+      }, 'Translucent frosted-glass panels and HUD so photo stays visible');
+
+  // --- Stylus & Input Sheet Strings ---
+  String get palmRejection => _t({
+        'es': 'Rechazo de palma',
+        'de': 'Handflächenerkennung',
+        'fr': 'Rejet de la paume',
+        'ja': 'パームリジェクション',
+        'zh': '防手掌误触',
+      }, 'Palm Rejection');
+
+  String get palmRejectionDesc => _t({
+        'es': 'Rechaza toques táctiles mientras se utiliza el lápiz activo',
+        'de': 'Touch-Eingaben ignorieren, wenn ein aktiver Stift verwendet wird',
+        'fr': 'Rejette les événements tactiles lors de l\'utilisation d\'un stylet actif',
+        'ja': 'アクティブペン使用中のタッチ入力を無視',
+        'zh': '使用主动式电磁笔时忽略手掌触摸输入',
+      }, 'Reject touch pointer events when using active pen');
+
+  String get pressureSensitivity => _t({
+        'es': 'Sensibilidad a la presión',
+        'de': 'Druckempfindlichkeit',
+        'fr': 'Sensibilité à la pression',
+        'ja': '筆圧感知',
+        'zh': '压感灵敏度',
+      }, 'Pressure Sensitivity');
+
+  String get pressureSensitivityDesc => _t({
+        'es': 'Varía el flujo del pincel con la presión dinámica del lápiz (event.pressure)',
+        'de': 'Pinselstärke dynamisch mit Stiftdruck variieren (event.pressure)',
+        'fr': 'Varie le flux du pinceau avec la pression dynamique du stylet (event.pressure)',
+        'ja': 'ペンの筆圧に応じてブラシ流量を動的に変化（event.pressure）',
+        'zh': '根据笔尖下压实时改变画笔流量与不透明度（event.pressure）',
+      }, 'Vary brush flow with dynamic pen pressure (event.pressure)');
+
+  String get invertedStylusSupport => _t({
+        'es': 'Compatibilidad con lápiz invertido',
+        'de': 'Stiftradiermodus-Unterstützung',
+        'fr': 'Prise en charge du stylet inversé',
+        'ja': '反転スタイラス対応',
+        'zh': '支持笔尾橡皮擦',
+      }, 'Inverted Stylus Support');
+
+  String get invertedStylusSupportDesc => _t({
+        'es': 'Gira el lápiz para cambiar al instante al modo borrador de precisión',
+        'de': 'Stift umdrehen, um sofort in den Präzisions-Radiergummi-Modus zu wechseln',
+        'fr': 'Retournez le stylet pour passer instantanément en mode gomme de précision',
+        'ja': 'ペンを反転させて高精度消しゴムモードへ瞬時に切り替え',
+        'zh': '将电磁笔反转即可秒切至精准橡皮擦模式',
+      }, 'Flip active pen to instantly switch to precision eraser mode');
+
+  // --- Export Defaults Sheet Strings ---
+  String get quality => _t({
+        'es': 'Calidad',
+        'de': 'Qualität',
+        'fr': 'Qualité',
+        'ja': '品質',
+        'zh': '画质',
+      }, 'Quality');
+
+  String get maxSizeLongSide => _t({
+        'es': 'Tamaño máximo (lado largo)',
+        'de': 'Max. Größe (lange Kante)',
+        'fr': 'Taille max (bord long)',
+        'ja': '最大サイズ（長辺）',
+        'zh': '最大边长（长边）',
+      }, 'Max size (long side)');
+
+  String get sizeOriginal => _t({
+        'es': 'Original',
+        'de': 'Original',
+        'fr': 'Original',
+        'ja': 'オリジナル',
+        'zh': '原始尺寸',
+      }, 'Original');
+
+  String get c2paContentCredentials => _t({
+        'es': 'Credenciales de contenido C2PA',
+        'de': 'C2PA-Inhaltsnachweise',
+        'fr': 'Identifiants de contenu C2PA',
+        'ja': 'C2PA コンテンツクレデンシャル',
+        'zh': 'C2PA 内容凭据',
+      }, 'C2PA Content Credentials');
+
+  String get c2paDesc => _t({
+        'es': 'Firma la procedencia de la imagen criptográficamente con Ed25519 en local',
+        'de': 'Signiert die Bildprovenienz offline kryptografisch mit Ed25519',
+        'fr': 'Signe cryptographiquement la provenance de l\'image hors ligne avec Ed25519',
+        'ja': 'Ed25519で画像の出所をオフラインで暗号署名',
+        'zh': '通过Ed25519离线对图像来源进行密码学签名',
+      }, 'Cryptographically signs image provenance offline with Ed25519');
+
+  // --- Privacy & AI Sheet Strings ---
+  String get onDeviceAiProcessing => _t({
+        'es': 'Procesamiento de IA en el dispositivo',
+        'de': 'On-Device KI-Verarbeitung',
+        'fr': 'Traitement de l\'IA sur l\'appareil',
+        'ja': 'デバイス内AI処理',
+        'zh': '设备端本地AI处理',
+      }, 'On-device AI processing');
+
+  String get onDeviceAiProcessingDesc => _t({
+        'es': 'Habilita máscaras inteligentes locales (Sujeto/Cielo) con Depth Anything y U2Net. 100% en dispositivo, cero telemetría.',
+        'de': 'Ermöglicht lokale intelligente Maskierung (Motiv/Himmel) über Depth Anything & U2Net. 100% auf dem Gerät, null Telemetrie.',
+        'fr': 'Active le masquage intelligent local (Sujet/Ciel) via Depth Anything et U2Net. 100% sur l\'appareil, zéro télémétrie.',
+        'ja': 'Depth AnythingとU2Netによるローカル高度マスキング（被写体/空を選択）を有効化。100%端末内処理、テレメトリゼロ。',
+        'zh': '启用基于Depth Anything与U2Net的本地智能蒙版（主体/天空选区）。100%设备端运行，零遥测。',
+      }, 'Enables local intelligent masking (Select Subject/Sky) via Depth Anything & U2Net. 100% offline, zero telemetry.');
+
+  String get aiModelsAndNeuralRuntimes => _t({
+        'es': 'Modelos de IA y entornos neuronales',
+        'de': 'KI-Modelle & Neuronale Runtimes',
+        'fr': 'Modèles d\'IA et moteurs neuronaux',
+        'ja': 'AIモデル & ニューラルランタイム',
+        'zh': 'AI模型与神经计算运行时',
+      }, 'AI Models & Neural Runtimes');
+
+  String get aiModelsAndNeuralRuntimesDesc => _t({
+        'es': 'Administra el entorno ONNX, pesos de modelos y aceleración por hardware',
+        'de': 'ONNX-Runtime, Modellgewichte und Inferenz-Hardware verwalten',
+        'fr': 'Gérez le runtime ONNX, les poids des modèles et l\'accélération matérielle',
+        'ja': 'ONNXランタイム、モデル重み、推論ハードウェアを管理',
+        'zh': '管理ONNX运行时、模型权重与硬件加速',
+      }, 'Manage ONNX runtime, model weights, and inference hardware');
+
+  // --- About Sheet Strings ---
+  String get appOverviewAndPhilosophy => _t({
+        'es': 'Visión general y filosofía',
+        'de': 'App-Übersicht & Philosophie',
+        'fr': 'Présentation et philosophie',
+        'ja': 'アプリ概要と哲学',
+        'zh': '应用概览与理念',
+      }, 'App Overview & Philosophy');
+
+  String get developersAndMaintainers => _t({
+        'es': 'Desarrolladores y mantenedores',
+        'de': 'Entwickler & Maintainer',
+        'fr': 'Développeurs et mainteneurs',
+        'ja': '開発者とメンテナー',
+        'zh': '开发者与维护者',
+      }, 'Developers & Maintainers');
+
+  String get openSourceLicenses => _t({
+        'es': 'Licencias de código abierto',
+        'de': 'Open-Source-Lizenzen',
+        'fr': 'Licences open source',
+        'ja': 'オープンソースライセンス',
+        'zh': '开源许可证',
+      }, 'Open-Source Licenses');
+
   String get recent => _t({
         'es': 'Recientes',
         'de': 'Zuletzt',

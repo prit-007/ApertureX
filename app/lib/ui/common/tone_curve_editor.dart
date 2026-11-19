@@ -247,7 +247,7 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
                     'Tap to add point · Drag to curve · Double-tap to remove',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 12.0,
                       color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
                   ),
