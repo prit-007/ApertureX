@@ -246,4 +246,65 @@ final zeroCopyTextureProvider = NotifierProvider<ZeroCopyTextureSettings, bool>(
   ZeroCopyTextureSettings.new,
 );
 
+/// Preference for single-finger drag on the shared image canvas (ADR 0008).
+/// - [automatic]: routes to gesture tuning in Snapseed mode and pan/zoom in Lightroom mode.
+/// - [gestures]: routes single-finger drags to gesture tuning (Snapseed-style scrubbing) across shells.
+/// - [panZoom]: reserves single-finger drags for panning/zooming, disabling on-canvas swipe grading.
+enum CanvasGestureMode { automatic, gestures, panZoom }
+
+class CanvasGestureModeSettings extends Notifier<CanvasGestureMode> {
+  static const String _key = 'canvas_gesture_mode';
+  bool _userSet = false;
+
+  @override
+  CanvasGestureMode build() {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    if (prefs != null) {
+      final name = prefs.getString(_key);
+      if (name != null) return _fromName(name);
+    } else {
+      _restore();
+    }
+    return CanvasGestureMode.automatic;
+  }
+
+  void setMode(CanvasGestureMode mode) {
+    _userSet = true;
+    state = mode;
+    _persist(mode);
+    axLog(LogDomain.app, 'Canvas gesture mode set to ${mode.name}');
+  }
+
+  Future<void> _restore() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_userSet) return;
+      state = _fromName(prefs.getString(_key));
+    } catch (_) {
+      // test environment fallback
+    }
+  }
+
+  Future<void> _persist(CanvasGestureMode mode) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_key, mode.name);
+    } catch (_) {
+      // best effort
+    }
+  }
+
+  static CanvasGestureMode _fromName(String? name) => switch (name) {
+    'gestures' => CanvasGestureMode.gestures,
+    'panZoom' => CanvasGestureMode.panZoom,
+    _ => CanvasGestureMode.automatic,
+  };
+}
+
+final canvasGestureModeProvider =
+    NotifierProvider<CanvasGestureModeSettings, CanvasGestureMode>(
+  CanvasGestureModeSettings.new,
+);
+
+
 

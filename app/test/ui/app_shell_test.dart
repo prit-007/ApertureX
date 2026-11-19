@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:aperturex/edit/parameter.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
+import 'package:aperturex/settings/app_settings.dart';
 import 'package:aperturex/settings/shell_preference.dart';
 import 'package:aperturex/ui/app_shell.dart';
 import 'package:aperturex/ui/lightroom/lightroom_shell.dart';
@@ -232,6 +233,50 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('live-scrub-hud-pill')), findsNothing);
+    });
+
+    testWidgets('canvasGestureModeProvider panZoom mode disables on-canvas edit interpreter', (
+      tester,
+    ) async {
+      // Set to Snapseed shell where editInterpreter is normally active
+      container
+          .read(shellPreferenceProvider.notifier)
+          .select(AppShellKind.snapseed);
+
+      // Set gesture mode to panZoom
+      container
+          .read(canvasGestureModeProvider.notifier)
+          .setMode(CanvasGestureMode.panZoom);
+
+      await pumpShell(tester);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final canvasFinder = find.byType(ImageCanvas);
+      expect(canvasFinder, findsOneWidget);
+      final canvasWidget = tester.widget<ImageCanvas>(canvasFinder);
+      expect(canvasWidget.editInterpreter, isNull);
+    });
+
+    testWidgets('canvasGestureModeProvider gestures mode enables on-canvas interpreter in Lightroom', (
+      tester,
+    ) async {
+      // Set to Lightroom shell
+      container
+          .read(shellPreferenceProvider.notifier)
+          .select(AppShellKind.lightroom);
+
+      // Set gesture mode to gestures
+      container
+          .read(canvasGestureModeProvider.notifier)
+          .setMode(CanvasGestureMode.gestures);
+
+      await pumpShell(tester);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final canvasFinder = find.byType(ImageCanvas);
+      expect(canvasFinder, findsOneWidget);
+      final canvasWidget = tester.widget<ImageCanvas>(canvasFinder);
+      expect(canvasWidget.editInterpreter, isNotNull);
     });
   });
 }

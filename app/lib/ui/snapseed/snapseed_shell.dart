@@ -559,12 +559,15 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                           ),
                         ],
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          child: Row(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {},
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
@@ -740,8 +743,9 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                   selectedIcon: Icon(Icons.bar_chart, size: dockIconSize, color: scheme.primary),
                                 ),
                             ],
-            ),
-          ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),

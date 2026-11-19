@@ -354,6 +354,12 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// The photo, wrapped so that touching it starts/ends Active Mode (the
   /// chrome fades while the pointer is down).
   Widget _canvas({GestureInterpreter? interpreter}) {
+    final gestureMode = ref.watch(canvasGestureModeProvider);
+    final effectiveInterpreter = switch (gestureMode) {
+      CanvasGestureMode.automatic => interpreter,
+      CanvasGestureMode.gestures => interpreter ?? _fsm,
+      CanvasGestureMode.panZoom => null,
+    };
     return Listener(
       behavior: HitTestBehavior.deferToChild,
       onPointerDown: (e) {
@@ -380,7 +386,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         child: ImageCanvas(
           imageBytes: widget.imageBytes,
           heroTag: widget.heroTag,
-          editInterpreter: interpreter,
+          editInterpreter: effectiveInterpreter,
           onTap: () {
             final activeSection = ref.read(activeSectionProvider);
             if (activeSection != RecipeSection.masking &&
