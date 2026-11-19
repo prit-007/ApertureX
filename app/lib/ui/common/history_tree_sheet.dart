@@ -438,6 +438,11 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                           MaskKind.sky => 'AI Sky Mask',
                           MaskKind.bitmap => 'Bitmap Mask',
                           MaskKind.autoBrush => 'Edge-Aware Auto Brush',
+                          MaskKind.background => 'AI Background Mask',
+                          MaskKind.personFace => 'AI Person Face Mask',
+                          MaskKind.personSkin => 'AI Person Skin Mask',
+                          MaskKind.personHair => 'AI Person Hair Mask',
+                          MaskKind.object => 'Object Mask',
                         };
                         return Card.outlined(
                           margin: const EdgeInsets.only(bottom: 8),

@@ -12,10 +12,12 @@ import '../color/optics_spec.dart';
 import '../color/spatial_spec.dart';
 import '../edit/adjustment_layer.dart';
 import '../edit/geometry_spec.dart';
+import '../edit/recipe.dart' show PointColorDef;
 import '../edit/retouch_patch.dart';
 import '../settings/export_branding_settings.dart' show ExportBrandingSettings;
 import '../src/rust/api/blur.dart' as rust_blur;
 import '../src/rust/api/color.dart' as rust_color;
+import '../src/rust/api/compositing.dart' as rust_compositing;
 import '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 import '../src/rust/api/decode.dart' as rust_decode;
 import '../src/rust/api/engine.dart' as rust_engine;
@@ -728,6 +730,91 @@ class AxEngine {
     height: height,
   );
 
+  /// Solves perspective and rotation adjustments from user-placed guide lines.
+  static Future<rust_geometry.ApiGuidedTransformResult> solveGuidedTransform(
+    List<rust_geometry.ApiGuideLine> guides,
+  ) => rust_geometry.solveGuidedTransform(guides: guides);
+
+  /// Applies Point Color adjustments targeting specific hue/sat/lum ranges.
+  static Future<Uint8List> applyPointColors(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    required List<PointColorDef> points,
+  }) {
+    if (points.isEmpty) return Future.value(rgba);
+    final apiPoints = points
+        .map(
+          (p) => rust_color.ApiPointColor(
+            targetH: p.targetHue,
+            targetS: p.targetSat,
+            targetL: p.targetLum,
+            rangeH: p.rangeHue,
+            rangeS: p.rangeSat,
+            rangeL: p.rangeLum,
+            falloff: p.falloff,
+            shiftH: p.hueShift,
+            shiftS: p.satShift,
+            shiftL: p.lumShift,
+          ),
+        )
+        .toList();
+    return rust_color.applyPointColors(
+      rgba: rgba,
+      width: width,
+      height: height,
+      points: apiPoints,
+    );
+  }
+
+  /// Applies camera calibration primary shifts and shadow tint.
+  static Future<Uint8List> applyCameraCalibration(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    double shadowTint = 0.0,
+    double redHue = 0.0,
+    double redSat = 0.0,
+    double greenHue = 0.0,
+    double greenSat = 0.0,
+    double blueHue = 0.0,
+    double blueSat = 0.0,
+  }) {
+    return rust_color.applyCameraCalibration(
+      rgba: rgba,
+      width: width,
+      height: height,
+      calib: rust_color.ApiCalibrationParams(
+        shadowTint: shadowTint,
+        redHue: redHue,
+        redSat: redSat,
+        greenHue: greenHue,
+        greenSat: greenSat,
+        blueHue: blueHue,
+        blueSat: blueSat,
+      ),
+    );
+  }
+
+  /// Composites an overlay image onto base RGBA with blend mode and opacity.
+  static Future<Uint8List> compositeLayers({
+    required Uint8List baseRgba,
+    required Uint8List overlayRgba,
+    required int width,
+    required int height,
+    int blendModeIndex = 0,
+    double opacity = 1.0,
+  }) {
+    return rust_compositing.compositeLayers(
+      baseRgba: baseRgba,
+      overlayRgba: overlayRgba,
+      width: width,
+      height: height,
+      blendModeIndex: blendModeIndex,
+      opacity: opacity,
+    );
+  }
+
   /// Automatically detects dominant subject center, radii, and feather from [rgba] pixels.
   static Future<rust_mask.DetectedSubject?> detectSubject(
     Uint8List rgba, {
@@ -1002,6 +1089,7 @@ class AxEngine {
             feather: p.feather,
             opacity: p.opacity,
             isClone: p.mode == RetouchMode.clone,
+            modeIndex: p.mode.index,
           ),
         )
         .toList();

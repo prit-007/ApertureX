@@ -6,6 +6,7 @@
 import 'api/blur.dart';
 import 'api/c2pa.dart';
 import 'api/color.dart';
+import 'api/compositing.dart';
 import 'api/decode.dart';
 import 'api/engine.dart';
 import 'api/exif.dart';
@@ -45,7 +46,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  ApiCalibrationParams dco_decode_api_calibration_params(dynamic raw);
+
+  @protected
+  ApiGuideLine dco_decode_api_guide_line(dynamic raw);
+
+  @protected
+  ApiGuidedTransformResult dco_decode_api_guided_transform_result(dynamic raw);
+
+  @protected
   ApiLensBlurParams dco_decode_api_lens_blur_params(dynamic raw);
+
+  @protected
+  ApiPointColor dco_decode_api_point_color(dynamic raw);
 
   @protected
   ApiRetouchPatch dco_decode_api_retouch_patch(dynamic raw);
@@ -55,6 +68,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool dco_decode_bool(dynamic raw);
+
+  @protected
+  ApiCalibrationParams dco_decode_box_autoadd_api_calibration_params(
+    dynamic raw,
+  );
 
   @protected
   ApiLensBlurParams dco_decode_box_autoadd_api_lens_blur_params(dynamic raw);
@@ -175,6 +193,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
+  List<ApiGuideLine> dco_decode_list_api_guide_line(dynamic raw);
+
+  @protected
+  List<ApiPointColor> dco_decode_list_api_point_color(dynamic raw);
 
   @protected
   List<ApiRetouchPatch> dco_decode_list_api_retouch_patch(dynamic raw);
@@ -298,9 +322,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  ApiCalibrationParams sse_decode_api_calibration_params(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ApiGuideLine sse_decode_api_guide_line(SseDeserializer deserializer);
+
+  @protected
+  ApiGuidedTransformResult sse_decode_api_guided_transform_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ApiLensBlurParams sse_decode_api_lens_blur_params(
     SseDeserializer deserializer,
   );
+
+  @protected
+  ApiPointColor sse_decode_api_point_color(SseDeserializer deserializer);
 
   @protected
   ApiRetouchPatch sse_decode_api_retouch_patch(SseDeserializer deserializer);
@@ -310,6 +350,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  ApiCalibrationParams sse_decode_box_autoadd_api_calibration_params(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ApiLensBlurParams sse_decode_box_autoadd_api_lens_blur_params(
@@ -452,6 +497,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
+  List<ApiGuideLine> sse_decode_list_api_guide_line(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ApiPointColor> sse_decode_list_api_point_color(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<ApiRetouchPatch> sse_decode_list_api_retouch_patch(
     SseDeserializer deserializer,
   );
@@ -592,10 +647,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_api_calibration_params(
+    ApiCalibrationParams self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_api_guide_line(ApiGuideLine self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_api_guided_transform_result(
+    ApiGuidedTransformResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_api_lens_blur_params(
     ApiLensBlurParams self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_api_point_color(ApiPointColor self, SseSerializer serializer);
 
   @protected
   void sse_encode_api_retouch_patch(
@@ -608,6 +681,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_api_calibration_params(
+    ApiCalibrationParams self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_api_lens_blur_params(
@@ -791,6 +870,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_api_guide_line(
+    List<ApiGuideLine> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_api_point_color(
+    List<ApiPointColor> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_api_retouch_patch(

@@ -2090,6 +2090,46 @@ class MaskControls extends ConsumerWidget {
         joinOp: joinOp,
         exposure: exposure ?? 0.5,
       ),
+      MaskKind.background => AdjustmentLayer(
+        maskKind: MaskKind.background,
+        maskParams: const [],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        exposure: exposure ?? -0.3,
+      ),
+      MaskKind.personFace => AdjustmentLayer(
+        maskKind: MaskKind.personFace,
+        maskParams: [center.dx, center.dy, rx, ry, 0.2],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        exposure: exposure ?? 0.3,
+      ),
+      MaskKind.personSkin => AdjustmentLayer(
+        maskKind: MaskKind.personSkin,
+        maskParams: [center.dx, center.dy, rx, ry, 0.2],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        contrast: -0.2,
+      ),
+      MaskKind.personHair => AdjustmentLayer(
+        maskKind: MaskKind.personHair,
+        maskParams: [center.dx, center.dy, rx, ry, 0.2],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        contrast: 0.2,
+      ),
+      MaskKind.object => AdjustmentLayer(
+        maskKind: MaskKind.object,
+        maskParams: [center.dx - rx, center.dy - ry, center.dx + rx, center.dy + ry, 0.1],
+        inverted: inverted,
+        groupId: groupId,
+        joinOp: joinOp,
+        exposure: exposure ?? 0.4,
+      ),
     };
 
     final idx = ref.read(recipeControllerProvider).recipe.layers.length;
@@ -2488,6 +2528,11 @@ class _MaskThumbnail extends StatelessWidget {
       MaskKind.bitmap => Icons.grain,
       MaskKind.colorRange => Icons.colorize,
       MaskKind.depthRange => Icons.layers_outlined,
+      MaskKind.background => Icons.wallpaper,
+      MaskKind.personFace => Icons.face,
+      MaskKind.personSkin => Icons.face_retouching_natural,
+      MaskKind.personHair => Icons.content_cut,
+      MaskKind.object => Icons.category,
     };
   }
 

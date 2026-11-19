@@ -1076,6 +1076,7 @@ mod tests {
             feather: 0.0,
             opacity: 1.0,
             is_clone: true,
+            mode_index: 1,
         };
 
         let run = |patches: Vec<ApiRetouchPatch>| {

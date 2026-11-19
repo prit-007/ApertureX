@@ -440,6 +440,7 @@ mod tests {
             feather: 0.5,
             opacity: 1.0,
             is_clone: false,
+            mode_index: 0,
         }];
 
         let geo = geometry_apply(
@@ -671,6 +672,7 @@ mod tests {
             feather: 0.0,
             opacity: 1.0,
             is_clone: true,
+            mode_index: 1,
         };
 
         let handle =

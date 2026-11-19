@@ -156,6 +156,83 @@ Future<UprightResult> geometryDetectUpright({
   height: height,
 );
 
+/// Solves perspective and rotation adjustments from user-placed guide lines.
+Future<ApiGuidedTransformResult> solveGuidedTransform({
+  required List<ApiGuideLine> guides,
+}) => RustLib.instance.api.crateApiGeometrySolveGuidedTransform(guides: guides);
+
+/// Guide line for upright / guided perspective correction.
+class ApiGuideLine {
+  final double x1;
+  final double y1;
+  final double x2;
+  final double y2;
+  final bool isVertical;
+
+  const ApiGuideLine({
+    required this.x1,
+    required this.y1,
+    required this.x2,
+    required this.y2,
+    required this.isVertical,
+  });
+
+  @override
+  int get hashCode =>
+      x1.hashCode ^
+      y1.hashCode ^
+      x2.hashCode ^
+      y2.hashCode ^
+      isVertical.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ApiGuideLine &&
+          runtimeType == other.runtimeType &&
+          x1 == other.x1 &&
+          y1 == other.y1 &&
+          x2 == other.x2 &&
+          y2 == other.y2 &&
+          isVertical == other.isVertical;
+}
+
+/// Result of solving guided perspective correction.
+class ApiGuidedTransformResult {
+  final double angleDeg;
+  final double perspectiveX;
+  final double perspectiveY;
+  final double skewX;
+  final double skewY;
+
+  const ApiGuidedTransformResult({
+    required this.angleDeg,
+    required this.perspectiveX,
+    required this.perspectiveY,
+    required this.skewX,
+    required this.skewY,
+  });
+
+  @override
+  int get hashCode =>
+      angleDeg.hashCode ^
+      perspectiveX.hashCode ^
+      perspectiveY.hashCode ^
+      skewX.hashCode ^
+      skewY.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ApiGuidedTransformResult &&
+          runtimeType == other.runtimeType &&
+          angleDeg == other.angleDeg &&
+          perspectiveX == other.perspectiveX &&
+          perspectiveY == other.perspectiveY &&
+          skewX == other.skewX &&
+          skewY == other.skewY;
+}
+
 /// Rotated/cropped result: pixels plus the new dimensions.
 class GeometryResult {
   final int width;

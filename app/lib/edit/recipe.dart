@@ -130,6 +130,18 @@ class EditRecipe {
     this.shaderParam1 = 0,
     this.shaderParam2 = 0,
     this.shaderParam3 = 0,
+    // Camera Calibration.
+    this.calibrationShadowTint = 0,
+    this.calibrationRedHue = 0,
+    this.calibrationRedSat = 0,
+    this.calibrationGreenHue = 0,
+    this.calibrationGreenSat = 0,
+    this.calibrationBlueHue = 0,
+    this.calibrationBlueSat = 0,
+    // Point Color.
+    this.pointColors = const <PointColorDef>[],
+    // Double Exposure.
+    this.doubleExposure,
   });
 
   /// Deserialises from [json], tolerating missing keys (default to neutral) and
@@ -283,6 +295,22 @@ class EditRecipe {
       shaderParam1: asDouble('shaderParam1'),
       shaderParam2: asDouble('shaderParam2'),
       shaderParam3: asDouble('shaderParam3'),
+      calibrationShadowTint: asDouble('calibrationShadowTint'),
+      calibrationRedHue: asDouble('calibrationRedHue'),
+      calibrationRedSat: asDouble('calibrationRedSat'),
+      calibrationGreenHue: asDouble('calibrationGreenHue'),
+      calibrationGreenSat: asDouble('calibrationGreenSat'),
+      calibrationBlueHue: asDouble('calibrationBlueHue'),
+      calibrationBlueSat: asDouble('calibrationBlueSat'),
+      pointColors: (json['pointColors'] as List?)
+              ?.map((e) => PointColorDef.fromJson((e as Map).cast<String, Object?>()))
+              .toList() ??
+          const <PointColorDef>[],
+      doubleExposure: json['doubleExposure'] is Map
+          ? DoubleExposureLayer.fromJson(
+              (json['doubleExposure'] as Map).cast<String, Object?>(),
+            )
+          : null,
     ).clamped();
   }
 
@@ -428,6 +456,21 @@ class EditRecipe {
   final double skewX; // horizontal skew, neutral 0, range ~[-1,1]
   final double skewY; // vertical skew, neutral 0, range ~[-1,1]
 
+  // Camera Calibration.
+  final double calibrationShadowTint;
+  final double calibrationRedHue;
+  final double calibrationRedSat;
+  final double calibrationGreenHue;
+  final double calibrationGreenSat;
+  final double calibrationBlueHue;
+  final double calibrationBlueSat;
+
+  // Point Color.
+  final List<PointColorDef> pointColors;
+
+  // Double Exposure.
+  final DoubleExposureLayer? doubleExposure;
+
   /// Returns a copy with the given fields replaced. Fields left `null` keep
   /// their current value; the receiver is never mutated.
   EditRecipe copyWith({
@@ -523,6 +566,15 @@ class EditRecipe {
     double? shaderParam1,
     double? shaderParam2,
     double? shaderParam3,
+    double? calibrationShadowTint,
+    double? calibrationRedHue,
+    double? calibrationRedSat,
+    double? calibrationGreenHue,
+    double? calibrationGreenSat,
+    double? calibrationBlueHue,
+    double? calibrationBlueSat,
+    List<PointColorDef>? pointColors,
+    DoubleExposureLayer? doubleExposure,
   }) {
     return EditRecipe(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -618,6 +670,16 @@ class EditRecipe {
       shaderParam1: shaderParam1 ?? this.shaderParam1,
       shaderParam2: shaderParam2 ?? this.shaderParam2,
       shaderParam3: shaderParam3 ?? this.shaderParam3,
+      calibrationShadowTint:
+          calibrationShadowTint ?? this.calibrationShadowTint,
+      calibrationRedHue: calibrationRedHue ?? this.calibrationRedHue,
+      calibrationRedSat: calibrationRedSat ?? this.calibrationRedSat,
+      calibrationGreenHue: calibrationGreenHue ?? this.calibrationGreenHue,
+      calibrationGreenSat: calibrationGreenSat ?? this.calibrationGreenSat,
+      calibrationBlueHue: calibrationBlueHue ?? this.calibrationBlueHue,
+      calibrationBlueSat: calibrationBlueSat ?? this.calibrationBlueSat,
+      pointColors: pointColors ?? this.pointColors,
+      doubleExposure: doubleExposure ?? this.doubleExposure,
     );
   }
 
@@ -702,6 +764,13 @@ class EditRecipe {
       shaderParam1: shaderParam1.clamp(0.0, 1.0),
       shaderParam2: shaderParam2.clamp(0.0, 1.0),
       shaderParam3: shaderParam3.clamp(0.0, 1.0),
+      calibrationShadowTint: calibrationShadowTint.clamp(-100.0, 100.0),
+      calibrationRedHue: calibrationRedHue.clamp(-100.0, 100.0),
+      calibrationRedSat: calibrationRedSat.clamp(-100.0, 100.0),
+      calibrationGreenHue: calibrationGreenHue.clamp(-100.0, 100.0),
+      calibrationGreenSat: calibrationGreenSat.clamp(-100.0, 100.0),
+      calibrationBlueHue: calibrationBlueHue.clamp(-100.0, 100.0),
+      calibrationBlueSat: calibrationBlueSat.clamp(-100.0, 100.0),
     );
   }
 
@@ -801,6 +870,17 @@ class EditRecipe {
     'shaderParam1': shaderParam1,
     'shaderParam2': shaderParam2,
     'shaderParam3': shaderParam3,
+    if (calibrationShadowTint != 0)
+      'calibrationShadowTint': calibrationShadowTint,
+    if (calibrationRedHue != 0) 'calibrationRedHue': calibrationRedHue,
+    if (calibrationRedSat != 0) 'calibrationRedSat': calibrationRedSat,
+    if (calibrationGreenHue != 0) 'calibrationGreenHue': calibrationGreenHue,
+    if (calibrationGreenSat != 0) 'calibrationGreenSat': calibrationGreenSat,
+    if (calibrationBlueHue != 0) 'calibrationBlueHue': calibrationBlueHue,
+    if (calibrationBlueSat != 0) 'calibrationBlueSat': calibrationBlueSat,
+    if (pointColors.isNotEmpty)
+      'pointColors': [for (final p in pointColors) p.toJson()],
+    if (doubleExposure != null) 'doubleExposure': doubleExposure!.toJson(),
   };
 
   @override
@@ -897,7 +977,16 @@ class EditRecipe {
       other.shaderLabPreset == shaderLabPreset &&
       other.shaderParam1 == shaderParam1 &&
       other.shaderParam2 == shaderParam2 &&
-      other.shaderParam3 == shaderParam3;
+      other.shaderParam3 == shaderParam3 &&
+      other.calibrationShadowTint == calibrationShadowTint &&
+      other.calibrationRedHue == calibrationRedHue &&
+      other.calibrationRedSat == calibrationRedSat &&
+      other.calibrationGreenHue == calibrationGreenHue &&
+      other.calibrationGreenSat == calibrationGreenSat &&
+      other.calibrationBlueHue == calibrationBlueHue &&
+      other.calibrationBlueSat == calibrationBlueSat &&
+      listEquals(other.pointColors, pointColors) &&
+      other.doubleExposure == doubleExposure;
 
   @override
   int get hashCode => Object.hash(
@@ -993,6 +1082,17 @@ class EditRecipe {
       shaderParam1,
       shaderParam2,
       shaderParam3,
+      Object.hash(
+        calibrationShadowTint,
+        calibrationRedHue,
+        calibrationRedSat,
+        calibrationGreenHue,
+        calibrationGreenSat,
+        calibrationBlueHue,
+        calibrationBlueSat,
+        Object.hashAll(pointColors),
+        doubleExposure,
+      ),
     ),
   );
 
@@ -1000,4 +1100,198 @@ class EditRecipe {
   String toString() =>
       'EditRecipe(v$schemaVersion, exposure: $exposure, contrast: $contrast, '
       'saturation: $saturation)';
+}
+
+/// Point Color adjustment definition targeting a specific hue, saturation, and
+/// luminance range with customizable falloff and shifts.
+class PointColorDef {
+  const PointColorDef({
+    this.targetHue = 0.0,
+    this.targetSat = 0.5,
+    this.targetLum = 0.5,
+    this.rangeHue = 0.1,
+    this.rangeSat = 0.3,
+    this.rangeLum = 0.3,
+    this.falloff = 0.5,
+    this.hueShift = 0.0,
+    this.satShift = 0.0,
+    this.lumShift = 0.0,
+  });
+
+  factory PointColorDef.fromJson(Map<String, Object?> json) {
+    double d(String k, double fallback) => (json[k] as num?)?.toDouble() ?? fallback;
+    return PointColorDef(
+      targetHue: d('targetHue', 0.0),
+      targetSat: d('targetSat', 0.5),
+      targetLum: d('targetLum', 0.5),
+      rangeHue: d('rangeHue', 0.1),
+      rangeSat: d('rangeSat', 0.3),
+      rangeLum: d('rangeLum', 0.3),
+      falloff: d('falloff', 0.5),
+      hueShift: d('hueShift', 0.0),
+      satShift: d('satShift', 0.0),
+      lumShift: d('lumShift', 0.0),
+    );
+  }
+
+  final double targetHue;
+  final double targetSat;
+  final double targetLum;
+  final double rangeHue;
+  final double rangeSat;
+  final double rangeLum;
+  final double falloff;
+  final double hueShift;
+  final double satShift;
+  final double lumShift;
+
+  Map<String, Object?> toJson() => {
+    'targetHue': targetHue,
+    'targetSat': targetSat,
+    'targetLum': targetLum,
+    'rangeHue': rangeHue,
+    'rangeSat': rangeSat,
+    'rangeLum': rangeLum,
+    'falloff': falloff,
+    'hueShift': hueShift,
+    'satShift': satShift,
+    'lumShift': lumShift,
+  };
+
+  PointColorDef copyWith({
+    double? targetHue,
+    double? targetSat,
+    double? targetLum,
+    double? rangeHue,
+    double? rangeSat,
+    double? rangeLum,
+    double? falloff,
+    double? hueShift,
+    double? satShift,
+    double? lumShift,
+  }) => PointColorDef(
+    targetHue: targetHue ?? this.targetHue,
+    targetSat: targetSat ?? this.targetSat,
+    targetLum: targetLum ?? this.targetLum,
+    rangeHue: rangeHue ?? this.rangeHue,
+    rangeSat: rangeSat ?? this.rangeSat,
+    rangeLum: rangeLum ?? this.rangeLum,
+    falloff: falloff ?? this.falloff,
+    hueShift: hueShift ?? this.hueShift,
+    satShift: satShift ?? this.satShift,
+    lumShift: lumShift ?? this.lumShift,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PointColorDef &&
+          other.targetHue == targetHue &&
+          other.targetSat == targetSat &&
+          other.targetLum == targetLum &&
+          other.rangeHue == rangeHue &&
+          other.rangeSat == rangeSat &&
+          other.rangeLum == rangeLum &&
+          other.falloff == falloff &&
+          other.hueShift == hueShift &&
+          other.satShift == satShift &&
+          other.lumShift == lumShift;
+
+  @override
+  int get hashCode => Object.hash(
+    targetHue,
+    targetSat,
+    targetLum,
+    rangeHue,
+    rangeSat,
+    rangeLum,
+    falloff,
+    hueShift,
+    satShift,
+    lumShift,
+  );
+}
+
+/// A double exposure layer composited over the image.
+class DoubleExposureLayer {
+  const DoubleExposureLayer({
+    this.assetId,
+    this.imagePath,
+    this.blendModeIndex = 1,
+    this.opacity = 0.5,
+    this.scale = 1.0,
+    this.offsetX = 0.0,
+    this.offsetY = 0.0,
+  });
+
+  factory DoubleExposureLayer.fromJson(Map<String, Object?> json) {
+    return DoubleExposureLayer(
+      assetId: json['assetId'] as String?,
+      imagePath: json['imagePath'] as String?,
+      blendModeIndex: (json['blendModeIndex'] as num?)?.toInt() ?? 1,
+      opacity: (json['opacity'] as num?)?.toDouble() ?? 0.5,
+      scale: (json['scale'] as num?)?.toDouble() ?? 1.0,
+      offsetX: (json['offsetX'] as num?)?.toDouble() ?? 0.0,
+      offsetY: (json['offsetY'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  final String? assetId;
+  final String? imagePath;
+  final int blendModeIndex;
+  final double opacity;
+  final double scale;
+  final double offsetX;
+  final double offsetY;
+
+  Map<String, Object?> toJson() => {
+    'assetId': assetId,
+    'imagePath': imagePath,
+    'blendModeIndex': blendModeIndex,
+    'opacity': opacity,
+    'scale': scale,
+    'offsetX': offsetX,
+    'offsetY': offsetY,
+  };
+
+  DoubleExposureLayer copyWith({
+    String? assetId,
+    String? imagePath,
+    int? blendModeIndex,
+    double? opacity,
+    double? scale,
+    double? offsetX,
+    double? offsetY,
+  }) => DoubleExposureLayer(
+    assetId: assetId ?? this.assetId,
+    imagePath: imagePath ?? this.imagePath,
+    blendModeIndex: blendModeIndex ?? this.blendModeIndex,
+    opacity: opacity ?? this.opacity,
+    scale: scale ?? this.scale,
+    offsetX: offsetX ?? this.offsetX,
+    offsetY: offsetY ?? this.offsetY,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DoubleExposureLayer &&
+          other.assetId == assetId &&
+          other.imagePath == imagePath &&
+          other.blendModeIndex == blendModeIndex &&
+          other.opacity == opacity &&
+          other.scale == scale &&
+          other.offsetX == offsetX &&
+          other.offsetY == offsetY;
+
+  @override
+  int get hashCode => Object.hash(
+    assetId,
+    imagePath,
+    blendModeIndex,
+    opacity,
+    scale,
+    offsetX,
+    offsetY,
+  );
 }

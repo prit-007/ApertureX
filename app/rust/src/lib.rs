@@ -2,6 +2,7 @@ pub mod api;
 pub mod blur;
 pub mod c2pa;
 pub mod color;
+pub mod compositing;
 pub mod decode;
 pub mod depth;
 pub mod ed25519;

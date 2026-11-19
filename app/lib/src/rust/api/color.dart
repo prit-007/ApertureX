@@ -83,6 +83,132 @@ Future<Map<String, double>?> autoToneWithFaces({
   faces: faces,
 );
 
+/// Applies a list of point color adjustments to an RGBA buffer.
+Future<Uint8List> applyPointColors({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required List<ApiPointColor> points,
+}) => RustLib.instance.api.crateApiColorApplyPointColors(
+  rgba: rgba,
+  width: width,
+  height: height,
+  points: points,
+);
+
+/// Applies camera calibration primary shifts to an RGBA buffer.
+Future<Uint8List> applyCameraCalibration({
+  required List<int> rgba,
+  required int width,
+  required int height,
+  required ApiCalibrationParams calib,
+}) => RustLib.instance.api.crateApiColorApplyCameraCalibration(
+  rgba: rgba,
+  width: width,
+  height: height,
+  calib: calib,
+);
+
+/// Camera calibration parameters across the bridge.
+class ApiCalibrationParams {
+  final double shadowTint;
+  final double redHue;
+  final double redSat;
+  final double greenHue;
+  final double greenSat;
+  final double blueHue;
+  final double blueSat;
+
+  const ApiCalibrationParams({
+    required this.shadowTint,
+    required this.redHue,
+    required this.redSat,
+    required this.greenHue,
+    required this.greenSat,
+    required this.blueHue,
+    required this.blueSat,
+  });
+
+  @override
+  int get hashCode =>
+      shadowTint.hashCode ^
+      redHue.hashCode ^
+      redSat.hashCode ^
+      greenHue.hashCode ^
+      greenSat.hashCode ^
+      blueHue.hashCode ^
+      blueSat.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ApiCalibrationParams &&
+          runtimeType == other.runtimeType &&
+          shadowTint == other.shadowTint &&
+          redHue == other.redHue &&
+          redSat == other.redSat &&
+          greenHue == other.greenHue &&
+          greenSat == other.greenSat &&
+          blueHue == other.blueHue &&
+          blueSat == other.blueSat;
+}
+
+/// Point color adjustment definition across the bridge.
+class ApiPointColor {
+  final double targetH;
+  final double targetS;
+  final double targetL;
+  final double rangeH;
+  final double rangeS;
+  final double rangeL;
+  final double falloff;
+  final double shiftH;
+  final double shiftS;
+  final double shiftL;
+
+  const ApiPointColor({
+    required this.targetH,
+    required this.targetS,
+    required this.targetL,
+    required this.rangeH,
+    required this.rangeS,
+    required this.rangeL,
+    required this.falloff,
+    required this.shiftH,
+    required this.shiftS,
+    required this.shiftL,
+  });
+
+  @override
+  int get hashCode =>
+      targetH.hashCode ^
+      targetS.hashCode ^
+      targetL.hashCode ^
+      rangeH.hashCode ^
+      rangeS.hashCode ^
+      rangeL.hashCode ^
+      falloff.hashCode ^
+      shiftH.hashCode ^
+      shiftS.hashCode ^
+      shiftL.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ApiPointColor &&
+          runtimeType == other.runtimeType &&
+          targetH == other.targetH &&
+          targetS == other.targetS &&
+          targetL == other.targetL &&
+          rangeH == other.rangeH &&
+          rangeS == other.rangeS &&
+          rangeL == other.rangeL &&
+          falloff == other.falloff &&
+          shiftH == other.shiftH &&
+          shiftS == other.shiftS &&
+          shiftL == other.shiftL;
+}
+
 /// Point-wise grade parameters (all neutral at 0).
 class ColorParams {
   final double exposure;

@@ -239,6 +239,46 @@ pub fn geometry_detect_upright(rgba: Vec<u8>, width: u32, height: u32) -> Uprigh
     }
 }
 
+/// Guide line for upright / guided perspective correction.
+pub struct ApiGuideLine {
+    pub x1: f32,
+    pub y1: f32,
+    pub x2: f32,
+    pub y2: f32,
+    pub is_vertical: bool,
+}
+
+/// Result of solving guided perspective correction.
+pub struct ApiGuidedTransformResult {
+    pub angle_deg: f32,
+    pub perspective_x: f32,
+    pub perspective_y: f32,
+    pub skew_x: f32,
+    pub skew_y: f32,
+}
+
+/// Solves perspective and rotation adjustments from user-placed guide lines.
+pub fn solve_guided_transform(guides: Vec<ApiGuideLine>) -> ApiGuidedTransformResult {
+    let internal_guides: Vec<geometry::GuideLine> = guides
+        .into_iter()
+        .map(|g| geometry::GuideLine {
+            x1: g.x1,
+            y1: g.y1,
+            x2: g.x2,
+            y2: g.y2,
+            is_vertical: g.is_vertical,
+        })
+        .collect();
+    let res = geometry::solve_guided_transform(&internal_guides);
+    ApiGuidedTransformResult {
+        angle_deg: res.angle_deg,
+        perspective_x: res.perspective_x,
+        perspective_y: res.perspective_y,
+        skew_x: res.skew_x,
+        skew_y: res.skew_y,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

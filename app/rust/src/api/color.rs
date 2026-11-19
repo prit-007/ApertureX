@@ -549,6 +549,105 @@ pub fn auto_tone_with_faces(jpeg: Vec<u8>, faces: Vec<FaceBox>) -> Option<HashMa
     Some(map)
 }
 
+/// Point color adjustment definition across the bridge.
+pub struct ApiPointColor {
+    pub target_h: f32,
+    pub target_s: f32,
+    pub target_l: f32,
+    pub range_h: f32,
+    pub range_s: f32,
+    pub range_l: f32,
+    pub falloff: f32,
+    pub shift_h: f32,
+    pub shift_s: f32,
+    pub shift_l: f32,
+}
+
+/// Camera calibration parameters across the bridge.
+pub struct ApiCalibrationParams {
+    pub shadow_tint: f32,
+    pub red_hue: f32,
+    pub red_sat: f32,
+    pub green_hue: f32,
+    pub green_sat: f32,
+    pub blue_hue: f32,
+    pub blue_sat: f32,
+}
+
+/// Applies a list of point color adjustments to an RGBA buffer.
+pub fn apply_point_colors(
+    mut rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    points: Vec<ApiPointColor>,
+) -> Vec<u8> {
+    if points.is_empty() || rgba.is_empty() {
+        return rgba;
+    }
+    let internal_points: Vec<color::PointColor> = points
+        .into_iter()
+        .map(|p| color::PointColor {
+            target_h: p.target_h,
+            target_s: p.target_s,
+            target_l: p.target_l,
+            range_h: p.range_h,
+            range_s: p.range_s,
+            range_l: p.range_l,
+            falloff: p.falloff,
+            shift_h: p.shift_h,
+            shift_s: p.shift_s,
+            shift_l: p.shift_l,
+        })
+        .collect();
+
+    let total = (width as usize * height as usize * 4).min(rgba.len());
+    for idx in (0..total).step_by(4) {
+        let r = rgba[idx] as f32 / 255.0;
+        let g = rgba[idx + 1] as f32 / 255.0;
+        let b = rgba[idx + 2] as f32 / 255.0;
+
+        let out = color::apply_point_colors([r, g, b], &internal_points);
+        rgba[idx] = (out[0] * 255.0).round().clamp(0.0, 255.0) as u8;
+        rgba[idx + 1] = (out[1] * 255.0).round().clamp(0.0, 255.0) as u8;
+        rgba[idx + 2] = (out[2] * 255.0).round().clamp(0.0, 255.0) as u8;
+    }
+    rgba
+}
+
+/// Applies camera calibration primary shifts to an RGBA buffer.
+pub fn apply_camera_calibration(
+    mut rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    calib: ApiCalibrationParams,
+) -> Vec<u8> {
+    if rgba.is_empty() {
+        return rgba;
+    }
+    let internal_calib = color::CalibrationParams {
+        shadow_tint: calib.shadow_tint,
+        red_hue: calib.red_hue,
+        red_sat: calib.red_sat,
+        green_hue: calib.green_hue,
+        green_sat: calib.green_sat,
+        blue_hue: calib.blue_hue,
+        blue_sat: calib.blue_sat,
+    };
+
+    let total = (width as usize * height as usize * 4).min(rgba.len());
+    for idx in (0..total).step_by(4) {
+        let r = rgba[idx] as f32 / 255.0;
+        let g = rgba[idx + 1] as f32 / 255.0;
+        let b = rgba[idx + 2] as f32 / 255.0;
+
+        let out = color::apply_calibration([r, g, b], &internal_calib);
+        rgba[idx] = (out[0] * 255.0).round().clamp(0.0, 255.0) as u8;
+        rgba[idx + 1] = (out[1] * 255.0).round().clamp(0.0, 255.0) as u8;
+        rgba[idx + 2] = (out[2] * 255.0).round().clamp(0.0, 255.0) as u8;
+    }
+    rgba
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

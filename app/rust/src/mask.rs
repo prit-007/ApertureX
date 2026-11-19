@@ -559,7 +559,11 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
             let cy = p[1];
             let rx = p[2].max(1e-4);
             let ry = p[3].max(1e-4);
-            let feather = if p.len() > 4 { p[4].clamp(0.0, 1.0) } else { 0.2 };
+            let feather = if p.len() > 4 {
+                p[4].clamp(0.0, 1.0)
+            } else {
+                0.2
+            };
             let dx = (u - cx) / rx;
             let dy = (v - cy) / ry;
             let dist = (dx * dx + dy * dy).sqrt();
