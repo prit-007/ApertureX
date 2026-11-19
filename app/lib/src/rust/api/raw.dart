@@ -39,6 +39,25 @@ Future<RgbaImage> decodeRawRoi({
   height: height,
 );
 
+/// Decodes a RAW/DNG and returns the full scene-linear RGBA f32 buffer.
+Future<LinearRgbaImage> decodeRawLinear({required List<int> raw}) =>
+    RustLib.instance.api.crateApiRawDecodeRawLinear(raw: raw);
+
+/// Decodes a RAW/DNG and returns the requested region in scene-linear RGBA f32.
+Future<LinearRgbaImage> decodeRawLinearRoi({
+  required List<int> raw,
+  required int x,
+  required int y,
+  required int width,
+  required int height,
+}) => RustLib.instance.api.crateApiRawDecodeRawLinearRoi(
+  raw: raw,
+  x: x,
+  y: y,
+  width: width,
+  height: height,
+);
+
 /// Fast-path extraction of high-res embedded JPEG preview from a RAW/DNG file.
 Future<Uint8List?> rawExtractEmbeddedPreview({required List<int> raw}) =>
     RustLib.instance.api.crateApiRawRawExtractEmbeddedPreview(raw: raw);

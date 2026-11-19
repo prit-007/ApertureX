@@ -53,6 +53,20 @@ Future<Uint8List> exportTiff16({
   xmp: xmp,
 );
 
+/// Exports scene-linear RGB(A) float pixels as an uncompressed 16-bit-per-channel TIFF (#79).
+/// Directly maps scene-linear float [0.0, 1.0] to [0, 65535] without 8-bit clipping.
+Future<Uint8List> exportTiff16Linear({
+  required List<double> linear,
+  required int width,
+  required int height,
+  required String xmp,
+}) => RustLib.instance.api.crateApiExportExportTiff16Linear(
+  linear: linear,
+  width: width,
+  height: height,
+  xmp: xmp,
+);
+
 /// Exports RGBA8 pixels as a lossless PNG (Phase 1 Pro baseline).
 Future<Uint8List> exportPng({
   required List<int> rgba,

@@ -173,6 +173,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LensBlurParams dco_decode_lens_blur_params(dynamic raw);
 
   @protected
+  LinearRgbaImage dco_decode_linear_rgba_image(dynamic raw);
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
@@ -443,6 +446,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LensBlurParams sse_decode_lens_blur_params(SseDeserializer deserializer);
+
+  @protected
+  LinearRgbaImage sse_decode_linear_rgba_image(SseDeserializer deserializer);
 
   @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
@@ -776,6 +782,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_lens_blur_params(
     LensBlurParams self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_linear_rgba_image(
+    LinearRgbaImage self,
     SseSerializer serializer,
   );
 

@@ -53,6 +53,17 @@ pub fn export_tiff16(
     crate::raw::export_tiff16(&rgba, width, height, &xmp)
 }
 
+/// Exports scene-linear RGB(A) float pixels as an uncompressed 16-bit-per-channel TIFF (#79).
+/// Directly maps scene-linear float [0.0, 1.0] to [0, 65535] without 8-bit clipping.
+pub fn export_tiff16_linear(
+    linear: Vec<f32>,
+    width: u32,
+    height: u32,
+    xmp: String,
+) -> Result<Vec<u8>, String> {
+    crate::raw::export_tiff16_linear(&linear, width, height, &xmp)
+}
+
 /// Exports RGBA8 pixels as a lossless PNG (Phase 1 Pro baseline).
 pub fn export_png(rgba: Vec<u8>, width: u32, height: u32) -> Result<Vec<u8>, String> {
     crate::export::encode_png(&rgba, width, height)

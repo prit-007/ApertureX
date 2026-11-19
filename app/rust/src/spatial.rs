@@ -1408,6 +1408,23 @@ pub fn apply_spatial(rgba: &[u8], w: usize, h: usize, p: SpatialParams) -> Vec<u
     apply_spatial_with_focus_mask(rgba, w, h, p, None)
 }
 
+/// Applies the spatial pass to float RGBA pixels (each sample in [0.0, 1.0]).
+pub fn apply_spatial_f32(rgba: &[f32], w: usize, h: usize, p: SpatialParams) -> Vec<f32> {
+    if p.is_neutral() || w == 0 || h == 0 {
+        return rgba.to_vec();
+    }
+    let mut u8_buf = Vec::with_capacity(rgba.len());
+    for &sample in rgba {
+        u8_buf.push((sample.clamp(0.0, 1.0) * 255.0 + 0.5) as u8);
+    }
+    let processed_u8 = apply_spatial(&u8_buf, w, h, p);
+    let mut out = Vec::with_capacity(rgba.len());
+    for &sample in &processed_u8 {
+        out.push(sample as f32 / 255.0);
+    }
+    out
+}
+
 /// The neighbour-aware portion of the spatial pass — the ops that read pixels
 /// around the target, with optional focus mask attenuation.
 pub fn apply_spatial_local_masked(

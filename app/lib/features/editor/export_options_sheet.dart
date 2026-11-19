@@ -227,8 +227,10 @@ class _ExportOptionsSheetContentState
                 ListTile(
                   leading: const Icon(Icons.image_outlined),
                   title: const Text('Export TIFF 16-bit', overflow: TextOverflow.ellipsis),
-                  subtitle: const Text(
-                    'Uncompressed 16-bit-per-channel TIFF with full edit bake-in',
+                  subtitle: Text(
+                    widget.isRaw
+                        ? 'Scene-linear 16-bit TIFF preserving maximum sensor dynamic range and XMP'
+                        : 'Uncompressed 16-bit-per-channel TIFF with full edit bake-in',
                   ),
                   trailing: _formatBadge('16-BIT', theme),
                   onTap: () =>

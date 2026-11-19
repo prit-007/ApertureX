@@ -100,6 +100,53 @@ pub fn decode_raw_roi(
     })
 }
 
+/// Decodes a RAW/DNG and returns the full scene-linear RGBA f32 buffer.
+pub fn decode_raw_linear(raw: Vec<u8>) -> Result<crate::api::decode::LinearRgbaImage, String> {
+    let img = get_cached_or_decode_raw(&raw)?;
+    let mut rgba_linear = Vec::with_capacity(img.width * img.height * 4);
+    for chunk in img.data.chunks_exact(3) {
+        rgba_linear.push(chunk[0]);
+        rgba_linear.push(chunk[1]);
+        rgba_linear.push(chunk[2]);
+        rgba_linear.push(1.0);
+    }
+    Ok(crate::api::decode::LinearRgbaImage {
+        width: img.width as u32,
+        height: img.height as u32,
+        data: rgba_linear,
+    })
+}
+
+/// Decodes a RAW/DNG and returns the requested region in scene-linear RGBA f32.
+pub fn decode_raw_linear_roi(
+    raw: Vec<u8>,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) -> Result<crate::api::decode::LinearRgbaImage, String> {
+    let img = get_cached_or_decode_raw(&raw)?;
+    let cropped = raw::crop_linear(
+        &img,
+        x as usize,
+        y as usize,
+        width as usize,
+        height as usize,
+    )?;
+    let mut rgba_linear = Vec::with_capacity(cropped.width * cropped.height * 4);
+    for chunk in cropped.data.chunks_exact(3) {
+        rgba_linear.push(chunk[0]);
+        rgba_linear.push(chunk[1]);
+        rgba_linear.push(chunk[2]);
+        rgba_linear.push(1.0);
+    }
+    Ok(crate::api::decode::LinearRgbaImage {
+        width: cropped.width as u32,
+        height: cropped.height as u32,
+        data: rgba_linear,
+    })
+}
+
 /// Decodes once, applies the DNG camera matrix (if any), and returns linear sRGB.
 fn decode_raw_to_srgb(bytes: &[u8]) -> Result<raw::RawLinearImage, String> {
     let (mut img, meta) = raw::decode_with_metadata(bytes)?;

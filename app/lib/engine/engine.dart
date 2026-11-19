@@ -36,13 +36,26 @@ import '../src/rust/api/spatial.dart' as rust_spatial;
 import '../src/rust/frb_generated.dart';
 
 export '../src/rust/api/color.dart' show LutData;
-export '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
+export '../src/rust/api/decode.dart' show ImageDims, RgbaImage, LinearRgbaImage;
 export '../src/rust/api/histogram.dart' show Histogram;
 export '../src/rust/api/preview.dart' show PreviewBaseSpec;
 export '../src/rust/api/exif.dart' show EmbeddedDepthResult;
 export '../src/rust/exif.dart' show ImageMetadata;
 export '../src/rust/api/mask.dart' show DetectedSky, DetectedSubject, DetectedFace;
 export '../src/rust/frb_generated.dart' show RustLib;
+
+/// A decoded scene-linear RGBA float image buffer with its dimensions.
+class LinearImage {
+  const LinearImage({
+    required this.width,
+    required this.height,
+    required this.data,
+  });
+
+  final int width;
+  final int height;
+  final Float32List data;
+}
 
 /// Thin, app-facing facade over the generated `flutter_rust_bridge` bindings.
 ///
@@ -210,6 +223,21 @@ class AxEngine {
     }
   }
 
+  /// Decodes a JPEG into a scene-linear float RGBA buffer ([0.0, 1.0]).
+  static Future<LinearImage> decodeJpegLinear(Uint8List jpeg) async {
+    try {
+      final res = await rust_decode.decodeJpegLinear(jpeg: jpeg);
+      return LinearImage(
+        width: res.width,
+        height: res.height,
+        data: Float32List.fromList(res.data),
+      );
+    } catch (e) {
+      axLog(LogDomain.engine, 'decodeJpegLinear failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
+
   // --- RAW/DNG decode (P3) --------------------------------------------------
 
   /// Reads RAW/DNG dimensions without demosaicing (ADR 0005, rawler-first).
@@ -250,6 +278,21 @@ class AxEngine {
     width: width,
     height: height,
   );
+
+  /// Decodes a RAW/DNG into a full scene-linear float RGBA buffer ([0.0, 1.0]).
+  static Future<LinearImage> decodeRawLinear(Uint8List raw) async {
+    try {
+      final res = await rust_raw.decodeRawLinear(raw: raw);
+      return LinearImage(
+        width: res.width,
+        height: res.height,
+        data: Float32List.fromList(res.data),
+      );
+    } catch (e) {
+      axLog(LogDomain.engine, 'decodeRawLinear failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   /// Universal image decoder: routes RAW through rawler/libraw, JPEG through zune-jpeg,
   /// and PNG/WebP/GIF/BMP through package:image into a canonical [RgbaImage].
@@ -1649,6 +1692,20 @@ class AxEngine {
   }) =>
       rust_export.exportTiff16(
         rgba: rgba,
+        width: width,
+        height: height,
+        xmp: xmp,
+      );
+
+  /// Exports scene-linear float RGB(A) pixels directly into a 16-bit TIFF without 8-bit quantization.
+  static Future<Uint8List> exportTiff16Linear({
+    required Float32List linear,
+    required int width,
+    required int height,
+    required String xmp,
+  }) =>
+      rust_export.exportTiff16Linear(
+        linear: linear,
         width: width,
         height: height,
         xmp: xmp,

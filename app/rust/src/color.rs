@@ -692,6 +692,43 @@ pub fn grade_pixel_u8(
     ]
 }
 
+/// High-precision scene-linear float pixel grading.
+///
+/// Accepts scene-linear float `[r_lin, g_lin, b_lin]` (0.0..1.0+) and returns
+/// the graded display-referred sRGB float triple [0.0..1.0].
+#[inline(always)]
+pub fn grade_pixel_f32(
+    r_lin: f32,
+    g_lin: f32,
+    b_lin: f32,
+    p: GradeParams,
+    curves: Option<&CurveSet>,
+    hsl: &[f32; 24],
+) -> [f32; 3] {
+    grade_from_linear([r_lin, g_lin, b_lin], p, curves, hsl)
+}
+
+/// High-precision scene-linear float pixel grading returning scene-linear float values.
+///
+/// Applies the color pipeline to scene-linear inputs and converts the output back into
+/// scene-linear space, preserving highlight headroom and preventing clipping.
+#[inline(always)]
+pub fn grade_pixel_linear(
+    r_lin: f32,
+    g_lin: f32,
+    b_lin: f32,
+    p: GradeParams,
+    curves: Option<&CurveSet>,
+    hsl: &[f32; 24],
+) -> [f32; 3] {
+    let srgb = grade_from_linear([r_lin, g_lin, b_lin], p, curves, hsl);
+    [
+        srgb_to_linear(srgb[0]),
+        srgb_to_linear(srgb[1]),
+        srgb_to_linear(srgb[2]),
+    ]
+}
+
 /// Applies the point-wise colour pipeline with no curves/HSL — used by local
 /// adjustments (masks).
 pub fn grade_pointwise(c: [f32; 3], p: GradeParams) -> [f32; 3] {

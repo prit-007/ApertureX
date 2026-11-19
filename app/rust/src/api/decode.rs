@@ -21,6 +21,15 @@ pub struct RgbaImage {
     pub rgba: Vec<u8>,
 }
 
+/// A decoded RGBA linear float image buffer with its dimensions.
+#[derive(Clone, Debug)]
+pub struct LinearRgbaImage {
+    pub width: u32,
+    pub height: u32,
+    /// RGBA linear f32 pixels in [0.0, 1.0], length always `width * height * 4`.
+    pub data: Vec<f32>,
+}
+
 /// Reads JPEG dimensions without decoding pixels.
 pub fn jpeg_dimensions(jpeg: Vec<u8>) -> Result<ImageDims, String> {
     let (w, h) = decode::dimensions(&jpeg)?;
@@ -67,6 +76,40 @@ pub fn decode_jpeg_roi(
         width: cropped.width as u32,
         height: cropped.height as u32,
         rgba: cropped.rgba,
+    })
+}
+
+/// Decodes a JPEG into a full RGBA linear f32 buffer.
+pub fn decode_jpeg_linear(jpeg: Vec<u8>) -> Result<LinearRgbaImage, String> {
+    let img = decode::decode_linear(&jpeg)?;
+    Ok(LinearRgbaImage {
+        width: img.width as u32,
+        height: img.height as u32,
+        data: img.data,
+    })
+}
+
+/// Decodes a JPEG and returns the linear f32 RGBA pixels inside the given region of interest.
+pub fn decode_jpeg_linear_roi(
+    jpeg: Vec<u8>,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) -> Result<LinearRgbaImage, String> {
+    let img = decode::decode_linear(&jpeg)?;
+    let cropped = decode::crop_linear(
+        &img,
+        x as usize,
+        y as usize,
+        width as usize,
+        height as usize,
+    )?;
+    drop(img);
+    Ok(LinearRgbaImage {
+        width: cropped.width as u32,
+        height: cropped.height as u32,
+        data: cropped.data,
     })
 }
 

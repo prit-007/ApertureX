@@ -514,6 +514,29 @@ pub fn apply_lens_blur(
     apply_lens_blur_inner(rgba, w, h, params, depth_map, 0, h)
 }
 
+/// Lens blur operating on float RGBA pixels (each sample in [0.0, 1.0]).
+pub fn apply_lens_blur_f32(
+    rgba: &[f32],
+    w: usize,
+    h: usize,
+    params: LensBlurParams,
+    depth_map: Option<&[f32]>,
+) -> Vec<f32> {
+    if params.is_neutral() || w <= 1 || h <= 1 {
+        return rgba.to_vec();
+    }
+    let mut u8_buf = Vec::with_capacity(rgba.len());
+    for &sample in rgba {
+        u8_buf.push((sample.clamp(0.0, 1.0) * 255.0 + 0.5) as u8);
+    }
+    let blurred_u8 = apply_lens_blur(&u8_buf, w, h, params, depth_map);
+    let mut out = Vec::with_capacity(rgba.len());
+    for &b_u in &blurred_u8 {
+        out.push(b_u as f32 / 255.0);
+    }
+    out
+}
+
 fn apply_lens_blur_inner(
     rgba: &[u8],
     w: usize,

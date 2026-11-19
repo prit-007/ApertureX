@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 
 import '../color/grade_spec.dart';
 import '../color/histogram_view.dart';
@@ -118,6 +122,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// Handle of the decoded proxy resident in Rust (#37 spike A); all base
   /// bakes and histograms reference it instead of shuttling pixels.
   int? _previewHandle;
+
+  /// Whether the 16-bit scene-linear pipeline is active for wide-dynamic-range RAW inputs.
+  final bool _useLinearPipeline = true;
+  Float32List? _linearProxy;
+
+  /// Returns the cached scene-linear float proxy when operating in linear float mode.
+  Float32List? get linearProxy => _linearProxy;
 
   /// Asset whose embedded GDepth map is already loaded into [_previewHandle].
   String? _embeddedDepthAssetId;
@@ -724,11 +735,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _comparing ||
       _compare.status != AnimationStatus.dismissed ||
       _maskPeek.status != AnimationStatus.dismissed ||
-      ref.read(zoneMaskProvider).isTargeting ||
-      ref.read(wiperCompareProvider).isActive ||
-      ref.read(splitCompareProvider).isEnabled ||
-      ref.read(exposureAssistProvider).isActive ||
-      ref.read(softProofingProvider).enabled;
+      ref.read(zoneMaskProvider).isTargeting;
 
   void _onDeliveryGestureSettled(AnimationStatus _) =>
       _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
@@ -1003,6 +1010,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         buffer.dispose();
         return (frame.image, embedded, frame.image.width, frame.image.height);
       } catch (_) {}
+    }
+    if (_useLinearPipeline) {
+      try {
+        final linear = await AxEngine.decodeRawLinear(bytes);
+        _linearProxy = linear.data;
+      } catch (e) {
+        axLog(LogDomain.engine, 'Linear RAW decode fallback: $e', level: LogLevel.warning);
+      }
     }
     final decoded = await AxEngine.decodeRawRgba(bytes);
     var w = decoded.width;
@@ -1532,11 +1547,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final zeroCopy = _useTexture && _textureId != null;
     final effectiveUseTexture = zeroCopy &&
         (!_tilesActive &&
-         !ref.read(zoneMaskProvider).isTargeting &&
-         !ref.read(wiperCompareProvider).isActive &&
-         !ref.read(splitCompareProvider).isEnabled &&
-         !ref.read(exposureAssistProvider).isActive &&
-         !ref.read(softProofingProvider).enabled ||
+         !ref.read(zoneMaskProvider).isTargeting ||
          lut == null);
     final needsPlaceholder = previewNeedsPlaceholder(
       failed: _failed,
@@ -1639,11 +1650,24 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                     ? 1.0
                     : _maskPeek.value;
                 return PreviewSurface(
-                  // Issue #54: actually display the texture Rust is
-                  // writing into; the shader paint is the fallback
-                  // (imported LUTs, iOS/tests, compare/peek fades,
-                  // tile overlay, geometry edits, wiper split curtain, split compare, exposure assist, soft proofing).
+                  // Issue #54 / Flaw 22: actually display the texture Rust is
+                  // writing into; assist modes (zebras, wiper, split compare, soft proof)
+                  // composite as overlays without dropping zero-copy texture.
                   textureId: effectiveUseTexture ? _textureId : null,
+                  zebraActive: exposureAssist.isActive,
+                  zebraMode: exposureAssist.mode,
+                  zebraTime: _zebraTicker.value * 1.0,
+                  zebraHigh: exposureAssist.zebraHigh,
+                  zebraLow: exposureAssist.zebraLow,
+                  wiperActive: wiper.isActive,
+                  wiperPosition: wiper.position,
+                  wiperOrientation: wiper.orientation,
+                  splitCompareActive: splitCompare.isEnabled,
+                  splitCompareOrientation: splitCompare.orientation,
+                  softProofActive: softProof.enabled,
+                  softProof: softProof,
+                  zoneTargeting: zoneMask.isTargeting,
+                  compareSource: compareSource,
                   fallback: (_) {
                     if (lut == null) {
                       return SizedBox.fromSize(

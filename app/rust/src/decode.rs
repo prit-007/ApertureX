@@ -21,6 +21,15 @@ pub struct DecodedImage {
     pub rgba: Vec<u8>,
 }
 
+/// A fully decoded RGBA linear float image (each channel 0.0 .. 1.0 scene-linear f32).
+#[derive(Clone, Debug)]
+pub struct DecodedLinear {
+    pub width: usize,
+    pub height: usize,
+    /// RGBA linear f32 pixels in [0.0, 1.0], length always `width * height * 4`.
+    pub data: Vec<f32>,
+}
+
 /// Reads the JPEG dimensions without producing a pixel buffer.
 pub fn dimensions(data: &[u8]) -> Result<(usize, usize), String> {
     let mut decoder = JpegDecoder::new(Cursor::new(data));
@@ -86,6 +95,55 @@ pub fn crop_rgba(
         width,
         height,
         rgba: out,
+    })
+}
+
+/// Decodes a JPEG into a full RGBA linear f32 buffer.
+/// Converts non-linear sRGB values [0, 255] to scene-linear light [0.0, 1.0].
+pub fn decode_linear(data: &[u8]) -> Result<DecodedLinear, String> {
+    let img = decode_rgba(data)?;
+    let mut linear_data = Vec::with_capacity(img.rgba.len());
+    for chunk in img.rgba.chunks_exact(4) {
+        let r_lin = crate::color::srgb_u8_to_linear(chunk[0]);
+        let g_lin = crate::color::srgb_u8_to_linear(chunk[1]);
+        let b_lin = crate::color::srgb_u8_to_linear(chunk[2]);
+        let a = chunk[3] as f32 / 255.0;
+        linear_data.push(r_lin);
+        linear_data.push(g_lin);
+        linear_data.push(b_lin);
+        linear_data.push(a);
+    }
+    Ok(DecodedLinear {
+        width: img.width,
+        height: img.height,
+        data: linear_data,
+    })
+}
+
+/// Crops a linear RGBA image to the region `(x, y, width, height)`.
+pub fn crop_linear(
+    img: &DecodedLinear,
+    x: usize,
+    y: usize,
+    width: usize,
+    height: usize,
+) -> Result<DecodedLinear, String> {
+    if x.saturating_add(width) > img.width || y.saturating_add(height) > img.height {
+        return Err(format!(
+            "crop rect ({x},{y},{width},{height}) outside {}x{} image",
+            img.width, img.height
+        ));
+    }
+    let mut out = vec![0.0f32; width * height * 4];
+    for row in 0..height {
+        let src = ((y + row) * img.width + x) * 4;
+        let dst = row * width * 4;
+        out[dst..dst + width * 4].copy_from_slice(&img.data[src..src + width * 4]);
+    }
+    Ok(DecodedLinear {
+        width,
+        height,
+        data: out,
     })
 }
 
@@ -183,5 +241,30 @@ mod tests {
         assert!(crop_rgba(&full, 0, 0, 21, 5).is_err());
         assert!(crop_rgba(&full, 15, 15, 10, 10).is_err());
         assert!(crop_rgba(&full, 1, 1, 0, 0).is_ok()); // degenerate but in-bounds
+    }
+
+    #[test]
+    fn decode_linear_and_crop_linear_round_trip() {
+        let jpeg = encode_test_jpeg(16, 16, &solid_rgb(16, 16, 128, 64, 32));
+        let lin = decode_linear(&jpeg).expect("decode_linear");
+        assert_eq!(lin.width, 16);
+        assert_eq!(lin.height, 16);
+        assert_eq!(lin.data.len(), 16 * 16 * 4);
+
+        // Check values are in scene-linear [0.0, 1.0]
+        let r0 = lin.data[0];
+        let g0 = lin.data[1];
+        let b0 = lin.data[2];
+        let a0 = lin.data[3];
+        assert!((0.0..=1.0).contains(&r0));
+        assert!((0.0..=1.0).contains(&g0));
+        assert!((0.0..=1.0).contains(&b0));
+        assert!((a0 - 1.0).abs() < 1e-4);
+
+        // Test crop_linear
+        let cropped = crop_linear(&lin, 4, 4, 8, 8).expect("crop_linear");
+        assert_eq!(cropped.width, 8);
+        assert_eq!(cropped.height, 8);
+        assert_eq!(cropped.data.len(), 8 * 8 * 4);
     }
 }
