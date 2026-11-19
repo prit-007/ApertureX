@@ -495,7 +495,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           final dims = await AxEngine.rawDimensions(bytes);
           width = dims.width;
           height = dims.height;
-        } catch (_) {
+        } catch (e, st) {
+          axLog(LogDomain.engine, 'rawDimensions failed: $e', error: e.toString(), stack: st.toString());
           width = 0;
           height = 0;
         }
@@ -504,7 +505,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           final dims = await AxEngine.jpegDimensions(bytes);
           width = dims.width;
           height = dims.height;
-        } catch (_) {
+        } catch (e) {
+          axLog(LogDomain.engine, 'jpegDimensions failed, falling back to ImageDescriptor: $e');
           final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
           final descriptor = await ui.ImageDescriptor.encoded(buffer);
           width = descriptor.width;
@@ -527,7 +529,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         });
         _scheduleRoi();
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.engine, 'setFullResBytes header parse failed: $e', error: e.toString(), stack: st.toString());
       // Header parse failed or non-standard format; keep existing proxy ROI.
     }
   }
@@ -553,7 +556,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             imageHeight: _fullH,
             tileSize: _tileSize,
           );
-        } catch (_) {
+        } catch (e) {
+          axLog(LogDomain.engine, 'RAW dimensions load failed: $e');
           _fullW = 0;
           _fullH = 0;
           _tileGrid = null;
@@ -568,7 +572,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             imageHeight: _fullH,
             tileSize: _tileSize,
           );
-        } catch (_) {
+        } catch (e) {
+          axLog(LogDomain.engine, 'JPEG dimensions load failed, falling back to descriptor: $e');
           try {
             final buffer = await ui.ImmutableBuffer.fromUint8List(jpeg);
             final descriptor = await ui.ImageDescriptor.encoded(buffer);
@@ -576,7 +581,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             _fullH = descriptor.height;
             descriptor.dispose();
             buffer.dispose();
-          } catch (_) {
+          } catch (e) {
+            axLog(LogDomain.engine, 'ImageDescriptor fallback failed: $e');
             _fullW = 0;
             _fullH = 0;
           }
@@ -634,7 +640,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
               height: downscaled.height,
             );
           }
-        } catch (_) {
+        } catch (e) {
+          axLog(LogDomain.engine, 'Fast proxy downscale failed: $e');
           fastHandle = null;
         }
       } else {
@@ -647,7 +654,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             jpegBytes: jpeg,
             maxDim: _maxPreviewDim ~/ 2,
           );
-        } catch (_) {
+        } catch (e) {
+          axLog(LogDomain.engine, 'Fast proxy previewOpenJpeg failed: $e');
           fastHandle = null;
         }
       }
@@ -674,7 +682,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       if (ref.read(recipeControllerProvider).recipe.blurEnabled) {
         unawaited(_ensureEmbeddedDepth());
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.engine, '_load failed: $e', error: e.toString(), stack: st.toString());
       if (mounted) setState(() => _failed = true);
     }
   }
@@ -939,7 +948,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (isRawImage(bytes)) {
       try {
         return await _decodeRaw(bytes, maxDim: maxDim);
-      } catch (_) {
+      } catch (e) {
+        axLog(LogDomain.engine, 'Rust raw decode fallback in _decode: $e');
         // Fall back to standard codec if Rust raw decode failed
       }
     }
@@ -983,7 +993,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       // the synchronous GPU readback stall and 6 MB VRAM→RAM copy. The
       // shader path handles color space; P3→sRGB is applied at export time.
       return (image, Uint8List(0), image.width, image.height);
-    } catch (_) {
+    } catch (e) {
+      axLog(LogDomain.engine, 'Standard codec failed, retrying Rust raw decoder: $e');
       // If standard codec fails (e.g. uncommon raw or tiff variant), try Rust raw decoder
       return await _decodeRaw(bytes, maxDim: maxDim);
     }
@@ -1009,7 +1020,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         descriptor.dispose();
         buffer.dispose();
         return (frame.image, embedded, frame.image.width, frame.image.height);
-      } catch (_) {}
+      } catch (e) {
+        axLog(LogDomain.engine, 'Embedded preview decode failed: $e');
+      }
     }
     if (_useLinearPipeline) {
       try {
@@ -1102,7 +1115,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       if (!mounted || handle != _previewHandle) return;
       _lastBaseKey = null;
       _scheduleBake(ref.read(recipeControllerProvider).recipe);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.engine, 'Embedded depth extraction failed: $e', error: e.toString(), stack: st.toString());
       _embeddedDepthAssetId = null;
       ref.read(lensBlurControllerProvider.notifier).setStatusMessage('Synthetic Depth (extraction error)');
     }
@@ -1216,7 +1230,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _snapshotImage?.dispose();
       _snapshotImage = image;
       setState(() {});
-    } catch (_) {
+    } catch (e) {
+      axLog(LogDomain.engine, 'Snapshot bake failure (non-fatal): $e');
       // Snapshot bake failure is non-fatal: compare falls back to original.
     } finally {
       _baking = false;
@@ -1478,7 +1493,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _importedKey = 0;
         _baseRgba = null;
       });
-    } catch (_) {
+    } catch (e) {
+      axLog(LogDomain.engine, 'Texture render failed, dropping to fallback: $e');
       _dropTexture();
       if (baseChanged) await _rebuildBase(recipe, token);
       if (gradeChanged) await _rebuildLut(recipe, token);
@@ -1525,7 +1541,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
     try {
       unawaited(AxEngine.clearRawDecodeCache());
-    } catch (_) {}
+    } catch (e) {
+      axLog(LogDomain.engine, 'clearRawDecodeCache error on dispose: $e');
+    }
     for (final sub in _subscriptions) {
       sub.close();
     }
