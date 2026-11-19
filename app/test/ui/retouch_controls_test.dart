@@ -46,6 +46,30 @@ void main() {
     expect(patches[1].mode, RetouchMode.clone);
     expect(container.read(selectedRetouchPatchIndexProvider), 1);
 
+    // Tap Skin Smooth Spot +
+    await tester.tap(find.byKey(const Key('retouch-add-skin-smooth')));
+    await tester.pumpAndSettle();
+    patches = container.read(recipeControllerProvider).recipe.retouchPatches;
+    expect(patches.length, 3);
+    expect(patches[2].mode, RetouchMode.skinSmooth);
+    expect(container.read(selectedRetouchPatchIndexProvider), 2);
+
+    // Tap Eye Brighten Spot +
+    await tester.tap(find.byKey(const Key('retouch-add-eye-brighten')));
+    await tester.pumpAndSettle();
+    patches = container.read(recipeControllerProvider).recipe.retouchPatches;
+    expect(patches.length, 4);
+    expect(patches[3].mode, RetouchMode.eyeBrighten);
+    expect(container.read(selectedRetouchPatchIndexProvider), 3);
+
+    // Tap Teeth Whiten Spot +
+    await tester.tap(find.byKey(const Key('retouch-add-teeth-whiten')));
+    await tester.pumpAndSettle();
+    patches = container.read(recipeControllerProvider).recipe.retouchPatches;
+    expect(patches.length, 5);
+    expect(patches[4].mode, RetouchMode.teethWhiten);
+    expect(container.read(selectedRetouchPatchIndexProvider), 4);
+
     // Tap #1 Heal chip in selector bar
     await tester.tap(find.text('#1 Heal'));
     await tester.pumpAndSettle();

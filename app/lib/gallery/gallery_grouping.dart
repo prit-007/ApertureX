@@ -72,9 +72,37 @@ List<GalleryAsset> sortAssets(List<GalleryAsset> assets, GallerySortOption optio
       list.sort((a, b) => a.id.compareTo(b.id));
       break;
     case GallerySortOption.iso:
+      list.sort((a, b) {
+        if (a.iso == null && b.iso == null) {
+          return (b.latestDate ?? DateTime(0)).compareTo(a.latestDate ?? DateTime(0));
+        }
+        if (a.iso == null) return 1;
+        if (b.iso == null) return -1;
+        final cmp = a.iso!.compareTo(b.iso!);
+        return cmp != 0 ? cmp : (b.latestDate ?? DateTime(0)).compareTo(a.latestDate ?? DateTime(0));
+      });
+      break;
     case GallerySortOption.aperture:
+      list.sort((a, b) {
+        if (a.aperture == null && b.aperture == null) {
+          return (b.latestDate ?? DateTime(0)).compareTo(a.latestDate ?? DateTime(0));
+        }
+        if (a.aperture == null) return 1;
+        if (b.aperture == null) return -1;
+        final cmp = a.aperture!.compareTo(b.aperture!);
+        return cmp != 0 ? cmp : (b.latestDate ?? DateTime(0)).compareTo(a.latestDate ?? DateTime(0));
+      });
+      break;
     case GallerySortOption.focalLength:
-      list.sort((a, b) => (b.latestDate ?? DateTime(0)).compareTo(a.latestDate ?? DateTime(0)));
+      list.sort((a, b) {
+        if (a.focalLength == null && b.focalLength == null) {
+          return (b.latestDate ?? DateTime(0)).compareTo(a.latestDate ?? DateTime(0));
+        }
+        if (a.focalLength == null) return 1;
+        if (b.focalLength == null) return -1;
+        final cmp = a.focalLength!.compareTo(b.focalLength!);
+        return cmp != 0 ? cmp : (b.latestDate ?? DateTime(0)).compareTo(a.latestDate ?? DateTime(0));
+      });
       break;
   }
   return list;

@@ -849,6 +849,46 @@ class AppStrings {
         'zh': '深度范围',
       }, 'Depth Range');
 
+  String get maskBackground => _t({
+        'es': 'Fondo',
+        'de': 'Hintergrund',
+        'fr': 'Arrière-plan',
+        'ja': '背景',
+        'zh': '背景',
+      }, 'Background');
+
+  String get maskPersonFace => _t({
+        'es': 'Rostro',
+        'de': 'Gesicht',
+        'fr': 'Visage',
+        'ja': '顔',
+        'zh': '面部',
+      }, 'Face');
+
+  String get maskPersonSkin => _t({
+        'es': 'Piel',
+        'de': 'Haut',
+        'fr': 'Peau',
+        'ja': '肌',
+        'zh': '皮肤',
+      }, 'Skin');
+
+  String get maskPersonHair => _t({
+        'es': 'Cabello',
+        'de': 'Haare',
+        'fr': 'Cheveux',
+        'ja': '髪',
+        'zh': '头发',
+      }, 'Hair');
+
+  String get maskObject => _t({
+        'es': 'Objeto',
+        'de': 'Objekt',
+        'fr': 'Objet',
+        'ja': '被写体/オブジェクト',
+        'zh': '物体',
+      }, 'Object');
+
   String get maskNoPhotoRefine => _t({
         'es': 'No hay foto cargada para refinar máscara',
         'de': 'Kein Foto zum Verfeinern der Maske geladen',
@@ -1110,6 +1150,30 @@ class AppStrings {
         'ja': 'クローン',
         'zh': '克隆',
       }, 'Clone');
+
+  String get retouchSkinSmooth => _t({
+        'es': 'Suavizar piel',
+        'de': 'Haut glätten',
+        'fr': 'Lisser la peau',
+        'ja': '美肌',
+        'zh': '平滑皮肤',
+      }, 'Smooth');
+
+  String get retouchEyeBrighten => _t({
+        'es': 'Iluminar ojos',
+        'de': 'Augen aufhellen',
+        'fr': 'Éclaircir les yeux',
+        'ja': '瞳を明るく',
+        'zh': '亮眼',
+      }, 'Eyes');
+
+  String get retouchTeethWhiten => _t({
+        'es': 'Blanquear dientes',
+        'de': 'Zähne aufhellen',
+        'fr': 'Blanchir les dents',
+        'ja': '歯を白く',
+        'zh': '美白牙齿',
+      }, 'Teeth');
 
   String get retouchSpotSettings => _t({
         'es': 'Ajustes del punto',
@@ -1515,6 +1579,30 @@ class AppStrings {
         'ja': 'クローンポイント +',
         'zh': '克隆点 +',
       }, 'Clone Spot +');
+
+  String get retouchSkinSmoothSpotPlus => _t({
+        'es': 'Suavizar piel +',
+        'de': 'Haut glätten +',
+        'fr': 'Lisser la peau +',
+        'ja': '美肌 +',
+        'zh': '平滑皮肤 +',
+      }, 'Smooth +');
+
+  String get retouchEyeBrightenSpotPlus => _t({
+        'es': 'Iluminar ojos +',
+        'de': 'Augen aufhellen +',
+        'fr': 'Éclaircir les yeux +',
+        'ja': '瞳を明るく +',
+        'zh': '亮眼 +',
+      }, 'Eyes +');
+
+  String get retouchTeethWhitenSpotPlus => _t({
+        'es': 'Blanquear dientes +',
+        'de': 'Zähne aufhellen +',
+        'fr': 'Blanchir les dents +',
+        'ja': '歯を白く +',
+        'zh': '美白牙齿 +',
+      }, 'Teeth +');
 
   // Desktop Menu Strings
   String get fileMenu => _t({

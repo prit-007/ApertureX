@@ -32,6 +32,7 @@ import 'editor_guide_sheet.dart';
 import '../../features/editor/image_info_sheet.dart';
 import '../../core/updater/app_updater.dart';
 import '../../viewport/exposure_assist.dart';
+import '../settings/settings_hub.dart';
 import 'history_tree_sheet.dart';
 
 /// The verifiable trust line (#76): stated in the settings footer and the
@@ -43,8 +44,12 @@ const String kOfflineClaim =
 
 /// The settings sheet: categorized into clean cards for quick tools, assist & peaking,
 /// workspace shell, stylus input, and recipe presets (ADR 0008, 0009, 0011).
+@Deprecated('Use SettingsHub instead. Retained for backwards compatibility with legacy tests.')
 class SettingsSheet extends ConsumerWidget {
   const SettingsSheet({super.key});
+
+  /// Shows the modular [SettingsHub] in place of the deprecated monolithic sheet.
+  static Future<void> show(BuildContext context) => SettingsHub.show(context);
 
   Widget _card({
     required BuildContext context,

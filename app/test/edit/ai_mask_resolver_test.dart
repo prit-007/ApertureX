@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:aperturex/edit/adjustment_layer.dart';
 import 'package:aperturex/edit/ai_mask_resolver.dart';
 import 'package:aperturex/edit/recipe.dart';
+import 'package:aperturex/src/rust/api/mask.dart' show DetectedFace;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -284,6 +285,109 @@ void main() {
       expect(hit.maskBlob, equals(first.maskBlob));
       expect(hit.originAssetId, 'asset_C');
       expect(hit.toBridgeMaskParams().length, 2 + 256 * 256);
+    });
+
+    test('Resolves face, skin, hair, and object intents', () async {
+      final resolver = AiMaskResolver();
+      final dummyBytes = Uint8List.fromList([1, 2, 3, 4]);
+
+      // Face intent
+      const faceLayer = AdjustmentLayer(
+        maskKind: MaskKind.personFace,
+        aiIntent: 'face',
+        originAssetId: 'origin',
+      );
+      final resolvedFace = await resolver.resolveLayer(
+        faceLayer,
+        targetAssetId: 'asset_face',
+        targetProxyBytes: dummyBytes,
+        faceDetector: (bytes) async => DetectedFace(
+          x: 0.33,
+          y: 0.19,
+          w: 0.24,
+          h: 0.32,
+          score: 0.95,
+          landmarks: Float32List(0),
+          cx: 0.45,
+          cy: 0.35,
+          rx: 0.12,
+          ry: 0.16,
+        ),
+      );
+      expect(resolvedFace.maskKind, MaskKind.personFace);
+      expect(resolvedFace.maskParams[0], closeTo(0.45, 1e-4));
+      expect(resolvedFace.maskParams[1], closeTo(0.35, 1e-4));
+      expect(resolvedFace.originAssetId, 'asset_face');
+
+      // Skin intent
+      const skinLayer = AdjustmentLayer(
+        maskKind: MaskKind.personSkin,
+        aiIntent: 'skin',
+        originAssetId: 'origin',
+      );
+      final resolvedSkin = await resolver.resolveLayer(
+        skinLayer,
+        targetAssetId: 'asset_skin',
+        targetProxyBytes: dummyBytes,
+        faceDetector: (bytes) async => DetectedFace(
+          x: 0.33,
+          y: 0.19,
+          w: 0.24,
+          h: 0.32,
+          score: 0.95,
+          landmarks: Float32List(0),
+          cx: 0.45,
+          cy: 0.35,
+          rx: 0.12,
+          ry: 0.16,
+        ),
+      );
+      expect(resolvedSkin.maskKind, MaskKind.personSkin);
+      expect(resolvedSkin.maskParams[0], closeTo(0.45, 1e-4));
+      expect(resolvedSkin.originAssetId, 'asset_skin');
+
+      // Hair intent
+      const hairLayer = AdjustmentLayer(
+        maskKind: MaskKind.personHair,
+        aiIntent: 'hair',
+        originAssetId: 'origin',
+      );
+      final resolvedHair = await resolver.resolveLayer(
+        hairLayer,
+        targetAssetId: 'asset_hair',
+        targetProxyBytes: dummyBytes,
+        faceDetector: (bytes) async => DetectedFace(
+          x: 0.33,
+          y: 0.19,
+          w: 0.24,
+          h: 0.32,
+          score: 0.95,
+          landmarks: Float32List(0),
+          cx: 0.45,
+          cy: 0.35,
+          rx: 0.12,
+          ry: 0.16,
+        ),
+      );
+      expect(resolvedHair.maskKind, MaskKind.personHair);
+      expect(resolvedHair.maskParams[0], closeTo(0.45, 1e-4));
+      expect(resolvedHair.originAssetId, 'asset_hair');
+
+      // Object intent
+      const objectLayer = AdjustmentLayer(
+        maskKind: MaskKind.object,
+        aiIntent: 'object',
+        originAssetId: 'origin',
+      );
+      final resolvedObject = await resolver.resolveLayer(
+        objectLayer,
+        targetAssetId: 'asset_obj',
+        targetProxyBytes: dummyBytes,
+        segmenter: (bytes, {int targetWidth = 256, int targetHeight = 256}) async =>
+            Float32List.fromList(List.filled(256 * 256, 0.6)),
+      );
+      expect(resolvedObject.maskKind, MaskKind.bitmap);
+      expect(resolvedObject.originAssetId, 'asset_obj');
     });
   });
 }

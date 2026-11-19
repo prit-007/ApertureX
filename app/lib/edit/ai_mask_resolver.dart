@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
-import '../ui/common/mask_controls.dart' show SkyDetectorFn, SubjectSegmenterFn;
+import '../ui/common/mask_controls.dart'
+    show FaceDetectorFn, SkyDetectorFn, SubjectSegmenterFn;
 import 'adjustment_layer.dart';
 import 'recipe.dart';
 
@@ -59,6 +60,7 @@ class AiMaskResolver {
     required Uint8List targetProxyBytes,
     SubjectSegmenterFn? segmenter,
     SkyDetectorFn? skyDetector,
+    FaceDetectorFn? faceDetector,
     int modelVersion = kAiModelVersion,
   }) async {
     final intent = layer.aiIntent;
@@ -76,7 +78,7 @@ class AiMaskResolver {
       );
     }
 
-    if (intent == 'subject' || intent == 'background') {
+    if (intent == 'subject' || intent == 'background' || intent == 'person') {
       if (segmenter != null) {
         try {
           final alphas = await segmenter(
@@ -126,6 +128,101 @@ class AiMaskResolver {
           axLog(LogDomain.editor, 'AI mask sky resolver fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
         }
       }
+    } else if (intent == 'face' || intent == 'personFace') {
+      if (faceDetector != null) {
+        try {
+          final face = await faceDetector(targetProxyBytes);
+          if (face != null) {
+            return layer.copyWith(
+              maskKind: MaskKind.personFace,
+              maskParams: [
+                face.cx.clamp(0.05, 0.95),
+                face.cy.clamp(0.05, 0.95),
+                (face.rx * 1.15).clamp(0.04, 0.45),
+                (face.ry * 1.25).clamp(0.05, 0.50),
+                0.35,
+              ],
+              originAssetId: targetAssetId,
+            );
+          }
+        } catch (e, st) {
+          axLog(LogDomain.editor, 'AI mask face resolver fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+        }
+      }
+    } else if (intent == 'skin' || intent == 'personSkin') {
+      if (faceDetector != null) {
+        try {
+          final face = await faceDetector(targetProxyBytes);
+          if (face != null) {
+            return layer.copyWith(
+              maskKind: MaskKind.personSkin,
+              maskParams: [
+                face.cx.clamp(0.05, 0.95),
+                face.cy.clamp(0.05, 0.95),
+                (face.rx * 1.15).clamp(0.04, 0.45),
+                (face.ry * 1.25).clamp(0.05, 0.50),
+                0.35,
+              ],
+              originAssetId: targetAssetId,
+            );
+          }
+        } catch (e, st) {
+          axLog(LogDomain.editor, 'AI mask skin resolver fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+        }
+      }
+    } else if (intent == 'hair' || intent == 'personHair') {
+      if (faceDetector != null) {
+        try {
+          final face = await faceDetector(targetProxyBytes);
+          if (face != null) {
+            return layer.copyWith(
+              maskKind: MaskKind.personHair,
+              maskParams: [
+                face.cx.clamp(0.05, 0.95),
+                (face.cy - face.ry * 0.4).clamp(0.05, 0.95),
+                (face.rx * 1.1).clamp(0.04, 0.45),
+                (face.ry * 0.6).clamp(0.04, 0.45),
+                0.2,
+              ],
+              originAssetId: targetAssetId,
+            );
+          }
+        } catch (e, st) {
+          axLog(LogDomain.editor, 'AI mask hair resolver fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+        }
+      }
+    } else if (intent == 'object') {
+      if (segmenter != null) {
+        try {
+          final alphas = await segmenter(
+            targetProxyBytes,
+            targetWidth: 256,
+            targetHeight: 256,
+          );
+          if (alphas != null && alphas.isNotEmpty) {
+            final tempLayer = AdjustmentLayer.bitmap(
+              width: 256,
+              height: 256,
+              alphas: alphas,
+              inverted: layer.inverted,
+            );
+            if (tempLayer.maskBlob != null) {
+              _cache[key] = (
+                blob: tempLayer.maskBlob!,
+                params: List<double>.from(tempLayer.maskParams),
+              );
+              return layer.copyWith(
+                maskKind: MaskKind.bitmap,
+                maskParams: tempLayer.maskParams,
+                maskBlob: tempLayer.maskBlob,
+                originAssetId: targetAssetId,
+              );
+            }
+          }
+        } catch (e, st) {
+          axLog(LogDomain.editor, 'AI mask object resolver fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+        }
+      }
     }
 
     return layer;
@@ -138,6 +235,7 @@ class AiMaskResolver {
     required Uint8List targetProxyBytes,
     SubjectSegmenterFn? segmenter,
     SkyDetectorFn? skyDetector,
+    FaceDetectorFn? faceDetector,
     int modelVersion = kAiModelVersion,
   }) async {
     final resolvedLayers = <AdjustmentLayer>[];
@@ -149,6 +247,7 @@ class AiMaskResolver {
           targetProxyBytes: targetProxyBytes,
           segmenter: segmenter,
           skyDetector: skyDetector,
+          faceDetector: faceDetector,
           modelVersion: modelVersion,
         ),
       );

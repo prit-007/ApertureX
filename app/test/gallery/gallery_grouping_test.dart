@@ -72,5 +72,23 @@ void main() {
       final byName = sortAssets(assets, GallerySortOption.name);
       expect(byName.map((a) => a.id), ['a', 'b', 'c']);
     });
+
+    test('sorts assets by EXIF metadata (ISO, aperture, focalLength)', () {
+      const assets = [
+        GalleryAsset(id: 'high_iso', width: 1, height: 1, iso: 3200, aperture: 5.6, focalLength: 200.0),
+        GalleryAsset(id: 'low_iso', width: 1, height: 1, iso: 100, aperture: 1.4, focalLength: 24.0),
+        GalleryAsset(id: 'mid_iso', width: 1, height: 1, iso: 400, aperture: 2.8, focalLength: 50.0),
+        GalleryAsset(id: 'no_exif', width: 1, height: 1),
+      ];
+
+      final byIso = sortAssets(assets, GallerySortOption.iso);
+      expect(byIso.map((a) => a.id), ['low_iso', 'mid_iso', 'high_iso', 'no_exif']);
+
+      final byAperture = sortAssets(assets, GallerySortOption.aperture);
+      expect(byAperture.map((a) => a.id), ['low_iso', 'mid_iso', 'high_iso', 'no_exif']);
+
+      final byFocal = sortAssets(assets, GallerySortOption.focalLength);
+      expect(byFocal.map((a) => a.id), ['low_iso', 'mid_iso', 'high_iso', 'no_exif']);
+    });
   });
 }

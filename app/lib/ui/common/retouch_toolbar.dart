@@ -101,7 +101,7 @@ class RetouchToolbar extends ConsumerWidget {
                         : null,
                   ),
                   const SizedBox(width: 4),
-                  Text(AppStrings.of(context).retouchHeal, style: const TextStyle(fontSize: 11)),
+                  Text(AppStrings.of(context).retouchHeal, style: const TextStyle(fontSize: 12.0)),
                 ],
               ),
               selected: currentMode == RetouchMode.heal,
@@ -137,7 +137,7 @@ class RetouchToolbar extends ConsumerWidget {
                         : null,
                   ),
                   const SizedBox(width: 4),
-                  Text(AppStrings.of(context).retouchClone, style: const TextStyle(fontSize: 11)),
+                  Text(AppStrings.of(context).retouchClone, style: const TextStyle(fontSize: 12.0)),
                 ],
               ),
               selected: currentMode == RetouchMode.clone,
@@ -152,6 +152,114 @@ class RetouchToolbar extends ConsumerWidget {
                     notifier.updateRetouchPatchAt(
                       selectedIdx,
                       selectedPatch.copyWith(mode: RetouchMode.clone),
+                    );
+                  }
+                }
+              },
+            ),
+            const SizedBox(width: 4),
+
+            // Mode toggle: Skin Smooth
+            ChoiceChip(
+              key: const Key('retouch-toolbar-skin-smooth'),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.face_retouching_natural,
+                    size: 14,
+                    color: currentMode == RetouchMode.skinSmooth
+                        ? const Color(0xFFFF80AB)
+                        : null,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(AppStrings.of(context).retouchSkinSmooth, style: const TextStyle(fontSize: 12.0)),
+                ],
+              ),
+              selected: currentMode == RetouchMode.skinSmooth,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              showCheckmark: false,
+              onSelected: (val) {
+                if (val) {
+                  HapticFeedback.selectionClick();
+                  brushNotifier.setMode(RetouchMode.skinSmooth);
+                  if (selectedPatch != null && selectedIdx != null) {
+                    notifier.updateRetouchPatchAt(
+                      selectedIdx,
+                      selectedPatch.copyWith(mode: RetouchMode.skinSmooth),
+                    );
+                  }
+                }
+              },
+            ),
+            const SizedBox(width: 4),
+
+            // Mode toggle: Eye Brighten
+            ChoiceChip(
+              key: const Key('retouch-toolbar-eye-brighten'),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.remove_red_eye,
+                    size: 14,
+                    color: currentMode == RetouchMode.eyeBrighten
+                        ? const Color(0xFF00E676)
+                        : null,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(AppStrings.of(context).retouchEyeBrighten, style: const TextStyle(fontSize: 12.0)),
+                ],
+              ),
+              selected: currentMode == RetouchMode.eyeBrighten,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              showCheckmark: false,
+              onSelected: (val) {
+                if (val) {
+                  HapticFeedback.selectionClick();
+                  brushNotifier.setMode(RetouchMode.eyeBrighten);
+                  if (selectedPatch != null && selectedIdx != null) {
+                    notifier.updateRetouchPatchAt(
+                      selectedIdx,
+                      selectedPatch.copyWith(mode: RetouchMode.eyeBrighten),
+                    );
+                  }
+                }
+              },
+            ),
+            const SizedBox(width: 4),
+
+            // Mode toggle: Teeth Whiten
+            ChoiceChip(
+              key: const Key('retouch-toolbar-teeth-whiten'),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.sentiment_very_satisfied,
+                    size: 14,
+                    color: currentMode == RetouchMode.teethWhiten
+                        ? const Color(0xFFE0E0E0)
+                        : null,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(AppStrings.of(context).retouchTeethWhiten, style: const TextStyle(fontSize: 12.0)),
+                ],
+              ),
+              selected: currentMode == RetouchMode.teethWhiten,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              showCheckmark: false,
+              onSelected: (val) {
+                if (val) {
+                  HapticFeedback.selectionClick();
+                  brushNotifier.setMode(RetouchMode.teethWhiten);
+                  if (selectedPatch != null && selectedIdx != null) {
+                    notifier.updateRetouchPatchAt(
+                      selectedIdx,
+                      selectedPatch.copyWith(mode: RetouchMode.teethWhiten),
                     );
                   }
                 }

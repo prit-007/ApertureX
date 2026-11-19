@@ -14,7 +14,7 @@ import '../features/onboarding/onboarding_screen.dart';
 import '../l10n/app_strings.dart';
 import '../ui/common/app_primitives.dart';
 import '../ui/common/editor_guide_sheet.dart';
-import '../ui/common/settings_sheet.dart' show kOfflineClaim;
+import '../ui/settings/settings_about_sheet.dart' show kOfflineClaim;
 import '../ui/settings/settings_hub.dart';
 import 'about_screen.dart';
 import 'ai_consent.dart';

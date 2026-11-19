@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aperturex/settings/about_screen.dart';
-import 'package:aperturex/ui/common/settings_sheet.dart' show kOfflineClaim;
+import 'package:aperturex/ui/settings/settings_about_sheet.dart' show kOfflineClaim;
 
 void main() {
   group('AboutScreen Widget Tests', () {

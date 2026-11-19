@@ -362,7 +362,15 @@ class RecipeController extends Notifier<RecipeState> {
         retouchPatches: [...state.recipe.retouchPatches, patch],
       ),
     );
-    commit(label: patch.mode == RetouchMode.heal ? 'Heal' : 'Clone');
+    commit(
+      label: switch (patch.mode) {
+        RetouchMode.heal => 'Heal',
+        RetouchMode.clone => 'Clone',
+        RetouchMode.skinSmooth => 'Skin Smooth',
+        RetouchMode.eyeBrighten => 'Eye Brighten',
+        RetouchMode.teethWhiten => 'Teeth Whiten',
+      },
+    );
   }
 
   /// Replaces the retouch patch at [index].

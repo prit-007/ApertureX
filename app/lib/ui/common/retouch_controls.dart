@@ -171,6 +171,45 @@ class RetouchControls extends ConsumerWidget {
                       icon: const Icon(Icons.copy, size: 16),
                       label: Text(AppStrings.of(context).retouchCloneSpotPlus, style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
+                    FilledButton.tonalIcon(
+                      key: const Key('retouch-add-skin-smooth'),
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: const Color(0xFFFF80AB).withValues(alpha: 0.15),
+                        foregroundColor: const Color(0xFFFF80AB),
+                        side: BorderSide(color: const Color(0xFFFF80AB).withValues(alpha: 0.4)),
+                        padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 8),
+                      ),
+                      onPressed: () => addSpot(RetouchMode.skinSmooth),
+                      icon: const Icon(Icons.face_retouching_natural, size: 16),
+                      label: Text(AppStrings.of(context).retouchSkinSmoothSpotPlus, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                    FilledButton.tonalIcon(
+                      key: const Key('retouch-add-eye-brighten'),
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: const Color(0xFF00E676).withValues(alpha: 0.15),
+                        foregroundColor: const Color(0xFF00E676),
+                        side: BorderSide(color: const Color(0xFF00E676).withValues(alpha: 0.4)),
+                        padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 8),
+                      ),
+                      onPressed: () => addSpot(RetouchMode.eyeBrighten),
+                      icon: const Icon(Icons.remove_red_eye, size: 16),
+                      label: Text(AppStrings.of(context).retouchEyeBrightenSpotPlus, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                    FilledButton.tonalIcon(
+                      key: const Key('retouch-add-teeth-whiten'),
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: const Color(0xFFB0BEC5).withValues(alpha: 0.15),
+                        foregroundColor: const Color(0xFFECEFF1),
+                        side: BorderSide(color: const Color(0xFFB0BEC5).withValues(alpha: 0.4)),
+                        padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 8),
+                      ),
+                      onPressed: () => addSpot(RetouchMode.teethWhiten),
+                      icon: const Icon(Icons.sentiment_very_satisfied, size: 16),
+                      label: Text(AppStrings.of(context).retouchTeethWhitenSpotPlus, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
                     if (selectedPatch != null && selectedIndex != null)
                       OutlinedButton.icon(
                         key: const Key('retouch-reset-source'),
@@ -194,37 +233,56 @@ class RetouchControls extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: Insets.xs),
-                Center(
-                  child: SegmentedButton<RetouchMode>(
-                    style: SegmentedButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      selectedBackgroundColor: scheme.primary.withValues(alpha: 0.25),
-                      selectedForegroundColor: scheme.primary,
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Center(
+                    child: SegmentedButton<RetouchMode>(
+                      style: SegmentedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        selectedBackgroundColor: scheme.primary.withValues(alpha: 0.25),
+                        selectedForegroundColor: scheme.primary,
+                      ),
+                      segments: [
+                        ButtonSegment<RetouchMode>(
+                          value: RetouchMode.heal,
+                          label: Text(AppStrings.of(context).retouchHeal),
+                          icon: const Icon(Icons.auto_fix_high, size: 16),
+                        ),
+                        ButtonSegment<RetouchMode>(
+                          value: RetouchMode.clone,
+                          label: Text(AppStrings.of(context).retouchClone),
+                          icon: const Icon(Icons.copy, size: 16),
+                        ),
+                        ButtonSegment<RetouchMode>(
+                          value: RetouchMode.skinSmooth,
+                          label: Text(AppStrings.of(context).retouchSkinSmooth),
+                          icon: const Icon(Icons.face_retouching_natural, size: 16),
+                        ),
+                        ButtonSegment<RetouchMode>(
+                          value: RetouchMode.eyeBrighten,
+                          label: Text(AppStrings.of(context).retouchEyeBrighten),
+                          icon: const Icon(Icons.remove_red_eye, size: 16),
+                        ),
+                        ButtonSegment<RetouchMode>(
+                          value: RetouchMode.teethWhiten,
+                          label: Text(AppStrings.of(context).retouchTeethWhiten),
+                          icon: const Icon(Icons.sentiment_very_satisfied, size: 16),
+                        ),
+                      ],
+                      selected: {currentMode},
+                      onSelectionChanged: (set) {
+                        HapticFeedback.selectionClick();
+                        final newMode = set.first;
+                        brushNotifier.setMode(newMode);
+                        if (selectedPatch != null && selectedIndex != null) {
+                          notifier.updateRetouchPatchAt(
+                            selectedIndex,
+                            selectedPatch.copyWith(mode: newMode),
+                          );
+                        }
+                      },
                     ),
-                    segments: [
-                      ButtonSegment<RetouchMode>(
-                        value: RetouchMode.heal,
-                        label: Text(AppStrings.of(context).retouchHeal),
-                        icon: const Icon(Icons.auto_fix_high, size: 16),
-                      ),
-                      ButtonSegment<RetouchMode>(
-                        value: RetouchMode.clone,
-                        label: Text(AppStrings.of(context).retouchClone),
-                        icon: const Icon(Icons.copy, size: 16),
-                      ),
-                    ],
-                    selected: {currentMode},
-                    onSelectionChanged: (set) {
-                      HapticFeedback.selectionClick();
-                      final newMode = set.first;
-                      brushNotifier.setMode(newMode);
-                      if (selectedPatch != null && selectedIndex != null) {
-                        notifier.updateRetouchPatchAt(
-                          selectedIndex,
-                          selectedPatch.copyWith(mode: newMode),
-                        );
-                      }
-                    },
                   ),
                 ),
               ],
@@ -243,7 +301,13 @@ class RetouchControls extends ConsumerWidget {
                 itemBuilder: (context, idx) {
                   final p = patches[idx];
                   final isSelected = idx == selectedIndex;
-                  final isHeal = p.mode == RetouchMode.heal;
+                  final (icon, modeLabel) = switch (p.mode) {
+                    RetouchMode.heal => (Icons.auto_fix_high, AppStrings.of(context).retouchHeal),
+                    RetouchMode.clone => (Icons.copy, AppStrings.of(context).retouchClone),
+                    RetouchMode.skinSmooth => (Icons.face_retouching_natural, AppStrings.of(context).retouchSkinSmooth),
+                    RetouchMode.eyeBrighten => (Icons.remove_red_eye, AppStrings.of(context).retouchEyeBrighten),
+                    RetouchMode.teethWhiten => (Icons.sentiment_very_satisfied, AppStrings.of(context).retouchTeethWhiten),
+                  };
                   return Padding(
                     padding: const EdgeInsets.only(right: 6),
                     child: ChoiceChip(
@@ -252,12 +316,12 @@ class RetouchControls extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            isHeal ? Icons.auto_fix_high : Icons.copy,
+                            icon,
                             size: 13,
                             color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 4),
-                          Text('#${idx + 1} ${isHeal ? AppStrings.of(context).retouchHeal : AppStrings.of(context).retouchClone}'),
+                          Text('#${idx + 1} $modeLabel'),
                         ],
                       ),
                       selected: isSelected,
@@ -290,7 +354,13 @@ class RetouchControls extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         selectedPatch != null
-                            ? 'Spot #${selectedIndex! + 1} (${currentMode == RetouchMode.heal ? AppStrings.of(context).retouchHeal : AppStrings.of(context).retouchClone})'
+                            ? 'Spot #${selectedIndex! + 1} (${switch (currentMode) {
+                                RetouchMode.heal => AppStrings.of(context).retouchHeal,
+                                RetouchMode.clone => AppStrings.of(context).retouchClone,
+                                RetouchMode.skinSmooth => AppStrings.of(context).retouchSkinSmooth,
+                                RetouchMode.eyeBrighten => AppStrings.of(context).retouchEyeBrighten,
+                                RetouchMode.teethWhiten => AppStrings.of(context).retouchTeethWhiten,
+                              }})'
                             : AppStrings.of(context).retouchSpotSettings,
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: scheme.primary,

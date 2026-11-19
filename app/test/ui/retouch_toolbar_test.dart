@@ -50,6 +50,30 @@ void main() {
       RetouchMode.clone,
     );
 
+    // Switch mode to Skin Smooth
+    await tester.tap(find.byKey(const Key('retouch-toolbar-skin-smooth')));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(recipeControllerProvider).recipe.retouchPatches.first.mode,
+      RetouchMode.skinSmooth,
+    );
+
+    // Switch mode to Eye Brighten
+    await tester.tap(find.byKey(const Key('retouch-toolbar-eye-brighten')));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(recipeControllerProvider).recipe.retouchPatches.first.mode,
+      RetouchMode.eyeBrighten,
+    );
+
+    // Switch mode to Teeth Whiten
+    await tester.tap(find.byKey(const Key('retouch-toolbar-teeth-whiten')));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(recipeControllerProvider).recipe.retouchPatches.first.mode,
+      RetouchMode.teethWhiten,
+    );
+
     // Tap Delete
     await tester.tap(find.byKey(const Key('retouch-toolbar-delete')));
     await tester.pumpAndSettle();
@@ -80,9 +104,16 @@ void main() {
       await tester.pumpAndSettle();
 
       // Create a patch via the existing add action so the Delete button renders.
-      await tester.tap(find.byKey(const Key('retouch-toolbar-add')));
+      final addFinder = find.byKey(const Key('retouch-toolbar-add'));
+      await tester.ensureVisible(addFinder);
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('retouch-toolbar-delete')), findsOneWidget);
+      await tester.tap(addFinder);
+      await tester.pumpAndSettle();
+
+      final deleteFinder = find.byKey(const Key('retouch-toolbar-delete'));
+      await tester.ensureVisible(deleteFinder);
+      await tester.pumpAndSettle();
+      expect(deleteFinder, findsOneWidget);
       expect(tester.takeException(), isNull);
 
       final scrollable = find.descendant(

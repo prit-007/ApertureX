@@ -353,52 +353,6 @@ class MaskControls extends ConsumerWidget {
           ),
         ),
 
-        // 3. Categorized Creation Panel (Prompt & Grouped Hierarchy)
-        if (isEmpty)
-          _CreateMaskCategorizedSection(
-            context: context,
-            ref: ref,
-            isInferring: isInferring,
-            onAddMask: (kind, {inverted = false, exposure}) =>
-                _addMask(context, ref, kind, inverted: inverted, exposure: exposure),
-            onAddAiSubject: ({required inverted}) =>
-                _addAiSubjectMask(context, ref, inverted: inverted),
-            onAddAiFace: () => _addAiFaceMask(context, ref),
-            onAddSky: () => _addSkyMask(context, ref),
-            onAddDepthMap: () => _addDepthMapMask(context, ref),
-            onToolTap: null,
-          )
-        else
-          Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              key: const Key('mask-add-tools-expansion'),
-              initiallyExpanded: false,
-              tilePadding: const EdgeInsets.symmetric(horizontal: Insets.sm),
-              childrenPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.add_circle_outline, size: 18),
-              title: const Text(
-                'Add Mask Tool',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              ),
-              children: [
-                _CreateMaskCategorizedSection(
-                  context: context,
-                  ref: ref,
-                  isInferring: isInferring,
-                  onAddMask: (kind, {inverted = false, exposure}) =>
-                      _addMask(context, ref, kind, inverted: inverted, exposure: exposure),
-                  onAddAiSubject: ({required inverted}) =>
-                      _addAiSubjectMask(context, ref, inverted: inverted),
-                  onAddAiFace: () => _addAiFaceMask(context, ref),
-                  onAddSky: () => _addSkyMask(context, ref),
-                  onAddDepthMap: () => _addDepthMapMask(context, ref),
-                  onToolTap: null,
-                ),
-              ],
-            ),
-          ),
-
         // Animated AI Progress Indicator (#83, #89, #96)
         AnimatedSize(
           duration: const Duration(milliseconds: 240),
@@ -460,6 +414,58 @@ class MaskControls extends ConsumerWidget {
                 )
               : const SizedBox.shrink(),
         ),
+
+        // 3. Categorized Creation Panel (Prompt & Grouped Hierarchy)
+        if (isEmpty)
+          _CreateMaskCategorizedSection(
+            context: context,
+            ref: ref,
+            isInferring: isInferring,
+            onAddMask: (kind, {inverted = false, exposure}) =>
+                _addMask(context, ref, kind, inverted: inverted, exposure: exposure),
+            onAddAiSubject: ({required inverted}) =>
+                _addAiSubjectMask(context, ref, inverted: inverted),
+            onAddAiFace: () => _addAiFaceMask(context, ref),
+            onAddAiSkin: () => _addAiSkinMask(context, ref),
+            onAddAiHair: () => _addAiHairMask(context, ref),
+            onAddAiObject: () => _addAiObjectMask(context, ref),
+            onAddSky: () => _addSkyMask(context, ref),
+            onAddDepthMap: () => _addDepthMapMask(context, ref),
+            onToolTap: null,
+          )
+        else
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              key: const Key('mask-add-tools-expansion'),
+              initiallyExpanded: false,
+              tilePadding: const EdgeInsets.symmetric(horizontal: Insets.sm),
+              childrenPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.add_circle_outline, size: 18),
+              title: const Text(
+                'Add Mask Tool',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              children: [
+                _CreateMaskCategorizedSection(
+                  context: context,
+                  ref: ref,
+                  isInferring: isInferring,
+                  onAddMask: (kind, {inverted = false, exposure}) =>
+                      _addMask(context, ref, kind, inverted: inverted, exposure: exposure),
+                  onAddAiSubject: ({required inverted}) =>
+                      _addAiSubjectMask(context, ref, inverted: inverted),
+                  onAddAiFace: () => _addAiFaceMask(context, ref),
+                  onAddAiSkin: () => _addAiSkinMask(context, ref),
+                  onAddAiHair: () => _addAiHairMask(context, ref),
+                  onAddAiObject: () => _addAiObjectMask(context, ref),
+                  onAddSky: () => _addSkyMask(context, ref),
+                  onAddDepthMap: () => _addDepthMapMask(context, ref),
+                  onToolTap: null,
+                ),
+              ],
+            ),
+          ),
 
         if (layers.isEmpty && maskGroups.isEmpty)
           Padding(
@@ -750,6 +756,11 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.colorRange, child: Text(AppStrings.of(context).maskColorRange)),
                     PopupMenuItem(value: MaskKind.autoBrush, child: Text(AppStrings.of(context).maskAutoBrush)),
                     PopupMenuItem(value: MaskKind.depthRange, child: Text(AppStrings.of(context).maskDepthRange)),
+                    PopupMenuItem(value: MaskKind.background, child: Text(AppStrings.of(context).maskBackground)),
+                    PopupMenuItem(value: MaskKind.personFace, child: Text(AppStrings.of(context).maskPersonFace)),
+                    PopupMenuItem(value: MaskKind.personSkin, child: Text(AppStrings.of(context).maskPersonSkin)),
+                    PopupMenuItem(value: MaskKind.personHair, child: Text(AppStrings.of(context).maskPersonHair)),
+                    PopupMenuItem(value: MaskKind.object, child: Text(AppStrings.of(context).maskObject)),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.add),
                   child: Chip(
@@ -772,6 +783,11 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.colorRange, child: Text(AppStrings.of(context).maskColorRange)),
                     PopupMenuItem(value: MaskKind.autoBrush, child: Text(AppStrings.of(context).maskAutoBrush)),
                     PopupMenuItem(value: MaskKind.depthRange, child: Text(AppStrings.of(context).maskDepthRange)),
+                    PopupMenuItem(value: MaskKind.background, child: Text(AppStrings.of(context).maskBackground)),
+                    PopupMenuItem(value: MaskKind.personFace, child: Text(AppStrings.of(context).maskPersonFace)),
+                    PopupMenuItem(value: MaskKind.personSkin, child: Text(AppStrings.of(context).maskPersonSkin)),
+                    PopupMenuItem(value: MaskKind.personHair, child: Text(AppStrings.of(context).maskPersonHair)),
+                    PopupMenuItem(value: MaskKind.object, child: Text(AppStrings.of(context).maskObject)),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.subtract),
                   child: Chip(
@@ -794,6 +810,11 @@ class MaskControls extends ConsumerWidget {
                     PopupMenuItem(value: MaskKind.colorRange, child: Text(AppStrings.of(context).maskColorRange)),
                     PopupMenuItem(value: MaskKind.autoBrush, child: Text(AppStrings.of(context).maskAutoBrush)),
                     PopupMenuItem(value: MaskKind.depthRange, child: Text(AppStrings.of(context).maskDepthRange)),
+                    PopupMenuItem(value: MaskKind.background, child: Text(AppStrings.of(context).maskBackground)),
+                    PopupMenuItem(value: MaskKind.personFace, child: Text(AppStrings.of(context).maskPersonFace)),
+                    PopupMenuItem(value: MaskKind.personSkin, child: Text(AppStrings.of(context).maskPersonSkin)),
+                    PopupMenuItem(value: MaskKind.personHair, child: Text(AppStrings.of(context).maskPersonHair)),
+                    PopupMenuItem(value: MaskKind.object, child: Text(AppStrings.of(context).maskObject)),
                   ],
                   onSelected: (kind) => _addMask(context, ref, kind, groupId: group.id, joinOp: MaskJoinOp.intersect),
                   child: Chip(
@@ -1812,6 +1833,136 @@ class MaskControls extends ConsumerWidget {
     }
   }
 
+  Future<void> _addAiSkinMask(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final bytes = ref.read(activeImageBytesProvider);
+    if (bytes == null) {
+      _addMask(context, ref, MaskKind.personSkin, exposure: 0.2);
+      return;
+    }
+
+    final consent =
+        await ref.read(aiConsentProvider.notifier).requestConsentDialog(context);
+    if (!consent) {
+      if (context.mounted) {
+        _addMask(context, ref, MaskKind.personSkin, exposure: 0.2);
+      }
+      return;
+    }
+
+    ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+    ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+        'Detecting portrait skin on-device… Please wait a moment');
+    try {
+      final detector = ref.read(faceDetectorProvider);
+      final face = await detector(bytes);
+      final notifier = ref.read(recipeControllerProvider.notifier);
+      final layers = ref.read(recipeControllerProvider).recipe.layers;
+      final idx = layers.length;
+      final cx = face?.cx.clamp(0.05, 0.95) ?? 0.5;
+      final cy = face?.cy.clamp(0.05, 0.95) ?? 0.4;
+      final rx = ((face?.rx ?? 0.15) * 1.15).clamp(0.04, 0.45);
+      final ry = ((face?.ry ?? 0.2) * 1.25).clamp(0.05, 0.50);
+      notifier.addLayer(
+        AdjustmentLayer(
+          maskKind: MaskKind.personSkin,
+          maskParams: [cx, cy, rx, ry, 0.35],
+          exposure: 0.2,
+          aiIntent: 'skin',
+        ),
+      );
+      ref.read(nodeEditorProvider.notifier).enable();
+      ref.read(nodeEditorProvider.notifier).select(idx);
+      HapticFeedback.selectionClick();
+      return;
+    } catch (e, st) {
+      axLog(LogDomain.editor, 'Skin detection failed: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
+      if (context.mounted) {
+        _addMask(context, ref, MaskKind.personSkin, exposure: 0.2);
+      }
+    } finally {
+      ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+      ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+    }
+  }
+
+  Future<void> _addAiHairMask(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final bytes = ref.read(activeImageBytesProvider);
+    if (bytes == null) {
+      _addMask(context, ref, MaskKind.personHair, exposure: -0.15);
+      return;
+    }
+
+    final consent =
+        await ref.read(aiConsentProvider.notifier).requestConsentDialog(context);
+    if (!consent) {
+      if (context.mounted) {
+        _addMask(context, ref, MaskKind.personHair, exposure: -0.15);
+      }
+      return;
+    }
+
+    ref.read(aiMaskInferringProvider.notifier).setInferring(true);
+    ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
+        'Detecting portrait hair on-device… Please wait a moment');
+    try {
+      final detector = ref.read(faceDetectorProvider);
+      final face = await detector(bytes);
+      final notifier = ref.read(recipeControllerProvider.notifier);
+      final layers = ref.read(recipeControllerProvider).recipe.layers;
+      final idx = layers.length;
+      final cx = face?.cx.clamp(0.05, 0.95) ?? 0.5;
+      final cy = ((face?.cy ?? 0.4) - (face?.ry ?? 0.2) * 0.4).clamp(0.05, 0.95);
+      final rx = ((face?.rx ?? 0.15) * 1.1).clamp(0.04, 0.45);
+      final ry = ((face?.ry ?? 0.2) * 0.6).clamp(0.04, 0.45);
+      notifier.addLayer(
+        AdjustmentLayer(
+          maskKind: MaskKind.personHair,
+          maskParams: [cx, cy, rx, ry, 0.2],
+          exposure: -0.15,
+          aiIntent: 'hair',
+        ),
+      );
+      ref.read(nodeEditorProvider.notifier).enable();
+      ref.read(nodeEditorProvider.notifier).select(idx);
+      HapticFeedback.selectionClick();
+      return;
+    } catch (e, st) {
+      axLog(LogDomain.editor, 'Hair detection failed: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
+      if (context.mounted) {
+        _addMask(context, ref, MaskKind.personHair, exposure: -0.15);
+      }
+    } finally {
+      ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+      ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+    }
+  }
+
+  Future<void> _addAiObjectMask(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final notifier = ref.read(recipeControllerProvider.notifier);
+    final layers = ref.read(recipeControllerProvider).recipe.layers;
+    final idx = layers.length;
+    notifier.addLayer(
+      const AdjustmentLayer(
+        maskKind: MaskKind.object,
+        maskParams: [0.25, 0.25, 0.75, 0.75, 0.1],
+        exposure: 0.3,
+        aiIntent: 'object',
+      ),
+    );
+    ref.read(nodeEditorProvider.notifier).enable();
+    ref.read(nodeEditorProvider.notifier).select(idx);
+    HapticFeedback.selectionClick();
+  }
+
   Future<void> _addSkyMask(BuildContext context, WidgetRef ref) async {
     final notifier = ref.read(recipeControllerProvider.notifier);
     final layers = ref.read(recipeControllerProvider).recipe.layers;
@@ -1986,6 +2137,9 @@ class MaskControls extends ConsumerWidget {
                   onAddAiSubject: ({required inverted}) =>
                       _addAiSubjectMask(context, ref, inverted: inverted),
                   onAddAiFace: () => _addAiFaceMask(context, ref),
+                  onAddAiSkin: () => _addAiSkinMask(context, ref),
+                  onAddAiHair: () => _addAiHairMask(context, ref),
+                  onAddAiObject: () => _addAiObjectMask(context, ref),
                   onAddSky: () => _addSkyMask(context, ref),
                   onAddDepthMap: () => _addDepthMapMask(context, ref),
                   onToolTap: () => Navigator.of(modalCtx).pop(),
@@ -2633,6 +2787,9 @@ class _CreateMaskCategorizedSection extends StatelessWidget {
     required this.onAddMask,
     required this.onAddAiSubject,
     required this.onAddAiFace,
+    required this.onAddAiSkin,
+    required this.onAddAiHair,
+    required this.onAddAiObject,
     required this.onAddSky,
     required this.onAddDepthMap,
     this.onToolTap,
@@ -2644,6 +2801,9 @@ class _CreateMaskCategorizedSection extends StatelessWidget {
   final void Function(MaskKind kind, {bool inverted, double? exposure}) onAddMask;
   final void Function({required bool inverted}) onAddAiSubject;
   final VoidCallback onAddAiFace;
+  final VoidCallback onAddAiSkin;
+  final VoidCallback onAddAiHair;
+  final VoidCallback onAddAiObject;
   final VoidCallback onAddSky;
   final VoidCallback onAddDepthMap;
   final VoidCallback? onToolTap;
@@ -2794,6 +2954,48 @@ class _CreateMaskCategorizedSection extends StatelessWidget {
                         : () {
                             onToolTap?.call();
                             onAddAiFace();
+                            HapticFeedback.selectionClick();
+                          },
+                  ),
+                  _buildToolTile(
+                    key: const Key('mask-add-skin'),
+                    ctx: buildContext,
+                    icon: Icons.face,
+                    label: 'Skin +',
+                    isTonal: true,
+                    onPressed: isInferring
+                        ? null
+                        : () {
+                            onToolTap?.call();
+                            onAddAiSkin();
+                            HapticFeedback.selectionClick();
+                          },
+                  ),
+                  _buildToolTile(
+                    key: const Key('mask-add-hair'),
+                    ctx: buildContext,
+                    icon: Icons.content_cut,
+                    label: 'Hair +',
+                    isTonal: true,
+                    onPressed: isInferring
+                        ? null
+                        : () {
+                            onToolTap?.call();
+                            onAddAiHair();
+                            HapticFeedback.selectionClick();
+                          },
+                  ),
+                  _buildToolTile(
+                    key: const Key('mask-add-object'),
+                    ctx: buildContext,
+                    icon: Icons.category,
+                    label: 'Object +',
+                    isTonal: true,
+                    onPressed: isInferring
+                        ? null
+                        : () {
+                            onToolTap?.call();
+                            onAddAiObject();
                             HapticFeedback.selectionClick();
                           },
                   ),
