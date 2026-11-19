@@ -18,6 +18,7 @@ pub fn estimate_head_pose(
     width: u32,
     height: u32,
 ) -> Result<ApiHeadPoseEstimate, String> {
+    crate::validate::validate_rgba(&rgba, width, height)?;
     let est = core_estimate(&rgba, width as usize, height as usize)?;
     Ok(ApiHeadPoseEstimate {
         yaw: est.yaw,
@@ -41,6 +42,7 @@ pub fn adjust_head_pose(
     smile: f32,
     pupil_distance: f32,
 ) -> Result<Vec<u8>, String> {
+    crate::validate::validate_rgba(&rgba, width, height)?;
     core_adjust(
         &rgba,
         width as usize,

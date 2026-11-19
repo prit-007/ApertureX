@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
@@ -53,7 +53,7 @@ final gallerySinkProvider = Provider<GallerySink>((ref) => const RealGalSink());
 /// which keeps photo_manager for the macOS *library* — save destination and
 /// library backend are independent choices.
 final isDesktopPlatformProvider = Provider<bool>(
-  (ref) => Platform.isLinux || Platform.isWindows || Platform.isMacOS,
+  (ref) => !kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS),
 );
 
 /// Where a [PhotoSaver] save landed. A `null` result means the user cancelled

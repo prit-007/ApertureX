@@ -36,7 +36,16 @@ List<Parameter> parametersIn(RecipeSection section) => [
     if (specOf(p).section == section) p,
 ];
 
+/// Primary parameter associated with a [GradeTool], with safe fallback.
+Parameter primaryParameterForTool(GradeTool tool) {
+  final params = snapseedToolParameters[tool];
+  if (params != null && params.isNotEmpty) {
+    return params.first;
+  }
+  return Parameter.exposure;
+}
+
 /// The ordered Snapseed gesture carousel, flattened to parameters.
 List<Parameter> get snapseedCarousel => [
-  for (final tool in GradeTool.values) ...snapseedToolParameters[tool]!,
+  for (final tool in GradeTool.values) ...?snapseedToolParameters[tool],
 ];

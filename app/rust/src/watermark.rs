@@ -700,10 +700,16 @@ pub fn decode_png_rgba(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
     let mut idat_data = Vec::new();
 
     while pos + 8 <= bytes.len() {
-        let chunk_len = u32::from_be_bytes(bytes[pos..pos + 4].try_into().unwrap()) as usize;
+        let Ok(len_bytes) = bytes[pos..pos + 4].try_into() else {
+            return Err("Malformed PNG chunk length".to_string());
+        };
+        let chunk_len = u32::from_be_bytes(len_bytes) as usize;
         let chunk_type = &bytes[pos + 4..pos + 8];
         let chunk_data_start = pos + 8;
-        let chunk_data_end = chunk_data_start + chunk_len;
+        let chunk_data_end = match chunk_data_start.checked_add(chunk_len) {
+            Some(end) => end,
+            None => return Err("PNG chunk length integer overflow".to_string()),
+        };
         if chunk_data_end + 4 > bytes.len() {
             break;
         }
@@ -711,16 +717,16 @@ pub fn decode_png_rgba(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
         match chunk_type {
             b"IHDR" => {
                 if chunk_len >= 13 {
-                    width = u32::from_be_bytes(
-                        bytes[chunk_data_start..chunk_data_start + 4]
-                            .try_into()
-                            .unwrap(),
-                    );
-                    height = u32::from_be_bytes(
-                        bytes[chunk_data_start + 4..chunk_data_start + 8]
-                            .try_into()
-                            .unwrap(),
-                    );
+                    let Ok(w_bytes) = bytes[chunk_data_start..chunk_data_start + 4].try_into()
+                    else {
+                        return Err("Malformed IHDR width bytes".to_string());
+                    };
+                    width = u32::from_be_bytes(w_bytes);
+                    let Ok(h_bytes) = bytes[chunk_data_start + 4..chunk_data_start + 8].try_into()
+                    else {
+                        return Err("Malformed IHDR height bytes".to_string());
+                    };
+                    height = u32::from_be_bytes(h_bytes);
                     bit_depth = bytes[chunk_data_start + 8];
                     color_type = bytes[chunk_data_start + 9];
                 }

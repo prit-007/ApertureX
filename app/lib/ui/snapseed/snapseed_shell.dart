@@ -322,7 +322,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
   @override
   Widget build(BuildContext context) {
-    final parameter = snapseedToolParameters[widget.tool]!.first;
+    final parameter = primaryParameterForTool(widget.tool);
     final spec = specOf(parameter);
     final zoneMask = ref.watch(zoneMaskProvider);
     final scheme = Theme.of(context).colorScheme;
@@ -1266,7 +1266,7 @@ class _SnapseedScrubHudHost extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final parameter = snapseedToolParameters[tool]!.first;
+    final parameter = primaryParameterForTool(tool);
     final zoneMask = ref.watch(zoneMaskProvider);
     final value = ref.watch(
       recipeControllerProvider.select((s) {
@@ -1343,8 +1343,8 @@ class _SnapseedCarouselHost extends ConsumerWidget {
         final recipe = s.recipe;
         return {
           for (final t in tools)
-            if (!t.is2D && snapseedToolParameters[t] != null)
-              t: valueOf(recipe, snapseedToolParameters[t]!.first),
+            if (!t.is2D && (snapseedToolParameters[t]?.isNotEmpty ?? false))
+              t: valueOf(recipe, primaryParameterForTool(t)),
         };
       }),
     );
@@ -1416,7 +1416,7 @@ class _Snapseed1DValueIndicator extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final parameter = snapseedToolParameters[tool]!.first;
+    final parameter = primaryParameterForTool(tool);
     final zoneMask = ref.watch(zoneMaskProvider);
     final value = ref.watch(
       recipeControllerProvider.select((s) {
@@ -1495,7 +1495,7 @@ class _SnapseedDockSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final parameter = snapseedToolParameters[tool]!.first;
+    final parameter = primaryParameterForTool(tool);
     final spec = specOf(parameter);
     final tatActive = ref.watch(tatModeProvider);
 

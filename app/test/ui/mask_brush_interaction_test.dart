@@ -74,6 +74,8 @@ void main() {
   ) async {
     await pumpMaskingApp(tester);
 
+    await tester.ensureVisible(find.text('Brush +'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Brush +'));
     await tester.pumpAndSettle();
 
@@ -252,6 +254,8 @@ void main() {
   ) async {
     await pumpMaskingApp(tester);
 
+    await tester.ensureVisible(find.text('Brush +'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Brush +'));
     await tester.pumpAndSettle();
 

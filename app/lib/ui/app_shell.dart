@@ -152,7 +152,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         if (mounted) setState(() => _active = tool);
       },
       onValueChanged: (tool, delta) {
-        final parameter = snapseedToolParameters[tool]!.first;
+        final parameter = primaryParameterForTool(tool);
         final spec = specOf(parameter);
         // Detail tools auto-peek their mask while scrubbing (#27); the canvas
         // clears it when the finger lifts (scale end).
@@ -314,7 +314,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         } else {
           ref
               .read(recipeControllerProvider.notifier)
-              .reset(snapseedToolParameters[tool]!.first);
+              .reset(primaryParameterForTool(tool));
         }
       },
     );

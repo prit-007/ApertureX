@@ -278,7 +278,7 @@ pub fn auto_tone(jpeg: Vec<u8>) -> Option<HashMap<String, f64>> {
     let std_luma = variance.max(0.0).sqrt();
 
     // Percentiles for clipping and whites/blacks
-    lumas.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    lumas.sort_by(|a, b| a.total_cmp(b));
     let p0_1_idx = ((count as f64 * 0.001).round() as usize).min(count - 1);
     let p1_idx = ((count as f64 * 0.01).round() as usize).min(count - 1);
     let p99_idx = ((count as f64 * 0.99).round() as usize).min(count - 1);
@@ -471,7 +471,7 @@ pub fn auto_tone_with_faces(jpeg: Vec<u8>, faces: Vec<FaceBox>) -> Option<HashMa
     let std_luma = variance.max(0.0).sqrt();
 
     // Percentiles for clipping and whites/blacks
-    lumas.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    lumas.sort_by(|a, b| a.total_cmp(b));
     let p0_1_idx = ((lumas.len() as f64 * 0.001).round() as usize).min(lumas.len() - 1);
     let p1_idx = ((lumas.len() as f64 * 0.01).round() as usize).min(lumas.len() - 1);
     let p99_idx = ((lumas.len() as f64 * 0.99).round() as usize).min(lumas.len() - 1);
@@ -581,7 +581,7 @@ pub fn apply_point_colors(
     height: u32,
     points: Vec<ApiPointColor>,
 ) -> Vec<u8> {
-    if points.is_empty() || rgba.is_empty() {
+    if points.is_empty() || crate::validate::validate_rgba(&rgba, width, height).is_err() {
         return rgba;
     }
     let internal_points: Vec<color::PointColor> = points
@@ -621,7 +621,7 @@ pub fn apply_camera_calibration(
     height: u32,
     calib: ApiCalibrationParams,
 ) -> Vec<u8> {
-    if rgba.is_empty() {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
         return rgba;
     }
     let internal_calib = color::CalibrationParams {

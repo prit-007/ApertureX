@@ -11,6 +11,11 @@ pub fn composite_layers(
     blend_mode_index: u32,
     opacity: f32,
 ) -> Vec<u8> {
+    if crate::validate::validate_rgba(&base_rgba, width, height).is_err()
+        || crate::validate::validate_rgba(&overlay_rgba, width, height).is_err()
+    {
+        return base_rgba;
+    }
     let mode = BlendMode::from_u32(blend_mode_index);
     compositing::composite_layers(
         &base_rgba,

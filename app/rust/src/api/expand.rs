@@ -20,6 +20,8 @@ pub fn expand_canvas(
         _ => ExpandMode::Smart,
     };
 
+    crate::validate::validate_rgba(&rgba, width, height)?;
+
     core_expand(
         &rgba,
         width as usize,

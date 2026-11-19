@@ -24,6 +24,10 @@ pub fn stitch_panorama(
     images: Vec<ApiPanoramaInput>,
     projection_index: u32,
 ) -> Result<ApiPanoramaResult, String> {
+    for img in &images {
+        crate::validate::validate_rgba(&img.rgba, img.width, img.height)?;
+    }
+
     let proj = match projection_index {
         1 => PanoramaProjection::Cylindrical,
         2 => PanoramaProjection::Spherical,
