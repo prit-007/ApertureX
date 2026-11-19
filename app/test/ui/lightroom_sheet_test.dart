@@ -220,6 +220,32 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  testWidgets(
+    'in landscape the bottom sheet fractions are capped to 40% maximum height',
+    (tester) async {
+      // Landscape compact phone viewport (540x360), below split threshold (560)
+      tester.view.physicalSize = const Size(540, 360);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: Scaffold(body: AppShell())),
+        ),
+      );
+      await tester.pump();
+
+      // Starts at half snap in landscape: 360 * 0.25 = 90
+      expect(bodyHeight(tester), closeTo(360 * 0.25, 2));
+
+      // Drag up to full snap: should clamp to 40% (360 * 0.40 = 144)
+      await tester.drag(find.text('Hide tools'), const Offset(0, -100));
+      await tester.pumpAndSettle();
+      expect(bodyHeight(tester), closeTo(360 * 0.40, 2));
+    },
+  );
 }
 
 

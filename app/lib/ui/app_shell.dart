@@ -1000,6 +1000,15 @@ const Map<_SheetSnap, double> _sheetFractions = {
   _SheetSnap.full: 0.62,
 };
 
+/// Landscape sheet fractions cap the bottom sheet to 40% maximum height so the
+/// horizontal image canvas remains unobstructed (issue #32 / ADR 0008).
+const Map<_SheetSnap, double> _landscapeSheetFractions = {
+  _SheetSnap.hidden: 0.0,
+  _SheetSnap.peek: 0.14,
+  _SheetSnap.half: 0.25,
+  _SheetSnap.full: 0.40,
+};
+
 /// Minimum peek body height: grab bar handle (~30) + panel chrome (~114) +
 /// ~1 content row. Keeps controls usable on short devices while preserving
 /// 75–80% portrait canvas height.
@@ -1036,8 +1045,9 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
 
   double get _height {
     final isLandscape = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+    final fractions = isLandscape ? _landscapeSheetFractions : _sheetFractions;
     final maxAvailable = isLandscape ? widget.availableHeight * 0.40 : widget.availableHeight;
-    var base = _sheetFractions[widget.snap]! * widget.availableHeight;
+    var base = fractions[widget.snap]! * widget.availableHeight;
     if (widget.snap == _SheetSnap.peek && base < (isLandscape ? 120.0 : _minPeekHeight)) {
       base = isLandscape ? 120.0 : _minPeekHeight;
     }
@@ -1055,6 +1065,8 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
   }
 
   void _onDragEnd(DragEndDetails d) {
+    final isLandscape = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+    final fractions = isLandscape ? _landscapeSheetFractions : _sheetFractions;
     final velocity = -(d.primaryVelocity ?? 0); // up positive
     const snaps = _SheetSnap.values;
     final current = snaps.indexOf(widget.snap);
@@ -1066,10 +1078,8 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
     } else {
       final measured = _height;
       target = snaps.reduce((a, b) {
-        final da = (_sheetFractions[a]! * widget.availableHeight - measured)
-            .abs();
-        final db = (_sheetFractions[b]! * widget.availableHeight - measured)
-            .abs();
+        final da = (fractions[a]! * widget.availableHeight - measured).abs();
+        final db = (fractions[b]! * widget.availableHeight - measured).abs();
         return da <= db ? a : b;
       });
     }

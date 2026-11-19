@@ -1066,26 +1066,19 @@ class _RadialMenu extends StatelessWidget {
                       child: Semantics(
                         button: true,
                         label: tools[i].name,
-                        child: GestureDetector(
+                        child: _RadialItemButton(
                           key: Key('radial-${tools[i].name}'),
+                          tool: tools[i],
+                          icon: iconOf(tools[i]),
+                          selected: tools[i] == active,
+                          hitW: hitW,
+                          hitH: hitH,
                           onTap: () {
-                            HapticFeedback.selectionClick();
                             onPick(tools[i]);
                           },
-                          child: Container(
-                          width: hitW,
-                          height: hitH,
-                          color: Colors.transparent,
-                          alignment: Alignment.topCenter,
-                          child: _RadialItem(
-                            icon: iconOf(tools[i]),
-                            label: tools[i].name,
-                            selected: tools[i] == active,
-                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -1096,44 +1089,110 @@ class _RadialMenu extends StatelessWidget {
   }
 }
 
-class _RadialItem extends StatelessWidget {
-  const _RadialItem({
+class _RadialItemButton extends StatefulWidget {
+  const _RadialItemButton({
+    super.key,
+    required this.tool,
     required this.icon,
-    required this.label,
     required this.selected,
+    required this.hitW,
+    required this.hitH,
+    required this.onTap,
   });
 
+  final GradeTool tool;
   final IconData icon;
-  final String label;
   final bool selected;
+  final double hitW;
+  final double hitH;
+  final VoidCallback onTap;
+
+  @override
+  State<_RadialItemButton> createState() => _RadialItemButtonState();
+}
+
+class _RadialItemButtonState extends State<_RadialItemButton> with SingleTickerProviderStateMixin {
+  late final AnimationController _anim;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 90),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.90).animate(
+      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: selected ? scheme.primary : scheme.surfaceContainerHighest,
-          ),
-          child: Icon(
-            icon,
-            color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) => _anim.forward(),
+      onPointerUp: (_) => _anim.reverse(),
+      onPointerCancel: (_) => _anim.reverse(),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          widget.onTap();
+        },
+        child: Container(
+        width: widget.hitW,
+        height: widget.hitH,
+        color: Colors.transparent,
+        alignment: Alignment.topCenter,
+        child: ScaleTransition(
+          scale: _scale,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.selected ? scheme.primary : scheme.surfaceContainerHighest,
+                  boxShadow: widget.selected
+                      ? [
+                          BoxShadow(
+                            color: scheme.primary.withValues(alpha: 0.45),
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Icon(
+                  widget.icon,
+                  color: widget.selected ? scheme.onPrimary : scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                widget.tool.name,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w400,
+                  color: widget.selected ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-      ],
+      ),
+      ),
     );
   }
 }

@@ -85,8 +85,16 @@ class LensBlurController extends Notifier<LensBlurState> {
     );
   }
 
-  void toggleDepthVisualizer(bool enabled) {
-    state = state.copyWith(showDepthVisualizer: enabled);
+  void toggleDepthVisualizer([bool? enabled]) {
+    state = state.copyWith(showDepthVisualizer: enabled ?? !state.showDepthVisualizer);
+  }
+
+  void setStatusMessage(String? message) {
+    state = state.copyWith(statusMessage: message);
+  }
+
+  void resetFocusPoint() {
+    setFocusPoint(0.5, 0.5);
   }
 
   /// Sets focal plane from normalized image coordinates `(x, y)` in `[0.0, 1.0]`.

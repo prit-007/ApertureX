@@ -107,4 +107,31 @@ void main() {
     final contrastNode = tester.getSemantics(find.byKey(const Key('radial-contrast')));
     expect(contrastNode.label, contains('contrast'));
   });
+
+  testWidgets('radial menu items provide pressed animation state on pointer down', (
+    tester,
+  ) async {
+    await tester.pumpWidget(harness());
+    await tester.tap(find.byTooltip('Tools'));
+    await tester.pumpAndSettle();
+
+    final item = find.byKey(const Key('radial-contrast'));
+    expect(item, findsOneWidget);
+
+    final itemCenter = tester.getCenter(item);
+    final gesture = await tester.startGesture(itemCenter);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final scaleFinder = find.descendant(
+      of: item,
+      matching: find.byType(ScaleTransition),
+    );
+    expect(scaleFinder, findsOneWidget);
+    final scaleWidget = tester.widget<ScaleTransition>(scaleFinder);
+    expect(scaleWidget.scale.value, lessThan(1.0));
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+  });
 }
