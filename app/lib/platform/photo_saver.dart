@@ -72,6 +72,13 @@ class SavedToFile extends PhotoSaveOutcome {
   final File file;
 }
 
+/// The original file at [path] was overwritten in-place.
+class OverwrittenOriginal extends PhotoSaveOutcome {
+  const OverwrittenOriginal(this.path);
+
+  final String path;
+}
+
 /// Routes one export save to the desktop dialog or the mobile gallery (#104).
 ///
 /// Both entry points take the *payload bytes* plus the export's base name:
@@ -117,6 +124,42 @@ class PhotoSaver {
         suggestedFileName: '$name.$extension',
         viaTemp: true,
       );
+
+  /// Overwrites the original file at [originalPath] in-place if writable,
+  /// or falls back to saving as a copy.
+  Future<PhotoSaveOutcome> saveOverwriteOriginal(
+    Uint8List bytes, {
+    required String originalPath,
+  }) async {
+    try {
+      final file = File(originalPath);
+      if (await file.exists()) {
+        await file.writeAsBytes(bytes, flush: true);
+        return OverwrittenOriginal(originalPath);
+      }
+    } catch (_) {
+      // Fallback to saving copy
+    }
+    return (await saveBytes(
+          bytes,
+          name: 'aperturex_${DateTime.now().millisecondsSinceEpoch}',
+        )) ??
+        const SavedToGallery();
+  }
+
+  /// Saves an edited copy with a distinct copy suffix.
+  Future<PhotoSaveOutcome?> saveCopy(
+    Uint8List bytes, {
+    required String originalName,
+    String? extension,
+  }) {
+    final ext = extension ?? 'jpg';
+    final copyName = '${originalName}_edited';
+    if (ext == 'jpg' || ext == 'jpeg') {
+      return saveBytes(bytes, name: copyName);
+    }
+    return saveFile(bytes, name: copyName, extension: ext);
+  }
 
   Future<PhotoSaveOutcome?> _save(
     Uint8List bytes, {

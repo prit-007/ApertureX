@@ -44,6 +44,16 @@ enum ExportPresetKind {
   final String description;
 }
 
+/// Save destination mode: whether to save as a new copy or overwrite original.
+enum ExportDestination {
+  saveCopy('Save Copy', 'Save as a new file, leaving original untouched'),
+  overwriteOriginal('Overwrite Original', 'Replace original photo with edited version');
+
+  const ExportDestination(this.label, this.description);
+  final String label;
+  final String description;
+}
+
 /// Export preferences, persisted on-device.
 class ExportSettings {
   const ExportSettings({
@@ -62,7 +72,11 @@ class ExportSettings {
     this.outputSharpenMedia = 0, // 0 = None, 1 = Screen, 2 = Matte, 3 = Glossy
     this.outputSharpen = 0.0,
     this.metadataMode = ExportMetadataMode.all,
+    this.destination = ExportDestination.saveCopy,
   });
+
+  /// Save destination (save copy vs overwrite original).
+  final ExportDestination destination;
 
   /// JPEG quality `60..100`.
   final int quality;
@@ -277,6 +291,7 @@ class ExportSettings {
     int? outputSharpenMedia,
     double? outputSharpen,
     ExportMetadataMode? metadataMode,
+    ExportDestination? destination,
   }) => ExportSettings(
     quality: quality ?? this.quality,
     maxDim: maxDim ?? this.maxDim,
@@ -293,6 +308,7 @@ class ExportSettings {
     outputSharpenMedia: outputSharpenMedia ?? this.outputSharpenMedia,
     outputSharpen: outputSharpen ?? this.outputSharpen,
     metadataMode: metadataMode ?? this.metadataMode,
+    destination: destination ?? this.destination,
   );
 }
 

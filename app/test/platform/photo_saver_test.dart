@@ -236,5 +236,41 @@ void main() {
       expect(sink.hasAccessCalls, 0,
           reason: 'desktop flag flows through to the branch decision');
     });
+
+    test('saveOverwriteOriginal overwrites local file when it exists', () async {
+      final file = File('${tmp.path}/test_original.jpg');
+      await file.writeAsBytes([1, 2, 3]);
+
+      final saver = PhotoSaver(
+        isDesktop: false,
+        dialog: dialog.call,
+        sink: sink,
+      );
+
+      final out = await saver.saveOverwriteOriginal(
+        Uint8List.fromList([4, 5, 6]),
+        originalPath: file.path,
+      );
+
+      expect(out, isA<OverwrittenOriginal>());
+      expect(await file.readAsBytes(), [4, 5, 6]);
+    });
+
+    test('saveCopy formats suffix and delegates to saveBytes', () async {
+      final saver = PhotoSaver(
+        isDesktop: false,
+        dialog: dialog.call,
+        sink: sink,
+      );
+
+      final out = await saver.saveCopy(
+        Uint8List.fromList([10, 20, 30]),
+        originalName: 'sunset',
+        extension: 'jpg',
+      );
+
+      expect(out, isA<SavedToGallery>());
+      expect(sink.byteSaves.single.$2, 'sunset_edited');
+    });
   });
 }
