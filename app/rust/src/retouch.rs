@@ -10,6 +10,9 @@
 pub enum RetouchMode {
     Heal,
     Clone,
+    SkinSmooth,
+    EyeBrighten,
+    TeethWhiten,
 }
 
 /// A single retouch patch (normalized coordinates `0..1`).
@@ -139,6 +142,27 @@ pub fn apply_patch(rgba: &mut [u8], w: usize, h: usize, patch: &RetouchPatch) {
                     (s_g + color_offset[1]).clamp(0.0, 255.0),
                     (s_b + color_offset[2]).clamp(0.0, 255.0),
                 ),
+                RetouchMode::SkinSmooth => {
+                    let luma = 0.299 * s_r + 0.587 * s_g + 0.114 * s_b;
+                    (
+                        (s_r * 0.7 + luma * 0.3).clamp(0.0, 255.0),
+                        (s_g * 0.7 + luma * 0.3).clamp(0.0, 255.0),
+                        (s_b * 0.7 + luma * 0.3).clamp(0.0, 255.0),
+                    )
+                }
+                RetouchMode::EyeBrighten => (
+                    (s_r * 1.25).clamp(0.0, 255.0),
+                    (s_g * 1.25).clamp(0.0, 255.0),
+                    (s_b * 1.25).clamp(0.0, 255.0),
+                ),
+                RetouchMode::TeethWhiten => {
+                    let luma = 0.299 * s_r + 0.587 * s_g + 0.114 * s_b;
+                    (
+                        (s_r * 0.65 + luma * 0.4).clamp(0.0, 255.0),
+                        (s_g * 0.65 + luma * 0.4).clamp(0.0, 255.0),
+                        (s_b * 0.8 + luma * 0.25).clamp(0.0, 255.0),
+                    )
+                }
             };
 
             let idx = (y * w + x) * 4;

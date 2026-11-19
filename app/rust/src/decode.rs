@@ -103,7 +103,7 @@ pub fn crop_rgba(
 pub fn decode_linear(data: &[u8]) -> Result<DecodedLinear, String> {
     let img = decode_rgba(data)?;
     let mut linear_data = Vec::with_capacity(img.rgba.len());
-    for chunk in img.rgba.chunks_exact(4) {
+    for chunk in img.rgba.as_chunks::<4>().0 {
         let r_lin = crate::color::srgb_u8_to_linear(chunk[0]);
         let g_lin = crate::color::srgb_u8_to_linear(chunk[1]);
         let b_lin = crate::color::srgb_u8_to_linear(chunk[2]);

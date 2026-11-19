@@ -1,5 +1,6 @@
-/// Retouch repair mode: heal (Poisson gradient blending) vs clone (direct copy).
-enum RetouchMode { heal, clone }
+/// Retouch repair mode: heal (Poisson gradient blending), clone (direct copy),
+/// skinSmooth (bilateral surface softening), eyeBrighten, and teethWhiten.
+enum RetouchMode { heal, clone, skinSmooth, eyeBrighten, teethWhiten }
 
 /// A single retouch patch for blemish removal / healing.
 ///

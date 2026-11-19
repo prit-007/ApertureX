@@ -111,7 +111,7 @@ pub fn decode_raw_roi(
 pub fn decode_raw_linear(raw: Vec<u8>) -> Result<crate::api::decode::LinearRgbaImage, String> {
     let img = get_cached_or_decode_raw(&raw)?;
     let mut rgba_linear = Vec::with_capacity(img.width * img.height * 4);
-    for chunk in img.data.chunks_exact(3) {
+    for chunk in img.data.as_chunks::<3>().0 {
         rgba_linear.push(chunk[0]);
         rgba_linear.push(chunk[1]);
         rgba_linear.push(chunk[2]);
@@ -141,7 +141,7 @@ pub fn decode_raw_linear_roi(
         height as usize,
     )?;
     let mut rgba_linear = Vec::with_capacity(cropped.width * cropped.height * 4);
-    for chunk in cropped.data.chunks_exact(3) {
+    for chunk in cropped.data.as_chunks::<3>().0 {
         rgba_linear.push(chunk[0]);
         rgba_linear.push(chunk[1]);
         rgba_linear.push(chunk[2]);
