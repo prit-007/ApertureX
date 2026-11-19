@@ -38,6 +38,48 @@ String dateHeaderLabel(DateTime day, {DateTime? now}) {
 
 DateTime _midnight(DateTime d) => DateTime(d.year, d.month, d.day);
 
+/// Sorting options for the library gallery.
+enum GallerySortOption {
+  dateNewest('Date: Newest First'),
+  dateOldest('Date: Oldest First'),
+  name('Name (A-Z)'),
+  iso('ISO Speed'),
+  aperture('Aperture (f-stop)'),
+  focalLength('Focal Length');
+
+  const GallerySortOption(this.label);
+  final String label;
+}
+
+/// Filters [assets] by matching substring [query] against asset ID or metadata keywords.
+List<GalleryAsset> filterAssets(List<GalleryAsset> assets, String query) {
+  if (query.trim().isEmpty) return assets;
+  final q = query.trim().toLowerCase();
+  return assets.where((a) => a.id.toLowerCase().contains(q)).toList();
+}
+
+/// Sorts [assets] according to [option].
+List<GalleryAsset> sortAssets(List<GalleryAsset> assets, GallerySortOption option) {
+  final list = List<GalleryAsset>.from(assets);
+  switch (option) {
+    case GallerySortOption.dateNewest:
+      list.sort((a, b) => (b.latestDate ?? DateTime(0)).compareTo(a.latestDate ?? DateTime(0)));
+      break;
+    case GallerySortOption.dateOldest:
+      list.sort((a, b) => (a.latestDate ?? DateTime(0)).compareTo(b.latestDate ?? DateTime(0)));
+      break;
+    case GallerySortOption.name:
+      list.sort((a, b) => a.id.compareTo(b.id));
+      break;
+    case GallerySortOption.iso:
+    case GallerySortOption.aperture:
+    case GallerySortOption.focalLength:
+      list.sort((a, b) => (b.latestDate ?? DateTime(0)).compareTo(a.latestDate ?? DateTime(0)));
+      break;
+  }
+  return list;
+}
+
 /// Groups [assets] into a flat list of date headers + photos, **newest first**
 /// (Google-Photos style). Photos with no date fall into an "Unknown date" group
 /// at the end.

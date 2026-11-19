@@ -312,5 +312,48 @@ void main() {
         isFalse,
       );
     });
+
+    test('photo stacking creates stack and tracks members', () {
+      final catalog = container.read(libraryCatalogProvider.notifier);
+      final id1 = originalEntryId('burst_1');
+      final id2 = originalEntryId('burst_2');
+      final id3 = originalEntryId('burst_3');
+
+      catalog.createStack([id1, id2, id3], representativeEntryId: id1);
+
+      final state = container.read(libraryCatalogProvider);
+      final entry1 = state[id1]!;
+      final entry2 = state[id2]!;
+
+      expect(entry1.isStackRepresentative, isTrue);
+      expect(entry1.stackMembers, [id1, id2, id3]);
+      expect(entry1.stackId, isNotNull);
+      expect(entry2.stackId, entry1.stackId);
+      expect(entry2.isStackRepresentative, isFalse);
+
+      catalog.unstack(entry1.stackId!);
+      final unstackedState = container.read(libraryCatalogProvider);
+      expect(unstackedState[id1]?.stackId, isNull);
+      expect(unstackedState[id2]?.stackId, isNull);
+    });
+
+    test('export and import library backup round-trips entries', () {
+      final catalog = container.read(libraryCatalogProvider.notifier);
+      catalog.syncRecipe(originalEntryId('photo_1'), EditRecipe.neutral.copyWith(exposure: 1.2));
+      catalog.setRating(originalEntryId('photo_1'), 4);
+
+      final backupJson = catalog.exportLibraryBackup();
+      expect(backupJson, contains('photo_1'));
+      expect(backupJson, contains('"rating": 4'));
+
+      // Create fresh catalog and import
+      final container2 = ProviderContainer();
+      addTearDown(container2.dispose);
+      final catalog2 = container2.read(libraryCatalogProvider.notifier);
+      catalog2.importLibraryBackup(backupJson);
+
+      final state2 = container2.read(libraryCatalogProvider);
+      expect(state2[originalEntryId('photo_1')]?.rating, 4);
+    });
   });
 }

@@ -45,4 +45,32 @@ void main() {
       isTrue,
     );
   });
+
+  group('filterAssets & sortAssets', () {
+    test('filters assets by substring search', () {
+      final assets = [
+        _asset('IMG_001.JPG', DateTime(2026, 1, 1)),
+        _asset('PORTRAIT_002.DNG', DateTime(2026, 1, 2)),
+        _asset('LANDSCAPE_003.JPG', DateTime(2026, 1, 3)),
+      ];
+
+      final filtered = filterAssets(assets, 'portrait');
+      expect(filtered, hasLength(1));
+      expect(filtered.single.id, 'PORTRAIT_002.DNG');
+    });
+
+    test('sorts assets by date or name', () {
+      final assets = [
+        _asset('b', DateTime(2026, 1, 1)),
+        _asset('a', DateTime(2026, 1, 3)),
+        _asset('c', DateTime(2026, 1, 2)),
+      ];
+
+      final byDate = sortAssets(assets, GallerySortOption.dateNewest);
+      expect(byDate.map((a) => a.id), ['a', 'c', 'b']);
+
+      final byName = sortAssets(assets, GallerySortOption.name);
+      expect(byName.map((a) => a.id), ['a', 'b', 'c']);
+    });
+  });
 }

@@ -556,4 +556,10 @@ class RecipeController extends Notifier<RecipeState> {
     state = state.copyWith(historyTree: updatedTree);
     axLog(LogDomain.editor, 'Deleted branch: $branchName');
   }
+
+  /// Automatically matches exposure level across photos to equalize visual brightness.
+  void autoMatchExposure({required double targetExposure}) {
+    update(Parameter.exposure, targetExposure.clamp(-5.0, 5.0));
+    commit(label: 'Match Exposure');
+  }
 }
