@@ -41,6 +41,13 @@ fn get_cached_or_decode_raw(bytes: &[u8]) -> Result<Arc<raw::RawLinearImage>, St
     Ok(arc)
 }
 
+/// Evicts the cached linear RAW image from resident memory.
+pub fn clear_raw_decode_cache() {
+    if let Ok(mut guard) = RAW_DECODE_CACHE.lock() {
+        *guard = None;
+    }
+}
+
 /// Reads RAW/DNG dimensions without demosaicing, in **display** orientation
 /// (axes swapped for the 90°/270°/transpose EXIF cases, matching `decode_*`).
 pub fn raw_dimensions(raw: Vec<u8>) -> Result<ImageDims, String> {

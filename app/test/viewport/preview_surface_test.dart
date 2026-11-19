@@ -1,3 +1,4 @@
+import 'package:aperturex/viewport/exposure_assist.dart';
 import 'package:aperturex/viewport/preview_surface.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -43,6 +44,33 @@ void main() {
 
     expect(find.byType(Texture), findsNothing);
     expect(find.byKey(const Key('shader-fallback')), findsOneWidget);
+  });
+
+  testWidgets('texture stays active when assist modes are enabled (Flaw 22)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: PreviewSurface(
+          textureId: 7,
+          fallback: fallback,
+          zebraActive: true,
+          zebraMode: ExposureAssistMode.zebras,
+        ),
+      ),
+    );
+
+    // Texture remains mounted (zero-copy not dropped)
+    expect(find.byType(Texture), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((w) => w is Texture && w.textureId == 7),
+      findsOneWidget,
+    );
+    // CustomPaint overlay is composited on top
+    expect(find.byType(CustomPaint), findsOneWidget);
+    // Shader fallback is NOT used
+    expect(find.byKey(const Key('shader-fallback')), findsNothing);
   });
 
   group('previewNeedsPlaceholder', () {

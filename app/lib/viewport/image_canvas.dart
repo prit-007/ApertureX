@@ -1523,6 +1523,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (fastHandle != null) {
       unawaited(AxEngine.previewClose(fastHandle));
     }
+    unawaited(AxEngine.clearRawDecodeCache());
     for (final sub in _subscriptions) {
       sub.close();
     }

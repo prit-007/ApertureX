@@ -294,6 +294,9 @@ class AxEngine {
     }
   }
 
+  /// Evicts the cached linear RAW image from resident memory.
+  static Future<void> clearRawDecodeCache() => rust_raw.clearRawDecodeCache();
+
   /// Universal image decoder: routes RAW through rawler/libraw, JPEG through zune-jpeg,
   /// and PNG/WebP/GIF/BMP through package:image into a canonical [RgbaImage].
   static Future<RgbaImage> decodeImageRgba(Uint8List bytes) async {
