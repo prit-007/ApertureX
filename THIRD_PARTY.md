@@ -50,10 +50,12 @@ preserving rawler's notice.
 permits use in free and proprietary software provided the IJG notice is carried.
 The IJG notice must be included in the app's license bundle.
 
-`Pat David Film Curves` are licensed under **CC-BY-SA-4.0** (or CC0 public domain
-derivations hosted on PIXLS.US). Creative Commons BY-SA 4.0 is one-way compatible
-with GPL-3.0 inbound via Creative Commons compatible licenses declaration;
-attribution notices and look origins are documented in `about_screen.dart`.
+`Pat David Film Curves` are mathematical spline control points and color response
+datasets derived from analog film response curves published on PIXLS.US (licensed
+under CC-BY-SA-4.0 / CC0 public domain derivations). These curves are embedded as
+numerical LUT / parameter data in presets; appropriate attribution notices and look
+origins are carried in `about_screen.dart` and `preset_catalog.dart` without asserting
+false universal inbound GPL copyleft compatibility.
 
 ### Optional ONNX Runtime Mobile — release builds
 

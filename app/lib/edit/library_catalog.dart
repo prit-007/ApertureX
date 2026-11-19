@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import 'recipe.dart';
 import 'recipe_store.dart';
 import 'drift_catalog_store.dart';
@@ -306,7 +308,8 @@ class LibraryCatalog extends Notifier<Map<String, CatalogEntry>> {
     Map<String, CatalogEntry> loaded;
     try {
       loaded = await _store.load();
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.gallery, 'Catalog store load fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       loaded = const {};
     }
     _hydrating = true;
@@ -625,7 +628,9 @@ class LibraryCatalog extends Notifier<Map<String, CatalogEntry>> {
             (e.value as Map).cast<String, Object?>(),
           );
           next[entry.entryId] = entry;
-        } catch (_) {}
+        } catch (e, st) {
+          axLog(LogDomain.gallery, 'Catalog restore item decode fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+        }
       }
     }
     state = next;
@@ -651,7 +656,8 @@ class LibraryCatalog extends Notifier<Map<String, CatalogEntry>> {
     _writeChain = _writeChain.then((_) async {
       try {
         await _store.save(state);
-      } catch (_) {
+      } catch (e, st) {
+        axLog(LogDomain.gallery, 'Catalog store write failure: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
         // Best-effort persistence: a failed write keeps the in-memory
         // library working; the next mutation retries.
       }

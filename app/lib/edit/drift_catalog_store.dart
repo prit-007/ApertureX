@@ -7,6 +7,9 @@ import 'catalog_db.dart';
 import 'library_catalog.dart';
 import 'recipe.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
+
 /// Riverpod provider for the singleton [CatalogDb].
 final catalogDbProvider = Provider<CatalogDb>((ref) {
   final db = CatalogDb();
@@ -64,8 +67,8 @@ class DriftLibraryCatalogStore implements LibraryCatalogStore {
           created: row.created,
           recipe: recipe,
         );
-      } catch (_) {
-        // Skip corrupt rows to preserve library tolerance
+      } catch (e, st) {
+        axLog(LogDomain.gallery, 'Skipped corrupt catalog row', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       }
     }
     return result;

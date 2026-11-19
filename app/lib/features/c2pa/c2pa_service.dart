@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../src/rust/api/c2pa.dart';
 import '../../src/rust/api/export.dart';
 
@@ -65,7 +67,8 @@ class C2paService {
           _cachedKeyId = prefs.getString(_kDeviceKeyIdPrefKey);
           return decrypted;
         }
-      } catch (_) {
+      } catch (e, st) {
+        axLog(LogDomain.export, 'C2PA stored key decrypt fallback: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
         // Fallback to fresh key if encrypted blob is corrupted
       }
     }

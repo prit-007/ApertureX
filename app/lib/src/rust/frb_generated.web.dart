@@ -13,13 +13,16 @@ import 'api/compositing.dart';
 import 'api/decode.dart';
 import 'api/engine.dart';
 import 'api/exif.dart';
+import 'api/expand.dart';
 import 'api/export.dart';
 import 'api/geometry.dart';
+import 'api/head_pose.dart';
 import 'api/histogram.dart';
 import 'api/icc.dart';
 import 'api/logging.dart';
 import 'api/mask.dart';
 import 'api/optics.dart';
+import 'api/panorama.dart';
 import 'api/preview.dart';
 import 'api/raw.dart';
 import 'api/retouch.dart';
@@ -57,7 +60,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ApiGuidedTransformResult dco_decode_api_guided_transform_result(dynamic raw);
 
   @protected
+  ApiHeadPoseEstimate dco_decode_api_head_pose_estimate(dynamic raw);
+
+  @protected
   ApiLensBlurParams dco_decode_api_lens_blur_params(dynamic raw);
+
+  @protected
+  ApiPanoramaInput dco_decode_api_panorama_input(dynamic raw);
+
+  @protected
+  ApiPanoramaResult dco_decode_api_panorama_result(dynamic raw);
 
   @protected
   ApiPointColor dco_decode_api_point_color(dynamic raw);
@@ -200,6 +212,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ApiGuideLine> dco_decode_list_api_guide_line(dynamic raw);
 
   @protected
+  List<ApiPanoramaInput> dco_decode_list_api_panorama_input(dynamic raw);
+
+  @protected
   List<ApiPointColor> dco_decode_list_api_point_color(dynamic raw);
 
   @protected
@@ -337,7 +352,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ApiHeadPoseEstimate sse_decode_api_head_pose_estimate(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ApiLensBlurParams sse_decode_api_lens_blur_params(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ApiPanoramaInput sse_decode_api_panorama_input(SseDeserializer deserializer);
+
+  @protected
+  ApiPanoramaResult sse_decode_api_panorama_result(
     SseDeserializer deserializer,
   );
 
@@ -504,6 +532,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<ApiPanoramaInput> sse_decode_list_api_panorama_input(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<ApiPointColor> sse_decode_list_api_point_color(
     SseDeserializer deserializer,
   );
@@ -664,8 +697,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_api_head_pose_estimate(
+    ApiHeadPoseEstimate self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_api_lens_blur_params(
     ApiLensBlurParams self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_api_panorama_input(
+    ApiPanoramaInput self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_api_panorama_result(
+    ApiPanoramaResult self,
     SseSerializer serializer,
   );
 
@@ -876,6 +927,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_api_guide_line(
     List<ApiGuideLine> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_api_panorama_input(
+    List<ApiPanoramaInput> self,
     SseSerializer serializer,
   );
 

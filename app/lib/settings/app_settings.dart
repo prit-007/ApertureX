@@ -37,8 +37,8 @@ class AppSettings extends Notifier<ThemeMode> {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
       state = _fromName(prefs.getString(_key));
-    } catch (_) {
-      // No storage available (e.g. tests) — keep the dark default.
+    } catch (e, st) {
+      axLog(LogDomain.app, 'ThemeMode restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -46,8 +46,8 @@ class AppSettings extends Notifier<ThemeMode> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_key, mode.name);
-    } catch (_) {
-      // best effort
+    } catch (e, st) {
+      axLog(LogDomain.app, 'ThemeMode persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -86,14 +86,18 @@ class GlassmorphicUiSettings extends Notifier<bool> {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
       state = prefs.getBool(_key) ?? false;
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Glassmorphic restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 
   Future<void> _persist(bool enabled) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_key, enabled);
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Glassmorphic persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 }
 
@@ -125,14 +129,18 @@ class TileCacheSettings extends Notifier<int> {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
       state = prefs.getInt(_key) ?? defaultLimitMb;
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Tile cache restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 
   Future<void> _persist(int limitMb) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_key, limitMb);
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Tile cache persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 }
 
@@ -192,7 +200,9 @@ class StylusSettings extends Notifier<StylusState> {
         palmRejection: prefs.getBool(_palmKey) ?? true,
         pressureSensitivity: prefs.getBool(_pressureKey) ?? true,
       );
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Stylus restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 
   Future<void> _persist() async {
@@ -200,7 +210,9 @@ class StylusSettings extends Notifier<StylusState> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_palmKey, state.palmRejection);
       await prefs.setBool(_pressureKey, state.pressureSensitivity);
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Stylus persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 }
 
@@ -231,14 +243,18 @@ class ZeroCopyTextureSettings extends Notifier<bool> {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
       state = prefs.getBool(_key) ?? true;
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'ZeroCopy restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 
   Future<void> _persist(bool enabled) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_key, enabled);
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'ZeroCopy persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 }
 
@@ -280,8 +296,8 @@ class CanvasGestureModeSettings extends Notifier<CanvasGestureMode> {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
       state = _fromName(prefs.getString(_key));
-    } catch (_) {
-      // test environment fallback
+    } catch (e, st) {
+      axLog(LogDomain.app, 'CanvasGesture restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -289,8 +305,8 @@ class CanvasGestureModeSettings extends Notifier<CanvasGestureMode> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_key, mode.name);
-    } catch (_) {
-      // best effort
+    } catch (e, st) {
+      axLog(LogDomain.app, 'CanvasGesture persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 

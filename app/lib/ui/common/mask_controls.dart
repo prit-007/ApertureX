@@ -4,6 +4,8 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 
 import '../../edit/active_image.dart';
@@ -910,7 +912,7 @@ class MaskControls extends ConsumerWidget {
                                 const SizedBox(width: 2),
                                 Text(
                                   'AI ${layer.aiIntent} ✓',
-                                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -1696,7 +1698,8 @@ class MaskControls extends ConsumerWidget {
         HapticFeedback.selectionClick();
         return;
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.editor, 'AI segmentation failed: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1781,7 +1784,8 @@ class MaskControls extends ConsumerWidget {
         HapticFeedback.selectionClick();
         return;
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.editor, 'Face detection failed: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1826,8 +1830,8 @@ class MaskControls extends ConsumerWidget {
           feather = detected.feather;
           blueWeight = detected.blueWeight;
         }
-      } catch (_) {
-        // Fallback to default params
+      } catch (e, st) {
+        axLog(LogDomain.editor, 'Sky detection fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       } finally {
         ref.read(aiMaskInferringProvider.notifier).setInferring(false);
         ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
@@ -1857,8 +1861,8 @@ class MaskControls extends ConsumerWidget {
         final original =
             await ref.read(gallerySourceProvider).loadImage(asset.id);
         if (original.isNotEmpty) bytes = original;
-      } catch (_) {
-        // Fall back to the preview bytes when the original is unavailable.
+      } catch (e, st) {
+        axLog(LogDomain.editor, 'Gallery image load for depth fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       }
     }
     if (!context.mounted) return;
@@ -1925,7 +1929,8 @@ class MaskControls extends ConsumerWidget {
           );
         }
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.editor, 'Depth map extraction failed: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppStrings.of(context).maskDepthFailed)),
@@ -2722,7 +2727,7 @@ class _CreateMaskCategorizedSection extends StatelessWidget {
                     child: Text(
                       'On-Device AI',
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.bold,
                         color: scheme.primary,
                       ),

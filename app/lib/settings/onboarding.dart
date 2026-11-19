@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
+
 /// One-time onboarding flags, persisted on-device. `true` = already seen.
 class Onboarding extends Notifier<bool> {
   static const _key = 'gesture_hint_seen';
@@ -24,8 +27,8 @@ class Onboarding extends Notifier<bool> {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
       state = prefs.getBool(_key) ?? false;
-    } catch (_) {
-      // No storage (tests) — keep the default (hint unseen).
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Onboarding hint restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -33,8 +36,8 @@ class Onboarding extends Notifier<bool> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_key, true);
-    } catch (_) {
-      // best effort
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Onboarding hint persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 }
@@ -75,8 +78,8 @@ class HasCompletedOnboarding extends Notifier<bool> {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
       state = prefs.getBool(_key) ?? false;
-    } catch (_) {
-      // Default to false when no SharedPreferences are available (e.g. tests)
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Onboarding completion restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -84,8 +87,8 @@ class HasCompletedOnboarding extends Notifier<bool> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_key, val);
-    } catch (_) {
-      // Best effort
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Onboarding completion persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 }

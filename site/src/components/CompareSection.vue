@@ -84,7 +84,7 @@
           </div>
           <div class="compare-bar-metrics">
             <span class="hud-tag">65³ 3D LUT Atlas</span>
-            <span class="hud-tag hud-tag-emerald">Zero Compression Loss</span>
+            <span class="hud-tag hud-tag-emerald">Lossless 16-Bit TIFF Available</span>
           </div>
         </div>
       </div>

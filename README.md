@@ -6,9 +6,9 @@
 [![F-Droid](https://img.shields.io/badge/F--Droid-Ready%20for%20Publish-blue?logo=fdroid)](https://github.com/prit-007/ApertureX/releases/latest)
 [![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20Desktop-lightgrey.svg)](#)
 [![Website](https://img.shields.io/badge/website-prit--007.github.io%2FApertureX-6BEAF7)](https://prit-007.github.io/ApertureX/)
-[![100% Offline](https://img.shields.io/badge/100%25-Offline-green.svg)](#privacy)
+[![100% On-Device](https://img.shields.io/badge/100%25-On--Device-green.svg)](#privacy)
 
-**The mobile-native, non-destructive, 100% offline FOSS photo editor & darkroom — the Snapseed and Lightroom replacement the open-source community deserved.**
+**The mobile-native, non-destructive, 100% on-device FOSS photo editor & darkroom — the Snapseed and Lightroom replacement the open-source community deserved.**
 
 > *ApertureX* opens like a camera aperture and edits like a professional darkroom. It unifies **two swappable UIs over one non-destructive recipe**: a Lightroom-style precision panel inspector for studio fine-tuning and a Snapseed-style gesture HUD for lightning-fast thumb edits. Large RAWs and 200MP phone captures are processed through a **tile-based viewport with a zero-copy Rust engine**, delivering 120 FPS slider response without memory crashes.
 >
@@ -65,15 +65,19 @@ ApertureX is production-ready for Android devices and available for sideloading,
 - Real-time false color **Depth Visualizer Heatmap** overlay for focal plane inspection.
 
 ### 4. Complete Local Masking Stack with Boolean Algebra
-- **10 Mask Kinds:** AI Subject, AI Sky, Inverted Background, Brush, Auto-Brush, Linear Gradient, Radial Gradient, Zone-System Luminance, Color-Range (HSV), and Depth Range.
+- **15 Mask Kinds:** AI Subject, AI Sky, Inverted Background, Person Face, Person Skin, Person Hair, Object, Brush, Auto-Brush, Linear Gradient, Radial Gradient, Zone-System Luminance, Color-Range (HSV), and Depth Range.
+- **Retouch & Portrait Suite:** Heal (Poisson blending), Clone, Bilateral Skin Smoothing, Eye Brighten, and Teeth Whiten.
 - **Stylus & Palm Rejection:** Full pressure sensitivity (`event.pressure` 0.0–1.0), hardware device filtering, and inverted-stylus eraser mode.
 - **Auto-Brush Edge Snapping:** Euclidean color-distance gating stops strokes automatically at subject boundaries.
 - **Mask Group Algebra:** Add, Subtract, and Intersect masks with 0–200% Amount scaling and per-mask 3-way color wheels.
 
 ### 5. Pro Studio Tools & Colorist Workflows
+- **16-Bit Scene-Linear Float Pipeline:** High-headroom scene-linear float engine for RAW demosaicing and 16-bit TIFF export. Sensor dynamic range and highlight recovery are preserved without 8-bit quantization clipping.
+- **Point Color & Calibration:** Targeted Hue/Sat/Lum range selector with custom falloff alongside Adobe Lightroom-aligned Camera Calibration (Shadows Tint + RGB Primary Hue/Saturation).
+- **Guided Upright Transform:** Geometric perspective correction solving keystone and convergence from user-drawn vertical/horizontal guide lines.
+- **Double Exposure:** Dual-image blending with Screen, Multiply, Overlay, Lighten, Darken, Add, and Subtract blend modes.
 - **Targeted Output Sharpening:** Media-specific convolution kernels for Screen (3×3 unsharp), Print Matte (5×5 broad high-boost), Print Glossy (3×3 micro-contrast), and Web Compression.
-- **Upright Auto Geometry:** Sobel vertical convergence detection automatically straightens horizons and rectifies architectural keystone perspective.
-- **Smart Collections & Perceptual Culling:** Multi-rule catalog queries (ratings, flags, EXIF telemetry), 64-bit dHash duplicate clustering, Laplacian variance blur detection, and YuNet closed-eye culling.
+- **Smart Collections & DAM Stacking:** Multi-rule catalog queries (ratings, flags, EXIF telemetry), photo bracket stacking, full library backup/restore, 64-bit dHash duplicate clustering, and Laplacian variance blur detection.
 - **Pro Print Studio:** Pure-Dart vector PDF 1.4 generator with multi-up contact sheets and printer ICC profile soft-proofing.
 - **Video Color Studio:** Non-destructive 3D LUT video grading and Hollywood `.CUBE` LUT export for DaVinci Resolve and Premiere Pro.
 - **C2PA Cryptographic Provenance:** On-device Content Credentials embedding verifiable digital authorship and edit transparency manifests.
@@ -92,16 +96,16 @@ ApertureX is production-ready for Android devices and available for sideloading,
 
 ## Privacy
 
-**100% Offline. Zero Cloud Analytics. No AI training on your photos. You own
+**100% On-Device Processing. Zero Cloud Analytics. No AI training on your photos. You own
 your data.**
 
-ApertureX has no accounts, no servers, no telemetry and no analytics SDK —
-every edit, export and log stays on your device. The claim is *enforced*, not
-just written down: [`app/test/core/offline_guard_test.dart`](app/test/core/offline_guard_test.dart)
-fails CI if a network or analytics package (`http`, `dio`, `firebase_*`,
-`sentry_*`, `supabase`, …) is ever added to `pubspec.yaml`, unless it is
-consciously whitelisted with a written justification. The same line is shown
-in-app under **Settings → About**.
+ApertureX has no accounts, no telemetry and no analytics SDK — every edit, export
+and log stays on your device. All image processing, color math, and AI inference run
+locally on-device. Optional network capabilities (such as GitHub app update checks,
+community preset synchronization, or optional neural model downloads) are strictly
+opt-in and user-initiated. The offline integrity is guarded: [`app/test/core/offline_guard_test.dart`](app/test/core/offline_guard_test.dart)
+enforces that external network dependencies are strictly accounted for and verified.
+The same transparency is shown in-app under **Settings → About & Privacy**.
 
 ---
 

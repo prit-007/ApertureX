@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import 'file_saver.dart';
 
 /// gal's Photos/DCIM bridge behind an interface (#104): gal declares
@@ -137,7 +139,8 @@ class PhotoSaver {
         await file.writeAsBytes(bytes, flush: true);
         return OverwrittenOriginal(originalPath);
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.export, 'saveOverwriteOriginal fallback to gallery: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       // Fallback to saving copy
     }
     return (await saveBytes(

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 
 import 'activity_log.dart';
+import 'log_providers.dart';
 
 /// Reads the platform side's own evidence — `native.log` and the crash marker
 /// written by Kotlin (ADR 0012 §4/§6) — over a method channel. Every call is
@@ -23,7 +24,8 @@ class NativeLogBridge {
       );
       if (raw == null) return const [];
       return [for (final item in raw) if (item is Map) ?_decode(item)];
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.native, 'Native log readEntries failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       return const [];
     }
   }
@@ -36,7 +38,8 @@ class NativeLogBridge {
         'readCrashMarker',
       );
       return raw?.cast<String, Object?>();
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.native, 'Native log readCrashMarker failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       return null;
     }
   }
@@ -44,8 +47,8 @@ class NativeLogBridge {
   Future<void> clearCrashMarker() async {
     try {
       await _channel.invokeMethod<void>('clearCrashMarker');
-    } catch (_) {
-      // best effort
+    } catch (e, st) {
+      axLog(LogDomain.native, 'Native log clearCrashMarker failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
     }
   }
 

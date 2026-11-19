@@ -29,7 +29,7 @@
           </div>
           <div class="bento-tag-row">
             <span class="hud-tag">Open-Source Studio</span>
-            <span class="hud-tag hud-tag-emerald">100% Offline Integrity</span>
+            <span class="hud-tag hud-tag-emerald">100% On-Device Integrity</span>
             <span class="hud-tag">GPL-3.0</span>
           </div>
         </div>

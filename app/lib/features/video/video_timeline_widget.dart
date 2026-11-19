@@ -211,7 +211,7 @@ class VideoTimelineWidget extends ConsumerWidget {
                                           Text(
                                             '${(sequence.clips[i].effectiveDurationMs / 1000).toStringAsFixed(1)}s',
                                             style: const TextStyle(
-                                              fontSize: 8,
+                                              fontSize: 10,
                                               color: Colors.white38,
                                               fontFamily: 'monospace',
                                             ),

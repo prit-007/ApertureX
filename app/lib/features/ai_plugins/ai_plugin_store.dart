@@ -310,7 +310,8 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
         }
       }
       return file.path;
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.app, 'AI plugin path resolution fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       return '/tmp/ai_plugins/$pluginId.onnx';
     }
   }
@@ -480,7 +481,8 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
       return state.installedPlugins.firstWhere(
         (p) => p.task == task && p.isEnabled && p.isInstalled,
       );
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.app, 'No active plugin for task $task: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       return null;
     }
   }

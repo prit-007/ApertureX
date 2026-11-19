@@ -334,7 +334,7 @@ class _PrintScreenState extends ConsumerState<PrintScreen>
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.black54,
-                fontSize: 9,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -356,7 +356,7 @@ class _PrintScreenState extends ConsumerState<PrintScreen>
                 'GAMUT WARNING',
                 style: TextStyle(
                   color: Colors.black,
-                  fontSize: 8,
+                  fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -498,7 +498,7 @@ class _PrintScreenState extends ConsumerState<PrintScreen>
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.black87,
-                      fontSize: 8,
+                      fontSize: 10,
                       fontWeight: FontWeight.w500,
                     ),
                   ),

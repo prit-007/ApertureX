@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/design_tokens.dart';
+import '../../l10n/app_strings.dart';
 import 'settings_about_sheet.dart';
 import 'settings_ai_sheet.dart';
 import 'settings_export_defaults_sheet.dart';
@@ -52,6 +53,7 @@ class SettingsHub extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final s = AppStrings.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -63,43 +65,43 @@ class SettingsHub extends ConsumerWidget {
             children: [
               Icon(Icons.tune, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
-              Text('Settings Hub', style: theme.textTheme.titleMedium),
+              Text(s.settingsHub, style: theme.textTheme.titleMedium),
             ],
           ),
           const SizedBox(height: 12),
           _categoryTile(
             context,
             icon: Icons.dashboard_customize_outlined,
-            title: 'Workspace & Shell',
-            subtitle: 'Dual shells (Lightroom / Snapseed), theme, glassmorphic UI',
+            title: s.workspaceAndShell,
+            subtitle: s.workspaceAndShellDesc,
             onTap: () => SettingsShellSheet.show(context),
           ),
           _categoryTile(
             context,
             icon: Icons.draw_outlined,
-            title: 'Stylus & Input',
-            subtitle: 'Palm rejection, pressure sensitivity, inverted stylus eraser',
+            title: s.stylusAndInput,
+            subtitle: s.stylusAndInputDesc,
             onTap: () => SettingsStylusSheet.show(context),
           ),
           _categoryTile(
             context,
             icon: Icons.save_alt_rounded,
-            title: 'Export Defaults',
-            subtitle: 'Default JPEG quality, max dimensions, C2PA offline signing',
+            title: s.exportDefaults,
+            subtitle: s.exportDefaultsDesc,
             onTap: () => SettingsExportDefaultsSheet.show(context),
           ),
           _categoryTile(
             context,
             icon: Icons.lock_outline,
-            title: 'Privacy & Local AI',
-            subtitle: 'On-device neural inference consent, model downloads, zero telemetry',
+            title: s.privacyAndLocalAi,
+            subtitle: s.privacyAndLocalAiDesc,
             onTap: () => SettingsAiSheet.show(context),
           ),
           _categoryTile(
             context,
             icon: Icons.info_outline,
-            title: 'About ApertureX',
-            subtitle: 'App version, developers, open-source licenses, offline guarantee',
+            title: s.aboutApertureX,
+            subtitle: s.aboutApertureXDesc,
             onTap: () => SettingsAboutSheet.show(context),
           ),
         ],

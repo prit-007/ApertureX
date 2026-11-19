@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import '../engine/engine.dart';
 import 'depth_sidecar.dart';
 import 'parameter.dart';
@@ -212,7 +214,8 @@ class LensBlurController extends Notifier<LensBlurState> {
             );
             return;
           }
-        } catch (_) {
+        } catch (e, st) {
+          axLog(LogDomain.engine, 'Embedded depth sidecar read fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
           // Fall back to standard decoding proxy pipeline
         }
       }
@@ -389,7 +392,8 @@ class LensBlurController extends Notifier<LensBlurState> {
         ref.read(recipeControllerProvider.notifier).setDepthField(data);
         state = state.copyWith(cachedDepth: floatPlane);
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.engine, 'LensBlur recalculate cached depth fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       // Fallback: keep existing depth
     }
   }

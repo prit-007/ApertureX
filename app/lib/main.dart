@@ -54,7 +54,9 @@ void main() {
     SharedPreferences? prefs;
     try {
       prefs = await SharedPreferences.getInstance();
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Main SharedPreferences startup fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
     runApp(
       bootstrapApp(
         overrides: [
@@ -82,7 +84,8 @@ Future<void> _initActivityLog(ErrorReporter reporter) async {
     // One-time next-launch offer when the last session left a marker from
     // either layer (ADR 0012 §3); the dialog lands on the log page.
     await showCrashReport(marker: reporter.marker, bridge: NativeLogBridge());
-  } catch (_) {
+  } catch (e, st) {
+    axLog(LogDomain.app, 'Startup activity log init error: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
     // Logging must never block startup.
   }
   axLog(LogDomain.app, 'ApertureX started');

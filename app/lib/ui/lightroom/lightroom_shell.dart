@@ -1568,7 +1568,7 @@ class _PluginsPanelView extends ConsumerWidget {
               child: Text(
                 status,
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                   color: scheme.primary,
                 ),
@@ -2144,7 +2144,7 @@ class _PresetStripItem extends ConsumerWidget {
                             Text(
                               item.depthHint ?? 'Depth',
                               style: const TextStyle(
-                                fontSize: 8,
+                                fontSize: 10,
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -2171,7 +2171,7 @@ class _PresetStripItem extends ConsumerWidget {
                             Text(
                               'ACTIVE',
                               style: TextStyle(
-                                fontSize: 8,
+                                fontSize: 10,
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -2206,7 +2206,7 @@ class _PresetStripItem extends ConsumerWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 9,
+                      fontSize: 10.5,
                       color: scheme.onSurfaceVariant,
                     ),
                   ),

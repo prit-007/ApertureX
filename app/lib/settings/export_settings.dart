@@ -532,8 +532,8 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
       state = _readFromPrefs(prefs);
-    } catch (_) {
-      // No storage available (e.g. tests) — keep defaults.
+    } catch (e, st) {
+      axLog(LogDomain.export, 'ExportSettings restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -552,8 +552,8 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
       await prefs.setInt(_sharpenMediaKey, state.outputSharpenMedia);
       await prefs.setDouble(_sharpenAmountKey, state.outputSharpen);
       await prefs.setInt(_metadataModeKey, state.metadataMode.index);
-    } catch (_) {
-      // best effort
+    } catch (e, st) {
+      axLog(LogDomain.export, 'ExportSettings persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 }

@@ -574,6 +574,157 @@ pub fn find_bundled_depth_model() -> Option<String> {
     None
 }
 
+/// Searches standard paths for a bundled neural denoiser model (e.g. NAFNet, SCUNet).
+pub fn find_bundled_denoise_model() -> Option<String> {
+    if let Ok(env_path) = std::env::var("APERTUREX_DENOISE_MODEL") {
+        if std::path::Path::new(&env_path).is_file() {
+            return Some(env_path);
+        }
+    }
+    let candidates = [
+        "assets/models/nafnet_denoise.onnx",
+        "../assets/models/nafnet_denoise.onnx",
+        "app/rust/assets/models/nafnet_denoise.onnx",
+        "assets/models/scunet_denoise.onnx",
+    ];
+    for candidate in &candidates {
+        if std::path::Path::new(candidate).is_file() {
+            return Some((*candidate).to_string());
+        }
+    }
+    None
+}
+
+/// Executes neural network sensor denoise using active ONNX runtime model if available.
+pub fn try_neural_denoise(
+    rgba: &[u8],
+    src_w: usize,
+    src_h: usize,
+    amount: f32,
+) -> Result<Vec<u8>, String> {
+    if amount <= 0.0 || src_w == 0 || src_h == 0 || rgba.len() < src_w * src_h * 4 {
+        return Ok(rgba.to_vec());
+    }
+    #[cfg(feature = "ai")]
+    {
+        let model_path = get_active_model("denoise").or_else(find_bundled_denoise_model);
+        if let Some(path) = model_path {
+            if !std::path::Path::new(&path).is_file() {
+                return Err(format!("Neural denoise model not found at '{path}'"));
+            }
+            let bytes = std::fs::read(&path)
+                .map_err(|e| format!("Failed to read denoise model '{path}': {e}"))?;
+            let mut session = crate::ort_runtime::create_session(&bytes)?;
+
+            const TILE_SIZE: usize = 512;
+            const OVERLAP: usize = 32;
+            let step = TILE_SIZE.saturating_sub(OVERLAP).max(1);
+
+            let mut output_rgba = rgba.to_vec();
+            let mut weight_accum = vec![0.0f32; src_w * src_h];
+            let mut accum_r = vec![0.0f32; src_w * src_h];
+            let mut accum_g = vec![0.0f32; src_w * src_h];
+            let mut accum_b = vec![0.0f32; src_w * src_h];
+
+            let y_steps = if src_h <= TILE_SIZE {
+                1
+            } else {
+                ((src_h - 1) / step) + 1
+            };
+            let x_steps = if src_w <= TILE_SIZE {
+                1
+            } else {
+                ((src_w - 1) / step) + 1
+            };
+
+            for yi in 0..y_steps {
+                let y0 = (yi * step).min(src_h.saturating_sub(TILE_SIZE));
+                let tile_h = TILE_SIZE.min(src_h.saturating_sub(y0));
+                for xi in 0..x_steps {
+                    let x0 = (xi * step).min(src_w.saturating_sub(TILE_SIZE));
+                    let tile_w = TILE_SIZE.min(src_w.saturating_sub(x0));
+
+                    let mut tile_in = vec![0.0f32; 3 * TILE_SIZE * TILE_SIZE];
+                    for ty in 0..tile_h {
+                        for tx in 0..tile_w {
+                            let src_idx = ((y0 + ty) * src_w + (x0 + tx)) * 4;
+                            let in_idx = ty * TILE_SIZE + tx;
+                            tile_in[in_idx] = rgba[src_idx] as f32 / 255.0;
+                            tile_in[TILE_SIZE * TILE_SIZE + in_idx] =
+                                rgba[src_idx + 1] as f32 / 255.0;
+                            tile_in[2 * TILE_SIZE * TILE_SIZE + in_idx] =
+                                rgba[src_idx + 2] as f32 / 255.0;
+                        }
+                    }
+
+                    if let Ok(tile_out) = crate::ort_runtime::run_session(
+                        &mut session,
+                        &tile_in,
+                        &[1, 3, TILE_SIZE, TILE_SIZE],
+                    ) {
+                        if tile_out.len() >= 3 * TILE_SIZE * TILE_SIZE {
+                            for ty in 0..tile_h {
+                                for tx in 0..tile_w {
+                                    let global_idx = (y0 + ty) * src_w + (x0 + tx);
+                                    let out_idx = ty * TILE_SIZE + tx;
+
+                                    let wx = ((tx as f32 / tile_w.max(1) as f32)
+                                        * std::f32::consts::PI)
+                                        .sin();
+                                    let wy = ((ty as f32 / tile_h.max(1) as f32)
+                                        * std::f32::consts::PI)
+                                        .sin();
+                                    let w = (wx * wy).max(0.01);
+
+                                    let r = tile_out[out_idx].clamp(0.0, 1.0) * 255.0;
+                                    let g = tile_out[TILE_SIZE * TILE_SIZE + out_idx]
+                                        .clamp(0.0, 1.0)
+                                        * 255.0;
+                                    let b = tile_out[2 * TILE_SIZE * TILE_SIZE + out_idx]
+                                        .clamp(0.0, 1.0)
+                                        * 255.0;
+
+                                    accum_r[global_idx] += r * w;
+                                    accum_g[global_idx] += g * w;
+                                    accum_b[global_idx] += b * w;
+                                    weight_accum[global_idx] += w;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            let blend = amount.clamp(0.0, 1.0);
+            for i in 0..(src_w * src_h) {
+                let w = weight_accum[i];
+                if w > 1e-5 {
+                    let r_denoised = accum_r[i] / w;
+                    let g_denoised = accum_g[i] / w;
+                    let b_denoised = accum_b[i] / w;
+
+                    let off = i * 4;
+                    let r_orig = rgba[off] as f32;
+                    let g_orig = rgba[off + 1] as f32;
+                    let b_orig = rgba[off + 2] as f32;
+
+                    output_rgba[off] = (r_orig * (1.0 - blend) + r_denoised * blend)
+                        .round()
+                        .clamp(0.0, 255.0) as u8;
+                    output_rgba[off + 1] = (g_orig * (1.0 - blend) + g_denoised * blend)
+                        .round()
+                        .clamp(0.0, 255.0) as u8;
+                    output_rgba[off + 2] = (b_orig * (1.0 - blend) + b_denoised * blend)
+                        .round()
+                        .clamp(0.0, 255.0) as u8;
+                }
+            }
+            return Ok(output_rgba);
+        }
+    }
+    Err("No neural denoise model available".into())
+}
+
 #[cfg(feature = "ai")]
 const BUNDLED_DEPTH_MODEL: &[u8] = include_bytes!("../assets/models/depth_anything_v2_vits.onnx");
 
@@ -1276,5 +1427,17 @@ mod tests {
         )
         .expect("fallback depth");
         assert_eq!(fallback2.len(), 16);
+    }
+
+    #[test]
+    fn test_try_neural_denoise_fallback_and_bounds() {
+        let dummy_rgba = vec![200u8; 16 * 16 * 4];
+        // Zero amount is no-op
+        let res_zero = try_neural_denoise(&dummy_rgba, 16, 16, 0.0).expect("zero amount");
+        assert_eq!(res_zero, dummy_rgba);
+
+        // When no neural model is registered, returns Err (allowing caller to use spatial fallback)
+        let res_no_model = try_neural_denoise(&dummy_rgba, 16, 16, 0.5);
+        assert!(res_no_model.is_err());
     }
 }

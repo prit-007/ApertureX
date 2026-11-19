@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/error/error_dialog.dart' show rootNavigatorKey;
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/settings_clipboard.dart';
 import '../../features/editor/editor_screen.dart';
@@ -73,7 +75,9 @@ class DesktopMenuBar extends ConsumerWidget {
                       MaterialPageRoute<void>(builder: (_) => EditorScreen(imageBytes: bytes)),
                     );
                   }
-                } catch (_) {}
+                } catch (e, st) {
+                  axLog(LogDomain.app, 'Desktop menu file open failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
+                }
               },
             ),
             PlatformMenuItem(

@@ -261,7 +261,7 @@ class WiperCurtainPainter extends CustomPainter {
           text: '▲\n▼',
           style: TextStyle(
             color: Color(0xFF00E5FF),
-            fontSize: 8,
+            fontSize: 10,
             fontWeight: FontWeight.bold,
             height: 1.0,
           ),

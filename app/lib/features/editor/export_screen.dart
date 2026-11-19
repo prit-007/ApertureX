@@ -4,6 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe.dart';
 import '../../engine/engine.dart';
@@ -149,7 +151,8 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         _livePreviewJpg = encoded;
         _isRenderingLivePreview = false;
       });
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.export, 'Live export preview generation fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       if (mounted) {
         setState(() {
           _livePreviewJpg = widget.previewBytes;

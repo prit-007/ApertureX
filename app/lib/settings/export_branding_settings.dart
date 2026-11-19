@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import '../src/rust/api/export.dart';
 import 'shared_preferences_provider.dart';
 
@@ -243,7 +245,9 @@ class ExportBrandingNotifier extends Notifier<ExportBrandingSettings> {
       if (savedLogoPath != null && savedLogoPath.isNotEmpty) {
         await _loadLogoImage(savedLogoPath);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.export, 'Branding restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 
   void setMuseumFrame({
@@ -445,7 +449,9 @@ class ExportBrandingNotifier extends Notifier<ExportBrandingSettings> {
       await prefs.setBool('branding_foss_badge', state.enableFossBadge);
       await prefs.setBool('branding_c2pa_enabled', state.enableC2pa);
       await prefs.setInt('export_quality', state.quality);
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.export, 'Branding persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 }
 

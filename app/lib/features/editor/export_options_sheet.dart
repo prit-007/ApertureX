@@ -5,6 +5,8 @@ import '../../core/theme/design_tokens.dart';
 import '../../settings/export_branding_settings.dart';
 import '../../settings/export_settings.dart';
 import '../../ui/common/app_sheet.dart';
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 
 enum ExportAction {
   openExportStudio,
@@ -42,7 +44,8 @@ class ExportOptionsSheet extends StatelessWidget {
     bool hasLocalizations = true;
     try {
       MaterialLocalizations.of(context);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.export, 'Material localizations unavailable', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       hasLocalizations = false;
     }
     if (!hasLocalizations) {
@@ -59,7 +62,8 @@ class ExportOptionsSheet extends StatelessWidget {
     bool hasScope = true;
     try {
       ProviderScope.containerOf(context);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.export, 'ProviderScope unavailable', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       hasScope = false;
     }
 

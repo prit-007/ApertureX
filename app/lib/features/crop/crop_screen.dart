@@ -12,6 +12,8 @@ import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
 import '../../engine/image_format.dart';
 import '../../viewport/live_warp.dart';
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 
 /// Aspect presets for the crop tool (`null` = free).
 const List<(String, double?)> kCropAspects = [
@@ -108,7 +110,8 @@ class _CropScreenState extends ConsumerState<CropScreen>
         _crop = clampNormalized(_withAspect(_crop));
         _loading = false;
       });
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.editor, 'Crop image load failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       if (mounted) setState(() => _loading = false);
     }
   }

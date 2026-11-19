@@ -23,12 +23,15 @@ import '../src/rust/api/decode.dart' as rust_decode;
 import '../src/rust/api/engine.dart' as rust_engine;
 import '../src/rust/api/exif.dart' as rust_exif;
 import '../src/rust/exif.dart' show ImageMetadata;
+import '../src/rust/api/expand.dart' as rust_expand;
 import '../src/rust/api/export.dart' as rust_export;
 import '../src/rust/api/geometry.dart' as rust_geometry;
+import '../src/rust/api/head_pose.dart' as rust_head_pose;
 import '../src/rust/api/histogram.dart' as rust_hist;
 import '../src/rust/api/icc.dart' as rust_icc;
 import '../src/rust/api/logging.dart' as rust_logging;
 import '../src/rust/api/mask.dart' as rust_mask;
+import '../src/rust/api/panorama.dart' as rust_panorama;
 import '../src/rust/api/preview.dart' as rust_preview;
 import '../src/rust/api/preview.dart' show PreviewBaseSpec;
 import '../src/rust/api/raw.dart' as rust_raw;
@@ -251,7 +254,8 @@ class AxEngine {
   static Future<Uint8List?> extractRawEmbeddedPreview(Uint8List raw) async {
     try {
       return await rust_raw.rawExtractEmbeddedPreview(raw: raw);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.engine, 'Raw embedded preview extraction failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       return null;
     }
   }
@@ -300,9 +304,8 @@ class AxEngine {
   static Future<void> clearRawDecodeCache() async {
     try {
       await rust_raw.clearRawDecodeCache();
-    } catch (_) {
-      // In tests or headless environments where RustLib is not initialized,
-      // silently ignore bridge call errors.
+    } catch (e, st) {
+      axLog(LogDomain.engine, 'Clear raw decode cache failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -328,7 +331,9 @@ class AxEngine {
           height: image.height,
         );
       }
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.engine, 'Image codec decode fallback failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
+    }
     return await decodeJpegRgba(bytes);
   }
 
@@ -346,7 +351,8 @@ class AxEngine {
               final jpegSlice = bytes.sublist(i, j + 2);
               try {
                 return await decodeJpegRgba(jpegSlice);
-              } catch (_) {
+              } catch (e, st) {
+                axLog(LogDomain.engine, 'JPEG slice decode fallback to image decoder', level: LogLevel.warning, error: e.toString(), stack: st.toString());
                 final image = img.decodeImage(jpegSlice);
                 if (image != null) {
                   return RgbaImage(
@@ -356,7 +362,9 @@ class AxEngine {
                   );
                 }
               }
-            } catch (_) {}
+            } catch (e, st) {
+              axLog(LogDomain.engine, 'HEIC/AVIF embedded preview scan failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
+            }
             break;
           }
         }
@@ -1913,4 +1921,70 @@ class AxEngine {
   /// suitable for `LinearProgressIndicator.value` and `ExportProgressPoller`.
   static Future<double> exportProgressFraction(int token) async =>
       (await exportProgressGet(token)) / 1000.0;
+
+  /// Expands canvas margins using [mode] (0: Smart, 1: White, 2: Black, 3: Reflect).
+  static Future<Uint8List> expandCanvas({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    required int padLeft,
+    required int padTop,
+    required int padRight,
+    required int padBottom,
+    int mode = 0,
+  }) =>
+      rust_expand.expandCanvas(
+        rgba: rgba,
+        width: width,
+        height: height,
+        padLeft: padLeft,
+        padTop: padTop,
+        padRight: padRight,
+        padBottom: padBottom,
+        modeIndex: mode,
+      );
+
+  /// Estimates 3D head orientation (yaw, pitch, roll) from facial landmarks.
+  static Future<rust_head_pose.ApiHeadPoseEstimate> estimateHeadPose({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+  }) =>
+      rust_head_pose.estimateHeadPose(
+        rgba: rgba,
+        width: width,
+        height: height,
+      );
+
+  /// Adjusts facial pose parameters and facial expressions.
+  static Future<Uint8List> adjustHeadPose({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    double deltaYaw = 0.0,
+    double deltaPitch = 0.0,
+    double deltaRoll = 0.0,
+    double smile = 0.0,
+    double pupilDistance = 0.0,
+  }) =>
+      rust_head_pose.adjustHeadPose(
+        rgba: rgba,
+        width: width,
+        height: height,
+        deltaYaw: deltaYaw,
+        deltaPitch: deltaPitch,
+        deltaRoll: deltaRoll,
+        smile: smile,
+        pupilDistance: pupilDistance,
+      );
+
+  /// Stitches 2 or more overlapping photos into a seamless panorama.
+  static Future<rust_panorama.ApiPanoramaResult> stitchPanorama({
+    required List<rust_panorama.ApiPanoramaInput> images,
+    int projectionIndex = 0,
+  }) =>
+      rust_panorama.stitchPanorama(
+        images: images,
+        projectionIndex: projectionIndex,
+      );
 }

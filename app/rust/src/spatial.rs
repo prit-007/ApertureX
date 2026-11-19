@@ -619,11 +619,18 @@ pub fn denoise(rgba: &[u8], w: usize, h: usize, luma: f32, chroma: f32) -> Vec<u
     out
 }
 
-/// AI neural sensor noise removal: edge-preserving adaptive bilateral filtering.
+/// AI neural sensor noise removal: executes active ONNX neural network (NAFNet / SCUNet)
+/// when available, falling back to edge-preserving adaptive spatial bilateral filtering.
 /// Preserves sharp structural transitions while synthesizing clean, noise-free patches.
 pub fn ai_denoise(rgba: &[u8], w: usize, h: usize, amount: f32) -> Vec<u8> {
     if amount <= 0.0 || w == 0 || h == 0 || rgba.len() < w * h * 4 {
         return rgba.to_vec();
+    }
+    #[cfg(feature = "ai")]
+    {
+        if let Ok(neural_out) = crate::ml::try_neural_denoise(rgba, w, h, amount) {
+            return neural_out;
+        }
     }
     let n = w * h;
     let clamped_amount = amount.clamp(0.0, 1.0);

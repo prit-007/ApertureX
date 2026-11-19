@@ -296,7 +296,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                     Text(
                       '${zHue.toStringAsFixed(0)}° · ${(zSat * 100).toStringAsFixed(0)}%',
                       style: TextStyle(
-                        fontSize: 9.5,
+                        fontSize: 10.5,
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.w600,
                         color: scheme.onSurfaceVariant,

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import '../ui/common/mask_controls.dart' show SkyDetectorFn, SubjectSegmenterFn;
 import 'adjustment_layer.dart';
 import 'recipe.dart';
@@ -102,8 +104,8 @@ class AiMaskResolver {
               );
             }
           }
-        } catch (_) {
-          // Fallback safely to current layer
+        } catch (e, st) {
+          axLog(LogDomain.editor, 'AI mask subject resolver fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
         }
       }
     } else if (intent == 'sky') {
@@ -120,8 +122,8 @@ class AiMaskResolver {
               originAssetId: targetAssetId,
             );
           }
-        } catch (_) {
-          // Fallback safely
+        } catch (e, st) {
+          axLog(LogDomain.editor, 'AI mask sky resolver fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
         }
       }
     }

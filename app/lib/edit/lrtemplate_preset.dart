@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import 'recipe.dart';
 import 'tone_curve.dart';
 import 'xmp_crs.dart';
@@ -65,7 +67,8 @@ PresetImport parseLrtemplatePreset(String content) {
   try {
     final parsed = LuaParser(content).parse();
     rawSettings = _findSettingsMap(parsed);
-  } catch (_) {
+  } catch (e, st) {
+    axLog(LogDomain.preset, 'parseLrtemplatePreset syntax parse failure: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     // Malformed input fails gracefully into neutral recipe with error note
     return const PresetImport(
       EditRecipe.neutral,

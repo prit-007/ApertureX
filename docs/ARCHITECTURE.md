@@ -300,26 +300,28 @@ Implementations:
 
 ## 8. Color science
 
-- **Working space:** linear light for all math; sRGB/Display-P3 output.
-- **Precision:** 16-bit float intermediates where available; 8-bit only at the
-  final encode.
- - **Op order (fixed):**
-   1. Decode → linear
-   2. Lens corrections (distortion, vignette, CA)
-   3. Camera white balance (RAW) / as-shot (JPEG)
-   4. Camera-profile matrices — DNG `ColorMatrix`, temperature-interpolated
-   5. Camera profile CLUT — DCP `HueSatMap` / `LookTable` (Adobe-standard parity)
-   6. Exposure
-   7. Tone (highlights/shadows, whites/blacks, contrast, curve)
-   8. Color (temperature/tint, vibrance/saturation, HSL)
-   9. Split-tone / colour grading
-   10. Detail (clarity, texture, sharpen, dehaze, noise reduction) — spatial
-   11. **User HALD / 3D LUT — applied last among edits**
-   12. **Film emulation physics** — halation, bloom, dust flecks, scratches (baked in CPU preview base)
-   13. **Shader Lab** — custom presets + 3 user params + optional custom GLSL
-   14. Geometry (crop, rotate, flip, perspective) — warped live on the GPU, baked
-       into the final `Matrix4` resample at export
-   15. Output transform (color space, gamma) → encode
+- **Working space:** scene-linear float (`DecodedLinear`, `f32`) for all math; sRGB/Display-P3 output.
+- **Precision:** True 32-bit scene-linear float (`f32`) pipeline throughout; 16-bit linear TIFF export (`export_tiff16_linear`) and DNG CFA passthrough preserving full sensor dynamic range. 8-bit only at the final lossy JPEG encode.
+- **Op order (fixed):**
+   1. Decode → scene-linear float
+   2. Lens corrections (distortion, vignette, chromatic aberration)
+   3. Camera calibration primary matrix shifts (Red/Green/Blue Primary Hue & Saturation, Shadows Tint)
+   4. Camera white balance (RAW Bradford / Von Kries) / as-shot
+   5. Camera-profile matrices — DNG `ColorMatrix`, temperature-interpolated
+   6. Camera profile CLUT — DCP `HueSatMap` / `LookTable` (Adobe-standard parity)
+   7. Exposure (linear multiplicative 2^EV)
+   8. Tone (highlights/shadows, whites/blacks, contrast, curves)
+   9. Color (temperature/tint, vibrance, saturation, 8-band HSL mixer, Point Color precise windowing)
+   10. Split-tone / 3-way color grading wheels (Shadows, Midtones, Highlights)
+   11. Local adjustments & boolean mask stacks (Subject, Sky, Background, Face, Skin, Hair, Object, Radial, Linear, Brush, Depth)
+   12. Retouch repair suite (Poisson Heal, Clone, Bilateral Skin Smoothing, Eye Brighten, Teeth Whiten)
+   13. Double exposure multi-layer compositing (Screen, Multiply, Overlay, Lighten, Darken, Add, Subtract)
+   14. Detail (clarity, texture, output sharpening, dehaze, bilateral denoise) — spatial passes with halo padding
+   15. User HALD / 3D LUT — applied last among edits
+   16. Film emulation physics — halation, bloom, dust flecks, scratches
+   17. Shader Lab — custom presets + 3 user params + optional custom GLSL
+   18. Guided Upright geometry (crop, rotate, flip, perspective, guide-line convergence) — warped live on the GPU, resampled on export
+   19. Output transform (color space, gamma) → encode (JPEG, 16-bit linear TIFF, or Ultra HDR)
 - Op order is versioned inside the recipe so future reordering does not silently
   change existing edits.
 

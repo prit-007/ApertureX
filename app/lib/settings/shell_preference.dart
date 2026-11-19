@@ -50,8 +50,8 @@ class ShellPreference extends Notifier<AppShellKind> {
       state = name == AppShellKind.snapseed.name
           ? AppShellKind.snapseed
           : AppShellKind.lightroom;
-    } catch (_) {
-      // No storage available (e.g. tests) — keep the default.
+    } catch (e, st) {
+      axLog(LogDomain.app, 'ShellPreference restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -59,8 +59,8 @@ class ShellPreference extends Notifier<AppShellKind> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_key, kind.name);
-    } catch (_) {
-      // best effort
+    } catch (e, st) {
+      axLog(LogDomain.app, 'ShellPreference persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 }

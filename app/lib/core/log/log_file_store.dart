@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'activity_log.dart';
+import 'log_providers.dart';
 
 /// Durable, append-only, on-device log file (one JSON object per line). All
 /// operations are best-effort: a logging failure must never crash the app.
@@ -28,8 +29,8 @@ class LogFileStore {
         flush: true,
       );
       await _rotateIfNeeded();
-    } catch (_) {
-      // best effort
+    } catch (e, st) {
+      axLog(LogDomain.error, 'Log file write failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -42,7 +43,8 @@ class LogFileStore {
       return [
         for (final line in lines.sublist(start)) ?LogEntry.decode(line),
       ];
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.error, 'Log file read failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       return const [];
     }
   }
@@ -50,8 +52,8 @@ class LogFileStore {
   Future<void> clear() async {
     try {
       if (await file.exists()) await file.delete();
-    } catch (_) {
-      // best effort
+    } catch (e, st) {
+      axLog(LogDomain.error, 'Log file clear failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -62,8 +64,8 @@ class LogFileStore {
       if (lines.length <= keepLines) return;
       final kept = lines.sublist(lines.length - keepLines);
       await file.writeAsString('${kept.join('\n')}\n', flush: true);
-    } catch (_) {
-      // best effort — never let rotation break logging
+    } catch (e, st) {
+      axLog(LogDomain.error, 'Log rotation failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
     }
   }
 }

@@ -96,7 +96,8 @@ class LogEntry {
         stack: map['s'] as String?,
         meta: (map['x'] as Map?)?.cast<String, Object?>(),
       );
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.error, 'Log entry decode failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       return null;
     }
   }

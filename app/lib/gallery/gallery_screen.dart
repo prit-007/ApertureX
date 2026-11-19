@@ -421,8 +421,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           final h = DuplicateDetector.computeDHash(decoded.rgba, decoded.width, decoded.height);
           hashes[asset.id] = h;
         }
-      } catch (_) {
-        // Skip unreadable assets
+      } catch (e, st) {
+        axLog(LogDomain.gallery, 'Duplicate detection skip unreadable asset', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       }
     }
 
@@ -568,8 +568,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             cullResults[asset.id] = score;
           }
         }
-      } catch (_) {
-        // Skip unreadable assets
+      } catch (e, st) {
+        axLog(LogDomain.gallery, 'Culling skip unreadable asset', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       }
     }
 
@@ -2359,7 +2359,7 @@ class _Cell extends StatelessWidget {
                     'RAW',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 9,
+                      fontSize: 10.5,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.5,
                     ),
@@ -3438,7 +3438,8 @@ class _EditPreviewCellState extends State<_EditPreviewCell> {
     if (file.existsSync()) {
       try {
         _bytes = file.readAsBytesSync();
-      } catch (_) {
+      } catch (e, st) {
+        axLog(LogDomain.gallery, 'Preview load bytes failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
         _bytes = null;
       }
     } else {

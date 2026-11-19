@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import '../color/blur_spec.dart';
 import '../color/grade_spec.dart';
 import '../color/optics_spec.dart';
@@ -394,7 +396,8 @@ class GalleryExporter {
         var ok = false;
         try {
           ok = await run(id, recipeFor(id));
-        } catch (_) {
+        } catch (e, st) {
+          axLog(LogDomain.export, 'Batch export single photo error on $id: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
           ok = false;
         }
         if (ok) {

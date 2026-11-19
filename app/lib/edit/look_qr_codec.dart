@@ -5,6 +5,9 @@ import 'parameter.dart';
 import 'recipe.dart';
 import 'tool_definition.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
+
 /// Shorthand mappings for compact QR code payloads (spec in docs/LOOK_QR_STANDARD.md).
 const Map<String, String> _paramToShorthand = {
   'exposure': 'exp',
@@ -182,8 +185,8 @@ class LookQrCodec {
     List<int> jsonBytes;
     try {
       jsonBytes = zlib.decode(compressedBytes);
-    } catch (_) {
-      // Fallback in case raw uncompressed bytes were passed
+    } catch (e, st) {
+      axLog(LogDomain.editor, 'Look QR zlib decode fallback to raw bytes', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       jsonBytes = compressedBytes;
     }
 

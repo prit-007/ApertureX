@@ -5,6 +5,8 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import '../edit/catalog_db.dart';
 import '../edit/drift_catalog_store.dart';
 import '../edit/recipe.dart';
@@ -121,7 +123,9 @@ class EditPreviewStore {
       if (await oldFile.exists()) {
         try {
           await oldFile.delete();
-        } catch (_) {}
+        } catch (e, st) {
+          axLog(LogDomain.gallery, 'Old preview delete error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+        }
       }
     }
 
@@ -149,7 +153,9 @@ class EditPreviewStore {
       if (file.existsSync()) {
         try {
           file.deleteSync();
-        } catch (_) {}
+        } catch (e, st) {
+          axLog(LogDomain.gallery, 'Preview file delete error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+        }
       }
     }
     await (db.delete(db.editPreviews)..where((t) => t.entryId.equals(entryId)))

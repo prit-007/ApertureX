@@ -6,6 +6,8 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../color/cube_lut.dart';
 import '../../color/grade_spec.dart';
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
@@ -54,7 +56,8 @@ class _LutExportSheetState extends ConsumerState<LutExportSheet> {
           size: _lutSize,
           title: title,
         );
-      } catch (_) {
+      } catch (e, st) {
+        axLog(LogDomain.export, 'exportCubeLut fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
         // Fallback for headless environments or when bridge is unavailable
         final n = _lutSize;
         final data = Float32List(n * n * n * 3);

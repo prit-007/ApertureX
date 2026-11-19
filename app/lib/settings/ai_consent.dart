@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import 'shared_preferences_provider.dart';
 
 /// SharedPreferences key for on-device AI user data consent.
@@ -22,7 +24,7 @@ enum AiConsentStatus {
 /// Manages and persists user consent for local, on-device AI operations.
 ///
 /// Complies with F-Droid inclusion policies and privacy standards:
-/// All inference is 100% on-device, offline, with zero data transmission.
+/// All inference runs 100% locally on-device with zero cloud telemetry or data transmission.
 class AiConsentNotifier extends Notifier<AiConsentStatus> {
   bool _userSet = false;
 
@@ -65,7 +67,9 @@ class AiConsentNotifier extends Notifier<AiConsentStatus> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(kAiConsentPrefKey);
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'AiConsent reset failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 
   /// Prompts the user with an explicit privacy and consent dialog if unprompted.
@@ -138,8 +142,8 @@ class AiConsentNotifier extends Notifier<AiConsentStatus> {
       } else if (granted == false) {
         state = AiConsentStatus.declined;
       }
-    } catch (_) {
-      // Storage unavailable in tests
+    } catch (e, st) {
+      axLog(LogDomain.app, 'AiConsent restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -147,7 +151,9 @@ class AiConsentNotifier extends Notifier<AiConsentStatus> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(kAiConsentPrefKey, granted);
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'AiConsent persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 }
 

@@ -29,7 +29,19 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('APPEARANCE'), findsOneWidget);
     expect(find.text('INTERFACE SHELL'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('STYLUS & INPUT'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('STYLUS & INPUT'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('ENGINE & PERFORMANCE'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('ENGINE & PERFORMANCE'), findsOneWidget);
 
     await tester.scrollUntilVisible(

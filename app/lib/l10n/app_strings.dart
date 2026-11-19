@@ -51,6 +51,94 @@ class AppStrings {
         'zh': '设置',
       }, 'Settings');
 
+  String get settingsHub => _t({
+        'es': 'Panel de Ajustes',
+        'de': 'Einstellungs-Hub',
+        'fr': 'Centre de Paramètres',
+        'ja': '設定ハブ',
+        'zh': '设置中心',
+      }, 'Settings Hub');
+
+  String get workspaceAndShell => _t({
+        'es': 'Espacio de trabajo y estructura',
+        'de': 'Arbeitsbereich & Shell',
+        'fr': 'Espace de travail et interface',
+        'ja': 'ワークスペースとシェル',
+        'zh': '工作区与界面',
+      }, 'Workspace & Shell');
+
+  String get workspaceAndShellDesc => _t({
+        'es': 'Estructuras duales (Lightroom / Snapseed), tema, interfaz translúcida',
+        'de': 'Duale Shells (Lightroom / Snapseed), Theme, Glasmorphismus',
+        'fr': 'Double interface (Lightroom / Snapseed), thème, interface translucide',
+        'ja': 'デュアルシェル（Lightroom / Snapseed）、テーマ、透過UI',
+        'zh': '双重界面（Lightroom / Snapseed）、主题、拟玻质感UI',
+      }, 'Dual shells (Lightroom / Snapseed), theme, glassmorphic UI');
+
+  String get stylusAndInput => _t({
+        'es': 'Lápiz y entrada táctil',
+        'de': 'Stylus & Eingabe',
+        'fr': 'Stylet et saisie',
+        'ja': 'スタイラスと入力',
+        'zh': '手写笔与输入',
+      }, 'Stylus & Input');
+
+  String get stylusAndInputDesc => _t({
+        'es': 'Rechazo de palma, sensibilidad a la presión, borrador invertido',
+        'de': 'Handflächenerkennung, Druckempfindlichkeit, Stiftradiermodus',
+        'fr': 'Rejet de la paume, sensibilité à la pression, gomme inversée',
+        'ja': 'パームリジェクション、筆圧感知、反転消しゴム',
+        'zh': '防手掌误触、压感灵敏度、笔尾橡皮擦',
+      }, 'Palm rejection, pressure sensitivity, inverted stylus eraser');
+
+  String get exportDefaults => _t({
+        'es': 'Predeterminados de exportación',
+        'de': 'Export-Standardwerte',
+        'fr': 'Valeurs d\'exportation par défaut',
+        'ja': '書き出しのデフォルト',
+        'zh': '默认导出设置',
+      }, 'Export Defaults');
+
+  String get exportDefaultsDesc => _t({
+        'es': 'Calidad JPEG, dimensiones máximas, firma C2PA fuera de línea',
+        'de': 'Standard-JPEG-Qualität, maximale Abmessungen, C2PA-Offline-Signatur',
+        'fr': 'Qualité JPEG par défaut, dimensions maximales, signature C2PA hors ligne',
+        'ja': '標準JPEG品質、最大解像度、C2PAオフライン署名',
+        'zh': '默认JPEG画质、最大尺寸、C2PA离线签名',
+      }, 'Default JPEG quality, max dimensions, C2PA offline signing');
+
+  String get privacyAndLocalAi => _t({
+        'es': 'Privacidad e IA local',
+        'de': 'Datenschutz & Lokale KI',
+        'fr': 'Confidentialité et IA locale',
+        'ja': 'プライバシーとローカルAI',
+        'zh': '隐私与本地AI',
+      }, 'Privacy & Local AI');
+
+  String get privacyAndLocalAiDesc => _t({
+        'es': 'Inferencia neuronal en el dispositivo, descarga de modelos, cero telemetría',
+        'de': 'On-Device neuronale Inferenz, Modell-Downloads, null Telemetrie',
+        'fr': 'Inférence neuronale sur l\'appareil, téléchargement de modèles, zéro télémétrie',
+        'ja': 'デバイス内ニューラル推論、モデルダウンロード、テレメトリゼロ',
+        'zh': '设备端神经网络推理、模型下载、零遥测',
+      }, 'On-device neural inference consent, model downloads, zero telemetry');
+
+  String get aboutApertureX => _t({
+        'es': 'Acerca de ApertureX',
+        'de': 'Über ApertureX',
+        'fr': 'À propos d\'ApertureX',
+        'ja': 'ApertureX について',
+        'zh': '关于 ApertureX',
+      }, 'About ApertureX');
+
+  String get aboutApertureXDesc => _t({
+        'es': 'Versión, desarrolladores, licencias de código abierto, garantía en dispositivo',
+        'de': 'App-Version, Entwickler, Open-Source-Lizenzen, On-Device-Garantie',
+        'fr': 'Version de l\'application, développeurs, licences libres, garantie sur l\'appareil',
+        'ja': 'アプリバージョン、開発者、オープンソースライセンス、デバイス内保証',
+        'zh': '应用版本、开发者、开源许可证、设备端保证',
+      }, 'App version, developers, open-source licenses, on-device guarantee');
+
   String get recent => _t({
         'es': 'Recientes',
         'de': 'Zuletzt',

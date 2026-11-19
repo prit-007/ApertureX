@@ -49,9 +49,8 @@ import '../../src/rust/api/export.dart' as rust_export;
 import '../c2pa/c2pa_service.dart';
 import '../../ui/app_shell.dart';
 import '../../ui/common/app_primitives.dart';
-import '../../ui/common/app_sheet.dart';
 import '../../ui/common/history_tree_sheet.dart';
-import '../../ui/common/settings_sheet.dart';
+import '../../ui/settings/settings_hub.dart';
 import '../../ui/edit_activity.dart';
 import '../../edit/active_image.dart' show currentEditingAssetProvider;
 
@@ -655,7 +654,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           exifLine1: line1.isEmpty ? 'APERTUREX • ORIGINAL' : line1,
           exifLine2: line2,
         ).toRustBrandingSpec();
-      } catch (_) {}
+      } catch (e, st) {
+        axLog(LogDomain.export, 'Museum frame metadata build fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+      }
     }
 
     rust_export.C2paExportSpec? c2paSpec;
@@ -1631,6 +1632,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   void _openSettings(BuildContext context) {
-    showAppSheet(context, const SettingsSheet());
+    SettingsHub.show(context);
   }
 }

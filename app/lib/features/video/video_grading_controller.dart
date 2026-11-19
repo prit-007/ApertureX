@@ -6,6 +6,8 @@ import '../../color/cube_lut.dart';
 import '../../color/grade_spec.dart';
 import '../../edit/recipe.dart';
 import '../../engine/engine.dart';
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import 'video_model.dart';
 
 /// Combined state for video playback, timeline sequence, and color grading.
@@ -458,7 +460,8 @@ class VideoGradingController extends Notifier<VideoGradingState> {
         size: size,
         title: lutTitle,
       );
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.editor, 'Video CUBE LUT export fallback to pure Dart', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       // Pure Dart fallback for headless/test environments
       final n = size;
       final data = Float32List(n * n * n * 3);

@@ -9,7 +9,7 @@ import { onMounted } from 'vue'
 
 const items = [
   'Non-destructive',
-  '100% offline',
+  '100% on-device',
   'RAW ready',
   'Open source',
   'Look QR',
