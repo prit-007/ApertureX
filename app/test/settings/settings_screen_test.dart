@@ -141,4 +141,24 @@ void main() {
     await tester.tap(updateFinder);
     await tester.pump();
   });
+
+  testWidgets('SettingsScreen displays active count badge when AI plugins are installed', (tester) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final badgeFinder = find.text('1 Active');
+    await tester.scrollUntilVisible(
+      badgeFinder,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(badgeFinder, findsOneWidget);
+  });
 }

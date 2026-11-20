@@ -16,10 +16,14 @@ class ColorGradingEditor extends ConsumerStatefulWidget {
 }
 
 class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
+  bool _threeWayMode = false;
   GradeWheelZone _zone = GradeWheelZone.shadows;
 
-  (double hue, double sat, double lum) _zoneValues(EditRecipe recipe) =>
-      switch (_zone) {
+  (double hue, double sat, double lum) _extractZoneValues(
+    EditRecipe recipe,
+    GradeWheelZone zone,
+  ) =>
+      switch (zone) {
         GradeWheelZone.shadows => (
           recipe.gradeShadowHue,
           recipe.gradeShadowSat,
@@ -42,14 +46,18 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
     final scheme = Theme.of(context).colorScheme;
     final recipe = ref.watch(recipeControllerProvider).recipe;
     final notifier = ref.read(recipeControllerProvider.notifier);
-    final (rawHue, sat, lum) = _zoneValues(recipe);
+    final (rawHue, sat, lum) = _extractZoneValues(recipe, _zone);
     final hue = (rawHue <= 1.0 && rawHue > 0) ? rawHue * 360.0 : rawHue;
 
-    Widget zoneChip(GradeWheelZone zone, String label, IconData icon) {
-      final isSelected = _zone == zone;
+    Widget zoneChip({
+      required String label,
+      required IconData icon,
+      required bool isSelected,
+      required VoidCallback onTap,
+    }) {
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => setState(() => _zone = zone),
+        onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeOut,
@@ -103,22 +111,22 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
       required VoidCallback onChangeEnd,
       bool showPlus = true,
       int divisions = 100,
+      bool compact = false,
     }) {
       final formatted =
           '${showPlus && value > 0 ? '+' : ''}${value.toStringAsFixed(2)}';
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+        padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 16, vertical: 2),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                SizedBox(
-                  width: 72,
+                Expanded(
                   child: Text(
                     label,
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: compact ? 10.5 : 11.5,
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.2,
@@ -128,7 +136,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                 Text(
                   formatted,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: compact ? 10 : 11,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.bold,
                     color: scheme.primary,
@@ -136,16 +144,120 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            Slider(
-              value: value.clamp(min, max),
-              min: min,
-              max: max,
-              divisions: divisions,
-              onChanged: onChanged,
-              onChangeEnd: (_) => onChangeEnd(),
-              activeColor: scheme.primary,
-              inactiveColor: scheme.onSurfaceVariant.withValues(alpha: 0.2),
+            const SizedBox(height: 2),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: compact ? 2 : 4,
+                thumbShape: RoundSliderThumbShape(enabledThumbRadius: compact ? 5 : 7),
+                overlayShape: RoundSliderOverlayShape(overlayRadius: compact ? 10 : 14),
+              ),
+              child: Slider(
+                value: value.clamp(min, max),
+                min: min,
+                max: max,
+                divisions: divisions,
+                onChanged: onChanged,
+                onChangeEnd: (_) => onChangeEnd(),
+                activeColor: scheme.primary,
+                inactiveColor: scheme.onSurfaceVariant.withValues(alpha: 0.2),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget buildWheelZoneCard(
+      GradeWheelZone targetZone, {
+      required double wheelSize,
+      bool showHeader = true,
+    }) {
+      final (rawH, zSat, zLum) = _extractZoneValues(recipe, targetZone);
+      final zHue = (rawH <= 1.0 && rawH > 0) ? rawH * 360.0 : rawH;
+      final zoneName = switch (targetZone) {
+        GradeWheelZone.shadows => 'Shadows',
+        GradeWheelZone.midtones => 'Midtones',
+        GradeWheelZone.highlights => 'Highlights',
+      };
+      final zoneIcon = switch (targetZone) {
+        GradeWheelZone.shadows => Icons.brightness_4,
+        GradeWheelZone.midtones => Icons.brightness_6,
+        GradeWheelZone.highlights => Icons.highlight,
+      };
+
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.35),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (showHeader) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  children: [
+                    Icon(zoneIcon, size: 12, color: scheme.primary),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        zoneName,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: scheme.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      '${zHue.toStringAsFixed(0)}° · ${(zSat * 100).toStringAsFixed(0)}%',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+            ],
+            Center(
+              child: ColorGradingWheel(
+                hue: zHue,
+                saturation: zSat,
+                size: wheelSize,
+                onChanged: (newHue, newSat) {
+                  notifier.setGradeWheel(targetZone, hue: newHue, sat: newSat);
+                },
+                onChangeEnd: () =>
+                    notifier.commit(label: '$zoneName Color Grading'),
+                onReset: () {
+                  notifier.setGradeWheel(targetZone, hue: 0.0, sat: 0.0);
+                  notifier.commit(label: 'Reset $zoneName');
+                },
+              ),
+            ),
+            const SizedBox(height: 2),
+            sliderRow(
+              label: 'Luminance',
+              value: zLum,
+              min: -1.0,
+              max: 1.0,
+              compact: true,
+              onChanged: (v) => notifier.setGradeWheel(targetZone, lum: v),
+              onChangeEnd: () =>
+                  notifier.commit(label: '$zoneName Luminance'),
             ),
           ],
         ),
@@ -157,7 +269,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Zone selector with icons
+          // View Mode / Zone selector with icons
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: SingleChildScrollView(
@@ -167,21 +279,40 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   zoneChip(
-                    GradeWheelZone.shadows,
-                    'Shadows',
-                    Icons.brightness_4,
+                    label: '3-Way',
+                    icon: Icons.view_column_rounded,
+                    isSelected: _threeWayMode,
+                    onTap: () => setState(() => _threeWayMode = true),
                   ),
                   const SizedBox(width: 8),
                   zoneChip(
-                    GradeWheelZone.midtones,
-                    'Midtones',
-                    Icons.brightness_6,
+                    label: 'Shadows',
+                    icon: Icons.brightness_4,
+                    isSelected: !_threeWayMode && _zone == GradeWheelZone.shadows,
+                    onTap: () => setState(() {
+                      _threeWayMode = false;
+                      _zone = GradeWheelZone.shadows;
+                    }),
                   ),
                   const SizedBox(width: 8),
                   zoneChip(
-                    GradeWheelZone.highlights,
-                    'Highlights',
-                    Icons.highlight,
+                    label: 'Midtones',
+                    icon: Icons.brightness_6,
+                    isSelected: !_threeWayMode && _zone == GradeWheelZone.midtones,
+                    onTap: () => setState(() {
+                      _threeWayMode = false;
+                      _zone = GradeWheelZone.midtones;
+                    }),
+                  ),
+                  const SizedBox(width: 8),
+                  zoneChip(
+                    label: 'Highlights',
+                    icon: Icons.highlight,
+                    isSelected: !_threeWayMode && _zone == GradeWheelZone.highlights,
+                    onTap: () => setState(() {
+                      _threeWayMode = false;
+                      _zone = GradeWheelZone.highlights;
+                    }),
                   ),
                   const SizedBox(width: 12),
                   TextButton.icon(
@@ -192,11 +323,22 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     onPressed: () {
-                      notifier.setGradeWheel(_zone, hue: 0.0, sat: 0.0, lum: 0.0);
-                      notifier.commit(label: 'Reset ${_zone.name}');
+                      if (_threeWayMode) {
+                        notifier.setGradeWheel(GradeWheelZone.shadows, hue: 0.0, sat: 0.0, lum: 0.0);
+                        notifier.setGradeWheel(GradeWheelZone.midtones, hue: 0.0, sat: 0.0, lum: 0.0);
+                        notifier.setGradeWheel(GradeWheelZone.highlights, hue: 0.0, sat: 0.0, lum: 0.0);
+                        notifier.setGradeGlobal(blending: 0.5, balance: 0.0);
+                        notifier.commit(label: 'Reset All Color Grades');
+                      } else {
+                        notifier.setGradeWheel(_zone, hue: 0.0, sat: 0.0, lum: 0.0);
+                        notifier.commit(label: 'Reset ${_zone.name}');
+                      }
                     },
                     icon: const Icon(Icons.refresh, size: 14),
-                    label: const Text('Reset', style: TextStyle(fontSize: 11)),
+                    label: Text(
+                      _threeWayMode ? 'Reset All' : 'Reset',
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ),
                 ],
               ),
@@ -205,65 +347,136 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
 
           const SizedBox(height: 4),
 
-          // Hue/Sat/Lum readout
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(
-                'Hue: ${hue.toStringAsFixed(0)}°   Sat: ${(sat * 100).toStringAsFixed(0)}%   Lum: ${(lum * 100).toStringAsFixed(0)}%',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
+          if (_threeWayMode) ...[
+            // 3-Way simultaneous wheels view (Lightroom Desktop & DaVinci Resolve parity)
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth >= 540) {
+                  final colWidth = (constraints.maxWidth - 32) / 3;
+                  final wheelSize = (colWidth - 32).clamp(80.0, 140.0);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: buildWheelZoneCard(
+                            GradeWheelZone.shadows,
+                            wheelSize: wheelSize,
+                          ),
+                        ),
+                        Expanded(
+                          child: buildWheelZoneCard(
+                            GradeWheelZone.midtones,
+                            wheelSize: wheelSize,
+                          ),
+                        ),
+                        Expanded(
+                          child: buildWheelZoneCard(
+                            GradeWheelZone.highlights,
+                            wheelSize: wheelSize,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  final cardWidth = math.min(constraints.maxWidth * 0.80, 240.0);
+                  final wheelSize = (cardWidth - 48).clamp(90.0, 130.0);
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: cardWidth,
+                          child: buildWheelZoneCard(
+                            GradeWheelZone.shadows,
+                            wheelSize: wheelSize,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: cardWidth,
+                          child: buildWheelZoneCard(
+                            GradeWheelZone.midtones,
+                            wheelSize: wheelSize,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: cardWidth,
+                          child: buildWheelZoneCard(
+                            GradeWheelZone.highlights,
+                            wheelSize: wheelSize,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              },
+            ),
+          ] else ...[
+            // Single focus wheel mode
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  'Hue: ${hue.toStringAsFixed(0)}°   Sat: ${(sat * 100).toStringAsFixed(0)}%   Lum: ${(lum * 100).toStringAsFixed(0)}%',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'monospace',
+                  ),
                 ),
               ),
             ),
-          ),
 
-          const SizedBox(height: 4),
+            const SizedBox(height: 4),
 
-          // Color wheel - adaptive sizing
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final available = math.min(
-                    constraints.maxWidth,
-                    constraints.maxHeight,
-                  );
-                  return ColorGradingWheel(
-                    hue: hue,
-                    saturation: sat,
-                    size: (available - 16).clamp(120.0, 180.0),
-                    onChanged: (newHue, newSat) {
-                      notifier.setGradeWheel(_zone, hue: newHue, sat: newSat);
-                    },
-                    onChangeEnd: () =>
-                        notifier.commit(label: 'Color Grading'),
-                    onReset: () {
-                      notifier.setGradeWheel(_zone, hue: 0.0, sat: 0.0);
-                      notifier.commit(label: 'Reset Color Grade');
-                    },
-                  );
-                },
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final available = math.min(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    );
+                    return ColorGradingWheel(
+                      hue: hue,
+                      saturation: sat,
+                      size: (available - 16).clamp(120.0, 180.0),
+                      onChanged: (newHue, newSat) {
+                        notifier.setGradeWheel(_zone, hue: newHue, sat: newSat);
+                      },
+                      onChangeEnd: () =>
+                          notifier.commit(label: 'Color Grading'),
+                      onReset: () {
+                        notifier.setGradeWheel(_zone, hue: 0.0, sat: 0.0);
+                        notifier.commit(label: 'Reset Color Grade');
+                      },
+                    );
+                  },
+                ),
               ),
             ),
-          ),
 
-          const SizedBox(height: 8),
+            const SizedBox(height: 8),
 
-          // Luminance slider
-          sliderRow(
-            label: 'Luminance',
-            value: lum,
-            min: -1.0,
-            max: 1.0,
-            onChanged: (v) => notifier.setGradeWheel(_zone, lum: v),
-            onChangeEnd: () =>
-                notifier.commit(label: 'Color Grading Luminance'),
-          ),
+            sliderRow(
+              label: 'Luminance',
+              value: lum,
+              min: -1.0,
+              max: 1.0,
+              onChanged: (v) => notifier.setGradeWheel(_zone, lum: v),
+              onChangeEnd: () =>
+                  notifier.commit(label: 'Color Grading Luminance'),
+            ),
+          ],
 
           Divider(
             height: 20,

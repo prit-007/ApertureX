@@ -50,19 +50,22 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
     super.dispose();
   }
 
-  void _apply(ToolDefinition tool, {double? amount}) {
+  void _apply(ToolDefinition tool, {double? amount, bool pop = false}) {
     final amt = amount ?? _presetAmount;
+    setState(() => _activeTool = tool);
     ref.read(recipeControllerProvider.notifier).applyTool(tool, amount: amt);
     ref.read(recipeControllerProvider.notifier).commit(label: tool.name);
     axLog(LogDomain.preset, 'Applied look "${tool.name}" at ${(amt * 100).round()}%');
-    Navigator.of(context).maybePop();
+    if (pop) {
+      Navigator.of(context).maybePop();
+    }
   }
 
   void _import() {
     try {
       final tool = ToolDefinition.decode(_controller.text);
       setState(() => _importError = null);
-      _apply(tool);
+      _apply(tool, pop: true);
     } on FormatException catch (e) {
       setState(() => _importError = e.message);
     }
@@ -95,6 +98,14 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
       subtitle: _selectedTab == 0
           ? 'One-tap grades, Pat David film emulations, or scan a shared Look QR.'
           : 'Discover open-source community color grades, film recipes & looks.',
+      actions: [
+        IconButton(
+          key: const Key('looks-sheet-done-button'),
+          icon: const Icon(Icons.check, size: 20),
+          tooltip: 'Done',
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+      ],
       children: [
         Center(
           child: SegmentedButton<int>(
@@ -131,7 +142,9 @@ class _LooksSheetState extends ConsumerState<LooksSheet> {
                 Icon(Icons.tune, size: 16, color: theme.colorScheme.primary),
                 const SizedBox(width: 6),
                 Text(
-                  'Strength ${(_presetAmount * 100).round()}%',
+                  _activeTool != null
+                      ? '${_activeTool!.name} · ${(_presetAmount * 100).round()}%'
+                      : 'Strength ${(_presetAmount * 100).round()}%',
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(width: 8),

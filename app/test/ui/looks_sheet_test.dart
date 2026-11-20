@@ -109,7 +109,11 @@ void main() {
     await pump(tester);
 
     final shareBtn = find.byKey(const Key('share-look-qr-Punch'));
-    await tester.ensureVisible(shareBtn);
+    await tester.scrollUntilVisible(
+      shareBtn,
+      80.0,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     expect(shareBtn, findsOneWidget);
     await tester.tap(shareBtn);
@@ -159,6 +163,37 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Saved'), findsOneWidget);
+  });
+
+  testWidgets('LooksSheet preset strength slider adjusts look intensity live', (tester) async {
+    await pump(tester);
+
+    // Initial slider is at 100%
+    final sliderFinder = find.byKey(const Key('looks-sheet-preset-strength-slider'));
+    expect(sliderFinder, findsOneWidget);
+    expect(find.text('Strength 100%'), findsOneWidget);
+
+    // Switch to Community Hub and apply Nordic Pines
+    await tester.tap(find.text('Community Hub'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('filter-category-Moody')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('apply-community-moody_nordic')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nordic Pines · 100%'), findsOneWidget);
+    var recipe = container.read(recipeControllerProvider).recipe;
+    expect(recipe.contrast, closeTo(0.22, 0.001));
+
+    // Drag strength slider to reduce intensity
+    await tester.drag(sliderFinder, const Offset(-50, 0));
+    await tester.pumpAndSettle();
+
+    recipe = container.read(recipeControllerProvider).recipe;
+    expect(recipe.contrast, lessThan(0.22));
+    expect(recipe.contrast, greaterThan(0.0));
   });
 }
 

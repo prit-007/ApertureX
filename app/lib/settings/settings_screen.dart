@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../core/log/log_providers.dart';
 import '../core/theme/design_tokens.dart';
 import '../core/updater/update_dialog.dart';
+import '../features/ai_plugins/ai_plugin_store.dart';
 import '../features/ai_plugins/ai_plugins_screen.dart';
 import '../features/guide/app_guide_screen.dart';
 import '../features/logs/logs_screen.dart';
@@ -74,6 +75,7 @@ class SettingsScreen extends ConsumerWidget {
     final zeroCopy = ref.watch(zeroCopyTextureProvider);
     final export = ref.watch(exportSettingsProvider);
     final aiConsent = ref.watch(aiConsentProvider);
+    final installedAiCount = ref.watch(aiPluginProvider).installedPlugins.length;
     final appVersion = ref.watch(appVersionProvider).asData?.value ?? '0.3.9+9';
     final strings = AppStrings.of(context);
 
@@ -342,7 +344,29 @@ class SettingsScreen extends ConsumerWidget {
                 leading: const Icon(Icons.hub_outlined),
                 title: const Text('AI Models & Plugins (Neural Forge)'),
                 subtitle: const Text('Install custom AI models via GitHub links, HuggingFace, or files'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (installedAiCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        margin: const EdgeInsets.only(right: 6),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '$installedAiCount Active',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
