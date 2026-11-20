@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../log/activity_log.dart';
 import '../log/log_providers.dart';

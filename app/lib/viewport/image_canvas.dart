@@ -42,6 +42,8 @@ import 'wiper_compare.dart';
 import 'split_compare.dart';
 import 'exposure_assist.dart';
 import 'canvas_transform.dart';
+import 'canvas_painter.dart';
+import 'focus_ring.dart';
 import 'exif_orientation.dart';
 import 'live_warp.dart';
 import 'mask_peek.dart';
@@ -113,6 +115,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   /// Preview LUT is small; export grades per-pixel exactly.
   static const int _previewLutSize = 33;
+
   /// Fast 17³ proxy LUT during active gesture drags (<0.2ms bake, 120 FPS).
   static const int _scrubLutSize = 17;
 
@@ -245,12 +248,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   final List<ProviderSubscription<dynamic>> _subscriptions = [];
 
   static int _selectGeometryTransform(RecipeState s) => Object.hash(
-        s.recipe.straighten,
-        s.recipe.perspectiveX,
-        s.recipe.perspectiveY,
-        s.recipe.skewX,
-        s.recipe.skewY,
-      );
+    s.recipe.straighten,
+    s.recipe.perspectiveX,
+    s.recipe.perspectiveY,
+    s.recipe.skewX,
+    s.recipe.skewY,
+  );
 
   @override
   void initState() {
@@ -326,7 +329,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     );
 
     _subscriptions.add(
-      ref.listenManual<ExposureAssistState>(exposureAssistProvider, (previous, next) {
+      ref.listenManual<ExposureAssistState>(exposureAssistProvider, (
+        previous,
+        next,
+      ) {
         if (next.mode == ExposureAssistMode.zebras) {
           if (!_reduceMotion && !_zebraTicker.isAnimating) {
             _zebraTicker.repeat();
@@ -411,7 +417,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _subscriptions.add(
       ref.listenManual(zoneMaskProvider, (previous, next) {
         if (previous?.isTargeting != next.isTargeting) {
-          _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+          _scheduleBake(
+            _renderRecipe(ref.read(recipeControllerProvider).recipe),
+          );
         }
       }),
     );
@@ -419,7 +427,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _subscriptions.add(
       ref.listenManual(wiperCompareProvider, (previous, next) {
         if (previous?.isActive != next.isActive) {
-          _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+          _scheduleBake(
+            _renderRecipe(ref.read(recipeControllerProvider).recipe),
+          );
         }
       }),
     );
@@ -427,7 +437,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _subscriptions.add(
       ref.listenManual(splitCompareProvider, (previous, next) {
         if (previous?.isEnabled != next.isEnabled) {
-          _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+          _scheduleBake(
+            _renderRecipe(ref.read(recipeControllerProvider).recipe),
+          );
         }
       }),
     );
@@ -435,7 +447,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _subscriptions.add(
       ref.listenManual(softProofingProvider, (previous, next) {
         if (previous?.enabled != next.enabled) {
-          _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+          _scheduleBake(
+            _renderRecipe(ref.read(recipeControllerProvider).recipe),
+          );
         }
       }),
     );
@@ -477,7 +491,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   @override
   void didUpdateWidget(ImageCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.imageBytes != null && widget.imageBytes != oldWidget.imageBytes) {
+    if (widget.imageBytes != null &&
+        widget.imageBytes != oldWidget.imageBytes) {
       _upgradeRoiBytes(widget.imageBytes!);
     }
   }
@@ -496,7 +511,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           width = dims.width;
           height = dims.height;
         } catch (e, st) {
-          axLog(LogDomain.engine, 'rawDimensions failed: $e', error: e.toString(), stack: st.toString());
+          axLog(
+            LogDomain.engine,
+            'rawDimensions failed: $e',
+            error: e.toString(),
+            stack: st.toString(),
+          );
           width = 0;
           height = 0;
         }
@@ -506,7 +526,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           width = dims.width;
           height = dims.height;
         } catch (e) {
-          axLog(LogDomain.engine, 'jpegDimensions failed, falling back to ImageDescriptor: $e');
+          axLog(
+            LogDomain.engine,
+            'jpegDimensions failed, falling back to ImageDescriptor: $e',
+          );
           final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
           final descriptor = await ui.ImageDescriptor.encoded(buffer);
           width = descriptor.width;
@@ -530,7 +553,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _scheduleRoi();
       }
     } catch (e, st) {
-      axLog(LogDomain.engine, 'setFullResBytes header parse failed: $e', error: e.toString(), stack: st.toString());
+      axLog(
+        LogDomain.engine,
+        'setFullResBytes header parse failed: $e',
+        error: e.toString(),
+        stack: st.toString(),
+      );
       // Header parse failed or non-standard format; keep existing proxy ROI.
     }
   }
@@ -573,7 +601,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             tileSize: _tileSize,
           );
         } catch (e) {
-          axLog(LogDomain.engine, 'JPEG dimensions load failed, falling back to descriptor: $e');
+          axLog(
+            LogDomain.engine,
+            'JPEG dimensions load failed, falling back to descriptor: $e',
+          );
           try {
             final buffer = await ui.ImmutableBuffer.fromUint8List(jpeg);
             final descriptor = await ui.ImageDescriptor.encoded(buffer);
@@ -683,7 +714,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         unawaited(_ensureEmbeddedDepth());
       }
     } catch (e, st) {
-      axLog(LogDomain.engine, '_load failed: $e', error: e.toString(), stack: st.toString());
+      axLog(
+        LogDomain.engine,
+        '_load failed: $e',
+        error: e.toString(),
+        stack: st.toString(),
+      );
       if (mounted) setState(() => _failed = true);
     }
   }
@@ -994,7 +1030,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       // shader path handles color space; P3→sRGB is applied at export time.
       return (image, Uint8List(0), image.width, image.height);
     } catch (e) {
-      axLog(LogDomain.engine, 'Standard codec failed, retrying Rust raw decoder: $e');
+      axLog(
+        LogDomain.engine,
+        'Standard codec failed, retrying Rust raw decoder: $e',
+      );
       // If standard codec fails (e.g. uncommon raw or tiff variant), try Rust raw decoder
       return await _decodeRaw(bytes, maxDim: maxDim);
     }
@@ -1011,11 +1050,16 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       try {
         final buffer = await ui.ImmutableBuffer.fromUint8List(embedded);
         final descriptor = await ui.ImageDescriptor.encoded(buffer);
-        final targetW = maxDim != null && descriptor.width > maxDim ? maxDim : descriptor.width;
+        final targetW = maxDim != null && descriptor.width > maxDim
+            ? maxDim
+            : descriptor.width;
         final targetH = maxDim != null && descriptor.height > maxDim
             ? ((descriptor.height * targetW) / descriptor.width).round()
             : descriptor.height;
-        final codec = await descriptor.instantiateCodec(targetWidth: targetW, targetHeight: targetH);
+        final codec = await descriptor.instantiateCodec(
+          targetWidth: targetW,
+          targetHeight: targetH,
+        );
         final frame = await codec.getNextFrame();
         descriptor.dispose();
         buffer.dispose();
@@ -1029,7 +1073,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         final linear = await AxEngine.decodeRawLinear(bytes);
         _linearProxy = linear.data;
       } catch (e) {
-        axLog(LogDomain.engine, 'Linear RAW decode fallback: $e', level: LogLevel.warning);
+        axLog(
+          LogDomain.engine,
+          'Linear RAW decode fallback: $e',
+          level: LogLevel.warning,
+        );
       }
     }
     final decoded = await AxEngine.decodeRawRgba(bytes);
@@ -1094,10 +1142,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       if (original.isEmpty) return;
       final depth = await AxEngine.extractEmbeddedDepth(original);
       if (depth == null) {
-        ref.read(lensBlurControllerProvider.notifier).setStatusMessage('Synthetic Depth (no embedded map)');
+        ref
+            .read(lensBlurControllerProvider.notifier)
+            .setStatusMessage('Synthetic Depth (no embedded map)');
         return;
       }
-      ref.read(lensBlurControllerProvider.notifier).setStatusMessage('Embedded GDepth Active');
+      ref
+          .read(lensBlurControllerProvider.notifier)
+          .setStatusMessage('Embedded GDepth Active');
       await AxEngine.previewSetEmbeddedDepth(
         handle,
         depth.depth,
@@ -1116,9 +1168,16 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _lastBaseKey = null;
       _scheduleBake(ref.read(recipeControllerProvider).recipe);
     } catch (e, st) {
-      axLog(LogDomain.engine, 'Embedded depth extraction failed: $e', error: e.toString(), stack: st.toString());
+      axLog(
+        LogDomain.engine,
+        'Embedded depth extraction failed: $e',
+        error: e.toString(),
+        stack: st.toString(),
+      );
       _embeddedDepthAssetId = null;
-      ref.read(lensBlurControllerProvider.notifier).setStatusMessage('Synthetic Depth (extraction error)');
+      ref
+          .read(lensBlurControllerProvider.notifier)
+          .setStatusMessage('Synthetic Depth (extraction error)');
     }
   }
 
@@ -1138,11 +1197,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final modeChanged = useTexture != _useTexture;
     _useTexture = useTexture;
     final currentBaseKey = _baseKey(recipe);
-    final baseChanged = modeChanged ||
+    final baseChanged =
+        modeChanged ||
         forceFullRes ||
         currentBaseKey != _lastBaseKey ||
         (_isBaseProxy && currentBaseKey != _lastProxyBaseKey);
-    final targetLutSize = (!forceFullRes && (_isScrubbing || ref.read(editActivityProvider)))
+    final targetLutSize =
+        (!forceFullRes && (_isScrubbing || ref.read(editActivityProvider)))
         ? _scrubLutSize
         : _previewLutSize;
     final gradeChanged =
@@ -1246,9 +1307,14 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   bool _isDraftBlur = false;
 
   void _settleFullRes() {
-    if (_disposed || !mounted || _program == null || _previewHandle == null) return;
+    if (_disposed || !mounted || _program == null || _previewHandle == null) {
+      return;
+    }
     final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
-    if (_isBaseProxy || _lastBaseKey != _baseKey(recipe) || _activeLutSize != _previewLutSize || _isDraftBlur) {
+    if (_isBaseProxy ||
+        _lastBaseKey != _baseKey(recipe) ||
+        _activeLutSize != _previewLutSize ||
+        _isDraftBlur) {
       _scheduleBake(recipe, forceFullRes: true);
     }
   }
@@ -1314,11 +1380,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// straight into the platform texture. On any failure the texture is dropped
   /// and we rebuild through the return-frame path so the preview never stalls.
   PreviewBaseSpec _baseSpec(EditRecipe recipe, {bool forceFullRes = false}) {
-    final isScrub = !forceFullRes && (_isScrubbing || ref.read(editActivityProvider));
-    final sampleCount = isScrub ? 12 : (recipe.blurSampleCount >= 36 ? recipe.blurSampleCount : 36);
+    final isScrub =
+        !forceFullRes && (_isScrubbing || ref.read(editActivityProvider));
+    final sampleCount = isScrub
+        ? 12
+        : (recipe.blurSampleCount >= 36 ? recipe.blurSampleCount : 36);
     _isDraftBlur = isScrub && recipe.blurEnabled;
     return baseSpecFromRecipe(recipe.copyWith(blurSampleCount: sampleCount));
   }
+
   void _setBusy(bool value) {
     if (!_disposed) _busy.value = value;
   }
@@ -1328,7 +1398,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     int token, {
     bool forceFullRes = false,
   }) async {
-    final useFastProxy = !forceFullRes &&
+    final useFastProxy =
+        !forceFullRes &&
         _fastProxyHandle != null &&
         (_isScrubbing || ref.read(editActivityProvider));
     final handle = useFastProxy ? _fastProxyHandle! : _previewHandle;
@@ -1391,10 +1462,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }) async {
     // Spatial pass in baseImage already applied edge-preserving guided shadows and highlights;
     // zero them out for the 3D LUT fragment shader to prevent double-applying tone curves.
-    final spec = GradeSpec.fromRecipe(recipe).copyWith(
-      shadows: 0.0,
-      highlights: 0.0,
-    );
+    final spec = GradeSpec.fromRecipe(
+      recipe,
+    ).copyWith(shadows: 0.0, highlights: 0.0);
     final imported = ref.read(importedLutProvider);
     final ui.Image lutImage;
     final int lutSize;
@@ -1445,10 +1515,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final histogram = await AxEngine.previewHistogram(
       handle,
       sampleDim: 256,
-      spec: GradeSpec.fromRecipe(recipe).copyWith(
-        shadows: 0.0,
-        highlights: 0.0,
-      ),
+      spec: GradeSpec.fromRecipe(
+        recipe,
+      ).copyWith(shadows: 0.0, highlights: 0.0),
     );
     if (token != _bakeToken) return;
     ref.read(histogramProvider.notifier).publish(histogram);
@@ -1470,10 +1539,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         layers: recipe.layers,
         maskGroups: recipe.maskGroups,
         retouchPatches: recipe.retouchPatches,
-        grade: GradeSpec.fromRecipe(recipe).copyWith(
-          shadows: 0.0,
-          highlights: 0.0,
-        ),
+        grade: GradeSpec.fromRecipe(
+          recipe,
+        ).copyWith(shadows: 0.0, highlights: 0.0),
         baseChanged: baseChanged,
       );
       if (!mounted || token != _bakeToken) return;
@@ -1494,7 +1562,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _baseRgba = null;
       });
     } catch (e) {
-      axLog(LogDomain.engine, 'Texture render failed, dropping to fallback: $e');
+      axLog(
+        LogDomain.engine,
+        'Texture render failed, dropping to fallback: $e',
+      );
       _dropTexture();
       if (baseChanged) await _rebuildBase(recipe, token);
       if (gradeChanged) await _rebuildLut(recipe, token);
@@ -1557,7 +1628,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   @override
   Widget build(BuildContext context) {
-    _devicePixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ??
+    _devicePixelRatio =
+        MediaQuery.maybeOf(context)?.devicePixelRatio ??
         View.of(context).devicePixelRatio;
 
     final program = _program;
@@ -1566,10 +1638,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final uneditedSource = _source;
     final lut = _lut;
     final zeroCopy = _useTexture && _textureId != null;
-    final effectiveUseTexture = zeroCopy &&
-        (!_tilesActive &&
-         !ref.read(zoneMaskProvider).isTargeting ||
-         lut == null);
+    final effectiveUseTexture =
+        zeroCopy &&
+        (!_tilesActive && !ref.read(zoneMaskProvider).isTargeting ||
+            lut == null);
     final needsPlaceholder = previewNeedsPlaceholder(
       failed: _failed,
       hasProgram: program != null,
@@ -1589,10 +1661,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     // when snapshot A/B compare is active, otherwise the unedited source.
     final proxySource = baseImage ?? uneditedSource!;
     final snapshotCompareEnabled = ref.watch(snapshotCompareEnabledProvider);
-    final compareSource =
-        snapshotCompareEnabled && _snapshotImage != null
-            ? _snapshotImage!
-            : uneditedSource!;
+    final compareSource = snapshotCompareEnabled && _snapshotImage != null
+        ? _snapshotImage!
+        : uneditedSource!;
 
     final tat = ref.watch(tatModeProvider);
     final tatComponent = ref.watch(tatComponentProvider);
@@ -1663,7 +1734,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 // proxy (image px → contain-fit content px).
                 final tiles = _tilesActive && _fullH > 0
                     ? _visibleTileImages(fitted)
-                    : const <_CanvasTile>[];
+                    : const <CanvasTile>[];
                 final (zLo, zHi) = zoneMask.isTargeting
                     ? zoneMask.lumaBounds
                     : (-1.0, -1.0);
@@ -1693,15 +1764,12 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                     if (lut == null) {
                       return SizedBox.fromSize(
                         size: fitted,
-                        child: RawImage(
-                          image: proxySource,
-                          fit: BoxFit.fill,
-                        ),
+                        child: RawImage(image: proxySource, fit: BoxFit.fill),
                       );
                     }
                     return CustomPaint(
                       size: fitted,
-                      painter: _CanvasPainter(
+                      painter: CanvasPainter(
                         shader: fragShader,
                         source: proxySource,
                         compareSource: compareSource,
@@ -1736,8 +1804,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           return Hero(tag: widget.heroTag!, child: sized);
         }
 
-        final blurEnabled =
-            ref.watch(recipeControllerProvider.select((s) => s.recipe.blurEnabled));
+        final blurEnabled = ref.watch(
+          recipeControllerProvider.select((s) => s.recipe.blurEnabled),
+        );
         final lensBlur = ref.watch(lensBlurControllerProvider);
 
         return Stack(
@@ -1752,11 +1821,21 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 },
                 onTapUp: (d) {
                   if (blurEnabled) {
-                    final originX = (bounds.width - fitted.width) / 2 + _offset.dx;
-                    final originY = (bounds.height - fitted.height) / 2 + _offset.dy;
-                    final nx = ((d.localPosition.dx - originX) / (fitted.width * _scale)).clamp(0.0, 1.0);
-                    final ny = ((d.localPosition.dy - originY) / (fitted.height * _scale)).clamp(0.0, 1.0);
-                    ref.read(lensBlurControllerProvider.notifier).setFocusPoint(nx, ny);
+                    final originX =
+                        (bounds.width - fitted.width) / 2 + _offset.dx;
+                    final originY =
+                        (bounds.height - fitted.height) / 2 + _offset.dy;
+                    final nx =
+                        ((d.localPosition.dx - originX) /
+                                (fitted.width * _scale))
+                            .clamp(0.0, 1.0);
+                    final ny =
+                        ((d.localPosition.dy - originY) /
+                                (fitted.height * _scale))
+                            .clamp(0.0, 1.0);
+                    ref
+                        .read(lensBlurControllerProvider.notifier)
+                        .setFocusPoint(nx, ny);
                   }
                 },
                 onScaleStart: (d) => _onScaleStart(d, fitted, tat),
@@ -1794,7 +1873,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 top: 8,
                 left: 8,
                 child: IgnorePointer(
-                  child: _Chip(
+                  child: CanvasChip(
                     text:
                         'Target: ${_bandNames[_tatBand!]} · '
                         '${tatComponentLabels[tatComponent]}',
@@ -1805,7 +1884,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
               const Positioned(
                 top: 8,
                 right: 8,
-                child: IgnorePointer(child: _Badge(text: 'BEFORE')),
+                child: IgnorePointer(child: CanvasBadge(text: 'BEFORE')),
               ),
             if (blurEnabled)
               Positioned(
@@ -1814,28 +1893,40 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 child: GestureDetector(
                   onTap: () {
                     HapticFeedback.lightImpact();
-                    ref.read(lensBlurControllerProvider.notifier).toggleDepthVisualizer();
+                    ref
+                        .read(lensBlurControllerProvider.notifier)
+                        .toggleDepthVisualizer();
                   },
-                  child: _Chip(
-                    icon: lensBlur.showDepthVisualizer ? Icons.visibility : Icons.visibility_outlined,
+                  child: CanvasChip(
+                    icon: lensBlur.showDepthVisualizer
+                        ? Icons.visibility
+                        : Icons.visibility_outlined,
                     text: lensBlur.showDepthVisualizer
                         ? 'Depth: Visualizer Active · Tap to close'
-                        : (lensBlur.statusMessage ?? 'Depth: Tap to inspect visualizer'),
+                        : (lensBlur.statusMessage ??
+                              'Depth: Tap to inspect visualizer'),
                   ),
                 ),
               ),
             if (blurEnabled && lensBlur.focusPointNormalized != null) ...[
               Builder(
                 builder: (context) {
-                  final recipe = ref.watch(recipeControllerProvider.select((s) => s.recipe));
-                  final outerRadius = 26.0 + recipe.blurFocalRange.clamp(0.01, 1.0) * 44.0;
+                  final recipe = ref.watch(
+                    recipeControllerProvider.select((s) => s.recipe),
+                  );
+                  final outerRadius =
+                      26.0 + recipe.blurFocalRange.clamp(0.01, 1.0) * 44.0;
                   final widgetSize = (outerRadius + 20.0) * 2;
-                  final cx = (bounds.width - fitted.width) / 2 +
+                  final cx =
+                      (bounds.width - fitted.width) / 2 +
                       _offset.dx +
                       lensBlur.focusPointNormalized!.$1 * fitted.width * _scale;
-                  final cy = (bounds.height - fitted.height) / 2 +
+                  final cy =
+                      (bounds.height - fitted.height) / 2 +
                       _offset.dy +
-                      lensBlur.focusPointNormalized!.$2 * fitted.height * _scale;
+                      lensBlur.focusPointNormalized!.$2 *
+                          fitted.height *
+                          _scale;
                   return Positioned(
                     left: cx - widgetSize / 2,
                     top: cy - widgetSize / 2,
@@ -1843,22 +1934,44 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                       focalRange: recipe.blurFocalRange,
                       blurAmount: recipe.blurAmount,
                       onFocalRangeChanged: (range) {
-                        ref.read(recipeControllerProvider.notifier).update(Parameter.blurFocalRange, range);
+                        ref
+                            .read(recipeControllerProvider.notifier)
+                            .update(Parameter.blurFocalRange, range);
                       },
                       onFocalRangeCommit: () {
-                        ref.read(recipeControllerProvider.notifier).commit(label: 'Focus Range');
+                        ref
+                            .read(recipeControllerProvider.notifier)
+                            .commit(label: 'Focus Range');
                       },
                       onFocusPointDelta: (delta) {
-                        final originX = (bounds.width - fitted.width) / 2 + _offset.dx;
-                        final originY = (bounds.height - fitted.height) / 2 + _offset.dy;
-                        final curX = originX + lensBlur.focusPointNormalized!.$1 * fitted.width * _scale + delta.dx;
-                        final curY = originY + lensBlur.focusPointNormalized!.$2 * fitted.height * _scale + delta.dy;
-                        final nx = ((curX - originX) / (fitted.width * _scale)).clamp(0.0, 1.0);
-                        final ny = ((curY - originY) / (fitted.height * _scale)).clamp(0.0, 1.0);
-                        ref.read(lensBlurControllerProvider.notifier).setFocusPoint(nx, ny);
+                        final originX =
+                            (bounds.width - fitted.width) / 2 + _offset.dx;
+                        final originY =
+                            (bounds.height - fitted.height) / 2 + _offset.dy;
+                        final curX =
+                            originX +
+                            lensBlur.focusPointNormalized!.$1 *
+                                fitted.width *
+                                _scale +
+                            delta.dx;
+                        final curY =
+                            originY +
+                            lensBlur.focusPointNormalized!.$2 *
+                                fitted.height *
+                                _scale +
+                            delta.dy;
+                        final nx = ((curX - originX) / (fitted.width * _scale))
+                            .clamp(0.0, 1.0);
+                        final ny = ((curY - originY) / (fitted.height * _scale))
+                            .clamp(0.0, 1.0);
+                        ref
+                            .read(lensBlurControllerProvider.notifier)
+                            .setFocusPoint(nx, ny);
                       },
                       onResetFocusPoint: () {
-                        ref.read(lensBlurControllerProvider.notifier).resetFocusPoint();
+                        ref
+                            .read(lensBlurControllerProvider.notifier)
+                            .resetFocusPoint();
                       },
                     ),
                   );
@@ -2125,7 +2238,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// its fitted-space draw rect (image px → contain-fit content px). Tiles
   /// not yet decoded are simply absent — the proxy underneath shows through
   /// until they land.
-  List<_CanvasTile> _visibleTileImages(Size fitted) {
+  List<CanvasTile> _visibleTileImages(Size fitted) {
     final grid = _tileGrid;
     if (grid == null || fitted.width <= 0 || fitted.height <= 0) {
       return const [];
@@ -2165,13 +2278,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       visibleFitted.height * scaleToImageY,
     );
 
-    final out = <_CanvasTile>[];
+    final out = <CanvasTile>[];
     for (final t in grid.visibleTiles(visibleWorld)) {
       final img = _tiles.get(t.coord);
       if (img == null) continue;
       final r = t.worldRect;
       out.add(
-        _CanvasTile(
+        CanvasTile(
           image: img,
           dst: Rect.fromLTWH(
             (r.left - imageCropX) / imageCropW * fitted.width,
@@ -2283,780 +2396,3 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     );
   }
 }
-
-class _Chip extends StatelessWidget {
-  const _Chip({required this.text, this.icon});
-
-  final String text;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xCC000000),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 13, color: Colors.white70),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            text,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: scheme.primary.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: scheme.onPrimary,
-          fontSize: 12,
-          letterSpacing: 1.5,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-/// A baked high-zoom tile (#16) and its draw rect in fitted/content space.
-class _CanvasTile {
-  const _CanvasTile({required this.image, required this.dst});
-
-  final ui.Image image;
-  final Rect dst;
-}
-
-/// Draws the base texture through `lut.frag` inside the aspect-correct [dst]
-/// rect, sampling the packed 3D LUT atlas, and crossfades to the raw source
-/// while comparing ([blend] 0..1).
-class _CanvasPainter extends CustomPainter {
-  _CanvasPainter({
-    required this.shader,
-    required this.source,
-    required this.compareSource,
-    required this.lut,
-    required this.lutSize,
-    required this.dst,
-    required this.blend,
-    required this.maskBlend,
-    this.zoneLo = -1.0,
-    this.zoneHi = -1.0,
-    this.wiperActive = false,
-    this.wiperPosition = 0.50,
-    this.wiperOrientation = WiperOrientation.vertical,
-    this.splitCompareActive = false,
-    this.splitCompareOrientation = SplitOrientation.sideBySide,
-    this.zebraMode = ExposureAssistMode.off,
-    this.time = 0.0,
-    this.zebraHigh = 0.98,
-    this.zebraLow = 0.02,
-    this.softProof = const SoftProofState(),
-    this.tiles = const [],
-  });
-
-  final ui.FragmentShader shader;
-  final ui.Image source;
-  final ui.Image compareSource;
-  final ui.Image lut;
-  final double lutSize;
-  final Rect dst;
-  final double blend;
-  final double maskBlend;
-  final double zoneLo;
-  final double zoneHi;
-  final bool wiperActive;
-  final double wiperPosition;
-  final WiperOrientation wiperOrientation;
-  final bool splitCompareActive;
-  final SplitOrientation splitCompareOrientation;
-  final ExposureAssistMode zebraMode;
-  final double time;
-  final double zebraHigh;
-  final double zebraLow;
-  final SoftProofState softProof;
-
-  /// High-zoom tiles (#16): baked level-0 tiles of the original frame, drawn
-  /// through the same uniforms over the proxy at their fitted-space rects.
-  /// Empty while the overlay is inactive or tiles are still loading.
-  final List<_CanvasTile> tiles;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawColor(const Color(0xFF000000), BlendMode.src);
-
-    final zebraVal = zebraMode == ExposureAssistMode.zebras
-        ? 1.0
-        : (zebraMode == ExposureAssistMode.falseColor ? 2.0 : 0.0);
-
-    shader
-      ..setFloat(0, dst.width)
-      ..setFloat(1, dst.height)
-      ..setFloat(2, lutSize)
-      ..setFloat(3, maskBlend)
-      ..setFloat(4, source.width.toDouble())
-      ..setFloat(5, source.height.toDouble())
-      ..setFloat(6, zoneLo)
-      ..setFloat(7, zoneHi)
-      ..setFloat(8, zebraVal)
-      ..setFloat(9, time)
-      ..setFloat(10, zebraHigh)
-      ..setFloat(11, zebraLow)
-      ..setImageSampler(0, source)
-      ..setImageSampler(1, lut);
-
-    if (wiperActive) {
-      if (wiperOrientation == WiperOrientation.vertical) {
-        final splitX = dst.left + dst.width * wiperPosition.clamp(0.0, 1.0);
-
-        // 1. Unedited Source on Left side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, splitX, dst.bottom));
-        canvas.drawImageRect(
-          compareSource,
-          Rect.fromLTWH(
-            0,
-            0,
-            compareSource.width.toDouble(),
-            compareSource.height.toDouble(),
-          ),
-          dst,
-          Paint(),
-        );
-        canvas.restore();
-
-        // 2. Graded result on Right side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(splitX, dst.top, dst.right, dst.bottom));
-        canvas.drawRect(dst, Paint()..shader = shader);
-        if (tiles.isNotEmpty) {
-          for (final tile in tiles) {
-            canvas.save();
-            canvas.translate(tile.dst.left, tile.dst.top);
-            shader
-              ..setFloat(0, tile.dst.width)
-              ..setFloat(1, tile.dst.height)
-              ..setFloat(2, lutSize)
-              ..setFloat(3, maskBlend)
-              ..setFloat(4, tile.image.width.toDouble())
-              ..setFloat(5, tile.image.height.toDouble())
-              ..setFloat(6, zoneLo)
-              ..setFloat(7, zoneHi)
-              ..setFloat(8, zebraVal)
-              ..setFloat(9, time)
-              ..setFloat(10, zebraHigh)
-              ..setFloat(11, zebraLow)
-              ..setImageSampler(0, tile.image)
-              ..setImageSampler(1, lut);
-            canvas.drawRect(
-              Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
-              Paint()..shader = shader,
-            );
-            canvas.restore();
-          }
-        }
-        canvas.restore();
-
-        // 3. Glowing cyan divider line
-        final glowPaint = Paint()
-          ..color = const Color(0x6600E5FF)
-          ..strokeWidth = 6.0
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
-        canvas.drawLine(
-          Offset(splitX, dst.top),
-          Offset(splitX, dst.bottom),
-          glowPaint,
-        );
-
-        final linePaint = Paint()
-          ..color = const Color(0xFF00E5FF)
-          ..strokeWidth = 2.0;
-        canvas.drawLine(
-          Offset(splitX, dst.top),
-          Offset(splitX, dst.bottom),
-          linePaint,
-        );
-
-        // 4. Circular thumb handle at center
-        final handleCenter = Offset(splitX, dst.top + dst.height * 0.5);
-        canvas.drawCircle(
-          handleCenter,
-          18,
-          Paint()..color = const Color(0xDD000000),
-        );
-        canvas.drawCircle(
-          handleCenter,
-          18,
-          Paint()
-            ..color = const Color(0xFF00E5FF)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.0,
-        );
-
-        final tp = TextPainter(
-          text: const TextSpan(
-            text: '◀ ▶',
-            style: TextStyle(
-              color: Color(0xFF00E5FF),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(canvas, handleCenter - Offset(tp.width / 2, tp.height / 2));
-
-        // 5. Before / After label badges
-        if (splitX > dst.left + 50) {
-          _drawCompareBadge(canvas, 'BEFORE', Offset(dst.left + 12, dst.top + 12));
-        }
-        if (dst.right - splitX > 50) {
-          _drawCompareBadge(canvas, 'AFTER', Offset(dst.right - 62, dst.top + 12));
-        }
-      } else {
-        // Horizontal split
-        final splitY = dst.top + dst.height * wiperPosition.clamp(0.0, 1.0);
-
-        // 1. Unedited Source on Top side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, dst.right, splitY));
-        canvas.drawImageRect(
-          compareSource,
-          Rect.fromLTWH(
-            0,
-            0,
-            compareSource.width.toDouble(),
-            compareSource.height.toDouble(),
-          ),
-          dst,
-          Paint(),
-        );
-        canvas.restore();
-
-        // 2. Graded result on Bottom side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(dst.left, splitY, dst.right, dst.bottom));
-        canvas.drawRect(dst, Paint()..shader = shader);
-        if (tiles.isNotEmpty) {
-          for (final tile in tiles) {
-            canvas.save();
-            canvas.translate(tile.dst.left, tile.dst.top);
-            shader
-              ..setFloat(0, tile.dst.width)
-              ..setFloat(1, tile.dst.height)
-              ..setFloat(2, lutSize)
-              ..setFloat(3, maskBlend)
-              ..setFloat(4, tile.image.width.toDouble())
-              ..setFloat(5, tile.image.height.toDouble())
-              ..setFloat(6, zoneLo)
-              ..setFloat(7, zoneHi)
-              ..setFloat(8, zebraVal)
-              ..setFloat(9, time)
-              ..setFloat(10, zebraHigh)
-              ..setFloat(11, zebraLow)
-              ..setImageSampler(0, tile.image)
-              ..setImageSampler(1, lut);
-            canvas.drawRect(
-              Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
-              Paint()..shader = shader,
-            );
-            canvas.restore();
-          }
-        }
-        canvas.restore();
-
-        // 3. Glowing cyan divider line
-        final glowPaint = Paint()
-          ..color = const Color(0x6600E5FF)
-          ..strokeWidth = 6.0
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
-        canvas.drawLine(
-          Offset(dst.left, splitY),
-          Offset(dst.right, splitY),
-          glowPaint,
-        );
-
-        final linePaint = Paint()
-          ..color = const Color(0xFF00E5FF)
-          ..strokeWidth = 2.0;
-        canvas.drawLine(
-          Offset(dst.left, splitY),
-          Offset(dst.right, splitY),
-          linePaint,
-        );
-
-        // 4. Circular thumb handle at center
-        final handleCenter = Offset(dst.left + dst.width * 0.5, splitY);
-        canvas.drawCircle(
-          handleCenter,
-          18,
-          Paint()..color = const Color(0xDD000000),
-        );
-        canvas.drawCircle(
-          handleCenter,
-          18,
-          Paint()
-            ..color = const Color(0xFF00E5FF)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.0,
-        );
-
-        final tp = TextPainter(
-          text: const TextSpan(
-            text: '▲\n▼',
-            style: TextStyle(
-              color: Color(0xFF00E5FF),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              height: 1.0,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-          textAlign: TextAlign.center,
-        )..layout();
-        tp.paint(canvas, handleCenter - Offset(tp.width / 2, tp.height / 2));
-
-        // 5. Before / After label badges
-        if (splitY > dst.top + 35) {
-          _drawCompareBadge(canvas, 'BEFORE', Offset(dst.left + 12, dst.top + 12));
-        }
-        if (dst.bottom - splitY > 35) {
-          _drawCompareBadge(canvas, 'AFTER', Offset(dst.left + 12, dst.bottom - 32));
-        }
-      }
-      return;
-    }
-
-    if (splitCompareActive) {
-      if (splitCompareOrientation == SplitOrientation.sideBySide) {
-        final splitX = dst.left + dst.width * 0.5;
-
-        // 1. Unedited Source on Left side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, splitX, dst.bottom));
-        canvas.drawImageRect(
-          compareSource,
-          Rect.fromLTWH(
-            0,
-            0,
-            compareSource.width.toDouble(),
-            compareSource.height.toDouble(),
-          ),
-          dst,
-          Paint(),
-        );
-        canvas.restore();
-
-        // 2. Graded result on Right side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(splitX, dst.top, dst.right, dst.bottom));
-        canvas.drawRect(dst, Paint()..shader = shader);
-        if (tiles.isNotEmpty) {
-          for (final tile in tiles) {
-            canvas.save();
-            canvas.translate(tile.dst.left, tile.dst.top);
-            shader
-              ..setFloat(0, tile.dst.width)
-              ..setFloat(1, tile.dst.height)
-              ..setFloat(2, lutSize)
-              ..setFloat(3, maskBlend)
-              ..setFloat(4, tile.image.width.toDouble())
-              ..setFloat(5, tile.image.height.toDouble())
-              ..setFloat(6, zoneLo)
-              ..setFloat(7, zoneHi)
-              ..setFloat(8, zebraVal)
-              ..setFloat(9, time)
-              ..setFloat(10, zebraHigh)
-              ..setFloat(11, zebraLow)
-              ..setImageSampler(0, tile.image)
-              ..setImageSampler(1, lut);
-            canvas.drawRect(
-              Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
-              Paint()..shader = shader,
-            );
-            canvas.restore();
-          }
-        }
-        canvas.restore();
-
-        // 3. Crisp vertical divider line
-        final linePaint = Paint()
-          ..color = const Color(0xCCFFFFFF)
-          ..strokeWidth = 2.0;
-        canvas.drawLine(
-          Offset(splitX, dst.top),
-          Offset(splitX, dst.bottom),
-          linePaint,
-        );
-
-        // 4. Before / After label badges
-        _drawCompareBadge(canvas, 'BEFORE', Offset(dst.left + 12, dst.top + 12));
-        _drawCompareBadge(canvas, 'AFTER', Offset(splitX + 12, dst.top + 12));
-      } else {
-        final splitY = dst.top + dst.height * 0.5;
-
-        // 1. Unedited Source on Top side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, dst.right, splitY));
-        canvas.drawImageRect(
-          compareSource,
-          Rect.fromLTWH(
-            0,
-            0,
-            compareSource.width.toDouble(),
-            compareSource.height.toDouble(),
-          ),
-          dst,
-          Paint(),
-        );
-        canvas.restore();
-
-        // 2. Graded result on Bottom side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(dst.left, splitY, dst.right, dst.bottom));
-        canvas.drawRect(dst, Paint()..shader = shader);
-        if (tiles.isNotEmpty) {
-          for (final tile in tiles) {
-            canvas.save();
-            canvas.translate(tile.dst.left, tile.dst.top);
-            shader
-              ..setFloat(0, tile.dst.width)
-              ..setFloat(1, tile.dst.height)
-              ..setFloat(2, lutSize)
-              ..setFloat(3, maskBlend)
-              ..setFloat(4, tile.image.width.toDouble())
-              ..setFloat(5, tile.image.height.toDouble())
-              ..setFloat(6, zoneLo)
-              ..setFloat(7, zoneHi)
-              ..setFloat(8, zebraVal)
-              ..setFloat(9, time)
-              ..setFloat(10, zebraHigh)
-              ..setFloat(11, zebraLow)
-              ..setImageSampler(0, tile.image)
-              ..setImageSampler(1, lut);
-            canvas.drawRect(
-              Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
-              Paint()..shader = shader,
-            );
-            canvas.restore();
-          }
-        }
-        canvas.restore();
-
-        // 3. Crisp horizontal divider line
-        final linePaint = Paint()
-          ..color = const Color(0xCCFFFFFF)
-          ..strokeWidth = 2.0;
-        canvas.drawLine(
-          Offset(dst.left, splitY),
-          Offset(dst.right, splitY),
-          linePaint,
-        );
-
-        // 4. Before / After label badges
-        _drawCompareBadge(canvas, 'BEFORE', Offset(dst.left + 12, dst.top + 12));
-        _drawCompareBadge(canvas, 'AFTER', Offset(dst.left + 12, splitY + 12));
-      }
-      return;
-    }
-
-    canvas.drawRect(dst, Paint()..shader = shader);
-
-    // High-zoom tiles: one shader pass per tile. Translate so the tile's own
-    // rect is the shader's local origin — `FlutterFragCoord` is local-canvas
-    // space, so uSize covers the tile exactly, mirroring the proxy pass.
-    if (tiles.isNotEmpty) {
-      canvas.save();
-      canvas.clipRect(Offset.zero & size);
-      for (final tile in tiles) {
-        canvas.save();
-        canvas.translate(tile.dst.left, tile.dst.top);
-        shader
-          ..setFloat(0, tile.dst.width)
-          ..setFloat(1, tile.dst.height)
-          ..setFloat(2, lutSize)
-          ..setFloat(3, maskBlend)
-          ..setFloat(4, tile.image.width.toDouble())
-          ..setFloat(5, tile.image.height.toDouble())
-          ..setFloat(6, zoneLo)
-          ..setFloat(7, zoneHi)
-          ..setFloat(8, zebraVal)
-          ..setFloat(9, time)
-          ..setFloat(10, zebraHigh)
-          ..setFloat(11, zebraLow)
-          ..setImageSampler(0, tile.image)
-          ..setImageSampler(1, lut);
-        canvas.drawRect(
-          Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
-          Paint()..shader = shader,
-        );
-        canvas.restore();
-      }
-      canvas.restore();
-    }
-
-    // Compare crossfade is drawn above both the proxy and high-zoom tiles
-    // so holding compare reveals the raw original seamlessly across all zoom levels.
-    if (blend > 0) {
-      canvas.drawImageRect(
-        compareSource,
-        Rect.fromLTWH(
-          0,
-          0,
-          compareSource.width.toDouble(),
-          compareSource.height.toDouble(),
-        ),
-        dst,
-        Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: blend),
-      );
-    }
-
-    if (softProof.enabled) {
-      final label = softProof.gamutWarning
-          ? 'PROOF: ${softProof.profile.displayName} [GAMUT WARNING]'
-          : 'PROOF: ${softProof.profile.displayName}';
-      _drawCompareBadge(canvas, label, Offset(dst.left + 12, dst.top + 12));
-    }
-  }
-
-  @override
-  bool shouldRepaint(_CanvasPainter old) =>
-      old.source != source ||
-      old.compareSource != compareSource ||
-      old.lut != lut ||
-      old.blend != blend ||
-      old.maskBlend != maskBlend ||
-      old.zoneLo != zoneLo ||
-      old.zoneHi != zoneHi ||
-      old.wiperActive != wiperActive ||
-      old.wiperPosition != wiperPosition ||
-      old.wiperOrientation != wiperOrientation ||
-      old.splitCompareActive != splitCompareActive ||
-      old.splitCompareOrientation != splitCompareOrientation ||
-      old.zebraMode != zebraMode ||
-      old.time != time ||
-      old.zebraHigh != zebraHigh ||
-      old.zebraLow != zebraLow ||
-      old.softProof != softProof ||
-      old.dst != dst ||
-      !_sameTiles(old.tiles, tiles);
-
-  static bool _sameTiles(List<_CanvasTile> a, List<_CanvasTile> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i].image != b[i].image || a[i].dst != b[i].dst) return false;
-    }
-    return true;
-  }
-
-  void _drawCompareBadge(Canvas canvas, String label, Offset pos) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.0,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    final badgeRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(pos.dx, pos.dy, tp.width + 12, tp.height + 6),
-      const Radius.circular(4),
-    );
-
-    canvas.drawRRect(
-      badgeRect,
-      Paint()..color = const Color(0x99000000),
-    );
-    tp.paint(canvas, Offset(pos.dx + 6, pos.dy + 3));
-  }
-}
-
-/// Interactive gold-amber focus target ring with draggable outer range boundary (Item 4.3).
-/// Dragging the outer perimeter dynamically calibrates blurFocalRange.
-class FocusRingWidget extends StatefulWidget {
-  const FocusRingWidget({
-    super.key,
-    required this.focalRange,
-    this.blurAmount = 0.5,
-    required this.onFocalRangeChanged,
-    required this.onFocalRangeCommit,
-    this.onFocusPointDelta,
-    this.onResetFocusPoint,
-  });
-
-  final double focalRange;
-  final double blurAmount;
-  final ValueChanged<double> onFocalRangeChanged;
-  final VoidCallback onFocalRangeCommit;
-  final ValueChanged<Offset>? onFocusPointDelta;
-  final VoidCallback? onResetFocusPoint;
-
-  @override
-  State<FocusRingWidget> createState() => _FocusRingWidgetState();
-}
-
-class _FocusRingWidgetState extends State<FocusRingWidget> {
-  double? _dragRadius;
-  bool _isDraggingCenter = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final outerRadius = _dragRadius ?? (26.0 + widget.focalRange.clamp(0.01, 1.0) * 44.0);
-    final size = (outerRadius + 20.0) * 2;
-    final center = Offset(size / 2, size / 2);
-
-    return SizedBox(
-      width: size,
-      height: size,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onDoubleTap: () {
-          HapticFeedback.mediumImpact();
-          widget.onResetFocusPoint?.call();
-        },
-        onPanStart: (details) {
-          final dist = (details.localPosition - center).distance;
-          if (dist < 26.0) {
-            _isDraggingCenter = true;
-            setState(() {});
-          } else if ((dist - outerRadius).abs() < 24.0) {
-            _dragRadius = dist;
-            setState(() {});
-          }
-        },
-        onPanUpdate: (details) {
-          if (_isDraggingCenter) {
-            widget.onFocusPointDelta?.call(details.delta);
-            return;
-          }
-          final dist = (details.localPosition - center).distance;
-          if (_dragRadius != null || (dist - outerRadius).abs() < 24.0) {
-            final newRadius = dist.clamp(26.0, 70.0);
-            _dragRadius = newRadius;
-            final range = ((newRadius - 26.0) / 44.0).clamp(0.01, 1.0);
-            widget.onFocalRangeChanged(range);
-            HapticFeedback.selectionClick();
-            setState(() {});
-          }
-        },
-        onPanEnd: (_) {
-          if (_isDraggingCenter) {
-            _isDraggingCenter = false;
-            setState(() {});
-          }
-          if (_dragRadius != null) {
-            _dragRadius = null;
-            widget.onFocalRangeCommit();
-            setState(() {});
-          }
-        },
-        child: CustomPaint(
-          size: Size(size, size),
-          painter: _FocusRingPainter(
-            outerRadius: outerRadius,
-            blurAmount: widget.blurAmount,
-            isDraggingOuter: _dragRadius != null,
-            isDraggingCenter: _isDraggingCenter,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Renders a gold-amber focus target ring with crosshairs, falloff glow, and depth-of-field boundary ring.
-class _FocusRingPainter extends CustomPainter {
-  const _FocusRingPainter({
-    this.outerRadius = 36.0,
-    this.blurAmount = 0.5,
-    this.isDraggingOuter = false,
-    this.isDraggingCenter = false,
-  });
-
-  final double outerRadius;
-  final double blurAmount;
-  final bool isDraggingOuter;
-  final bool isDraggingCenter;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final ringColor = isDraggingCenter ? const Color(0xFFFFE082) : const Color(0xFFFFB300);
-    final ringPaint = Paint()
-      ..color = ringColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = isDraggingCenter ? 2.5 : 2.0;
-    final dotPaint = Paint()
-      ..color = ringColor
-      ..style = PaintingStyle.fill;
-
-    // Center bullseye
-    canvas.drawCircle(center, 13.0, ringPaint);
-    canvas.drawCircle(center, 2.5, dotPaint);
-
-    canvas.drawLine(center - const Offset(18, 0), center - const Offset(13, 0), ringPaint);
-    canvas.drawLine(center + const Offset(13, 0), center + const Offset(18, 0), ringPaint);
-    canvas.drawLine(center - const Offset(0, 18), center - const Offset(0, 13), ringPaint);
-    canvas.drawLine(center + const Offset(0, 13), center + const Offset(0, 18), ringPaint);
-
-    // Soft blur falloff aura visual representation
-    final falloffAura = Paint()
-      ..color = const Color(0xFFFFB300).withValues(alpha: 0.12 * blurAmount.clamp(0.0, 1.0))
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, outerRadius + 6.0, falloffAura);
-
-    // Outer depth-of-field range ring
-    final outerPaint = Paint()
-      ..color = isDraggingOuter
-          ? const Color(0xFFFFD54F)
-          : const Color(0xFFFFB300).withValues(alpha: 0.65)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = isDraggingOuter ? 2.5 : 1.5;
-    canvas.drawCircle(center, outerRadius, outerPaint);
-
-    // 4 cardinal drag handles
-    final pipPaint = Paint()
-      ..color = isDraggingOuter ? const Color(0xFFFFD54F) : const Color(0xFFFFB300)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center + Offset(outerRadius, 0), 3.0, pipPaint);
-    canvas.drawCircle(center - Offset(outerRadius, 0), 3.0, pipPaint);
-    canvas.drawCircle(center + Offset(0, outerRadius), 3.0, pipPaint);
-    canvas.drawCircle(center - Offset(0, outerRadius), 3.0, pipPaint);
-  }
-
-  @override
-  bool shouldRepaint(_FocusRingPainter oldDelegate) =>
-      oldDelegate.outerRadius != outerRadius ||
-      oldDelegate.blurAmount != blurAmount ||
-      oldDelegate.isDraggingOuter != isDraggingOuter ||
-      oldDelegate.isDraggingCenter != isDraggingCenter;
-}
-

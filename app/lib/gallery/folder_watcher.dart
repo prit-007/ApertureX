@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';

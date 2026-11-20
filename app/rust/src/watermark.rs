@@ -1556,7 +1556,8 @@ mod tests {
         png.extend_from_slice(b"IEND");
         png.extend_from_slice(&[0, 0, 0, 0]);
 
-        let (decoded, w, h) = decode_png_rgba(&png).unwrap();
+        let (decoded, w, h) =
+            decode_png_rgba(&png).expect("valid synthetic test PNG should decode");
         assert_eq!(w, 2);
         assert_eq!(h, 2);
         assert_eq!(decoded.len(), 16);

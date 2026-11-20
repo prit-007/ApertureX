@@ -89,15 +89,35 @@ impl DepthField {
         if &bytes[0..4] != b"AXDF" {
             return Err("Invalid depth sidecar magic header".into());
         }
-        let version = u16::from_le_bytes(bytes[4..6].try_into().unwrap());
+        let version = u16::from_le_bytes(
+            bytes[4..6]
+                .try_into()
+                .map_err(|e| format!("Invalid version bytes: {e}"))?,
+        );
         if version != 1 {
             return Err(format!("Unsupported depth sidecar version {version}"));
         }
-        let width = u32::from_le_bytes(bytes[6..10].try_into().unwrap());
-        let height = u32::from_le_bytes(bytes[10..14].try_into().unwrap());
-        let confidence = f32::from_le_bytes(bytes[14..18].try_into().unwrap());
+        let width = u32::from_le_bytes(
+            bytes[6..10]
+                .try_into()
+                .map_err(|e| format!("Invalid width bytes: {e}"))?,
+        );
+        let height = u32::from_le_bytes(
+            bytes[10..14]
+                .try_into()
+                .map_err(|e| format!("Invalid height bytes: {e}"))?,
+        );
+        let confidence = f32::from_le_bytes(
+            bytes[14..18]
+                .try_into()
+                .map_err(|e| format!("Invalid confidence bytes: {e}"))?,
+        );
         let source = DepthSource::from_u8(bytes[18]);
-        let content_hash = u64::from_le_bytes(bytes[19..27].try_into().unwrap());
+        let content_hash = u64::from_le_bytes(
+            bytes[19..27]
+                .try_into()
+                .map_err(|e| format!("Invalid content hash bytes: {e}"))?,
+        );
 
         let expected_floats = (width as usize) * (height as usize);
         if bytes.len() < 27 + expected_floats * 4 {
@@ -107,7 +127,11 @@ impl DepthField {
         let mut plane = Vec::with_capacity(expected_floats);
         let mut offset = 27;
         for _ in 0..expected_floats {
-            let val = f32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
+            let val = f32::from_le_bytes(
+                bytes[offset..offset + 4]
+                    .try_into()
+                    .map_err(|e| format!("Truncated float in depth plane: {e}"))?,
+            );
             plane.push(val);
             offset += 4;
         }

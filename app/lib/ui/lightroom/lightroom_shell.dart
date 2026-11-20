@@ -6,46 +6,40 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/log/activity_log.dart';
 import '../../core/log/log_providers.dart';
-import '../../core/theme/design_tokens.dart';
-import '../../color/tat.dart';
-import '../../edit/active_image.dart' show activeImageBytesProvider;
 import '../../edit/parameter.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
-import '../../edit/snapshots_provider.dart';
 import '../../engine/engine.dart';
-import '../../features/ai_plugins/ai_plugin_model.dart';
-import '../../features/ai_plugins/ai_plugin_store.dart';
-import '../../features/ai_plugins/ai_plugins_screen.dart';
-import '../../features/guide/app_guide_screen.dart';
-import '../../features/guide/tool_guide_model.dart';
-import '../../features/presets/community_preset_model.dart';
-import '../../features/presets/community_presets_provider.dart';
-import '../../features/presets/preset_catalog.dart';
-import '../../viewport/compare_hold.dart';
-import '../../viewport/exposure_assist.dart';
 import '../../viewport/mask_peek.dart' show rubyPeeksEnabledProvider;
 import '../../viewport/soft_proofing.dart';
-import '../../viewport/split_compare.dart';
-import '../../viewport/wiper_compare.dart';
 import '../common/blur_controls.dart';
 import '../common/color_grading_editor.dart';
 import '../common/film_controls.dart';
 import '../common/geometry_controls.dart';
-import '../common/history_tree_sheet.dart';
 import '../common/hsl_mixer.dart';
 import '../common/lab_controls.dart';
 import '../common/mask_controls.dart';
 import '../common/optics_controls.dart';
 import '../common/parameter_panel.dart';
 import '../common/retouch_controls.dart';
-import '../../l10n/app_strings.dart';
 import '../common/tone_curve_editor.dart';
-import '../common/looks_sheet.dart';
-import '../common/app_primitives.dart';
 import '../common/app_sheet.dart' show AppSheet, showAppSheet;
-import '../common/preset_preview_thumbnail.dart';
-import '../../edit/tool_definition.dart';
+import 'looks_presets_panel.dart';
+import 'lightroom_common.dart';
+import 'master_tabs_bar.dart';
+import 'plugins_panel_view.dart';
+import 'action_bar.dart';
+import 'sub_tabs.dart';
+
+export 'lightroom_common.dart';
+export 'looks_presets_panel.dart';
+export 'plugins_panel_view.dart';
+export 'master_tabs_bar.dart';
+export 'action_bar.dart';
+export 'sub_tabs.dart';
+
+typedef _LightroomDirtyState = LightroomDirtyState;
+const _masterTabLabel = masterTabLabel;
 
 /// Function signature for the Auto Tone analyzer, overridable in tests.
 typedef AutoToneFn = Future<Map<String, double>?> Function(Uint8List jpeg);
@@ -53,53 +47,13 @@ typedef AutoToneFn = Future<Map<String, double>?> Function(Uint8List jpeg);
 /// Riverpod provider for Auto Tone analysis, overridable in tests.
 final autoToneProvider = Provider<AutoToneFn>((ref) => AxEngine.autoTone);
 
-enum MasterTab {
-  lightColor,
-  effectsDetail,
-  cropGeometry,
-  proTools,
-  looksPresets,
-  masks,
-  plugins,
-}
-
-String _masterTabLabel(MasterTab tab, [AppStrings? strings]) => switch (tab) {
-  MasterTab.lightColor => strings?.lightAndColor ?? 'Light & Color',
-  MasterTab.effectsDetail => strings?.effectsAndDetail ?? 'Effects & Detail',
-  MasterTab.cropGeometry => strings?.cropAndGeometry ?? 'Crop & Geometry',
-  MasterTab.proTools => strings?.proTools ?? 'Pro Tools',
-  MasterTab.looksPresets => strings?.looksAndPresets ?? 'Looks & Presets',
-  MasterTab.masks => strings?.masks ?? 'Masks',
-  MasterTab.plugins => strings?.plugins ?? 'Plugins',
-};
-
 enum _LightColorSubTab { light, color, curve, mix, grade }
+
 enum _EffectsDetailSubTab { effects, detail, blur, film }
+
 enum _CropGeometrySubTab { straighten, transform, perspective }
+
 enum _ProToolsSubTab { retouch, optics, shaderLab }
-
-class _LightroomDirtyState {
-  const _LightroomDirtyState({
-    required this.hasTabChanges,
-    required this.modifiedMasterMask,
-    required this.modifiedSubTabMask,
-  });
-
-  final bool hasTabChanges;
-  final int modifiedMasterMask;
-  final int modifiedSubTabMask;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _LightroomDirtyState &&
-          other.hasTabChanges == hasTabChanges &&
-          other.modifiedMasterMask == modifiedMasterMask &&
-          other.modifiedSubTabMask == modifiedSubTabMask;
-
-  @override
-  int get hashCode => Object.hash(hasTabChanges, modifiedMasterMask, modifiedSubTabMask);
-}
 
 class ActiveSectionNotifier extends Notifier<RecipeSection> {
   @override
@@ -112,8 +66,8 @@ class ActiveSectionNotifier extends Notifier<RecipeSection> {
 
 final activeSectionProvider =
     NotifierProvider<ActiveSectionNotifier, RecipeSection>(
-  ActiveSectionNotifier.new,
-);
+      ActiveSectionNotifier.new,
+    );
 
 /// Lightroom shell: a streamlined 6 Master Tabs tray over the shared recipe.
 class LightroomShell extends ConsumerStatefulWidget {
@@ -158,76 +112,100 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
   bool _isMasterTabModified(EditRecipe recipe, MasterTab tab) => switch (tab) {
     MasterTab.lightColor =>
       _isLightColorSubTabModified(recipe, _LightColorSubTab.light) ||
-      _isLightColorSubTabModified(recipe, _LightColorSubTab.color) ||
-      _isLightColorSubTabModified(recipe, _LightColorSubTab.curve) ||
-      _isLightColorSubTabModified(recipe, _LightColorSubTab.mix) ||
-      _isLightColorSubTabModified(recipe, _LightColorSubTab.grade),
+          _isLightColorSubTabModified(recipe, _LightColorSubTab.color) ||
+          _isLightColorSubTabModified(recipe, _LightColorSubTab.curve) ||
+          _isLightColorSubTabModified(recipe, _LightColorSubTab.mix) ||
+          _isLightColorSubTabModified(recipe, _LightColorSubTab.grade),
     MasterTab.effectsDetail =>
       _isEffectsDetailSubTabModified(recipe, _EffectsDetailSubTab.effects) ||
-      _isEffectsDetailSubTabModified(recipe, _EffectsDetailSubTab.detail) ||
-      _isEffectsDetailSubTabModified(recipe, _EffectsDetailSubTab.blur) ||
-      _isEffectsDetailSubTabModified(recipe, _EffectsDetailSubTab.film),
+          _isEffectsDetailSubTabModified(recipe, _EffectsDetailSubTab.detail) ||
+          _isEffectsDetailSubTabModified(recipe, _EffectsDetailSubTab.blur) ||
+          _isEffectsDetailSubTabModified(recipe, _EffectsDetailSubTab.film),
     MasterTab.cropGeometry =>
       _isCropGeometrySubTabModified(recipe, _CropGeometrySubTab.straighten) ||
-      _isCropGeometrySubTabModified(recipe, _CropGeometrySubTab.transform) ||
-      _isCropGeometrySubTabModified(recipe, _CropGeometrySubTab.perspective),
+          _isCropGeometrySubTabModified(
+            recipe,
+            _CropGeometrySubTab.transform,
+          ) ||
+          _isCropGeometrySubTabModified(
+            recipe,
+            _CropGeometrySubTab.perspective,
+          ),
     MasterTab.proTools =>
       _isProToolsSubTabModified(recipe, _ProToolsSubTab.retouch) ||
-      _isProToolsSubTabModified(recipe, _ProToolsSubTab.optics) ||
-      _isProToolsSubTabModified(recipe, _ProToolsSubTab.shaderLab),
+          _isProToolsSubTabModified(recipe, _ProToolsSubTab.optics) ||
+          _isProToolsSubTabModified(recipe, _ProToolsSubTab.shaderLab),
     MasterTab.looksPresets =>
-        isSectionModified(recipe, RecipeSection.color) ||
-        isSectionModified(recipe, RecipeSection.effects) ||
-        isSectionModified(recipe, RecipeSection.detail),
+      isSectionModified(recipe, RecipeSection.color) ||
+          isSectionModified(recipe, RecipeSection.effects) ||
+          isSectionModified(recipe, RecipeSection.detail),
     MasterTab.masks => isSectionModified(recipe, RecipeSection.masking),
     MasterTab.plugins => false,
   };
 
-  bool _isLightColorSubTabModified(EditRecipe recipe, _LightColorSubTab tab) => switch (tab) {
+  bool _isLightColorSubTabModified(
+    EditRecipe recipe,
+    _LightColorSubTab tab,
+  ) => switch (tab) {
     _LightColorSubTab.light => isSectionModified(recipe, RecipeSection.light),
     _LightColorSubTab.color =>
       recipe.temperature != 0 ||
-      recipe.tint != 0 ||
-      recipe.vibrance != 0 ||
-      recipe.saturation != 0,
+          recipe.tint != 0 ||
+          recipe.vibrance != 0 ||
+          recipe.saturation != 0,
     _LightColorSubTab.curve => isSectionModified(recipe, RecipeSection.tone),
     _LightColorSubTab.mix => recipe.hsl != neutralHsl,
     _LightColorSubTab.grade =>
       recipe.gradeShadowHue != 0 ||
-      recipe.gradeShadowSat != 0 ||
-      recipe.gradeShadowLum != 0 ||
-      recipe.gradeMidHue != 0 ||
-      recipe.gradeMidSat != 0 ||
-      recipe.gradeMidLum != 0 ||
-      recipe.gradeHighlightHue != 0 ||
-      recipe.gradeHighlightSat != 0 ||
-      recipe.gradeHighlightLum != 0 ||
-      recipe.gradeBlending != 0.5 ||
-      recipe.gradeBalance != 0,
+          recipe.gradeShadowSat != 0 ||
+          recipe.gradeShadowLum != 0 ||
+          recipe.gradeMidHue != 0 ||
+          recipe.gradeMidSat != 0 ||
+          recipe.gradeMidLum != 0 ||
+          recipe.gradeHighlightHue != 0 ||
+          recipe.gradeHighlightSat != 0 ||
+          recipe.gradeHighlightLum != 0 ||
+          recipe.gradeBlending != 0.5 ||
+          recipe.gradeBalance != 0,
   };
 
-  bool _isEffectsDetailSubTabModified(EditRecipe recipe, _EffectsDetailSubTab tab) => switch (tab) {
-    _EffectsDetailSubTab.effects => isSectionModified(recipe, RecipeSection.effects),
-    _EffectsDetailSubTab.detail => isSectionModified(recipe, RecipeSection.detail),
+  bool _isEffectsDetailSubTabModified(
+    EditRecipe recipe,
+    _EffectsDetailSubTab tab,
+  ) => switch (tab) {
+    _EffectsDetailSubTab.effects => isSectionModified(
+      recipe,
+      RecipeSection.effects,
+    ),
+    _EffectsDetailSubTab.detail => isSectionModified(
+      recipe,
+      RecipeSection.detail,
+    ),
     _EffectsDetailSubTab.blur => isSectionModified(recipe, RecipeSection.blur),
     _EffectsDetailSubTab.film => isSectionModified(recipe, RecipeSection.film),
   };
 
-  bool _isCropGeometrySubTabModified(EditRecipe recipe, _CropGeometrySubTab tab) => switch (tab) {
+  bool _isCropGeometrySubTabModified(
+    EditRecipe recipe,
+    _CropGeometrySubTab tab,
+  ) => switch (tab) {
     _CropGeometrySubTab.straighten => recipe.straighten != 0,
     _CropGeometrySubTab.transform =>
       recipe.rotation != 0 ||
-      recipe.flipH ||
-      recipe.flipV ||
-      recipe.crop != fullCrop,
+          recipe.flipH ||
+          recipe.flipV ||
+          recipe.crop != fullCrop,
     _CropGeometrySubTab.perspective =>
       recipe.perspectiveX != 0 ||
-      recipe.perspectiveY != 0 ||
-      recipe.skewX != 0 ||
-      recipe.skewY != 0,
+          recipe.perspectiveY != 0 ||
+          recipe.skewX != 0 ||
+          recipe.skewY != 0,
   };
 
-  bool _isProToolsSubTabModified(EditRecipe recipe, _ProToolsSubTab tab) => switch (tab) {
+  bool _isProToolsSubTabModified(
+    EditRecipe recipe,
+    _ProToolsSubTab tab,
+  ) => switch (tab) {
     _ProToolsSubTab.retouch => isSectionModified(recipe, RecipeSection.retouch),
     _ProToolsSubTab.optics => isSectionModified(recipe, RecipeSection.optics),
     _ProToolsSubTab.shaderLab => isSectionModified(recipe, RecipeSection.lab),
@@ -300,530 +278,104 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
     );
     final hasTabChanges = dirtyState.hasTabChanges;
 
-    final canUndo = ref.watch(
-      recipeControllerProvider.select((s) => s.index > 0),
-    );
-    final canRedo = ref.watch(
-      recipeControllerProvider.select((s) => s.index < s.history.length - 1),
-    );
-    final undoLabel = ref.watch(
-      recipeControllerProvider.select(
-        (s) => s.index > 0 ? s.history[s.index].label : null,
-      ),
-    );
-    final redoLabel = ref.watch(
-      recipeControllerProvider.select(
-        (s) => s.index < s.history.length - 1 ? s.history[s.index + 1].label : null,
-      ),
-    );
-    final undoTooltip = undoLabel != null ? 'Undo: $undoLabel' : 'Undo';
-    final redoTooltip = redoLabel != null ? 'Redo: $redoLabel' : 'Redo';
     final controller = ref.read(recipeControllerProvider.notifier);
-
-    Widget chip(MasterTab tab, bool selected, bool isModified, VoidCallback onTap) => Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: ChoiceChip(
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_masterTabLabel(tab, AppStrings.of(context))),
-            if (isModified) ...[
-              const SizedBox(width: 4),
-              Container(
-                key: Key('applied-dot-${tab.name}'),
-                width: 5,
-                height: 5,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? scheme.primary : scheme.primary.withValues(alpha: 0.85),
-                ),
-              ),
-            ],
-          ],
-        ),
-        selected: selected,
-        onSelected: (_) => onTap(),
-        showCheckmark: false,
-        visualDensity: VisualDensity.compact,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        side: BorderSide(
-          color: selected
-              ? scheme.primary
-              : isModified
-                  ? scheme.primary.withValues(alpha: 0.5)
-                  : scheme.outlineVariant.withValues(alpha: 0.4),
-          width: selected ? 1.2 : 1.0,
-        ),
-        selectedColor: scheme.primary.withValues(alpha: 0.2),
-        backgroundColor: scheme.surfaceContainerHigh.withValues(alpha: 0.45),
-        labelStyle: TextStyle(
-          fontSize: 12,
-          letterSpacing: 0.4,
-          color: selected ? scheme.primary : scheme.onSurfaceVariant,
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-        ),
-      ),
-    );
-
-    /// Shows Apply / Discard / Cancel when switching master tabs with uncommitted changes.
-    Future<void> showUncommittedChangesDialog({
-      required BuildContext dialogContext,
-      required RecipeController notifier,
-      required String tabLabel,
-      required VoidCallback onApply,
-      required VoidCallback onDiscard,
-    }) async {
-      final result = await showDialog<String>(
-        context: dialogContext,
-        builder: (ctx) => AlertDialog(
-          title: Text('Uncommitted changes in $tabLabel'),
-          content: const Text(
-            'You have uncommitted changes. Apply them, discard, or cancel?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop('discard'),
-              child: const Text('Discard'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop('cancel'),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop('apply'),
-              child: const Text('Apply'),
-            ),
-          ],
-        ),
-      );
-      if (result == 'apply') {
-        onApply();
-      } else if (result == 'discard') {
-        onDiscard();
-      }
-    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final content = Column(
           children: [
             // Master Tabs Bar (top): scrollable row of 6 consolidated Master Tabs
-            SizedBox(
-              height: 40,
-              child: ListView(
-                key: const Key('lightroom-master-tabs-bar'),
-                controller: _tabScrollController,
-                physics: const BouncingScrollPhysics(),
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                children: [
-                  for (final tab in _masterTabs)
-                    chip(
-                      tab,
-                      tab == _activeTab,
-                      (dirtyState.modifiedMasterMask & (1 << _masterTabs.indexOf(tab))) != 0,
-                      () {
-                        HapticFeedback.selectionClick();
-                        // Tapping the currently active tab should never silently commit changes.
-                        if (tab == _activeTab) return;
-
-                        // Modal guard: block switching tabs while the current
-                        // tab has uncommitted changes. Offer Apply / Discard /
-                        // Cancel so the user is never stuck.
-                        if (hasTabChanges) {
-                          HapticFeedback.heavyImpact();
-                          showUncommittedChangesDialog(
-                            dialogContext: context,
-                            notifier: controller,
-                            tabLabel: _masterTabLabel(_activeTab),
-                            onApply: () {
-                              controller.commit(
-                                  label: 'Applied ${_masterTabLabel(_activeTab)}');
-                              setState(() {
-                                _activeTab = tab;
-                                _tabEntryRecipe =
-                                    ref.read(recipeControllerProvider).recipe;
-                              });
-                              final idx = _masterTabs.indexOf(tab);
-                              if (_tabScrollController.hasClients) {
-                                final target = (idx * 110.0 - 40.0).clamp(
-                                  0.0,
-                                  _tabScrollController.position.maxScrollExtent,
-                                );
-                                _tabScrollController.animateTo(
-                                  target,
-                                  duration: AppMotion.responsive(
-                                    context,
-                                    AppMotion.shortDuration,
-                                  ),
-                                  curve: AppMotion.standardCurve,
-                                );
-                              }
-                            },
-                            onDiscard: () {
-                              controller.loadRecipe(
-                                _tabEntryRecipe!,
-                                label:
-                                    'Discarded ${_masterTabLabel(_activeTab)} changes',
-                              );
-                              setState(() {
-                                _activeTab = tab;
-                                _tabEntryRecipe =
-                                    ref.read(recipeControllerProvider).recipe;
-                              });
-                              final idx = _masterTabs.indexOf(tab);
-                              if (_tabScrollController.hasClients) {
-                                final target = (idx * 110.0 - 40.0).clamp(
-                                  0.0,
-                                  _tabScrollController.position.maxScrollExtent,
-                                );
-                                _tabScrollController.animateTo(
-                                  target,
-                                  duration: AppMotion.responsive(
-                                    context,
-                                    AppMotion.shortDuration,
-                                  ),
-                                  curve: AppMotion.standardCurve,
-                                );
-                              }
-                            },
-                          );
-                          return;
-                        }
-                        setState(() {
-                          _activeTab = tab;
-                          _tabEntryRecipe = ref.read(recipeControllerProvider).recipe;
-                        });
-                        // Update activeSectionProvider for canvas overlays
-                        switch (tab) {
-                          case MasterTab.lightColor:
-                            ref.read(activeSectionProvider.notifier).select(
-                              _lightColorTab == _LightColorSubTab.color
-                                  ? RecipeSection.color
-                                  : RecipeSection.light,
-                            );
-                            break;
-                          case MasterTab.effectsDetail:
-                            ref.read(activeSectionProvider.notifier).select(
-                              _effectsDetailTab == _EffectsDetailSubTab.detail
-                                  ? RecipeSection.detail
-                                  : RecipeSection.effects,
-                            );
-                            break;
-                          case MasterTab.cropGeometry:
-                            ref.read(activeSectionProvider.notifier).select(RecipeSection.geometry);
-                            break;
-                          case MasterTab.proTools:
-                            ref.read(activeSectionProvider.notifier).select(
-                              _proToolsTab == _ProToolsSubTab.retouch
-                                  ? RecipeSection.retouch
-                                  : _proToolsTab == _ProToolsSubTab.optics
-                                      ? RecipeSection.optics
-                                      : RecipeSection.lab,
-                            );
-                            break;
-                          case MasterTab.looksPresets:
-                            ref.read(activeSectionProvider.notifier).select(
-                              RecipeSection.color,
-                            );
-                            break;
-                          case MasterTab.masks:
-                            ref.read(activeSectionProvider.notifier).select(RecipeSection.masking);
-                            break;
-                          case MasterTab.plugins:
-                            break;
-                        }
-
-                        final idx = _masterTabs.indexOf(tab);
-                        if (_tabScrollController.hasClients) {
-                          final target = (idx * 110.0 - 40.0).clamp(
-                            0.0,
-                            _tabScrollController.position.maxScrollExtent,
-                          );
-                          _tabScrollController.animateTo(
-                            target,
-                            duration: AppMotion.responsive(
-                              context,
-                              AppMotion.shortDuration,
-                            ),
-                            curve: AppMotion.standardCurve,
-                          );
-                        }
-                      },
-                    ),
-                ],
-              ),
+            MasterTabsBar(
+              activeTab: _activeTab,
+              tabEntryRecipe: _tabEntryRecipe,
+              dirtyState: dirtyState,
+              onTabChanged: (tab) {
+                setState(() {
+                  _activeTab = tab;
+                  _tabEntryRecipe = ref.read(recipeControllerProvider).recipe;
+                });
+                // Update activeSectionProvider for canvas overlays
+                switch (tab) {
+                  case MasterTab.lightColor:
+                    ref.read(activeSectionProvider.notifier).select(
+                      _lightColorTab == _LightColorSubTab.color
+                          ? RecipeSection.color
+                          : RecipeSection.light,
+                    );
+                    break;
+                  case MasterTab.effectsDetail:
+                    ref.read(activeSectionProvider.notifier).select(
+                      _effectsDetailTab == _EffectsDetailSubTab.detail
+                          ? RecipeSection.detail
+                          : RecipeSection.effects,
+                    );
+                    break;
+                  case MasterTab.cropGeometry:
+                    ref.read(activeSectionProvider.notifier).select(
+                      RecipeSection.geometry,
+                    );
+                    break;
+                  case MasterTab.proTools:
+                    ref.read(activeSectionProvider.notifier).select(
+                      _proToolsTab == _ProToolsSubTab.retouch
+                          ? RecipeSection.retouch
+                          : _proToolsTab == _ProToolsSubTab.optics
+                              ? RecipeSection.optics
+                              : RecipeSection.lab,
+                    );
+                    break;
+                  case MasterTab.looksPresets:
+                    ref.read(activeSectionProvider.notifier).select(
+                      RecipeSection.color,
+                    );
+                    break;
+                  case MasterTab.masks:
+                    ref.read(activeSectionProvider.notifier).select(
+                      RecipeSection.masking,
+                    );
+                    break;
+                  case MasterTab.plugins:
+                    break;
+                }
+              },
+              scrollController: _tabScrollController,
             ),
-            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
+            Divider(
+              height: 1,
+              color: scheme.outlineVariant.withValues(alpha: 0.2),
+            ),
             // Streamlined Action Bar: Cancel, TAT, Undo, Redo, History, Compare, Wiper, Apply
-            SizedBox(
-              height: 38,
-              child: Row(
-                children: [
-                  IconButton(
-                    key: const Key('tray-cancel'),
-                    tooltip: 'Discard changes',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: hasTabChanges
-                        ? () {
-                            HapticFeedback.lightImpact();
-                            controller.loadRecipe(
-                              _tabEntryRecipe!,
-                              label: 'Discarded ${_masterTabLabel(_activeTab)} changes',
-                            );
-                            setState(() {});
-                          }
-                        : null,
-                    icon: Icon(
-                      Icons.close,
-                      size: 20,
-                      color: hasTabChanges
-                          ? scheme.error
-                          : scheme.onSurfaceVariant.withValues(alpha: 0.38),
-                    ),
-                  ),
-                  VerticalDivider(
-                    width: 12,
-                    indent: 8,
-                    endIndent: 8,
-                    color: scheme.outlineVariant.withValues(alpha: 0.2),
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (ref.watch(tatModeProvider)) ...[
-                            TextButton(
-                              style: TextButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                              ),
-                              onPressed: () =>
-                                  ref.read(tatComponentProvider.notifier).cycle(),
-                              child: Text(
-                                tatComponentLabels[ref.watch(tatComponentProvider)],
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: scheme.primary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                          if (_activeTab == MasterTab.lightColor &&
-                              _lightColorTab == _LightColorSubTab.light)
-                            IconButton(
-                              tooltip: 'Auto Tone: analyze image and apply balanced adjustments',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () async {
-                                final bytes = ref.read(activeImageBytesProvider);
-                                if (bytes == null) return;
-                                final notifier =
-                                    ref.read(recipeControllerProvider.notifier);
-                                final auto = await ref.read(autoToneProvider)(bytes);
-                                if (auto == null) return;
-                                notifier.update(
-                                    Parameter.exposure, auto['exposure'] as double);
-                                notifier.update(
-                                    Parameter.contrast, auto['contrast'] as double);
-                                notifier.update(
-                                    Parameter.highlights, auto['highlights'] as double);
-                                notifier.update(
-                                    Parameter.shadows, auto['shadows'] as double);
-                                notifier.update(
-                                    Parameter.whites, auto['whites'] as double);
-                                notifier.update(
-                                    Parameter.blacks, auto['blacks'] as double);
-                                notifier.update(
-                                    Parameter.temperature, auto['temperature'] as double);
-                                notifier.update(
-                                    Parameter.tint, auto['tint'] as double);
-                                if (auto.containsKey('vibrance')) {
-                                  notifier.update(
-                                      Parameter.vibrance, auto['vibrance'] as double);
-                                }
-                                notifier.commit(label: 'Auto Tone');
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Auto-tone applied')),
-                                  );
-                                }
-                              },
-                              icon: const Icon(Icons.auto_awesome, size: 18),
-                            ),
-                          const SizedBox(width: Insets.sm),
-                          IconButton(
-                            tooltip: 'Target Adjustment: drag the image to target the HSL '
-                                'colour under your finger',
-                            visualDensity: VisualDensity.compact,
-                            isSelected: ref.watch(tatModeProvider),
-                            onPressed: () => ref.read(tatModeProvider.notifier).toggle(),
-                            icon: const Icon(Icons.colorize),
-                            selectedIcon: Icon(Icons.colorize, color: scheme.primary),
-                          ),
-                          VerticalDivider(
-                            width: 12,
-                            indent: 8,
-                            endIndent: 8,
-                            color: scheme.outlineVariant.withValues(alpha: 0.2),
-                          ),
-                          IconButton(
-                            tooltip: undoTooltip,
-                            visualDensity: VisualDensity.compact,
-                            onPressed: canUndo ? controller.undo : null,
-                            icon: const Icon(Icons.undo),
-                          ),
-                          IconButton(
-                            tooltip: redoTooltip,
-                            visualDensity: VisualDensity.compact,
-                            onPressed: canRedo ? controller.redo : null,
-                            icon: const Icon(Icons.redo),
-                          ),
-                          IconButton(
-                            tooltip: 'Edit History & Branches (Git-style)',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => HistoryTreeSheet.show(context),
-                            icon: const Icon(Icons.alt_route),
-                          ),
-                          VerticalDivider(
-                            width: 12,
-                            indent: 8,
-                            endIndent: 8,
-                            color: scheme.outlineVariant.withValues(alpha: 0.2),
-                          ),
-                          Listener(
-                            behavior: HitTestBehavior.opaque,
-                            onPointerDown: (_) =>
-                                ref.read(compareHoldProvider.notifier).hold(),
-                            onPointerUp: (_) =>
-                                ref.read(compareHoldProvider.notifier).release(),
-                            onPointerCancel: (_) =>
-                                ref.read(compareHoldProvider.notifier).release(),
-                            child: IconButton(
-                              tooltip: 'Hold to compare',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () {},
-                              icon: const Icon(Icons.compare),
-                            ),
-                          ),
-                          IconButton(
-                            key: const Key('tray-wiper-compare'),
-                            tooltip: 'Split Curtain Wiper Compare (120 FPS)',
-                            visualDensity: VisualDensity.compact,
-                            isSelected: ref.watch(wiperCompareProvider).isActive,
-                            onPressed: () {
-                              ref.read(wiperCompareProvider.notifier).toggle();
-                              HapticFeedback.selectionClick();
-                            },
-                            icon: const Icon(Icons.splitscreen),
-                            selectedIcon: Icon(Icons.splitscreen, color: scheme.primary),
-                          ),
-                          IconButton(
-                            key: const Key('tray-split-compare'),
-                            tooltip: 'Before/After Split View (Y - long press for orientation)',
-                            visualDensity: VisualDensity.compact,
-                            isSelected: ref.watch(splitCompareProvider).isEnabled,
-                            onPressed: () {
-                              ref.read(splitCompareProvider.notifier).toggle();
-                              HapticFeedback.selectionClick();
-                            },
-                            icon: const Icon(Icons.view_column_outlined),
-                            selectedIcon: Icon(Icons.view_column, color: scheme.primary),
-                          ),
-                          IconButton(
-                            tooltip: 'Exposure Assist: Zebras & False Color Heatmap (ARRI IRE)',
-                            visualDensity: VisualDensity.compact,
-                            isSelected: ref.watch(exposureAssistProvider).isActive,
-                            onPressed: () {
-                              ref.read(exposureAssistProvider.notifier).cycleMode();
-                              HapticFeedback.selectionClick();
-                            },
-                            icon: const Icon(Icons.wb_iridescent_outlined),
-                            selectedIcon: Icon(Icons.wb_iridescent, color: scheme.primary),
-                          ),
-                          IconButton(
-                            tooltip: 'Snapshot A/B Compare',
-                            visualDensity: VisualDensity.compact,
-                            isSelected: ref.watch(snapshotCompareEnabledProvider),
-                            onPressed: () {
-                              ref.read(snapshotCompareEnabledProvider.notifier).toggle();
-                              HapticFeedback.selectionClick();
-                            },
-                            icon: const Icon(Icons.compare_arrows),
-                            selectedIcon:
-                                Icon(Icons.compare_arrows, color: scheme.primary),
-                          ),
-                          IconButton(
-                            key: const Key('tray-soft-proofing'),
-                            tooltip: 'Soft Proofing: simulate printer ICC profiles and gamut clipping',
-                            visualDensity: VisualDensity.compact,
-                            isSelected: ref.watch(softProofingProvider).enabled,
-                            onPressed: () {
-                              _showSoftProofingSheet(context);
-                              HapticFeedback.selectionClick();
-                            },
-                            icon: const Icon(Icons.print_outlined),
-                            selectedIcon: Icon(Icons.print, color: scheme.primary),
-                          ),
-                          IconButton(
-                            key: const Key('tray-tool-guide'),
-                            tooltip: 'Tool Guide & Academy',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () {
-                              final category = switch (_activeTab) {
-                                MasterTab.lightColor => ToolCategory.light,
-                                MasterTab.effectsDetail => ToolCategory.detail,
-                                MasterTab.cropGeometry => ToolCategory.geometry,
-                                MasterTab.proTools => ToolCategory.optics,
-                                MasterTab.masks => ToolCategory.masking,
-                                _ => null,
-                              };
-                              AppGuideScreen.showModal(
-                                context,
-                                initialCategory: category,
-                                onSelectTool: _selectToolFromGuide,
-                              );
-                            },
-                            icon: const Icon(Icons.school_outlined),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  VerticalDivider(
-                    width: 12,
-                    indent: 8,
-                    endIndent: 8,
-                    color: scheme.outlineVariant.withValues(alpha: 0.2),
-                  ),
-                  IconButton(
-                    key: const Key('tray-apply'),
-                    tooltip: 'Apply changes',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: hasTabChanges
-                        ? () {
-                            HapticFeedback.lightImpact();
-                            controller.commit(label: 'Applied ${_masterTabLabel(_activeTab)}');
-                            setState(() {
-                              _tabEntryRecipe = ref.read(recipeControllerProvider).recipe;
-                            });
-                          }
-                        : null,
-                    icon: Icon(
-                      Icons.check,
-                      size: 20,
-                      color: hasTabChanges
-                          ? scheme.primary
-                          : scheme.onSurfaceVariant.withValues(alpha: 0.38),
-                    ),
-                  ),
-                ],
-              ),
+            LightroomActionBar(
+              hasTabChanges: hasTabChanges,
+              controller: controller,
+              activeTab: _activeTab,
+              onCancel: () {
+                HapticFeedback.lightImpact();
+                controller.loadRecipe(
+                  _tabEntryRecipe!,
+                  label:
+                      'Discarded ${_masterTabLabel(_activeTab)} changes',
+                );
+                setState(() {});
+              },
+              onApply: () {
+                HapticFeedback.lightImpact();
+                controller.commit(
+                    label: 'Applied ${_masterTabLabel(_activeTab)}');
+                setState(() {
+                  _tabEntryRecipe = ref.read(recipeControllerProvider).recipe;
+                });
+              },
+              onSoftProofing: () {
+                _showSoftProofingSheet(context);
+                HapticFeedback.selectionClick();
+              },
+              onToolGuideSelect: _selectToolFromGuide,
             ),
-            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
+            Divider(
+              height: 1,
+              color: scheme.outlineVariant.withValues(alpha: 0.2),
+            ),
             // Active Master Tab Controls
             Expanded(
               child: SafeArea(
@@ -839,10 +391,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             minHeight: 0,
             maxHeight: double.infinity,
             alignment: Alignment.topCenter,
-            child: SizedBox(
-              height: 160,
-              child: content,
-            ),
+            child: SizedBox(height: 160, child: content),
           );
         }
         return content;
@@ -860,13 +409,48 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
       case MasterTab.lightColor:
         return Column(
           children: [
-            _subTabs(
+            SubTabs<_LightColorSubTab>(
               tabs: [
-                ('Light', _LightColorSubTab.light, 'light', (dirtyState.modifiedSubTabMask & (1 << _LightColorSubTab.light.index)) != 0),
-                ('Color', _LightColorSubTab.color, 'color', (dirtyState.modifiedSubTabMask & (1 << _LightColorSubTab.color.index)) != 0),
-                ('Curve', _LightColorSubTab.curve, 'curve', (dirtyState.modifiedSubTabMask & (1 << _LightColorSubTab.curve.index)) != 0),
-                ('Mix', _LightColorSubTab.mix, 'mix', (dirtyState.modifiedSubTabMask & (1 << _LightColorSubTab.mix.index)) != 0),
-                ('Grade', _LightColorSubTab.grade, 'grade', (dirtyState.modifiedSubTabMask & (1 << _LightColorSubTab.grade.index)) != 0),
+                (
+                  'Light',
+                  _LightColorSubTab.light,
+                  'light',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _LightColorSubTab.light.index)) !=
+                      0,
+                ),
+                (
+                  'Color',
+                  _LightColorSubTab.color,
+                  'color',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _LightColorSubTab.color.index)) !=
+                      0,
+                ),
+                (
+                  'Curve',
+                  _LightColorSubTab.curve,
+                  'curve',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _LightColorSubTab.curve.index)) !=
+                      0,
+                ),
+                (
+                  'Mix',
+                  _LightColorSubTab.mix,
+                  'mix',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _LightColorSubTab.mix.index)) !=
+                      0,
+                ),
+                (
+                  'Grade',
+                  _LightColorSubTab.grade,
+                  'grade',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _LightColorSubTab.grade.index)) !=
+                      0,
+                ),
               ],
               current: _lightColorTab,
               hasTabChanges: hasTabChanges,
@@ -888,9 +472,13 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
               onSelect: (val) {
                 setState(() => _lightColorTab = val);
                 if (val == _LightColorSubTab.light) {
-                  ref.read(activeSectionProvider.notifier).select(RecipeSection.light);
+                  ref
+                      .read(activeSectionProvider.notifier)
+                      .select(RecipeSection.light);
                 } else if (val == _LightColorSubTab.color) {
-                  ref.read(activeSectionProvider.notifier).select(RecipeSection.color);
+                  ref
+                      .read(activeSectionProvider.notifier)
+                      .select(RecipeSection.color);
                 }
               },
             ),
@@ -899,16 +487,22 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 _LightColorSubTab.light => const ParameterPanel(
                   section: RecipeSection.light,
                 ),
-                _LightColorSubTab.color => const ParameterPanel(section: RecipeSection.color),
+                _LightColorSubTab.color => const ParameterPanel(
+                  section: RecipeSection.color,
+                ),
                 _LightColorSubTab.curve => const ToneCurveEditor(),
                 _LightColorSubTab.mix => const SingleChildScrollView(
-                    physics: BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                    child: HslMixer(),
+                  physics: BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
                   ),
+                  child: HslMixer(),
+                ),
                 _LightColorSubTab.grade => const SingleChildScrollView(
-                    physics: BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                    child: ColorGradingEditor(),
+                  physics: BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
                   ),
+                  child: ColorGradingEditor(),
+                ),
               },
             ),
           ],
@@ -917,12 +511,40 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
       case MasterTab.effectsDetail:
         return Column(
           children: [
-            _subTabs(
+            SubTabs<_EffectsDetailSubTab>(
               tabs: [
-                ('Effects', _EffectsDetailSubTab.effects, 'effects', (dirtyState.modifiedSubTabMask & (1 << _EffectsDetailSubTab.effects.index)) != 0),
-                ('Detail', _EffectsDetailSubTab.detail, 'detail', (dirtyState.modifiedSubTabMask & (1 << _EffectsDetailSubTab.detail.index)) != 0),
-                ('Blur', _EffectsDetailSubTab.blur, 'blur', (dirtyState.modifiedSubTabMask & (1 << _EffectsDetailSubTab.blur.index)) != 0),
-                ('Film', _EffectsDetailSubTab.film, 'film', (dirtyState.modifiedSubTabMask & (1 << _EffectsDetailSubTab.film.index)) != 0),
+                (
+                  'Effects',
+                  _EffectsDetailSubTab.effects,
+                  'effects',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _EffectsDetailSubTab.effects.index)) !=
+                      0,
+                ),
+                (
+                  'Detail',
+                  _EffectsDetailSubTab.detail,
+                  'detail',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _EffectsDetailSubTab.detail.index)) !=
+                      0,
+                ),
+                (
+                  'Blur',
+                  _EffectsDetailSubTab.blur,
+                  'blur',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _EffectsDetailSubTab.blur.index)) !=
+                      0,
+                ),
+                (
+                  'Film',
+                  _EffectsDetailSubTab.film,
+                  'film',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _EffectsDetailSubTab.film.index)) !=
+                      0,
+                ),
               ],
               current: _effectsDetailTab,
               hasTabChanges: hasTabChanges,
@@ -944,9 +566,13 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
               onSelect: (val) {
                 setState(() => _effectsDetailTab = val);
                 if (val == _EffectsDetailSubTab.effects) {
-                  ref.read(activeSectionProvider.notifier).select(RecipeSection.effects);
+                  ref
+                      .read(activeSectionProvider.notifier)
+                      .select(RecipeSection.effects);
                 } else if (val == _EffectsDetailSubTab.detail) {
-                  ref.read(activeSectionProvider.notifier).select(RecipeSection.detail);
+                  ref
+                      .read(activeSectionProvider.notifier)
+                      .select(RecipeSection.detail);
                 }
               },
             ),
@@ -971,8 +597,12 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             ),
             Expanded(
               child: switch (_effectsDetailTab) {
-                _EffectsDetailSubTab.effects => const ParameterPanel(section: RecipeSection.effects),
-                _EffectsDetailSubTab.detail => const ParameterPanel(section: RecipeSection.detail),
+                _EffectsDetailSubTab.effects => const ParameterPanel(
+                  section: RecipeSection.effects,
+                ),
+                _EffectsDetailSubTab.detail => const ParameterPanel(
+                  section: RecipeSection.detail,
+                ),
                 _EffectsDetailSubTab.blur => const BlurControls(),
                 _EffectsDetailSubTab.film => const FilmControls(),
               },
@@ -983,11 +613,32 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
       case MasterTab.cropGeometry:
         return Column(
           children: [
-            _subTabs(
+            SubTabs<_CropGeometrySubTab>(
               tabs: [
-                ('Straighten', _CropGeometrySubTab.straighten, 'straighten', (dirtyState.modifiedSubTabMask & (1 << _CropGeometrySubTab.straighten.index)) != 0),
-                ('Transform', _CropGeometrySubTab.transform, 'transform', (dirtyState.modifiedSubTabMask & (1 << _CropGeometrySubTab.transform.index)) != 0),
-                ('Perspective', _CropGeometrySubTab.perspective, 'perspective', (dirtyState.modifiedSubTabMask & (1 << _CropGeometrySubTab.perspective.index)) != 0),
+                (
+                  'Straighten',
+                  _CropGeometrySubTab.straighten,
+                  'straighten',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _CropGeometrySubTab.straighten.index)) !=
+                      0,
+                ),
+                (
+                  'Transform',
+                  _CropGeometrySubTab.transform,
+                  'transform',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _CropGeometrySubTab.transform.index)) !=
+                      0,
+                ),
+                (
+                  'Perspective',
+                  _CropGeometrySubTab.perspective,
+                  'perspective',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _CropGeometrySubTab.perspective.index)) !=
+                      0,
+                ),
               ],
               current: _cropGeometryTab,
               hasTabChanges: hasTabChanges,
@@ -1010,12 +661,15 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
                 child: GeometryControls(
                   subTab: switch (_cropGeometryTab) {
                     _CropGeometrySubTab.straighten => GeometrySubTab.straighten,
                     _CropGeometrySubTab.transform => GeometrySubTab.transform,
-                    _CropGeometrySubTab.perspective => GeometrySubTab.perspective,
+                    _CropGeometrySubTab.perspective =>
+                      GeometrySubTab.perspective,
                   },
                 ),
               ),
@@ -1026,11 +680,32 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
       case MasterTab.proTools:
         return Column(
           children: [
-            _subTabs(
+            SubTabs<_ProToolsSubTab>(
               tabs: [
-                ('Retouch', _ProToolsSubTab.retouch, 'retouch', (dirtyState.modifiedSubTabMask & (1 << _ProToolsSubTab.retouch.index)) != 0),
-                ('Optics', _ProToolsSubTab.optics, 'optics', (dirtyState.modifiedSubTabMask & (1 << _ProToolsSubTab.optics.index)) != 0),
-                ('Shader Lab', _ProToolsSubTab.shaderLab, 'shaderLab', (dirtyState.modifiedSubTabMask & (1 << _ProToolsSubTab.shaderLab.index)) != 0),
+                (
+                  'Retouch',
+                  _ProToolsSubTab.retouch,
+                  'retouch',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _ProToolsSubTab.retouch.index)) !=
+                      0,
+                ),
+                (
+                  'Optics',
+                  _ProToolsSubTab.optics,
+                  'optics',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _ProToolsSubTab.optics.index)) !=
+                      0,
+                ),
+                (
+                  'Shader Lab',
+                  _ProToolsSubTab.shaderLab,
+                  'shaderLab',
+                  (dirtyState.modifiedSubTabMask &
+                          (1 << _ProToolsSubTab.shaderLab.index)) !=
+                      0,
+                ),
               ],
               current: _proToolsTab,
               hasTabChanges: hasTabChanges,
@@ -1052,11 +727,17 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
               onSelect: (val) {
                 setState(() => _proToolsTab = val);
                 if (val == _ProToolsSubTab.retouch) {
-                  ref.read(activeSectionProvider.notifier).select(RecipeSection.retouch);
+                  ref
+                      .read(activeSectionProvider.notifier)
+                      .select(RecipeSection.retouch);
                 } else if (val == _ProToolsSubTab.optics) {
-                  ref.read(activeSectionProvider.notifier).select(RecipeSection.optics);
+                  ref
+                      .read(activeSectionProvider.notifier)
+                      .select(RecipeSection.optics);
                 } else {
-                  ref.read(activeSectionProvider.notifier).select(RecipeSection.lab);
+                  ref
+                      .read(activeSectionProvider.notifier)
+                      .select(RecipeSection.lab);
                 }
               },
             ),
@@ -1077,128 +758,8 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         return const MaskControls();
 
       case MasterTab.plugins:
-        return const _PluginsPanelView();
+        return const PluginsPanelView();
     }
-  }
-
-  Widget _subTabs<T>({
-    required List<(String label, T value, String keyName, bool isModified)> tabs,
-    required T current,
-    required ValueChanged<T> onSelect,
-    required bool hasTabChanges,
-    required VoidCallback onCancel,
-    required VoidCallback onApply,
-  }) {
-    final scheme = Theme.of(context).colorScheme;
-
-    // Same pill styling as the master tab chips above, so sub-tabs read as a
-    // family instead of a row of boxy text buttons.
-    Widget tab(String label, T value, String keyName, bool isModified) {
-      final selected = current == value;
-      return Padding(
-        // Tighter chip padding: 8px horizontal, 0 vertical
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-        child: ChoiceChip(
-          label: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(label),
-              if (isModified) ...[
-                const SizedBox(width: 4),
-                Container(
-                  key: Key('applied-dot-$keyName'),
-                  width: 5,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: selected ? scheme.primary : scheme.primary.withValues(alpha: 0.85),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          selected: selected,
-          onSelected: (_) {
-            HapticFeedback.selectionClick();
-            if (hasTabChanges) {
-              onApply();
-            }
-            onSelect(value);
-          },
-          showCheckmark: false,
-          visualDensity: VisualDensity.compact,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          side: BorderSide(
-            color: selected
-                ? scheme.primary
-                : isModified
-                    ? scheme.primary.withValues(alpha: 0.5)
-                    : scheme.outlineVariant.withValues(alpha: 0.4),
-            width: selected ? 1.2 : 1.0,
-          ),
-          selectedColor: scheme.primary.withValues(alpha: 0.2),
-          backgroundColor: scheme.surfaceContainerHigh.withValues(alpha: 0.45),
-          labelStyle: TextStyle(
-            fontSize: 12,
-            letterSpacing: 0.4,
-            color: selected ? scheme.primary : scheme.onSurfaceVariant,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 34,
-      child: Row(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final item in tabs)
-                    tab(item.$1, item.$2, item.$3, item.$4),
-                ],
-              ),
-            ),
-          ),
-          if (hasTabChanges) ...[
-            VerticalDivider(
-              width: 1,
-              indent: 8,
-              endIndent: 8,
-              color: scheme.outlineVariant.withValues(alpha: 0.3),
-            ),
-            IconButton(
-              key: const Key('subtab-cancel'),
-              tooltip: 'Discard changes',
-              visualDensity: VisualDensity.compact,
-              iconSize: 18,
-              padding: const EdgeInsets.all(4),
-              constraints: const BoxConstraints(),
-              onPressed: onCancel,
-              icon: Icon(Icons.close, color: scheme.error, size: 18),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              key: const Key('subtab-apply'),
-              tooltip: 'Apply changes',
-              visualDensity: VisualDensity.compact,
-              iconSize: 18,
-              padding: const EdgeInsets.all(4),
-              constraints: const BoxConstraints(),
-              onPressed: onApply,
-              icon: Icon(Icons.check, color: scheme.primary, size: 18),
-            ),
-            const SizedBox(width: 6),
-          ],
-        ],
-      ),
-    );
   }
 
   void _selectToolFromGuide(String toolId) {
@@ -1234,7 +795,9 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
         case 'depth_bokeh':
           _activeTab = MasterTab.effectsDetail;
           _effectsDetailTab = _EffectsDetailSubTab.effects;
-          ref.read(activeSectionProvider.notifier).select(RecipeSection.effects);
+          ref
+              .read(activeSectionProvider.notifier)
+              .select(RecipeSection.effects);
           break;
         case 'ai_denoise':
         case 'sharpening':
@@ -1244,12 +807,16 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
           break;
         case 'geometry_crop':
           _activeTab = MasterTab.cropGeometry;
-          ref.read(activeSectionProvider.notifier).select(RecipeSection.geometry);
+          ref
+              .read(activeSectionProvider.notifier)
+              .select(RecipeSection.geometry);
           break;
         case 'ai_subject_mask':
         case 'stylus':
           _activeTab = MasterTab.masks;
-          ref.read(activeSectionProvider.notifier).select(RecipeSection.masking);
+          ref
+              .read(activeSectionProvider.notifier)
+              .select(RecipeSection.masking);
           break;
         case 'neural_plugins':
           _activeTab = MasterTab.plugins;
@@ -1295,10 +862,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 value: proof.profile,
                 isExpanded: true,
                 items: ProofProfile.values.map((p) {
-                  return DropdownMenuItem(
-                    value: p,
-                    child: Text(p.displayName),
-                  );
+                  return DropdownMenuItem(value: p, child: Text(p.displayName));
                 }).toList(),
                 onChanged: proof.enabled
                     ? (p) {
@@ -1313,10 +877,7 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 value: proof.intent,
                 isExpanded: true,
                 items: ProofIntent.values.map((i) {
-                  return DropdownMenuItem(
-                    value: i,
-                    child: Text(i.displayName),
-                  );
+                  return DropdownMenuItem(value: i, child: Text(i.displayName));
                 }).toList(),
                 onChanged: proof.enabled
                     ? (i) {
@@ -1330,891 +891,22 @@ class _LightroomShellState extends ConsumerState<LightroomShell> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Simulate Paper & Ink (DMax Black Floor)'),
                 value: proof.simulatePaperAndInk,
-                onChanged: proof.enabled ? (_) => notifier.togglePaperAndInk() : null,
+                onChanged: proof.enabled
+                    ? (_) => notifier.togglePaperAndInk()
+                    : null,
               ),
               CheckboxListTile(
                 key: const Key('soft-proofing-gamut-warning'),
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Highlight Out-of-Gamut Pixels'),
                 value: proof.gamutWarning,
-                onChanged: proof.enabled ? (_) => notifier.toggleGamutWarning() : null,
+                onChanged: proof.enabled
+                    ? (_) => notifier.toggleGamutWarning()
+                    : null,
               ),
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _PluginsPanelView extends ConsumerWidget {
-  const _PluginsPanelView();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(aiPluginProvider);
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final installed = state.installedPlugins;
-    final notifier = ref.read(aiPluginProvider.notifier);
-
-    return ListView(
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-      padding: const EdgeInsets.all(Insets.md),
-      children: [
-        Card.outlined(
-          child: Padding(
-            padding: const EdgeInsets.all(Insets.md),
-            child: Row(
-              children: [
-                Icon(Icons.offline_bolt_rounded, color: scheme.primary, size: 28),
-                const SizedBox(width: Insets.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Neural Forge On-Device AI',
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Zero cloud inference. Local zero-copy tensors.',
-                        style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton.tonal(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(builder: (_) => const AiPluginsScreen()),
-                    );
-                  },
-                  child: const Text('Manage'),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: Insets.sm),
-        const SectionHeader('Active AI Pipeline'),
-        Padding(
-          padding: const EdgeInsets.only(bottom: Insets.sm),
-          child: Text(
-            'Hardware-accelerated neural tasks running on-device via NPU/GPU.',
-            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-          ),
-        ),
-        Builder(builder: (context) {
-          final activeSaliency = notifier.getActivePluginForTask(AiTask.subjectSegmentation);
-          final activeDepth = notifier.getActivePluginForTask(AiTask.depthEstimation);
-          final activeMatting = notifier.getActivePluginForTask(AiTask.portraitHair);
-          final activeSky = notifier.getActivePluginForTask(AiTask.skySegmentation);
-
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _aiTaskCard(
-                context,
-                icon: Icons.person_search_rounded,
-                taskName: 'Subject & Object Saliency',
-                modelName: activeSaliency?.name ?? 'Built-in Saliency Alg.',
-                status: activeSaliency != null ? 'Active · Neural' : 'Active · Heuristic',
-              ),
-              _aiTaskCard(
-                context,
-                icon: Icons.blur_on_rounded,
-                taskName: 'Monocular Depth Estimation',
-                modelName: activeDepth?.name ?? 'Depth Gradient Fusion',
-                status: activeDepth != null ? 'Active · Neural' : 'Active · Gradient',
-              ),
-              _aiTaskCard(
-                context,
-                icon: Icons.auto_fix_high_rounded,
-                taskName: 'Edge Refinement & Matting',
-                modelName: activeMatting?.name ?? 'Guided Filter Matting',
-                status: activeMatting != null ? 'Active · Neural' : 'Active · Guided Filter',
-              ),
-              _aiTaskCard(
-                context,
-                icon: Icons.cloud_outlined,
-                taskName: 'Sky & Horizon Detection',
-                modelName: activeSky?.name ?? 'Chromatic Sky Segmenter',
-                status: activeSky != null ? 'Active · Neural' : 'Active · Color Mask',
-              ),
-            ],
-          );
-        }),
-        const SizedBox(height: Insets.md),
-        const SectionHeader('Installed Models'),
-        for (final p in installed)
-          ListTile(
-            dense: true,
-            leading: Icon(
-              p.isBuiltIn ? Icons.verified_rounded : Icons.extension_rounded,
-              color: scheme.primary,
-            ),
-            title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(p.description, maxLines: 1, overflow: TextOverflow.ellipsis),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: scheme.primaryContainer,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                p.task.label,
-                style: TextStyle(
-                  color: scheme.onPrimaryContainer,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        const SizedBox(height: Insets.md),
-        const SectionHeader('Community Model Hub'),
-        Padding(
-          padding: const EdgeInsets.only(bottom: Insets.sm),
-          child: Text(
-            'Explore high-performance vision models available for instant on-device installation.',
-            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-          ),
-        ),
-        for (final m in kCommunityAiPlugins) ...[
-          Builder(builder: (context) {
-            final isInstalled = installed.any((p) => p.id == m.id);
-            final isDownloading = state.downloadingId == m.id;
-            return Card.outlined(
-              margin: const EdgeInsets.only(bottom: Insets.xs),
-              child: ListTile(
-                dense: true,
-                leading: Icon(
-                  Icons.hub_outlined,
-                  color: isInstalled ? scheme.primary : scheme.onSurfaceVariant,
-                ),
-                title: Text(
-                  m.name,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(
-                  '${m.task.label} · ${(m.fileSizeBytes / 1000000).toStringAsFixed(0)} MB',
-                  style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-                ),
-                trailing: isDownloading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : isInstalled
-                        ? Icon(Icons.check_circle, color: scheme.primary, size: 20)
-                        : OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                            ),
-                            onPressed: () => notifier.installCommunityPlugin(m),
-                            child: const Text('Install', style: TextStyle(fontSize: 11)),
-                          ),
-              ),
-            );
-          }),
-        ],
-      ],
-    );
-  }
-
-  Widget _aiTaskCard(
-    BuildContext context, {
-    required IconData icon,
-    required String taskName,
-    required String modelName,
-    required String status,
-  }) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: const EdgeInsets.only(bottom: Insets.xs),
-      elevation: 0,
-      color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: Insets.xs),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: scheme.primary),
-            const SizedBox(width: Insets.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    taskName,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                  Text(
-                    modelName,
-                    style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                status,
-                style: TextStyle(
-                  fontSize: 12.0,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.primary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Panel for applying built-in looks and community presets to the current image.
-class LooksPresetsPanel extends ConsumerStatefulWidget {
-  const LooksPresetsPanel({super.key});
-
-  @override
-  ConsumerState<LooksPresetsPanel> createState() => _LooksPresetsPanelState();
-}
-
-class _LooksPresetsPanelState extends ConsumerState<LooksPresetsPanel> {
-  String _selectedCategory = 'All';
-  String _searchQuery = '';
-  bool _searchOpen = false;
-  bool _synced = false;
-  ToolDefinition? _activePresetTool;
-  double _activePresetAmount = 1.0;
-
-  static const List<String> _categories = [
-    'All',
-    'Cinema',
-    'Anime',
-    'Film',
-    'Nature',
-    'Portraits',
-    'Indian & Festive',
-    'Travel',
-    'Urban',
-    'Community',
-  ];
-
-  String _mapCatalogCategory(PresetCategory cat) => switch (cat) {
-    PresetCategory.all => 'All',
-    PresetCategory.cinema => 'Cinema',
-    PresetCategory.anime => 'Anime',
-    PresetCategory.nature => 'Nature',
-    PresetCategory.portrait => 'Portraits',
-    PresetCategory.indian => 'Indian & Festive',
-    PresetCategory.travel => 'Travel',
-    PresetCategory.urban => 'Urban',
-    PresetCategory.film => 'Film',
-  };
-
-  bool _matchesCategory(String itemCategory, String selectedCategory) {
-    if (selectedCategory == 'All') return true;
-    if (selectedCategory == itemCategory) return true;
-    final s = selectedCategory.toLowerCase();
-    final c = itemCategory.toLowerCase();
-    return c.contains(s) || s.contains(c);
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!_synced && mounted) {
-        _synced = true;
-        await ref.read(communityPresetsProvider.notifier).syncWithGitHub();
-        if (mounted) setState(() {});
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final notifier = ref.read(recipeControllerProvider.notifier);
-    final communityState = ref.watch(communityPresetsProvider);
-
-    // ---- Unified preset list: Catalog (All Looks) + Community + Builtins ----
-    final allItems = <_PresetItem>[];
-    final seenNames = <String>{};
-
-    // 1. All rich catalog presets from LooksSheet (Movie looks, anime styles, nature, portrait, indian, film)
-    for (final p in PresetCatalog.allPresets) {
-      if (_searchQuery.isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
-        if (!p.name.toLowerCase().contains(q) &&
-            !p.description.toLowerCase().contains(q) &&
-            !p.reference.toLowerCase().contains(q)) {
-          continue;
-        }
-      }
-      final catLabel = _mapCatalogCategory(p.category);
-      if (!_matchesCategory(catLabel, _selectedCategory)) {
-        continue;
-      }
-      seenNames.add(p.name.toLowerCase());
-      allItems.add(_PresetItem.catalog(p, catLabel, () {
-        HapticFeedback.lightImpact();
-        setState(() {
-          _activePresetTool = p.tool;
-          _activePresetAmount = 1.0;
-        });
-        notifier.applyTool(p.tool);
-        notifier.commit(label: 'Applied ${p.name}');
-      }));
-    }
-
-    // 2. Community Hub presets
-    final communityPresets = communityState.presets.where((preset) {
-      if (_selectedCategory != 'All' &&
-          _selectedCategory != 'Community' &&
-          !_matchesCategory(preset.category, _selectedCategory)) {
-        return false;
-      }
-      if (_searchQuery.isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
-        return preset.name.toLowerCase().contains(q) ||
-            preset.description.toLowerCase().contains(q) ||
-            preset.author.toLowerCase().contains(q) ||
-            preset.tags.any((t) => t.toLowerCase().contains(q));
-      }
-      return true;
-    });
-    for (final preset in communityPresets) {
-      if (seenNames.contains(preset.name.toLowerCase())) continue;
-      seenNames.add(preset.name.toLowerCase());
-      final communityTool = ToolDefinition(
-        name: preset.name,
-        description: preset.description,
-        params: preset.params ?? const {},
-      );
-      allItems.add(_PresetItem.community(preset, () {
-        HapticFeedback.lightImpact();
-        setState(() {
-          _activePresetTool = communityTool;
-          _activePresetAmount = 1.0;
-        });
-        ref.read(communityPresetsProvider.notifier).applyPreset(ref, preset);
-      }));
-    }
-
-    // 3. Fallback Builtins (if any extra exist in ToolLibrary)
-    for (final tool in ToolLibrary.builtins) {
-      if (seenNames.contains(tool.name.toLowerCase())) continue;
-      if (_searchQuery.isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
-        if (!tool.name.toLowerCase().contains(q) &&
-            !tool.description.toLowerCase().contains(q)) {
-          continue;
-        }
-      }
-      allItems.add(_PresetItem.builtin(tool, 'Film', () {
-        HapticFeedback.lightImpact();
-        setState(() {
-          _activePresetTool = tool;
-          _activePresetAmount = 1.0;
-        });
-        notifier.applyTool(tool);
-        notifier.commit(label: 'Applied ${tool.name}');
-      }));
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Top compact header & actions bar
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Insets.md, Insets.xs, Insets.md, Insets.xs),
-          child: Row(
-            children: [
-              Icon(Icons.movie_filter_outlined, size: 18, color: scheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                'Looks & Presets',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: scheme.onSurface,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${allItems.length}',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: scheme.onPrimaryContainer,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                key: const Key('preset-search-toggle'),
-                icon: Icon(_searchOpen ? Icons.close : Icons.search, size: 18),
-                tooltip: 'Search Presets',
-                visualDensity: VisualDensity.compact,
-                onPressed: () {
-                  setState(() {
-                    _searchOpen = !_searchOpen;
-                    if (!_searchOpen) _searchQuery = '';
-                  });
-                },
-              ),
-              IconButton(
-                key: const Key('preset-scan-qr-btn'),
-                icon: const Icon(Icons.qr_code_scanner, size: 18),
-                tooltip: 'Scan QR Look',
-                visualDensity: VisualDensity.compact,
-                onPressed: () => showAppSheet(context, const LooksSheet()),
-              ),
-            ],
-          ),
-        ),
-        if (_searchOpen)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Insets.md, 0, Insets.md, Insets.xs),
-            child: SizedBox(
-              height: 36,
-              child: TextField(
-                key: const Key('preset-search-input'),
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Search movie looks, anime, film…',
-                  prefixIcon: const Icon(Icons.search, size: 16),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 14),
-                          onPressed: () => setState(() => _searchQuery = ''),
-                        )
-                      : null,
-                  isDense: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.sm)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                ),
-                onChanged: (val) => setState(() => _searchQuery = val),
-              ),
-            ),
-          ),
-        // Horizontal category selector chips
-        SizedBox(
-          height: 36,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: Insets.md),
-            itemCount: _categories.length,
-            itemBuilder: (context, idx) {
-              final cat = _categories[idx];
-              final selected = _selectedCategory == cat;
-              return Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: FilterChip(
-                  key: Key('preset-cat-$cat'),
-                  label: Text(cat, style: const TextStyle(fontSize: 11)),
-                  selected: selected,
-                  onSelected: (val) {
-                    if (val) setState(() => _selectedCategory = cat);
-                  },
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: Insets.xs),
-        if (_activePresetTool != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: Insets.xs),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(Radii.sm),
-                border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.tune, size: 16, color: scheme.primary),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Strength ${(_activePresetAmount * 100).round()}%',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 2,
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                      ),
-                      child: Slider(
-                        key: const Key('preset-strength-slider'),
-                        value: _activePresetAmount,
-                        min: 0.0,
-                        max: 2.0,
-                        divisions: 40,
-                        onChanged: (val) {
-                          setState(() => _activePresetAmount = val);
-                          notifier.applyTool(_activePresetTool!, amount: val);
-                        },
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 14),
-                    tooltip: 'Dismiss',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => setState(() => _activePresetTool = null),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        // Horizontal film scroll view
-        Expanded(
-          child: allItems.isNotEmpty
-              ? ListView.builder(
-                  key: const Key('preset-filmstrip-list'),
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(Insets.md, Insets.xs, Insets.md, Insets.sm),
-                  itemCount: allItems.length,
-                  itemBuilder: (context, idx) {
-                    final item = allItems[idx];
-                    return _PresetStripItem(
-                      item: item,
-                      notifier: notifier,
-                    );
-                  },
-                )
-              : Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.style_outlined, size: 32, color: scheme.onSurfaceVariant),
-                      const SizedBox(height: Insets.xs),
-                      Text(
-                        'No presets found in $_selectedCategory',
-                        style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-Parameter? _parameterByName(String name) {
-  for (final p in Parameter.values) {
-    if (p.name == name) return p;
-  }
-  return null;
-}
-
-bool _itemMatches(_PresetItem item, EditRecipe recipe) {
-  if (item.params.isEmpty) return false;
-  for (final entry in item.params.entries) {
-    final param = _parameterByName(entry.key);
-    if (param == null) continue;
-    final current = valueOf(recipe, param);
-    if ((current - entry.value).abs() > 0.01) return false;
-  }
-  return true;
-}
-
-/// Union of built-in looks and community presets for the cinema strip.
-class _PresetItem {
-  const _PresetItem._({
-    required this.kind,
-    required this.name,
-    required this.description,
-    required this.params,
-    required this.category,
-    required this.onTap,
-    this.isApplied = false,
-    this.tool,
-    this.author,
-    this.rating,
-    this.reference,
-    this.hasDepth = false,
-    this.depthHint,
-  });
-
-  factory _PresetItem.catalog(
-    PresetItem item,
-    String category,
-    VoidCallback onTap, {
-    bool isApplied = false,
-  }) {
-    return _PresetItem._(
-      kind: 'catalog',
-      name: item.name,
-      description: item.description,
-      params: item.tool.params,
-      category: category,
-      isApplied: isApplied,
-      onTap: onTap,
-      tool: item.tool,
-      reference: item.reference,
-      hasDepth: item.hasDepth,
-      depthHint: item.depthHint,
-    );
-  }
-
-  factory _PresetItem.builtin(
-    ToolDefinition tool,
-    String category,
-    VoidCallback onTap, {
-    bool isApplied = false,
-  }) {
-    return _PresetItem._(
-      kind: 'builtin',
-      name: tool.name,
-      description: tool.description,
-      params: tool.params,
-      category: category,
-      isApplied: isApplied,
-      onTap: onTap,
-      tool: tool,
-    );
-  }
-
-  factory _PresetItem.community(
-    CommunityPreset preset,
-    VoidCallback onTap, {
-    bool isApplied = false,
-  }) {
-    final tool = ToolDefinition(
-      name: preset.name,
-      description: preset.description,
-      params: preset.params ?? const {},
-    );
-    return _PresetItem._(
-      kind: 'community',
-      name: preset.name,
-      description: preset.description,
-      params: preset.params ?? const {},
-      category: preset.category.isNotEmpty ? preset.category : 'Community',
-      isApplied: isApplied,
-      onTap: onTap,
-      tool: tool,
-      author: preset.author,
-      rating: preset.rating,
-    );
-  }
-
-  final String kind;
-  final String name;
-  final String description;
-  final Map<String, double> params;
-  final String category;
-  final bool isApplied;
-  final VoidCallback onTap;
-  final ToolDefinition? tool;
-  final String? author;
-  final double? rating;
-  final String? reference;
-  final bool hasDepth;
-  final String? depthHint;
-}
-
-/// Single cinema-strip preset card: large live thumbnail + name + applied badge.
-class _PresetStripItem extends ConsumerWidget {
-  const _PresetStripItem({
-    required this.item,
-    required this.notifier,
-  });
-
-  final _PresetItem item;
-  final RecipeController notifier;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
-    final isApplied = ref.watch(
-      recipeControllerProvider.select((s) => _itemMatches(item, s.recipe)),
-    );
-    final matrix = computePresetColorMatrix(item.params);
-
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        item.onTap();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Applied look: ${item.name}'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      },
-      child: Container(
-        width: 140,
-        margin: const EdgeInsets.only(right: Insets.sm),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(Radii.md),
-          border: Border.all(
-            color: isApplied
-                ? scheme.primary
-                : scheme.outlineVariant.withValues(alpha: 0.4),
-            width: isApplied ? 2 : 1,
-          ),
-          boxShadow: isApplied
-              ? [
-                  BoxShadow(
-                    color: scheme.primary.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Live thumbnail
-            Expanded(
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.sm)),
-                      child: ColorFiltered(
-                        colorFilter: ColorFilter.matrix(matrix),
-                        child: Image.memory(
-                          ref.watch(activeImageBytesProvider) ?? Uint8List(0),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            color: scheme.surfaceContainerHighest,
-                            child: Center(
-                              child: Icon(
-                                Icons.movie_filter_outlined,
-                                size: 28,
-                                color: scheme.primary.withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (item.hasDepth)
-                    Positioned(
-                      top: 6,
-                      left: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black87,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.blur_on, size: 10, color: Colors.cyanAccent),
-                            const SizedBox(width: 2),
-                            Text(
-                              item.depthHint ?? 'Depth',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  if (isApplied)
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: scheme.primary,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check, size: 10, color: Colors.white),
-                            SizedBox(width: 2),
-                            Text(
-                              'ACTIVE',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            // Label + category/reference
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                      color: isApplied ? scheme.primary : scheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    item.reference ?? (item.author != null ? 'by ${item.author}' : item.category),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12.0,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

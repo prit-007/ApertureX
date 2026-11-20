@@ -31,6 +31,7 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 | [`sqlite3`](https://pub.dev/packages/sqlite3) | ^3.5.2 | BSD-3-Clause | Dart FFI bindings to SQLite for drift; since 3.5.2 its native-assets build hook bundles `libsqlite3` on every platform, replacing `sqlite3_flutter_libs` (#104; pinned via `dependency_overrides`, F-Droid vendoring tracked in #69) | ✅ |
 | [`qr_flutter`](https://pub.dev/packages/qr_flutter) | ^4.1.0 | BSD-3-Clause | QR code generation and rendering for Look/QR open standard sharing | ✅ |
 | [`zxing2`](https://pub.dev/packages/zxing2) | ^0.2.4 | Apache-2.0 | Pure-Dart port of ZXing for offline QR code detection and decoding from image buffers | ✅ |
+| [`universal_io`](https://pub.dev/packages/universal_io) | ^2.2.2 | Apache-2.0 | Cross-platform drop-in abstraction for dart:io, enabling clean web compilation | ✅ |
 | [`miniz_oxide`](https://crates.io/crates/miniz_oxide) | ^0.8.9 | MIT OR Zlib OR Apache-2.0 | Pure-Rust DEFLATE decompression for watermark PNG decoding & C2PA payload decompression | ✅ |
 | [`ort`](https://crates.io/crates/ort) | =2.0.0-rc.15 | MIT OR Apache-2.0 | Safe Rust bindings for ONNX Runtime Mobile (`ai` feature; not in the default build) | ✅ |
 | [`ort-sys`](https://crates.io/crates/ort-sys) | =2.0.0-rc.15 | MIT OR Apache-2.0 | Low-level ONNX Runtime bindings and native runtime (`ai` feature; not in the default build) | ✅ |

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:universal_io/io.dart';
 
 import 'activity_log.dart';
 import 'log_providers.dart';

@@ -313,7 +313,7 @@ pub fn solve_guided_transform(guides: &[GuideLine]) -> GuidedTransformResult {
         verts.sort_by(|a, b| {
             ((a.x1 + a.x2) * 0.5)
                 .partial_cmp(&((b.x1 + b.x2) * 0.5))
-                .unwrap()
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         let mut angles = Vec::new();
@@ -342,7 +342,7 @@ pub fn solve_guided_transform(guides: &[GuideLine]) -> GuidedTransformResult {
         horizs.sort_by(|a, b| {
             ((a.y1 + a.y2) * 0.5)
                 .partial_cmp(&((b.y1 + b.y2) * 0.5))
-                .unwrap()
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         let mut angles = Vec::new();

@@ -377,7 +377,15 @@ pub fn guided_upsample_depth(
         let b = target_rgba[i * 4 + 2] as f32;
         luma_guide.push(0.2126 * r + 0.7152 * g + 0.0722 * b);
     }
-    crate::spatial::guided_filter_channel(&luma_guide, &bil_depth, target_w, target_h, radius, eps)
+    let filtered = crate::spatial::guided_filter_channel(
+        &luma_guide,
+        &bil_depth,
+        target_w,
+        target_h,
+        radius,
+        eps,
+    );
+    filtered.into_iter().map(|d| d.clamp(0.0, 1.0)).collect()
 }
 
 /// Saliency-based subject segmenter.
@@ -753,7 +761,7 @@ fn try_neural_depth_inference(
         return Err("Depth model tensor preprocessing failed".into());
     }
 
-    let (mut raw_output, mut maybe_session) = if let Some(p) = plugin_model_path {
+    let (mut raw_output, maybe_session) = if let Some(p) = plugin_model_path {
         if !std::path::Path::new(p).is_file() {
             return Err(format!("Plugin depth model file not found at '{p}'"));
         }
@@ -857,9 +865,13 @@ fn try_neural_depth_inference(
         let n = finite_vals.len();
         let idx_p2 = (n as f32 * 0.02) as usize;
         let idx_p98 = ((n as f32 * 0.98) as usize).min(n - 1);
-        finite_vals.select_nth_unstable(idx_p2);
+        finite_vals.select_nth_unstable_by(idx_p2, |a, b| {
+            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less)
+        });
         let p2_val = finite_vals[idx_p2];
-        finite_vals[idx_p2..].select_nth_unstable(idx_p98 - idx_p2);
+        finite_vals[idx_p2..].select_nth_unstable_by(idx_p98 - idx_p2, |a, b| {
+            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less)
+        });
         let p98_val = finite_vals[idx_p98];
         (p2_val, p98_val)
     } else {
@@ -877,12 +889,12 @@ fn try_neural_depth_inference(
     };
 
     let span = (p98 - p2).max(1e-5);
-    // Depth Anything V2 outputs disparity (higher values for closer objects).
-    // ApertureX depth convention: lower = closer (0.0 near, 1.0 far).
-    // Invert disparity so 0.0 represents the nearest foreground and 1.0 the distant background.
+    // ApertureX depth convention: lower = closer (0.0 near foreground, 1.0 far background).
+    // The neural depth model predicts depth (lower values for closer objects, higher for distant background).
+    // Normalize to [0.0, 1.0] preserving 0.0 = nearest foreground and 1.0 = distant background.
     let active_depth: Vec<f32> = active_raw
         .iter()
-        .map(|&d| (1.0 - ((d.clamp(p2, p98) - p2) / span)).clamp(0.0, 1.0))
+        .map(|&d| ((d.clamp(p2, p98) - p2) / span).clamp(0.0, 1.0))
         .collect();
 
     // Use guided upsampling if full-res RGBA reference is available for edge refinement;

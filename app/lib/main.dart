@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:universal_io/io.dart';
 
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/services.dart' show SystemChrome, SystemUiMode;

@@ -26,24 +26,13 @@ import 'snapseed_gesture_hud.dart';
 import 'snapseed_tools_sheet.dart';
 import '../../l10n/app_strings.dart';
 import '../../core/theme/window_size_class.dart';
+import 'snapseed_dock_sidebar.dart';
+import 'snapseed_hud_hosts.dart';
+import 'snapseed_radial_menu.dart';
 
-/// Index of the radial-menu item nearest [pointer], for a menu centred at
-/// [center] with [count] items at [radius]. Item 0 sits at the top (−90°),
-/// going clockwise. Pure — unit-tested.
-int nearestRadialItem(Offset center, Offset pointer, int count, double radius) {
-  var best = 0;
-  var bestD = double.infinity;
-  for (var i = 0; i < count; i++) {
-    final angle = -math.pi / 2 + i * 2 * math.pi / count;
-    final c = center + Offset(math.cos(angle) * radius, math.sin(angle) * radius);
-    final d = (c - pointer).distanceSquared;
-    if (d < bestD) {
-      bestD = d;
-      best = i;
-    }
-  }
-  return best;
-}
+export 'snapseed_dock_sidebar.dart';
+export 'snapseed_hud_hosts.dart';
+export 'snapseed_radial_menu.dart';
 
 /// The Snapseed shell is a pure **HUD**: it owns no gestures and no edit state.
 /// The shared [ImageCanvas] owns the touch model (1-finger edit, 2-finger
@@ -185,8 +174,9 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
             height: sheetH,
             child: SnapseedToolsSheet(
               onSelectCategoryAndTool: (cat, tool) {
-                if (widget.onSelectCategoryAndTool != null) {
-                  widget.onSelectCategoryAndTool!(cat, tool);
+                final onSelect = widget.onSelectCategoryAndTool;
+                if (onSelect != null) {
+                  onSelect(cat, tool);
                 } else {
                   widget.onPickTool(tool);
                 }
@@ -450,7 +440,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           top: MediaQuery.paddingOf(context).top + 16,
           left: 16,
           right: 16,
-          child: _SnapseedScrubHudHost(
+          child: SnapseedScrubHudHost(
             tool: widget.tool,
             gesturePhase: widget.gesturePhase,
             scrubVisible: _scrubVisible,
@@ -522,7 +512,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
         if (widget.gesturePhase == GesturePhase.cycling && !nodeMode)
           Positioned.fill(
             child: IgnorePointer(
-              child: _SnapseedCarouselHost(
+              child: SnapseedCarouselHost(
                 category: widget.category,
                 tools: widget.tools,
                 activeTool: widget.tool,
@@ -540,7 +530,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                   child: SafeArea(
                     top: false,
                     right: true,
-                    child: _SnapseedDockSidebar(
+                    child: SnapseedDockSidebar(
                       key: const Key('snapseed-dock-sidebar'),
                       tool: widget.tool,
                       category: widget.category,
@@ -735,9 +725,9 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                               ),
                               const SizedBox(width: 4),
                               if (widget.tool.is2D)
-                                _Snapseed2DColorIndicator(tool: widget.tool)
+                                Snapseed2DColorIndicator(tool: widget.tool)
                               else
-                                _Snapseed1DValueIndicator(tool: widget.tool),
+                                Snapseed1DValueIndicator(tool: widget.tool),
                               Container(
                                 width: 1,
                                 height: 18,
@@ -867,7 +857,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                               ],
                             ),
                           ),
-                          if (_activePresetTool != null)
+                          if (_activePresetTool case final activePreset?)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 4),
                               child: Container(
@@ -879,7 +869,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                 child: Row(
                                   children: [
                                     Text(
-                                      '${_activePresetTool!.name} · ${(_activePresetAmount * 100).round()}%',
+                                      '${activePreset.name} · ${(_activePresetAmount * 100).round()}%',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
@@ -902,7 +892,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                           divisions: 40,
                                           onChanged: (val) {
                                             setState(() => _activePresetAmount = val);
-                                            ref.read(recipeControllerProvider.notifier).applyTool(_activePresetTool!, amount: val);
+                                            ref.read(recipeControllerProvider.notifier).applyTool(activePreset, amount: val);
                                           },
                                         ),
                                       ),
@@ -1034,7 +1024,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
         // Radial tool menu.
         if (_radialOpen)
           Positioned.fill(
-            child: _RadialMenu(
+            child: SnapseedRadialMenu(
               active: widget.tool,
               tools: widget.tools,
               iconOf: _icon,
@@ -1048,734 +1038,6 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           ],
         );
       },
-    );
-  }
-}
-
-TextStyle themeStyle(BuildContext context, FontWeight weight) =>
-    Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: weight);
-
-/// A tap-to-pick radial menu of every gesture tool.
-class _RadialMenu extends StatelessWidget {
-  const _RadialMenu({
-    required this.active,
-    required this.tools,
-    required this.iconOf,
-    required this.onDismiss,
-    required this.onPick,
-  });
-
-  final GradeTool active;
-  final List<GradeTool> tools;
-  final IconData Function(GradeTool) iconOf;
-  final VoidCallback onDismiss;
-  final ValueChanged<GradeTool> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final shortest = MediaQuery.sizeOf(context).shortestSide;
-    final radius = shortest >= 600 ? 128.0 : 96.0;
-    // Fixed hit-box (issue #46): each item paints a 56px circle + label but
-    // gets a symmetric target around its ring point. The box is larger than
-    // the painted circle so taps just outside the ring still hit the item
-    // instead of the dismiss backdrop; Containers don't clip, so the label
-    // painting past the box is fine.
-    const hitW = 88.0;
-    const hitH = 100.0;
-    final half = radius + hitW / 2;
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              onDismiss();
-            },
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: ColoredBox(color: scheme.surface.withValues(alpha: 0.5)),
-            ),
-          ),
-        ),
-        // Recenter the ring inside the safe area so side cutouts (issue #47)
-        // don't clip the outermost items; the dismiss backdrop stays full-bleed.
-        SafeArea(
-          child: Center(
-            child: SizedBox(
-              width: half * 2,
-              height: half * 2,
-              child: Stack(
-                children: [
-                  for (var i = 0; i < tools.length; i++)
-                    Positioned(
-                      left: half +
-                          math.cos(-math.pi / 2 + i * 2 * math.pi / tools.length) *
-                              radius -
-                          hitW / 2,
-                      top: half +
-                          math.sin(-math.pi / 2 + i * 2 * math.pi / tools.length) *
-                              radius -
-                          hitH / 2,
-                      child: Semantics(
-                        button: true,
-                        label: tools[i].name,
-                        child: _RadialItemButton(
-                          key: Key('radial-${tools[i].name}'),
-                          tool: tools[i],
-                          icon: iconOf(tools[i]),
-                          selected: tools[i] == active,
-                          hitW: hitW,
-                          hitH: hitH,
-                          onTap: () {
-                            onPick(tools[i]);
-                          },
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RadialItemButton extends StatefulWidget {
-  const _RadialItemButton({
-    super.key,
-    required this.tool,
-    required this.icon,
-    required this.selected,
-    required this.hitW,
-    required this.hitH,
-    required this.onTap,
-  });
-
-  final GradeTool tool;
-  final IconData icon;
-  final bool selected;
-  final double hitW;
-  final double hitH;
-  final VoidCallback onTap;
-
-  @override
-  State<_RadialItemButton> createState() => _RadialItemButtonState();
-}
-
-class _RadialItemButtonState extends State<_RadialItemButton> with SingleTickerProviderStateMixin {
-  late final AnimationController _anim;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _anim = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 90),
-    );
-    _scale = Tween<double>(begin: 1.0, end: 0.90).animate(
-      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
-    );
-  }
-
-  @override
-  void dispose() {
-    _anim.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: (_) => _anim.forward(),
-      onPointerUp: (_) => _anim.reverse(),
-      onPointerCancel: (_) => _anim.reverse(),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          HapticFeedback.selectionClick();
-          widget.onTap();
-        },
-        child: Container(
-        width: widget.hitW,
-        height: widget.hitH,
-        color: Colors.transparent,
-        alignment: Alignment.topCenter,
-        child: ScaleTransition(
-          scale: _scale,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.selected ? scheme.primary : scheme.surfaceContainerHighest,
-                  boxShadow: widget.selected
-                      ? [
-                          BoxShadow(
-                            color: scheme.primary.withValues(alpha: 0.45),
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Icon(
-                  widget.icon,
-                  color: widget.selected ? scheme.onPrimary : scheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.tool.name,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w400,
-                  color: widget.selected ? scheme.primary : scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      ),
-    );
-  }
-}
-
-class _SnapseedScrubHudHost extends ConsumerWidget {
-  const _SnapseedScrubHudHost({
-    required this.tool,
-    required this.gesturePhase,
-    required this.scrubVisible,
-    required this.nodeMode,
-  });
-
-  final GradeTool tool;
-  final GesturePhase gesturePhase;
-  final bool scrubVisible;
-  final bool nodeMode;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final parameter = primaryParameterForTool(tool);
-    final zoneMask = ref.watch(zoneMaskProvider);
-    final value = ref.watch(
-      recipeControllerProvider.select((s) {
-        final recipe = s.recipe;
-        if (zoneMask.lockedLayerIndex != null &&
-            zoneMask.lockedLayerIndex! < recipe.layers.length) {
-          final layer = recipe.layers[zoneMask.lockedLayerIndex!];
-          return switch (parameter) {
-            Parameter.exposure => layer.exposure,
-            Parameter.contrast => layer.contrast,
-            Parameter.highlights => layer.highlights,
-            Parameter.shadows => layer.shadows,
-            Parameter.saturation => layer.saturation,
-            Parameter.temperature => layer.temperature,
-            Parameter.tint => layer.tint,
-            _ => valueOf(recipe, parameter),
-          };
-        }
-        return valueOf(recipe, parameter);
-      }),
-    );
-
-    final (hue, sat) = tool.is2D
-        ? ref.watch(
-            recipeControllerProvider.select((s) {
-              final recipe = s.recipe;
-              return switch (tool) {
-                GradeTool.shadowsGrade => (recipe.gradeShadowHue, recipe.gradeShadowSat),
-                GradeTool.midtonesGrade => (recipe.gradeMidHue, recipe.gradeMidSat),
-                GradeTool.highlightsGrade => (recipe.gradeHighlightHue, recipe.gradeHighlightSat),
-                _ => (0.0, 0.0),
-              };
-            }),
-          )
-        : (null, null);
-
-    return AnimatedOpacity(
-      opacity: ((gesturePhase == GesturePhase.scrubbing || scrubVisible) && !nodeMode)
-          ? 1.0
-          : 0.0,
-      duration: AppMotion.responsive(context, AppMotion.shortDuration),
-      curve: AppMotion.scrubCurve,
-      child: IgnorePointer(
-        child: SnapseedScrubHud(
-          key: const Key('snapseed-scrub-hud-root'),
-          tool: tool,
-          value: value,
-          hue: hue,
-          sat: sat,
-          visible: true,
-        ),
-      ),
-    );
-  }
-}
-
-class _SnapseedCarouselHost extends ConsumerWidget {
-  const _SnapseedCarouselHost({
-    required this.category,
-    required this.tools,
-    required this.activeTool,
-    required this.visible,
-  });
-
-  final ToolCategory category;
-  final List<GradeTool> tools;
-  final GradeTool activeTool;
-  final bool visible;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final values = ref.watch(
-      recipeControllerProvider.select((s) {
-        final recipe = s.recipe;
-        return {
-          for (final t in tools)
-            if (!t.is2D && (snapseedToolParameters[t]?.isNotEmpty ?? false))
-              t: valueOf(recipe, primaryParameterForTool(t)),
-        };
-      }),
-    );
-
-    return SnapseedParameterCarousel(
-      category: category,
-      tools: tools,
-      activeTool: activeTool,
-      values: values,
-      visible: visible,
-    );
-  }
-}
-
-class _Snapseed2DColorIndicator extends ConsumerWidget {
-  const _Snapseed2DColorIndicator({required this.tool});
-
-  final GradeTool tool;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
-    final (h, s) = ref.watch(
-      recipeControllerProvider.select((s) {
-        final recipe = s.recipe;
-        return switch (tool) {
-          GradeTool.shadowsGrade => (recipe.gradeShadowHue, recipe.gradeShadowSat),
-          GradeTool.midtonesGrade => (recipe.gradeMidHue, recipe.gradeMidSat),
-          GradeTool.highlightsGrade => (recipe.gradeHighlightHue, recipe.gradeHighlightSat),
-          _ => (0.0, 0.0),
-        };
-      }),
-    );
-    final swatch = HSVColor.fromAHSV(1.0, h, s, 0.85).toColor();
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: s > 0.01 ? swatch : scheme.outline,
-            border: Border.all(
-              color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
-              width: 0.5,
-            ),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          'H:${h.round()}° S:${(s * 100).round()}%',
-          style: themeStyle(context, FontWeight.w700).copyWith(
-            color: scheme.primary,
-            fontSize: 11,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Snapseed1DValueIndicator extends ConsumerWidget {
-  const _Snapseed1DValueIndicator({required this.tool});
-
-  final GradeTool tool;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
-    final parameter = primaryParameterForTool(tool);
-    final zoneMask = ref.watch(zoneMaskProvider);
-    final value = ref.watch(
-      recipeControllerProvider.select((s) {
-        final recipe = s.recipe;
-        if (zoneMask.lockedLayerIndex != null &&
-            zoneMask.lockedLayerIndex! < recipe.layers.length) {
-          final layer = recipe.layers[zoneMask.lockedLayerIndex!];
-          return switch (parameter) {
-            Parameter.exposure => layer.exposure,
-            Parameter.contrast => layer.contrast,
-            Parameter.highlights => layer.highlights,
-            Parameter.shadows => layer.shadows,
-            Parameter.saturation => layer.saturation,
-            Parameter.temperature => layer.temperature,
-            Parameter.tint => layer.tint,
-            _ => valueOf(recipe, parameter),
-          };
-        }
-        return valueOf(recipe, parameter);
-      }),
-    );
-
-    return Text(
-      '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
-      style: themeStyle(context, FontWeight.w700).copyWith(
-        color: scheme.primary,
-        fontSize: 11,
-      ),
-    );
-  }
-}
-
-/// Responsive tablet sidebar variant for the Snapseed shell dock (Flaw 15).
-///
-/// On large and extra-large displays (e.g. tablet landscape, iPad Pro, desktop),
-/// replaces the cramped bottom horizontal dock with a dedicated right sidebar
-/// featuring full-width tool buttons, labels, and clean vertical alignment.
-class _SnapseedDockSidebar extends ConsumerWidget {
-  const _SnapseedDockSidebar({
-    super.key,
-    required this.tool,
-    required this.category,
-    required this.onCycleCategory,
-    required this.onOpenToolsSheet,
-    required this.onOpenStacks,
-    required this.onToggleLooks,
-    required this.looksOpen,
-    required this.onOpenMasks,
-    required this.onOpenLensBlur,
-    required this.onToggleStraighten,
-    required this.straightenOpen,
-    required this.onOpenRadial,
-    required this.onEnableSelective,
-    required this.hasHistogram,
-    required this.histogramOpen,
-    required this.onToggleHistogram,
-  });
-
-  final GradeTool tool;
-  final ToolCategory category;
-  final VoidCallback onCycleCategory;
-  final VoidCallback onOpenToolsSheet;
-  final VoidCallback onOpenStacks;
-  final VoidCallback onToggleLooks;
-  final bool looksOpen;
-  final VoidCallback onOpenMasks;
-  final VoidCallback onOpenLensBlur;
-  final VoidCallback onToggleStraighten;
-  final bool straightenOpen;
-  final VoidCallback onOpenRadial;
-  final VoidCallback onEnableSelective;
-  final bool hasHistogram;
-  final bool histogramOpen;
-  final VoidCallback? onToggleHistogram;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
-    final parameter = primaryParameterForTool(tool);
-    final spec = specOf(parameter);
-    final tatActive = ref.watch(tatModeProvider);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Insets.sm, Insets.sm, Insets.xl, Insets.sm),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest.withValues(alpha: 0.90),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: scheme.outlineVariant.withValues(alpha: 0.5),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: scheme.onSurface.withValues(alpha: 0.16),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {},
-              child: Container(
-                width: 260,
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.sizeOf(context).height - 120,
-                ),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Active Tool & Category Header
-                      _buildHeaderCard(context, scheme, spec),
-                      const SizedBox(height: 8),
-                      Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.5)),
-                      const SizedBox(height: 6),
-                      // Tool Actions
-                      _buildActionItem(
-                        key: const Key('snapseed-tools-sheet-toggle'),
-                        icon: Icons.grid_view,
-                        label: 'All Tools',
-                        tooltip: 'All Tools',
-                        onTap: onOpenToolsSheet,
-                        scheme: scheme,
-                      ),
-                      _buildActionItem(
-                        key: const Key('snapseed-stacks-toggle'),
-                        icon: Icons.layers,
-                        label: 'View Edits (Stacks)',
-                        tooltip: 'View Edits (Stacks)',
-                        onTap: onOpenStacks,
-                        scheme: scheme,
-                      ),
-                      _buildActionItem(
-                        key: const Key('snapseed-looks-toggle'),
-                        icon: looksOpen ? Icons.style : Icons.style_outlined,
-                        label: 'Looks & Presets',
-                        tooltip: 'Looks & Presets',
-                        isSelected: looksOpen,
-                        onTap: onToggleLooks,
-                        scheme: scheme,
-                      ),
-                      _buildActionItem(
-                        key: const Key('snapseed-mask-toggle'),
-                        icon: Icons.layers_outlined,
-                        label: 'Masks & Layers',
-                        tooltip: 'Masks & Layers',
-                        onTap: onOpenMasks,
-                        scheme: scheme,
-                      ),
-                      _buildActionItem(
-                        key: const Key('snapseed-lens-blur-toggle'),
-                        icon: Icons.blur_on,
-                        label: 'Lens Blur & Bokeh',
-                        tooltip: 'Lens Blur & Bokeh',
-                        onTap: onOpenLensBlur,
-                        scheme: scheme,
-                      ),
-                      _buildActionItem(
-                        key: const Key('snapseed-straighten-toggle'),
-                        icon: Icons.crop_rotate,
-                        label: 'Straighten & Rotate',
-                        tooltip: 'Straighten & Rotate',
-                        isSelected: straightenOpen,
-                        onTap: onToggleStraighten,
-                        scheme: scheme,
-                      ),
-                      _buildActionItem(
-                        icon: Icons.radio_button_checked,
-                        label: 'Radial Tools',
-                        tooltip: 'Tools',
-                        onTap: onOpenRadial,
-                        scheme: scheme,
-                      ),
-                      const SizedBox(height: 6),
-                      Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.5)),
-                      const SizedBox(height: 6),
-                      // Assist & Selective
-                      _buildActionItem(
-                        icon: Icons.colorize,
-                        label: 'HSL Target',
-                        tooltip: 'HSL target: tap a colour in the photo, then drag to adjust it',
-                        isSelected: tatActive,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          ref.read(tatModeProvider.notifier).toggle();
-                        },
-                        scheme: scheme,
-                      ),
-                      _buildActionItem(
-                        key: const Key('selective-toggle'),
-                        icon: Icons.add_location_alt,
-                        label: 'Selective',
-                        tooltip: 'Selective',
-                        onTap: onEnableSelective,
-                        scheme: scheme,
-                      ),
-                      if (hasHistogram)
-                        _buildActionItem(
-                          key: const Key('histogram-toggle'),
-                          icon: Icons.bar_chart,
-                          label: histogramOpen ? 'Hide Histogram' : 'Show Histogram',
-                          tooltip: histogramOpen ? 'Hide histogram' : 'Show histogram',
-                          isSelected: histogramOpen,
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            onToggleHistogram?.call();
-                          },
-                          scheme: scheme,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderCard(BuildContext context, ColorScheme scheme, ParameterSpec spec) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainer.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.4),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () {
-              HapticFeedback.selectionClick();
-              onCycleCategory();
-            },
-            borderRadius: Radii.smAll,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.category_outlined, size: 14, color: scheme.primary),
-                      const SizedBox(width: 6),
-                      Text(
-                        _categoryLabel(category, AppStrings.of(context)),
-                        style: themeStyle(context, FontWeight.w600).copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Icon(Icons.unfold_more, size: 14),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  tool.is2D
-                      ? switch (tool) {
-                          GradeTool.shadowsGrade => 'Shadows Grade',
-                          GradeTool.midtonesGrade => 'Midtones Grade',
-                          GradeTool.highlightsGrade => 'Highlights Grade',
-                          _ => spec.label,
-                        }
-                      : spec.label,
-                  overflow: TextOverflow.ellipsis,
-                  style: themeStyle(context, FontWeight.w700).copyWith(fontSize: 13),
-                ),
-              ),
-              if (tool.is2D)
-                _Snapseed2DColorIndicator(tool: tool)
-              else
-                _Snapseed1DValueIndicator(tool: tool),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionItem({
-    Key? key,
-    required IconData icon,
-    required String label,
-    required String tooltip,
-    required VoidCallback onTap,
-    required ColorScheme scheme,
-    bool isSelected = false,
-  }) {
-    const minConstraints = BoxConstraints(minWidth: 48, minHeight: 48);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Material(
-        color: isSelected
-            ? scheme.primaryContainer.withValues(alpha: 0.7)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            child: Row(
-              children: [
-                IconButton(
-                  key: key,
-                  tooltip: tooltip,
-                  visualDensity: VisualDensity.compact,
-                  constraints: minConstraints,
-                  padding: EdgeInsets.zero,
-                  isSelected: isSelected,
-                  onPressed: onTap,
-                  icon: Icon(
-                    icon,
-                    size: 20,
-                    color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
-                  ),
-                  selectedIcon: Icon(
-                    icon,
-                    size: 20,
-                    color: scheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: isSelected ? scheme.primary : scheme.onSurface,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
