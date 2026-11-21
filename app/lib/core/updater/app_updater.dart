@@ -1,6 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../log/activity_log.dart';
+import '../log/log_providers.dart';
 import 'app_update_model.dart';
 
 /// Client for checking GitHub Releases and downloading OTA updates for ApertureX.
@@ -15,7 +17,8 @@ class AppUpdater {
       final build = info.buildNumber.isNotEmpty ? '+${info.buildNumber}' : '';
       final ver = '${info.version}$build';
       return ver.isNotEmpty ? ver : currentVersion;
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.app, 'AppUpdater PackageInfo load fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       return currentVersion;
     }
   }
@@ -51,7 +54,8 @@ class AppUpdater {
       }
 
       return false;
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.engine, 'AppUpdater version compare failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       return false;
     }
   }
@@ -85,7 +89,8 @@ class AppUpdater {
         return release;
       }
       return null;
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.app, 'GitHub release check fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       return null;
     } finally {
       if (client == null) {

@@ -7,7 +7,11 @@ import '../frb_generated.dart';
 import 'decode.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `decode_raw_to_srgb`
+// These functions are ignored because they are not marked as `pub`: `decode_raw_to_srgb`, `get_cached_or_decode_raw`, `raw_buffer_hash`
+
+/// Evicts the cached linear RAW image from resident memory.
+Future<void> clearRawDecodeCache() =>
+    RustLib.instance.api.crateApiRawClearRawDecodeCache();
 
 /// Reads RAW/DNG dimensions without demosaicing, in **display** orientation
 /// (axes swapped for the 90°/270°/transpose EXIF cases, matching `decode_*`).
@@ -32,6 +36,25 @@ Future<RgbaImage> decodeRawRoi({
   required int width,
   required int height,
 }) => RustLib.instance.api.crateApiRawDecodeRawRoi(
+  raw: raw,
+  x: x,
+  y: y,
+  width: width,
+  height: height,
+);
+
+/// Decodes a RAW/DNG and returns the full scene-linear RGBA f32 buffer.
+Future<LinearRgbaImage> decodeRawLinear({required List<int> raw}) =>
+    RustLib.instance.api.crateApiRawDecodeRawLinear(raw: raw);
+
+/// Decodes a RAW/DNG and returns the requested region in scene-linear RGBA f32.
+Future<LinearRgbaImage> decodeRawLinearRoi({
+  required List<int> raw,
+  required int x,
+  required int y,
+  required int width,
+  required int height,
+}) => RustLib.instance.api.crateApiRawDecodeRawLinearRoi(
   raw: raw,
   x: x,
   y: y,

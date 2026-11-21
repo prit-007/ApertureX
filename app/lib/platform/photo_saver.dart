@@ -1,10 +1,12 @@
-import 'dart:io';
-import 'dart:typed_data';
+import 'package:universal_io/io.dart';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import 'file_saver.dart';
 
 /// gal's Photos/DCIM bridge behind an interface (#104): gal declares
@@ -51,7 +53,7 @@ final gallerySinkProvider = Provider<GallerySink>((ref) => const RealGalSink());
 /// which keeps photo_manager for the macOS *library* — save destination and
 /// library backend are independent choices.
 final isDesktopPlatformProvider = Provider<bool>(
-  (ref) => Platform.isLinux || Platform.isWindows || Platform.isMacOS,
+  (ref) => !kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS),
 );
 
 /// Where a [PhotoSaver] save landed. A `null` result means the user cancelled
@@ -70,6 +72,13 @@ class SavedToFile extends PhotoSaveOutcome {
   const SavedToFile(this.file);
 
   final File file;
+}
+
+/// The original file at [path] was overwritten in-place.
+class OverwrittenOriginal extends PhotoSaveOutcome {
+  const OverwrittenOriginal(this.path);
+
+  final String path;
 }
 
 /// Routes one export save to the desktop dialog or the mobile gallery (#104).
@@ -117,6 +126,43 @@ class PhotoSaver {
         suggestedFileName: '$name.$extension',
         viaTemp: true,
       );
+
+  /// Overwrites the original file at [originalPath] in-place if writable,
+  /// or falls back to saving as a copy.
+  Future<PhotoSaveOutcome> saveOverwriteOriginal(
+    Uint8List bytes, {
+    required String originalPath,
+  }) async {
+    try {
+      final file = File(originalPath);
+      if (await file.exists()) {
+        await file.writeAsBytes(bytes, flush: true);
+        return OverwrittenOriginal(originalPath);
+      }
+    } catch (e, st) {
+      axLog(LogDomain.export, 'saveOverwriteOriginal fallback to gallery: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
+      // Fallback to saving copy
+    }
+    return (await saveBytes(
+          bytes,
+          name: 'aperturex_${DateTime.now().millisecondsSinceEpoch}',
+        )) ??
+        const SavedToGallery();
+  }
+
+  /// Saves an edited copy with a distinct copy suffix.
+  Future<PhotoSaveOutcome?> saveCopy(
+    Uint8List bytes, {
+    required String originalName,
+    String? extension,
+  }) {
+    final ext = extension ?? 'jpg';
+    final copyName = '${originalName}_edited';
+    if (ext == 'jpg' || ext == 'jpeg') {
+      return saveBytes(bytes, name: copyName);
+    }
+    return saveFile(bytes, name: copyName, extension: ext);
+  }
 
   Future<PhotoSaveOutcome?> _save(
     Uint8List bytes, {

@@ -197,6 +197,107 @@ pub fn preprocess_image_chw(
     tensor
 }
 
+/// Preprocesses proxy RGBA image into a normalized planar CHW tensor with aspect-preserving letterboxing.
+/// Returns `(tensor, scaled_w, scaled_h, pad_x, pad_y)`.
+/// Unused letterbox padding is filled with `0.0f32` (corresponding to the ImageNet normalization mean).
+pub fn preprocess_image_chw_letterbox(
+    rgba: &[u8],
+    src_w: usize,
+    src_h: usize,
+    canvas_w: usize,
+    canvas_h: usize,
+    mean: &[f32; 3],
+    std: &[f32; 3],
+) -> (Vec<f32>, usize, usize, usize, usize) {
+    if src_w == 0
+        || src_h == 0
+        || canvas_w == 0
+        || canvas_h == 0
+        || canvas_w > 2048
+        || canvas_h > 2048
+    {
+        return (Vec::new(), 0, 0, 0, 0);
+    }
+    if crate::validate::validate_rgba(rgba, src_w as u32, src_h as u32).is_err() {
+        return (Vec::new(), 0, 0, 0, 0);
+    }
+
+    let scale = (canvas_w as f32 / src_w as f32).min(canvas_h as f32 / src_h as f32);
+    let scaled_w = ((src_w as f32 * scale).round() as usize).clamp(1, canvas_w);
+    let scaled_h = ((src_h as f32 * scale).round() as usize).clamp(1, canvas_h);
+    let pad_x = (canvas_w - scaled_w) / 2;
+    let pad_y = (canvas_h - scaled_h) / 2;
+
+    let plane_size = match canvas_w.checked_mul(canvas_h) {
+        Some(s) => s,
+        None => return (Vec::new(), 0, 0, 0, 0),
+    };
+    let tensor_size = match plane_size.checked_mul(3) {
+        Some(s) => s,
+        None => return (Vec::new(), 0, 0, 0, 0),
+    };
+
+    // Filling with 0.0 corresponds to normalized ImageNet mean ((mean - mean) / std = 0.0)
+    let mut tensor = vec![0.0f32; tensor_size];
+
+    let inv_w = if scaled_w > 1 {
+        1.0 / (scaled_w - 1) as f32
+    } else {
+        0.0
+    };
+    let inv_h = if scaled_h > 1 {
+        1.0 / (scaled_h - 1) as f32
+    } else {
+        0.0
+    };
+
+    for y in 0..scaled_h {
+        let v = y as f32 * inv_h;
+        let canvas_y = pad_y + y;
+        let row_offset = canvas_y * canvas_w;
+        for x in 0..scaled_w {
+            let u = x as f32 * inv_w;
+            let canvas_x = pad_x + x;
+            let rgb = sample_bilinear_rgba(rgba, src_w, src_h, u, v);
+            let idx = row_offset + canvas_x;
+
+            tensor[idx] = (rgb[0] - mean[0]) / std[0];
+            tensor[plane_size + idx] = (rgb[1] - mean[1]) / std[1];
+            tensor[2 * plane_size + idx] = (rgb[2] - mean[2]) / std[2];
+        }
+    }
+
+    (tensor, scaled_w, scaled_h, pad_x, pad_y)
+}
+
+/// Horizontally flips a planar CHW tensor.
+pub fn flip_horizontal_chw(tensor: &[f32], channels: usize, w: usize, h: usize) -> Vec<f32> {
+    let mut out = vec![0.0f32; tensor.len()];
+    let plane_size = w * h;
+    for c in 0..channels {
+        let ch_offset = c * plane_size;
+        for y in 0..h {
+            let row_offset = ch_offset + y * w;
+            for x in 0..w {
+                out[row_offset + (w - 1 - x)] = tensor[row_offset + x];
+            }
+        }
+    }
+    out
+}
+
+/// Horizontally unflips a single HW plane.
+pub fn unflip_horizontal_hw(plane: &[f32], w: usize, h: usize) -> Vec<f32> {
+    let mut out = vec![0.0f32; plane.len()];
+    for y in 0..h {
+        let row_offset = y * w;
+        for x in 0..w {
+            out[row_offset + (w - 1 - x)] = plane[row_offset + x];
+        }
+    }
+    out
+}
+
 /// Resizes a single-channel 2D float mask `[0.0, 1.0]` using bilinear interpolation.
 pub fn resize_mask(
     mask: &[f32],
@@ -251,6 +352,42 @@ pub fn resize_mask(
     out
 }
 
+/// Edge-preserving depth upsampling using a guided filter with luminance guidance.
+/// Snaps low-resolution depth boundaries to high-resolution object edges,
+/// eliminating halos and blur bleeding artifacts.
+#[allow(clippy::too_many_arguments)]
+pub fn guided_upsample_depth(
+    low_res_depth: &[f32],
+    low_w: usize,
+    low_h: usize,
+    target_rgba: &[u8],
+    target_w: usize,
+    target_h: usize,
+    radius: usize,
+    eps: f32,
+) -> Vec<f32> {
+    let bil_depth = resize_mask(low_res_depth, low_w, low_h, target_w, target_h);
+    if target_rgba.len() < target_w * target_h * 4 || radius == 0 {
+        return bil_depth;
+    }
+    let mut luma_guide = Vec::with_capacity(target_w * target_h);
+    for i in 0..target_w * target_h {
+        let r = target_rgba[i * 4] as f32;
+        let g = target_rgba[i * 4 + 1] as f32;
+        let b = target_rgba[i * 4 + 2] as f32;
+        luma_guide.push(0.2126 * r + 0.7152 * g + 0.0722 * b);
+    }
+    let filtered = crate::spatial::guided_filter_channel(
+        &luma_guide,
+        &bil_depth,
+        target_w,
+        target_h,
+        radius,
+        eps,
+    );
+    filtered.into_iter().map(|d| d.clamp(0.0, 1.0)).collect()
+}
+
 /// Saliency-based subject segmenter.
 ///
 /// An in-tree, 100% offline-clean, deterministic salient object segmenter.
@@ -272,11 +409,11 @@ impl Segmenter for SaliencySegmenter {
             || src_h < 4
             || target_w == 0
             || target_h == 0
-            || target_w > 2048
-            || target_h > 2048
+            || target_w > 16384
+            || target_h > 16384
         {
             return Err(
-                "Invalid segmentation dimensions (min src 4x4, max target 2048x2048)".into(),
+                "Invalid segmentation dimensions (min src 4x4, max target 16384x16384)".into(),
             );
         }
         crate::validate::validate_rgba(rgba, src_w as u32, src_h as u32)?;
@@ -445,6 +582,157 @@ pub fn find_bundled_depth_model() -> Option<String> {
     None
 }
 
+/// Searches standard paths for a bundled neural denoiser model (e.g. NAFNet, SCUNet).
+pub fn find_bundled_denoise_model() -> Option<String> {
+    if let Ok(env_path) = std::env::var("APERTUREX_DENOISE_MODEL") {
+        if std::path::Path::new(&env_path).is_file() {
+            return Some(env_path);
+        }
+    }
+    let candidates = [
+        "assets/models/nafnet_denoise.onnx",
+        "../assets/models/nafnet_denoise.onnx",
+        "app/rust/assets/models/nafnet_denoise.onnx",
+        "assets/models/scunet_denoise.onnx",
+    ];
+    for candidate in &candidates {
+        if std::path::Path::new(candidate).is_file() {
+            return Some((*candidate).to_string());
+        }
+    }
+    None
+}
+
+/// Executes neural network sensor denoise using active ONNX runtime model if available.
+pub fn try_neural_denoise(
+    rgba: &[u8],
+    src_w: usize,
+    src_h: usize,
+    amount: f32,
+) -> Result<Vec<u8>, String> {
+    if amount <= 0.0 || src_w == 0 || src_h == 0 || rgba.len() < src_w * src_h * 4 {
+        return Ok(rgba.to_vec());
+    }
+    #[cfg(feature = "ai")]
+    {
+        let model_path = get_active_model("denoise").or_else(find_bundled_denoise_model);
+        if let Some(path) = model_path {
+            if !std::path::Path::new(&path).is_file() {
+                return Err(format!("Neural denoise model not found at '{path}'"));
+            }
+            let bytes = std::fs::read(&path)
+                .map_err(|e| format!("Failed to read denoise model '{path}': {e}"))?;
+            let mut session = crate::ort_runtime::create_session(&bytes)?;
+
+            const TILE_SIZE: usize = 512;
+            const OVERLAP: usize = 32;
+            let step = TILE_SIZE.saturating_sub(OVERLAP).max(1);
+
+            let mut output_rgba = rgba.to_vec();
+            let mut weight_accum = vec![0.0f32; src_w * src_h];
+            let mut accum_r = vec![0.0f32; src_w * src_h];
+            let mut accum_g = vec![0.0f32; src_w * src_h];
+            let mut accum_b = vec![0.0f32; src_w * src_h];
+
+            let y_steps = if src_h <= TILE_SIZE {
+                1
+            } else {
+                ((src_h - 1) / step) + 1
+            };
+            let x_steps = if src_w <= TILE_SIZE {
+                1
+            } else {
+                ((src_w - 1) / step) + 1
+            };
+
+            for yi in 0..y_steps {
+                let y0 = (yi * step).min(src_h.saturating_sub(TILE_SIZE));
+                let tile_h = TILE_SIZE.min(src_h.saturating_sub(y0));
+                for xi in 0..x_steps {
+                    let x0 = (xi * step).min(src_w.saturating_sub(TILE_SIZE));
+                    let tile_w = TILE_SIZE.min(src_w.saturating_sub(x0));
+
+                    let mut tile_in = vec![0.0f32; 3 * TILE_SIZE * TILE_SIZE];
+                    for ty in 0..tile_h {
+                        for tx in 0..tile_w {
+                            let src_idx = ((y0 + ty) * src_w + (x0 + tx)) * 4;
+                            let in_idx = ty * TILE_SIZE + tx;
+                            tile_in[in_idx] = rgba[src_idx] as f32 / 255.0;
+                            tile_in[TILE_SIZE * TILE_SIZE + in_idx] =
+                                rgba[src_idx + 1] as f32 / 255.0;
+                            tile_in[2 * TILE_SIZE * TILE_SIZE + in_idx] =
+                                rgba[src_idx + 2] as f32 / 255.0;
+                        }
+                    }
+
+                    if let Ok(tile_out) = crate::ort_runtime::run_session(
+                        &mut session,
+                        &tile_in,
+                        &[1, 3, TILE_SIZE, TILE_SIZE],
+                    ) {
+                        if tile_out.len() >= 3 * TILE_SIZE * TILE_SIZE {
+                            for ty in 0..tile_h {
+                                for tx in 0..tile_w {
+                                    let global_idx = (y0 + ty) * src_w + (x0 + tx);
+                                    let out_idx = ty * TILE_SIZE + tx;
+
+                                    let wx = ((tx as f32 / tile_w.max(1) as f32)
+                                        * std::f32::consts::PI)
+                                        .sin();
+                                    let wy = ((ty as f32 / tile_h.max(1) as f32)
+                                        * std::f32::consts::PI)
+                                        .sin();
+                                    let w = (wx * wy).max(0.01);
+
+                                    let r = tile_out[out_idx].clamp(0.0, 1.0) * 255.0;
+                                    let g = tile_out[TILE_SIZE * TILE_SIZE + out_idx]
+                                        .clamp(0.0, 1.0)
+                                        * 255.0;
+                                    let b = tile_out[2 * TILE_SIZE * TILE_SIZE + out_idx]
+                                        .clamp(0.0, 1.0)
+                                        * 255.0;
+
+                                    accum_r[global_idx] += r * w;
+                                    accum_g[global_idx] += g * w;
+                                    accum_b[global_idx] += b * w;
+                                    weight_accum[global_idx] += w;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            let blend = amount.clamp(0.0, 1.0);
+            for i in 0..(src_w * src_h) {
+                let w = weight_accum[i];
+                if w > 1e-5 {
+                    let r_denoised = accum_r[i] / w;
+                    let g_denoised = accum_g[i] / w;
+                    let b_denoised = accum_b[i] / w;
+
+                    let off = i * 4;
+                    let r_orig = rgba[off] as f32;
+                    let g_orig = rgba[off + 1] as f32;
+                    let b_orig = rgba[off + 2] as f32;
+
+                    output_rgba[off] = (r_orig * (1.0 - blend) + r_denoised * blend)
+                        .round()
+                        .clamp(0.0, 255.0) as u8;
+                    output_rgba[off + 1] = (g_orig * (1.0 - blend) + g_denoised * blend)
+                        .round()
+                        .clamp(0.0, 255.0) as u8;
+                    output_rgba[off + 2] = (b_orig * (1.0 - blend) + b_denoised * blend)
+                        .round()
+                        .clamp(0.0, 255.0) as u8;
+                }
+            }
+            return Ok(output_rgba);
+        }
+    }
+    Err("No neural denoise model available".into())
+}
+
 #[cfg(feature = "ai")]
 const BUNDLED_DEPTH_MODEL: &[u8] = include_bytes!("../assets/models/depth_anything_v2_vits.onnx");
 
@@ -467,33 +755,35 @@ fn try_neural_depth_inference(
     const MEAN: [f32; 3] = [0.485, 0.456, 0.406];
     const STD: [f32; 3] = [0.229, 0.224, 0.225];
 
-    let input_tensor =
-        preprocess_image_chw(rgba, src_w, src_h, DEPTH_IN_W, DEPTH_IN_H, &MEAN, &STD);
-    if input_tensor.len() != 3 * DEPTH_IN_W * DEPTH_IN_H {
+    let (input_tensor, scaled_w, scaled_h, pad_x, pad_y) =
+        preprocess_image_chw_letterbox(rgba, src_w, src_h, DEPTH_IN_W, DEPTH_IN_H, &MEAN, &STD);
+    if input_tensor.len() != 3 * DEPTH_IN_W * DEPTH_IN_H || scaled_w == 0 || scaled_h == 0 {
         return Err("Depth model tensor preprocessing failed".into());
     }
 
-    let raw_output = if let Some(p) = plugin_model_path {
+    let (mut raw_output, maybe_session) = if let Some(p) = plugin_model_path {
         if !std::path::Path::new(p).is_file() {
             return Err(format!("Plugin depth model file not found at '{p}'"));
         }
         let bytes = std::fs::read(p)
             .map_err(|e| format!("Failed to read plugin depth model '{p}': {e}"))?;
         let mut session = crate::ort_runtime::create_session(&bytes)?;
-        crate::ort_runtime::run_session(
+        let out = crate::ort_runtime::run_session(
             &mut session,
             &input_tensor,
             &[1, 3, DEPTH_IN_W, DEPTH_IN_H],
-        )?
+        )?;
+        (out, Some(session))
     } else if let Some(active) = get_active_model("depth") {
         let bytes = std::fs::read(&active)
             .map_err(|e| format!("Failed to read active depth model '{active}': {e}"))?;
         let mut session = crate::ort_runtime::create_session(&bytes)?;
-        crate::ort_runtime::run_session(
+        let out = crate::ort_runtime::run_session(
             &mut session,
             &input_tensor,
             &[1, 3, DEPTH_IN_W, DEPTH_IN_H],
-        )?
+        )?;
+        (out, Some(session))
     } else {
         // Use cached bundled Depth Anything V2 session
         let lock = BUNDLED_DEPTH_SESSION
@@ -505,11 +795,12 @@ fn try_neural_depth_inference(
         let mut session = lock
             .lock()
             .map_err(|_| "Bundled depth session lock poisoned".to_string())?;
-        crate::ort_runtime::run_session(
+        let out = crate::ort_runtime::run_session(
             &mut session,
             &input_tensor,
             &[1, 3, DEPTH_IN_W, DEPTH_IN_H],
-        )?
+        )?;
+        (out, None)
     };
 
     if raw_output.len() != DEPTH_IN_W * DEPTH_IN_H {
@@ -520,11 +811,73 @@ fn try_neural_depth_inference(
         ));
     }
 
-    // Normalize raw depth / disparity to [0.0, 1.0] (lower = closer)
-    let mut min_val = f32::INFINITY;
-    let mut max_val = f32::NEG_INFINITY;
-    for &v in &raw_output {
-        if v.is_finite() {
+    // Flip test-time augmentation (TTA) for high-precision inference (target_w >= 1024):
+    // Invert horizontal disparity, run second forward pass, unflip, and average.
+    // Suppresses asymmetrical model biases and stabilizes subject boundary transitions.
+    if target_w >= 1024 {
+        let flipped_tensor = flip_horizontal_chw(&input_tensor, 3, DEPTH_IN_W, DEPTH_IN_H);
+        let flipped_raw = if let Some(mut session) = maybe_session {
+            crate::ort_runtime::run_session(
+                &mut session,
+                &flipped_tensor,
+                &[1, 3, DEPTH_IN_W, DEPTH_IN_H],
+            )
+            .ok()
+        } else if let Some(lock) = BUNDLED_DEPTH_SESSION.get() {
+            if let Ok(Ok(mut session)) = lock.as_ref().map(|l| l.lock()) {
+                crate::ort_runtime::run_session(
+                    &mut session,
+                    &flipped_tensor,
+                    &[1, 3, DEPTH_IN_W, DEPTH_IN_H],
+                )
+                .ok()
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if let Some(flipped) = flipped_raw {
+            if flipped.len() == raw_output.len() {
+                let unflipped = unflip_horizontal_hw(&flipped, DEPTH_IN_W, DEPTH_IN_H);
+                for i in 0..raw_output.len() {
+                    raw_output[i] = 0.5 * (raw_output[i] + unflipped[i]);
+                }
+            }
+        }
+    }
+
+    // Extract active unpadded letterbox region
+    let mut active_raw = Vec::with_capacity(scaled_w * scaled_h);
+    for y in 0..scaled_h {
+        let row_start = (pad_y + y) * DEPTH_IN_W + pad_x;
+        active_raw.extend_from_slice(&raw_output[row_start..row_start + scaled_w]);
+    }
+
+    // Robust percentile normalization (2nd and 98th percentiles) to discard neural disparity outliers
+    let mut finite_vals: Vec<f32> = active_raw
+        .iter()
+        .copied()
+        .filter(|v| v.is_finite())
+        .collect();
+    let (p2, p98) = if finite_vals.len() >= 100 {
+        let n = finite_vals.len();
+        let idx_p2 = (n as f32 * 0.02) as usize;
+        let idx_p98 = ((n as f32 * 0.98) as usize).min(n - 1);
+        finite_vals.select_nth_unstable_by(idx_p2, |a, b| {
+            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less)
+        });
+        let p2_val = finite_vals[idx_p2];
+        finite_vals[idx_p2..].select_nth_unstable_by(idx_p98 - idx_p2, |a, b| {
+            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less)
+        });
+        let p98_val = finite_vals[idx_p98];
+        (p2_val, p98_val)
+    } else {
+        let mut min_val = f32::INFINITY;
+        let mut max_val = f32::NEG_INFINITY;
+        for &v in &finite_vals {
             if v < min_val {
                 min_val = v;
             }
@@ -532,24 +885,40 @@ fn try_neural_depth_inference(
                 max_val = v;
             }
         }
-    }
+        (min_val, max_val)
+    };
 
-    let span = (max_val - min_val).max(1e-5);
-    // Depth Anything V2 raw output has lower values for closer objects and higher values for distant objects.
-    // ApertureX depth convention: lower = closer (0.0 near, 1.0 far).
-    let normalized_depth: Vec<f32> = raw_output
+    let span = (p98 - p2).max(1e-5);
+    // ApertureX depth convention: lower = closer (0.0 near foreground, 1.0 far background).
+    // The neural depth model predicts depth (lower values for closer objects, higher for distant background).
+    // Normalize to [0.0, 1.0] preserving 0.0 = nearest foreground and 1.0 = distant background.
+    let active_depth: Vec<f32> = active_raw
         .iter()
-        .map(|&d| ((d - min_val) / span).clamp(0.0, 1.0))
+        .map(|&d| ((d.clamp(p2, p98) - p2) / span).clamp(0.0, 1.0))
         .collect();
 
-    let resized = resize_mask(
-        &normalized_depth,
-        DEPTH_IN_W,
-        DEPTH_IN_H,
-        target_w,
-        target_h,
-    );
-    Ok(resized)
+    // Use guided upsampling if full-res RGBA reference is available for edge refinement;
+    // otherwise fallback to bilinear resize.
+    if target_w == src_w && target_h == src_h && rgba.len() >= target_w * target_h * 4 {
+        Ok(guided_upsample_depth(
+            &active_depth,
+            scaled_w,
+            scaled_h,
+            rgba,
+            target_w,
+            target_h,
+            3,
+            1e-4,
+        ))
+    } else {
+        Ok(resize_mask(
+            &active_depth,
+            scaled_w,
+            scaled_h,
+            target_w,
+            target_h,
+        ))
+    }
 }
 
 /// Computes a high-order continuous optical depth gradient with C2 smoothness,
@@ -706,13 +1075,25 @@ pub fn estimate_depth_map_with_plugin(
         || src_h < 4
         || target_w == 0
         || target_h == 0
-        || target_w > 2048
-        || target_h > 2048
+        || target_w > 16384
+        || target_h > 16384
     {
         return Err(
-            "Invalid depth estimation dimensions (min src 4x4, max target 2048x2048)".into(),
+            "Invalid depth estimation dimensions (min src 4x4, max target 16384x16384)".into(),
         );
     }
+
+    // Priority 1: Check embedded container depth metadata (JPEG GDepth, Apple disparity, ISO-BMFF)
+    // before running compute-heavy neural inference.
+    if let Some((depth_u8, dw, dh)) = crate::exif::extract_embedded_depth(rgba) {
+        let f32_depth: Vec<f32> = depth_u8
+            .iter()
+            .map(|&b| 1.0 - (b as f32 / 255.0)) // GDepth 255 is nearest; normalize to lower = closer
+            .collect();
+        let resized = resize_mask(&f32_depth, dw, dh, target_w, target_h);
+        return Ok(resized);
+    }
+
     crate::validate::validate_rgba(rgba, src_w as u32, src_h as u32)?;
 
     #[cfg(feature = "ai")]
@@ -733,6 +1114,28 @@ pub fn estimate_depth_map_with_plugin(
     let _ = plugin_model_path;
 
     estimate_high_order_depth_gradient(rgba, src_w, src_h, target_w, target_h)
+}
+
+/// Estimates depth map prioritizing embedded GDepth/disparity container metadata
+/// over neural inference and optical depth gradient.
+pub fn estimate_depth_map_with_container(
+    container_bytes: Option<&[u8]>,
+    rgba: &[u8],
+    src_w: usize,
+    src_h: usize,
+    target_w: usize,
+    target_h: usize,
+    plugin_model_path: Option<&str>,
+) -> Result<Vec<f32>, String> {
+    if let Some(bytes) = container_bytes {
+        if let Some((depth_u8, dw, dh)) = crate::exif::extract_embedded_depth(bytes) {
+            let f32_depth: Vec<f32> = depth_u8.iter().map(|&b| 1.0 - (b as f32 / 255.0)).collect();
+            let resized = resize_mask(&f32_depth, dw, dh, target_w, target_h);
+            return Ok(resized);
+        }
+    }
+
+    estimate_depth_map_with_plugin(rgba, src_w, src_h, target_w, target_h, plugin_model_path)
 }
 
 #[cfg(test)]
@@ -917,5 +1320,136 @@ mod tests {
             center_depth < corner_depth,
             "Center subject ({center_depth}) should be closer than distant corner ({corner_depth})"
         );
+    }
+
+    #[test]
+    fn test_estimate_depth_map_accepts_target_greater_than_2048() {
+        let rgba = vec![128u8; 16 * 16 * 4];
+        let depth = estimate_depth_map(&rgba, 16, 16, 2400, 1600);
+        assert!(
+            depth.is_ok(),
+            "Target dimension > 2048 should not be rejected: {:?}",
+            depth.err()
+        );
+        assert_eq!(depth.unwrap().len(), 2400 * 1600);
+    }
+
+    #[test]
+    fn test_guided_upsample_depth_preserves_edges() {
+        let low_res = vec![0.1f32, 0.9f32]; // 2x1 low-res depth
+        let (tw, th) = (16, 2);
+        // RGBA guide with vertical edge: left half is dark (RGB 20), right half is bright (RGB 220)
+        let mut target_rgba = vec![20u8; tw * th * 4];
+        for y in 0..th {
+            for x in 8..tw {
+                let idx = (y * tw + x) * 4;
+                target_rgba[idx] = 220;
+                target_rgba[idx + 1] = 220;
+                target_rgba[idx + 2] = 220;
+            }
+        }
+        let upsampled = guided_upsample_depth(&low_res, 2, 1, &target_rgba, tw, th, 2, 0.01);
+        assert_eq!(upsampled.len(), tw * th);
+        assert!(
+            upsampled[2] < 0.35,
+            "Left of edge should be close to near depth: got {}",
+            upsampled[2]
+        );
+        assert!(
+            upsampled[14] > 0.65,
+            "Right of edge should be close to far depth: got {}",
+            upsampled[14]
+        );
+    }
+
+    #[test]
+    fn test_preprocess_image_letterbox_aspect_ratio_padding() {
+        // 4x2 image (2:1 aspect ratio)
+        let rgba = vec![255u8; 4 * 2 * 4];
+        let mean = [0.0, 0.0, 0.0];
+        let std = [1.0, 1.0, 1.0];
+
+        // Canvas 6x6
+        let (tensor, scaled_w, scaled_h, pad_x, pad_y) =
+            preprocess_image_chw_letterbox(&rgba, 4, 2, 6, 6, &mean, &std);
+
+        assert_eq!(scaled_w, 6);
+        assert_eq!(scaled_h, 3);
+        assert_eq!(pad_x, 0);
+        assert_eq!(pad_y, 1);
+        assert_eq!(tensor.len(), 3 * 6 * 6);
+
+        // Plane 0:
+        // Row 0 is pad_y=0, so it's letterbox padding -> should be 0.0
+        for &val in tensor.iter().take(6) {
+            assert_eq!(val, 0.0);
+        }
+        // Row 1..=3 is the active image -> should be 1.0 (255 / 255.0)
+        for y in 1..=3 {
+            for &val in &tensor[y * 6..y * 6 + 6] {
+                assert!((val - 1.0).abs() < 1e-4);
+            }
+        }
+        // Row 4..=5 is letterbox padding -> should be 0.0
+        for y in 4..6 {
+            for &val in &tensor[y * 6..y * 6 + 6] {
+                assert_eq!(val, 0.0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_flip_horizontal_chw_and_unflip_roundtrip() {
+        let (c, w, h) = (2, 3, 2);
+        let mut tensor = vec![0.0f32; c * w * h];
+        for (i, val) in tensor.iter_mut().enumerate() {
+            *val = i as f32;
+        }
+
+        let flipped = flip_horizontal_chw(&tensor, c, w, h);
+        assert_eq!(flipped.len(), tensor.len());
+        // Row 0 of channel 0: original [0, 1, 2], flipped [2, 1, 0]
+        assert_eq!(flipped[0], 2.0);
+        assert_eq!(flipped[1], 1.0);
+        assert_eq!(flipped[2], 0.0);
+
+        // Unflip channel 0
+        let unflipped = unflip_horizontal_hw(&flipped[..w * h], w, h);
+        assert_eq!(unflipped, tensor[..w * h]);
+    }
+
+    #[test]
+    fn test_estimate_depth_map_with_container_embedded_priority() {
+        let dummy_rgba = vec![128u8; 8 * 8 * 4];
+        // Without container: optical gradient
+        let fallback = estimate_depth_map_with_container(None, &dummy_rgba, 8, 8, 4, 4, None)
+            .expect("fallback depth");
+        assert_eq!(fallback.len(), 16);
+
+        // With mock container containing non-embedded bytes: falls back
+        let non_depth_container = vec![0u8; 32];
+        let fallback2 = estimate_depth_map_with_container(
+            Some(&non_depth_container),
+            &dummy_rgba,
+            8,
+            8,
+            4,
+            4,
+            None,
+        )
+        .expect("fallback depth");
+        assert_eq!(fallback2.len(), 16);
+    }
+
+    #[test]
+    fn test_try_neural_denoise_fallback_and_bounds() {
+        let dummy_rgba = vec![200u8; 16 * 16 * 4];
+        // Zero amount is no-op
+        let res_zero = try_neural_denoise(&dummy_rgba, 16, 16, 0.0).expect("zero amount");
+        assert_eq!(res_zero, dummy_rgba);
+
+        // When no neural model is registered, returns Err (allowing caller to use spatial fallback)
+        let res_no_model = try_neural_denoise(&dummy_rgba, 16, 16, 0.5);
+        assert!(res_no_model.is_err());
     }
 }

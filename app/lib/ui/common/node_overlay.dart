@@ -1026,6 +1026,11 @@ class _NodesPainter extends CustomPainter {
         case MaskKind.luminance:
         case MaskKind.colorRange:
         case MaskKind.depthRange:
+        case MaskKind.background:
+        case MaskKind.personFace:
+        case MaskKind.personSkin:
+        case MaskKind.personHair:
+        case MaskKind.object:
           break;
 
         case MaskKind.autoBrush:

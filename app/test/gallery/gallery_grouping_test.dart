@@ -45,4 +45,50 @@ void main() {
       isTrue,
     );
   });
+
+  group('filterAssets & sortAssets', () {
+    test('filters assets by substring search', () {
+      final assets = [
+        _asset('IMG_001.JPG', DateTime(2026, 1, 1)),
+        _asset('PORTRAIT_002.DNG', DateTime(2026, 1, 2)),
+        _asset('LANDSCAPE_003.JPG', DateTime(2026, 1, 3)),
+      ];
+
+      final filtered = filterAssets(assets, 'portrait');
+      expect(filtered, hasLength(1));
+      expect(filtered.single.id, 'PORTRAIT_002.DNG');
+    });
+
+    test('sorts assets by date or name', () {
+      final assets = [
+        _asset('b', DateTime(2026, 1, 1)),
+        _asset('a', DateTime(2026, 1, 3)),
+        _asset('c', DateTime(2026, 1, 2)),
+      ];
+
+      final byDate = sortAssets(assets, GallerySortOption.dateNewest);
+      expect(byDate.map((a) => a.id), ['a', 'c', 'b']);
+
+      final byName = sortAssets(assets, GallerySortOption.name);
+      expect(byName.map((a) => a.id), ['a', 'b', 'c']);
+    });
+
+    test('sorts assets by EXIF metadata (ISO, aperture, focalLength)', () {
+      const assets = [
+        GalleryAsset(id: 'high_iso', width: 1, height: 1, iso: 3200, aperture: 5.6, focalLength: 200.0),
+        GalleryAsset(id: 'low_iso', width: 1, height: 1, iso: 100, aperture: 1.4, focalLength: 24.0),
+        GalleryAsset(id: 'mid_iso', width: 1, height: 1, iso: 400, aperture: 2.8, focalLength: 50.0),
+        GalleryAsset(id: 'no_exif', width: 1, height: 1),
+      ];
+
+      final byIso = sortAssets(assets, GallerySortOption.iso);
+      expect(byIso.map((a) => a.id), ['low_iso', 'mid_iso', 'high_iso', 'no_exif']);
+
+      final byAperture = sortAssets(assets, GallerySortOption.aperture);
+      expect(byAperture.map((a) => a.id), ['low_iso', 'mid_iso', 'high_iso', 'no_exif']);
+
+      final byFocal = sortAssets(assets, GallerySortOption.focalLength);
+      expect(byFocal.map((a) => a.id), ['low_iso', 'mid_iso', 'high_iso', 'no_exif']);
+    });
+  });
 }

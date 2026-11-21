@@ -13,6 +13,7 @@ pub struct ApiRetouchPatch {
     pub feather: f32,
     pub opacity: f32,
     pub is_clone: bool,
+    pub mode_index: u32,
 }
 
 /// Maps bridge patches onto the engine's [`RetouchPatch`]s — the conversion
@@ -20,19 +21,30 @@ pub struct ApiRetouchPatch {
 pub(crate) fn to_engine_patches(patches: &[ApiRetouchPatch]) -> Vec<RetouchPatch> {
     patches
         .iter()
-        .map(|p| RetouchPatch {
-            target_x: p.target_x,
-            target_y: p.target_y,
-            source_x: p.source_x,
-            source_y: p.source_y,
-            radius: p.radius,
-            feather: p.feather,
-            opacity: p.opacity,
-            mode: if p.is_clone {
-                RetouchMode::Clone
-            } else {
-                RetouchMode::Heal
-            },
+        .map(|p| {
+            let mode = match p.mode_index {
+                1 => RetouchMode::Clone,
+                2 => RetouchMode::SkinSmooth,
+                3 => RetouchMode::EyeBrighten,
+                4 => RetouchMode::TeethWhiten,
+                _ => {
+                    if p.is_clone {
+                        RetouchMode::Clone
+                    } else {
+                        RetouchMode::Heal
+                    }
+                }
+            };
+            RetouchPatch {
+                target_x: p.target_x,
+                target_y: p.target_y,
+                source_x: p.source_x,
+                source_y: p.source_y,
+                radius: p.radius,
+                feather: p.feather,
+                opacity: p.opacity,
+                mode,
+            }
         })
         .collect()
 }

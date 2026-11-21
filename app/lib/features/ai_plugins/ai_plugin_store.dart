@@ -1,10 +1,12 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'package:crypto/crypto.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../edit/parameter.dart';
 import '../../engine/engine.dart';
 import 'ai_plugin_model.dart';
@@ -229,7 +231,15 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
           await _syncActivePluginToEngine(entry.key, plugin);
         }
       }
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(
+        LogDomain.app,
+        'AI plugin store init failed: $e',
+        level: LogLevel.error,
+        error: '$e',
+        stack: '$st',
+      );
+    }
   }
 
   String _taskToEngineKey(AiTask task) {
@@ -300,7 +310,8 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
         }
       }
       return file.path;
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.app, 'AI plugin path resolution fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       return '/tmp/ai_plugins/$pluginId.onnx';
     }
   }
@@ -314,7 +325,15 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
           .map((e) => '${e.key.index}:${e.value}')
           .join(',');
       await prefs.setString('aperturex_active_ai_plugin_per_task', activeMap);
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(
+        LogDomain.app,
+        'AI plugin store init failed: $e',
+        level: LogLevel.error,
+        error: '$e',
+        stack: '$st',
+      );
+    }
   }
 
   /// Adds a custom AI model plugin via a GitHub link or direct URL and activates it.
@@ -462,7 +481,8 @@ class AiPluginNotifier extends Notifier<AiPluginState> {
       return state.installedPlugins.firstWhere(
         (p) => p.task == task && p.isEnabled && p.isInstalled,
       );
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.app, 'No active plugin for task $task: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       return null;
     }
   }

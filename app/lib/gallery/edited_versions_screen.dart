@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -113,8 +113,9 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final recipe = ref.watch(recipeControllerProvider).recipe;
-    final curve = _curveOf(recipe);
+    final curve = ref.watch(
+      recipeControllerProvider.select((s) => _curveOf(s.recipe)),
+    );
     final pts = _toPoints(curve);
     final histogram = ref.watch(histogramProvider);
     final notifier = ref.read(recipeControllerProvider.notifier);
@@ -246,7 +247,7 @@ class _ToneCurveEditorState extends ConsumerState<ToneCurveEditor> {
                     'Tap to add point · Drag to curve · Double-tap to remove',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 12.0,
                       color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
                   ),

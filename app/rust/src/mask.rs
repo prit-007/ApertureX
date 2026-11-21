@@ -18,6 +18,11 @@ pub const MASK_BITMAP: u32 = 6;
 pub const MASK_COLOR_RANGE: u32 = 7;
 pub const MASK_AUTO_BRUSH: u32 = 8;
 pub const MASK_DEPTH_RANGE: u32 = 9;
+pub const MASK_BACKGROUND: u32 = 10;
+pub const MASK_PERSON_FACE: u32 = 11;
+pub const MASK_PERSON_SKIN: u32 = 12;
+pub const MASK_PERSON_HAIR: u32 = 13;
+pub const MASK_OBJECT: u32 = 14;
 
 /// A parametric or bitmap mask.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -542,6 +547,58 @@ pub fn coverage_rgb(kind: u32, p: &[f32], u: f32, v: f32, luma: f32, rgb: [f32; 
                 1.0
             }
         }
+        MASK_BACKGROUND => {
+            let subj = coverage(MASK_SUBJECT, p, u, v, luma);
+            (1.0 - subj).clamp(0.0, 1.0)
+        }
+        MASK_PERSON_FACE => {
+            if p.len() < 4 {
+                return 0.0;
+            }
+            let cx = p[0];
+            let cy = p[1];
+            let rx = p[2].max(1e-4);
+            let ry = p[3].max(1e-4);
+            let feather = if p.len() > 4 {
+                p[4].clamp(0.0, 1.0)
+            } else {
+                0.2
+            };
+            let dx = (u - cx) / rx;
+            let dy = (v - cy) / ry;
+            let dist = (dx * dx + dy * dy).sqrt();
+            1.0 - smoothstep(1.0 - feather, 1.0, dist)
+        }
+        MASK_PERSON_SKIN => {
+            let face_cov = coverage(MASK_PERSON_FACE, p, u, v, luma);
+            face_cov * (0.5 + 0.5 * luma).clamp(0.0, 1.0)
+        }
+        MASK_PERSON_HAIR => {
+            if p.len() < 4 {
+                return 0.0;
+            }
+            let cx = p[0];
+            let cy = p[1] - p[3] * 0.4;
+            let rx = p[2] * 1.1;
+            let ry = p[3] * 0.6;
+            let dx = (u - cx) / rx.max(1e-4);
+            let dy = (v - cy) / ry.max(1e-4);
+            let dist = (dx * dx + dy * dy).sqrt();
+            1.0 - smoothstep(0.8, 1.0, dist)
+        }
+        MASK_OBJECT => {
+            if p.len() < 4 {
+                return 0.0;
+            }
+            let x0 = p[0].min(p[2]);
+            let x1 = p[0].max(p[2]);
+            let y0 = p[1].min(p[3]);
+            let y1 = p[1].max(p[3]);
+            let feather = if p.len() > 4 { p[4].max(1e-4) } else { 0.1 };
+            let wx = smoothstep(x0 - feather, x0, u) * (1.0 - smoothstep(x1, x1 + feather, u));
+            let wy = smoothstep(y0 - feather, y0, v) * (1.0 - smoothstep(y1, y1 + feather, v));
+            (wx * wy).clamp(0.0, 1.0)
+        }
         _ => 0.0,
     }
 }
@@ -1007,7 +1064,9 @@ pub fn refine_mask_guided(
         return mask_alphas.to_vec();
     }
     let n = w * h;
-    assert_eq!(mask_alphas.len(), n);
+    if mask_alphas.len() != n {
+        return mask_alphas.to_vec();
+    }
 
     // 1. Compute guide image (normalized luminance in 0..1)
     let mut luma_guide = Vec::with_capacity(n);
@@ -2362,6 +2421,15 @@ mod tests {
             refined[idx_unbrushed], initial_mask[idx_unbrushed],
             "unbrushed region must remain completely untouched"
         );
+    }
+
+    #[test]
+    fn test_refine_mask_guided_mismatched_alpha_length_does_not_panic() {
+        let (w, h) = (16, 16);
+        let rgba = vec![255u8; w * h * 4];
+        let invalid_mask = vec![0.5f32; 10]; // length 10 instead of 256
+        let result = refine_mask_guided(&rgba, w, h, &invalid_mask, &[], 0.1, 2, 0.01);
+        assert_eq!(result, invalid_mask);
     }
 
     #[test]

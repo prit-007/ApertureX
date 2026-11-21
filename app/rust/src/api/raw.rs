@@ -4,8 +4,49 @@
 //! matrix → sRGB, so Dart receives the same kind of RGBA8 buffer the JPEG path
 //! produces (and can push it straight into the resident preview store).
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::sync::{Arc, Mutex};
+
 use crate::api::decode::{ImageDims, RgbaImage};
 use crate::raw;
+
+static RAW_DECODE_CACHE: Mutex<Option<(u64, Arc<raw::RawLinearImage>)>> = Mutex::new(None);
+
+fn raw_buffer_hash(bytes: &[u8]) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    bytes.len().hash(&mut hasher);
+    let sample_head = &bytes[..4096.min(bytes.len())];
+    sample_head.hash(&mut hasher);
+    let tail_start = bytes.len().saturating_sub(4096);
+    let sample_tail = &bytes[tail_start..];
+    sample_tail.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn get_cached_or_decode_raw(bytes: &[u8]) -> Result<Arc<raw::RawLinearImage>, String> {
+    let key = raw_buffer_hash(bytes);
+    if let Ok(guard) = RAW_DECODE_CACHE.lock() {
+        if let Some((cached_key, ref img)) = *guard {
+            if cached_key == key {
+                return Ok(Arc::clone(img));
+            }
+        }
+    }
+    let decoded = decode_raw_to_srgb(bytes)?;
+    let arc = Arc::new(decoded);
+    if let Ok(mut guard) = RAW_DECODE_CACHE.lock() {
+        *guard = Some((key, Arc::clone(&arc)));
+    }
+    Ok(arc)
+}
+
+/// Evicts the cached linear RAW image from resident memory.
+pub fn clear_raw_decode_cache() {
+    if let Ok(mut guard) = RAW_DECODE_CACHE.lock() {
+        *guard = None;
+    }
+}
 
 /// Reads RAW/DNG dimensions without demosaicing, in **display** orientation
 /// (axes swapped for the 90°/270°/transpose EXIF cases, matching `decode_*`).
@@ -35,7 +76,7 @@ pub fn raw_camera_matrix(raw: Vec<u8>) -> Result<Vec<f32>, String> {
 
 /// Decodes a RAW/DNG into a full sRGB RGBA8 buffer.
 pub fn decode_raw_rgba(raw: Vec<u8>) -> Result<RgbaImage, String> {
-    let img = decode_raw_to_srgb(&raw)?;
+    let img = get_cached_or_decode_raw(&raw)?;
     Ok(RgbaImage {
         width: img.width as u32,
         height: img.height as u32,
@@ -51,7 +92,7 @@ pub fn decode_raw_roi(
     width: u32,
     height: u32,
 ) -> Result<RgbaImage, String> {
-    let img = decode_raw_to_srgb(&raw)?;
+    let img = get_cached_or_decode_raw(&raw)?;
     let cropped = raw::crop_linear(
         &img,
         x as usize,
@@ -63,6 +104,53 @@ pub fn decode_raw_roi(
         width: cropped.width as u32,
         height: cropped.height as u32,
         rgba: raw::to_rgba8(&cropped),
+    })
+}
+
+/// Decodes a RAW/DNG and returns the full scene-linear RGBA f32 buffer.
+pub fn decode_raw_linear(raw: Vec<u8>) -> Result<crate::api::decode::LinearRgbaImage, String> {
+    let img = get_cached_or_decode_raw(&raw)?;
+    let mut rgba_linear = Vec::with_capacity(img.width * img.height * 4);
+    for chunk in img.data.as_chunks::<3>().0 {
+        rgba_linear.push(chunk[0]);
+        rgba_linear.push(chunk[1]);
+        rgba_linear.push(chunk[2]);
+        rgba_linear.push(1.0);
+    }
+    Ok(crate::api::decode::LinearRgbaImage {
+        width: img.width as u32,
+        height: img.height as u32,
+        data: rgba_linear,
+    })
+}
+
+/// Decodes a RAW/DNG and returns the requested region in scene-linear RGBA f32.
+pub fn decode_raw_linear_roi(
+    raw: Vec<u8>,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) -> Result<crate::api::decode::LinearRgbaImage, String> {
+    let img = get_cached_or_decode_raw(&raw)?;
+    let cropped = raw::crop_linear(
+        &img,
+        x as usize,
+        y as usize,
+        width as usize,
+        height as usize,
+    )?;
+    let mut rgba_linear = Vec::with_capacity(cropped.width * cropped.height * 4);
+    for chunk in cropped.data.as_chunks::<3>().0 {
+        rgba_linear.push(chunk[0]);
+        rgba_linear.push(chunk[1]);
+        rgba_linear.push(chunk[2]);
+        rgba_linear.push(1.0);
+    }
+    Ok(crate::api::decode::LinearRgbaImage {
+        width: cropped.width as u32,
+        height: cropped.height as u32,
+        data: rgba_linear,
     })
 }
 

@@ -263,6 +263,115 @@ impl Default for GeometrySpec {
     }
 }
 
+/// A guide line for upright/guided perspective correction (normalized coordinates 0..1).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GuideLine {
+    pub x1: f32,
+    pub y1: f32,
+    pub x2: f32,
+    pub y2: f32,
+    pub is_vertical: bool,
+}
+
+/// Result of solving guided perspective transform.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct GuidedTransformResult {
+    pub angle_deg: f32,
+    pub perspective_x: f32,
+    pub perspective_y: f32,
+    pub skew_x: f32,
+    pub skew_y: f32,
+}
+
+/// Solves perspective and rotation adjustments from 1 to 4 user-placed guide lines.
+pub fn solve_guided_transform(guides: &[GuideLine]) -> GuidedTransformResult {
+    if guides.is_empty() {
+        return GuidedTransformResult::default();
+    }
+
+    let mut verts = Vec::new();
+    let mut horizs = Vec::new();
+
+    for &g in guides {
+        let dx = g.x2 - g.x1;
+        let dy = g.y2 - g.y1;
+        let len_sq = dx * dx + dy * dy;
+        if len_sq < 1e-6 {
+            continue;
+        }
+        if g.is_vertical {
+            verts.push(g);
+        } else {
+            horizs.push(g);
+        }
+    }
+
+    let mut res = GuidedTransformResult::default();
+
+    // 1. Vertical guides
+    if !verts.is_empty() {
+        verts.sort_by(|a, b| {
+            ((a.x1 + a.x2) * 0.5)
+                .partial_cmp(&((b.x1 + b.x2) * 0.5))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        let mut angles = Vec::new();
+        for g in &verts {
+            let dx = g.x2 - g.x1;
+            let dy = g.y2 - g.y1;
+            let angle = dx.atan2(dy.abs());
+            angles.push(angle);
+        }
+
+        if verts.len() == 1 {
+            res.angle_deg = -angles[0].to_degrees();
+        } else {
+            let left_angle = angles[0];
+            let right_angle = angles[angles.len() - 1];
+            let avg_angle = (left_angle + right_angle) * 0.5;
+            res.angle_deg = -avg_angle.to_degrees();
+
+            let convergence = right_angle - left_angle;
+            res.perspective_x = (convergence * 2.0).clamp(-1.0, 1.0);
+        }
+    }
+
+    // 2. Horizontal guides
+    if !horizs.is_empty() {
+        horizs.sort_by(|a, b| {
+            ((a.y1 + a.y2) * 0.5)
+                .partial_cmp(&((b.y1 + b.y2) * 0.5))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        let mut angles = Vec::new();
+        for g in &horizs {
+            let dx = g.x2 - g.x1;
+            let dy = g.y2 - g.y1;
+            let angle = dy.atan2(dx.abs());
+            angles.push(angle);
+        }
+
+        if horizs.len() == 1 {
+            if verts.is_empty() {
+                res.angle_deg = -angles[0].to_degrees();
+            }
+        } else {
+            let top_angle = angles[0];
+            let bot_angle = angles[angles.len() - 1];
+            if verts.is_empty() {
+                let avg_angle = (top_angle + bot_angle) * 0.5;
+                res.angle_deg = -avg_angle.to_degrees();
+            }
+            let convergence = bot_angle - top_angle;
+            res.perspective_y = (convergence * 2.0).clamp(-1.0, 1.0);
+        }
+    }
+
+    res
+}
+
 impl GeometrySpec {
     /// True when the chain leaves the buffer byte-identical.
     pub fn is_identity(&self) -> bool {
@@ -356,17 +465,90 @@ pub fn apply_spec(rgba: &[u8], w: usize, h: usize, spec: &GeometrySpec) -> (Vec<
         w = cw;
         h = ch;
     }
-    buf = Cow::Owned(perspective_warp(
-        &buf,
-        w,
-        h,
-        spec.perspective_x,
-        spec.perspective_y,
-        spec.skew_x,
-        spec.skew_y,
-    ));
+    if spec.perspective_x != 0.0
+        || spec.perspective_y != 0.0
+        || spec.skew_x != 0.0
+        || spec.skew_y != 0.0
+    {
+        buf = Cow::Owned(perspective_warp(
+            &buf,
+            w,
+            h,
+            spec.perspective_x,
+            spec.perspective_y,
+            spec.skew_x,
+            spec.skew_y,
+        ));
+    }
 
     (buf.into_owned(), w, h)
+}
+
+/// Transforms a single-channel float plane (e.g. depth map or segmentation mask)
+/// through the geometry pipeline (flip, rotate, crop, resize to target).
+pub fn transform_plane(
+    plane: &[f32],
+    src_w: usize,
+    src_h: usize,
+    spec: &GeometrySpec,
+    out_w: usize,
+    out_h: usize,
+) -> Vec<f32> {
+    if src_w == 0 || src_h == 0 || plane.len() != src_w * src_h {
+        return Vec::new();
+    }
+    let mut data = plane.to_vec();
+    let (mut w, mut h) = (src_w, src_h);
+
+    if spec.flip_h {
+        let mut out = vec![0.0f32; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                out[y * w + x] = data[y * w + (w - 1 - x)];
+            }
+        }
+        data = out;
+    }
+    if spec.flip_v {
+        let mut out = vec![0.0f32; w * h];
+        for y in 0..h {
+            let src_row = (h - 1 - y) * w;
+            out[y * w..(y + 1) * w].copy_from_slice(&data[src_row..src_row + w]);
+        }
+        data = out;
+    }
+    if !spec.turns.is_multiple_of(4) {
+        for _ in 0..(spec.turns % 4) {
+            let (nw, nh) = (h, w);
+            let mut out = vec![0.0f32; nw * nh];
+            for y in 0..h {
+                for x in 0..w {
+                    let nx = h - 1 - y;
+                    let ny = x;
+                    out[ny * nw + nx] = data[y * w + x];
+                }
+            }
+            data = out;
+            w = nw;
+            h = nh;
+        }
+    }
+    if let Some((x, y, cw, ch)) =
+        crop_rect(w, h, spec.crop_l, spec.crop_t, spec.crop_r, spec.crop_b)
+    {
+        let mut out = Vec::with_capacity(cw * ch);
+        for row in 0..ch {
+            let start = (y + row) * w + x;
+            out.extend_from_slice(&data[start..start + cw]);
+        }
+        data = out;
+        w = cw;
+        h = ch;
+    }
+    if w != out_w || h != out_h {
+        data = crate::ml::resize_mask(&data, w, h, out_w, out_h);
+    }
+    data
 }
 
 /// Automatically detects the corrective horizon/straighten angle in degrees.
@@ -781,6 +963,23 @@ mod tests {
     }
 
     #[test]
+    fn test_transform_plane_flip_rotate_and_crop() {
+        let (w, h) = (4, 2);
+        let plane: Vec<f32> = (0..w * h).map(|i| i as f32).collect();
+        let spec = GeometrySpec {
+            flip_h: true,
+            turns: 1,
+            crop_l: 0.0,
+            crop_t: 0.0,
+            crop_r: 1.0,
+            crop_b: 0.5,
+            ..Default::default()
+        };
+        let transformed = transform_plane(&plane, w, h, &spec, 2, 2);
+        assert_eq!(transformed.len(), 4);
+    }
+
+    #[test]
     fn detect_straighten_angle_on_horizontal_horizon() {
         let w = 120;
         let h = 80;
@@ -840,5 +1039,34 @@ mod tests {
 
         // Zero dimensions
         assert!(crop_normalized(&buf, 0, 0, 0.1, 0.1, 0.9, 0.9).is_none());
+    }
+
+    #[test]
+    fn test_solve_guided_transform_verticals() {
+        let guides = vec![
+            GuideLine {
+                x1: 0.2,
+                y1: 0.1,
+                x2: 0.25,
+                y2: 0.9,
+                is_vertical: true,
+            },
+            GuideLine {
+                x1: 0.8,
+                y1: 0.1,
+                x2: 0.75,
+                y2: 0.9,
+                is_vertical: true,
+            },
+        ];
+        let res = solve_guided_transform(&guides);
+        assert!(res.perspective_x < 0.0);
+        assert!(res.angle_deg.abs() < 1.0);
+    }
+
+    #[test]
+    fn test_solve_guided_transform_empty() {
+        let res = solve_guided_transform(&[]);
+        assert_eq!(res, GuidedTransformResult::default());
     }
 }

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -244,14 +244,18 @@ class CommunityPresetsNotifier extends Notifier<CommunityPresetsState> {
       if (list != null) {
         state = state.copyWith(installedIds: list.toSet());
       }
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.preset, 'Community presets load fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 
   Future<void> _saveInstalled() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_kPrefsDownloadedPresetsKey, state.installedIds.toList());
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.preset, 'Community presets save failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 
   void selectCategory(String category) {
@@ -298,7 +302,8 @@ class CommunityPresetsNotifier extends Notifier<CommunityPresetsState> {
       if (response.statusCode == HttpStatus.ok) {
         await response.transform(utf8.decoder).join();
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.preset, 'Remote preset json fetch fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       // Offline fallback
     } finally {
       client.close();
@@ -352,7 +357,8 @@ class CommunityPresetsNotifier extends Notifier<CommunityPresetsState> {
         state = state.copyWith(presets: merged, isLoading: false);
         return;
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.preset, 'Community presets GitHub sync fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       // Graceful offline fallback
     } finally {
       if (client == null) {

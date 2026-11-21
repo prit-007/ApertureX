@@ -733,6 +733,75 @@ void main() {
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });
+
+  testWidgets('SnapseedShell renders dedicated right sidebar with full-width tools on large screens (Flaw 15)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+
+    var cycledCategory = false;
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SnapseedShell(
+              tool: GradeTool.exposure,
+              category: ToolCategory.light,
+              tools: gestureCategories[ToolCategory.light]!,
+              onCycleCategory: () => cycledCategory = true,
+              onPickTool: (_) {},
+              hasHistogram: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify dedicated sidebar exists
+    expect(find.byKey(const Key('snapseed-dock-sidebar')), findsOneWidget);
+
+    // Verify all tool buttons with labels are in sidebar
+    expect(find.text('All Tools'), findsOneWidget);
+    expect(find.text('View Edits (Stacks)'), findsOneWidget);
+    expect(find.text('Looks & Presets'), findsOneWidget);
+    expect(find.text('Masks & Layers'), findsOneWidget);
+    expect(find.text('Lens Blur & Bokeh'), findsOneWidget);
+    expect(find.text('Straighten & Rotate'), findsOneWidget);
+    expect(find.text('Radial Tools'), findsOneWidget);
+    expect(find.text('HSL Target'), findsOneWidget);
+    expect(find.text('Selective'), findsOneWidget);
+    expect(find.text('Show Histogram'), findsOneWidget);
+
+    // Verify touch targets in sidebar meet 48dp minimum
+    final buttons = [
+      const Key('snapseed-tools-sheet-toggle'),
+      const Key('snapseed-looks-toggle'),
+      const Key('snapseed-mask-toggle'),
+      const Key('snapseed-lens-blur-toggle'),
+      const Key('snapseed-straighten-toggle'),
+      const Key('selective-toggle'),
+      const Key('histogram-toggle'),
+    ];
+
+    for (final key in buttons) {
+      final finder = find.byKey(key);
+      expect(finder, findsOneWidget, reason: 'key $key not found');
+      final button = tester.widget<IconButton>(finder);
+      expect(button.constraints?.minWidth, greaterThanOrEqualTo(48.0));
+      expect(button.constraints?.minHeight, greaterThanOrEqualTo(48.0));
+    }
+
+    // Category cycle still works in sidebar
+    await tester.tap(find.text('Light'));
+    await tester.pump();
+    expect(cycledCategory, isTrue);
+
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
 }
 
 /// Finds the [AnimatedOpacity] wrapping the scrub HUD and returns its opacity.

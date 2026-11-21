@@ -6,16 +6,20 @@
 import 'api/blur.dart';
 import 'api/c2pa.dart';
 import 'api/color.dart';
+import 'api/compositing.dart';
 import 'api/decode.dart';
 import 'api/engine.dart';
 import 'api/exif.dart';
+import 'api/expand.dart';
 import 'api/export.dart';
 import 'api/geometry.dart';
+import 'api/head_pose.dart';
 import 'api/histogram.dart';
 import 'api/icc.dart';
 import 'api/logging.dart';
 import 'api/mask.dart';
 import 'api/optics.dart';
+import 'api/panorama.dart';
 import 'api/preview.dart';
 import 'api/raw.dart';
 import 'api/retouch.dart';
@@ -86,7 +90,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 183677846;
+  int get rustContentHash => 697109468;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -98,11 +102,36 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
+  Future<Uint8List> crateApiHeadPoseAdjustHeadPose({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double deltaYaw,
+    required double deltaPitch,
+    required double deltaRoll,
+    required double smile,
+    required double pupilDistance,
+  });
+
+  Future<Uint8List> crateApiColorApplyCameraCalibration({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required ApiCalibrationParams calib,
+  });
+
   Future<Uint8List> crateApiMaskApplyMasks({
     required List<int> rgba,
     required int width,
     required int height,
     required List<MaskLayer> layers,
+  });
+
+  Future<Uint8List> crateApiColorApplyPointColors({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required List<ApiPointColor> points,
   });
 
   Future<Map<String, double>?> crateApiColorAutoTone({required List<int> jpeg});
@@ -168,6 +197,15 @@ abstract class RustLibApi extends BaseApi {
     required double amount,
   });
 
+  Future<Uint8List> crateApiBlurBlurApplyPortraitWithParams({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double amount,
+    required int bokehShape,
+    required double bokehBoost,
+  });
+
   Future<Uint8List> crateApiEngineBrightenRgba({
     required List<int> rgba,
     required int amount,
@@ -184,14 +222,47 @@ abstract class RustLibApi extends BaseApi {
 
   Future<C2paExportSpec> crateApiExportC2PaExportSpecDefault();
 
+  Future<void> crateApiRawClearRawDecodeCache();
+
   Future<ColorParams> crateApiColorColorParamsDefault();
 
   Future<bool> crateApiColorColorParamsIsNeutral({required ColorParams that});
+
+  Future<Uint8List> crateApiCompositingCompositeLayers({
+    required List<int> baseRgba,
+    required List<int> overlayRgba,
+    required int width,
+    required int height,
+    required int blendModeIndex,
+    required double opacity,
+  });
+
+  Future<LinearRgbaImage> crateApiDecodeDecodeJpegLinear({
+    required List<int> jpeg,
+  });
+
+  Future<LinearRgbaImage> crateApiDecodeDecodeJpegLinearRoi({
+    required List<int> jpeg,
+    required int x,
+    required int y,
+    required int width,
+    required int height,
+  });
 
   Future<RgbaImage> crateApiDecodeDecodeJpegRgba({required List<int> jpeg});
 
   Future<RgbaImage> crateApiDecodeDecodeJpegRoi({
     required List<int> jpeg,
+    required int x,
+    required int y,
+    required int width,
+    required int height,
+  });
+
+  Future<LinearRgbaImage> crateApiRawDecodeRawLinear({required List<int> raw});
+
+  Future<LinearRgbaImage> crateApiRawDecodeRawLinearRoi({
+    required List<int> raw,
     required int x,
     required int y,
     required int width,
@@ -263,6 +334,23 @@ abstract class RustLibApi extends BaseApi {
     String? modelPath,
   });
 
+  Future<ApiHeadPoseEstimate> crateApiHeadPoseEstimateHeadPose({
+    required List<int> rgba,
+    required int width,
+    required int height,
+  });
+
+  Future<Uint8List> crateApiExpandExpandCanvas({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int padLeft,
+    required int padTop,
+    required int padRight,
+    required int padBottom,
+    required int modeIndex,
+  });
+
   Future<Uint8List> crateApiExportExportAvif({
     required List<int> rgba,
     required int width,
@@ -301,6 +389,19 @@ abstract class RustLibApi extends BaseApi {
     required CurveParams curves,
     required List<double> hsl,
     required List<int> exif,
+  });
+
+  Future<ExportResult> crateApiExportExportFullFromHandle({
+    required BigInt handle,
+    required ExportSpec spec,
+    required List<MaskLayer> layers,
+    required List<ApiRetouchPatch> retouchPatches,
+    required ColorParams params,
+    required CurveParams curves,
+    required List<double> hsl,
+    required List<int> exif,
+    required ExportBrandingSpec branding,
+    required C2paExportSpec c2Pa,
   });
 
   Future<ExportResult> crateApiExportExportFullWithBranding({
@@ -352,6 +453,13 @@ abstract class RustLibApi extends BaseApi {
 
   Future<Uint8List> crateApiExportExportTiff16({
     required List<int> rgba,
+    required int width,
+    required int height,
+    required String xmp,
+  });
+
+  Future<Uint8List> crateApiExportExportTiff16Linear({
+    required List<double> linear,
     required int width,
     required int height,
     required String xmp,
@@ -543,6 +651,14 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiPreviewPreviewClose({required BigInt handle});
 
+  Future<Float32List> crateApiPreviewPreviewEstimateDepth({
+    required BigInt handle,
+  });
+
+  Future<Float32List?> crateApiPreviewPreviewGetCachedDepth({
+    required BigInt handle,
+  });
+
   Future<RgbaImage> crateApiPreviewPreviewGetSourceRgba({
     required BigInt handle,
   });
@@ -642,6 +758,10 @@ abstract class RustLibApi extends BaseApi {
     required String path,
   });
 
+  Future<ApiGuidedTransformResult> crateApiGeometrySolveGuidedTransform({
+    required List<ApiGuideLine> guides,
+  });
+
   Future<Uint8List> crateApiSpatialSpatialApply({
     required List<int> rgba,
     required int width,
@@ -713,6 +833,11 @@ abstract class RustLibApi extends BaseApi {
     required double amount,
   });
 
+  Future<ApiPanoramaResult> crateApiPanoramaStitchPanorama({
+    required List<ApiPanoramaInput> images,
+    required int projectionIndex,
+  });
+
   Future<Uint8List> crateApiEngineSyntheticJpeg({
     required int width,
     required int height,
@@ -726,6 +851,110 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required super.generalizedFrbRustBinding,
     required super.portManager,
   });
+
+  @override
+  Future<Uint8List> crateApiHeadPoseAdjustHeadPose({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double deltaYaw,
+    required double deltaPitch,
+    required double deltaRoll,
+    required double smile,
+    required double pupilDistance,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_f_32(deltaYaw, serializer);
+          sse_encode_f_32(deltaPitch, serializer);
+          sse_encode_f_32(deltaRoll, serializer);
+          sse_encode_f_32(smile, serializer);
+          sse_encode_f_32(pupilDistance, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 1,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiHeadPoseAdjustHeadPoseConstMeta,
+        argValues: [
+          rgba,
+          width,
+          height,
+          deltaYaw,
+          deltaPitch,
+          deltaRoll,
+          smile,
+          pupilDistance,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiHeadPoseAdjustHeadPoseConstMeta =>
+      const TaskConstMeta(
+        debugName: "adjust_head_pose",
+        argNames: [
+          "rgba",
+          "width",
+          "height",
+          "deltaYaw",
+          "deltaPitch",
+          "deltaRoll",
+          "smile",
+          "pupilDistance",
+        ],
+      );
+
+  @override
+  Future<Uint8List> crateApiColorApplyCameraCalibration({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required ApiCalibrationParams calib,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_box_autoadd_api_calibration_params(calib, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 2,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiColorApplyCameraCalibrationConstMeta,
+        argValues: [rgba, width, height, calib],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiColorApplyCameraCalibrationConstMeta =>
+      const TaskConstMeta(
+        debugName: "apply_camera_calibration",
+        argNames: ["rgba", "width", "height", "calib"],
+      );
 
   @override
   Future<Uint8List> crateApiMaskApplyMasks({
@@ -745,7 +974,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 1,
+            funcId: 3,
             port: port_,
           );
         },
@@ -766,6 +995,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<Uint8List> crateApiColorApplyPointColors({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required List<ApiPointColor> points,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_list_api_point_color(points, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 4,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiColorApplyPointColorsConstMeta,
+        argValues: [rgba, width, height, points],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiColorApplyPointColorsConstMeta =>
+      const TaskConstMeta(
+        debugName: "apply_point_colors",
+        argNames: ["rgba", "width", "height", "points"],
+      );
+
+  @override
   Future<Map<String, double>?> crateApiColorAutoTone({
     required List<int> jpeg,
   }) {
@@ -777,7 +1045,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 2,
+            funcId: 5,
             port: port_,
           );
         },
@@ -809,7 +1077,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 3,
+            funcId: 6,
             port: port_,
           );
         },
@@ -848,7 +1116,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 7,
             port: port_,
           );
         },
@@ -894,7 +1162,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 8,
             port: port_,
           );
         },
@@ -968,7 +1236,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 9,
             port: port_,
           );
         },
@@ -1036,7 +1304,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 10,
             port: port_,
           );
         },
@@ -1074,7 +1342,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 11,
             port: port_,
           );
         },
@@ -1113,7 +1381,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 12,
             port: port_,
           );
         },
@@ -1135,6 +1403,56 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<Uint8List> crateApiBlurBlurApplyPortraitWithParams({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required double amount,
+    required int bokehShape,
+    required double bokehBoost,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_f_32(amount, serializer);
+          sse_encode_u_8(bokehShape, serializer);
+          sse_encode_f_32(bokehBoost, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 13,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiBlurBlurApplyPortraitWithParamsConstMeta,
+        argValues: [rgba, width, height, amount, bokehShape, bokehBoost],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiBlurBlurApplyPortraitWithParamsConstMeta =>
+      const TaskConstMeta(
+        debugName: "blur_apply_portrait_with_params",
+        argNames: [
+          "rgba",
+          "width",
+          "height",
+          "amount",
+          "bokehShape",
+          "bokehBoost",
+        ],
+      );
+
+  @override
   Future<Uint8List> crateApiEngineBrightenRgba({
     required List<int> rgba,
     required int amount,
@@ -1148,7 +1466,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 14,
             port: port_,
           );
         },
@@ -1180,7 +1498,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 15,
             port: port_,
           );
         },
@@ -1215,7 +1533,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 16,
             port: port_,
           );
         },
@@ -1245,7 +1563,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 17,
             port: port_,
           );
         },
@@ -1267,6 +1585,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiRawClearRawDecodeCache() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 18,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiRawClearRawDecodeCacheConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiRawClearRawDecodeCacheConstMeta =>
+      const TaskConstMeta(debugName: "clear_raw_decode_cache", argNames: []);
+
+  @override
   Future<ColorParams> crateApiColorColorParamsDefault() {
     return handler.executeNormal(
       NormalTask(
@@ -1275,7 +1620,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 19,
             port: port_,
           );
         },
@@ -1303,7 +1648,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 20,
             port: port_,
           );
         },
@@ -1325,6 +1670,134 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<Uint8List> crateApiCompositingCompositeLayers({
+    required List<int> baseRgba,
+    required List<int> overlayRgba,
+    required int width,
+    required int height,
+    required int blendModeIndex,
+    required double opacity,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(baseRgba, serializer);
+          sse_encode_list_prim_u_8_loose(overlayRgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_u_32(blendModeIndex, serializer);
+          sse_encode_f_32(opacity, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 21,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiCompositingCompositeLayersConstMeta,
+        argValues: [
+          baseRgba,
+          overlayRgba,
+          width,
+          height,
+          blendModeIndex,
+          opacity,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCompositingCompositeLayersConstMeta =>
+      const TaskConstMeta(
+        debugName: "composite_layers",
+        argNames: [
+          "baseRgba",
+          "overlayRgba",
+          "width",
+          "height",
+          "blendModeIndex",
+          "opacity",
+        ],
+      );
+
+  @override
+  Future<LinearRgbaImage> crateApiDecodeDecodeJpegLinear({
+    required List<int> jpeg,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(jpeg, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 22,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_linear_rgba_image,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDecodeDecodeJpegLinearConstMeta,
+        argValues: [jpeg],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDecodeDecodeJpegLinearConstMeta =>
+      const TaskConstMeta(debugName: "decode_jpeg_linear", argNames: ["jpeg"]);
+
+  @override
+  Future<LinearRgbaImage> crateApiDecodeDecodeJpegLinearRoi({
+    required List<int> jpeg,
+    required int x,
+    required int y,
+    required int width,
+    required int height,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(jpeg, serializer);
+          sse_encode_u_32(x, serializer);
+          sse_encode_u_32(y, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 23,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_linear_rgba_image,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDecodeDecodeJpegLinearRoiConstMeta,
+        argValues: [jpeg, x, y, width, height],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDecodeDecodeJpegLinearRoiConstMeta =>
+      const TaskConstMeta(
+        debugName: "decode_jpeg_linear_roi",
+        argNames: ["jpeg", "x", "y", "width", "height"],
+      );
+
+  @override
   Future<RgbaImage> crateApiDecodeDecodeJpegRgba({required List<int> jpeg}) {
     return handler.executeNormal(
       NormalTask(
@@ -1334,7 +1807,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 24,
             port: port_,
           );
         },
@@ -1372,7 +1845,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 25,
             port: port_,
           );
         },
@@ -1394,6 +1867,75 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<LinearRgbaImage> crateApiRawDecodeRawLinear({required List<int> raw}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(raw, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 26,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_linear_rgba_image,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiRawDecodeRawLinearConstMeta,
+        argValues: [raw],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiRawDecodeRawLinearConstMeta =>
+      const TaskConstMeta(debugName: "decode_raw_linear", argNames: ["raw"]);
+
+  @override
+  Future<LinearRgbaImage> crateApiRawDecodeRawLinearRoi({
+    required List<int> raw,
+    required int x,
+    required int y,
+    required int width,
+    required int height,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(raw, serializer);
+          sse_encode_u_32(x, serializer);
+          sse_encode_u_32(y, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 27,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_linear_rgba_image,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiRawDecodeRawLinearRoiConstMeta,
+        argValues: [raw, x, y, width, height],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiRawDecodeRawLinearRoiConstMeta =>
+      const TaskConstMeta(
+        debugName: "decode_raw_linear_roi",
+        argNames: ["raw", "x", "y", "width", "height"],
+      );
+
+  @override
   Future<RgbaImage> crateApiRawDecodeRawRgba({required List<int> raw}) {
     return handler.executeNormal(
       NormalTask(
@@ -1403,7 +1945,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 28,
             port: port_,
           );
         },
@@ -1441,7 +1983,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 29,
             port: port_,
           );
         },
@@ -1477,7 +2019,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 30,
             port: port_,
           );
         },
@@ -1508,7 +2050,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 31,
             port: port_,
           );
         },
@@ -1542,7 +2084,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 32,
             port: port_,
           );
         },
@@ -1578,7 +2120,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 33,
             port: port_,
           );
         },
@@ -1614,7 +2156,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 34,
             port: port_,
           );
         },
@@ -1650,7 +2192,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 35,
             port: port_,
           );
         },
@@ -1690,7 +2232,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 26,
+            funcId: 36,
             port: port_,
           );
         },
@@ -1720,7 +2262,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 27,
+            funcId: 37,
             port: port_,
           );
         },
@@ -1754,7 +2296,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 28,
+            funcId: 38,
             port: port_,
           );
         },
@@ -1793,7 +2335,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 29,
+            funcId: 39,
             port: port_,
           );
         },
@@ -1815,6 +2357,107 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<ApiHeadPoseEstimate> crateApiHeadPoseEstimateHeadPose({
+    required List<int> rgba,
+    required int width,
+    required int height,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 40,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_api_head_pose_estimate,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiHeadPoseEstimateHeadPoseConstMeta,
+        argValues: [rgba, width, height],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiHeadPoseEstimateHeadPoseConstMeta =>
+      const TaskConstMeta(
+        debugName: "estimate_head_pose",
+        argNames: ["rgba", "width", "height"],
+      );
+
+  @override
+  Future<Uint8List> crateApiExpandExpandCanvas({
+    required List<int> rgba,
+    required int width,
+    required int height,
+    required int padLeft,
+    required int padTop,
+    required int padRight,
+    required int padBottom,
+    required int modeIndex,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_u_32(padLeft, serializer);
+          sse_encode_u_32(padTop, serializer);
+          sse_encode_u_32(padRight, serializer);
+          sse_encode_u_32(padBottom, serializer);
+          sse_encode_u_32(modeIndex, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 41,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiExpandExpandCanvasConstMeta,
+        argValues: [
+          rgba,
+          width,
+          height,
+          padLeft,
+          padTop,
+          padRight,
+          padBottom,
+          modeIndex,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiExpandExpandCanvasConstMeta => const TaskConstMeta(
+    debugName: "expand_canvas",
+    argNames: [
+      "rgba",
+      "width",
+      "height",
+      "padLeft",
+      "padTop",
+      "padRight",
+      "padBottom",
+      "modeIndex",
+    ],
+  );
+
+  @override
   Future<Uint8List> crateApiExportExportAvif({
     required List<int> rgba,
     required int width,
@@ -1832,7 +2475,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 30,
+            funcId: 42,
             port: port_,
           );
         },
@@ -1861,7 +2504,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 31,
+            funcId: 43,
             port: port_,
           );
         },
@@ -1894,7 +2537,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 32,
+            funcId: 44,
             port: port_,
           );
         },
@@ -1925,7 +2568,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 33,
+            funcId: 45,
             port: port_,
           );
         },
@@ -1952,7 +2595,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 34,
+            funcId: 46,
             port: port_,
           );
         },
@@ -1980,7 +2623,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 35,
+            funcId: 47,
             port: port_,
           );
         },
@@ -2018,7 +2661,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 36,
+            funcId: 48,
             port: port_,
           );
         },
@@ -2068,7 +2711,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 37,
+            funcId: 49,
             port: port_,
           );
         },
@@ -2111,6 +2754,79 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<ExportResult> crateApiExportExportFullFromHandle({
+    required BigInt handle,
+    required ExportSpec spec,
+    required List<MaskLayer> layers,
+    required List<ApiRetouchPatch> retouchPatches,
+    required ColorParams params,
+    required CurveParams curves,
+    required List<double> hsl,
+    required List<int> exif,
+    required ExportBrandingSpec branding,
+    required C2paExportSpec c2Pa,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_u_64(handle, serializer);
+          sse_encode_box_autoadd_export_spec(spec, serializer);
+          sse_encode_list_mask_layer(layers, serializer);
+          sse_encode_list_api_retouch_patch(retouchPatches, serializer);
+          sse_encode_box_autoadd_color_params(params, serializer);
+          sse_encode_box_autoadd_curve_params(curves, serializer);
+          sse_encode_list_prim_f_32_loose(hsl, serializer);
+          sse_encode_list_prim_u_8_loose(exif, serializer);
+          sse_encode_box_autoadd_export_branding_spec(branding, serializer);
+          sse_encode_box_autoadd_c_2_pa_export_spec(c2Pa, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 50,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_export_result,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiExportExportFullFromHandleConstMeta,
+        argValues: [
+          handle,
+          spec,
+          layers,
+          retouchPatches,
+          params,
+          curves,
+          hsl,
+          exif,
+          branding,
+          c2Pa,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiExportExportFullFromHandleConstMeta =>
+      const TaskConstMeta(
+        debugName: "export_full_from_handle",
+        argNames: [
+          "handle",
+          "spec",
+          "layers",
+          "retouchPatches",
+          "params",
+          "curves",
+          "hsl",
+          "exif",
+          "branding",
+          "c2Pa",
+        ],
+      );
+
+  @override
   Future<ExportResult> crateApiExportExportFullWithBranding({
     required List<int> rgba,
     required int width,
@@ -2144,7 +2860,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 38,
+            funcId: 51,
             port: port_,
           );
         },
@@ -2211,7 +2927,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 39,
+            funcId: 52,
             port: port_,
           );
         },
@@ -2250,7 +2966,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 40,
+            funcId: 53,
             port: port_,
           );
         },
@@ -2286,7 +3002,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 41,
+            funcId: 54,
             port: port_,
           );
         },
@@ -2316,7 +3032,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 42,
+            funcId: 55,
             port: port_,
           );
         },
@@ -2351,7 +3067,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 43,
+            funcId: 56,
             port: port_,
           );
         },
@@ -2383,7 +3099,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 57,
             port: port_,
           );
         },
@@ -2422,7 +3138,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 58,
             port: port_,
           );
         },
@@ -2443,6 +3159,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<Uint8List> crateApiExportExportTiff16Linear({
+    required List<double> linear,
+    required int width,
+    required int height,
+    required String xmp,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_f_32_loose(linear, serializer);
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_String(xmp, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 59,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiExportExportTiff16LinearConstMeta,
+        argValues: [linear, width, height, xmp],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiExportExportTiff16LinearConstMeta =>
+      const TaskConstMeta(
+        debugName: "export_tiff16_linear",
+        argNames: ["linear", "width", "height", "xmp"],
+      );
+
+  @override
   Future<EmbeddedDepthResult?> crateApiExifExtractEmbeddedDepth({
     required List<int> jpeg,
   }) {
@@ -2454,7 +3209,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 60,
             port: port_,
           );
         },
@@ -2485,7 +3240,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 61,
             port: port_,
           );
         },
@@ -2512,7 +3267,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 48,
+            funcId: 62,
             port: port_,
           );
         },
@@ -2550,7 +3305,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 49,
+            funcId: 63,
             port: port_,
           );
         },
@@ -2611,7 +3366,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 50,
+            funcId: 64,
             port: port_,
           );
         },
@@ -2688,7 +3443,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 51,
+            funcId: 65,
             port: port_,
           );
         },
@@ -2725,7 +3480,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 52,
+            funcId: 66,
             port: port_,
           );
         },
@@ -2762,7 +3517,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 53,
+            funcId: 67,
             port: port_,
           );
         },
@@ -2801,7 +3556,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 54,
+            funcId: 68,
             port: port_,
           );
         },
@@ -2840,7 +3595,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 55,
+            funcId: 69,
             port: port_,
           );
         },
@@ -2885,7 +3640,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 56,
+            funcId: 70,
             port: port_,
           );
         },
@@ -2940,7 +3695,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 57,
+            funcId: 71,
             port: port_,
           );
         },
@@ -2979,7 +3734,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 58,
+            funcId: 72,
             port: port_,
           );
         },
@@ -3012,7 +3767,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 59,
+            funcId: 73,
             port: port_,
           );
         },
@@ -3048,7 +3803,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 60,
+            funcId: 74,
             port: port_,
           );
         },
@@ -3092,7 +3847,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 61,
+            funcId: 75,
             port: port_,
           );
         },
@@ -3130,7 +3885,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 62,
+            funcId: 76,
             port: port_,
           );
         },
@@ -3158,7 +3913,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 63,
+            funcId: 77,
             port: port_,
           );
         },
@@ -3186,7 +3941,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 64,
+            funcId: 78,
             port: port_,
           );
         },
@@ -3213,7 +3968,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 65,
+            funcId: 79,
             port: port_,
           );
         },
@@ -3267,7 +4022,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 66,
+            funcId: 80,
             port: port_,
           );
         },
@@ -3343,7 +4098,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 67,
+            funcId: 81,
             port: port_,
           );
         },
@@ -3400,7 +4155,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 68,
+            funcId: 82,
             port: port_,
           );
         },
@@ -3441,7 +4196,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 69,
+            funcId: 83,
             port: port_,
           );
         },
@@ -3478,7 +4233,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 70,
+            funcId: 84,
             port: port_,
           );
         },
@@ -3516,7 +4271,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 71,
+            funcId: 85,
             port: port_,
           );
         },
@@ -3548,7 +4303,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 72,
+            funcId: 86,
             port: port_,
           );
         },
@@ -3578,7 +4333,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 73,
+            funcId: 87,
             port: port_,
           );
         },
@@ -3606,7 +4361,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 74,
+            funcId: 88,
             port: port_,
           );
         },
@@ -3625,6 +4380,72 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "preview_close", argNames: ["handle"]);
 
   @override
+  Future<Float32List> crateApiPreviewPreviewEstimateDepth({
+    required BigInt handle,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_u_64(handle, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 89,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_f_32_strict,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPreviewPreviewEstimateDepthConstMeta,
+        argValues: [handle],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPreviewPreviewEstimateDepthConstMeta =>
+      const TaskConstMeta(
+        debugName: "preview_estimate_depth",
+        argNames: ["handle"],
+      );
+
+  @override
+  Future<Float32List?> crateApiPreviewPreviewGetCachedDepth({
+    required BigInt handle,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_u_64(handle, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 90,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_list_prim_f_32_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPreviewPreviewGetCachedDepthConstMeta,
+        argValues: [handle],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPreviewPreviewGetCachedDepthConstMeta =>
+      const TaskConstMeta(
+        debugName: "preview_get_cached_depth",
+        argNames: ["handle"],
+      );
+
+  @override
   Future<RgbaImage> crateApiPreviewPreviewGetSourceRgba({
     required BigInt handle,
   }) {
@@ -3636,7 +4457,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 75,
+            funcId: 91,
             port: port_,
           );
         },
@@ -3677,7 +4498,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 76,
+            funcId: 92,
             port: port_,
           );
         },
@@ -3714,7 +4535,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 77,
+            funcId: 93,
             port: port_,
           );
         },
@@ -3748,7 +4569,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 78,
+            funcId: 94,
             port: port_,
           );
         },
@@ -3795,7 +4616,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 79,
+            funcId: 95,
             port: port_,
           );
         },
@@ -3848,7 +4669,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 80,
+            funcId: 96,
             port: port_,
           );
         },
@@ -3887,7 +4708,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 81,
+            funcId: 97,
             port: port_,
           );
         },
@@ -3918,7 +4739,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 82,
+            funcId: 98,
             port: port_,
           );
         },
@@ -3946,7 +4767,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 83,
+            funcId: 99,
             port: port_,
           );
         },
@@ -3976,7 +4797,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 84,
+            funcId: 100,
             port: port_,
           );
         },
@@ -4025,7 +4846,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 85,
+            funcId: 101,
             port: port_,
           );
         },
@@ -4083,7 +4904,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 86,
+            funcId: 102,
             port: port_,
           );
         },
@@ -4122,7 +4943,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 87,
+            funcId: 103,
             port: port_,
           );
         },
@@ -4159,7 +4980,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 88,
+            funcId: 104,
             port: port_,
           );
         },
@@ -4199,7 +5020,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 89,
+            funcId: 105,
             port: port_,
           );
         },
@@ -4233,7 +5054,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 90,
+            funcId: 106,
             port: port_,
           );
         },
@@ -4252,6 +5073,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "set_active_ml_model",
         argNames: ["task", "path"],
+      );
+
+  @override
+  Future<ApiGuidedTransformResult> crateApiGeometrySolveGuidedTransform({
+    required List<ApiGuideLine> guides,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_api_guide_line(guides, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 107,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_api_guided_transform_result,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiGeometrySolveGuidedTransformConstMeta,
+        argValues: [guides],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGeometrySolveGuidedTransformConstMeta =>
+      const TaskConstMeta(
+        debugName: "solve_guided_transform",
+        argNames: ["guides"],
       );
 
   @override
@@ -4310,7 +5164,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 91,
+            funcId: 108,
             port: port_,
           );
         },
@@ -4397,7 +5251,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 92,
+            funcId: 109,
             port: port_,
           );
         },
@@ -4438,7 +5292,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 93,
+            funcId: 110,
             port: port_,
           );
         },
@@ -4479,7 +5333,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 94,
+            funcId: 111,
             port: port_,
           );
         },
@@ -4520,7 +5374,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 95,
+            funcId: 112,
             port: port_,
           );
         },
@@ -4559,7 +5413,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 96,
+            funcId: 113,
             port: port_,
           );
         },
@@ -4598,7 +5452,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 97,
+            funcId: 114,
             port: port_,
           );
         },
@@ -4620,6 +5474,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<ApiPanoramaResult> crateApiPanoramaStitchPanorama({
+    required List<ApiPanoramaInput> images,
+    required int projectionIndex,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_api_panorama_input(images, serializer);
+          sse_encode_u_32(projectionIndex, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 115,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_api_panorama_result,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPanoramaStitchPanoramaConstMeta,
+        argValues: [images, projectionIndex],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPanoramaStitchPanoramaConstMeta =>
+      const TaskConstMeta(
+        debugName: "stitch_panorama",
+        argNames: ["images", "projectionIndex"],
+      );
+
+  @override
   Future<Uint8List> crateApiEngineSyntheticJpeg({
     required int width,
     required int height,
@@ -4633,7 +5522,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 98,
+            funcId: 116,
             port: port_,
           );
         },
@@ -4669,6 +5558,70 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ApiCalibrationParams dco_decode_api_calibration_params(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return ApiCalibrationParams(
+      shadowTint: dco_decode_f_32(arr[0]),
+      redHue: dco_decode_f_32(arr[1]),
+      redSat: dco_decode_f_32(arr[2]),
+      greenHue: dco_decode_f_32(arr[3]),
+      greenSat: dco_decode_f_32(arr[4]),
+      blueHue: dco_decode_f_32(arr[5]),
+      blueSat: dco_decode_f_32(arr[6]),
+    );
+  }
+
+  @protected
+  ApiGuideLine dco_decode_api_guide_line(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return ApiGuideLine(
+      x1: dco_decode_f_32(arr[0]),
+      y1: dco_decode_f_32(arr[1]),
+      x2: dco_decode_f_32(arr[2]),
+      y2: dco_decode_f_32(arr[3]),
+      isVertical: dco_decode_bool(arr[4]),
+    );
+  }
+
+  @protected
+  ApiGuidedTransformResult dco_decode_api_guided_transform_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return ApiGuidedTransformResult(
+      angleDeg: dco_decode_f_32(arr[0]),
+      perspectiveX: dco_decode_f_32(arr[1]),
+      perspectiveY: dco_decode_f_32(arr[2]),
+      skewX: dco_decode_f_32(arr[3]),
+      skewY: dco_decode_f_32(arr[4]),
+    );
+  }
+
+  @protected
+  ApiHeadPoseEstimate dco_decode_api_head_pose_estimate(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return ApiHeadPoseEstimate(
+      yaw: dco_decode_f_32(arr[0]),
+      pitch: dco_decode_f_32(arr[1]),
+      roll: dco_decode_f_32(arr[2]),
+      faceX: dco_decode_f_32(arr[3]),
+      faceY: dco_decode_f_32(arr[4]),
+      faceW: dco_decode_f_32(arr[5]),
+      faceH: dco_decode_f_32(arr[6]),
+    );
+  }
+
+  @protected
   ApiLensBlurParams dco_decode_api_lens_blur_params(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -4687,11 +5640,61 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ApiPanoramaInput dco_decode_api_panorama_input(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return ApiPanoramaInput(
+      rgba: dco_decode_list_prim_u_8_strict(arr[0]),
+      width: dco_decode_u_32(arr[1]),
+      height: dco_decode_u_32(arr[2]),
+    );
+  }
+
+  @protected
+  ApiPanoramaResult dco_decode_api_panorama_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return ApiPanoramaResult(
+      rgba: dco_decode_list_prim_u_8_strict(arr[0]),
+      width: dco_decode_u_32(arr[1]),
+      height: dco_decode_u_32(arr[2]),
+      cropX: dco_decode_u_32(arr[3]),
+      cropY: dco_decode_u_32(arr[4]),
+      cropW: dco_decode_u_32(arr[5]),
+      cropH: dco_decode_u_32(arr[6]),
+    );
+  }
+
+  @protected
+  ApiPointColor dco_decode_api_point_color(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    return ApiPointColor(
+      targetH: dco_decode_f_32(arr[0]),
+      targetS: dco_decode_f_32(arr[1]),
+      targetL: dco_decode_f_32(arr[2]),
+      rangeH: dco_decode_f_32(arr[3]),
+      rangeS: dco_decode_f_32(arr[4]),
+      rangeL: dco_decode_f_32(arr[5]),
+      falloff: dco_decode_f_32(arr[6]),
+      shiftH: dco_decode_f_32(arr[7]),
+      shiftS: dco_decode_f_32(arr[8]),
+      shiftL: dco_decode_f_32(arr[9]),
+    );
+  }
+
+  @protected
   ApiRetouchPatch dco_decode_api_retouch_patch(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 8)
-      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
     return ApiRetouchPatch(
       targetX: dco_decode_f_32(arr[0]),
       targetY: dco_decode_f_32(arr[1]),
@@ -4701,6 +5704,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       feather: dco_decode_f_32(arr[5]),
       opacity: dco_decode_f_32(arr[6]),
       isClone: dco_decode_bool(arr[7]),
+      modeIndex: dco_decode_u_32(arr[8]),
     );
   }
 
@@ -4714,6 +5718,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   bool dco_decode_bool(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as bool;
+  }
+
+  @protected
+  ApiCalibrationParams dco_decode_box_autoadd_api_calibration_params(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_api_calibration_params(raw);
   }
 
   @protected
@@ -5240,9 +6252,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  LinearRgbaImage dco_decode_linear_rgba_image(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return LinearRgbaImage(
+      width: dco_decode_u_32(arr[0]),
+      height: dco_decode_u_32(arr[1]),
+      data: dco_decode_list_prim_f_32_strict(arr[2]),
+    );
+  }
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_String).toList();
+  }
+
+  @protected
+  List<ApiGuideLine> dco_decode_list_api_guide_line(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_api_guide_line).toList();
+  }
+
+  @protected
+  List<ApiPanoramaInput> dco_decode_list_api_panorama_input(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_api_panorama_input).toList();
+  }
+
+  @protected
+  List<ApiPointColor> dco_decode_list_api_point_color(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_api_point_color).toList();
   }
 
   @protected
@@ -5624,6 +6667,88 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ApiCalibrationParams sse_decode_api_calibration_params(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_shadowTint = sse_decode_f_32(deserializer);
+    var var_redHue = sse_decode_f_32(deserializer);
+    var var_redSat = sse_decode_f_32(deserializer);
+    var var_greenHue = sse_decode_f_32(deserializer);
+    var var_greenSat = sse_decode_f_32(deserializer);
+    var var_blueHue = sse_decode_f_32(deserializer);
+    var var_blueSat = sse_decode_f_32(deserializer);
+    return ApiCalibrationParams(
+      shadowTint: var_shadowTint,
+      redHue: var_redHue,
+      redSat: var_redSat,
+      greenHue: var_greenHue,
+      greenSat: var_greenSat,
+      blueHue: var_blueHue,
+      blueSat: var_blueSat,
+    );
+  }
+
+  @protected
+  ApiGuideLine sse_decode_api_guide_line(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_x1 = sse_decode_f_32(deserializer);
+    var var_y1 = sse_decode_f_32(deserializer);
+    var var_x2 = sse_decode_f_32(deserializer);
+    var var_y2 = sse_decode_f_32(deserializer);
+    var var_isVertical = sse_decode_bool(deserializer);
+    return ApiGuideLine(
+      x1: var_x1,
+      y1: var_y1,
+      x2: var_x2,
+      y2: var_y2,
+      isVertical: var_isVertical,
+    );
+  }
+
+  @protected
+  ApiGuidedTransformResult sse_decode_api_guided_transform_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_angleDeg = sse_decode_f_32(deserializer);
+    var var_perspectiveX = sse_decode_f_32(deserializer);
+    var var_perspectiveY = sse_decode_f_32(deserializer);
+    var var_skewX = sse_decode_f_32(deserializer);
+    var var_skewY = sse_decode_f_32(deserializer);
+    return ApiGuidedTransformResult(
+      angleDeg: var_angleDeg,
+      perspectiveX: var_perspectiveX,
+      perspectiveY: var_perspectiveY,
+      skewX: var_skewX,
+      skewY: var_skewY,
+    );
+  }
+
+  @protected
+  ApiHeadPoseEstimate sse_decode_api_head_pose_estimate(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_yaw = sse_decode_f_32(deserializer);
+    var var_pitch = sse_decode_f_32(deserializer);
+    var var_roll = sse_decode_f_32(deserializer);
+    var var_faceX = sse_decode_f_32(deserializer);
+    var var_faceY = sse_decode_f_32(deserializer);
+    var var_faceW = sse_decode_f_32(deserializer);
+    var var_faceH = sse_decode_f_32(deserializer);
+    return ApiHeadPoseEstimate(
+      yaw: var_yaw,
+      pitch: var_pitch,
+      roll: var_roll,
+      faceX: var_faceX,
+      faceY: var_faceY,
+      faceW: var_faceW,
+      faceH: var_faceH,
+    );
+  }
+
+  @protected
   ApiLensBlurParams sse_decode_api_lens_blur_params(
     SseDeserializer deserializer,
   ) {
@@ -5649,6 +6774,69 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ApiPanoramaInput sse_decode_api_panorama_input(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_width = sse_decode_u_32(deserializer);
+    var var_height = sse_decode_u_32(deserializer);
+    return ApiPanoramaInput(
+      rgba: var_rgba,
+      width: var_width,
+      height: var_height,
+    );
+  }
+
+  @protected
+  ApiPanoramaResult sse_decode_api_panorama_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_rgba = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_width = sse_decode_u_32(deserializer);
+    var var_height = sse_decode_u_32(deserializer);
+    var var_cropX = sse_decode_u_32(deserializer);
+    var var_cropY = sse_decode_u_32(deserializer);
+    var var_cropW = sse_decode_u_32(deserializer);
+    var var_cropH = sse_decode_u_32(deserializer);
+    return ApiPanoramaResult(
+      rgba: var_rgba,
+      width: var_width,
+      height: var_height,
+      cropX: var_cropX,
+      cropY: var_cropY,
+      cropW: var_cropW,
+      cropH: var_cropH,
+    );
+  }
+
+  @protected
+  ApiPointColor sse_decode_api_point_color(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_targetH = sse_decode_f_32(deserializer);
+    var var_targetS = sse_decode_f_32(deserializer);
+    var var_targetL = sse_decode_f_32(deserializer);
+    var var_rangeH = sse_decode_f_32(deserializer);
+    var var_rangeS = sse_decode_f_32(deserializer);
+    var var_rangeL = sse_decode_f_32(deserializer);
+    var var_falloff = sse_decode_f_32(deserializer);
+    var var_shiftH = sse_decode_f_32(deserializer);
+    var var_shiftS = sse_decode_f_32(deserializer);
+    var var_shiftL = sse_decode_f_32(deserializer);
+    return ApiPointColor(
+      targetH: var_targetH,
+      targetS: var_targetS,
+      targetL: var_targetL,
+      rangeH: var_rangeH,
+      rangeS: var_rangeS,
+      rangeL: var_rangeL,
+      falloff: var_falloff,
+      shiftH: var_shiftH,
+      shiftS: var_shiftS,
+      shiftL: var_shiftL,
+    );
+  }
+
+  @protected
   ApiRetouchPatch sse_decode_api_retouch_patch(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_targetX = sse_decode_f_32(deserializer);
@@ -5659,6 +6847,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_feather = sse_decode_f_32(deserializer);
     var var_opacity = sse_decode_f_32(deserializer);
     var var_isClone = sse_decode_bool(deserializer);
+    var var_modeIndex = sse_decode_u_32(deserializer);
     return ApiRetouchPatch(
       targetX: var_targetX,
       targetY: var_targetY,
@@ -5668,6 +6857,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       feather: var_feather,
       opacity: var_opacity,
       isClone: var_isClone,
+      modeIndex: var_modeIndex,
     );
   }
 
@@ -5682,6 +6872,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   bool sse_decode_bool(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint8() != 0;
+  }
+
+  @protected
+  ApiCalibrationParams sse_decode_box_autoadd_api_calibration_params(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_api_calibration_params(deserializer));
   }
 
   @protected
@@ -6358,6 +7556,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  LinearRgbaImage sse_decode_linear_rgba_image(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_width = sse_decode_u_32(deserializer);
+    var var_height = sse_decode_u_32(deserializer);
+    var var_data = sse_decode_list_prim_f_32_strict(deserializer);
+    return LinearRgbaImage(
+      width: var_width,
+      height: var_height,
+      data: var_data,
+    );
+  }
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -6365,6 +7576,48 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <String>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_String(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<ApiGuideLine> sse_decode_list_api_guide_line(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ApiGuideLine>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_api_guide_line(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<ApiPanoramaInput> sse_decode_list_api_panorama_input(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ApiPanoramaInput>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_api_panorama_input(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<ApiPointColor> sse_decode_list_api_point_color(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ApiPointColor>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_api_point_color(deserializer));
     }
     return ans_;
   }
@@ -6942,6 +8195,59 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_api_calibration_params(
+    ApiCalibrationParams self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_32(self.shadowTint, serializer);
+    sse_encode_f_32(self.redHue, serializer);
+    sse_encode_f_32(self.redSat, serializer);
+    sse_encode_f_32(self.greenHue, serializer);
+    sse_encode_f_32(self.greenSat, serializer);
+    sse_encode_f_32(self.blueHue, serializer);
+    sse_encode_f_32(self.blueSat, serializer);
+  }
+
+  @protected
+  void sse_encode_api_guide_line(ApiGuideLine self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_32(self.x1, serializer);
+    sse_encode_f_32(self.y1, serializer);
+    sse_encode_f_32(self.x2, serializer);
+    sse_encode_f_32(self.y2, serializer);
+    sse_encode_bool(self.isVertical, serializer);
+  }
+
+  @protected
+  void sse_encode_api_guided_transform_result(
+    ApiGuidedTransformResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_32(self.angleDeg, serializer);
+    sse_encode_f_32(self.perspectiveX, serializer);
+    sse_encode_f_32(self.perspectiveY, serializer);
+    sse_encode_f_32(self.skewX, serializer);
+    sse_encode_f_32(self.skewY, serializer);
+  }
+
+  @protected
+  void sse_encode_api_head_pose_estimate(
+    ApiHeadPoseEstimate self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_32(self.yaw, serializer);
+    sse_encode_f_32(self.pitch, serializer);
+    sse_encode_f_32(self.roll, serializer);
+    sse_encode_f_32(self.faceX, serializer);
+    sse_encode_f_32(self.faceY, serializer);
+    sse_encode_f_32(self.faceW, serializer);
+    sse_encode_f_32(self.faceH, serializer);
+  }
+
+  @protected
   void sse_encode_api_lens_blur_params(
     ApiLensBlurParams self,
     SseSerializer serializer,
@@ -6958,6 +8264,50 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_api_panorama_input(
+    ApiPanoramaInput self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.rgba, serializer);
+    sse_encode_u_32(self.width, serializer);
+    sse_encode_u_32(self.height, serializer);
+  }
+
+  @protected
+  void sse_encode_api_panorama_result(
+    ApiPanoramaResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.rgba, serializer);
+    sse_encode_u_32(self.width, serializer);
+    sse_encode_u_32(self.height, serializer);
+    sse_encode_u_32(self.cropX, serializer);
+    sse_encode_u_32(self.cropY, serializer);
+    sse_encode_u_32(self.cropW, serializer);
+    sse_encode_u_32(self.cropH, serializer);
+  }
+
+  @protected
+  void sse_encode_api_point_color(
+    ApiPointColor self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_32(self.targetH, serializer);
+    sse_encode_f_32(self.targetS, serializer);
+    sse_encode_f_32(self.targetL, serializer);
+    sse_encode_f_32(self.rangeH, serializer);
+    sse_encode_f_32(self.rangeS, serializer);
+    sse_encode_f_32(self.rangeL, serializer);
+    sse_encode_f_32(self.falloff, serializer);
+    sse_encode_f_32(self.shiftH, serializer);
+    sse_encode_f_32(self.shiftS, serializer);
+    sse_encode_f_32(self.shiftL, serializer);
+  }
+
+  @protected
   void sse_encode_api_retouch_patch(
     ApiRetouchPatch self,
     SseSerializer serializer,
@@ -6971,6 +8321,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.feather, serializer);
     sse_encode_f_32(self.opacity, serializer);
     sse_encode_bool(self.isClone, serializer);
+    sse_encode_u_32(self.modeIndex, serializer);
   }
 
   @protected
@@ -6983,6 +8334,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_bool(bool self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint8(self ? 1 : 0);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_api_calibration_params(
+    ApiCalibrationParams self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_api_calibration_params(self, serializer);
   }
 
   @protected
@@ -7467,11 +8827,58 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_linear_rgba_image(
+    LinearRgbaImage self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.width, serializer);
+    sse_encode_u_32(self.height, serializer);
+    sse_encode_list_prim_f_32_strict(self.data, serializer);
+  }
+
+  @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_String(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_api_guide_line(
+    List<ApiGuideLine> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_api_guide_line(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_api_panorama_input(
+    List<ApiPanoramaInput> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_api_panorama_input(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_api_point_color(
+    List<ApiPointColor> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_api_point_color(item, serializer);
     }
   }
 

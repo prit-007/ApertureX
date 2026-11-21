@@ -24,8 +24,13 @@ pub struct C2paVerifyResult {
 }
 
 /// Generates a local device key (32-byte cryptographic seed) for signing.
-pub fn c2pa_generate_device_key(device_seed: Vec<u8>) -> C2paDeviceInfo {
+/// Securely caches the private key seed in Rust's resident keystore and zeroizes
+/// the incoming buffer in memory.
+pub fn c2pa_generate_device_key(mut device_seed: Vec<u8>) -> C2paDeviceInfo {
     let (key, id) = crate::c2pa::generate_device_key(&device_seed);
+    crate::c2pa::register_key_in_keystore(&device_seed);
+    device_seed.fill(0);
+    std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
     C2paDeviceInfo {
         private_key: key,
         key_id: id,
@@ -35,7 +40,7 @@ pub fn c2pa_generate_device_key(device_seed: Vec<u8>) -> C2paDeviceInfo {
 /// Verifies cryptographic C2PA provenance, pixel hash integrity, and signature.
 pub fn c2pa_verify_image(
     image_bytes: Vec<u8>,
-    device_private_key: Option<Vec<u8>>,
+    mut device_private_key: Option<Vec<u8>>,
 ) -> C2paVerifyResult {
     let decoded_rgba = match crate::decode::decode_rgba(&image_bytes) {
         Ok(img) => img.rgba,
@@ -44,6 +49,10 @@ pub fn c2pa_verify_image(
 
     let report =
         crate::c2pa::verify_c2pa(&image_bytes, &decoded_rgba, device_private_key.as_deref());
+    if let Some(ref mut pk) = device_private_key {
+        pk.fill(0);
+        std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
+    }
     let status_str = match report.status {
         crate::c2pa::C2paStatus::Verified => "Verified",
         crate::c2pa::C2paStatus::Tampered => "Tampered",

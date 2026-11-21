@@ -202,7 +202,7 @@ class TetherScreen extends ConsumerWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: Colors.white54,
-                                  fontSize: 8,
+                                  fontSize: 10,
                                 ),
                               ),
                             ],

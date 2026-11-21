@@ -25,5 +25,6 @@ Built for a photographer's workflow:
 * Full-resolution JPEG, PNG, and 16-bit TIFF export with EXIF preserved.
 * On-device AI for face detection, subject masks, depth, and lens blur.
 
-ApertureX is fully offline. It has no ads, accounts, telemetry, or network
-calls; your photos and settings stay on your device. Licensed GPL-3.0-or-later.
+ApertureX processes 100% on-device. It has no ads, accounts, or telemetry;
+your photos, edits, and metadata stay on your device. Optional features like
+update checks and preset sync are strictly opt-in. Licensed GPL-3.0-or-later.

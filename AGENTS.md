@@ -8,9 +8,9 @@ A mobile-native FOSS photo editor (Android + iOS) with Flutter UI + Rust engine 
 
 ### Responsive Layout (Cross-Device Native Feel)
 - **Universal Coverage:** Compact phones to 14" Galaxy Tabs/iPad Pro
-- **Portrait:** `ImageCanvas` top 75%, tools as `BottomSheet` with `SafeArea(bottom: true)`
+- **Portrait:** `ImageCanvas` top 75–80% (docked instrument tray in thumb reach zone, collapsible `_LightroomSheet` with `SafeArea(bottom: true)`)
 - **Landscape/Tablet:** Split layout (image 70% left, controls 30% right sidebar with `SafeArea(right: true)`)
-- **No hardcoded heights** - use `LayoutBuilder` + `WindowSizeClass` (Material 3 breakpoints: compact <600, medium 600-840, expanded 840-1200, large >1200)
+- **No hardcoded heights** - use `LayoutBuilder` + `WindowSizeClass` (Material 3 breakpoints: `compact <600`, `medium 600–840`, `expanded 840–1200`, `large 1200–1600`, `extraLarge >1600`)
 
 ### Advanced Stylus Input & Palm Rejection
 - **Pressure Sensitivity:** `event.pressure` (0.0-1.0) for dynamic brush opacity/flow
@@ -143,6 +143,11 @@ Engine (Rust via flutter_rust_bridge)
   - `preset_catalog.dart` (Unified catalog, category taxonomy, search engine)
 - Every preset must supply complete 3-way color grading wheels (`gradeShadow*`, `gradeMid*`, `gradeHighlight*`), 8-band HSL mixes, and Depth Anything V2 optical parameters (`blurFocalPoint`, `blurFocalRange`, `blurBokehShape`, `blurAmount`).
 - `BokehShape` enum indices are strictly synchronized between Dart (`app/lib/color/blur_spec.dart`) and Rust (`app/rust/src/blur.rs`): 0: circle, 1: pentagon, 2: hexagon, 3: septagon, 4: catsEye, 5: soapBubble, 6: swirl.
+
+### Platform, Security & Format Conventions
+- **HEIC / AVIF Format Architecture:** The decode pipeline extracts embedded JPEG previews from ISO-BMFF containers with strict format validation; unsupported files without embedded previews or ispe geometry throw clear errors rather than returning blank/placeholder buffers. Export paths package conformant ISO-BMFF wrappers.
+- **C2PA Key Security Boundary:** In-memory C2PA Ed25519 signing keys reside in app memory only during the export signing pass. Private keys are never persisted unencrypted or transmitted across external boundaries; memory buffers are scoped and dropped after signature generation.
+- **Engine Scope & Demo APIs:** Demonstration functions in `engine.rs` exist exclusively for isolated harness testing, benchmark smoke passes, and test fixtures. Production editor pathways route strictly through `AxEngine` and the dedicated `preview`/`export` subsystems.
 
 ### Testing Gotchas
 - **Memory budget**: Tile LRU respects ~512MB device limit

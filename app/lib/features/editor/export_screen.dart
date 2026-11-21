@@ -1,9 +1,11 @@
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe.dart';
 import '../../engine/engine.dart';
@@ -149,7 +151,8 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         _livePreviewJpg = encoded;
         _isRenderingLivePreview = false;
       });
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.export, 'Live export preview generation fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       if (mounted) {
         setState(() {
           _livePreviewJpg = widget.previewBytes;
@@ -505,8 +508,8 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                 SegmentedButton<String>(
                   segments: [
                     const ButtonSegment(value: 'jpeg', label: Text('JPEG')),
-                    const ButtonSegment(value: 'heic', label: Text('HEIC')),
-                    const ButtonSegment(value: 'avif', label: Text('AVIF')),
+                    const ButtonSegment(value: 'heic', label: Text('HEIF (ISO-BMFF)')),
+                    const ButtonSegment(value: 'avif', label: Text('AVIF (ISO-BMFF)')),
                     const ButtonSegment(value: 'png', label: Text('PNG')),
                     const ButtonSegment(value: 'tiff16', label: Text('TIFF 16-bit')),
                     if (widget.isRaw)
@@ -518,6 +521,31 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                     brandingNotifier.setFormat(set.first);
                   },
                 ),
+                if (_selectedFormat == 'heic' || _selectedFormat == 'avif') ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: Insets.xs, bottom: 2),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 14,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: Insets.xs),
+                        Expanded(
+                          child: Text(
+                            'Standard ISO-BMFF container (mif1 brand with JPEG image item). Fully compatible with standard HEIF readers without proprietary codecs.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: Insets.sm),
                 if (_selectedFormat == 'jpeg' ||
                     _selectedFormat == 'heic' ||

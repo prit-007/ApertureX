@@ -2,6 +2,9 @@ import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
+
 /// HALD CLUT (a 3D LUT stored as a square PNG) parsing.
 ///
 /// Format reference (Eskil Steenberg / ImageMagick):
@@ -38,7 +41,8 @@ class HaldClut {
     final img.Image? decoded;
     try {
       decoded = img.decodePng(bytes);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.preset, 'HALD CLUT PNG check decode error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       return false;
     }
     if (decoded == null) return false;
@@ -54,7 +58,8 @@ class HaldClut {
     final img.Image? decoded;
     try {
       decoded = img.decodePng(bytes);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.preset, 'HALD CLUT extract decode error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       throw const FormatException('not a PNG');
     }
     if (decoded == null) {

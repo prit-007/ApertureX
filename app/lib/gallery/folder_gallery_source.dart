@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -6,6 +6,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import '../engine/engine.dart';
 import '../engine/image_format.dart';
 import 'gallery_album.dart';
@@ -85,7 +87,8 @@ class FolderGallerySource implements GallerySource {
       if (stored != null && Directory(stored).existsSync()) {
         _rootPath = stored;
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.gallery, 'Folder gallery root restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       _rootPath = null;
     }
   }
@@ -110,7 +113,8 @@ class FolderGallerySource implements GallerySource {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(folderRootPrefsKey, path);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.gallery, 'Folder gallery root persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       // Best effort: the in-memory root still serves this session.
     }
     return true;
@@ -179,11 +183,13 @@ class FolderGallerySource implements GallerySource {
               modified: stat.modified,
             ),
           );
-        } catch (_) {
+        } catch (e, st) {
+          axLog(LogDomain.gallery, 'Folder file stat error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
           // Files vanishing mid-scan are normal on a live folder.
         }
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.gallery, 'Folder root scan error: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       // Unreadable root → empty library; the UI shows the re-pick state.
       return const [];
     }
@@ -214,7 +220,8 @@ class FolderGallerySource implements GallerySource {
     try {
       if (!await file.exists()) return Uint8List(0);
       return await file.readAsBytes();
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.gallery, 'Folder file read fallback on $id: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       return Uint8List(0);
     }
   }
@@ -234,7 +241,8 @@ class FolderGallerySource implements GallerySource {
             : img.copyResize(decoded, height: maxDim);
       }
       return Uint8List.fromList(img.encodeJpg(out, quality: 90));
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.gallery, 'Bounded jpeg resize error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       return null;
     }
   }
@@ -266,7 +274,9 @@ class FolderGallerySource implements GallerySource {
           height: decoded.height,
           quality: 90,
         );
-      } catch (_) {}
+      } catch (e, st) {
+        axLog(LogDomain.gallery, 'HEIC/AVIF preview decode fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+      }
     }
     // Non-decodable bytes fall back to the original so the editor surfaces
     // a real decode error instead of silently loading an empty buffer.
@@ -293,7 +303,9 @@ class FolderGallerySource implements GallerySource {
           height: decoded.height,
           quality: 85,
         );
-      } catch (_) {}
+      } catch (e, st) {
+        axLog(LogDomain.gallery, 'HEIC/AVIF thumbnail decode fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+      }
     }
     return _boundedJpeg(bytes, size) ?? Uint8List(0);
   }

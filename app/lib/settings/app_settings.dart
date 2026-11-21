@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
+import 'shared_preferences_provider.dart';
 
 /// App-wide appearance preference. Photo editing defaults to **dark chrome** so
 /// the UI never biases perception of the image (ADR 0011); the choice is
@@ -14,7 +15,13 @@ class AppSettings extends Notifier<ThemeMode> {
 
   @override
   ThemeMode build() {
-    _restore();
+    final prefs = ref.watch(sharedPreferencesProvider);
+    if (prefs != null) {
+      final name = prefs.getString(_key);
+      if (name != null) return _fromName(name);
+    } else {
+      _restore();
+    }
     return ThemeMode.dark;
   }
 
@@ -30,8 +37,8 @@ class AppSettings extends Notifier<ThemeMode> {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
       state = _fromName(prefs.getString(_key));
-    } catch (_) {
-      // No storage available (e.g. tests) — keep the dark default.
+    } catch (e, st) {
+      axLog(LogDomain.app, 'ThemeMode restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -39,8 +46,8 @@ class AppSettings extends Notifier<ThemeMode> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_key, mode.name);
-    } catch (_) {
-      // best effort
+    } catch (e, st) {
+      axLog(LogDomain.app, 'ThemeMode persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -79,14 +86,18 @@ class GlassmorphicUiSettings extends Notifier<bool> {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
       state = prefs.getBool(_key) ?? false;
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Glassmorphic restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 
   Future<void> _persist(bool enabled) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_key, enabled);
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Glassmorphic persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 }
 
@@ -118,14 +129,18 @@ class TileCacheSettings extends Notifier<int> {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
       state = prefs.getInt(_key) ?? defaultLimitMb;
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Tile cache restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 
   Future<void> _persist(int limitMb) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_key, limitMb);
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Tile cache persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 }
 
@@ -185,7 +200,9 @@ class StylusSettings extends Notifier<StylusState> {
         palmRejection: prefs.getBool(_palmKey) ?? true,
         pressureSensitivity: prefs.getBool(_pressureKey) ?? true,
       );
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Stylus restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 
   Future<void> _persist() async {
@@ -193,7 +210,9 @@ class StylusSettings extends Notifier<StylusState> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_palmKey, state.palmRejection);
       await prefs.setBool(_pressureKey, state.pressureSensitivity);
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Stylus persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 }
 
@@ -224,19 +243,84 @@ class ZeroCopyTextureSettings extends Notifier<bool> {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
       state = prefs.getBool(_key) ?? true;
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'ZeroCopy restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 
   Future<void> _persist(bool enabled) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_key, enabled);
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.app, 'ZeroCopy persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
   }
 }
 
 final zeroCopyTextureProvider = NotifierProvider<ZeroCopyTextureSettings, bool>(
   ZeroCopyTextureSettings.new,
 );
+
+/// Preference for single-finger drag on the shared image canvas (ADR 0008).
+/// - [automatic]: routes to gesture tuning in Snapseed mode and pan/zoom in Lightroom mode.
+/// - [gestures]: routes single-finger drags to gesture tuning (Snapseed-style scrubbing) across shells.
+/// - [panZoom]: reserves single-finger drags for panning/zooming, disabling on-canvas swipe grading.
+enum CanvasGestureMode { automatic, gestures, panZoom }
+
+class CanvasGestureModeSettings extends Notifier<CanvasGestureMode> {
+  static const String _key = 'canvas_gesture_mode';
+  bool _userSet = false;
+
+  @override
+  CanvasGestureMode build() {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    if (prefs != null) {
+      final name = prefs.getString(_key);
+      if (name != null) return _fromName(name);
+    } else {
+      _restore();
+    }
+    return CanvasGestureMode.automatic;
+  }
+
+  void setMode(CanvasGestureMode mode) {
+    _userSet = true;
+    state = mode;
+    _persist(mode);
+    axLog(LogDomain.app, 'Canvas gesture mode set to ${mode.name}');
+  }
+
+  Future<void> _restore() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_userSet) return;
+      state = _fromName(prefs.getString(_key));
+    } catch (e, st) {
+      axLog(LogDomain.app, 'CanvasGesture restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
+  }
+
+  Future<void> _persist(CanvasGestureMode mode) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_key, mode.name);
+    } catch (e, st) {
+      axLog(LogDomain.app, 'CanvasGesture persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
+  }
+
+  static CanvasGestureMode _fromName(String? name) => switch (name) {
+    'gestures' => CanvasGestureMode.gestures,
+    'panZoom' => CanvasGestureMode.panZoom,
+    _ => CanvasGestureMode.automatic,
+  };
+}
+
+final canvasGestureModeProvider =
+    NotifierProvider<CanvasGestureModeSettings, CanvasGestureMode>(
+  CanvasGestureModeSettings.new,
+);
+
 
 

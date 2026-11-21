@@ -51,6 +51,315 @@ class AppStrings {
         'zh': '设置',
       }, 'Settings');
 
+  String get settingsHub => _t({
+        'es': 'Panel de Ajustes',
+        'de': 'Einstellungs-Hub',
+        'fr': 'Centre de Paramètres',
+        'ja': '設定ハブ',
+        'zh': '设置中心',
+      }, 'Settings Hub');
+
+  String get workspaceAndShell => _t({
+        'es': 'Espacio de trabajo y estructura',
+        'de': 'Arbeitsbereich & Shell',
+        'fr': 'Espace de travail et interface',
+        'ja': 'ワークスペースとシェル',
+        'zh': '工作区与界面',
+      }, 'Workspace & Shell');
+
+  String get workspaceAndShellDesc => _t({
+        'es': 'Estructuras duales (Lightroom / Snapseed), tema, interfaz translúcida',
+        'de': 'Duale Shells (Lightroom / Snapseed), Theme, Glasmorphismus',
+        'fr': 'Double interface (Lightroom / Snapseed), thème, interface translucide',
+        'ja': 'デュアルシェル（Lightroom / Snapseed）、テーマ、透過UI',
+        'zh': '双重界面（Lightroom / Snapseed）、主题、拟玻质感UI',
+      }, 'Dual shells (Lightroom / Snapseed), theme, glassmorphic UI');
+
+  String get stylusAndInput => _t({
+        'es': 'Lápiz y entrada táctil',
+        'de': 'Stylus & Eingabe',
+        'fr': 'Stylet et saisie',
+        'ja': 'スタイラスと入力',
+        'zh': '手写笔与输入',
+      }, 'Stylus & Input');
+
+  String get stylusAndInputDesc => _t({
+        'es': 'Rechazo de palma, sensibilidad a la presión, borrador invertido',
+        'de': 'Handflächenerkennung, Druckempfindlichkeit, Stiftradiermodus',
+        'fr': 'Rejet de la paume, sensibilité à la pression, gomme inversée',
+        'ja': 'パームリジェクション、筆圧感知、反転消しゴム',
+        'zh': '防手掌误触、压感灵敏度、笔尾橡皮擦',
+      }, 'Palm rejection, pressure sensitivity, inverted stylus eraser');
+
+  String get exportDefaults => _t({
+        'es': 'Predeterminados de exportación',
+        'de': 'Export-Standardwerte',
+        'fr': 'Valeurs d\'exportation par défaut',
+        'ja': '書き出しのデフォルト',
+        'zh': '默认导出设置',
+      }, 'Export Defaults');
+
+  String get exportDefaultsDesc => _t({
+        'es': 'Calidad JPEG, dimensiones máximas, firma C2PA fuera de línea',
+        'de': 'Standard-JPEG-Qualität, maximale Abmessungen, C2PA-Offline-Signatur',
+        'fr': 'Qualité JPEG par défaut, dimensions maximales, signature C2PA hors ligne',
+        'ja': '標準JPEG品質、最大解像度、C2PAオフライン署名',
+        'zh': '默认JPEG画质、最大尺寸、C2PA离线签名',
+      }, 'Default JPEG quality, max dimensions, C2PA offline signing');
+
+  String get privacyAndLocalAi => _t({
+        'es': 'Privacidad e IA local',
+        'de': 'Datenschutz & Lokale KI',
+        'fr': 'Confidentialité et IA locale',
+        'ja': 'プライバシーとローカルAI',
+        'zh': '隐私与本地AI',
+      }, 'Privacy & Local AI');
+
+  String get privacyAndLocalAiDesc => _t({
+        'es': 'Inferencia neuronal en el dispositivo, descarga de modelos, cero telemetría',
+        'de': 'On-Device neuronale Inferenz, Modell-Downloads, null Telemetrie',
+        'fr': 'Inférence neuronale sur l\'appareil, téléchargement de modèles, zéro télémétrie',
+        'ja': 'デバイス内ニューラル推論、モデルダウンロード、テレメトリゼロ',
+        'zh': '设备端神经网络推理、模型下载、零遥测',
+      }, 'On-device neural inference consent, model downloads, zero telemetry');
+
+  String get aboutApertureX => _t({
+        'es': 'Acerca de ApertureX',
+        'de': 'Über ApertureX',
+        'fr': 'À propos d\'ApertureX',
+        'ja': 'ApertureX について',
+        'zh': '关于 ApertureX',
+      }, 'About ApertureX');
+
+  String get aboutApertureXDesc => _t({
+        'es': 'Versión, desarrolladores, licencias de código abierto, garantía en dispositivo',
+        'de': 'App-Version, Entwickler, Open-Source-Lizenzen, On-Device-Garantie',
+        'fr': 'Version de l\'application, développeurs, licences libres, garantie sur l\'appareil',
+        'ja': 'アプリバージョン、開発者、オープンソースライセンス、デバイス内保証',
+        'zh': '应用版本、开发者、开源许可证、设备端保证',
+      }, 'App version, developers, open-source licenses, on-device guarantee');
+
+  // --- Workspace & Shell Sheet Strings ---
+  String get editorShellLayout => _t({
+        'es': 'Estructura del editor',
+        'de': 'Editor-Shell-Layout',
+        'fr': 'Disposition de l\'éditeur',
+        'ja': 'エディターシェル配置',
+        'zh': '编辑器界面布局',
+      }, 'Editor Shell Layout');
+
+  String get panelsLightroom => _t({
+        'es': 'Paneles (Lightroom)',
+        'de': 'Panels (Lightroom)',
+        'fr': 'Panneaux (Lightroom)',
+        'ja': 'パネル（Lightroom）',
+        'zh': '面板（Lightroom）',
+      }, 'Panels (Lightroom)');
+
+  String get gesturesSnapseed => _t({
+        'es': 'Gestos (Snapseed)',
+        'de': 'Gesten (Snapseed)',
+        'fr': 'Gestes (Snapseed)',
+        'ja': 'ジェスチャー（Snapseed）',
+        'zh': '手势（Snapseed）',
+      }, 'Gestures (Snapseed)');
+
+  String get themeMode => _t({
+        'es': 'Modo de tema',
+        'de': 'Theme-Modus',
+        'fr': 'Mode de thème',
+        'ja': 'テーマモード',
+        'zh': '主题模式',
+      }, 'Theme Mode');
+
+  String get systemTheme => _t({
+        'es': 'Sistema',
+        'de': 'System',
+        'fr': 'Système',
+        'ja': 'システム',
+        'zh': '跟随系统',
+      }, 'System');
+
+  String get lightTheme => _t({
+        'es': 'Claro',
+        'de': 'Hell',
+        'fr': 'Clair',
+        'ja': 'ライト',
+        'zh': '浅色',
+      }, 'Light');
+
+  String get darkTheme => _t({
+        'es': 'Oscuro',
+        'de': 'Dunkel',
+        'fr': 'Sombre',
+        'ja': 'ダーク',
+        'zh': '深色',
+      }, 'Dark');
+
+  String get glassmorphicUi => _t({
+        'es': 'Interfaz translúcida',
+        'de': 'Glasmorphismus-UI',
+        'fr': 'Interface translucide',
+        'ja': 'グラスモフィズムUI',
+        'zh': '拟玻质感UI',
+      }, 'Glassmorphic UI');
+
+  String get glassmorphicUiDesc => _t({
+        'es': 'Paneles y HUD de cristal esmerilado translúcido para ver la foto detrás',
+        'de': 'Durchscheinende Milchglas-Panels und HUD, damit das Foto sichtbar bleibt',
+        'fr': 'Panneaux et affichage translucides en verre dépoli pour voir la photo',
+        'ja': '写真が見通せる半透明すりガラス調パネルとHUD',
+        'zh': '半透明磨砂玻璃面板与HUD，使照片在控件下方隐现',
+      }, 'Translucent frosted-glass panels and HUD so photo stays visible');
+
+  // --- Stylus & Input Sheet Strings ---
+  String get palmRejection => _t({
+        'es': 'Rechazo de palma',
+        'de': 'Handflächenerkennung',
+        'fr': 'Rejet de la paume',
+        'ja': 'パームリジェクション',
+        'zh': '防手掌误触',
+      }, 'Palm Rejection');
+
+  String get palmRejectionDesc => _t({
+        'es': 'Rechaza toques táctiles mientras se utiliza el lápiz activo',
+        'de': 'Touch-Eingaben ignorieren, wenn ein aktiver Stift verwendet wird',
+        'fr': 'Rejette les événements tactiles lors de l\'utilisation d\'un stylet actif',
+        'ja': 'アクティブペン使用中のタッチ入力を無視',
+        'zh': '使用主动式电磁笔时忽略手掌触摸输入',
+      }, 'Reject touch pointer events when using active pen');
+
+  String get pressureSensitivity => _t({
+        'es': 'Sensibilidad a la presión',
+        'de': 'Druckempfindlichkeit',
+        'fr': 'Sensibilité à la pression',
+        'ja': '筆圧感知',
+        'zh': '压感灵敏度',
+      }, 'Pressure Sensitivity');
+
+  String get pressureSensitivityDesc => _t({
+        'es': 'Varía el flujo del pincel con la presión dinámica del lápiz (event.pressure)',
+        'de': 'Pinselstärke dynamisch mit Stiftdruck variieren (event.pressure)',
+        'fr': 'Varie le flux du pinceau avec la pression dynamique du stylet (event.pressure)',
+        'ja': 'ペンの筆圧に応じてブラシ流量を動的に変化（event.pressure）',
+        'zh': '根据笔尖下压实时改变画笔流量与不透明度（event.pressure）',
+      }, 'Vary brush flow with dynamic pen pressure (event.pressure)');
+
+  String get invertedStylusSupport => _t({
+        'es': 'Compatibilidad con lápiz invertido',
+        'de': 'Stiftradiermodus-Unterstützung',
+        'fr': 'Prise en charge du stylet inversé',
+        'ja': '反転スタイラス対応',
+        'zh': '支持笔尾橡皮擦',
+      }, 'Inverted Stylus Support');
+
+  String get invertedStylusSupportDesc => _t({
+        'es': 'Gira el lápiz para cambiar al instante al modo borrador de precisión',
+        'de': 'Stift umdrehen, um sofort in den Präzisions-Radiergummi-Modus zu wechseln',
+        'fr': 'Retournez le stylet pour passer instantanément en mode gomme de précision',
+        'ja': 'ペンを反転させて高精度消しゴムモードへ瞬時に切り替え',
+        'zh': '将电磁笔反转即可秒切至精准橡皮擦模式',
+      }, 'Flip active pen to instantly switch to precision eraser mode');
+
+  // --- Export Defaults Sheet Strings ---
+  String get quality => _t({
+        'es': 'Calidad',
+        'de': 'Qualität',
+        'fr': 'Qualité',
+        'ja': '品質',
+        'zh': '画质',
+      }, 'Quality');
+
+  String get maxSizeLongSide => _t({
+        'es': 'Tamaño máximo (lado largo)',
+        'de': 'Max. Größe (lange Kante)',
+        'fr': 'Taille max (bord long)',
+        'ja': '最大サイズ（長辺）',
+        'zh': '最大边长（长边）',
+      }, 'Max size (long side)');
+
+  String get sizeOriginal => _t({
+        'es': 'Original',
+        'de': 'Original',
+        'fr': 'Original',
+        'ja': 'オリジナル',
+        'zh': '原始尺寸',
+      }, 'Original');
+
+  String get c2paContentCredentials => _t({
+        'es': 'Credenciales de contenido C2PA',
+        'de': 'C2PA-Inhaltsnachweise',
+        'fr': 'Identifiants de contenu C2PA',
+        'ja': 'C2PA コンテンツクレデンシャル',
+        'zh': 'C2PA 内容凭据',
+      }, 'C2PA Content Credentials');
+
+  String get c2paDesc => _t({
+        'es': 'Firma la procedencia de la imagen criptográficamente con Ed25519 en local',
+        'de': 'Signiert die Bildprovenienz offline kryptografisch mit Ed25519',
+        'fr': 'Signe cryptographiquement la provenance de l\'image hors ligne avec Ed25519',
+        'ja': 'Ed25519で画像の出所をオフラインで暗号署名',
+        'zh': '通过Ed25519离线对图像来源进行密码学签名',
+      }, 'Cryptographically signs image provenance offline with Ed25519');
+
+  // --- Privacy & AI Sheet Strings ---
+  String get onDeviceAiProcessing => _t({
+        'es': 'Procesamiento de IA en el dispositivo',
+        'de': 'On-Device KI-Verarbeitung',
+        'fr': 'Traitement de l\'IA sur l\'appareil',
+        'ja': 'デバイス内AI処理',
+        'zh': '设备端本地AI处理',
+      }, 'On-device AI processing');
+
+  String get onDeviceAiProcessingDesc => _t({
+        'es': 'Habilita máscaras inteligentes locales (Sujeto/Cielo) con Depth Anything y U2Net. 100% en dispositivo, cero telemetría.',
+        'de': 'Ermöglicht lokale intelligente Maskierung (Motiv/Himmel) über Depth Anything & U2Net. 100% auf dem Gerät, null Telemetrie.',
+        'fr': 'Active le masquage intelligent local (Sujet/Ciel) via Depth Anything et U2Net. 100% sur l\'appareil, zéro télémétrie.',
+        'ja': 'Depth AnythingとU2Netによるローカル高度マスキング（被写体/空を選択）を有効化。100%端末内処理、テレメトリゼロ。',
+        'zh': '启用基于Depth Anything与U2Net的本地智能蒙版（主体/天空选区）。100%设备端运行，零遥测。',
+      }, 'Enables local intelligent masking (Select Subject/Sky) via Depth Anything & U2Net. 100% offline, zero telemetry.');
+
+  String get aiModelsAndNeuralRuntimes => _t({
+        'es': 'Modelos de IA y entornos neuronales',
+        'de': 'KI-Modelle & Neuronale Runtimes',
+        'fr': 'Modèles d\'IA et moteurs neuronaux',
+        'ja': 'AIモデル & ニューラルランタイム',
+        'zh': 'AI模型与神经计算运行时',
+      }, 'AI Models & Neural Runtimes');
+
+  String get aiModelsAndNeuralRuntimesDesc => _t({
+        'es': 'Administra el entorno ONNX, pesos de modelos y aceleración por hardware',
+        'de': 'ONNX-Runtime, Modellgewichte und Inferenz-Hardware verwalten',
+        'fr': 'Gérez le runtime ONNX, les poids des modèles et l\'accélération matérielle',
+        'ja': 'ONNXランタイム、モデル重み、推論ハードウェアを管理',
+        'zh': '管理ONNX运行时、模型权重与硬件加速',
+      }, 'Manage ONNX runtime, model weights, and inference hardware');
+
+  // --- About Sheet Strings ---
+  String get appOverviewAndPhilosophy => _t({
+        'es': 'Visión general y filosofía',
+        'de': 'App-Übersicht & Philosophie',
+        'fr': 'Présentation et philosophie',
+        'ja': 'アプリ概要と哲学',
+        'zh': '应用概览与理念',
+      }, 'App Overview & Philosophy');
+
+  String get developersAndMaintainers => _t({
+        'es': 'Desarrolladores y mantenedores',
+        'de': 'Entwickler & Maintainer',
+        'fr': 'Développeurs et mainteneurs',
+        'ja': '開発者とメンテナー',
+        'zh': '开发者与维护者',
+      }, 'Developers & Maintainers');
+
+  String get openSourceLicenses => _t({
+        'es': 'Licencias de código abierto',
+        'de': 'Open-Source-Lizenzen',
+        'fr': 'Licences open source',
+        'ja': 'オープンソースライセンス',
+        'zh': '开源许可证',
+      }, 'Open-Source Licenses');
+
   String get recent => _t({
         'es': 'Recientes',
         'de': 'Zuletzt',
@@ -540,6 +849,46 @@ class AppStrings {
         'zh': '深度范围',
       }, 'Depth Range');
 
+  String get maskBackground => _t({
+        'es': 'Fondo',
+        'de': 'Hintergrund',
+        'fr': 'Arrière-plan',
+        'ja': '背景',
+        'zh': '背景',
+      }, 'Background');
+
+  String get maskPersonFace => _t({
+        'es': 'Rostro',
+        'de': 'Gesicht',
+        'fr': 'Visage',
+        'ja': '顔',
+        'zh': '面部',
+      }, 'Face');
+
+  String get maskPersonSkin => _t({
+        'es': 'Piel',
+        'de': 'Haut',
+        'fr': 'Peau',
+        'ja': '肌',
+        'zh': '皮肤',
+      }, 'Skin');
+
+  String get maskPersonHair => _t({
+        'es': 'Cabello',
+        'de': 'Haare',
+        'fr': 'Cheveux',
+        'ja': '髪',
+        'zh': '头发',
+      }, 'Hair');
+
+  String get maskObject => _t({
+        'es': 'Objeto',
+        'de': 'Objekt',
+        'fr': 'Objet',
+        'ja': '被写体/オブジェクト',
+        'zh': '物体',
+      }, 'Object');
+
   String get maskNoPhotoRefine => _t({
         'es': 'No hay foto cargada para refinar máscara',
         'de': 'Kein Foto zum Verfeinern der Maske geladen',
@@ -802,6 +1151,30 @@ class AppStrings {
         'zh': '克隆',
       }, 'Clone');
 
+  String get retouchSkinSmooth => _t({
+        'es': 'Suavizar piel',
+        'de': 'Haut glätten',
+        'fr': 'Lisser la peau',
+        'ja': '美肌',
+        'zh': '平滑皮肤',
+      }, 'Smooth');
+
+  String get retouchEyeBrighten => _t({
+        'es': 'Iluminar ojos',
+        'de': 'Augen aufhellen',
+        'fr': 'Éclaircir les yeux',
+        'ja': '瞳を明るく',
+        'zh': '亮眼',
+      }, 'Eyes');
+
+  String get retouchTeethWhiten => _t({
+        'es': 'Blanquear dientes',
+        'de': 'Zähne aufhellen',
+        'fr': 'Blanchir les dents',
+        'ja': '歯を白く',
+        'zh': '美白牙齿',
+      }, 'Teeth');
+
   String get retouchSpotSettings => _t({
         'es': 'Ajustes del punto',
         'de': 'Punkteinstellungen',
@@ -898,6 +1271,120 @@ class AppStrings {
         'ja': 'ボケの形状 & スペキュラー',
         'zh': '博ケ形状 & 高光',
       }, 'Bokeh Shape & Specular');
+
+  String get blurDepthVisualizer => _t({
+        'es': 'Visualizador de mapa de profundidad',
+        'de': 'Tiefenkarten-Visualisierer',
+        'fr': 'Visualiseur de carte de profondeur',
+        'ja': '深度マップビジュアライザー',
+        'zh': '深度图可视化器',
+      }, 'Depth Map Visualizer');
+
+  String get blurDepthVisualizerSubtitle => _t({
+        'es': 'Superponer plano focal de color falso y gradiente de profundidad',
+        'de': 'Falschfarben-Fokusebene und Tiefengradient überlagern',
+        'fr': 'Superposer plan focal en fausses couleurs et gradient de profondeur',
+        'ja': '疑似カラーのフォーカス面と深度グラデーションをオーバーレイ',
+        'zh': '叠加伪彩色焦平面和深度渐变',
+      }, 'Overlay false-color focal plane & depth gradient');
+
+  String get blurFindingSubject => _t({
+        'es': 'Buscando sujeto… Por favor espere',
+        'de': 'Motiv wird gesucht… Bitte warten',
+        'fr': 'Recherche du sujet… Veuillez patienter',
+        'ja': '被写体を検出中… しばらくお待ちください',
+        'zh': '正在寻找主体… 请稍候',
+      }, 'Finding subject… Please wait a moment');
+
+  String blurConfidenceReliable(int pct) => _t({
+        'es': '$pct% confiable',
+        'de': '$pct% zuverlässig',
+        'fr': '$pct% fiable',
+        'ja': '$pct% 信頼性',
+        'zh': '$pct% 可靠',
+      }, '$pct% reliable');
+
+  String get blurConfidenceLow => _t({
+        'es': 'Baja confianza de profundidad en esta escena',
+        'de': 'Geringes Tiefenvertrauen in dieser Szene',
+        'fr': 'Faible confiance de profondeur sur cette scène',
+        'ja': 'このシーンの深度信頼度が低いです',
+        'zh': '此场景的深度置信度较低',
+      }, 'Low depth confidence in this scene');
+
+  String get blurLowConfidence => blurConfidenceLow;
+
+  String get blurSwitchToGradient => _t({
+        'es': 'Cambiar a gradiente',
+        'de': 'Zu Gradient wechseln',
+        'fr': 'Passer au dégradé',
+        'ja': 'グラデーションに切り替え',
+        'zh': '切换到渐变',
+      }, 'Switch to Gradient');
+
+  String get blurRefineBrush => _t({
+        'es': 'Pincel de refinamiento de enfoque',
+        'de': 'Fokus-Verfeinerungspinsel',
+        'fr': 'Pinceau d’affinage de mise au point',
+        'ja': 'フォーカス調整ブラシ',
+        'zh': '焦点微调画笔',
+      }, 'Refine Focus Brush');
+
+  String get blurPortrait85 => _t({
+        'es': 'Retrato 85mm f/1.8',
+        'de': 'Porträt 85mm f/1.8',
+        'fr': 'Portrait 85mm f/1.8',
+        'ja': 'ポートレート 85mm f/1.8',
+        'zh': '人像 85mm f/1.8',
+      }, 'Portrait 85mm f/1.8');
+
+  String get blurStreet35 => _t({
+        'es': 'Calle 35mm f/1.4',
+        'de': 'Street 35mm f/1.4',
+        'fr': 'Rue 35mm f/1.4',
+        'ja': 'ストリート 35mm f/1.4',
+        'zh': '街头 35mm f/1.4',
+      }, 'Street 35mm f/1.4');
+
+  String get blurAnamorphic => _t({
+        'es': 'Anamórfico 50mm',
+        'de': 'Anamorph 50mm',
+        'fr': 'Anamorphique 50mm',
+        'ja': 'アナモルフィック 50mm',
+        'zh': '变形 50mm',
+      }, 'Anamorphic 50mm');
+
+  String get blurVintageSwirl => _t({
+        'es': 'Remolino Vintage (Petzval)',
+        'de': 'Vintage Swirl (Petzval)',
+        'fr': 'Tourbillon Vintage (Petzval)',
+        'ja': 'ビンテージスワール (ペッツバール)',
+        'zh': '复古旋涡 (匹兹瓦)',
+      }, 'Vintage Swirl (Petzval)');
+
+  String get blurCreamyMacro => _t({
+        'es': 'Macro Cremoso',
+        'de': 'Cremiges Makro',
+        'fr': 'Macro crémeux',
+        'ja': 'クリーミーマクロ',
+        'zh': '柔顺微距',
+      }, 'Creamy Macro');
+
+  String get blurUseOpticalGradient => _t({
+        'es': 'Usar gradiente óptico',
+        'de': 'Optischen Gradienten verwenden',
+        'fr': 'Utiliser le gradient optique',
+        'ja': '光学グラデーションを使用',
+        'zh': '使用光学渐变',
+      }, 'Use Optical Gradient');
+
+  String blurSubjectFocusPlaced(int focalPoint, int focalRange) => _t({
+        'es': 'Enfoque de sujeto fijado: punto focal $focalPoint%, rango $focalRange%',
+        'de': 'Motivfokus gesetzt: Fokuspunkt $focalPoint%, Bereich $focalRange%',
+        'fr': 'Mise au point sur le sujet : point focal $focalPoint%, plage $focalRange%',
+        'ja': '被写体フォーカス設定完了: フォーカス位置 $focalPoint%、範囲 $focalRange%',
+        'zh': '主体对焦完成：焦点 $focalPoint%，范围 $focalRange%',
+      }, 'Subject focus placed: focal point $focalPoint%, range $focalRange%');
 
   // --- Optics Controls ---
   String get opticsRemoveCA => _t({
@@ -1092,6 +1579,208 @@ class AppStrings {
         'ja': 'クローンポイント +',
         'zh': '克隆点 +',
       }, 'Clone Spot +');
+
+  String get retouchSkinSmoothSpotPlus => _t({
+        'es': 'Suavizar piel +',
+        'de': 'Haut glätten +',
+        'fr': 'Lisser la peau +',
+        'ja': '美肌 +',
+        'zh': '平滑皮肤 +',
+      }, 'Smooth +');
+
+  String get retouchEyeBrightenSpotPlus => _t({
+        'es': 'Iluminar ojos +',
+        'de': 'Augen aufhellen +',
+        'fr': 'Éclaircir les yeux +',
+        'ja': '瞳を明るく +',
+        'zh': '亮眼 +',
+      }, 'Eyes +');
+
+  String get retouchTeethWhitenSpotPlus => _t({
+        'es': 'Blanquear dientes +',
+        'de': 'Zähne aufhellen +',
+        'fr': 'Blanchir les dents +',
+        'ja': '歯を白く +',
+        'zh': '美白牙齿 +',
+      }, 'Teeth +');
+
+  // Desktop Menu Strings
+  String get fileMenu => _t({
+        'es': 'Archivo',
+        'de': 'Datei',
+        'fr': 'Fichier',
+        'ja': 'ファイル',
+        'zh': '文件',
+      }, 'File');
+
+  String get openPhoto => _t({
+        'es': 'Abrir foto…',
+        'de': 'Foto öffnen…',
+        'fr': 'Ouvrir une photo…',
+        'ja': '写真を開く…',
+        'zh': '打开照片…',
+      }, 'Open Photo…');
+
+  String get exportImage => _t({
+        'es': 'Exportar imagen…',
+        'de': 'Bild exportieren…',
+        'fr': 'Exporter l\'image…',
+        'ja': '画像を書き出し…',
+        'zh': '导出图像…',
+      }, 'Export Image…');
+
+  String get printContactSheet => _t({
+        'es': 'Imprimir / Hoja de contactos…',
+        'de': 'Drucken / Kontaktabzug…',
+        'fr': 'Imprimer / Planche contact…',
+        'ja': '印刷 / コンタクトシート…',
+        'zh': '打印 / 缩略图索引…',
+      }, 'Print / Contact Sheet…');
+
+  String get studioTetheredCapture => _t({
+        'es': 'Captura vinculada de estudio…',
+        'de': 'Studio-Tethering-Aufnahme…',
+        'fr': 'Capture connectée en studio…',
+        'ja': 'スタジオ テザー撮影…',
+        'zh': '工作室联机拍摄…',
+      }, 'Studio Tethered Capture…');
+
+  String get videoColorStudio => _t({
+        'es': 'Estudio de color de video…',
+        'de': 'Video-Farbkorrektur-Studio…',
+        'fr': 'Studio d\'étalonnage vidéo…',
+        'ja': 'ビデオ カラースタジオ…',
+        'zh': '视频调色工作室…',
+      }, 'Video Color Studio…');
+
+  String get closeWindow => _t({
+        'es': 'Cerrar ventana',
+        'de': 'Fenster schließen',
+        'fr': 'Fermer la fenêtre',
+        'ja': 'ウィンドウを閉じる',
+        'zh': '关闭窗口',
+      }, 'Close Window');
+
+  String get editMenu => _t({
+        'es': 'Edición',
+        'de': 'Bearbeiten',
+        'fr': 'Édition',
+        'ja': '編集',
+        'zh': '编辑',
+      }, 'Edit');
+
+  String get copySettings => _t({
+        'es': 'Copiar ajustes',
+        'de': 'Einstellungen kopieren',
+        'fr': 'Copier les paramètres',
+        'ja': '設定をコピー',
+        'zh': '复制设置',
+      }, 'Copy Settings');
+
+  String get pasteSettings => _t({
+        'es': 'Pegar ajustes',
+        'de': 'Einstellungen einfügen',
+        'fr': 'Coller les paramètres',
+        'ja': '設定を貼り付け',
+        'zh': '粘贴设置',
+      }, 'Paste Settings');
+
+  String get viewMenu => _t({
+        'es': 'Ver',
+        'de': 'Ansicht',
+        'fr': 'Affichage',
+        'ja': '表示',
+        'zh': '视图',
+      }, 'View');
+
+  String get exitWiperCompare => _t({
+        'es': 'Salir de comparación de cortinilla A/B',
+        'de': 'A/B-Wischer-Vergleich beenden',
+        'fr': 'Quitter la comparaison avant/après par volet',
+        'ja': 'ワイパー比較を終了',
+        'zh': '退出卷帘对比',
+      }, 'Exit A/B Wiper Compare');
+
+  String get splitCurtainWiperCompare => _t({
+        'es': 'Comparación de cortinilla dividida',
+        'de': 'Geteilter Wischer-Vergleich',
+        'fr': 'Comparaison par volet divisé',
+        'ja': '分割ワイパー比較',
+        'zh': '卷帘对比',
+      }, 'Split Curtain Wiper Compare');
+
+  String get toggleWiperOrientation => _t({
+        'es': 'Alternar orientación de cortinilla',
+        'de': 'Wischer-Ausrichtung umschalten',
+        'fr': 'Changer l\'orientation du volet',
+        'ja': 'ワイパー方向を切り替え',
+        'zh': '切换卷帘方向',
+      }, 'Toggle Wiper Orientation');
+
+  String get resetWiperToCenter => _t({
+        'es': 'Restablecer cortinilla al centro',
+        'de': 'Wischer auf Mitte zurücksetzen',
+        'fr': 'Recentrer le volet',
+        'ja': 'ワイパーを中央にリセット',
+        'zh': '重置卷帘至中心',
+      }, 'Reset Wiper to Center');
+
+  String get exitBeforeAfterSplit => _t({
+        'es': 'Salir de vista dividida antes/después',
+        'de': 'Vorher/Nachher-Teilung beenden',
+        'fr': 'Quitter la vue fractionnée avant/après',
+        'ja': '前後分割表示を終了',
+        'zh': '退出前后分割视图',
+      }, 'Exit Before/After Split View');
+
+  String get toggleBeforeAfterSplit => _t({
+        'es': 'Alternar vista dividida antes/después',
+        'de': 'Vorher/Nachher-Teilung umschalten',
+        'fr': 'Activer/désactiver la vue fractionnée',
+        'ja': '前後分割表示を切り替え',
+        'zh': '切换前后分割视图',
+      }, 'Toggle Before/After Split View');
+
+  String get toggleSplitOrientation => _t({
+        'es': 'Alternar orientación de vista dividida',
+        'de': 'Teilungsausrichtung umschalten',
+        'fr': 'Changer l\'orientation du fractionnement',
+        'ja': '分割方向を切り替え',
+        'zh': '切换分割方向',
+      }, 'Toggle Split View Orientation');
+
+  // History & Stacks Sheet Strings
+  String get editHistoryAndBranches => _t({
+        'es': 'Historial de edición y ramas',
+        'de': 'Bearbeitungsverlauf & Zweige',
+        'fr': 'Historique des modifications et branches',
+        'ja': '編集履歴とブランチ',
+        'zh': '编辑历史与分支',
+      }, 'Edit History & Branches');
+
+  String get editStacksSnapseed => _t({
+        'es': 'Pilas de edición (paridad Snapseed)',
+        'de': 'Bearbeitungsstapel (Snapseed-Parität)',
+        'fr': 'Piles de retouches (parité Snapseed)',
+        'ja': '編集スタック (Snapseed パリティ)',
+        'zh': '编辑图层堆栈 (Snapseed 对齐)',
+      }, 'Edit Stacks (Snapseed Parity)');
+
+  String get snapshotsAndVirtualCopies => _t({
+        'es': 'Instantáneas y copias virtuales',
+        'de': 'Schnappschüsse & virtuelle Kopien',
+        'fr': 'Instantanés et copies virtuelles',
+        'ja': 'スナップショットと仮想コピー',
+        'zh': '快照与虚拟副本',
+      }, 'Snapshots & Virtual Copies');
+
+  String get close => _t({
+        'es': 'Cerrar',
+        'de': 'Schließen',
+        'fr': 'Fermer',
+        'ja': '閉じる',
+        'zh': '关闭',
+      }, 'Close');
 
   static const LocalizationsDelegate<AppStrings> delegate =
       _AppStringsDelegate();

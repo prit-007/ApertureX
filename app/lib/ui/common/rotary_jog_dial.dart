@@ -137,9 +137,8 @@ class _RotaryJogDialState extends ConsumerState<RotaryJogDial> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final spec = specOf(widget.parameter);
-    final value = valueOf(
-      ref.watch(recipeControllerProvider).recipe,
-      widget.parameter,
+    final value = ref.watch(
+      recipeControllerProvider.select((s) => valueOf(s.recipe, widget.parameter)),
     );
 
     final isRight = _dockEdge == JogDialDockEdge.right;

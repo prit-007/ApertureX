@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import 'recipe.dart';
 import 'recipe_store.dart';
 import 'drift_catalog_store.dart';
@@ -73,6 +75,9 @@ class CatalogEntry {
     this.flag = false,
     this.colorLabel,
     this.keywords = const [],
+    this.stackId,
+    this.isStackRepresentative = false,
+    this.stackMembers = const [],
   });
 
   /// The original-photo entry for [entryId] (see [originalEntryId]).
@@ -115,6 +120,9 @@ class CatalogEntry {
       flag: json['flag'] as bool? ?? false,
       colorLabel: ColorLabel.tryParse(json['colorLabel'] as String?),
       keywords: keywords,
+      stackId: json['stackId'] as String?,
+      isStackRepresentative: json['isStackRepresentative'] as bool? ?? false,
+      stackMembers: (json['stackMembers'] as List?)?.whereType<String>().toList() ?? const [],
       created: DateTime.tryParse(json['created'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
     );
@@ -129,6 +137,9 @@ class CatalogEntry {
   final bool flag;
   final ColorLabel? colorLabel;
   final List<String> keywords;
+  final String? stackId;
+  final bool isStackRepresentative;
+  final List<String> stackMembers;
   final DateTime created;
 
   /// True once the entry carries anything a neutral-recipe original would
@@ -138,7 +149,8 @@ class CatalogEntry {
       rating != 0 ||
       flag ||
       colorLabel != null ||
-      keywords.isNotEmpty;
+      keywords.isNotEmpty ||
+      stackId != null;
 
   CatalogEntry copyWith({
     EditRecipe? recipe,
@@ -148,6 +160,10 @@ class CatalogEntry {
     ColorLabel? colorLabel,
     bool clearColorLabel = false,
     List<String>? keywords,
+    String? stackId,
+    bool clearStack = false,
+    bool? isStackRepresentative,
+    List<String>? stackMembers,
   }) => CatalogEntry(
     entryId: entryId,
     sourceAssetId: sourceAssetId,
@@ -158,6 +174,9 @@ class CatalogEntry {
     flag: flag ?? this.flag,
     colorLabel: clearColorLabel ? null : (colorLabel ?? this.colorLabel),
     keywords: keywords ?? this.keywords,
+    stackId: clearStack ? null : (stackId ?? this.stackId),
+    isStackRepresentative: isStackRepresentative ?? this.isStackRepresentative,
+    stackMembers: stackMembers ?? this.stackMembers,
     created: created,
   );
 
@@ -171,6 +190,9 @@ class CatalogEntry {
     'flag': flag,
     if (colorLabel != null) 'colorLabel': colorLabel!.name,
     if (keywords.isNotEmpty) 'keywords': keywords,
+    if (stackId != null) 'stackId': stackId,
+    'isStackRepresentative': isStackRepresentative,
+    if (stackMembers.isNotEmpty) 'stackMembers': stackMembers,
     'created': created.toIso8601String(),
   };
 }
@@ -286,7 +308,8 @@ class LibraryCatalog extends Notifier<Map<String, CatalogEntry>> {
     Map<String, CatalogEntry> loaded;
     try {
       loaded = await _store.load();
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.gallery, 'Catalog store load fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       loaded = const {};
     }
     _hydrating = true;
@@ -542,6 +565,78 @@ class LibraryCatalog extends Notifier<Map<String, CatalogEntry>> {
     return out;
   }
 
+  /// Creates a photo stack from multiple entry IDs, marking [representativeEntryId]
+  /// as the representative head.
+  void createStack(List<String> entryIds, {required String representativeEntryId}) {
+    if (entryIds.length < 2) return;
+    final stackId = 'stack_${DateTime.now().millisecondsSinceEpoch}';
+    final next = {...state};
+    for (final id in entryIds) {
+      final existing = next[id] ?? CatalogEntry.original(entryId: id, recipe: EditRecipe.neutral);
+      final isRep = id == representativeEntryId;
+      next[id] = existing.copyWith(
+        stackId: stackId,
+        isStackRepresentative: isRep,
+        stackMembers: isRep ? entryIds : const [],
+      );
+    }
+    state = next;
+    _markDirty();
+  }
+
+  /// Removes an entry or unbinds a photo stack.
+  void unstack(String stackId) {
+    final next = {...state};
+    var changed = false;
+    next.forEach((id, entry) {
+      if (entry.stackId == stackId) {
+        next[id] = entry.copyWith(clearStack: true);
+        changed = true;
+      }
+    });
+    if (changed) {
+      state = next;
+      _markDirty();
+    }
+  }
+
+  /// Exports the entire catalog as a JSON backup string (#DAM).
+  String exportLibraryBackup() {
+    final map = <String, Object?>{
+      'version': 1,
+      'exported': DateTime.now().toIso8601String(),
+      'entries': {
+        for (final entry in state.values)
+          entry.entryId: entry.toJson(),
+      },
+    };
+    return const JsonEncoder.withIndent('  ').convert(map);
+  }
+
+  /// Imports a catalog backup, merging entries into the current library.
+  void importLibraryBackup(String jsonStr) {
+    final parsed = jsonDecode(jsonStr);
+    if (parsed is! Map) return;
+    final entriesMap = parsed['entries'];
+    if (entriesMap is! Map) return;
+    final next = {...state};
+    for (final e in entriesMap.entries) {
+      if (e.value is Map) {
+        try {
+          final entry = CatalogEntry.fromJson(
+            e.key.toString(),
+            (e.value as Map).cast<String, Object?>(),
+          );
+          next[entry.entryId] = entry;
+        } catch (e, st) {
+          axLog(LogDomain.gallery, 'Catalog restore item decode fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+        }
+      }
+    }
+    state = next;
+    _markDirty();
+  }
+
   void _markDirty() {
     // Under `flutter test` the debounce timer is never scheduled: widget tests
     // verify invariants (no pending timers) the moment the test body returns,
@@ -561,7 +656,8 @@ class LibraryCatalog extends Notifier<Map<String, CatalogEntry>> {
     _writeChain = _writeChain.then((_) async {
       try {
         await _store.save(state);
-      } catch (_) {
+      } catch (e, st) {
+        axLog(LogDomain.gallery, 'Catalog store write failure: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
         // Best-effort persistence: a failed write keeps the in-memory
         // library working; the next mutation retries.
       }

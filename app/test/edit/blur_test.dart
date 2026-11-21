@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:aperturex/color/blur_spec.dart';
+import 'package:aperturex/edit/depth_sidecar.dart';
 import 'package:aperturex/edit/parameter.dart';
 import 'package:aperturex/edit/recipe.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
@@ -17,6 +20,24 @@ void main() {
       expect(spec.bokehShape, BokehShape.circle);
       expect(spec.bokehBoost, 0.0);
       expect(spec.isNeutral, isTrue);
+    });
+
+    test('isNeutral respects enabled flag matching Rust', () {
+      expect(const LensBlurSpec(enabled: false, amount: 0.5).isNeutral, isTrue);
+      expect(const LensBlurSpec(enabled: true, amount: 0.5).isNeutral, isFalse);
+      expect(const LensBlurSpec(enabled: true, amount: 0.0).isNeutral, isTrue);
+      expect(const LensBlurSpec(enabled: true, amount: 0.0, blurBackgroundBlur: true).isNeutral, isFalse);
+    });
+
+    test('BokehShape indices strictly synchronize with Rust BokehShape (0..6)', () {
+      expect(BokehShape.circle.index, 0);
+      expect(BokehShape.pentagon.index, 1);
+      expect(BokehShape.hexagon.index, 2);
+      expect(BokehShape.septagon.index, 3);
+      expect(BokehShape.catsEye.index, 4);
+      expect(BokehShape.soapBubble.index, 5);
+      expect(BokehShape.swirl.index, 6);
+      expect(BokehShape.values.length, 7);
     });
 
     test('fromRecipe maps fields correctly', () {
@@ -57,6 +78,37 @@ void main() {
       expect(restored.blurFocalRange, 0.1);
       expect(restored.blurBokehShape, 2);
       expect(restored.blurBokehBoost, 0.6);
+      expect(restored, recipe);
+    });
+
+    test('EditRecipe JSON round-trip retains depthField and depth_sidecar', () {
+      final depthData = DepthSidecarData(
+        width: 3,
+        height: 3,
+        confidence: 0.94,
+        source: DepthSourceType.neural,
+        contentHash: 101,
+        plane: Float32List.fromList([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]),
+      );
+      final recipe = EditRecipe.neutral.copyWith(
+        blurEnabled: true,
+        blurAmount: 0.7,
+        depthSidecar: 'sample.axdf',
+        depthSidecarPath: 'sample.axdf',
+        depthField: depthData,
+      );
+
+      final json = recipe.toJson();
+      expect(json, containsPair('depth_sidecar', 'sample.axdf'));
+      expect(json, contains('depth_field'));
+
+      final restored = EditRecipe.fromJson(json);
+      expect(restored.depthSidecar, 'sample.axdf');
+      expect(restored.depthField, isNotNull);
+      expect(restored.depthField!.width, 3);
+      expect(restored.depthField!.height, 3);
+      expect(restored.depthField!.confidence, closeTo(0.94, 1e-4));
+      expect(restored.depthField!.plane.length, 9);
       expect(restored, recipe);
     });
 

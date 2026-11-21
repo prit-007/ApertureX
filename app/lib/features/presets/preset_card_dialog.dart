@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/look_qr_codec.dart';
 import '../../edit/tool_definition.dart';
@@ -86,7 +88,8 @@ class _PresetCardDialogState extends ConsumerState<PresetCardDialog> {
       final image = await boundary.toImage(pixelRatio: 2.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       return byteData?.buffer.asUint8List();
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.preset, 'Capture preset card error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       return null;
     }
   }
@@ -115,7 +118,8 @@ class _PresetCardDialogState extends ConsumerState<PresetCardDialog> {
           );
         }
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.preset, 'Share preset card fallback to clipboard: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       await Clipboard.setData(ClipboardData(text: _currentQrUri));
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -317,7 +321,7 @@ class _PresetCardDialogState extends ConsumerState<PresetCardDialog> {
                                       Text(
                                         'Scan in ApertureX to apply look',
                                         style: TextStyle(
-                                          fontSize: 9,
+                                          fontSize: 12.0,
                                           color: Colors.white.withValues(alpha: 0.6),
                                         ),
                                       ),

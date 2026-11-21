@@ -100,20 +100,32 @@ impl CurveParams {
     }
 }
 
-/// Pads/truncates a flat HSL list (8 bands × 3) to a fixed `[f32; 24]`.
-/// Logs a warning if the input length is not exactly 24.
-pub(crate) fn to_hsl24(v: &[f32]) -> [f32; 24] {
-    let mut a = [0.0f32; 24];
-    for (slot, value) in a.iter_mut().zip(v.iter().take(24)) {
-        *slot = *value;
+/// Converts a flat HSL slice (8 bands × 3) to a fixed `[f32; 24]`.
+/// Returns an error if the input length is not exactly 24 (or empty for neutral default).
+pub(crate) fn try_to_hsl24(v: &[f32]) -> Result<[f32; 24], String> {
+    if v.is_empty() {
+        return Ok([0.0f32; 24]);
     }
     if v.len() != 24 {
-        eprintln!(
-            "warning: to_hsl24 received {} values, expected 24 (padded/truncated)",
+        return Err(format!(
+            "invalid HSL array length: expected 24 (8 bands × 3), got {}",
             v.len()
-        );
+        ));
     }
-    a
+    let mut a = [0.0f32; 24];
+    a.copy_from_slice(v);
+    Ok(a)
+}
+
+/// Fallback wrapper for internal backward compatibility that converts HSL or logs an error.
+pub(crate) fn to_hsl24(v: &[f32]) -> [f32; 24] {
+    match try_to_hsl24(v) {
+        Ok(arr) => arr,
+        Err(e) => {
+            eprintln!("warning: {e} (falling back to neutral)");
+            [0.0f32; 24]
+        }
+    }
 }
 
 /// A colour pipeline baked into a 2D-packed RGBA8 LUT atlas.
@@ -266,7 +278,7 @@ pub fn auto_tone(jpeg: Vec<u8>) -> Option<HashMap<String, f64>> {
     let std_luma = variance.max(0.0).sqrt();
 
     // Percentiles for clipping and whites/blacks
-    lumas.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    lumas.sort_by(|a, b| a.total_cmp(b));
     let p0_1_idx = ((count as f64 * 0.001).round() as usize).min(count - 1);
     let p1_idx = ((count as f64 * 0.01).round() as usize).min(count - 1);
     let p99_idx = ((count as f64 * 0.99).round() as usize).min(count - 1);
@@ -459,7 +471,7 @@ pub fn auto_tone_with_faces(jpeg: Vec<u8>, faces: Vec<FaceBox>) -> Option<HashMa
     let std_luma = variance.max(0.0).sqrt();
 
     // Percentiles for clipping and whites/blacks
-    lumas.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    lumas.sort_by(|a, b| a.total_cmp(b));
     let p0_1_idx = ((lumas.len() as f64 * 0.001).round() as usize).min(lumas.len() - 1);
     let p1_idx = ((lumas.len() as f64 * 0.01).round() as usize).min(lumas.len() - 1);
     let p99_idx = ((lumas.len() as f64 * 0.99).round() as usize).min(lumas.len() - 1);
@@ -535,6 +547,105 @@ pub fn auto_tone_with_faces(jpeg: Vec<u8>, faces: Vec<FaceBox>) -> Option<HashMa
     map.insert("vibrance".to_string(), vibrance);
 
     Some(map)
+}
+
+/// Point color adjustment definition across the bridge.
+pub struct ApiPointColor {
+    pub target_h: f32,
+    pub target_s: f32,
+    pub target_l: f32,
+    pub range_h: f32,
+    pub range_s: f32,
+    pub range_l: f32,
+    pub falloff: f32,
+    pub shift_h: f32,
+    pub shift_s: f32,
+    pub shift_l: f32,
+}
+
+/// Camera calibration parameters across the bridge.
+pub struct ApiCalibrationParams {
+    pub shadow_tint: f32,
+    pub red_hue: f32,
+    pub red_sat: f32,
+    pub green_hue: f32,
+    pub green_sat: f32,
+    pub blue_hue: f32,
+    pub blue_sat: f32,
+}
+
+/// Applies a list of point color adjustments to an RGBA buffer.
+pub fn apply_point_colors(
+    mut rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    points: Vec<ApiPointColor>,
+) -> Vec<u8> {
+    if points.is_empty() || crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return rgba;
+    }
+    let internal_points: Vec<color::PointColor> = points
+        .into_iter()
+        .map(|p| color::PointColor {
+            target_h: p.target_h,
+            target_s: p.target_s,
+            target_l: p.target_l,
+            range_h: p.range_h,
+            range_s: p.range_s,
+            range_l: p.range_l,
+            falloff: p.falloff,
+            shift_h: p.shift_h,
+            shift_s: p.shift_s,
+            shift_l: p.shift_l,
+        })
+        .collect();
+
+    let total = (width as usize * height as usize * 4).min(rgba.len());
+    for idx in (0..total).step_by(4) {
+        let r = rgba[idx] as f32 / 255.0;
+        let g = rgba[idx + 1] as f32 / 255.0;
+        let b = rgba[idx + 2] as f32 / 255.0;
+
+        let out = color::apply_point_colors([r, g, b], &internal_points);
+        rgba[idx] = (out[0] * 255.0).round().clamp(0.0, 255.0) as u8;
+        rgba[idx + 1] = (out[1] * 255.0).round().clamp(0.0, 255.0) as u8;
+        rgba[idx + 2] = (out[2] * 255.0).round().clamp(0.0, 255.0) as u8;
+    }
+    rgba
+}
+
+/// Applies camera calibration primary shifts to an RGBA buffer.
+pub fn apply_camera_calibration(
+    mut rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    calib: ApiCalibrationParams,
+) -> Vec<u8> {
+    if crate::validate::validate_rgba(&rgba, width, height).is_err() {
+        return rgba;
+    }
+    let internal_calib = color::CalibrationParams {
+        shadow_tint: calib.shadow_tint,
+        red_hue: calib.red_hue,
+        red_sat: calib.red_sat,
+        green_hue: calib.green_hue,
+        green_sat: calib.green_sat,
+        blue_hue: calib.blue_hue,
+        blue_sat: calib.blue_sat,
+    };
+
+    let total = (width as usize * height as usize * 4).min(rgba.len());
+    for idx in (0..total).step_by(4) {
+        let r = rgba[idx] as f32 / 255.0;
+        let g = rgba[idx + 1] as f32 / 255.0;
+        let b = rgba[idx + 2] as f32 / 255.0;
+
+        let out = color::apply_calibration([r, g, b], &internal_calib);
+        rgba[idx] = (out[0] * 255.0).round().clamp(0.0, 255.0) as u8;
+        rgba[idx + 1] = (out[1] * 255.0).round().clamp(0.0, 255.0) as u8;
+        rgba[idx + 2] = (out[2] * 255.0).round().clamp(0.0, 255.0) as u8;
+    }
+    rgba
 }
 
 #[cfg(test)]
@@ -657,5 +768,32 @@ mod tests {
     #[test]
     fn auto_tone_with_faces_invalid_jpeg_returns_none() {
         assert!(auto_tone_with_faces(vec![], vec![]).is_none());
+    }
+
+    #[test]
+    fn try_to_hsl24_valid_length() {
+        let input: Vec<f32> = (0..24).map(|i| i as f32 * 0.1).collect();
+        let res = try_to_hsl24(&input);
+        assert!(res.is_ok());
+        let arr = res.unwrap();
+        assert_eq!(arr.len(), 24);
+        assert!((arr[0] - 0.0).abs() < 1e-5);
+        assert!((arr[23] - 2.3).abs() < 1e-5);
+    }
+
+    #[test]
+    fn try_to_hsl24_empty_returns_neutral() {
+        let res = try_to_hsl24(&[]);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), [0.0f32; 24]);
+    }
+
+    #[test]
+    fn try_to_hsl24_wrong_length_returns_err() {
+        let short = vec![0.5f32; 10];
+        assert!(try_to_hsl24(&short).is_err());
+
+        let long = vec![0.5f32; 30];
+        assert!(try_to_hsl24(&long).is_err());
     }
 }

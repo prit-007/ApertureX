@@ -9,6 +9,7 @@ import '../../edit/node_editor.dart';
 import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 import '../../edit/snapshots_provider.dart';
+import '../../l10n/app_strings.dart';
 import '../../viewport/split_compare.dart';
 
 /// Interactive modal sheet visualizing the Git-style Directed Acyclic Graph
@@ -45,11 +46,17 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(recipeControllerProvider);
-    final tree = state.historyTree ??
-        HistoryTree.initial(initialRecipe: state.committed);
+    final tree = ref.watch(
+      recipeControllerProvider.select(
+        (s) => s.historyTree ?? HistoryTree.initial(initialRecipe: s.committed),
+      ),
+    );
+    final layers = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.layers),
+    );
     final snapshots = ref.watch(snapshotsProvider);
     final scheme = Theme.of(context).colorScheme;
+    final strings = AppStrings.of(context);
     final activeBranch = tree.activeBranch;
     final branches = tree.branches.keys.toList();
     final lineage = tree.activeLineage;
@@ -104,10 +111,10 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                       children: [
                         Text(
                           _selectedView == 0
-                              ? 'Edit History & Branches'
+                              ? strings.editHistoryAndBranches
                               : _selectedView == 1
-                                  ? 'Edit Stacks (Snapseed Parity)'
-                                  : 'Snapshots & Virtual Copies',
+                                  ? strings.editStacksSnapseed
+                                  : strings.snapshotsAndVirtualCopies,
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -127,7 +134,7 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
-                    tooltip: 'Close',
+                    tooltip: strings.close,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -146,7 +153,7 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                   ),
                   ButtonSegment<int>(
                     value: 1,
-                    label: Text('Stacks (${state.recipe.layers.length + (lineage.length > 1 ? lineage.length - 1 : 0)})'),
+                    label: Text('Stacks (${layers.length + (lineage.length > 1 ? lineage.length - 1 : 0)})'),
                     icon: const Icon(Icons.layers, size: 16),
                   ),
                   ButtonSegment<int>(
@@ -417,9 +424,9 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   children: [
                     // Selective Adjustment Layers in reverse order (top of stack first)
-                    for (int i = state.recipe.layers.length - 1; i >= 0; i--) ...[
+                    for (int i = layers.length - 1; i >= 0; i--) ...[
                       Builder(builder: (context) {
-                        final layer = state.recipe.layers[i];
+                        final layer = layers[i];
                         final maskName = switch (layer.maskKind) {
                           MaskKind.linear => 'Linear Gradient',
                           MaskKind.radial => 'Radial Gradient',
@@ -431,6 +438,11 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                           MaskKind.sky => 'AI Sky Mask',
                           MaskKind.bitmap => 'Bitmap Mask',
                           MaskKind.autoBrush => 'Edge-Aware Auto Brush',
+                          MaskKind.background => 'AI Background Mask',
+                          MaskKind.personFace => 'AI Person Face Mask',
+                          MaskKind.personSkin => 'AI Person Skin Mask',
+                          MaskKind.personHair => 'AI Person Hair Mask',
+                          MaskKind.object => 'Object Mask',
                         };
                         return Card.outlined(
                           margin: const EdgeInsets.only(bottom: 8),
@@ -558,7 +570,7 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('New Snapshot'),
                       onPressed: () =>
-                          _promptNewSnapshot(context, ref, state.recipe),
+                          _promptNewSnapshot(context, ref, ref.read(recipeControllerProvider).recipe),
                     ),
                   ],
                 ),
@@ -597,7 +609,7 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
                             icon: const Icon(Icons.bookmark_add, size: 18),
                             label: const Text('Capture Current Edit'),
                             onPressed: () =>
-                                _promptNewSnapshot(context, ref, state.recipe),
+                                _promptNewSnapshot(context, ref, ref.read(recipeControllerProvider).recipe),
                           ),
                         ],
                       ),
@@ -728,31 +740,13 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
   }
 
   Future<void> _promptNewBranch(BuildContext context, WidgetRef ref) async {
-    final textController = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Create New Branch'),
-        content: TextField(
-          controller: textController,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Branch Name',
-            hintText: 'e.g. bw-moody, film-gold, high-contrast',
-          ),
-          onSubmitted: (val) => Navigator.of(dialogCtx).pop(val.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () =>
-                Navigator.of(dialogCtx).pop(textController.text.trim()),
-            child: const Text('Create'),
-          ),
-        ],
+      builder: (_) => const _TextInputDialog(
+        title: 'Create New Branch',
+        labelText: 'Branch Name',
+        hintText: 'e.g. bw-moody, film-gold, high-contrast',
+        confirmLabel: 'Create',
       ),
     );
 
@@ -767,31 +761,13 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
     WidgetRef ref,
     EditRecipe recipe,
   ) async {
-    final textController = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Create New Snapshot'),
-        content: TextField(
-          controller: textController,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Snapshot Name',
-            hintText: 'e.g. Golden Hour, Moody B&W, High Contrast',
-          ),
-          onSubmitted: (val) => Navigator.of(dialogCtx).pop(val.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () =>
-                Navigator.of(dialogCtx).pop(textController.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (_) => const _TextInputDialog(
+        title: 'Create New Snapshot',
+        labelText: 'Snapshot Name',
+        hintText: 'e.g. Golden Hour, Moody B&W, High Contrast',
+        confirmLabel: 'Save',
       ),
     );
 
@@ -802,5 +778,64 @@ class _HistoryTreeSheetState extends ConsumerState<HistoryTreeSheet> {
           );
       HapticFeedback.mediumImpact();
     }
+  }
+}
+
+class _TextInputDialog extends StatefulWidget {
+  const _TextInputDialog({
+    required this.title,
+    required this.labelText,
+    required this.hintText,
+    required this.confirmLabel,
+  });
+
+  final String title;
+  final String labelText;
+  final String hintText;
+  final String confirmLabel;
+
+  @override
+  State<_TextInputDialog> createState() => _TextInputDialogState();
+}
+
+class _TextInputDialogState extends State<_TextInputDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: InputDecoration(
+          labelText: widget.labelText,
+          hintText: widget.hintText,
+        ),
+        onSubmitted: (val) => Navigator.of(context).pop(val.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: Text(widget.confirmLabel),
+        ),
+      ],
+    );
   }
 }

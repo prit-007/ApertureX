@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'package:universal_io/io.dart';
 
+import 'depth_sidecar.dart';
 import 'recipe.dart';
 
 /// Open, human-readable sidecar for non-destructive edits. It is just the
@@ -27,4 +29,52 @@ class RecipeSidecar {
 
   /// The sidecar file name for an image called [imageName].
   static String fileNameFor(String imageName) => '$imageName$extension';
+
+  /// The companion binary depth sidecar file name for [imageName].
+  static String depthFileNameFor(String imageName) => DepthSidecar.fileNameFor(imageName);
+
+  /// Saves [recipe] to [recipeFile] and companion binary depth sidecar (.axdf) if depth is present.
+  static Future<void> save(
+    File recipeFile,
+    EditRecipe recipe, {
+    DepthSidecarData? depthData,
+  }) async {
+    final effectiveDepth = depthData ?? recipe.depthField;
+    String? depthPath = recipe.depthSidecarPath ?? recipe.depthSidecar;
+    if (effectiveDepth != null) {
+      final base = recipeFile.path.endsWith(extension)
+          ? recipeFile.path.substring(0, recipeFile.path.length - extension.length)
+          : recipeFile.path;
+      final axdfFile = File(depthFileNameFor(base));
+      await DepthSidecar.save(axdfFile, effectiveDepth);
+      depthPath = axdfFile.path;
+    }
+    final toSave = recipe.copyWith(
+      depthSidecar: depthPath,
+      depthSidecarPath: depthPath,
+      depthField: effectiveDepth,
+    );
+    await recipeFile.writeAsString(encode(toSave));
+  }
+
+  /// Loads [recipeFile] and automatically loads companion binary depth sidecar (.axdf) if present.
+  static Future<EditRecipe> load(File recipeFile) async {
+    final text = await recipeFile.readAsString();
+    var recipe = decode(text);
+    final base = recipeFile.path.endsWith(extension)
+        ? recipeFile.path.substring(0, recipeFile.path.length - extension.length)
+        : recipeFile.path;
+    final axdfFile = File(depthFileNameFor(base));
+    if (await axdfFile.exists()) {
+      final depthData = await DepthSidecar.load(axdfFile);
+      if (depthData != null) {
+        recipe = recipe.copyWith(
+          depthSidecar: axdfFile.path,
+          depthSidecarPath: axdfFile.path,
+          depthField: depthData,
+        );
+      }
+    }
+    return recipe;
+  }
 }

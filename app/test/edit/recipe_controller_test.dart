@@ -8,7 +8,6 @@ import 'package:aperturex/edit/recipe.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
 import 'package:aperturex/edit/recipe_state.dart';
 import 'package:aperturex/edit/tool_definition.dart';
-import 'package:aperturex/features/ai_plugins/ai_plugin_model.dart';
 import 'package:aperturex/features/ai_plugins/ai_plugin_store.dart';
 import 'package:aperturex/src/rust/frb_generated.dart';
 
@@ -323,25 +322,13 @@ void main() {
     });
   });
 
-  group('AI denoise model gating', () {
-    test('update aiDenoise forces 0.0 when no denoise model is available', () {
+  group('AI denoise recipe state', () {
+    test('update aiDenoise stores user edit intent in recipe', () {
       notifier.update(Parameter.aiDenoise, 0.8);
-      expect(state().recipe.aiDenoise, 0.0);
+      expect(state().recipe.aiDenoise, 0.8);
     });
 
-    test('update aiDenoise accepts value when denoise model is available', () async {
-      final aiStore = container.read(aiPluginProvider.notifier);
-      await aiStore.addCustomPlugin(
-        name: 'Test Denoise',
-        url: 'https://example.com/denoise.onnx',
-        task: AiTask.denoise,
-      );
-
-      notifier.update(Parameter.aiDenoise, 0.75);
-      expect(state().recipe.aiDenoise, 0.75);
-    });
-
-    test('update non-ai parameters is not affected by model availability', () {
+    test('update non-ai parameters works as expected', () {
       notifier.update(Parameter.contrast, 0.5);
       expect(state().recipe.contrast, 0.5);
     });

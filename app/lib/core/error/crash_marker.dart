@@ -1,5 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:universal_io/io.dart';
+
+import '../log/activity_log.dart';
+import '../log/log_providers.dart';
 
 /// Best-effort persistence of the last fatal error (`crash_marker.json`) so
 /// the **next** launch can offer "see what happened last session" (ADR 0012).
@@ -25,7 +28,8 @@ class CrashMarker {
         }),
         flush: true,
       );
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.crash, 'CrashMarker write error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       // best effort — never throw from the crash path
     }
   }
@@ -37,7 +41,8 @@ class CrashMarker {
       final map = jsonDecode(await file.readAsString());
       if (map is! Map) return null;
       return map.cast<String, Object?>();
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.crash, 'CrashMarker peek decode error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       return null;
     }
   }
@@ -45,7 +50,8 @@ class CrashMarker {
   Future<void> clear() async {
     try {
       if (await file.exists()) await file.delete();
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.crash, 'CrashMarker clear delete error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       // best effort
     }
   }

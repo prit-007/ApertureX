@@ -6,7 +6,7 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`
 
 /// Reads JPEG dimensions without decoding pixels.
 Future<ImageDims> jpegDimensions({required List<int> jpeg}) =>
@@ -16,9 +16,13 @@ Future<ImageDims> jpegDimensions({required List<int> jpeg}) =>
 Future<RgbaImage> decodeJpegRgba({required List<int> jpeg}) =>
     RustLib.instance.api.crateApiDecodeDecodeJpegRgba(jpeg: jpeg);
 
-/// Decodes a JPEG and returns only the RGBA pixels inside the given region of
-/// interest. This is the tile decode path: only the requested rect is produced,
-/// never the full image buffer.
+/// Decodes a JPEG and returns the RGBA pixels inside the given region of
+/// interest (ROI).
+///
+/// Current implementation decodes with `zune-jpeg` and crops the requested region,
+/// immediately dropping the full-frame buffer before returning so only the ROI
+/// buffer is retained. Native platform decoders (`BitmapRegionDecoder` on Android /
+/// `CGImageSource` on iOS) can replace this decode+crop path in future iterations.
 Future<RgbaImage> decodeJpegRoi({
   required List<int> jpeg,
   required int x,
@@ -26,6 +30,25 @@ Future<RgbaImage> decodeJpegRoi({
   required int width,
   required int height,
 }) => RustLib.instance.api.crateApiDecodeDecodeJpegRoi(
+  jpeg: jpeg,
+  x: x,
+  y: y,
+  width: width,
+  height: height,
+);
+
+/// Decodes a JPEG into a full RGBA linear f32 buffer.
+Future<LinearRgbaImage> decodeJpegLinear({required List<int> jpeg}) =>
+    RustLib.instance.api.crateApiDecodeDecodeJpegLinear(jpeg: jpeg);
+
+/// Decodes a JPEG and returns the linear f32 RGBA pixels inside the given region of interest.
+Future<LinearRgbaImage> decodeJpegLinearRoi({
+  required List<int> jpeg,
+  required int x,
+  required int y,
+  required int width,
+  required int height,
+}) => RustLib.instance.api.crateApiDecodeDecodeJpegLinearRoi(
   jpeg: jpeg,
   x: x,
   y: y,
@@ -50,6 +73,33 @@ class ImageDims {
           runtimeType == other.runtimeType &&
           width == other.width &&
           height == other.height;
+}
+
+/// A decoded RGBA linear float image buffer with its dimensions.
+class LinearRgbaImage {
+  final int width;
+  final int height;
+
+  /// RGBA linear f32 pixels in [0.0, 1.0], length always `width * height * 4`.
+  final Float32List data;
+
+  const LinearRgbaImage({
+    required this.width,
+    required this.height,
+    required this.data,
+  });
+
+  @override
+  int get hashCode => width.hashCode ^ height.hashCode ^ data.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LinearRgbaImage &&
+          runtimeType == other.runtimeType &&
+          width == other.width &&
+          height == other.height &&
+          data == other.data;
 }
 
 /// A decoded RGBA8 image buffer with its dimensions.

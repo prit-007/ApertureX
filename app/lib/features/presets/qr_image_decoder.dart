@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:zxing2/qrcode.dart';
 
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../edit/look_qr_codec.dart';
 
 /// Offline, pure-FOSS QR code reader for images and screenshots using zxing2.
@@ -44,7 +46,8 @@ class QrImageDecoder {
       if (result.text.isNotEmpty) {
         return decodeLookString(result.text);
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.preset, 'QrImageDecoder bitmap decode: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       // Not a QR code or unreadable; return null gracefully
     }
     return null;
@@ -54,7 +57,8 @@ class QrImageDecoder {
   static LookQrPayload? decodeLookString(String text) {
     try {
       return LookQrCodec.decode(text);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.preset, 'QrImageDecoder decodeLookString fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       return null;
     }
   }

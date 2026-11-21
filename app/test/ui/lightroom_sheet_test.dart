@@ -32,16 +32,16 @@ void main() {
   ) async {
     await pumpPortrait(tester);
 
-    // Docked tray at the (raised) half snap: canvas keeps ~60% of portrait
-    // height; collapsing the tray restores the full-height photo.
-    expect(tester.getSize(find.byType(ImageCanvas)).height, closeTo(844 * 0.60, 40));
+    // Docked tray at half snap: canvas occupies 75–80% of portrait height
+    // (Lightroom Mobile parity / AGENTS.md requirement); collapsing the tray restores full photo.
+    expect(tester.getSize(find.byType(ImageCanvas)).height, closeTo(844 * 0.76, 20));
   });
 
   testWidgets('the sheet starts docked and drags between snap points', (
     tester,
   ) async {
     await pumpPortrait(tester);
-    expect(bodyHeight(tester), closeTo(844 * 0.36, 2));
+    expect(bodyHeight(tester), closeTo(844 * 0.22, 2));
 
     // Pull up toward the full snap point.
     await tester.drag(find.text('Hide tools'), const Offset(0, -300));
@@ -49,17 +49,14 @@ void main() {
     expect(bodyHeight(tester), closeTo(844 * 0.62, 2));
 
     // Push down toward the docked snap point.
-    await tester.drag(find.text('Hide tools'), const Offset(0, 150));
+    await tester.drag(find.text('Hide tools'), const Offset(0, 220));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(844 * 0.36, 2));
+    expect(bodyHeight(tester), closeTo(844 * 0.22, 2));
 
-    // Push down toward the peek snap point. The gap half→peek is now wide
-    // (raised snap fractions), so the drag must cross the midpoint, not just
-    // nudge — test drags report zero velocity, so snapping is nearest-position.
-    // Peek is floored at 236px (raised from 0.20; 844*0.28=236.32).
-    await tester.drag(find.text('Hide tools'), const Offset(0, 110));
+    // Push down toward the peek snap point.
+    await tester.drag(find.text('Hide tools'), const Offset(0, 50));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(236, 2));
+    expect(bodyHeight(tester), closeTo(200, 2));
   });
 
   testWidgets('at peek the first parameter track is fully inside the sheet body', (
@@ -68,11 +65,9 @@ void main() {
     await pumpPortrait(tester);
 
     // Navigate to the peek snap: half -> peek.
-    await tester.drag(find.text('Hide tools'), const Offset(0, 150));
+    await tester.drag(find.text('Hide tools'), const Offset(0, 50));
     await tester.pumpAndSettle();
-    await tester.drag(find.text('Hide tools'), const Offset(0, 110));
-    await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(236, 2));
+    expect(bodyHeight(tester), closeTo(200, 2));
 
     final track = find.byKey(const Key('param-track-exposure'));
     expect(track, findsOneWidget);
@@ -102,12 +97,11 @@ void main() {
     );
     await tester.pump();
 
-    // Docked at half; drag down toward peek. Before the 236px floor this
-    // yielded 0.20*640=128px (zero content rows).
-    expect(bodyHeight(tester), closeTo(640 * 0.36, 2));
-    await tester.drag(find.text('Hide tools'), const Offset(0, 100));
+    // Docked at half; drag down toward peek. Floor ensures controls remain visible.
+    expect(bodyHeight(tester), closeTo(640 * 0.22, 2));
+    await tester.drag(find.text('Hide tools'), const Offset(0, 50));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(236, 2));
+    expect(bodyHeight(tester), closeTo(200, 2));
     expect(tester.takeException(), isNull);
 
     final track = find.byKey(const Key('param-track-exposure'));
@@ -147,13 +141,13 @@ void main() {
     await tester.tap(find.text('Show tools'));
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(844 * 0.36, 2));
+    expect(bodyHeight(tester), closeTo(844 * 0.22, 2));
     expect(find.byType(LightroomShell), findsOneWidget);
   });
 
   testWidgets('double tapping the grab bar toggles maximize', (tester) async {
     await pumpPortrait(tester);
-    expect(bodyHeight(tester), closeTo(844 * 0.36, 2));
+    expect(bodyHeight(tester), closeTo(844 * 0.22, 2));
 
     // Double tap to maximize
     await tester.tap(find.text('Hide tools'));
@@ -167,14 +161,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
     await tester.tap(find.text('Hide tools'));
     await tester.pumpAndSettle();
-    expect(bodyHeight(tester), closeTo(844 * 0.36, 2));
+    expect(bodyHeight(tester), closeTo(844 * 0.22, 2));
   });
 
   testWidgets('the tool panel within the sheet scrolls properly within bounds', (
     tester,
   ) async {
     await pumpPortrait(tester);
-    expect(bodyHeight(tester), closeTo(844 * 0.36, 2));
+    expect(bodyHeight(tester), closeTo(844 * 0.22, 2));
 
     // In LightroomShell at half-height, the parameter list should be bounded to the sheet
     // and allow smooth vertical scrolling.
@@ -224,6 +218,32 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Masks'));
       await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'in landscape the bottom sheet fractions are capped to 40% maximum height',
+    (tester) async {
+      // Landscape compact phone viewport (540x360), below split threshold (560)
+      tester.view.physicalSize = const Size(540, 360);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: Scaffold(body: AppShell())),
+        ),
+      );
+      await tester.pump();
+
+      // Starts at half snap in landscape: 360 * 0.25 = 90
+      expect(bodyHeight(tester), closeTo(360 * 0.25, 2));
+
+      // Drag up to full snap: should clamp to 40% (360 * 0.40 = 144)
+      await tester.drag(find.text('Hide tools'), const Offset(0, -100));
+      await tester.pumpAndSettle();
+      expect(bodyHeight(tester), closeTo(360 * 0.40, 2));
     },
   );
 }

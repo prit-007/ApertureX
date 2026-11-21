@@ -9,6 +9,8 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
 /// Generates a local device key (32-byte cryptographic seed) for signing.
+/// Securely caches the private key seed in Rust's resident keystore and zeroizes
+/// the incoming buffer in memory.
 Future<C2paDeviceInfo> c2PaGenerateDeviceKey({required List<int> deviceSeed}) =>
     RustLib.instance.api.crateApiC2PaC2PaGenerateDeviceKey(
       deviceSeed: deviceSeed,

@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 
 import '../color/grade_spec.dart';
 import '../color/histogram_view.dart';
@@ -14,10 +18,12 @@ import '../color/lut_atlas.dart';
 import '../color/lut_texture.dart';
 import '../color/tat.dart';
 import '../edit/active_image.dart';
+import '../edit/lens_blur_controller.dart';
 import '../edit/muted_parameters.dart';
 import '../edit/parameter.dart';
 import '../edit/recipe.dart';
 import '../edit/recipe_controller.dart';
+import '../edit/recipe_state.dart';
 import '../edit/snapshots_provider.dart';
 import '../engine/engine.dart';
 import '../engine/image_format.dart';
@@ -36,6 +42,8 @@ import 'wiper_compare.dart';
 import 'split_compare.dart';
 import 'exposure_assist.dart';
 import 'canvas_transform.dart';
+import 'canvas_painter.dart';
+import 'focus_ring.dart';
 import 'exif_orientation.dart';
 import 'live_warp.dart';
 import 'mask_peek.dart';
@@ -107,6 +115,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   /// Preview LUT is small; export grades per-pixel exactly.
   static const int _previewLutSize = 33;
+
   /// Fast 17³ proxy LUT during active gesture drags (<0.2ms bake, 120 FPS).
   static const int _scrubLutSize = 17;
 
@@ -116,6 +125,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// Handle of the decoded proxy resident in Rust (#37 spike A); all base
   /// bakes and histograms reference it instead of shuttling pixels.
   int? _previewHandle;
+
+  /// Whether the 16-bit scene-linear pipeline is active for wide-dynamic-range RAW inputs.
+  final bool _useLinearPipeline = true;
+  Float32List? _linearProxy;
+
+  /// Returns the cached scene-linear float proxy when operating in linear float mode.
+  Float32List? get linearProxy => _linearProxy;
 
   /// Asset whose embedded GDepth map is already loaded into [_previewHandle].
   String? _embeddedDepthAssetId;
@@ -229,6 +245,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   bool _multi = false;
   bool _zoneTargeting = false;
   bool _wiperDragging = false;
+  final List<ProviderSubscription<dynamic>> _subscriptions = [];
+
+  static int _selectGeometryTransform(RecipeState s) => Object.hash(
+    s.recipe.straighten,
+    s.recipe.perspectiveX,
+    s.recipe.perspectiveY,
+    s.recipe.skewX,
+    s.recipe.skewY,
+  );
 
   @override
   void initState() {
@@ -249,13 +274,225 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     // fade runs on the shader path, idle returns to zero-copy (#54).
     _compare.addStatusListener(_onDeliveryGestureSettled);
     _maskPeek.addStatusListener(_onDeliveryGestureSettled);
+    _setupListeners();
     _load();
+  }
+
+  void _setupListeners() {
+    _subscriptions.add(
+      ref.listenManual<Uint8List?>(activeImageBytesProvider, (previous, next) {
+        if (next != null && next.isNotEmpty && next != _roiBytes) {
+          _upgradeRoiBytes(next);
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(recipeControllerProvider, (previous, next) {
+        if (previous?.recipe != next.recipe) {
+          _scheduleBake(next.recipe);
+          _scheduleRoi(); // spatial/mask changes must re-bake the overlay band
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual<bool>(
+        recipeControllerProvider.select((s) => s.recipe.blurEnabled),
+        (previous, next) {
+          if (next && previous != true) unawaited(_ensureEmbeddedDepth());
+        },
+      ),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(
+        importedLutProvider,
+        (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
+      ),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(
+        mutedParametersProvider,
+        (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
+      ),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(zeroCopyTextureProvider, (_, enabled) {
+        setState(() {
+          _useTexture = _computeUseTexture();
+          _needsReset = true;
+        });
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual<ExposureAssistState>(exposureAssistProvider, (
+        previous,
+        next,
+      ) {
+        if (next.mode == ExposureAssistMode.zebras) {
+          if (!_reduceMotion && !_zebraTicker.isAnimating) {
+            _zebraTicker.repeat();
+          }
+        } else {
+          if (_zebraTicker.isAnimating) {
+            _zebraTicker.stop();
+          }
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual<bool>(editActivityProvider, (previous, active) {
+        if (previous == true && !active) {
+          _settleDebounce?.cancel();
+          _settleFullRes();
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(maskPeekProvider, (previous, next) {
+        if (previous == next) return;
+        if (_reduceMotion) {
+          _maskPeek.value = next ? 1.0 : 0.0;
+        } else {
+          if (next) {
+            _maskPeek.forward();
+          } else {
+            _maskPeek.reverse();
+          }
+        }
+        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(compareHoldProvider, (previous, next) {
+        if (previous == next) return;
+        if (_reduceMotion) {
+          _compare.value = next ? 1.0 : 0.0;
+        } else {
+          setState(() => _comparing = next);
+          if (next) {
+            _compare.forward();
+          } else {
+            _compare.reverse();
+          }
+        }
+        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual<bool>(snapshotCompareEnabledProvider, (_, enabled) {
+        if (enabled) {
+          final snapshot = ref.read(snapshotCompareRecipeProvider);
+          if (snapshot != null) {
+            _scheduleSnapshotBake(snapshot);
+          }
+        } else {
+          _snapshotImage?.dispose();
+          _snapshotImage = null;
+          setState(() {});
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual<EditRecipe?>(snapshotCompareRecipeProvider, (_, recipe) {
+        if (ref.read(snapshotCompareEnabledProvider) && recipe != null) {
+          _scheduleSnapshotBake(recipe);
+        } else if (recipe == null) {
+          _snapshotImage?.dispose();
+          _snapshotImage = null;
+          if (mounted) setState(() {});
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(zoneMaskProvider, (previous, next) {
+        if (previous?.isTargeting != next.isTargeting) {
+          _scheduleBake(
+            _renderRecipe(ref.read(recipeControllerProvider).recipe),
+          );
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(wiperCompareProvider, (previous, next) {
+        if (previous?.isActive != next.isActive) {
+          _scheduleBake(
+            _renderRecipe(ref.read(recipeControllerProvider).recipe),
+          );
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(splitCompareProvider, (previous, next) {
+        if (previous?.isEnabled != next.isEnabled) {
+          _scheduleBake(
+            _renderRecipe(ref.read(recipeControllerProvider).recipe),
+          );
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(softProofingProvider, (previous, next) {
+        if (previous?.enabled != next.enabled) {
+          _scheduleBake(
+            _renderRecipe(ref.read(recipeControllerProvider).recipe),
+          );
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual(canvasGestureProvider, (previous, next) {
+        if (next == null) return;
+        if (next.isStart && next.focalPoint != null) {
+          _multi = true;
+          _startScale = _scale;
+          _startOffset = _offset;
+          _startFocal = next.focalPoint!;
+        } else if (next.isEnd) {
+          _onScaleEnd();
+        } else if (_multi && next.focalPoint != null) {
+          final scale = (_scale * next.scaleDelta).clamp(_minScale, _maxScale);
+          final offset = _offset + next.focalDelta;
+          setState(() {
+            _scale = scale;
+            _offset = _clampOffset(offset, scale, _lastFitted, _lastBounds);
+          });
+          _scheduleRoi();
+        }
+      }),
+    );
+
+    _subscriptions.add(
+      ref.listenManual<bool>(tatModeProvider, (previous, next) {
+        if (!next && _baseRgba != null) {
+          _baseRgba = null;
+          _updatePixelSampler();
+        } else if (next && _baseRgba == null) {
+          _scheduleBake(ref.read(recipeControllerProvider).recipe);
+        }
+      }),
+    );
   }
 
   @override
   void didUpdateWidget(ImageCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.imageBytes != null && widget.imageBytes != oldWidget.imageBytes) {
+    if (widget.imageBytes != null &&
+        widget.imageBytes != oldWidget.imageBytes) {
       _upgradeRoiBytes(widget.imageBytes!);
     }
   }
@@ -264,21 +501,42 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// resolution when master bytes arrive from background load.
   /// Preserves the user's active viewport scale and pan position perfectly.
   Future<void> _upgradeRoiBytes(Uint8List bytes) async {
-    if (_disposed || !mounted || isRawImage(bytes)) return;
+    if (_disposed || !mounted) return;
     try {
       int width = 0;
       int height = 0;
-      try {
-        final dims = await AxEngine.jpegDimensions(bytes);
-        width = dims.width;
-        height = dims.height;
-      } catch (_) {
-        final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-        final descriptor = await ui.ImageDescriptor.encoded(buffer);
-        width = descriptor.width;
-        height = descriptor.height;
-        descriptor.dispose();
-        buffer.dispose();
+      if (isRawImage(bytes)) {
+        try {
+          final dims = await AxEngine.rawDimensions(bytes);
+          width = dims.width;
+          height = dims.height;
+        } catch (e, st) {
+          axLog(
+            LogDomain.engine,
+            'rawDimensions failed: $e',
+            error: e.toString(),
+            stack: st.toString(),
+          );
+          width = 0;
+          height = 0;
+        }
+      } else {
+        try {
+          final dims = await AxEngine.jpegDimensions(bytes);
+          width = dims.width;
+          height = dims.height;
+        } catch (e) {
+          axLog(
+            LogDomain.engine,
+            'jpegDimensions failed, falling back to ImageDescriptor: $e',
+          );
+          final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+          final descriptor = await ui.ImageDescriptor.encoded(buffer);
+          width = descriptor.width;
+          height = descriptor.height;
+          descriptor.dispose();
+          buffer.dispose();
+        }
       }
       if (_disposed || !mounted) return;
       if (width > _fullW || height > _fullH) {
@@ -294,7 +552,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         });
         _scheduleRoi();
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(
+        LogDomain.engine,
+        'setFullResBytes header parse failed: $e',
+        error: e.toString(),
+        stack: st.toString(),
+      );
       // Header parse failed or non-standard format; keep existing proxy ROI.
     }
   }
@@ -311,9 +575,21 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       // excluded (no region decode path for demosaiced data).
       _roiBytes = jpeg;
       if (isRawImage(jpeg)) {
-        _fullW = 0;
-        _fullH = 0;
-        _tileGrid = null;
+        try {
+          final dims = await AxEngine.rawDimensions(jpeg);
+          _fullW = dims.width;
+          _fullH = dims.height;
+          _tileGrid = TileGrid(
+            imageWidth: _fullW,
+            imageHeight: _fullH,
+            tileSize: _tileSize,
+          );
+        } catch (e) {
+          axLog(LogDomain.engine, 'RAW dimensions load failed: $e');
+          _fullW = 0;
+          _fullH = 0;
+          _tileGrid = null;
+        }
       } else {
         try {
           final dims = await AxEngine.jpegDimensions(jpeg);
@@ -324,7 +600,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             imageHeight: _fullH,
             tileSize: _tileSize,
           );
-        } catch (_) {
+        } catch (e) {
+          axLog(
+            LogDomain.engine,
+            'JPEG dimensions load failed, falling back to descriptor: $e',
+          );
           try {
             final buffer = await ui.ImmutableBuffer.fromUint8List(jpeg);
             final descriptor = await ui.ImageDescriptor.encoded(buffer);
@@ -332,7 +612,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             _fullH = descriptor.height;
             descriptor.dispose();
             buffer.dispose();
-          } catch (_) {
+          } catch (e) {
+            axLog(LogDomain.engine, 'ImageDescriptor fallback failed: $e');
             _fullW = 0;
             _fullH = 0;
           }
@@ -390,7 +671,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
               height: downscaled.height,
             );
           }
-        } catch (_) {
+        } catch (e) {
+          axLog(LogDomain.engine, 'Fast proxy downscale failed: $e');
           fastHandle = null;
         }
       } else {
@@ -403,7 +685,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
             jpegBytes: jpeg,
             maxDim: _maxPreviewDim ~/ 2,
           );
-        } catch (_) {
+        } catch (e) {
+          axLog(LogDomain.engine, 'Fast proxy previewOpenJpeg failed: $e');
           fastHandle = null;
         }
       }
@@ -430,7 +713,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       if (ref.read(recipeControllerProvider).recipe.blurEnabled) {
         unawaited(_ensureEmbeddedDepth());
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(
+        LogDomain.engine,
+        '_load failed: $e',
+        error: e.toString(),
+        stack: st.toString(),
+      );
       if (mounted) setState(() => _failed = true);
     }
   }
@@ -491,11 +780,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _comparing ||
       _compare.status != AnimationStatus.dismissed ||
       _maskPeek.status != AnimationStatus.dismissed ||
-      ref.read(zoneMaskProvider).isTargeting ||
-      ref.read(wiperCompareProvider).isActive ||
-      ref.read(splitCompareProvider).isEnabled ||
-      ref.read(exposureAssistProvider).isActive ||
-      ref.read(softProofingProvider).enabled;
+      ref.read(zoneMaskProvider).isTargeting;
 
   void _onDeliveryGestureSettled(AnimationStatus _) =>
       _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
@@ -528,8 +813,6 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (fitted == Size.zero || bounds == Size.zero) return;
     final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
 
-    if (isRawImage(bytes)) return;
-
     final plan = planRoiOverlay(
       imageW: _fullW,
       imageH: _fullH,
@@ -539,8 +822,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       offset: _offset,
       viewport: bounds,
       devicePixelRatio: _devicePixelRatio,
-      geometryActive: roiBlockedByGeometry(recipe),
+      geometryActive: roiBlockedByWarp(recipe),
       roiSupported: _fullW > 0 && _fullH > 0,
+      crop: recipe.crop,
     );
     if (plan == null) {
       if (!_tilesActive && _tiles.length == 0) return;
@@ -556,11 +840,24 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
     final grid = _tileGrid;
     if (grid == null || fitted.width <= 0 || fitted.height <= 0) return;
-    final scaleToImageX = _fullW / fitted.width;
-    final scaleToImageY = _fullH / fitted.height;
+    final crop = recipe.crop;
+    final cropL = crop.length >= 4 ? crop[0] : 0.0;
+    final cropT = crop.length >= 4 ? crop[1] : 0.0;
+    final cropR = crop.length >= 4 ? crop[2] : 1.0;
+    final cropB = crop.length >= 4 ? crop[3] : 1.0;
+    final cropW = (cropR - cropL).clamp(0.0001, 1.0);
+    final cropH = (cropB - cropT).clamp(0.0001, 1.0);
+
+    final imageCropX = cropL * _fullW;
+    final imageCropY = cropT * _fullH;
+    final imageCropW = cropW * _fullW;
+    final imageCropH = cropH * _fullH;
+
+    final scaleToImageX = imageCropW / fitted.width;
+    final scaleToImageY = imageCropH / fitted.height;
     final imagePixelRect = Rect.fromLTWH(
-      plan.dstRect.left * scaleToImageX,
-      plan.dstRect.top * scaleToImageY,
+      imageCropX + plan.dstRect.left * scaleToImageX,
+      imageCropY + plan.dstRect.top * scaleToImageY,
       plan.dstRect.width * scaleToImageX,
       plan.dstRect.height * scaleToImageY,
     );
@@ -687,7 +984,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (isRawImage(bytes)) {
       try {
         return await _decodeRaw(bytes, maxDim: maxDim);
-      } catch (_) {
+      } catch (e) {
+        axLog(LogDomain.engine, 'Rust raw decode fallback in _decode: $e');
         // Fall back to standard codec if Rust raw decode failed
       }
     }
@@ -731,18 +1029,57 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       // the synchronous GPU readback stall and 6 MB VRAM→RAM copy. The
       // shader path handles color space; P3→sRGB is applied at export time.
       return (image, Uint8List(0), image.width, image.height);
-    } catch (_) {
+    } catch (e) {
+      axLog(
+        LogDomain.engine,
+        'Standard codec failed, retrying Rust raw decoder: $e',
+      );
       // If standard codec fails (e.g. uncommon raw or tiff variant), try Rust raw decoder
       return await _decodeRaw(bytes, maxDim: maxDim);
     }
   }
 
-  /// RAW/DNG branch of [_decode]: the Rust engine demosaics + applies the
-  /// camera colour matrix, then we bilinearly downscale to the proxy size.
+  /// RAW/DNG branch of [_decode]: fast-loads embedded preview JPEG if available,
+  /// then demosaics with the camera colour matrix and downscales to the proxy size.
   Future<(ui.Image, Uint8List, int, int)> _decodeRaw(
     Uint8List bytes, {
     int? maxDim,
   }) async {
+    final embedded = await AxEngine.extractRawEmbeddedPreview(bytes);
+    if (embedded != null && embedded.isNotEmpty) {
+      try {
+        final buffer = await ui.ImmutableBuffer.fromUint8List(embedded);
+        final descriptor = await ui.ImageDescriptor.encoded(buffer);
+        final targetW = maxDim != null && descriptor.width > maxDim
+            ? maxDim
+            : descriptor.width;
+        final targetH = maxDim != null && descriptor.height > maxDim
+            ? ((descriptor.height * targetW) / descriptor.width).round()
+            : descriptor.height;
+        final codec = await descriptor.instantiateCodec(
+          targetWidth: targetW,
+          targetHeight: targetH,
+        );
+        final frame = await codec.getNextFrame();
+        descriptor.dispose();
+        buffer.dispose();
+        return (frame.image, embedded, frame.image.width, frame.image.height);
+      } catch (e) {
+        axLog(LogDomain.engine, 'Embedded preview decode failed: $e');
+      }
+    }
+    if (_useLinearPipeline) {
+      try {
+        final linear = await AxEngine.decodeRawLinear(bytes);
+        _linearProxy = linear.data;
+      } catch (e) {
+        axLog(
+          LogDomain.engine,
+          'Linear RAW decode fallback: $e',
+          level: LogLevel.warning,
+        );
+      }
+    }
     final decoded = await AxEngine.decodeRawRgba(bytes);
     var w = decoded.width;
     var h = decoded.height;
@@ -804,7 +1141,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           .loadImage(asset.id);
       if (original.isEmpty) return;
       final depth = await AxEngine.extractEmbeddedDepth(original);
-      if (depth == null) return;
+      if (depth == null) {
+        ref
+            .read(lensBlurControllerProvider.notifier)
+            .setStatusMessage('Synthetic Depth (no embedded map)');
+        return;
+      }
+      ref
+          .read(lensBlurControllerProvider.notifier)
+          .setStatusMessage('Embedded GDepth Active');
       await AxEngine.previewSetEmbeddedDepth(
         handle,
         depth.depth,
@@ -822,8 +1167,17 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       if (!mounted || handle != _previewHandle) return;
       _lastBaseKey = null;
       _scheduleBake(ref.read(recipeControllerProvider).recipe);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(
+        LogDomain.engine,
+        'Embedded depth extraction failed: $e',
+        error: e.toString(),
+        stack: st.toString(),
+      );
       _embeddedDepthAssetId = null;
+      ref
+          .read(lensBlurControllerProvider.notifier)
+          .setStatusMessage('Synthetic Depth (extraction error)');
     }
   }
 
@@ -843,11 +1197,13 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final modeChanged = useTexture != _useTexture;
     _useTexture = useTexture;
     final currentBaseKey = _baseKey(recipe);
-    final baseChanged = modeChanged ||
+    final baseChanged =
+        modeChanged ||
         forceFullRes ||
         currentBaseKey != _lastBaseKey ||
         (_isBaseProxy && currentBaseKey != _lastProxyBaseKey);
-    final targetLutSize = (!forceFullRes && (_isScrubbing || ref.read(editActivityProvider)))
+    final targetLutSize =
+        (!forceFullRes && (_isScrubbing || ref.read(editActivityProvider)))
         ? _scrubLutSize
         : _previewLutSize;
     final gradeChanged =
@@ -935,7 +1291,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _snapshotImage?.dispose();
       _snapshotImage = image;
       setState(() {});
-    } catch (_) {
+    } catch (e) {
+      axLog(LogDomain.engine, 'Snapshot bake failure (non-fatal): $e');
       // Snapshot bake failure is non-fatal: compare falls back to original.
     } finally {
       _baking = false;
@@ -947,10 +1304,17 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     }
   }
 
+  bool _isDraftBlur = false;
+
   void _settleFullRes() {
-    if (_disposed || !mounted || _program == null || _previewHandle == null) return;
+    if (_disposed || !mounted || _program == null || _previewHandle == null) {
+      return;
+    }
     final recipe = _renderRecipe(ref.read(recipeControllerProvider).recipe);
-    if (_isBaseProxy || _lastBaseKey != _baseKey(recipe) || _activeLutSize != _previewLutSize) {
+    if (_isBaseProxy ||
+        _lastBaseKey != _baseKey(recipe) ||
+        _activeLutSize != _previewLutSize ||
+        _isDraftBlur) {
       _scheduleBake(recipe, forceFullRes: true);
     }
   }
@@ -965,6 +1329,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     _baking = true;
     final token = ++_bakeToken;
     try {
+      _setBusy(true);
       if (_useTexture) {
         // Zero-copy: Rust bakes base + grade and writes the bound texture; no
         // pixels cross the bridge. Histogram still reads Rust's cached base.
@@ -973,10 +1338,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           token,
           baseChanged: baseChanged,
           gradeChanged: gradeChanged,
+          forceFullRes: forceFullRes,
         );
       } else {
         if (baseChanged) {
-          _setBusy(true);
           await _rebuildBase(recipe, token, forceFullRes: forceFullRes);
         }
         if (gradeChanged) {
@@ -987,7 +1352,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _scheduleHistogram(recipe, token);
     } finally {
       _baking = false;
-      if (token == _bakeToken) _setBusy(false);
+      if (token == _bakeToken && _pendingRecipe == null) _setBusy(false);
       if (_pendingRecipe != null && mounted && !_disposed) {
         final nextRecipe = _pendingRecipe!;
         final nextBase = _pendingBaseChanged;
@@ -1014,7 +1379,16 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// Spike B: one Rust round trip (params in, size out) bakes base + grade
   /// straight into the platform texture. On any failure the texture is dropped
   /// and we rebuild through the return-frame path so the preview never stalls.
-  PreviewBaseSpec _baseSpec(EditRecipe recipe) => baseSpecFromRecipe(recipe);
+  PreviewBaseSpec _baseSpec(EditRecipe recipe, {bool forceFullRes = false}) {
+    final isScrub =
+        !forceFullRes && (_isScrubbing || ref.read(editActivityProvider));
+    final sampleCount = isScrub
+        ? 12
+        : (recipe.blurSampleCount >= 36 ? recipe.blurSampleCount : 36);
+    _isDraftBlur = isScrub && recipe.blurEnabled;
+    return baseSpecFromRecipe(recipe.copyWith(blurSampleCount: sampleCount));
+  }
+
   void _setBusy(bool value) {
     if (!_disposed) _busy.value = value;
   }
@@ -1024,7 +1398,8 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     int token, {
     bool forceFullRes = false,
   }) async {
-    final useFastProxy = !forceFullRes &&
+    final useFastProxy =
+        !forceFullRes &&
         _fastProxyHandle != null &&
         (_isScrubbing || ref.read(editActivityProvider));
     final handle = useFastProxy ? _fastProxyHandle! : _previewHandle;
@@ -1032,7 +1407,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
     final frame = await AxEngine.previewBase(
       handle,
-      spec: _baseSpec(recipe),
+      spec: _baseSpec(recipe, forceFullRes: forceFullRes),
       layers: recipe.layers,
       maskGroups: recipe.maskGroups,
       retouchPatches: recipe.retouchPatches,
@@ -1042,10 +1417,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       image.dispose();
       return;
     }
+    final keepRgba = ref.read(tatModeProvider);
     setState(() {
       _baseImage?.dispose();
       _baseImage = image;
-      _baseRgba = frame.rgba;
+      _baseRgba = keepRgba ? frame.rgba : null;
       _baseW = frame.width;
       _baseH = frame.height;
       _isBaseProxy = useFastProxy;
@@ -1086,10 +1462,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   }) async {
     // Spatial pass in baseImage already applied edge-preserving guided shadows and highlights;
     // zero them out for the 3D LUT fragment shader to prevent double-applying tone curves.
-    final spec = GradeSpec.fromRecipe(recipe).copyWith(
-      shadows: 0.0,
-      highlights: 0.0,
-    );
+    final spec = GradeSpec.fromRecipe(
+      recipe,
+    ).copyWith(shadows: 0.0, highlights: 0.0);
     final imported = ref.read(importedLutProvider);
     final ui.Image lutImage;
     final int lutSize;
@@ -1140,10 +1515,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final histogram = await AxEngine.previewHistogram(
       handle,
       sampleDim: 256,
-      spec: GradeSpec.fromRecipe(recipe).copyWith(
-        shadows: 0.0,
-        highlights: 0.0,
-      ),
+      spec: GradeSpec.fromRecipe(
+        recipe,
+      ).copyWith(shadows: 0.0, highlights: 0.0),
     );
     if (token != _bakeToken) return;
     ref.read(histogramProvider.notifier).publish(histogram);
@@ -1154,20 +1528,20 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     int token, {
     required bool baseChanged,
     required bool gradeChanged,
+    bool forceFullRes = false,
   }) async {
     final handle = _previewHandle;
     if (handle == null) return;
     try {
       final size = await AxEngine.previewRender(
         handle,
-        spec: _baseSpec(recipe),
+        spec: _baseSpec(recipe, forceFullRes: forceFullRes),
         layers: recipe.layers,
         maskGroups: recipe.maskGroups,
         retouchPatches: recipe.retouchPatches,
-        grade: GradeSpec.fromRecipe(recipe).copyWith(
-          shadows: 0.0,
-          highlights: 0.0,
-        ),
+        grade: GradeSpec.fromRecipe(
+          recipe,
+        ).copyWith(shadows: 0.0, highlights: 0.0),
         baseChanged: baseChanged,
       );
       if (!mounted || token != _bakeToken) return;
@@ -1187,7 +1561,11 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         _importedKey = 0;
         _baseRgba = null;
       });
-    } catch (_) {
+    } catch (e) {
+      axLog(
+        LogDomain.engine,
+        'Texture render failed, dropping to fallback: $e',
+      );
       _dropTexture();
       if (baseChanged) await _rebuildBase(recipe, token);
       if (gradeChanged) await _rebuildLut(recipe, token);
@@ -1232,6 +1610,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     if (fastHandle != null) {
       unawaited(AxEngine.previewClose(fastHandle));
     }
+    try {
+      unawaited(AxEngine.clearRawDecodeCache());
+    } catch (e) {
+      axLog(LogDomain.engine, 'clearRawDecodeCache error on dispose: $e');
+    }
+    for (final sub in _subscriptions) {
+      sub.close();
+    }
+    _subscriptions.clear();
     super.dispose();
   }
 
@@ -1241,162 +1628,9 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
 
   @override
   Widget build(BuildContext context) {
-    _devicePixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ??
+    _devicePixelRatio =
+        MediaQuery.maybeOf(context)?.devicePixelRatio ??
         View.of(context).devicePixelRatio;
-
-    ref.listen<Uint8List?>(activeImageBytesProvider, (previous, next) {
-      if (next != null && next.isNotEmpty && next != _roiBytes) {
-        _upgradeRoiBytes(next);
-      }
-    });
-
-    ref.listen(recipeControllerProvider, (previous, next) {
-      if (previous?.recipe != next.recipe) {
-        _scheduleBake(next.recipe);
-        _scheduleRoi(); // spatial/mask changes must re-bake the overlay band
-      }
-    });
-    ref.listen<bool>(
-      recipeControllerProvider.select((s) => s.recipe.blurEnabled),
-      (previous, next) {
-        if (next && previous != true) unawaited(_ensureEmbeddedDepth());
-      },
-    );
-    ref.listen(
-      importedLutProvider,
-      (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
-    );
-    // Toggling a mute re-renders with that parameter neutralised.
-    ref.listen(
-      mutedParametersProvider,
-      (_, _) => _scheduleBake(ref.read(recipeControllerProvider).recipe),
-    );
-    ref.listen(zeroCopyTextureProvider, (_, enabled) {
-      setState(() {
-        _useTexture = _computeUseTexture();
-        _needsReset = true;
-      });
-    });
-    ref.listen<ExposureAssistState>(exposureAssistProvider, (previous, next) {
-      if (next.mode == ExposureAssistMode.zebras) {
-        if (!_reduceMotion && !_zebraTicker.isAnimating) {
-          _zebraTicker.repeat();
-        }
-      } else {
-        if (_zebraTicker.isAnimating) {
-          _zebraTicker.stop();
-        }
-      }
-    });
-    // Universal fast-proxy scrub settling: on pointer release / gesture end,
-    // settle to tack-sharp full-res frame immediately.
-    ref.listen<bool>(editActivityProvider, (previous, active) {
-      if (previous == true && !active) {
-        _settleDebounce?.cancel();
-        _settleFullRes();
-      }
-    });
-    // Auto-peeking mask view (issue #27): crossfade while a detail slider is
-    // held, back to the graded image on release.
-    ref.listen(maskPeekProvider, (previous, next) {
-      if (previous == next) return;
-      if (_reduceMotion) {
-        _maskPeek.value = next ? 1.0 : 0.0;
-      } else {
-        if (next) {
-          _maskPeek.forward();
-        } else {
-          _maskPeek.reverse();
-        }
-      }
-      // The crossfade only renders on the shader path — switch delivery for
-      // the gesture and back (#54).
-      _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
-    });
-    // Before/after compare: long-press on the photo or the panel's Compare
-    // button both drive the same flag (issue #28).
-    ref.listen(compareHoldProvider, (previous, next) {
-      if (previous == next) return;
-      if (_reduceMotion) {
-        _compare.value = next ? 1.0 : 0.0;
-      } else {
-        setState(() => _comparing = next);
-        if (next) {
-          _compare.forward();
-        } else {
-          _compare.reverse();
-        }
-      }
-      _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
-    });
-    // Snapshot A/B compare: bake the snapshot recipe when the toggle is on
-    // and a snapshot recipe is set, so it can serve as the compare "before."
-    ref.listen<bool>(snapshotCompareEnabledProvider, (_, enabled) {
-      if (enabled) {
-        final snapshot = ref.read(snapshotCompareRecipeProvider);
-        if (snapshot != null) {
-          _scheduleSnapshotBake(snapshot);
-        }
-      } else {
-        _snapshotImage?.dispose();
-        _snapshotImage = null;
-        setState(() {});
-      }
-    });
-    ref.listen<EditRecipe?>(snapshotCompareRecipeProvider, (_, recipe) {
-      if (ref.read(snapshotCompareEnabledProvider) && recipe != null) {
-        _scheduleSnapshotBake(recipe);
-      } else if (recipe == null) {
-        _snapshotImage?.dispose();
-        _snapshotImage = null;
-        if (mounted) setState(() {});
-      }
-    });
-    // Haptic Zone Masking: switch to shader path during 2-finger zone targeting
-    ref.listen(zoneMaskProvider, (previous, next) {
-      if (previous?.isTargeting != next.isTargeting) {
-        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
-      }
-    });
-    // Wiper split curtain compare: schedule bake for shader path
-    ref.listen(wiperCompareProvider, (previous, next) {
-      if (previous?.isActive != next.isActive) {
-        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
-      }
-    });
-    // Split compare: schedule bake for shader path
-    ref.listen(splitCompareProvider, (previous, next) {
-      if (previous?.isEnabled != next.isEnabled) {
-        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
-      }
-    });
-    // Soft proofing: schedule bake for shader path
-    ref.listen(softProofingProvider, (previous, next) {
-      if (previous?.enabled != next.enabled) {
-        _scheduleBake(_renderRecipe(ref.read(recipeControllerProvider).recipe));
-      }
-    });
-
-    // Multi-touch pan & pinch-to-zoom forwarded by overlays (Retouch, NodeOverlay)
-    ref.listen(canvasGestureProvider, (previous, next) {
-      if (next == null) return;
-      if (next.isStart && next.focalPoint != null) {
-        _multi = true;
-        _startScale = _scale;
-        _startOffset = _offset;
-        _startFocal = next.focalPoint!;
-      } else if (next.isEnd) {
-        _onScaleEnd();
-      } else if (_multi && next.focalPoint != null) {
-        final scale = (_scale * next.scaleDelta).clamp(_minScale, _maxScale);
-        final offset = _offset + next.focalDelta;
-        setState(() {
-          _scale = scale;
-          _offset = _clampOffset(offset, scale, _lastFitted, _lastBounds);
-        });
-        _scheduleRoi();
-      }
-    });
 
     final program = _program;
     final shader = _shader;
@@ -1404,13 +1638,10 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     final uneditedSource = _source;
     final lut = _lut;
     final zeroCopy = _useTexture && _textureId != null;
-    final effectiveUseTexture = zeroCopy &&
-        !_tilesActive &&
-        !ref.read(zoneMaskProvider).isTargeting &&
-        !ref.read(wiperCompareProvider).isActive &&
-        !ref.read(splitCompareProvider).isEnabled &&
-        !ref.read(exposureAssistProvider).isActive &&
-        !ref.read(softProofingProvider).enabled;
+    final effectiveUseTexture =
+        zeroCopy &&
+        (!_tilesActive && !ref.read(zoneMaskProvider).isTargeting ||
+            lut == null);
     final needsPlaceholder = previewNeedsPlaceholder(
       failed: _failed,
       hasProgram: program != null,
@@ -1430,29 +1661,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     // when snapshot A/B compare is active, otherwise the unedited source.
     final proxySource = baseImage ?? uneditedSource!;
     final snapshotCompareEnabled = ref.watch(snapshotCompareEnabledProvider);
-    final compareSource =
-        snapshotCompareEnabled && _snapshotImage != null
-            ? _snapshotImage!
-            : uneditedSource!;
+    final compareSource = snapshotCompareEnabled && _snapshotImage != null
+        ? _snapshotImage!
+        : uneditedSource!;
 
     final tat = ref.watch(tatModeProvider);
     final tatComponent = ref.watch(tatComponentProvider);
     // Warp params no longer schedule a CPU bake (issue #36), so rebuild the
     // Transform directly when they move.
-    ref.watch(
-      recipeControllerProvider.select(
-        (s) => Object.hash(
-          s.recipe.straighten,
-          Object.hash(
-            s.recipe.perspectiveX,
-            Object.hash(
-              s.recipe.perspectiveY,
-              Object.hash(s.recipe.skewX, s.recipe.skewY),
-            ),
-          ),
-        ),
-      ),
-    );
+    ref.watch(recipeControllerProvider.select(_selectGeometryTransform));
     // The texture frame carries its own (possibly cropped/rotated) dimensions;
     // fall back to the proxy source until the first render reports them.
     final content = zeroCopy && _baseW > 0 && _baseH > 0
@@ -1517,7 +1734,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 // proxy (image px → contain-fit content px).
                 final tiles = _tilesActive && _fullH > 0
                     ? _visibleTileImages(fitted)
-                    : const <_CanvasTile>[];
+                    : const <CanvasTile>[];
                 final (zLo, zHi) = zoneMask.isTargeting
                     ? zoneMask.lumaBounds
                     : (-1.0, -1.0);
@@ -1525,28 +1742,34 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                     ? 1.0
                     : _maskPeek.value;
                 return PreviewSurface(
-                  // Issue #54: actually display the texture Rust is
-                  // writing into; the shader paint is the fallback
-                  // (imported LUTs, iOS/tests, compare/peek fades,
-                  // tile overlay, geometry edits, wiper split curtain, split compare, exposure assist, soft proofing).
-                  textureId:
-                      zeroCopy &&
-                          !_tilesActive &&
-                          tiles.isEmpty &&
-                          !zoneMask.isTargeting &&
-                          !wiper.isActive &&
-                          !splitCompare.isEnabled &&
-                          !exposureAssist.isActive &&
-                          !softProof.enabled
-                      ? _textureId
-                      : null,
+                  // Issue #54 / Flaw 22: actually display the texture Rust is
+                  // writing into; assist modes (zebras, wiper, split compare, soft proof)
+                  // composite as overlays without dropping zero-copy texture.
+                  textureId: effectiveUseTexture ? _textureId : null,
+                  zebraActive: exposureAssist.isActive,
+                  zebraMode: exposureAssist.mode,
+                  zebraTime: _zebraTicker.value * 1.0,
+                  zebraHigh: exposureAssist.zebraHigh,
+                  zebraLow: exposureAssist.zebraLow,
+                  wiperActive: wiper.isActive,
+                  wiperPosition: wiper.position,
+                  wiperOrientation: wiper.orientation,
+                  splitCompareActive: splitCompare.isEnabled,
+                  splitCompareOrientation: splitCompare.orientation,
+                  softProofActive: softProof.enabled,
+                  softProof: softProof,
+                  zoneTargeting: zoneMask.isTargeting,
+                  compareSource: compareSource,
                   fallback: (_) {
                     if (lut == null) {
-                      return _placeholder();
+                      return SizedBox.fromSize(
+                        size: fitted,
+                        child: RawImage(image: proxySource, fit: BoxFit.fill),
+                      );
                     }
                     return CustomPaint(
                       size: fitted,
-                      painter: _CanvasPainter(
+                      painter: CanvasPainter(
                         shader: fragShader,
                         source: proxySource,
                         compareSource: compareSource,
@@ -1581,12 +1804,40 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
           return Hero(tag: widget.heroTag!, child: sized);
         }
 
+        final blurEnabled = ref.watch(
+          recipeControllerProvider.select((s) => s.recipe.blurEnabled),
+        );
+        final lensBlur = ref.watch(lensBlurControllerProvider);
+
         return Stack(
           children: [
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: widget.onTap,
+                onTap: () {
+                  if (!blurEnabled) {
+                    widget.onTap?.call();
+                  }
+                },
+                onTapUp: (d) {
+                  if (blurEnabled) {
+                    final originX =
+                        (bounds.width - fitted.width) / 2 + _offset.dx;
+                    final originY =
+                        (bounds.height - fitted.height) / 2 + _offset.dy;
+                    final nx =
+                        ((d.localPosition.dx - originX) /
+                                (fitted.width * _scale))
+                            .clamp(0.0, 1.0);
+                    final ny =
+                        ((d.localPosition.dy - originY) /
+                                (fitted.height * _scale))
+                            .clamp(0.0, 1.0);
+                    ref
+                        .read(lensBlurControllerProvider.notifier)
+                        .setFocusPoint(nx, ny);
+                  }
+                },
                 onScaleStart: (d) => _onScaleStart(d, fitted, tat),
                 onScaleUpdate: (d) => _onScaleUpdate(d, fitted, bounds, tat),
                 onScaleEnd: (_) => _onScaleEnd(),
@@ -1622,7 +1873,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 top: 8,
                 left: 8,
                 child: IgnorePointer(
-                  child: _Chip(
+                  child: CanvasChip(
                     text:
                         'Target: ${_bandNames[_tatBand!]} · '
                         '${tatComponentLabels[tatComponent]}',
@@ -1633,8 +1884,100 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
               const Positioned(
                 top: 8,
                 right: 8,
-                child: IgnorePointer(child: _Badge(text: 'BEFORE')),
+                child: IgnorePointer(child: CanvasBadge(text: 'BEFORE')),
               ),
+            if (blurEnabled)
+              Positioned(
+                top: 8,
+                left: 8,
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    ref
+                        .read(lensBlurControllerProvider.notifier)
+                        .toggleDepthVisualizer();
+                  },
+                  child: CanvasChip(
+                    icon: lensBlur.showDepthVisualizer
+                        ? Icons.visibility
+                        : Icons.visibility_outlined,
+                    text: lensBlur.showDepthVisualizer
+                        ? 'Depth: Visualizer Active · Tap to close'
+                        : (lensBlur.statusMessage ??
+                              'Depth: Tap to inspect visualizer'),
+                  ),
+                ),
+              ),
+            if (blurEnabled && lensBlur.focusPointNormalized != null) ...[
+              Builder(
+                builder: (context) {
+                  final recipe = ref.watch(
+                    recipeControllerProvider.select((s) => s.recipe),
+                  );
+                  final outerRadius =
+                      26.0 + recipe.blurFocalRange.clamp(0.01, 1.0) * 44.0;
+                  final widgetSize = (outerRadius + 20.0) * 2;
+                  final cx =
+                      (bounds.width - fitted.width) / 2 +
+                      _offset.dx +
+                      lensBlur.focusPointNormalized!.$1 * fitted.width * _scale;
+                  final cy =
+                      (bounds.height - fitted.height) / 2 +
+                      _offset.dy +
+                      lensBlur.focusPointNormalized!.$2 *
+                          fitted.height *
+                          _scale;
+                  return Positioned(
+                    left: cx - widgetSize / 2,
+                    top: cy - widgetSize / 2,
+                    child: FocusRingWidget(
+                      focalRange: recipe.blurFocalRange,
+                      blurAmount: recipe.blurAmount,
+                      onFocalRangeChanged: (range) {
+                        ref
+                            .read(recipeControllerProvider.notifier)
+                            .update(Parameter.blurFocalRange, range);
+                      },
+                      onFocalRangeCommit: () {
+                        ref
+                            .read(recipeControllerProvider.notifier)
+                            .commit(label: 'Focus Range');
+                      },
+                      onFocusPointDelta: (delta) {
+                        final originX =
+                            (bounds.width - fitted.width) / 2 + _offset.dx;
+                        final originY =
+                            (bounds.height - fitted.height) / 2 + _offset.dy;
+                        final curX =
+                            originX +
+                            lensBlur.focusPointNormalized!.$1 *
+                                fitted.width *
+                                _scale +
+                            delta.dx;
+                        final curY =
+                            originY +
+                            lensBlur.focusPointNormalized!.$2 *
+                                fitted.height *
+                                _scale +
+                            delta.dy;
+                        final nx = ((curX - originX) / (fitted.width * _scale))
+                            .clamp(0.0, 1.0);
+                        final ny = ((curY - originY) / (fitted.height * _scale))
+                            .clamp(0.0, 1.0);
+                        ref
+                            .read(lensBlurControllerProvider.notifier)
+                            .setFocusPoint(nx, ny);
+                      },
+                      onResetFocusPoint: () {
+                        ref
+                            .read(lensBlurControllerProvider.notifier)
+                            .resetFocusPoint();
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
             Positioned(
               top: 0,
               left: 0,
@@ -1643,7 +1986,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
                 valueListenable: _busy,
                 builder: (context, busy, _) => busy
                     ? LinearProgressIndicator(
-                        minHeight: 2,
+                        minHeight: 3,
                         backgroundColor: Colors.transparent,
                         color: Theme.of(context).colorScheme.primary,
                       )
@@ -1765,10 +2108,15 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       final scale = (_startScale * d.scale).clamp(_minScale, _maxScale);
       final scene = (_startFocal - _startOffset) / _startScale;
       final offset = d.localFocalPoint - scene * scale;
+      final clampedOffset = _clampOffset(offset, scale, fitted, bounds);
       setState(() {
         _scale = scale;
-        _offset = _clampOffset(offset, scale, fitted, bounds);
+        _offset = clampedOffset;
       });
+      _publishTransform(
+        CanvasTransform(fitted: fitted, offset: clampedOffset, scale: scale),
+        immediate: true,
+      );
       _scheduleRoi();
       return;
     }
@@ -1778,14 +2126,19 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     } else if (_editing) {
       widget.editInterpreter!.onPanUpdate(d.focalPointDelta);
     } else {
+      final clampedOffset = _clampOffset(
+        _offset + d.focalPointDelta,
+        _scale,
+        fitted,
+        bounds,
+      );
       setState(() {
-        _offset = _clampOffset(
-          _offset + d.focalPointDelta,
-          _scale,
-          fitted,
-          bounds,
-        );
+        _offset = clampedOffset;
       });
+      _publishTransform(
+        CanvasTransform(fitted: fitted, offset: clampedOffset, scale: _scale),
+        immediate: true,
+      );
       if (_scale > 1.0) {
         _scheduleRoi();
       }
@@ -1831,10 +2184,17 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
     return Offset(cx, cy);
   }
 
-  /// Hands the current view to [canvasTransformProvider], deferred to a
-  /// microtask so a widget build never mutates another provider
-  /// synchronously; the write is skipped when the value is unchanged.
-  void _publishTransform(CanvasTransform next) {
+  /// Hands the current view to [canvasTransformProvider]. When called from
+  /// gesture event handlers outside the build phase, [immediate] allows updating
+  /// the provider synchronously so overlay pins and nodes track the finger with
+  /// zero frame lag. Inside widget build, updates stay deferred to a microtask.
+  void _publishTransform(CanvasTransform next, {bool immediate = false}) {
+    if (immediate) {
+      if (!mounted) return;
+      if (ref.read(canvasTransformProvider) == next) return;
+      ref.read(canvasTransformProvider.notifier).set(next);
+      return;
+    }
     Future.microtask(() {
       if (!mounted) return;
       if (ref.read(canvasTransformProvider) == next) return;
@@ -1869,7 +2229,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _scale = next.scale;
       _offset = next.offset;
     });
-    _publishTransform(next);
+    _publishTransform(next, immediate: true);
     _scheduleRoi();
     HapticFeedback.selectionClick();
   }
@@ -1878,7 +2238,7 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
   /// its fitted-space draw rect (image px → contain-fit content px). Tiles
   /// not yet decoded are simply absent — the proxy underneath shows through
   /// until they land.
-  List<_CanvasTile> _visibleTileImages(Size fitted) {
+  List<CanvasTile> _visibleTileImages(Size fitted) {
     final grid = _tileGrid;
     if (grid == null || fitted.width <= 0 || fitted.height <= 0) {
       return const [];
@@ -1894,30 +2254,43 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
       _lastBounds.height / scale,
     ).intersect(Rect.fromLTWH(0, 0, fitted.width, fitted.height));
     if (visibleFitted.width <= 0 || visibleFitted.height <= 0) return const [];
-    final scaleToImageX = _fullW / fitted.width;
-    final scaleToImageY = _fullH / fitted.height;
+
+    final recipe = ref.read(recipeControllerProvider).recipe;
+    final crop = recipe.crop;
+    final cropL = crop.length >= 4 ? crop[0] : 0.0;
+    final cropT = crop.length >= 4 ? crop[1] : 0.0;
+    final cropR = crop.length >= 4 ? crop[2] : 1.0;
+    final cropB = crop.length >= 4 ? crop[3] : 1.0;
+    final cropW = (cropR - cropL).clamp(0.0001, 1.0);
+    final cropH = (cropB - cropT).clamp(0.0001, 1.0);
+
+    final imageCropX = cropL * _fullW;
+    final imageCropY = cropT * _fullH;
+    final imageCropW = cropW * _fullW;
+    final imageCropH = cropH * _fullH;
+
+    final scaleToImageX = imageCropW / fitted.width;
+    final scaleToImageY = imageCropH / fitted.height;
     final visibleWorld = Rect.fromLTWH(
-      visibleFitted.left * scaleToImageX,
-      visibleFitted.top * scaleToImageY,
+      imageCropX + visibleFitted.left * scaleToImageX,
+      imageCropY + visibleFitted.top * scaleToImageY,
       visibleFitted.width * scaleToImageX,
       visibleFitted.height * scaleToImageY,
     );
 
-    final sx = fitted.width / _fullW;
-    final sy = fitted.height / _fullH;
-    final out = <_CanvasTile>[];
+    final out = <CanvasTile>[];
     for (final t in grid.visibleTiles(visibleWorld)) {
       final img = _tiles.get(t.coord);
       if (img == null) continue;
       final r = t.worldRect;
       out.add(
-        _CanvasTile(
+        CanvasTile(
           image: img,
           dst: Rect.fromLTWH(
-            r.left * sx,
-            r.top * sy,
-            r.width * sx,
-            r.height * sy,
+            (r.left - imageCropX) / imageCropW * fitted.width,
+            (r.top - imageCropY) / imageCropH * fitted.height,
+            r.width / imageCropW * fitted.width,
+            r.height / imageCropH * fitted.height,
           ),
         ),
       );
@@ -2021,610 +2394,5 @@ class _ImageCanvasState extends ConsumerState<ImageCanvas>
         ),
       ),
     );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xCC000000),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white, fontSize: 12),
-      ),
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: scheme.primary.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: scheme.onPrimary,
-          fontSize: 12,
-          letterSpacing: 1.5,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-/// A baked high-zoom tile (#16) and its draw rect in fitted/content space.
-class _CanvasTile {
-  const _CanvasTile({required this.image, required this.dst});
-
-  final ui.Image image;
-  final Rect dst;
-}
-
-/// Draws the base texture through `lut.frag` inside the aspect-correct [dst]
-/// rect, sampling the packed 3D LUT atlas, and crossfades to the raw source
-/// while comparing ([blend] 0..1).
-class _CanvasPainter extends CustomPainter {
-  _CanvasPainter({
-    required this.shader,
-    required this.source,
-    required this.compareSource,
-    required this.lut,
-    required this.lutSize,
-    required this.dst,
-    required this.blend,
-    required this.maskBlend,
-    this.zoneLo = -1.0,
-    this.zoneHi = -1.0,
-    this.wiperActive = false,
-    this.wiperPosition = 0.50,
-    this.wiperOrientation = WiperOrientation.vertical,
-    this.splitCompareActive = false,
-    this.splitCompareOrientation = SplitOrientation.sideBySide,
-    this.zebraMode = ExposureAssistMode.off,
-    this.time = 0.0,
-    this.zebraHigh = 0.98,
-    this.zebraLow = 0.02,
-    this.softProof = const SoftProofState(),
-    this.tiles = const [],
-  });
-
-  final ui.FragmentShader shader;
-  final ui.Image source;
-  final ui.Image compareSource;
-  final ui.Image lut;
-  final double lutSize;
-  final Rect dst;
-  final double blend;
-  final double maskBlend;
-  final double zoneLo;
-  final double zoneHi;
-  final bool wiperActive;
-  final double wiperPosition;
-  final WiperOrientation wiperOrientation;
-  final bool splitCompareActive;
-  final SplitOrientation splitCompareOrientation;
-  final ExposureAssistMode zebraMode;
-  final double time;
-  final double zebraHigh;
-  final double zebraLow;
-  final SoftProofState softProof;
-
-  /// High-zoom tiles (#16): baked level-0 tiles of the original frame, drawn
-  /// through the same uniforms over the proxy at their fitted-space rects.
-  /// Empty while the overlay is inactive or tiles are still loading.
-  final List<_CanvasTile> tiles;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawColor(const Color(0xFF000000), BlendMode.src);
-
-    final zebraVal = zebraMode == ExposureAssistMode.zebras
-        ? 1.0
-        : (zebraMode == ExposureAssistMode.falseColor ? 2.0 : 0.0);
-
-    shader
-      ..setFloat(0, dst.width)
-      ..setFloat(1, dst.height)
-      ..setFloat(2, lutSize)
-      ..setFloat(3, maskBlend)
-      ..setFloat(4, source.width.toDouble())
-      ..setFloat(5, source.height.toDouble())
-      ..setFloat(6, zoneLo)
-      ..setFloat(7, zoneHi)
-      ..setFloat(8, zebraVal)
-      ..setFloat(9, time)
-      ..setFloat(10, zebraHigh)
-      ..setFloat(11, zebraLow)
-      ..setImageSampler(0, source)
-      ..setImageSampler(1, lut);
-
-    if (wiperActive) {
-      if (wiperOrientation == WiperOrientation.vertical) {
-        final splitX = dst.left + dst.width * wiperPosition.clamp(0.0, 1.0);
-
-        // 1. Unedited Source on Left side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, splitX, dst.bottom));
-        canvas.drawImageRect(
-          compareSource,
-          Rect.fromLTWH(
-            0,
-            0,
-            compareSource.width.toDouble(),
-            compareSource.height.toDouble(),
-          ),
-          dst,
-          Paint(),
-        );
-        canvas.restore();
-
-        // 2. Graded result on Right side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(splitX, dst.top, dst.right, dst.bottom));
-        canvas.drawRect(dst, Paint()..shader = shader);
-        if (tiles.isNotEmpty) {
-          for (final tile in tiles) {
-            canvas.save();
-            canvas.translate(tile.dst.left, tile.dst.top);
-            shader
-              ..setFloat(0, tile.dst.width)
-              ..setFloat(1, tile.dst.height)
-              ..setFloat(2, lutSize)
-              ..setFloat(3, maskBlend)
-              ..setFloat(4, tile.image.width.toDouble())
-              ..setFloat(5, tile.image.height.toDouble())
-              ..setFloat(6, zoneLo)
-              ..setFloat(7, zoneHi)
-              ..setFloat(8, zebraVal)
-              ..setFloat(9, time)
-              ..setFloat(10, zebraHigh)
-              ..setFloat(11, zebraLow)
-              ..setImageSampler(0, tile.image)
-              ..setImageSampler(1, lut);
-            canvas.drawRect(
-              Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
-              Paint()..shader = shader,
-            );
-            canvas.restore();
-          }
-        }
-        canvas.restore();
-
-        // 3. Glowing cyan divider line
-        final glowPaint = Paint()
-          ..color = const Color(0x6600E5FF)
-          ..strokeWidth = 6.0
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
-        canvas.drawLine(
-          Offset(splitX, dst.top),
-          Offset(splitX, dst.bottom),
-          glowPaint,
-        );
-
-        final linePaint = Paint()
-          ..color = const Color(0xFF00E5FF)
-          ..strokeWidth = 2.0;
-        canvas.drawLine(
-          Offset(splitX, dst.top),
-          Offset(splitX, dst.bottom),
-          linePaint,
-        );
-
-        // 4. Circular thumb handle at center
-        final handleCenter = Offset(splitX, dst.top + dst.height * 0.5);
-        canvas.drawCircle(
-          handleCenter,
-          18,
-          Paint()..color = const Color(0xDD000000),
-        );
-        canvas.drawCircle(
-          handleCenter,
-          18,
-          Paint()
-            ..color = const Color(0xFF00E5FF)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.0,
-        );
-
-        final tp = TextPainter(
-          text: const TextSpan(
-            text: '◀ ▶',
-            style: TextStyle(
-              color: Color(0xFF00E5FF),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(canvas, handleCenter - Offset(tp.width / 2, tp.height / 2));
-
-        // 5. Before / After label badges
-        if (splitX > dst.left + 50) {
-          _drawCompareBadge(canvas, 'BEFORE', Offset(dst.left + 12, dst.top + 12));
-        }
-        if (dst.right - splitX > 50) {
-          _drawCompareBadge(canvas, 'AFTER', Offset(dst.right - 62, dst.top + 12));
-        }
-      } else {
-        // Horizontal split
-        final splitY = dst.top + dst.height * wiperPosition.clamp(0.0, 1.0);
-
-        // 1. Unedited Source on Top side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, dst.right, splitY));
-        canvas.drawImageRect(
-          compareSource,
-          Rect.fromLTWH(
-            0,
-            0,
-            compareSource.width.toDouble(),
-            compareSource.height.toDouble(),
-          ),
-          dst,
-          Paint(),
-        );
-        canvas.restore();
-
-        // 2. Graded result on Bottom side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(dst.left, splitY, dst.right, dst.bottom));
-        canvas.drawRect(dst, Paint()..shader = shader);
-        if (tiles.isNotEmpty) {
-          for (final tile in tiles) {
-            canvas.save();
-            canvas.translate(tile.dst.left, tile.dst.top);
-            shader
-              ..setFloat(0, tile.dst.width)
-              ..setFloat(1, tile.dst.height)
-              ..setFloat(2, lutSize)
-              ..setFloat(3, maskBlend)
-              ..setFloat(4, tile.image.width.toDouble())
-              ..setFloat(5, tile.image.height.toDouble())
-              ..setFloat(6, zoneLo)
-              ..setFloat(7, zoneHi)
-              ..setFloat(8, zebraVal)
-              ..setFloat(9, time)
-              ..setFloat(10, zebraHigh)
-              ..setFloat(11, zebraLow)
-              ..setImageSampler(0, tile.image)
-              ..setImageSampler(1, lut);
-            canvas.drawRect(
-              Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
-              Paint()..shader = shader,
-            );
-            canvas.restore();
-          }
-        }
-        canvas.restore();
-
-        // 3. Glowing cyan divider line
-        final glowPaint = Paint()
-          ..color = const Color(0x6600E5FF)
-          ..strokeWidth = 6.0
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
-        canvas.drawLine(
-          Offset(dst.left, splitY),
-          Offset(dst.right, splitY),
-          glowPaint,
-        );
-
-        final linePaint = Paint()
-          ..color = const Color(0xFF00E5FF)
-          ..strokeWidth = 2.0;
-        canvas.drawLine(
-          Offset(dst.left, splitY),
-          Offset(dst.right, splitY),
-          linePaint,
-        );
-
-        // 4. Circular thumb handle at center
-        final handleCenter = Offset(dst.left + dst.width * 0.5, splitY);
-        canvas.drawCircle(
-          handleCenter,
-          18,
-          Paint()..color = const Color(0xDD000000),
-        );
-        canvas.drawCircle(
-          handleCenter,
-          18,
-          Paint()
-            ..color = const Color(0xFF00E5FF)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.0,
-        );
-
-        final tp = TextPainter(
-          text: const TextSpan(
-            text: '▲\n▼',
-            style: TextStyle(
-              color: Color(0xFF00E5FF),
-              fontSize: 8,
-              fontWeight: FontWeight.bold,
-              height: 1.0,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-          textAlign: TextAlign.center,
-        )..layout();
-        tp.paint(canvas, handleCenter - Offset(tp.width / 2, tp.height / 2));
-
-        // 5. Before / After label badges
-        if (splitY > dst.top + 35) {
-          _drawCompareBadge(canvas, 'BEFORE', Offset(dst.left + 12, dst.top + 12));
-        }
-        if (dst.bottom - splitY > 35) {
-          _drawCompareBadge(canvas, 'AFTER', Offset(dst.left + 12, dst.bottom - 32));
-        }
-      }
-      return;
-    }
-
-    if (splitCompareActive) {
-      if (splitCompareOrientation == SplitOrientation.sideBySide) {
-        final splitX = dst.left + dst.width * 0.5;
-
-        // 1. Unedited Source on Left side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, splitX, dst.bottom));
-        canvas.drawImageRect(
-          compareSource,
-          Rect.fromLTWH(
-            0,
-            0,
-            compareSource.width.toDouble(),
-            compareSource.height.toDouble(),
-          ),
-          dst,
-          Paint(),
-        );
-        canvas.restore();
-
-        // 2. Graded result on Right side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(splitX, dst.top, dst.right, dst.bottom));
-        canvas.drawRect(dst, Paint()..shader = shader);
-        if (tiles.isNotEmpty) {
-          for (final tile in tiles) {
-            canvas.save();
-            canvas.translate(tile.dst.left, tile.dst.top);
-            shader
-              ..setFloat(0, tile.dst.width)
-              ..setFloat(1, tile.dst.height)
-              ..setFloat(2, lutSize)
-              ..setFloat(3, maskBlend)
-              ..setFloat(4, tile.image.width.toDouble())
-              ..setFloat(5, tile.image.height.toDouble())
-              ..setFloat(6, zoneLo)
-              ..setFloat(7, zoneHi)
-              ..setFloat(8, zebraVal)
-              ..setFloat(9, time)
-              ..setFloat(10, zebraHigh)
-              ..setFloat(11, zebraLow)
-              ..setImageSampler(0, tile.image)
-              ..setImageSampler(1, lut);
-            canvas.drawRect(
-              Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
-              Paint()..shader = shader,
-            );
-            canvas.restore();
-          }
-        }
-        canvas.restore();
-
-        // 3. Crisp vertical divider line
-        final linePaint = Paint()
-          ..color = const Color(0xCCFFFFFF)
-          ..strokeWidth = 2.0;
-        canvas.drawLine(
-          Offset(splitX, dst.top),
-          Offset(splitX, dst.bottom),
-          linePaint,
-        );
-
-        // 4. Before / After label badges
-        _drawCompareBadge(canvas, 'BEFORE', Offset(dst.left + 12, dst.top + 12));
-        _drawCompareBadge(canvas, 'AFTER', Offset(splitX + 12, dst.top + 12));
-      } else {
-        final splitY = dst.top + dst.height * 0.5;
-
-        // 1. Unedited Source on Top side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(dst.left, dst.top, dst.right, splitY));
-        canvas.drawImageRect(
-          compareSource,
-          Rect.fromLTWH(
-            0,
-            0,
-            compareSource.width.toDouble(),
-            compareSource.height.toDouble(),
-          ),
-          dst,
-          Paint(),
-        );
-        canvas.restore();
-
-        // 2. Graded result on Bottom side
-        canvas.save();
-        canvas.clipRect(Rect.fromLTRB(dst.left, splitY, dst.right, dst.bottom));
-        canvas.drawRect(dst, Paint()..shader = shader);
-        if (tiles.isNotEmpty) {
-          for (final tile in tiles) {
-            canvas.save();
-            canvas.translate(tile.dst.left, tile.dst.top);
-            shader
-              ..setFloat(0, tile.dst.width)
-              ..setFloat(1, tile.dst.height)
-              ..setFloat(2, lutSize)
-              ..setFloat(3, maskBlend)
-              ..setFloat(4, tile.image.width.toDouble())
-              ..setFloat(5, tile.image.height.toDouble())
-              ..setFloat(6, zoneLo)
-              ..setFloat(7, zoneHi)
-              ..setFloat(8, zebraVal)
-              ..setFloat(9, time)
-              ..setFloat(10, zebraHigh)
-              ..setFloat(11, zebraLow)
-              ..setImageSampler(0, tile.image)
-              ..setImageSampler(1, lut);
-            canvas.drawRect(
-              Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
-              Paint()..shader = shader,
-            );
-            canvas.restore();
-          }
-        }
-        canvas.restore();
-
-        // 3. Crisp horizontal divider line
-        final linePaint = Paint()
-          ..color = const Color(0xCCFFFFFF)
-          ..strokeWidth = 2.0;
-        canvas.drawLine(
-          Offset(dst.left, splitY),
-          Offset(dst.right, splitY),
-          linePaint,
-        );
-
-        // 4. Before / After label badges
-        _drawCompareBadge(canvas, 'BEFORE', Offset(dst.left + 12, dst.top + 12));
-        _drawCompareBadge(canvas, 'AFTER', Offset(dst.left + 12, splitY + 12));
-      }
-      return;
-    }
-
-    canvas.drawRect(dst, Paint()..shader = shader);
-
-    // High-zoom tiles: one shader pass per tile. Translate so the tile's own
-    // rect is the shader's local origin — `FlutterFragCoord` is local-canvas
-    // space, so uSize covers the tile exactly, mirroring the proxy pass.
-    if (tiles.isNotEmpty) {
-      canvas.save();
-      canvas.clipRect(Offset.zero & size);
-      for (final tile in tiles) {
-        canvas.save();
-        canvas.translate(tile.dst.left, tile.dst.top);
-        shader
-          ..setFloat(0, tile.dst.width)
-          ..setFloat(1, tile.dst.height)
-          ..setFloat(2, lutSize)
-          ..setFloat(3, maskBlend)
-          ..setFloat(4, tile.image.width.toDouble())
-          ..setFloat(5, tile.image.height.toDouble())
-          ..setFloat(6, zoneLo)
-          ..setFloat(7, zoneHi)
-          ..setFloat(8, zebraVal)
-          ..setFloat(9, time)
-          ..setFloat(10, zebraHigh)
-          ..setFloat(11, zebraLow)
-          ..setImageSampler(0, tile.image)
-          ..setImageSampler(1, lut);
-        canvas.drawRect(
-          Rect.fromLTWH(0, 0, tile.dst.width, tile.dst.height),
-          Paint()..shader = shader,
-        );
-        canvas.restore();
-      }
-      canvas.restore();
-    }
-
-    // Compare crossfade is drawn above both the proxy and high-zoom tiles
-    // so holding compare reveals the raw original seamlessly across all zoom levels.
-    if (blend > 0) {
-      canvas.drawImageRect(
-        compareSource,
-        Rect.fromLTWH(
-          0,
-          0,
-          compareSource.width.toDouble(),
-          compareSource.height.toDouble(),
-        ),
-        dst,
-        Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: blend),
-      );
-    }
-
-    if (softProof.enabled) {
-      final label = softProof.gamutWarning
-          ? 'PROOF: ${softProof.profile.displayName} [GAMUT WARNING]'
-          : 'PROOF: ${softProof.profile.displayName}';
-      _drawCompareBadge(canvas, label, Offset(dst.left + 12, dst.top + 12));
-    }
-  }
-
-  @override
-  bool shouldRepaint(_CanvasPainter old) =>
-      old.source != source ||
-      old.compareSource != compareSource ||
-      old.lut != lut ||
-      old.blend != blend ||
-      old.maskBlend != maskBlend ||
-      old.zoneLo != zoneLo ||
-      old.zoneHi != zoneHi ||
-      old.wiperActive != wiperActive ||
-      old.wiperPosition != wiperPosition ||
-      old.wiperOrientation != wiperOrientation ||
-      old.splitCompareActive != splitCompareActive ||
-      old.splitCompareOrientation != splitCompareOrientation ||
-      old.zebraMode != zebraMode ||
-      old.time != time ||
-      old.zebraHigh != zebraHigh ||
-      old.zebraLow != zebraLow ||
-      old.softProof != softProof ||
-      old.dst != dst ||
-      !_sameTiles(old.tiles, tiles);
-
-  static bool _sameTiles(List<_CanvasTile> a, List<_CanvasTile> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i].image != b[i].image || a[i].dst != b[i].dst) return false;
-    }
-    return true;
-  }
-
-  void _drawCompareBadge(Canvas canvas, String label, Offset pos) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.0,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    final badgeRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(pos.dx, pos.dy, tp.width + 12, tp.height + 6),
-      const Radius.circular(4),
-    );
-
-    canvas.drawRRect(
-      badgeRect,
-      Paint()..color = const Color(0x99000000),
-    );
-    tp.paint(canvas, Offset(pos.dx + 6, pos.dy + 3));
   }
 }

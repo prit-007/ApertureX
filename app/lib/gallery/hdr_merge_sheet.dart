@@ -10,6 +10,8 @@ import '../platform/photo_saver.dart';
 import '../src/rust/api/export.dart';
 import '../ui/common/app_sheet.dart';
 import '../core/theme/design_tokens.dart';
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 
 /// EV step options offered to the user for each bracketed exposure.
 const List<double> _evSteps = [-2.0, -1.0, 0.0, 1.0, 2.0];
@@ -187,8 +189,8 @@ class _HdrMergeSheetState extends ConsumerState<HdrMergeSheet> {
         _evByIndex[evIndex] =
             _evSteps[evIndex.clamp(0, _evSteps.length - 1)].toDouble();
         evIndex++;
-      } catch (_) {
-        // Skip exposures that fail to decode.
+      } catch (e, st) {
+        axLog(LogDomain.editor, 'HDR exposure decode skip', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       }
     }
     if (!mounted) return;

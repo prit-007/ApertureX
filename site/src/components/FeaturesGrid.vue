@@ -56,7 +56,7 @@
           </div>
           <div class="bento-tag-row">
             <span class="hud-tag hud-tag-coral">Look QR Spec</span>
-            <span class="hud-tag">100% Offline</span>
+            <span class="hud-tag">100% On-Device</span>
           </div>
         </div>
 

@@ -333,6 +333,11 @@ class NodeControls extends ConsumerWidget {
     MaskKind.colorRange => Icons.color_lens_outlined,
     MaskKind.autoBrush => Icons.auto_fix_normal,
     MaskKind.depthRange => Icons.layers_outlined,
+    MaskKind.background => Icons.wallpaper,
+    MaskKind.personFace => Icons.face,
+    MaskKind.personSkin => Icons.face_retouching_natural,
+    MaskKind.personHair => Icons.content_cut,
+    MaskKind.object => Icons.category,
   };
 }
 

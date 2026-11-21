@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -6,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../color/blur_spec.dart';
 import '../../edit/active_image.dart';
+import '../../edit/lens_blur_controller.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
 import '../../engine/engine.dart';
@@ -39,10 +41,15 @@ class BlurControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recipe = ref.watch(recipeControllerProvider).recipe;
+    final blurEnabled = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.blurEnabled),
+    );
+    final blurBokehShape = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.blurBokehShape),
+    );
     final notifier = ref.read(recipeControllerProvider.notifier);
 
-    final currentShapeIndex = recipe.blurBokehShape.clamp(0, BokehShape.values.length - 1);
+    final currentShapeIndex = blurBokehShape.clamp(0, BokehShape.values.length - 1);
     final currentShape = BokehShape.values[currentShapeIndex];
 
     return Theme(
@@ -69,7 +76,7 @@ class BlurControls extends ConsumerWidget {
                 title: Text(AppStrings.of(context).blurDepthAware),
                 subtitle: Text(AppStrings.of(context).blurDepthAwareSubtitle),
                 visualDensity: VisualDensity.compact,
-                value: recipe.blurEnabled,
+                value: blurEnabled,
                 onChanged: (val) async {
                   notifier.setBlurEnabled(val);
                   if (val) {
@@ -77,30 +84,119 @@ class BlurControls extends ConsumerWidget {
                   }
                 },
               ),
-              if (recipe.blurEnabled)
+              if (blurEnabled) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: ActionChip(
-                      key: const Key('blur-subject-focus'),
-                      visualDensity: VisualDensity.compact,
-                      avatar: const Icon(Icons.psychology, size: 14),
-                      label: Text(AppStrings.of(context).blurReRunSubjectFocus, style: const TextStyle(fontSize: 12)),
-                      onPressed: () async {
-                    await _applySubjectFocus(context, ref);
-                      },
-                    ),
+                  child: Row(
+                    children: [
+                      ActionChip(
+                        key: const Key('blur-subject-focus'),
+                        visualDensity: VisualDensity.compact,
+                        avatar: const Icon(Icons.psychology, size: 14),
+                        label: Text(AppStrings.of(context).blurReRunSubjectFocus, style: const TextStyle(fontSize: 12)),
+                        onPressed: () async {
+                          await _applySubjectFocus(context, ref);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final confidence = ref.watch(
+                            lensBlurControllerProvider.select((s) => s.depthConfidence),
+                          );
+                          if (confidence <= 0.0) return const SizedBox.shrink();
+                          final isLow = confidence < 0.35;
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isLow ? Icons.warning_amber_rounded : Icons.auto_awesome,
+                                size: 13,
+                                color: isLow
+                                    ? Theme.of(context).colorScheme.error
+                                    : Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                isLow
+                                    ? AppStrings.of(context).blurConfidenceLow
+                                    : AppStrings.of(context).blurConfidenceReliable((confidence * 100).round()),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
-              if (recipe.blurEnabled) ...[
+                Consumer(
+                  builder: (context, ref, _) {
+                    final confidence = ref.watch(
+                      lensBlurControllerProvider.select((s) => s.depthConfidence),
+                    );
+                    // Low-confidence banner with gradient mode switch: confidence < 0.35
+                    if (confidence > 0.0 && confidence < 0.35) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        child: Container(
+                          key: const Key('low-confidence-banner'), // low confidence banner
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warning, color: Colors.orange, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  AppStrings.of(context).blurLowConfidence,
+                                  style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  notifier.update(Parameter.blurEnabled, 0.0);
+                                  notifier.commit(label: 'Switch to Gradient');
+                                },
+                                child: Text(AppStrings.of(context).blurSwitchToGradient),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final visualizer = ref.watch(
+                      lensBlurControllerProvider.select((s) => s.showDepthVisualizer),
+                    );
+                    return SwitchListTile(
+                      key: const Key('blur-depth-visualizer-toggle'),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      title: Text(AppStrings.of(context).blurDepthVisualizer),
+                      subtitle: Text(AppStrings.of(context).blurDepthVisualizerSubtitle),
+                      visualDensity: VisualDensity.compact,
+                      value: visualizer,
+                      onChanged: (val) {
+                        ref.read(lensBlurControllerProvider.notifier).toggleDepthVisualizer(val);
+                      },
+                    );
+                  },
+                ),
                 const _ParamPad(Parameter.blurAmount),
                 const _ParamPad(Parameter.blurFocalPoint),
                 const _ParamPad(Parameter.blurFocalRange),
               ],
             ],
           ),
-          if (recipe.blurEnabled) ...[
+          if (blurEnabled) ...[
             ExpansionTile(
               initiallyExpanded: false, // Collapsed by default to save space!
               title: _PanelTitle(AppStrings.of(context).blurSectionBokehShape),
@@ -166,11 +262,12 @@ class _PanelTitle extends StatelessWidget {
 /// when the user taps "Re-run Subject Focus". Avoids duplicating the
 /// consent → detect → apply focal plane → report UX.
 Future<void> _applySubjectFocus(BuildContext context, WidgetRef ref) async {
+  final strings = AppStrings.of(context);
   final bytes = ref.read(activeImageBytesProvider);
   if (bytes == null) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppStrings.of(context).blurNoPhotoFocus)),
+        SnackBar(content: Text(strings.blurNoPhotoFocus)),
       );
     }
     return;
@@ -188,11 +285,12 @@ Future<void> _applySubjectFocus(BuildContext context, WidgetRef ref) async {
 
   ref.read(aiMaskInferringProvider.notifier).setInferring(true);
   ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
-      'Finding subject… Please wait a moment');
+      strings.blurFindingSubject);
 
   try {
     final detector = ref.read(subjectDetectorProvider);
     final subject = await detector(bytes);
+    unawaited(ref.read(lensBlurControllerProvider.notifier).analyzeDepth(bytes));
     final focalPoint = subject != null
         ? (0.25 + 0.40 * subject.cy).clamp(0.20, 0.80)
         : 0.40;
@@ -215,24 +313,30 @@ Future<void> _applySubjectFocus(BuildContext context, WidgetRef ref) async {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Subject focus placed: focal point ${(focalPoint * 100).round()}%, range ${(focalRange * 100).round()}%',
+            strings.blurSubjectFocusPlaced(
+              (focalPoint * 100).round(),
+              (focalRange * 100).round(),
+            ),
           ),
           duration: const Duration(seconds: 2),
         ),
       );
     }
-  } catch (_) {
+  } catch (error, stackTrace) {
+    debugPrint('Subject focus detection error: $error\n$stackTrace');
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppStrings.of(context).blurSubjectNotDetected),
+          content: Text(strings.blurSubjectNotDetected),
           duration: const Duration(seconds: 2),
         ),
       );
     }
   } finally {
-    ref.read(aiMaskInferringProvider.notifier).setInferring(false);
-    ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+    if (context.mounted) {
+      ref.read(aiMaskInferringProvider.notifier).setInferring(false);
+      ref.read(aiMaskStatusMessageProvider.notifier).setMessage(null);
+    }
   }
 }
 
@@ -246,4 +350,79 @@ class _ParamPad extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         child: ParameterControl(parameter: param),
       );
+}
+
+/// Custom painter for interactive focus ring showing focal point and depth-of-field range.
+class FocusRingPainter extends CustomPainter {
+  const FocusRingPainter({
+    required this.focalPoint,
+    required this.focalRange,
+    this.center = const Offset(100, 100),
+  });
+
+  final double focalPoint;
+  final double focalRange;
+  final Offset center;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final maxR = (size.shortestSide / 2) * 0.9;
+    final innerR = (maxR * focalPoint).clamp(8.0, maxR);
+    final outerR = (innerR + maxR * focalRange).clamp(innerR + 6.0, maxR);
+
+    final innerPaint = Paint()
+      ..color = const Color(0xFF26C6DA)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    final outerPaint = Paint()
+      ..color = const Color(0xFFFFB300)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    canvas.drawCircle(c, innerR, innerPaint);
+    canvas.drawCircle(c, outerR, outerPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant FocusRingPainter oldDelegate) =>
+      oldDelegate.focalPoint != focalPoint || oldDelegate.focalRange != focalRange;
+}
+
+/// Interactive focus ring widget: dragging the outer ring perimeter changes focal range.
+class FocusRingWidget extends ConsumerWidget {
+  const FocusRingWidget({super.key, this.size = 200.0});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final focalPoint = ref.watch(recipeControllerProvider.select((s) => s.recipe.blurFocalPoint));
+    final focalRange = ref.watch(recipeControllerProvider.select((s) => s.recipe.blurFocalRange));
+    final notifier = ref.read(recipeControllerProvider.notifier);
+    final center = Offset(size / 2, size / 2);
+    final maxRadius = size / 2;
+
+    return Semantics(
+      label: 'Focus Ring Controller',
+      slider: true,
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          final r = (details.localPosition - center).distance;
+          final newRange = (r / maxRadius).clamp(0.05, 0.75);
+          notifier.update(Parameter.blurFocalRange, newRange);
+          notifier.commit(label: 'Focus Range');
+        },
+        child: CustomPaint(
+          size: Size(size, size),
+          painter: FocusRingPainter(
+            focalPoint: focalPoint,
+            focalRange: focalRange,
+            center: center,
+          ),
+        ),
+      ),
+    );
+  }
 }

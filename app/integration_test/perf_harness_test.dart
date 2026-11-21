@@ -71,7 +71,8 @@ void main() {
         'p95=${p95.toStringAsFixed(2)}ms '
         'budget=${(1000 / 60).toStringAsFixed(2)}ms (60 fps)');
 
-    if (Platform.environment['PERF_STRICT'] == '1') {
+    if (Platform.environment['PERF_STRICT'] == '1' ||
+        Platform.environment['CI'] == 'true') {
       expect(p95, lessThan(1000 / 60),
           reason: 'p95 raster over the 60 fps budget on the pinned profile');
     }

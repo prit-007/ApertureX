@@ -1,6 +1,6 @@
 import 'dart:async' show unawaited;
 import 'dart:convert';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'dart:typed_data';
 import 'dart:ui' show ImageFilter;
 
@@ -49,9 +49,8 @@ import '../../src/rust/api/export.dart' as rust_export;
 import '../c2pa/c2pa_service.dart';
 import '../../ui/app_shell.dart';
 import '../../ui/common/app_primitives.dart';
-import '../../ui/common/app_sheet.dart';
 import '../../ui/common/history_tree_sheet.dart';
-import '../../ui/common/settings_sheet.dart';
+import '../../ui/settings/settings_hub.dart';
 import '../../ui/edit_activity.dart';
 import '../../edit/active_image.dart' show currentEditingAssetProvider;
 
@@ -419,6 +418,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       int token,
       Uint8List bytes,
       EditRecipe recipe,
+      int residentHandle,
     ) exportJpeg,
     required Future<void> Function(
       Uint8List jpeg,
@@ -439,6 +439,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _exportRenderFraction = 0;
     });
     var token = 0;
+    int? residentHandle;
     ExportProgressPoller? poller;
     try {
       final currentAsset = _currentAsset ?? widget.asset;
@@ -457,6 +458,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           : await AxEngine.decodeJpegRgba(bytes);
       final exif = await AxEngine.extractExif(bytes);
 
+      residentHandle = isRaw
+          ? await AxEngine.previewOpen(
+              rgba: decoded.rgba,
+              width: decoded.width,
+              height: decoded.height,
+            )
+          : await AxEngine.previewOpenJpeg(
+              jpegBytes: bytes,
+              maxDim: 0,
+            );
+
       token = await AxEngine.exportCancelNew();
       if (!mounted) return;
       setState(() {
@@ -473,7 +485,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         },
       )..start();
 
-      final jpeg = await exportJpeg(decoded, exif, token, bytes, recipe);
+      final jpeg = await exportJpeg(
+        decoded,
+        exif,
+        token,
+        bytes,
+        recipe,
+        residentHandle,
+      );
       if (jpeg == null) {
         onCancelled();
         return;
@@ -494,6 +513,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       if (token != 0) {
         await AxEngine.exportCancelDrop(token);
       }
+      if (residentHandle != null) {
+        await AxEngine.previewClose(residentHandle);
+      }
       if (mounted) {
         setState(() {
           _exporting = false;
@@ -508,12 +530,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   Future<void> _saveToApertureX() async {
     await _runJpegExportPipeline(
-      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+      exportJpeg: (decoded, exif, token, bytes, recipe, residentHandle) async {
         // Explicit save: proxy render with maxDim 1600, quality 85 (#85)
-        return await AxEngine.exportJpegFull(
-          rgba: decoded.rgba,
-          width: decoded.width,
-          height: decoded.height,
+        return await AxEngine.exportJpegFullFromHandle(
+          handle: residentHandle,
           spec: GradeSpec.fromRecipe(recipe),
           spatial: SpatialSpec.fromRecipe(recipe),
           geometry: GeometrySpec.fromRecipe(recipe),
@@ -634,7 +654,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           exifLine1: line1.isEmpty ? 'APERTUREX • ORIGINAL' : line1,
           exifLine2: line2,
         ).toRustBrandingSpec();
-      } catch (_) {}
+      } catch (e, st) {
+        axLog(LogDomain.export, 'Museum frame metadata build fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+      }
     }
 
     rust_export.C2paExportSpec? c2paSpec;
@@ -651,7 +673,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   Future<void> _exportToPhotos() async {
     await _runJpegExportPipeline(
-      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+      exportJpeg: (decoded, exif, token, bytes, recipe, residentHandle) async {
         final settings = ref.read(exportSettingsProvider);
         // Build custom branding (Museum Frame, Signature, FOSS Badge) and C2PA provenance
         final exportCustoms = await _buildExportBrandingAndC2pa(
@@ -659,10 +681,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           recipe: recipe,
           exif: exif,
         );
-        return await AxEngine.exportJpegFull(
-          rgba: decoded.rgba,
-          width: decoded.width,
-          height: decoded.height,
+        return await AxEngine.exportJpegFullFromHandle(
+          handle: residentHandle,
           spec: GradeSpec.fromRecipe(recipe),
           spatial: SpatialSpec.fromRecipe(recipe),
           geometry: GeometrySpec.fromRecipe(recipe),
@@ -845,17 +865,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   Future<void> _exportTiff16ToPhotos() async {
     await _runJpegExportPipeline(
-      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+      exportJpeg: (decoded, exif, token, bytes, recipe, residentHandle) async {
         final settings = ref.read(exportSettingsProvider);
         final exportCustoms = await _buildExportBrandingAndC2pa(
           bytes: bytes,
           recipe: recipe,
           exif: exif,
         );
-        return await AxEngine.exportJpegFull(
-          rgba: decoded.rgba,
-          width: decoded.width,
-          height: decoded.height,
+        return await AxEngine.exportJpegFullFromHandle(
+          handle: residentHandle,
           spec: GradeSpec.fromRecipe(recipe),
           spatial: SpatialSpec.fromRecipe(recipe),
           geometry: GeometrySpec.fromRecipe(recipe),
@@ -883,12 +901,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         if (!mounted) return;
         setState(() => _exportPhase = ExportPhase.saving);
 
-        final baked = await AxEngine.decodeJpegRgba(jpeg);
+        final (rawRgba, rawW, rawH) = rgba.isNotEmpty
+            ? (rgba, width, height)
+            : await () async {
+                final baked = await AxEngine.decodeJpegRgba(jpeg);
+                return (baked.rgba, baked.width, baked.height);
+              }();
         final xmp = writeXmp(recipe);
         final tiff = await AxEngine.exportTiff16(
-          rgba: baked.rgba,
-          width: baked.width,
-          height: baked.height,
+          rgba: rawRgba,
+          width: rawW,
+          height: rawH,
           xmp: xmp,
         );
 
@@ -940,17 +963,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   Future<void> _exportPngToPhotos() async {
     await _runJpegExportPipeline(
-      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+      exportJpeg: (decoded, exif, token, bytes, recipe, residentHandle) async {
         final settings = ref.read(exportSettingsProvider);
         final exportCustoms = await _buildExportBrandingAndC2pa(
           bytes: bytes,
           recipe: recipe,
           exif: exif,
         );
-        return await AxEngine.exportJpegFull(
-          rgba: decoded.rgba,
-          width: decoded.width,
-          height: decoded.height,
+        return await AxEngine.exportJpegFullFromHandle(
+          handle: residentHandle,
           spec: GradeSpec.fromRecipe(recipe),
           spatial: SpatialSpec.fromRecipe(recipe),
           geometry: GeometrySpec.fromRecipe(recipe),
@@ -1044,17 +1065,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   Future<void> _exportHeicToPhotos() async {
     await _runJpegExportPipeline(
-      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+      exportJpeg: (decoded, exif, token, bytes, recipe, residentHandle) async {
         final settings = ref.read(exportSettingsProvider);
         final exportCustoms = await _buildExportBrandingAndC2pa(
           bytes: bytes,
           recipe: recipe,
           exif: exif,
         );
-        return await AxEngine.exportJpegFull(
-          rgba: decoded.rgba,
-          width: decoded.width,
-          height: decoded.height,
+        return await AxEngine.exportJpegFullFromHandle(
+          handle: residentHandle,
           spec: GradeSpec.fromRecipe(recipe),
           spatial: SpatialSpec.fromRecipe(recipe),
           geometry: GeometrySpec.fromRecipe(recipe),
@@ -1149,17 +1168,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   Future<void> _exportAvifToPhotos() async {
     await _runJpegExportPipeline(
-      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+      exportJpeg: (decoded, exif, token, bytes, recipe, residentHandle) async {
         final settings = ref.read(exportSettingsProvider);
         final exportCustoms = await _buildExportBrandingAndC2pa(
           bytes: bytes,
           recipe: recipe,
           exif: exif,
         );
-        return await AxEngine.exportJpegFull(
-          rgba: decoded.rgba,
-          width: decoded.width,
-          height: decoded.height,
+        return await AxEngine.exportJpegFullFromHandle(
+          handle: residentHandle,
           spec: GradeSpec.fromRecipe(recipe),
           spatial: SpatialSpec.fromRecipe(recipe),
           geometry: GeometrySpec.fromRecipe(recipe),
@@ -1254,7 +1271,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   Future<void> _exportAndShare() async {
     await _runJpegExportPipeline(
-      exportJpeg: (decoded, exif, token, bytes, recipe) async {
+      exportJpeg: (decoded, exif, token, bytes, recipe, residentHandle) async {
         final settings = ref.read(exportSettingsProvider);
         // Build custom branding (Museum Frame, Signature, FOSS Badge) and C2PA provenance
         final exportCustoms = await _buildExportBrandingAndC2pa(
@@ -1262,10 +1279,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           recipe: recipe,
           exif: exif,
         );
-        return await AxEngine.exportJpegFull(
-          rgba: decoded.rgba,
-          width: decoded.width,
-          height: decoded.height,
+        return await AxEngine.exportJpegFullFromHandle(
+          handle: residentHandle,
           spec: GradeSpec.fromRecipe(recipe),
           spatial: SpatialSpec.fromRecipe(recipe),
           geometry: GeometrySpec.fromRecipe(recipe),
@@ -1399,10 +1414,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       }
     });
 
-    final state = ref.watch(recipeControllerProvider);
+    final canUndo = ref.watch(
+      recipeControllerProvider.select((s) => s.index > 0),
+    );
+    final canRedo = ref.watch(
+      recipeControllerProvider.select((s) => s.index < s.history.length - 1),
+    );
     final notifier = ref.read(recipeControllerProvider.notifier);
-    final canUndo = state.index > 0;
-    final canRedo = state.index < state.history.length - 1;
     final active = ref.watch(editActivityProvider);
     final glassmorphic = ref.watch(glassmorphicUiProvider);
 
@@ -1614,6 +1632,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   void _openSettings(BuildContext context) {
-    showAppSheet(context, const SettingsSheet());
+    SettingsHub.show(context);
   }
 }

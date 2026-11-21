@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,36 @@ import 'package:aperturex/gallery/gallery_asset.dart';
 import 'package:aperturex/gallery/gallery_controller.dart';
 import 'package:aperturex/gallery/gallery_source.dart';
 import 'package:aperturex/gallery/thumbnail_memory_cache.dart';
+
+class _MockRaceGallerySource implements GallerySource {
+  _MockRaceGallerySource({required this.onListImages});
+  final Future<List<GalleryAsset>> Function(String? albumId) onListImages;
+
+  @override
+  final ThumbnailMemoryCache thumbnailCache = ThumbnailMemoryCache();
+
+  @override
+  Future<GalleryPermission> requestPermission() async => GalleryPermission.granted;
+
+  @override
+  Future<void> openAppSettings() async {}
+
+  @override
+  Future<List<GalleryAlbum>> listAlbums() async => [];
+
+  @override
+  Future<List<GalleryAsset>> listImages({int limit = 500, String? albumId}) =>
+      onListImages(albumId);
+
+  @override
+  Future<Uint8List> loadImage(String id) async => Uint8List(0);
+
+  @override
+  Future<Uint8List> loadPreview(String id, {int maxDim = 1600}) async => Uint8List(0);
+
+  @override
+  Future<Uint8List> loadThumbnail(String id, {int size = 256}) async => Uint8List(0);
+}
 
 /// A gallery source that delays album loading to simulate slow album queries.
 class DelayedAlbumsSource implements GallerySource {
@@ -193,6 +224,91 @@ void main() {
     await controller().load();
     controller().selectAll();
     expect(state().selectedCount, 3);
+  });
+
+  test('concurrent load calls are deduplicated and guarded', () async {
+    final countingSource = DelayedAlbumsSource(
+      assets: const [
+        GalleryAsset(id: 'a', width: 100, height: 100),
+        GalleryAsset(id: 'b', width: 100, height: 100),
+        GalleryAsset(id: 'c', width: 100, height: 100),
+      ],
+      albums: const [GalleryAlbum(id: '1', name: 'Test', count: 3)],
+      albumDelay: const Duration(milliseconds: 20),
+    );
+    final countingContainer = ProviderContainer(
+      overrides: [
+        gallerySourceProvider.overrideWithValue(countingSource),
+      ],
+    );
+    addTearDown(countingContainer.dispose);
+
+    final ctrl = countingContainer.read(galleryControllerProvider.notifier);
+    final f1 = ctrl.load();
+    final f2 = ctrl.load(); // Should join the existing in-flight future
+    expect(identical(f1, f2), isTrue);
+    await Future.wait([f1, f2]);
+
+    expect(countingContainer.read(galleryControllerProvider).assets.length, 3);
+  });
+
+  test('requestAccessAgain shares the in-flight load future', () async {
+    final countingSource = DelayedAlbumsSource(
+      assets: const [GalleryAsset(id: 'a', width: 100, height: 100)],
+      albums: const [],
+      albumDelay: const Duration(milliseconds: 20),
+    );
+    final cnt = ProviderContainer(
+      overrides: [gallerySourceProvider.overrideWithValue(countingSource)],
+    );
+    addTearDown(cnt.dispose);
+
+    final ctrl = cnt.read(galleryControllerProvider.notifier);
+    final f1 = ctrl.load();
+    final f2 = ctrl.requestAccessAgain();
+    expect(identical(f1, f2), isTrue);
+    await Future.wait([f1, f2]);
+    expect(cnt.read(galleryControllerProvider).assets.length, 1);
+  });
+
+  test('concurrent selectAlbum calls drop stale older responses', () async {
+    // Custom source where album 'first' is delayed longer than album 'second'
+    final completerFirst = Completer<List<GalleryAsset>>();
+    final completerSecond = Completer<List<GalleryAsset>>();
+
+    final mockSource = _MockRaceGallerySource(
+      onListImages: (albumId) {
+        if (albumId == 'first') return completerFirst.future;
+        if (albumId == 'second') return completerSecond.future;
+        return Future.value([]);
+      },
+    );
+
+    final cnt = ProviderContainer(
+      overrides: [gallerySourceProvider.overrideWithValue(mockSource)],
+    );
+    addTearDown(cnt.dispose);
+
+    final ctrl = cnt.read(galleryControllerProvider.notifier);
+
+    // Call first, then quickly switch to second
+    final fFirst = ctrl.selectAlbum('first');
+    final fSecond = ctrl.selectAlbum('second');
+
+    // Complete 'second' first
+    completerSecond.complete([const GalleryAsset(id: 'item_second', width: 10, height: 10)]);
+    await fSecond;
+
+    expect(cnt.read(galleryControllerProvider).selectedAlbumId, 'second');
+    expect(cnt.read(galleryControllerProvider).assets.map((a) => a.id), ['item_second']);
+
+    // Now resolve 'first' later
+    completerFirst.complete([const GalleryAsset(id: 'item_first', width: 10, height: 10)]);
+    await fFirst;
+
+    // Must still have 'second' assets! 'first' was discarded as stale generation.
+    expect(cnt.read(galleryControllerProvider).selectedAlbumId, 'second');
+    expect(cnt.read(galleryControllerProvider).assets.map((a) => a.id), ['item_second']);
   });
 
   test('clearSelection empties and exits selection mode', () {

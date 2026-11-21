@@ -33,6 +33,33 @@ void main() {
     });
   });
 
+  group('roiBlockedByWarp', () {
+    test('identity and crop-only allow warp check', () {
+      expect(roiBlockedByWarp(const EditRecipe()), isFalse);
+      expect(roiBlockedByWarp(const EditRecipe(crop: [0.1, 0.1, 0.9, 0.9])), isFalse);
+    });
+
+    test('warp and rotation edits block', () {
+      const cases = <String, EditRecipe>{
+        'rotation': EditRecipe(rotation: 1),
+        'flipH': EditRecipe(flipH: true),
+        'flipV': EditRecipe(flipV: true),
+        'straighten': EditRecipe(straighten: -12.5),
+        'perspectiveX': EditRecipe(perspectiveX: 0.3),
+        'perspectiveY': EditRecipe(perspectiveY: -0.2),
+        'skewX': EditRecipe(skewX: 0.1),
+        'skewY': EditRecipe(skewY: 0.1),
+      };
+      for (final entry in cases.entries) {
+        expect(
+          roiBlockedByWarp(entry.value),
+          isTrue,
+          reason: '${entry.key} must block warp',
+        );
+      }
+    });
+  });
+
   group('planRoiOverlay', () {
     test('is inactive below the proxy-density zoom gate', () {
       // Proxy is 1440 wide; a 1000-wide fitted at scale 1 is still under it.
@@ -80,6 +107,25 @@ void main() {
         ),
         isNull,
       );
+    });
+
+    test('supports crop rectangle when geometry is not blocked', () {
+      // 4000x3000 image, crop [0.0, 0.2, 1.0, 0.8] -> cropped height is 1800 px (from row 600 to 2400).
+      // fitted is 1000x750. scale = 2.0.
+      final plan = planRoiOverlay(
+        imageW: 4000,
+        imageH: 3000,
+        proxyW: 1440,
+        fitted: fitted,
+        scale: 2.0,
+        offset: Offset.zero,
+        viewport: fitted,
+        crop: const [0.0, 0.2, 1.0, 0.8],
+      );
+      expect(plan, isNotNull);
+      // Top row should start at imageCropTop = 0.2 * 3000 = 600.
+      expect(plan!.bandTop, 600);
+      expect(plan.bandBottom, greaterThan(600));
     });
   });
 

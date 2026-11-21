@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../core/theme/design_tokens.dart';
 import '../core/updater/app_updater.dart';
-import '../ui/common/settings_sheet.dart';
+import '../ui/settings/settings_about_sheet.dart' show kOfflineClaim;
 
 /// About App, Developers, Licensing, and Third-Party Attribution Screen.
 ///

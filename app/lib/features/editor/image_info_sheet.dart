@@ -2,6 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../edit/recipe.dart';
 import '../../engine/engine.dart';
@@ -64,12 +66,16 @@ class _ImageInfoSheetState extends ConsumerState<ImageInfoSheet> {
       try {
         final c2paService = ref.read(c2paServiceProvider);
         c2pa = await c2paService.verifyImage(widget.imageBytes);
-      } catch (_) {}
+      } catch (e, st) {
+        axLog(LogDomain.export, 'C2PA verify error in image info: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+      }
 
       EmbeddedDepthResult? depth;
       try {
         depth = await AxEngine.extractEmbeddedDepth(widget.imageBytes);
-      } catch (_) {}
+      } catch (e, st) {
+        axLog(LogDomain.engine, 'Embedded depth extraction error in image info: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+      }
 
       if (mounted) {
         setState(() {
@@ -80,7 +86,8 @@ class _ImageInfoSheetState extends ConsumerState<ImageInfoSheet> {
           _verifyingC2pa = false;
         });
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.editor, 'Image metadata load failed: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       if (mounted) {
         setState(() {
           _loading = false;
@@ -711,7 +718,7 @@ class _ImageInfoSheetState extends ConsumerState<ImageInfoSheet> {
             Text(
               title,
               style: theme.textTheme.labelSmall?.copyWith(
-                fontSize: 9,
+                fontSize: 12.0,
                 color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,

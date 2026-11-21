@@ -87,14 +87,27 @@ final gallerySourceProvider = Provider<GallerySource>(
 );
 
 class GalleryController extends Notifier<GalleryState> {
+  Future<void>? _inFlightLoad;
+  int _assetGeneration = 0;
+  int _albumGeneration = 0;
+
   @override
   GalleryState build() => const GalleryState();
 
-  Future<void> load() async {
+  Future<void> load() {
+    if (_inFlightLoad != null) return _inFlightLoad!;
+    final future = _loadInternal();
+    _inFlightLoad = future;
+    return future;
+  }
+
+  Future<void> _loadInternal() async {
+    final assetGen = ++_assetGeneration;
     state = state.copyWith(loading: true, error: null, albumsLoading: true);
     final source = ref.read(gallerySourceProvider);
     try {
       final permission = await source.requestPermission();
+      if (!ref.mounted || assetGen != _assetGeneration) return;
       if (!permission.canRead) {
         axLog(LogDomain.permission, 'Photo access denied', level: LogLevel.warning);
         state = state.copyWith(loading: false, albumsLoading: false, permission: permission);
@@ -104,6 +117,7 @@ class GalleryController extends Notifier<GalleryState> {
       // Fast path: load page 0 of images first so the first photo appears
       // in < 250 ms even on large libraries.
       final assets = await source.listImages(albumId: state.selectedAlbumId);
+      if (!ref.mounted || assetGen != _assetGeneration) return;
       axLog(LogDomain.gallery, 'Loaded ${assets.length} photo(s)');
       state = state.copyWith(
         assets: assets,
@@ -113,19 +127,25 @@ class GalleryController extends Notifier<GalleryState> {
       // Background: load album metadata without blocking the first frame.
       unawaited(_loadAlbums(permission));
     } catch (e) {
+      if (!ref.mounted || assetGen != _assetGeneration) return;
       axLog(LogDomain.gallery, 'Gallery load failed: $e', level: LogLevel.error);
       state = state.copyWith(loading: false, albumsLoading: false, error: '$e');
+    } finally {
+      _inFlightLoad = null;
     }
   }
 
   /// Loads album metadata in the background after the fast initial photo load.
   /// Errors here don't clear already-loaded assets.
   Future<void> _loadAlbums(GalleryPermission permission) async {
+    final albumGen = ++_albumGeneration;
     try {
       final source = ref.read(gallerySourceProvider);
       final albums = await source.listAlbums();
+      if (!ref.mounted || albumGen != _albumGeneration) return;
       state = state.copyWith(albums: albums, albumsLoading: false);
     } catch (e) {
+      if (!ref.mounted || albumGen != _albumGeneration) return;
       axLog(LogDomain.gallery, 'Album load failed: $e', level: LogLevel.error);
       state = state.copyWith(
         albumsLoading: false,
@@ -137,7 +157,12 @@ class GalleryController extends Notifier<GalleryState> {
   /// Switches to [albumId] (null = Recent) and reloads that album's photos.
   Future<void> selectAlbum(String? albumId) async {
     if (state.selectedAlbumId == albumId) return;
+    if (_inFlightLoad != null) {
+      await _inFlightLoad;
+      if (!ref.mounted) return;
+    }
     axLog(LogDomain.gallery, 'Opened album ${albumId ?? 'Recent'}');
+    final assetGen = ++_assetGeneration;
     // Keep showing existing assets while loading the new album's photos,
     // so the gallery never appears empty during the transition.
     state = state.copyWith(
@@ -151,14 +176,19 @@ class GalleryController extends Notifier<GalleryState> {
       final assets = await ref
           .read(gallerySourceProvider)
           .listImages(albumId: albumId);
+      if (!ref.mounted || assetGen != _assetGeneration) return;
       state = state.copyWith(assets: assets, loading: false);
     } catch (e) {
+      if (!ref.mounted || assetGen != _assetGeneration) return;
       state = state.copyWith(loading: false, error: '$e');
     }
   }
 
   /// Re-requests a denied permission (the "prompt again" path).
-  Future<void> requestAccessAgain() => load();
+  Future<void> requestAccessAgain() {
+    if (_inFlightLoad != null) return _inFlightLoad!;
+    return load();
+  }
 
   /// Opens the OS settings page for a permanently-denied permission.
   Future<void> openSettings() =>

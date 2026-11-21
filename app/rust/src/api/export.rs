@@ -53,6 +53,17 @@ pub fn export_tiff16(
     crate::raw::export_tiff16(&rgba, width, height, &xmp)
 }
 
+/// Exports scene-linear RGB(A) float pixels as an uncompressed 16-bit-per-channel TIFF (#79).
+/// Directly maps scene-linear float [0.0, 1.0] to [0, 65535] without 8-bit clipping.
+pub fn export_tiff16_linear(
+    linear: Vec<f32>,
+    width: u32,
+    height: u32,
+    xmp: String,
+) -> Result<Vec<u8>, String> {
+    crate::raw::export_tiff16_linear(&linear, width, height, &xmp)
+}
+
 /// Exports RGBA8 pixels as a lossless PNG (Phase 1 Pro baseline).
 pub fn export_png(rgba: Vec<u8>, width: u32, height: u32) -> Result<Vec<u8>, String> {
     crate::export::encode_png(&rgba, width, height)
@@ -414,6 +425,8 @@ pub struct BrandedFrame {
 // carries a progress cell (permille 0–1000) the worker updates between bands
 // and the UI polls via `export_progress_get` for a determinate bar.
 
+const MAX_CANCEL_TOKENS: usize = 256;
+
 struct CancelStore {
     /// Starts at 1: token 0 is reserved as the "no cancellation" sentinel.
     next: u64,
@@ -433,8 +446,16 @@ fn lock_cancels() -> std::sync::MutexGuard<'static, CancelStore> {
 
 /// Creates a cancel token. Pass it to [`export_full`], call
 /// [`export_cancel_set`] from the UI to abort, then [`export_cancel_drop`].
+///
+/// Limits in-flight tokens to [`MAX_CANCEL_TOKENS`] with oldest-first eviction
+/// to prevent unbounded memory growth from forgotten or leaked tokens.
 pub fn export_cancel_new() -> u64 {
     let mut store = lock_cancels();
+    if store.tokens.len() >= MAX_CANCEL_TOKENS {
+        if let Some(&oldest) = store.tokens.keys().min() {
+            store.tokens.remove(&oldest);
+        }
+    }
     let id = store.next;
     store.next += 1;
     store.tokens.insert(
@@ -452,7 +473,7 @@ pub fn export_cancel_new() -> u64 {
 pub fn export_cancel_set(token: u64) {
     let flag = { lock_cancels().tokens.get(&token).map(|(f, _)| f.clone()) };
     if let Some(f) = flag {
-        f.store(true, Ordering::Relaxed);
+        f.store(true, Ordering::Release);
     }
 }
 
@@ -466,7 +487,7 @@ pub fn export_cancel_drop(token: u64) {
 pub fn export_progress_get(token: u64) -> u32 {
     let cell = { lock_cancels().tokens.get(&token).map(|(_, p)| p.clone()) };
     match cell {
-        Some(p) => p.load(Ordering::Relaxed),
+        Some(p) => p.load(Ordering::Acquire),
         None => 0,
     }
 }
@@ -524,6 +545,86 @@ pub fn export_full_with_branding(
     c2pa: C2paExportSpec,
 ) -> Result<ExportResult, String> {
     crate::validate::validate_rgba(&rgba, width, height)?;
+    export_full_with_branding_inner(
+        &rgba,
+        width,
+        height,
+        spec,
+        layers,
+        retouch_patches,
+        params,
+        curves,
+        hsl,
+        exif,
+        branding,
+        c2pa,
+        None,
+        None,
+    )
+}
+
+/// Runs the complete export recipe using image memory already resident in Rust
+/// under [handle], avoiding bridge serialization of multi-megapixel RGBA buffers (P1).
+/// Also automatically reuses any cached depth map associated with the handle (P4).
+#[allow(clippy::too_many_arguments)]
+pub fn export_full_from_handle(
+    handle: u64,
+    spec: ExportSpec,
+    layers: Vec<MaskLayer>,
+    retouch_patches: Vec<ApiRetouchPatch>,
+    params: ColorParams,
+    curves: CurveParams,
+    hsl: Vec<f32>,
+    exif: Vec<u8>,
+    branding: ExportBrandingSpec,
+    c2pa: C2paExportSpec,
+) -> Result<ExportResult, String> {
+    let (source, width, height, cached_depth) = crate::preview::get_source_shared(handle)?;
+    let depth_field = crate::preview::get_resident_depth_field(handle);
+    let depth_map = if cached_depth.is_some() {
+        cached_depth
+    } else if depth_field.is_none() && !spec.blur_params().is_neutral() {
+        crate::preview::ensure_depth_map(handle)
+            .ok()
+            .map(|d| d.data.to_vec())
+    } else {
+        None
+    };
+    export_full_with_branding_inner(
+        &source,
+        width,
+        height,
+        spec,
+        layers,
+        retouch_patches,
+        params,
+        curves,
+        hsl,
+        exif,
+        branding,
+        c2pa,
+        depth_map,
+        depth_field,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn export_full_with_branding_inner(
+    rgba: &[u8],
+    width: u32,
+    height: u32,
+    spec: ExportSpec,
+    layers: Vec<MaskLayer>,
+    retouch_patches: Vec<ApiRetouchPatch>,
+    params: ColorParams,
+    curves: CurveParams,
+    hsl: Vec<f32>,
+    exif: Vec<u8>,
+    branding: ExportBrandingSpec,
+    c2pa: C2paExportSpec,
+    precomputed_depth: Option<Vec<f32>>,
+    depth_field: Option<std::sync::Arc<crate::depth::DepthField>>,
+) -> Result<ExportResult, String> {
     let (w, h) = (width as usize, height as usize);
 
     let recipe = ExportRecipe {
@@ -544,6 +645,8 @@ pub fn export_full_with_branding(
         optics: spec.optics_params(),
         retouch: to_engine_patches(&retouch_patches),
         blur: spec.blur_params(),
+        precomputed_depth_map: precomputed_depth,
+        depth_field,
         spatial: SpatialParams {
             shadows: spec.shadows,
             highlights: spec.highlights,
@@ -607,14 +710,19 @@ pub fn export_full_with_branding(
     let cancel = token_parts.as_ref().map(|(f, _)| f.clone());
     let progress = token_parts.as_ref().map(|(_, p)| p.clone());
     let band_rows = if spec.band_rows == 0 {
-        256
+        // For huge images (>50 MP), reduce band size to 128 rows to bound resident memory and prevent mobile OOM (F2).
+        if w * h > 50_000_000 {
+            128
+        } else {
+            256
+        }
     } else {
         spec.band_rows as usize
     };
 
     let outcome = export_pipeline::run_export_tiled(
         &recipe,
-        &rgba,
+        rgba,
         w,
         h,
         band_rows,
@@ -684,30 +792,48 @@ pub fn export_full_with_branding(
     }
 
     // If C2PA is requested, sign claims and inject JUMBF APP11
-    if c2pa.enable_c2pa && !c2pa.device_private_key.is_empty() {
-        let pixel_hash_hex = crate::sha256::sha256_hex(&branded_rgba);
-        let recipe_hash = crate::sha256::sha256_hex(c2pa.recipe_json.as_bytes());
-        let (priv_key, key_id) = crate::c2pa::generate_device_key(&c2pa.device_private_key);
-        let pk_hex = crate::c2pa::public_key_hex_from_seed(&priv_key);
+    if c2pa.enable_c2pa {
+        let (mut priv_key, key_id) = if !c2pa.device_private_key.is_empty() {
+            crate::c2pa::generate_device_key(&c2pa.device_private_key)
+        } else if let Some(ks_seed) = crate::c2pa::get_key_from_keystore(&c2pa.exif_summary) {
+            (ks_seed.to_vec(), c2pa.exif_summary.clone())
+        } else {
+            (Vec::new(), String::new())
+        };
 
-        let actions = ["c2pa.opened", "c2pa.color_adjustments"];
-        let claim = crate::c2pa::build_c2pa_claim(
-            &pixel_hash_hex,
-            None,
-            &actions,
-            &c2pa.exif_summary,
-            &recipe_hash,
-            &key_id,
-            &pk_hex,
-        );
-        let sig_hex = crate::c2pa::sign_c2pa_claim(&claim, &priv_key);
-        let manifest = crate::c2pa::create_c2pa_manifest(&claim, &sig_hex, &key_id, &pk_hex);
-        jpeg = crate::c2pa::inject_c2pa_app11(jpeg, &manifest);
+        if !priv_key.is_empty() {
+            let pixel_hash_hex = crate::sha256::sha256_hex(&branded_rgba);
+            let recipe_hash = crate::sha256::sha256_hex(c2pa.recipe_json.as_bytes());
+            let pk_hex = crate::c2pa::public_key_hex_from_seed(&priv_key);
+
+            let actions = ["c2pa.opened", "c2pa.color_adjustments"];
+            let claim = crate::c2pa::build_c2pa_claim(
+                &pixel_hash_hex,
+                None,
+                &actions,
+                &c2pa.exif_summary,
+                &recipe_hash,
+                &key_id,
+                &pk_hex,
+            );
+            let sig_hex = crate::c2pa::sign_c2pa_claim(&claim, &priv_key);
+            let manifest = crate::c2pa::create_c2pa_manifest(&claim, &sig_hex, &key_id, &pk_hex);
+            jpeg = crate::c2pa::inject_c2pa_app11(jpeg, &manifest);
+
+            // Zeroize private key material immediately after signing pass
+            priv_key.fill(0);
+            std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
+        }
+
+        // Scrub bridge-passed private key buffer in-place
+        let mut dev_key = c2pa.device_private_key;
+        dev_key.fill(0);
+        std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
     }
 
     // Encode is the last stage; report a finished export as 1000 permille.
     if let Some(p) = progress {
-        p.store(1000, Ordering::Relaxed);
+        p.store(1000, Ordering::Release);
     }
     Ok(ExportResult {
         cancelled: false,
@@ -950,6 +1076,7 @@ mod tests {
             feather: 0.0,
             opacity: 1.0,
             is_clone: true,
+            mode_index: 1,
         };
 
         let run = |patches: Vec<ApiRetouchPatch>| {
@@ -1050,6 +1177,29 @@ mod tests {
             cancel_flag(token).is_none(),
             "dropped token resolves to None"
         );
+    }
+
+    #[test]
+    fn cancel_store_bounds_growth_via_oldest_eviction() {
+        let first = export_cancel_new();
+        assert!(cancel_flag(first).is_some());
+
+        // Allocate up to MAX_CANCEL_TOKENS + 10 to trigger eviction
+        let mut tokens = vec![first];
+        for _ in 0..MAX_CANCEL_TOKENS + 10 {
+            tokens.push(export_cancel_new());
+        }
+
+        // The earliest token must have been evicted to respect memory budget
+        assert!(
+            cancel_flag(first).is_none(),
+            "oldest token must be evicted when capacity is reached"
+        );
+
+        // Clean up remaining tokens
+        for t in tokens {
+            export_cancel_drop(t);
+        }
     }
 
     #[test]
@@ -1160,5 +1310,44 @@ mod tests {
             .expect("must contain secondary gain map and XMP metadata");
         assert!(!gain_map.is_empty());
         assert!((meta.gain_map_max - 2.5).abs() < 1e-4);
+    }
+
+    #[test]
+    fn export_full_from_handle_matches_export_full() {
+        let rgba = solid(16, 16, 200, 100, 50);
+        let handle = crate::preview::open(rgba.clone(), 16, 16);
+        let s = spec();
+        let direct_res = export_full(
+            rgba,
+            16,
+            16,
+            s,
+            Vec::new(),
+            Vec::new(),
+            ColorParams::default(),
+            neutral_curves(),
+            vec![0.0; 24],
+            Vec::new(),
+        )
+        .unwrap();
+
+        let handle_res = export_full_from_handle(
+            handle,
+            spec(),
+            Vec::new(),
+            Vec::new(),
+            ColorParams::default(),
+            neutral_curves(),
+            vec![0.0; 24],
+            Vec::new(),
+            ExportBrandingSpec::default(),
+            C2paExportSpec::default(),
+        )
+        .unwrap();
+
+        assert!(!direct_res.cancelled);
+        assert!(!handle_res.cancelled);
+        assert_eq!(direct_res.jpeg, handle_res.jpeg);
+        crate::preview::close(handle);
     }
 }

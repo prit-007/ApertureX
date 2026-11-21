@@ -13,7 +13,12 @@ class OpticsControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recipe = ref.watch(recipeControllerProvider).recipe;
+    final removeCA = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.removeChromaticAberration),
+    );
+    final profileCorrections = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.profileCorrections),
+    );
     final notifier = ref.read(recipeControllerProvider.notifier);
 
     return ListView(
@@ -24,7 +29,7 @@ class OpticsControls extends ConsumerWidget {
         SwitchListTile(
           title: Text(AppStrings.of(context).opticsRemoveCA),
           subtitle: Text(AppStrings.of(context).opticsRemoveCASubtitle),
-          value: recipe.removeChromaticAberration,
+          value: removeCA,
           onChanged: (val) {
             notifier.setRemoveChromaticAberration(val);
           },
@@ -36,12 +41,12 @@ class OpticsControls extends ConsumerWidget {
         SwitchListTile(
           title: Text(AppStrings.of(context).opticsEnableProfile),
           subtitle: Text(AppStrings.of(context).opticsProfileSubtitle),
-          value: recipe.profileCorrections,
+          value: profileCorrections,
           onChanged: (val) {
             notifier.setProfileCorrections(val);
           },
         ),
-        if (recipe.profileCorrections) ...[
+        if (profileCorrections) ...[
           const ParameterControl(parameter: Parameter.profileDistortion),
           const ParameterControl(parameter: Parameter.profileVignetting),
         ],

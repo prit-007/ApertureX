@@ -238,9 +238,12 @@ pub fn refine_mask(
     let w = width as usize;
     let h = height as usize;
     let expected_bitmap_len = w.checked_mul(h).and_then(|px| 2usize.checked_add(px));
-    let initial_alphas = if kind == mask::MASK_BITMAP && expected_bitmap_len == Some(params.len()) {
-        let end = expected_bitmap_len.unwrap();
-        params[2..end].to_vec()
+    let initial_alphas = if kind == mask::MASK_BITMAP {
+        if let Some(end) = expected_bitmap_len.filter(|&len| len == params.len()) {
+            params[2..end].to_vec()
+        } else {
+            mask::rasterize_mask(kind, &params, w, h, Some(&rgba))
+        }
     } else {
         mask::rasterize_mask(kind, &params, w, h, Some(&rgba))
     };

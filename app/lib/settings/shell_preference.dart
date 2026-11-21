@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
+import 'shared_preferences_provider.dart';
 
 /// Which UI shell is active (ADR 0008). Lightroom is the default; neither shell
 /// owns edit state — both render the same recipe through the same canvas. The
@@ -17,7 +18,17 @@ class ShellPreference extends Notifier<AppShellKind> {
 
   @override
   AppShellKind build() {
-    _restore();
+    final prefs = ref.watch(sharedPreferencesProvider);
+    if (prefs != null) {
+      final name = prefs.getString(_key);
+      if (name != null) {
+        return name == AppShellKind.snapseed.name
+            ? AppShellKind.snapseed
+            : AppShellKind.lightroom;
+      }
+    } else {
+      _restore();
+    }
     return AppShellKind.lightroom;
   }
 
@@ -39,8 +50,8 @@ class ShellPreference extends Notifier<AppShellKind> {
       state = name == AppShellKind.snapseed.name
           ? AppShellKind.snapseed
           : AppShellKind.lightroom;
-    } catch (_) {
-      // No storage available (e.g. tests) — keep the default.
+    } catch (e, st) {
+      axLog(LogDomain.app, 'ShellPreference restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -48,8 +59,8 @@ class ShellPreference extends Notifier<AppShellKind> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_key, kind.name);
-    } catch (_) {
-      // best effort
+    } catch (e, st) {
+      axLog(LogDomain.app, 'ShellPreference persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 }

@@ -17,11 +17,17 @@ use crate::spatial::{self, SpatialParams};
 /// and below the requested output so [`bake_roi_band`] sees true neighbours.
 /// Geometry never affects the halo — ROI bands are geometry-identity only.
 pub fn roi_halo(spec: PreviewBaseSpec, full_width: u32, full_height: u32) -> u32 {
-    spatial::spatial_local_margin(
+    let mut margin = spatial::spatial_local_margin(
         spatial_params(&spec),
         full_width as usize,
         full_height as usize,
-    ) as u32
+    ) as u32;
+    if spec.blur_enabled && spec.blur_amount > 0.0 {
+        let max_dim = full_width.max(full_height) as f32;
+        let blur_r = (max_dim * 0.045).clamp(8.0, 48.0) as u32;
+        margin += blur_r;
+    }
+    margin
 }
 
 /// Bakes the preview base chain (spatial → mask layers) onto a decoded
@@ -48,23 +54,22 @@ pub fn bake_roi_band(
     spec: PreviewBaseSpec,
     layers: Vec<MaskLayer>,
 ) -> Result<RgbaImage, String> {
-    if spec.flip_h
-        || spec.flip_v
-        || spec.turns != 0
-        || spec.crop_l != 0.0
-        || spec.crop_t != 0.0
-        || spec.crop_r != 1.0
-        || spec.crop_b != 1.0
-    {
+    if spec.flip_h || spec.flip_v || spec.turns != 0 {
         return Err(
-            "ROI bands require identity geometry; the viewport must gate on crop/rotate/flip"
+            "ROI bands require identity rotation/flip; the viewport must gate on rotate/flip"
                 .to_string(),
         );
     }
 
     let full = (full_width as usize, full_height as usize);
+    let mut band_buf = band;
+    if spec.blur_enabled && spec.blur_amount > 0.0 {
+        let decode_h = band_buf.len() / (full.0 * 4);
+        band_buf =
+            crate::blur::apply_lens_blur(&band_buf, full.0, decode_h, spec.blur_params(), None);
+    }
     let mut out = spatial::apply_spatial_roi(
-        &band,
+        &band_buf,
         full,
         decode_top as usize,
         out_top as usize,
@@ -129,23 +134,26 @@ pub fn bake_roi_rect(
     spec: PreviewBaseSpec,
     layers: Vec<MaskLayer>,
 ) -> Result<RgbaImage, String> {
-    if spec.flip_h
-        || spec.flip_v
-        || spec.turns != 0
-        || spec.crop_l != 0.0
-        || spec.crop_t != 0.0
-        || spec.crop_r != 1.0
-        || spec.crop_b != 1.0
-    {
+    if spec.flip_h || spec.flip_v || spec.turns != 0 {
         return Err(
-            "ROI rects require identity geometry; the viewport must gate on crop/rotate/flip"
+            "ROI rects require identity rotation/flip; the viewport must gate on rotate/flip"
                 .to_string(),
         );
     }
 
     let full = (full_width as usize, full_height as usize);
+    let mut rect_buf = rect;
+    if spec.blur_enabled && spec.blur_amount > 0.0 {
+        rect_buf = crate::blur::apply_lens_blur(
+            &rect_buf,
+            decode_w as usize,
+            decode_h as usize,
+            spec.blur_params(),
+            None,
+        );
+    }
     let mut out = spatial::apply_spatial_rect(
-        &rect,
+        &rect_buf,
         full,
         decode_x as usize,
         decode_y as usize,
@@ -403,6 +411,19 @@ mod tests {
     }
 
     #[test]
+    fn test_roi_halo_with_blur_enabled_demands_extra_margin() {
+        let mut spec = identity_spec();
+        spec.blur_enabled = true;
+        spec.blur_amount = 0.5;
+        let halo = roi_halo(spec, 1000, 1000);
+        assert!(
+            halo >= 40,
+            "blur enabled on 1000x1000 image must demand at least 40px halo margin, got {}",
+            halo
+        );
+    }
+
+    #[test]
     fn geometry_edits_are_rejected_rather_than_misaligned() {
         let src = noise(16, 32);
         let mut spec = identity_spec();
@@ -561,6 +582,32 @@ mod tests {
             Vec::new(),
         );
         assert!(err.is_err(), "short left halo must be rejected");
+    }
+
+    #[test]
+    fn rect_crop_spec_is_accepted_for_roi_tiles() {
+        let src = noise(16, 32);
+        let mut spec = identity_spec();
+        spec.crop_l = 0.1;
+        spec.crop_t = 0.1;
+        spec.crop_r = 0.9;
+        spec.crop_b = 0.9;
+        let res = bake_roi_rect(
+            src[..16 * 8 * 4].to_vec(),
+            0,
+            0,
+            16,
+            8,
+            0,
+            0,
+            16,
+            8,
+            16,
+            32,
+            spec,
+            Vec::new(),
+        );
+        assert!(res.is_ok(), "crop should be allowed for roi rect tiles");
     }
 
     #[test]

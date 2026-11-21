@@ -44,6 +44,8 @@ pub struct ExportRecipe {
     pub optics: OpticsParams,
     pub retouch: Vec<RetouchPatch>,
     pub blur: LensBlurParams,
+    pub precomputed_depth_map: Option<Vec<f32>>,
+    pub depth_field: Option<std::sync::Arc<crate::depth::DepthField>>,
     pub spatial: SpatialParams,
     pub layers: Vec<LocalAdjustment>,
     pub grade: GradeParams,
@@ -81,6 +83,7 @@ impl ExportOutcome {
 /// Full-frame export — the parity oracle and the small-image path. Runs
 /// geometry → spatial → masks → grade over the whole buffer, no banding.
 pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) -> ExportFrame {
+    let _precision_guard = crate::spatial::ScopedPreciseAccumulator::new();
     let (mut buf, gw, gh) = geometry::apply_spec(src, w, h, &recipe.geometry);
     if !recipe.optics.is_neutral() {
         buf = optics::apply_optics(&buf, gw, gh, recipe.optics);
@@ -91,11 +94,41 @@ pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) 
         }
     }
     if !recipe.blur.is_neutral() {
-        // Compute an on-device depth map so subjects stay sharp while
-        // background blurs (mirrors the preview pipeline's cached depth map).
-        let depth_map =
-            crate::api::blur::estimate_depth_map(buf.clone(), gw as u32, gh as u32).ok();
-        buf = blur::apply_lens_blur(&buf, gw, gh, recipe.blur, depth_map.as_deref());
+        let mut blur_params = recipe.blur;
+        if blur_params.sample_count < 64 {
+            blur_params.sample_count = 64;
+        }
+        let transformed_depth;
+        let fallback_depth;
+        let depth_slice = if let Some(df) = &recipe.depth_field {
+            if df.width as usize == gw && df.height as usize == gh {
+                Some(&df.plane[..])
+            } else if df.width as usize == w && df.height as usize == h {
+                transformed_depth =
+                    geometry::transform_plane(&df.plane, w, h, &recipe.geometry, gw, gh);
+                Some(transformed_depth.as_slice())
+            } else {
+                let resized =
+                    crate::ml::resize_mask(&df.plane, df.width as usize, df.height as usize, w, h);
+                transformed_depth =
+                    geometry::transform_plane(&resized, w, h, &recipe.geometry, gw, gh);
+                Some(transformed_depth.as_slice())
+            }
+        } else {
+            match &recipe.precomputed_depth_map {
+                Some(dm) if dm.len() == gw * gh => Some(dm.as_slice()),
+                Some(dm) if dm.len() == w * h => {
+                    transformed_depth =
+                        geometry::transform_plane(dm, w, h, &recipe.geometry, gw, gh);
+                    Some(transformed_depth.as_slice())
+                }
+                _ => {
+                    fallback_depth = estimate_fallback_depth(&buf, gw, gh);
+                    fallback_depth.as_deref()
+                }
+            }
+        };
+        buf = blur::apply_lens_blur(&buf, gw, gh, blur_params, depth_slice);
     }
     if !recipe.spatial.is_neutral() {
         buf = spatial::apply_spatial(&buf, gw, gh, recipe.spatial);
@@ -103,13 +136,7 @@ pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) 
     if !recipe.layers.is_empty() {
         buf = mask::apply_local(&buf, gw, gh, &recipe.layers);
     }
-    let mut grade = recipe.grade;
-    if recipe.spatial.shadows != 0.0 {
-        grade.shadows = 0.0;
-    }
-    if recipe.spatial.highlights != 0.0 {
-        grade.highlights = 0.0;
-    }
+    let grade = recipe.grade;
     let lut = if recipe.lut_size > 0 && !recipe.lut_atlas.is_empty() {
         Some((recipe.lut_atlas.as_slice(), recipe.lut_size))
     } else {
@@ -148,6 +175,7 @@ pub fn run_export_tiled(
         ));
     }
 
+    let _precision_guard = crate::spatial::ScopedPreciseAccumulator::new();
     let (mut frame, gw, gh) = geometry::apply_spec(src, w, h, &recipe.geometry);
     if !recipe.optics.is_neutral() {
         frame = optics::apply_optics(&frame, gw, gh, recipe.optics);
@@ -158,11 +186,47 @@ pub fn run_export_tiled(
         }
     }
     if !recipe.blur.is_neutral() {
-        // Compute an on-device depth map so subjects stay sharp while
-        // background blurs (mirrors the preview pipeline's cached depth map).
-        let depth_map =
-            crate::api::blur::estimate_depth_map(frame.clone(), gw as u32, gh as u32).ok();
-        frame = blur::apply_lens_blur(&frame, gw, gh, recipe.blur, depth_map.as_deref());
+        let mut blur_params = recipe.blur;
+        if blur_params.sample_count < 64 {
+            blur_params.sample_count = 64;
+        }
+        let transformed_depth;
+        let fallback_depth;
+        let depth_slice = if let Some(df) = &recipe.depth_field {
+            if df.width as usize == gw && df.height as usize == gh {
+                Some(&df.plane[..])
+            } else if df.width as usize == w && df.height as usize == h {
+                transformed_depth =
+                    geometry::transform_plane(&df.plane, w, h, &recipe.geometry, gw, gh);
+                Some(transformed_depth.as_slice())
+            } else {
+                let resized =
+                    crate::ml::resize_mask(&df.plane, df.width as usize, df.height as usize, w, h);
+                transformed_depth =
+                    geometry::transform_plane(&resized, w, h, &recipe.geometry, gw, gh);
+                Some(transformed_depth.as_slice())
+            }
+        } else {
+            match &recipe.precomputed_depth_map {
+                Some(dm) if dm.len() == gw * gh => Some(dm.as_slice()),
+                Some(dm) if dm.len() == w * h => {
+                    transformed_depth =
+                        geometry::transform_plane(dm, w, h, &recipe.geometry, gw, gh);
+                    Some(transformed_depth.as_slice())
+                }
+                _ => {
+                    fallback_depth = estimate_fallback_depth(&frame, gw, gh);
+                    fallback_depth.as_deref()
+                }
+            }
+        };
+        if cancel.is_some_and(|c| c.load(Ordering::Acquire)) {
+            return Ok(ExportOutcome::Cancelled);
+        }
+        frame = blur::apply_lens_blur(&frame, gw, gh, blur_params, depth_slice);
+        if cancel.is_some_and(|c| c.load(Ordering::Acquire)) {
+            return Ok(ExportOutcome::Cancelled);
+        }
     }
     let film_shader_engaged = recipe.spatial.film_halation != 0.0
         || recipe.spatial.film_bloom != 0.0
@@ -172,12 +236,36 @@ pub fn run_export_tiled(
     if film_shader_engaged {
         frame = spatial::apply_spatial(&frame, gw, gh, recipe.spatial);
     }
+
+    // Optimization for F2: when spatial ops and local layers are neutral, grade in-place
+    // on `frame` directly to avoid allocating a second full-resolution `out` buffer (saves ~200MB).
+    if cancel.is_some_and(|c| c.load(Ordering::Acquire)) {
+        return Ok(ExportOutcome::Cancelled);
+    }
+    if (recipe.spatial.is_neutral() || film_shader_engaged) && recipe.layers.is_empty() {
+        let grade = recipe.grade;
+        let lut = if recipe.lut_size > 0 && !recipe.lut_atlas.is_empty() {
+            Some((recipe.lut_atlas.as_slice(), recipe.lut_size))
+        } else {
+            None
+        };
+        grade_in_place(&mut frame, grade, &recipe.curves, &recipe.hsl, lut);
+        if let Some(p) = progress {
+            p.store(1000, Ordering::Release);
+        }
+        return Ok(ExportOutcome::Done(ExportFrame {
+            rgba: frame,
+            width: gw as u32,
+            height: gh as u32,
+        }));
+    }
+
     let band_rows = band_rows.min(gh.max(1));
     let mut out = vec![0u8; gw * gh * 4];
 
     let mut y0 = 0;
     while y0 < gh {
-        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+        if cancel.is_some_and(|c| c.load(Ordering::Acquire)) {
             return Ok(ExportOutcome::Cancelled);
         }
         let bh = band_rows.min(gh - y0);
@@ -189,13 +277,7 @@ pub fn run_export_tiled(
         if !recipe.layers.is_empty() {
             band = mask::apply_local_band(&band, gw, gh, y0, &recipe.layers);
         }
-        let mut grade = recipe.grade;
-        if recipe.spatial.shadows != 0.0 {
-            grade.shadows = 0.0;
-        }
-        if recipe.spatial.highlights != 0.0 {
-            grade.highlights = 0.0;
-        }
+        let grade = recipe.grade;
         let lut = if recipe.lut_size > 0 && !recipe.lut_atlas.is_empty() {
             Some((recipe.lut_atlas.as_slice(), recipe.lut_size))
         } else {
@@ -208,7 +290,7 @@ pub fn run_export_tiled(
             // Banded stages cover rows [0, gh); report the fraction done so
             // far, clamped into the permille range.
             let permille = ((y0 as u128 * 1000) / gh.max(1) as u128) as u32;
-            p.store(permille.min(1000), Ordering::Relaxed);
+            p.store(permille.min(1000), Ordering::Release);
         }
     }
 
@@ -245,6 +327,22 @@ fn grade_in_place(
             px[1] = graded[1];
             px[2] = graded[2];
         });
+    }
+}
+
+/// Estimates depth from a downscaled proxy without cloning the multi-megapixel frame (P4).
+fn estimate_fallback_depth(frame: &[u8], gw: usize, gh: usize) -> Option<Vec<f32>> {
+    const MAX_DIM: usize = 1024;
+    let (proxy, dw, dh) = if gw > MAX_DIM || gh > MAX_DIM {
+        geometry::downscale(frame, gw, gh, MAX_DIM)
+    } else {
+        (frame.to_vec(), gw, gh)
+    };
+    let depth_low = crate::ml::estimate_depth_map(&proxy, dw, dh, dw, dh).ok()?;
+    if dw != gw || dh != gh {
+        Some(crate::ml::resize_mask(&depth_low, dw, dh, gw, gh))
+    } else {
+        Some(depth_low)
     }
 }
 
@@ -303,6 +401,8 @@ mod tests {
                 background_blur: false,
                 sample_count: 36,
             },
+            precomputed_depth_map: None,
+            depth_field: None,
             spatial: SpatialParams {
                 shadows: 0.3,
                 highlights: -0.2,
@@ -368,6 +468,8 @@ mod tests {
             optics: OpticsParams::default(),
             retouch: Vec::new(),
             blur: LensBlurParams::default(),
+            precomputed_depth_map: None,
+            depth_field: None,
             spatial: SpatialParams::default(),
             layers: Vec::new(),
             grade: GradeParams::default(),
@@ -469,6 +571,32 @@ mod tests {
     }
 
     #[test]
+    fn grade_shadows_and_highlights_preserved_when_spatial_is_active() {
+        // Audit Item A7:
+        // Asserts that user-specified grade shadows and highlights are not
+        // silently zeroed out or dropped when spatial shadows/highlights are active.
+        let (w, h) = (32, 32);
+        let src = noise(w, h);
+        let mut recipe_spatial_only = neutral();
+        recipe_spatial_only.spatial.shadows = 0.5;
+        recipe_spatial_only.spatial.highlights = -0.4;
+
+        let mut recipe_both = neutral();
+        recipe_both.spatial.shadows = 0.5;
+        recipe_both.spatial.highlights = -0.4;
+        recipe_both.grade.shadows = 0.3;
+        recipe_both.grade.highlights = -0.2;
+
+        let out_spatial = run_export_single(&recipe_spatial_only, &src, w, h);
+        let out_both = run_export_single(&recipe_both, &src, w, h);
+
+        assert_ne!(
+            out_spatial.rgba, out_both.rgba,
+            "Grade shadows/highlights must be applied and not discarded when spatial shadows/highlights are active"
+        );
+    }
+
+    #[test]
     fn neutral_recipe_is_a_geometry_identity_passthrough() {
         let (w, h) = (16, 12);
         let src = noise(w, h);
@@ -522,7 +650,7 @@ mod tests {
         assert!(matches!(out, ExportOutcome::Done(_)));
 
         // Now flip and re-run: must cancel immediately (before any band).
-        cancel.store(true, Ordering::Relaxed);
+        cancel.store(true, Ordering::Release);
         let out2 = run_export_tiled(&recipe, &src, w, h, 16, Some(&cancel), None).unwrap();
         assert_eq!(out2, ExportOutcome::Cancelled);
     }
@@ -536,7 +664,7 @@ mod tests {
         let out = run_export_tiled(&recipe, &src, w, h, 16, None, Some(&progress)).unwrap();
         assert!(matches!(out, ExportOutcome::Done(_)));
         assert_eq!(
-            progress.load(Ordering::Relaxed),
+            progress.load(Ordering::Acquire),
             1000,
             "a completed banded run reports 1000 permille"
         );
@@ -553,7 +681,41 @@ mod tests {
         // so instead run once and assert the final value; monotonicity across
         // bands is implied by the y0-based formula (y0 only grows).
         run_export_tiled(&recipe, &src, w, h, 8, None, Some(&progress)).unwrap();
-        let final_value = progress.load(Ordering::Relaxed);
+        let final_value = progress.load(Ordering::Acquire);
         assert!(final_value > 0 && final_value <= 1000);
+    }
+
+    #[test]
+    fn test_export_uses_precomputed_depth_map_when_provided() {
+        let (w, h) = (16, 16);
+        let src = noise(w, h);
+        let mut recipe = fully_engaged();
+        recipe.geometry = GeometrySpec::default();
+        recipe.precomputed_depth_map = Some(vec![0.5f32; w * h]);
+        let out = run_export_single(&recipe, &src, w, h);
+        assert_eq!(out.width, w as u32);
+        assert_eq!(out.height, h as u32);
+        assert!(!out.rgba.is_empty());
+    }
+
+    #[test]
+    fn test_export_uses_depth_field_when_provided() {
+        let (w, h) = (16, 16);
+        let src = noise(w, h);
+        let mut recipe = fully_engaged();
+        recipe.geometry = GeometrySpec::default();
+        recipe.depth_field = Some(std::sync::Arc::new(crate::depth::DepthField::new(
+            vec![0.5f32; w * h],
+            w as u32,
+            h as u32,
+            0.95,
+            crate::depth::DepthSource::Neural,
+            None,
+            42,
+        )));
+        let out = run_export_single(&recipe, &src, w, h);
+        assert_eq!(out.width, w as u32);
+        assert_eq!(out.height, h as u32);
+        assert!(!out.rgba.is_empty());
     }
 }

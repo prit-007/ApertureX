@@ -1,9 +1,11 @@
 import 'dart:async';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 import '../../color/blur_spec.dart';
 import '../../color/grade_spec.dart';
 import '../../color/optics_spec.dart';
@@ -189,7 +191,9 @@ class BackgroundExportWorker extends Notifier<List<ExportTask>> {
     if (task.cancelToken > 0) {
       try {
         await AxEngine.exportCancelSet(task.cancelToken);
-      } catch (_) {}
+      } catch (e, st) {
+        axLog(LogDomain.export, 'exportCancelSet error on task ${task.id}: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+      }
     }
 
     final updated = task.copyWith(status: ExportTaskStatus.cancelled);
@@ -259,7 +263,9 @@ class BackgroundExportWorker extends Notifier<List<ExportTask>> {
       if (task.format == ExportFormat.jpeg && customExecutor == null) {
         try {
           cancelToken = await AxEngine.exportCancelNew();
-        } catch (_) {}
+        } catch (e, st) {
+          axLog(LogDomain.export, 'exportCancelNew error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+        }
         _updateTask(
           task.id,
           status: ExportTaskStatus.rendering,
@@ -388,7 +394,9 @@ class BackgroundExportWorker extends Notifier<List<ExportTask>> {
       if (tempFile != null && await tempFile.exists()) {
         try {
           await tempFile.delete();
-        } catch (_) {}
+        } catch (e, st) {
+          axLog(LogDomain.export, 'Temp export file delete failure: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+        }
       }
       final current = state.cast<ExportTask?>().firstWhere(
         (t) => t?.id == task.id,
@@ -406,7 +414,9 @@ class BackgroundExportWorker extends Notifier<List<ExportTask>> {
       if (cancelToken > 0) {
         try {
           await AxEngine.exportCancelDrop(cancelToken);
-        } catch (_) {}
+        } catch (e, st) {
+          axLog(LogDomain.export, 'exportCancelDrop error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+        }
       }
     }
   }

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
+import 'shared_preferences_provider.dart';
 
 /// Pro Image Sizing mode aligned with Lightroom Classic and Photoshop.
 enum ExportResizeMode {
@@ -33,12 +34,23 @@ enum ExportMetadataMode {
 enum ExportPresetKind {
   fullRes('Full Res Master', 'Original size, JPEG 95%, sRGB, all metadata'),
   webSocial('Web & Social (2048px)', 'Max 2048px, JPEG 85%, screen sharpen, copyright only'),
+  instagram('Instagram (1080px)', 'Max 1080px, JPEG 90%, screen sharpen, sRGB'),
   printLossless('Print / Lossless', 'Full resolution, Lossless PNG or 16-bit TIFF'),
   clientProof('Client Proof', 'Max 1600px, JPEG 75%, proof watermark'),
   proDisplay('Pro HDR (P3)', 'Display-P3 with Ultra HDR gain map');
 
   const ExportPresetKind(this.title, this.description);
   final String title;
+  final String description;
+}
+
+/// Save destination mode: whether to save as a new copy or overwrite original.
+enum ExportDestination {
+  saveCopy('Save Copy', 'Save as a new file, leaving original untouched'),
+  overwriteOriginal('Overwrite Original', 'Replace original photo with edited version');
+
+  const ExportDestination(this.label, this.description);
+  final String label;
   final String description;
 }
 
@@ -60,7 +72,11 @@ class ExportSettings {
     this.outputSharpenMedia = 0, // 0 = None, 1 = Screen, 2 = Matte, 3 = Glossy
     this.outputSharpen = 0.0,
     this.metadataMode = ExportMetadataMode.all,
+    this.destination = ExportDestination.saveCopy,
   });
+
+  /// Save destination (save copy vs overwrite original).
+  final ExportDestination destination;
 
   /// JPEG quality `60..100`.
   final int quality;
@@ -275,6 +291,7 @@ class ExportSettings {
     int? outputSharpenMedia,
     double? outputSharpen,
     ExportMetadataMode? metadataMode,
+    ExportDestination? destination,
   }) => ExportSettings(
     quality: quality ?? this.quality,
     maxDim: maxDim ?? this.maxDim,
@@ -291,6 +308,7 @@ class ExportSettings {
     outputSharpenMedia: outputSharpenMedia ?? this.outputSharpenMedia,
     outputSharpen: outputSharpen ?? this.outputSharpen,
     metadataMode: metadataMode ?? this.metadataMode,
+    destination: destination ?? this.destination,
   );
 }
 
@@ -311,8 +329,36 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
 
   @override
   ExportSettings build() {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    if (prefs != null) {
+      return _readFromPrefs(prefs);
+    }
     _restore();
     return const ExportSettings();
+  }
+
+  ExportSettings _readFromPrefs(SharedPreferences prefs) {
+    final modeIndex = prefs.getInt(_resizeModeKey);
+    final metaIndex = prefs.getInt(_metadataModeKey);
+    return ExportSettings(
+      quality: prefs.getInt(_qualityKey) ?? 90,
+      maxDim: prefs.getInt(_maxDimKey) ?? 0,
+      colorSpace: prefs.getInt(_colorSpaceKey) ?? 0,
+      ultraHdr: prefs.getBool(_ultraHdrKey) ?? false,
+      hdrHeadroom: prefs.getDouble(_hdrHeadroomKey) ?? 2.0,
+      filenamePattern:
+          prefs.getString(_filenamePatternKey) ?? '{original}_{date}',
+      resizeMode: modeIndex != null && modeIndex < ExportResizeMode.values.length
+          ? ExportResizeMode.values[modeIndex]
+          : ExportResizeMode.original,
+      resizeDimension: prefs.getInt(_resizeDimensionKey) ?? 2048,
+      dontEnlarge: prefs.getBool(_dontEnlargeKey) ?? true,
+      outputSharpenMedia: prefs.getInt(_sharpenMediaKey) ?? 0,
+      outputSharpen: prefs.getDouble(_sharpenAmountKey) ?? 0.0,
+      metadataMode: metaIndex != null && metaIndex < ExportMetadataMode.values.length
+          ? ExportMetadataMode.values[metaIndex]
+          : ExportMetadataMode.all,
+    );
   }
 
   void setQuality(int quality) {
@@ -426,6 +472,19 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
           metadataMode: ExportMetadataMode.copyrightOnly,
         );
         break;
+      case ExportPresetKind.instagram:
+        state = state.copyWith(
+          quality: 90,
+          maxDim: 1080,
+          resizeMode: ExportResizeMode.longEdge,
+          resizeDimension: 1080,
+          colorSpace: 0,
+          ultraHdr: false,
+          outputSharpenMedia: 1, // Screen
+          outputSharpen: 0.6,
+          metadataMode: ExportMetadataMode.copyrightOnly,
+        );
+        break;
       case ExportPresetKind.printLossless:
         state = state.copyWith(
           quality: 100,
@@ -472,29 +531,9 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (_userSet) return;
-      final modeIndex = prefs.getInt(_resizeModeKey);
-      final metaIndex = prefs.getInt(_metadataModeKey);
-      state = ExportSettings(
-        quality: prefs.getInt(_qualityKey) ?? 90,
-        maxDim: prefs.getInt(_maxDimKey) ?? 0,
-        colorSpace: prefs.getInt(_colorSpaceKey) ?? 0,
-        ultraHdr: prefs.getBool(_ultraHdrKey) ?? false,
-        hdrHeadroom: prefs.getDouble(_hdrHeadroomKey) ?? 2.0,
-        filenamePattern:
-            prefs.getString(_filenamePatternKey) ?? '{original}_{date}',
-        resizeMode: modeIndex != null && modeIndex < ExportResizeMode.values.length
-            ? ExportResizeMode.values[modeIndex]
-            : ExportResizeMode.original,
-        resizeDimension: prefs.getInt(_resizeDimensionKey) ?? 2048,
-        dontEnlarge: prefs.getBool(_dontEnlargeKey) ?? true,
-        outputSharpenMedia: prefs.getInt(_sharpenMediaKey) ?? 0,
-        outputSharpen: prefs.getDouble(_sharpenAmountKey) ?? 0.0,
-        metadataMode: metaIndex != null && metaIndex < ExportMetadataMode.values.length
-            ? ExportMetadataMode.values[metaIndex]
-            : ExportMetadataMode.all,
-      );
-    } catch (_) {
-      // No storage available (e.g. tests) — keep defaults.
+      state = _readFromPrefs(prefs);
+    } catch (e, st) {
+      axLog(LogDomain.export, 'ExportSettings restore fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 
@@ -513,8 +552,8 @@ class ExportSettingsNotifier extends Notifier<ExportSettings> {
       await prefs.setInt(_sharpenMediaKey, state.outputSharpenMedia);
       await prefs.setDouble(_sharpenAmountKey, state.outputSharpen);
       await prefs.setInt(_metadataModeKey, state.metadataMode.index);
-    } catch (_) {
-      // best effort
+    } catch (e, st) {
+      axLog(LogDomain.export, 'ExportSettings persist failed: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     }
   }
 }

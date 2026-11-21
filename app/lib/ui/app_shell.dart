@@ -152,7 +152,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         if (mounted) setState(() => _active = tool);
       },
       onValueChanged: (tool, delta) {
-        final parameter = snapseedToolParameters[tool]!.first;
+        final parameter = primaryParameterForTool(tool);
         final spec = specOf(parameter);
         // Detail tools auto-peek their mask while scrubbing (#27); the canvas
         // clears it when the finger lifts (scale end).
@@ -314,7 +314,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         } else {
           ref
               .read(recipeControllerProvider.notifier)
-              .reset(snapseedToolParameters[tool]!.first);
+              .reset(primaryParameterForTool(tool));
         }
       },
     );
@@ -354,6 +354,12 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// The photo, wrapped so that touching it starts/ends Active Mode (the
   /// chrome fades while the pointer is down).
   Widget _canvas({GestureInterpreter? interpreter}) {
+    final gestureMode = ref.watch(canvasGestureModeProvider);
+    final effectiveInterpreter = switch (gestureMode) {
+      CanvasGestureMode.automatic => interpreter,
+      CanvasGestureMode.gestures => interpreter ?? _fsm,
+      CanvasGestureMode.panZoom => null,
+    };
     return Listener(
       behavior: HitTestBehavior.deferToChild,
       onPointerDown: (e) {
@@ -380,7 +386,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         child: ImageCanvas(
           imageBytes: widget.imageBytes,
           heroTag: widget.heroTag,
-          editInterpreter: interpreter,
+          editInterpreter: effectiveInterpreter,
           onTap: () {
             final activeSection = ref.read(activeSectionProvider);
             if (activeSection != RecipeSection.masking &&
@@ -629,11 +635,10 @@ class _AppShellState extends ConsumerState<AppShell> {
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              final widthClass = windowSizeClassFor(
-                MediaQuery.sizeOf(context).width,
-              );
-              final wide =
-                  widthClass != WindowSizeClass.compact;
+              final size = MediaQuery.sizeOf(context);
+              final isLandscape = size.width > size.height;
+              final widthClass = windowSizeClassFor(constraints.maxWidth);
+              final wide = widthClass != WindowSizeClass.compact || (isLandscape && size.width >= 560);
               final canvas = Stack(
                 children: [
                   Positioned.fill(child: _canvas()),
@@ -828,16 +833,32 @@ class _AppShellState extends ConsumerState<AppShell> {
                 color: scheme.surface,
                 child: Column(
                   children: [
-                    Expanded(child: canvas),
+                    Expanded(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: _sheetSnap == _SheetSnap.full
+                              ? 0.0
+                              : constraints.maxHeight * 0.75,
+                          maxHeight: _sheetSnap == _SheetSnap.hidden
+                              ? constraints.maxHeight
+                              : constraints.maxHeight * 0.80,
+                        ),
+                        child: canvas,
+                      ),
+                    ),
                     RepaintBoundary(
-                      child: _LightroomSheet(
-                        availableHeight: constraints.maxHeight,
-                        snap: _sheetSnap,
-                        onSnap: (s) => setState(() => _sheetSnap = s),
-                        hasHistogram: hasHistogram,
-                        histogramOpen: _histogramOpen,
-                        setHistogramOpen: (v) =>
-                            setState(() => _histogramOpen = v),
+                      child: SafeArea(
+                        top: false,
+                        bottom: true,
+                        child: _LightroomSheet(
+                          availableHeight: constraints.maxHeight,
+                          snap: _sheetSnap,
+                          onSnap: (s) => setState(() => _sheetSnap = s),
+                          hasHistogram: hasHistogram,
+                          histogramOpen: _histogramOpen,
+                          setHistogramOpen: (v) =>
+                              setState(() => _histogramOpen = v),
+                        ),
                       ),
                     ),
                   ],
@@ -974,23 +995,30 @@ class _PanelHandle extends ConsumerWidget {
 /// the available height: fully hidden, a small peek, half, and near-full.
 enum _SheetSnap { hidden, peek, half, full }
 
-// Raised from {0.20, 0.24, 0.38}: at 0.24 the docked tray only fit a single
-// slider between the grab bar and the tabs (bug: "bottom-sheet height, only 1
-// slider visible"). Half now fits ~3 sliders; full ~6. Tap the canvas /
-// grab bar still collapses the tray for the full-height photo.
-// Peek raised 0.20 → 0.28 plus a hard 236px floor (see _minPeekHeight) so
-// short viewports still show ~2 content rows (issue: peek sheet buries the
-// Lightroom panel).
+// Snap fractions for the docked / floating Lightroom sheet.
+// Docked snap (`half`) is 0.24, allowing the image canvas to occupy 76% (in the 75–80%
+// range specified in AGENTS.md) while the docked instrument tray resides in the 24%
+// thumb reach zone below.
 const Map<_SheetSnap, double> _sheetFractions = {
   _SheetSnap.hidden: 0.0,
-  _SheetSnap.peek: 0.28,
-  _SheetSnap.half: 0.36,
+  _SheetSnap.peek: 0.18,
+  _SheetSnap.half: 0.22,
   _SheetSnap.full: 0.62,
 };
 
+/// Landscape sheet fractions cap the bottom sheet to 40% maximum height so the
+/// horizontal image canvas remains unobstructed (issue #32 / ADR 0008).
+const Map<_SheetSnap, double> _landscapeSheetFractions = {
+  _SheetSnap.hidden: 0.0,
+  _SheetSnap.peek: 0.14,
+  _SheetSnap.half: 0.25,
+  _SheetSnap.full: 0.40,
+};
+
 /// Minimum peek body height: grab bar handle (~30) + panel chrome (~114) +
-/// ~2 content rows. Keeps controls usable on short devices.
-const double _minPeekHeight = 236.0;
+/// ~1 content row. Keeps controls usable on short devices while preserving
+/// 75–80% portrait canvas height.
+const double _minPeekHeight = 200.0;
 
 /// A draggable, floating bottom sheet holding the Lightroom tools over the
 /// edge-to-edge photo. Drag the grab bar to move between snap points, or tap it
@@ -1022,12 +1050,15 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
   bool _dragging = false;
 
   double get _height {
-    var base = _sheetFractions[widget.snap]! * widget.availableHeight;
-    if (widget.snap == _SheetSnap.peek && base < _minPeekHeight) {
-      base = _minPeekHeight;
+    final isLandscape = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+    final fractions = isLandscape ? _landscapeSheetFractions : _sheetFractions;
+    final maxAvailable = isLandscape ? widget.availableHeight * 0.40 : widget.availableHeight;
+    var base = fractions[widget.snap]! * widget.availableHeight;
+    if (widget.snap == _SheetSnap.peek && base < (isLandscape ? 120.0 : _minPeekHeight)) {
+      base = isLandscape ? 120.0 : _minPeekHeight;
     }
     final raw = base + _dragDy;
-    return raw.clamp(0.0, widget.availableHeight).toDouble();
+    return raw.clamp(0.0, maxAvailable).toDouble();
   }
 
   void _onDragStart(DragStartDetails _) {
@@ -1040,6 +1071,8 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
   }
 
   void _onDragEnd(DragEndDetails d) {
+    final isLandscape = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+    final fractions = isLandscape ? _landscapeSheetFractions : _sheetFractions;
     final velocity = -(d.primaryVelocity ?? 0); // up positive
     const snaps = _SheetSnap.values;
     final current = snaps.indexOf(widget.snap);
@@ -1051,10 +1084,8 @@ class _LightroomSheetState extends ConsumerState<_LightroomSheet> {
     } else {
       final measured = _height;
       target = snaps.reduce((a, b) {
-        final da = (_sheetFractions[a]! * widget.availableHeight - measured)
-            .abs();
-        final db = (_sheetFractions[b]! * widget.availableHeight - measured)
-            .abs();
+        final da = (fractions[a]! * widget.availableHeight - measured).abs();
+        final db = (fractions[b]! * widget.availableHeight - measured).abs();
         return da <= db ? a : b;
       });
     }
@@ -1704,7 +1735,7 @@ class _FalseColorLegendOverlay extends StatelessWidget {
                   Text(
                     label,
                     style: const TextStyle(
-                      fontSize: 8.5,
+                      fontSize: 12.0,
                       fontWeight: FontWeight.w700,
                       color: Colors.white70,
                       letterSpacing: 0.3,

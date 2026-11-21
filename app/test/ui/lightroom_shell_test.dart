@@ -546,6 +546,57 @@ void main() {
       expect(recipe.exposure, isNotNull);
     },
   );
+
+  testWidgets(
+    'action bar pins cancel and apply buttons on compact viewport (w=360)',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: Scaffold(body: LightroomShell())),
+        ),
+      );
+
+      final cancelFinder = find.byKey(const Key('tray-cancel'));
+      final applyFinder = find.byKey(const Key('tray-apply'));
+
+      expect(cancelFinder, findsOneWidget);
+      expect(applyFinder, findsOneWidget);
+
+      final cancelRect = tester.getRect(cancelFinder);
+      final applyRect = tester.getRect(applyFinder);
+
+      // Cancel button is pinned near the left edge (< 48)
+      expect(cancelRect.left, lessThan(48.0));
+      // Apply button is pinned near the right edge (> 300)
+      expect(applyRect.right, greaterThan(300.0));
+    },
+  );
+
+  testWidgets(
+    'undo and redo action buttons expose contextual history labels in tooltips',
+    (tester) async {
+      await pump(tester);
+
+      final controller = container.read(recipeControllerProvider.notifier);
+      controller.update(Parameter.exposure, 0.75);
+      controller.commit(label: 'Exposure +0.75');
+      await tester.pumpAndSettle();
+
+      final undoButton = find.byTooltip('Undo: Exposure +0.75');
+      expect(undoButton, findsOneWidget);
+
+      await tester.tap(undoButton);
+      await tester.pumpAndSettle();
+
+      final redoButton = find.byTooltip('Redo: Exposure +0.75');
+      expect(redoButton, findsOneWidget);
+    },
+  );
 }
 
 IconButton cancelBtn(WidgetTester tester) =>

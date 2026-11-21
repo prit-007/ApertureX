@@ -58,6 +58,15 @@ pub fn blur_apply_auto_depth(
     height: u32,
     params: ApiLensBlurParams,
 ) -> Result<Vec<u8>, String> {
+    let conf = crate::blur::compute_depth_confidence(&rgba, width as usize, height as usize);
+    if conf < 0.05 {
+        crate::api::logging::record_engine_error(
+            "Lens blur auto depth aborted: low confidence",
+            &format!("confidence {conf:.3} below threshold 0.05"),
+        );
+        return Ok(rgba);
+    }
+
     let depth_map = crate::ml::estimate_depth_map(
         &rgba,
         width as usize,
@@ -101,39 +110,70 @@ pub fn blur_apply_portrait(
     height: u32,
     amount: f32,
 ) -> Result<Vec<u8>, String> {
+    blur_apply_portrait_with_params(rgba, width, height, amount, 0, 0.3)
+}
+
+/// Applies one-tap AI portrait blur with custom bokeh shape and specular boost.
+pub fn blur_apply_portrait_with_params(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    amount: f32,
+    bokeh_shape: u8,
+    bokeh_boost: f32,
+) -> Result<Vec<u8>, String> {
     let (w, h) = (width as usize, height as usize);
 
     // Detect faces to find the subject
     let faces = detect_faces(rgba.clone(), width, height);
 
     // Estimate depth map
-    let depth_map = crate::ml::estimate_depth_map(&rgba, w, h, w, h)
+    let mut depth_map = crate::ml::estimate_depth_map(&rgba, w, h, w, h)
         .map_err(|e| format!("depth estimation failed: {e}"))?;
 
+    // Plateau facial depth variations to prevent partial blur across ears/nose
+    if !faces.is_empty() {
+        crate::blur::fuse_face_depth_plateau(&mut depth_map, w, h, &faces);
+    }
+
     // Determine focal point from the highest-scoring face, or center
-    let (focal_point, background_blur) = if let Some(face) = faces.into_iter().max_by(|a, b| {
-        a.score
-            .partial_cmp(&b.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    }) {
-        // Sample depth at face center (normalized coords -> pixel index)
+    let (focal_point, focal_range, background_blur) = if let Some(face) =
+        faces.iter().max_by(|a, b| {
+            a.score
+                .partial_cmp(&b.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }) {
         let cx = face.cx.clamp(0.0, 1.0);
         let cy = face.cy.clamp(0.0, 1.0);
-        let px = (cx * (w - 1) as f32).round() as usize;
-        let py = (cy * (h - 1) as f32).round() as usize;
-        let depth_at_face = depth_map[py * w + px].clamp(0.0, 1.0);
-        (depth_at_face, true)
+        let px = (cx * (w - 1) as f32).round() as isize;
+        let py = (cy * (h - 1) as f32).round() as isize;
+
+        // 5x5 median depth filter around face center to suppress noise/eye/pupil/glasses outliers
+        let mut face_depths = Vec::with_capacity(25);
+        for dy in -2..=2 {
+            for dx in -2..=2 {
+                let sx = (px + dx).clamp(0, (w - 1) as isize) as usize;
+                let sy = (py + dy).clamp(0, (h - 1) as isize) as usize;
+                face_depths.push(depth_map[sy * w + sx].clamp(0.0, 1.0));
+            }
+        }
+        face_depths.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let median_face_depth = face_depths[face_depths.len() / 2];
+
+        // Calibrate focal range dynamically to face bounding box height
+        let fr = (face.h * 0.50).clamp(0.10, 0.30);
+        (median_face_depth, fr, true)
     } else {
-        (0.5, false)
+        (0.5, 0.20, false)
     };
 
     let p = crate::blur::LensBlurParams::from_fields(
         true,
         amount,
         focal_point,
-        0.2, // shallow DoF for portrait
-        0,   // circle bokeh for soft portrait look
-        0.3, // subtle bokeh boost
+        focal_range,
+        bokeh_shape,
+        bokeh_boost,
         background_blur,
         36, // full quality for portrait
     );
@@ -170,39 +210,11 @@ pub fn estimate_depth_map(rgba: Vec<u8>, width: u32, height: u32) -> Result<Vec<
 /// input cannot yield reliable depth regardless of model output, so input
 /// texture variance is the leading indicator of depth confidence.
 pub fn depth_confidence(rgba: Vec<u8>, width: u32, height: u32) -> Result<f32, String> {
-    let n = (width as usize) * (height as usize);
-    if n == 0 || rgba.len() < n * 4 {
-        return Ok(0.0);
-    }
-
-    // Compute luminance variance of the input image as the leading indicator
-    // of depth-estimate reliability.
-    let mut lum_sum = 0.0f64;
-    let mut lum_sq_sum = 0.0f64;
-    let mut count = 0usize;
-    for i in (0..n * 4).step_by(4) {
-        let r = rgba[i] as f64 / 255.0;
-        let g = rgba[i + 1] as f64 / 255.0;
-        let b = rgba[i + 2] as f64 / 255.0;
-        let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-        lum_sum += luma;
-        lum_sq_sum += luma * luma;
-        count += 1;
-    }
-    if count == 0 {
-        return Ok(0.0);
-    }
-
-    let mean = lum_sum / count as f64;
-    let variance = lum_sq_sum / count as f64 - mean * mean;
-
-    // Map variance to [0,1] via saturating exponential:
-    //   conf = 1 - exp(-variance / scale)
-    // Uniform texture (variance ~ 0) → conf ~ 0
-    // High texture variance → conf → 1
-    let scale = 0.005;
-    let confidence = (1.0 - f64::exp(-variance / scale)) as f32;
-    Ok(confidence.clamp(0.0, 1.0))
+    Ok(crate::blur::compute_depth_confidence(
+        &rgba,
+        width as usize,
+        height as usize,
+    ))
 }
 
 /// Computes an on-device monocular depth map, optionally using an external plugin ONNX model path.
@@ -411,6 +423,15 @@ mod tests {
         let src = vec![128u8; w * h * 4];
         let out = blur_apply_portrait(src.clone(), w as u32, h as u32, 0.4)
             .expect("portrait blur must succeed");
+        assert_eq!(out.len(), w * h * 4);
+    }
+
+    #[test]
+    fn portrait_blur_with_custom_params_accepts_bokeh_shape() {
+        let (w, h) = (32, 32);
+        let src = vec![128u8; w * h * 4];
+        let out = blur_apply_portrait_with_params(src.clone(), w as u32, h as u32, 0.5, 2, 0.4)
+            .expect("portrait blur with custom params must succeed");
         assert_eq!(out.len(), w * h * 4);
     }
 

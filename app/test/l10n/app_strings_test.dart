@@ -91,5 +91,22 @@ void main() {
       expect(const AppStrings(Locale('ja')).histogram, 'ヒストグラム');
       expect(const AppStrings(Locale('zh')).histogram, '直方图');
     });
+
+    test('settings domain strings exist in all locales', () {
+      for (final code in ['en', 'es', 'de', 'fr', 'ja', 'zh']) {
+        final s = AppStrings(Locale(code));
+        expect(s.editorShellLayout.isNotEmpty, isTrue);
+        expect(s.panelsLightroom.isNotEmpty, isTrue);
+        expect(s.gesturesSnapseed.isNotEmpty, isTrue);
+        expect(s.palmRejection.isNotEmpty, isTrue);
+        expect(s.pressureSensitivity.isNotEmpty, isTrue);
+        expect(s.quality.isNotEmpty, isTrue);
+        expect(s.maxSizeLongSide.isNotEmpty, isTrue);
+        expect(s.onDeviceAiProcessing.isNotEmpty, isTrue);
+        expect(s.aiModelsAndNeuralRuntimes.isNotEmpty, isTrue);
+        expect(s.appOverviewAndPhilosophy.isNotEmpty, isTrue);
+        expect(s.openSourceLicenses.isNotEmpty, isTrue);
+      }
+    });
   });
 }

@@ -1,5 +1,8 @@
 import 'dart:async';
-import 'dart:io';
+import 'package:universal_io/io.dart';
+
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 
 /// Supported photo extensions for automatic import into the ApertureX library.
 const Set<String> kSupportedAutoImportExtensions = {
@@ -56,13 +59,15 @@ class AutoImportFolderWatcher {
           _processedPaths.add(entity.path);
         }
       }
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.gallery, 'FolderWatcher initial scan error: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       // Ignore initial scan errors
     }
 
     try {
       _subscription = dir.watch(recursive: false).listen(_handleEvent);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.gallery, 'FolderWatcher watch subscription fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
       // Platform may not support file watching; graceful degradation
     }
   }
@@ -89,7 +94,8 @@ class AutoImportFolderWatcher {
             _processedPaths.add(path);
             onPhotoDiscovered(file);
           }
-        } catch (_) {
+        } catch (e, st) {
+          axLog(LogDomain.gallery, 'FolderWatcher file discover fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
           // File might still be locked by camera tether; ignore until next event
         }
       }

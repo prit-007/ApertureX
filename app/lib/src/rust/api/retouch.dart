@@ -32,6 +32,7 @@ class ApiRetouchPatch {
   final double feather;
   final double opacity;
   final bool isClone;
+  final int modeIndex;
 
   const ApiRetouchPatch({
     required this.targetX,
@@ -42,6 +43,7 @@ class ApiRetouchPatch {
     required this.feather,
     required this.opacity,
     required this.isClone,
+    required this.modeIndex,
   });
 
   @override
@@ -53,7 +55,8 @@ class ApiRetouchPatch {
       radius.hashCode ^
       feather.hashCode ^
       opacity.hashCode ^
-      isClone.hashCode;
+      isClone.hashCode ^
+      modeIndex.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -67,5 +70,6 @@ class ApiRetouchPatch {
           radius == other.radius &&
           feather == other.feather &&
           opacity == other.opacity &&
-          isClone == other.isClone;
+          isClone == other.isClone &&
+          modeIndex == other.modeIndex;
 }

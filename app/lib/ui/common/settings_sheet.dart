@@ -31,21 +31,25 @@ import 'xmp_import_sheet.dart';
 import 'editor_guide_sheet.dart';
 import '../../features/editor/image_info_sheet.dart';
 import '../../core/updater/app_updater.dart';
-import '../../features/crop/crop_screen.dart';
 import '../../viewport/exposure_assist.dart';
+import '../settings/settings_hub.dart';
 import 'history_tree_sheet.dart';
 
 /// The verifiable trust line (#76): stated in the settings footer and the
 /// About dialog, and enforced against pubspec drift by
 /// `test/core/offline_guard_test.dart`.
 const String kOfflineClaim =
-    '100% Offline. Zero Cloud Analytics. No AI training on your photos. '
+    '100% On-Device Processing. Zero Cloud Analytics. No AI training on your photos. '
     'You own your data.';
 
 /// The settings sheet: categorized into clean cards for quick tools, assist & peaking,
 /// workspace shell, stylus input, and recipe presets (ADR 0008, 0009, 0011).
+@Deprecated('Use SettingsHub instead. Retained for backwards compatibility with legacy tests.')
 class SettingsSheet extends ConsumerWidget {
   const SettingsSheet({super.key});
+
+  /// Shows the modular [SettingsHub] in place of the deprecated monolithic sheet.
+  static Future<void> show(BuildContext context) => SettingsHub.show(context);
 
   Widget _card({
     required BuildContext context,
@@ -453,21 +457,6 @@ class SettingsSheet extends ConsumerWidget {
               onTap: () {
                 Navigator.of(context).maybePop();
                 HistoryTreeSheet.show(context);
-              },
-            ),
-            _Action(
-              icon: Icons.crop,
-              title: 'Crop & rotate...',
-              onTap: () {
-                final bytes = ref.read(activeImageBytesProvider);
-                Navigator.of(context).maybePop();
-                if (bytes != null) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => CropScreen(imageBytes: bytes),
-                    ),
-                  );
-                }
               },
             ),
             _Action(

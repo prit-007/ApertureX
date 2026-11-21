@@ -51,7 +51,9 @@ class _HslMixerState extends ConsumerState<HslMixer> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final hsl = ref.watch(recipeControllerProvider).recipe.hsl;
+    final hsl = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.hsl),
+    );
     final notifier = ref.read(recipeControllerProvider.notifier);
     final activeColor = _bands[_band];
     final activeBandName = _bandNames[_band];

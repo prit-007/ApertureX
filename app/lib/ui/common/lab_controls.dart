@@ -33,9 +33,11 @@ class LabControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recipe = ref.watch(recipeControllerProvider).recipe;
+    final shaderLabPreset = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.shaderLabPreset),
+    );
     final notifier = ref.read(recipeControllerProvider.notifier);
-    final activePreset = ShaderLabPreset.fromId(recipe.shaderLabPreset);
+    final activePreset = ShaderLabPreset.fromId(shaderLabPreset);
 
     return ListView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),

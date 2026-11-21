@@ -11,7 +11,7 @@ import 'mask.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'retouch.dart';
 
-// These functions are ignored because they are not marked as `pub`: `cancel_flag`, `lock_cancels`, `optics_params`
+// These functions are ignored because they are not marked as `pub`: `cancel_flag`, `export_full_with_branding_inner`, `lock_cancels`, `optics_params`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CancelStore`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`
 
@@ -48,6 +48,20 @@ Future<Uint8List> exportTiff16({
   required String xmp,
 }) => RustLib.instance.api.crateApiExportExportTiff16(
   rgba: rgba,
+  width: width,
+  height: height,
+  xmp: xmp,
+);
+
+/// Exports scene-linear RGB(A) float pixels as an uncompressed 16-bit-per-channel TIFF (#79).
+/// Directly maps scene-linear float [0.0, 1.0] to [0, 65535] without 8-bit clipping.
+Future<Uint8List> exportTiff16Linear({
+  required List<double> linear,
+  required int width,
+  required int height,
+  required String xmp,
+}) => RustLib.instance.api.crateApiExportExportTiff16Linear(
+  linear: linear,
   width: width,
   height: height,
   xmp: xmp,
@@ -110,6 +124,9 @@ Future<Uint8List> exportHdrMerge({
 
 /// Creates a cancel token. Pass it to [`export_full`], call
 /// [`export_cancel_set`] from the UI to abort, then [`export_cancel_drop`].
+///
+/// Limits in-flight tokens to [`MAX_CANCEL_TOKENS`] with oldest-first eviction
+/// to prevent unbounded memory growth from forgotten or leaked tokens.
 Future<BigInt> exportCancelNew() =>
     RustLib.instance.api.crateApiExportExportCancelNew();
 
@@ -166,6 +183,33 @@ Future<ExportResult> exportFullWithBranding({
   rgba: rgba,
   width: width,
   height: height,
+  spec: spec,
+  layers: layers,
+  retouchPatches: retouchPatches,
+  params: params,
+  curves: curves,
+  hsl: hsl,
+  exif: exif,
+  branding: branding,
+  c2Pa: c2Pa,
+);
+
+/// Runs the complete export recipe using image memory already resident in Rust
+/// under [handle], avoiding bridge serialization of multi-megapixel RGBA buffers (P1).
+/// Also automatically reuses any cached depth map associated with the handle (P4).
+Future<ExportResult> exportFullFromHandle({
+  required BigInt handle,
+  required ExportSpec spec,
+  required List<MaskLayer> layers,
+  required List<ApiRetouchPatch> retouchPatches,
+  required ColorParams params,
+  required CurveParams curves,
+  required List<double> hsl,
+  required List<int> exif,
+  required ExportBrandingSpec branding,
+  required C2paExportSpec c2Pa,
+}) => RustLib.instance.api.crateApiExportExportFullFromHandle(
+  handle: handle,
   spec: spec,
   layers: layers,
   retouchPatches: retouchPatches,

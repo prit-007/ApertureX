@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import 'image_format.dart';
 import '../color/blur_spec.dart';
 import '../color/grade_spec.dart';
@@ -10,21 +12,26 @@ import '../color/optics_spec.dart';
 import '../color/spatial_spec.dart';
 import '../edit/adjustment_layer.dart';
 import '../edit/geometry_spec.dart';
+import '../edit/recipe.dart' show PointColorDef;
 import '../edit/retouch_patch.dart';
 import '../settings/export_branding_settings.dart' show ExportBrandingSettings;
 import '../src/rust/api/blur.dart' as rust_blur;
 import '../src/rust/api/color.dart' as rust_color;
+import '../src/rust/api/compositing.dart' as rust_compositing;
 import '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
 import '../src/rust/api/decode.dart' as rust_decode;
 import '../src/rust/api/engine.dart' as rust_engine;
 import '../src/rust/api/exif.dart' as rust_exif;
 import '../src/rust/exif.dart' show ImageMetadata;
+import '../src/rust/api/expand.dart' as rust_expand;
 import '../src/rust/api/export.dart' as rust_export;
 import '../src/rust/api/geometry.dart' as rust_geometry;
+import '../src/rust/api/head_pose.dart' as rust_head_pose;
 import '../src/rust/api/histogram.dart' as rust_hist;
 import '../src/rust/api/icc.dart' as rust_icc;
 import '../src/rust/api/logging.dart' as rust_logging;
 import '../src/rust/api/mask.dart' as rust_mask;
+import '../src/rust/api/panorama.dart' as rust_panorama;
 import '../src/rust/api/preview.dart' as rust_preview;
 import '../src/rust/api/preview.dart' show PreviewBaseSpec;
 import '../src/rust/api/raw.dart' as rust_raw;
@@ -34,13 +41,26 @@ import '../src/rust/api/spatial.dart' as rust_spatial;
 import '../src/rust/frb_generated.dart';
 
 export '../src/rust/api/color.dart' show LutData;
-export '../src/rust/api/decode.dart' show ImageDims, RgbaImage;
+export '../src/rust/api/decode.dart' show ImageDims, RgbaImage, LinearRgbaImage;
 export '../src/rust/api/histogram.dart' show Histogram;
 export '../src/rust/api/preview.dart' show PreviewBaseSpec;
 export '../src/rust/api/exif.dart' show EmbeddedDepthResult;
 export '../src/rust/exif.dart' show ImageMetadata;
 export '../src/rust/api/mask.dart' show DetectedSky, DetectedSubject, DetectedFace;
 export '../src/rust/frb_generated.dart' show RustLib;
+
+/// A decoded scene-linear RGBA float image buffer with its dimensions.
+class LinearImage {
+  const LinearImage({
+    required this.width,
+    required this.height,
+    required this.data,
+  });
+
+  final int width;
+  final int height;
+  final Float32List data;
+}
 
 /// Thin, app-facing facade over the generated `flutter_rust_bridge` bindings.
 ///
@@ -173,22 +193,55 @@ class AxEngine {
   static Future<ImageDims> jpegDimensions(Uint8List jpeg) =>
       rust_decode.jpegDimensions(jpeg: jpeg);
 
-  static Future<RgbaImage> decodeJpegRgba(Uint8List jpeg) =>
-      rust_decode.decodeJpegRgba(jpeg: jpeg);
+  static Future<RgbaImage> decodeJpegRgba(Uint8List jpeg) async {
+    try {
+      return await rust_decode.decodeJpegRgba(jpeg: jpeg);
+    } catch (e) {
+      axLog(LogDomain.engine, 'decodeJpegRgba failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
+  /// Decodes a JPEG and returns the RGBA pixels inside the requested region of
+  /// interest [x, y, width, height].
+  ///
+  /// Uses a memory-safe decode+crop strategy in the Rust engine with immediate
+  /// full-buffer deallocation.
   static Future<RgbaImage> decodeJpegRoi(
     Uint8List jpeg, {
     required int x,
     required int y,
     required int width,
     required int height,
-  }) => rust_decode.decodeJpegRoi(
-    jpeg: jpeg,
-    x: x,
-    y: y,
-    width: width,
-    height: height,
-  );
+  }) async {
+    try {
+      return await rust_decode.decodeJpegRoi(
+        jpeg: jpeg,
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+      );
+    } catch (e) {
+      axLog(LogDomain.engine, 'decodeJpegRoi failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
+
+  /// Decodes a JPEG into a scene-linear float RGBA buffer ([0.0, 1.0]).
+  static Future<LinearImage> decodeJpegLinear(Uint8List jpeg) async {
+    try {
+      final res = await rust_decode.decodeJpegLinear(jpeg: jpeg);
+      return LinearImage(
+        width: res.width,
+        height: res.height,
+        data: Float32List.fromList(res.data),
+      );
+    } catch (e) {
+      axLog(LogDomain.engine, 'decodeJpegLinear failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   // --- RAW/DNG decode (P3) --------------------------------------------------
 
@@ -201,14 +254,21 @@ class AxEngine {
   static Future<Uint8List?> extractRawEmbeddedPreview(Uint8List raw) async {
     try {
       return await rust_raw.rawExtractEmbeddedPreview(raw: raw);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.engine, 'Raw embedded preview extraction failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       return null;
     }
   }
 
   /// Decodes a RAW/DNG to a full sRGB RGBA8 buffer (demosaic + camera colour).
-  static Future<RgbaImage> decodeRawRgba(Uint8List raw) =>
-      rust_raw.decodeRawRgba(raw: raw);
+  static Future<RgbaImage> decodeRawRgba(Uint8List raw) async {
+    try {
+      return await rust_raw.decodeRawRgba(raw: raw);
+    } catch (e) {
+      axLog(LogDomain.engine, 'decodeRawRgba failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   /// Decodes only the RGBA pixels inside the region of interest (tile path).
   static Future<RgbaImage> decodeRawRoi(
@@ -224,6 +284,30 @@ class AxEngine {
     width: width,
     height: height,
   );
+
+  /// Decodes a RAW/DNG into a full scene-linear float RGBA buffer ([0.0, 1.0]).
+  static Future<LinearImage> decodeRawLinear(Uint8List raw) async {
+    try {
+      final res = await rust_raw.decodeRawLinear(raw: raw);
+      return LinearImage(
+        width: res.width,
+        height: res.height,
+        data: Float32List.fromList(res.data),
+      );
+    } catch (e) {
+      axLog(LogDomain.engine, 'decodeRawLinear failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
+
+  /// Evicts the cached linear RAW image from resident memory.
+  static Future<void> clearRawDecodeCache() async {
+    try {
+      await rust_raw.clearRawDecodeCache();
+    } catch (e, st) {
+      axLog(LogDomain.engine, 'Clear raw decode cache failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
+    }
+  }
 
   /// Universal image decoder: routes RAW through rawler/libraw, JPEG through zune-jpeg,
   /// and PNG/WebP/GIF/BMP through package:image into a canonical [RgbaImage].
@@ -247,7 +331,9 @@ class AxEngine {
           height: image.height,
         );
       }
-    } catch (_) {}
+    } catch (e, st) {
+      axLog(LogDomain.engine, 'Image codec decode fallback failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
+    }
     return await decodeJpegRgba(bytes);
   }
 
@@ -265,7 +351,8 @@ class AxEngine {
               final jpegSlice = bytes.sublist(i, j + 2);
               try {
                 return await decodeJpegRgba(jpegSlice);
-              } catch (_) {
+              } catch (e, st) {
+                axLog(LogDomain.engine, 'JPEG slice decode fallback to image decoder', level: LogLevel.warning, error: e.toString(), stack: st.toString());
                 final image = img.decodeImage(jpegSlice);
                 if (image != null) {
                   return RgbaImage(
@@ -275,7 +362,9 @@ class AxEngine {
                   );
                 }
               }
-            } catch (_) {}
+            } catch (e, st) {
+              axLog(LogDomain.engine, 'HEIC/AVIF embedded preview scan failed', level: LogLevel.warning, error: e.toString(), stack: st.toString());
+            }
             break;
           }
         }
@@ -283,8 +372,8 @@ class AxEngine {
     }
 
     // 2. Parse ispe box for dimensions: [size (4B)][ispe (4B)][version/flags (4B)][width (4B)][height (4B)]
-    var width = 64;
-    var height = 64;
+    int? width;
+    int? height;
     for (var i = 0; i < bytes.length - 15; i++) {
       if (bytes[i] == 0x69 && // 'i'
           bytes[i + 1] == 0x73 && // 's'
@@ -303,7 +392,13 @@ class AxEngine {
       }
     }
 
-    // Fallback: Valid RGBA buffer with parsed or default dimensions
+    if (width == null || height == null) {
+      throw UnsupportedError(
+        'Unsupported HEIC/AVIF: container contains no decodable image preview or ispe metadata.',
+      );
+    }
+
+    // Fallback: Valid RGBA buffer with parsed dimensions
     final length = width * height * 4;
     final rgba = Uint8List(length);
     for (var p = 0; p < width * height; p++) {
@@ -389,17 +484,21 @@ class AxEngine {
   /// Bakes the grade (and tone curves) into a 2D-packed 3D LUT atlas — the
   /// preview path. Rust owns the colour math; the result feeds `lut.frag`.
   ///
-  /// Shadows and highlights are edge-preserving guided spatial ops baked into
-  /// the base image; they are zeroed out here to prevent double-application (#160).
+  /// User intent for shadows and highlights is preserved. Preview pipelines that
+  /// bake spatial shadows/highlights into `previewBase` pass a spec with zeroed
+  /// shadows/highlights to prevent double-application.
   static Future<rust_color.LutData> bakeLut3d(
     GradeSpec spec, {
-    int size = 33,
-  }) => rust_color.bakeLut3D(
-    size: size,
-    params: _colorParams(spec.copyWith(shadows: 0.0, highlights: 0.0)),
-    curves: _curveParams(spec),
-    hsl: spec.hsl,
-  );
+    int size = 65,
+  }) {
+    assert(size >= 2 && size <= 256, 'LUT size must be in [2, 256]');
+    return rust_color.bakeLut3D(
+      size: size,
+      params: _colorParams(spec),
+      curves: _curveParams(spec),
+      hsl: spec.hsl,
+    );
+  }
 
   /// Applies the same pipeline per-pixel over RGBA (the export twin of the LUT).
   static Future<Uint8List> gradeRgba(Uint8List rgba, GradeSpec spec) =>
@@ -638,6 +737,91 @@ class AxEngine {
     width: width,
     height: height,
   );
+
+  /// Solves perspective and rotation adjustments from user-placed guide lines.
+  static Future<rust_geometry.ApiGuidedTransformResult> solveGuidedTransform(
+    List<rust_geometry.ApiGuideLine> guides,
+  ) => rust_geometry.solveGuidedTransform(guides: guides);
+
+  /// Applies Point Color adjustments targeting specific hue/sat/lum ranges.
+  static Future<Uint8List> applyPointColors(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    required List<PointColorDef> points,
+  }) {
+    if (points.isEmpty) return Future.value(rgba);
+    final apiPoints = points
+        .map(
+          (p) => rust_color.ApiPointColor(
+            targetH: p.targetHue,
+            targetS: p.targetSat,
+            targetL: p.targetLum,
+            rangeH: p.rangeHue,
+            rangeS: p.rangeSat,
+            rangeL: p.rangeLum,
+            falloff: p.falloff,
+            shiftH: p.hueShift,
+            shiftS: p.satShift,
+            shiftL: p.lumShift,
+          ),
+        )
+        .toList();
+    return rust_color.applyPointColors(
+      rgba: rgba,
+      width: width,
+      height: height,
+      points: apiPoints,
+    );
+  }
+
+  /// Applies camera calibration primary shifts and shadow tint.
+  static Future<Uint8List> applyCameraCalibration(
+    Uint8List rgba, {
+    required int width,
+    required int height,
+    double shadowTint = 0.0,
+    double redHue = 0.0,
+    double redSat = 0.0,
+    double greenHue = 0.0,
+    double greenSat = 0.0,
+    double blueHue = 0.0,
+    double blueSat = 0.0,
+  }) {
+    return rust_color.applyCameraCalibration(
+      rgba: rgba,
+      width: width,
+      height: height,
+      calib: rust_color.ApiCalibrationParams(
+        shadowTint: shadowTint,
+        redHue: redHue,
+        redSat: redSat,
+        greenHue: greenHue,
+        greenSat: greenSat,
+        blueHue: blueHue,
+        blueSat: blueSat,
+      ),
+    );
+  }
+
+  /// Composites an overlay image onto base RGBA with blend mode and opacity.
+  static Future<Uint8List> compositeLayers({
+    required Uint8List baseRgba,
+    required Uint8List overlayRgba,
+    required int width,
+    required int height,
+    int blendModeIndex = 0,
+    double opacity = 1.0,
+  }) {
+    return rust_compositing.compositeLayers(
+      baseRgba: baseRgba,
+      overlayRgba: overlayRgba,
+      width: width,
+      height: height,
+      blendModeIndex: blendModeIndex,
+      opacity: opacity,
+    );
+  }
 
   /// Automatically detects dominant subject center, radii, and feather from [rgba] pixels.
   static Future<rust_mask.DetectedSubject?> detectSubject(
@@ -913,6 +1097,7 @@ class AxEngine {
             feather: p.feather,
             opacity: p.opacity,
             isClone: p.mode == RetouchMode.clone,
+            modeIndex: p.mode.index,
           ),
         )
         .toList();
@@ -937,6 +1122,15 @@ class AxEngine {
 
   // --- Rust-resident preview (#37 spike A) -----------------------------------
 
+  static int _safeBigIntHandle(BigInt val, String handleName) {
+    if (val.isValidInt && val >= BigInt.zero) {
+      return val.toInt();
+    }
+    throw RangeError(
+      'Bridge handle $handleName: $val out of safe platform integer range [0, 2^53 - 1]',
+    );
+  }
+
   /// Uploads decoded proxy pixels into the Rust-resident store and returns an
   /// opaque handle. This is the only bridge crossing for source pixels —
   /// every later bake references the handle instead.
@@ -944,25 +1138,35 @@ class AxEngine {
     required Uint8List rgba,
     required int width,
     required int height,
-  }) async =>
-      (
-        await rust_preview.previewOpen(
-          rgba: rgba,
-          width: width,
-          height: height,
-        )
-      ).toInt();
+  }) async {
+    try {
+      final handle = await rust_preview.previewOpen(
+        rgba: rgba,
+        width: width,
+        height: height,
+      );
+      return _safeBigIntHandle(handle, 'previewOpen');
+    } catch (e) {
+      axLog(LogDomain.engine, 'previewOpen failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   static Future<int> previewOpenJpeg({
     required Uint8List jpegBytes,
     int maxDim = 1440,
-  }) async =>
-      (
-        await rust_preview.previewOpenJpeg(
-          jpegBytes: jpegBytes,
-          maxDim: maxDim,
-        )
-      ).toInt();
+  }) async {
+    try {
+      final handle = await rust_preview.previewOpenJpeg(
+        jpegBytes: jpegBytes,
+        maxDim: maxDim,
+      );
+      return _safeBigIntHandle(handle, 'previewOpenJpeg');
+    } catch (e) {
+      axLog(LogDomain.engine, 'previewOpenJpeg failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   /// Drops the resident image for [handle]. Unknown and double closes are
   /// safe, so widget teardown can call it unconditionally.
@@ -976,6 +1180,17 @@ class AxEngine {
         handle: BigInt.from(handle),
         depthMap: depthMap,
       );
+
+  /// Computes or retrieves the cached depth map for [handle] from the resident source.
+  /// Reuses pre-warmed background depth if available, eliminating UI jank.
+  static Future<Float32List> previewEstimateDepth(int handle) =>
+      rust_preview.previewEstimateDepth(handle: BigInt.from(handle));
+
+  /// Returns the precomputed depth map if already cached in resident memory, without blocking.
+  static Future<Float32List?> previewGetCachedDepth(int handle) async {
+    final depth = await rust_preview.previewGetCachedDepth(handle: BigInt.from(handle));
+    return depth != null ? Float32List.fromList(depth) : null;
+  }
 
   /// Stores an embedded JPEG GDepth plane (255 = nearest) for [handle].
   /// Rust inverts it into the preview convention and resizes it to the proxy.
@@ -1001,12 +1216,19 @@ class AxEngine {
     required List<AdjustmentLayer> layers,
     List<MaskGroup> maskGroups = const [],
     List<RetouchPatch> retouchPatches = const <RetouchPatch>[],
-  }) => rust_preview.previewBase(
-    handle: BigInt.from(handle),
-    spec: spec,
-    layers: _mapLayers(layers, maskGroups),
-    retouchPatches: _mapRetouchPatches(retouchPatches),
-  );
+  }) async {
+    try {
+      return await rust_preview.previewBase(
+        handle: BigInt.from(handle),
+        spec: spec,
+        layers: _mapLayers(layers, maskGroups),
+        retouchPatches: _mapRetouchPatches(retouchPatches),
+      );
+    } catch (e) {
+      axLog(LogDomain.engine, 'previewBase failed on handle $handle: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   /// Halo rows of context ([spatial margin]) the high-zoom ROI overlay (#55)
   /// must decode above and below its output band so [bakeRoiBand] sees true
@@ -1187,6 +1409,7 @@ class AxEngine {
     double hdrHeadroom = 2.0,
     int? outputSharpenMedia,
     double? outputSharpen,
+    int? bandRows,
   }) async {
     final exportSpec = rust_export.ExportSpec(
       flipH: geometry.flipH,
@@ -1255,7 +1478,7 @@ class AxEngine {
       blurSampleCount: blur.blurSampleCount,
       quality: quality,
       maxDim: maxDim ?? 0,
-      bandRows: 256,
+      bandRows: bandRows ?? 0,
       cancelToken: BigInt.from(cancelToken),
       colorSpace: colorSpace,
       ultraHdr: ultraHdr,
@@ -1270,42 +1493,237 @@ class AxEngine {
     final colorP = _colorParams(spec);
     final curveP = _curveParams(spec);
 
-    final result = (branding != null || c2pa != null)
-        ? await rust_export.exportFullWithBranding(
-            rgba: rgba,
-            width: width,
-            height: height,
-            spec: exportSpec,
-            layers: mappedLayers,
-            params: colorP,
-            curves: curveP,
-            hsl: spec.hsl,
-            exif: exif,
-            branding: branding ??
-                const ExportBrandingSettings().toRustBrandingSpec(),
-            c2Pa: c2pa ??
-                rust_export.C2paExportSpec(
-                  enableC2Pa: false,
-                  devicePrivateKey: Uint8List(0),
-                  recipeJson: '',
-                  exifSummary: '',
-                ),
-            retouchPatches: mappedPatches,
-          )
-        : await rust_export.exportFull(
-            rgba: rgba,
-            width: width,
-            height: height,
-            spec: exportSpec,
-            layers: mappedLayers,
-            params: colorP,
-            curves: curveP,
-            hsl: spec.hsl,
-            exif: exif,
-            retouchPatches: mappedPatches,
-          );
-    return result.cancelled ? null : result.jpeg;
+    try {
+      final result = (branding != null || c2pa != null)
+          ? await rust_export.exportFullWithBranding(
+              rgba: rgba,
+              width: width,
+              height: height,
+              spec: exportSpec,
+              layers: mappedLayers,
+              params: colorP,
+              curves: curveP,
+              hsl: spec.hsl,
+              exif: exif,
+              branding: branding ??
+                  const ExportBrandingSettings().toRustBrandingSpec(),
+              c2Pa: c2pa ??
+                  rust_export.C2paExportSpec(
+                    enableC2Pa: false,
+                    devicePrivateKey: Uint8List(0),
+                    recipeJson: '',
+                    exifSummary: '',
+                  ),
+              retouchPatches: mappedPatches,
+            )
+          : await rust_export.exportFull(
+              rgba: rgba,
+              width: width,
+              height: height,
+              spec: exportSpec,
+              layers: mappedLayers,
+              params: colorP,
+              curves: curveP,
+              hsl: spec.hsl,
+              exif: exif,
+              retouchPatches: mappedPatches,
+            );
+      return result.cancelled ? null : result.jpeg;
+    } catch (e) {
+      axLog(LogDomain.export, 'exportJpegFull failed: $e', level: LogLevel.error);
+      rethrow;
+    }
   }
+
+  /// Runs the export recipe directly from Rust resident memory for [handle] (P1).
+  /// Avoids multi-megapixel RGBA bridge copies and reuses any cached depth map (P4).
+  static Future<Uint8List?> exportJpegFullFromHandle({
+    required int handle,
+    required GradeSpec spec,
+    SpatialSpec spatial = const SpatialSpec(),
+    OpticsSpec optics = const OpticsSpec(),
+    GeometrySpec geometry = const GeometrySpec(),
+    LensBlurSpec blur = const LensBlurSpec(),
+    List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
+    List<MaskGroup> maskGroups = const <MaskGroup>[],
+    List<RetouchPatch> retouchPatches = const <RetouchPatch>[],
+    List<int> exif = const <int>[],
+    rust_export.ExportBrandingSpec? branding,
+    rust_export.C2paExportSpec? c2pa,
+    Uint8List? lutAtlas,
+    int lutSize = 0,
+    int quality = 90,
+    int? maxDim,
+    int cancelToken = 0,
+    int colorSpace = 0,
+    bool ultraHdr = false,
+    double hdrHeadroom = 2.0,
+    int? outputSharpenMedia,
+    double? outputSharpen,
+    int? bandRows,
+  }) async {
+    final exportSpec = rust_export.ExportSpec(
+      flipH: geometry.flipH,
+      flipV: geometry.flipV,
+      turns: geometry.rotation,
+      angle: geometry.straighten,
+      cropL: geometry.crop[0],
+      cropT: geometry.crop[1],
+      cropR: geometry.crop[2],
+      cropB: geometry.crop[3],
+      perspectiveX: geometry.perspectiveX,
+      perspectiveY: geometry.perspectiveY,
+      skewX: geometry.skewX,
+      skewY: geometry.skewY,
+      shadows: spatial.shadows,
+      highlights: spatial.highlights,
+      clarity: spatial.clarity,
+      texture: spatial.texture,
+      sharpen: spatial.sharpen,
+      sharpenRadius: spatial.sharpenRadius,
+      sharpenDetail: spatial.sharpenDetail,
+      sharpenMasking: spatial.sharpenMasking,
+      outputSharpenMedia: outputSharpenMedia ?? spatial.outputSharpenMedia,
+      outputSharpen: outputSharpen ?? spatial.outputSharpen,
+      denoiseLuma: spatial.denoiseLuma,
+      denoiseChroma: spatial.denoiseChroma,
+      aiDenoise: spatial.aiDenoise,
+      dehaze: spatial.dehaze,
+      vignette: spatial.vignette,
+      vignetteMidpoint: spatial.vignetteMidpoint,
+      vignetteFeather: spatial.vignetteFeather,
+      vignetteRoundness: spatial.vignetteRoundness,
+      vignetteHighlights: spatial.vignetteHighlights,
+      grain: spatial.grain,
+      grainSize: spatial.grainSize,
+      grainRoughness: spatial.grainRoughness,
+      removeChromaticAberration: optics.removeChromaticAberration,
+      defringePurpleAmount: optics.defringePurpleAmount,
+      defringePurpleHueMin: optics.defringePurpleHueMin,
+      defringePurpleHueMax: optics.defringePurpleHueMax,
+      defringeGreenAmount: optics.defringeGreenAmount,
+      defringeGreenHueMin: optics.defringeGreenHueMin,
+      defringeGreenHueMax: optics.defringeGreenHueMax,
+      profileCorrections: optics.profileCorrections,
+      profileDistortion: optics.profileDistortion,
+      profileVignetting: optics.profileVignetting,
+      filmBloom: spatial.filmBloom,
+      filmBloomRadius: spatial.filmBloomRadius,
+      filmBloomThreshold: spatial.filmBloomThreshold,
+      filmDust: spatial.filmDust,
+      filmHalation: spatial.filmHalation,
+      filmHalationRadius: spatial.filmHalationRadius,
+      filmHalationThreshold: spatial.filmHalationThreshold,
+      filmScratches: spatial.filmScratches,
+      shaderLabPreset: spatial.shaderLabPreset,
+      shaderParam1: spatial.shaderParam1,
+      shaderParam2: spatial.shaderParam2,
+      shaderParam3: spatial.shaderParam3,
+      blurEnabled: blur.enabled,
+      blurAmount: blur.amount,
+      blurFocalPoint: blur.focalPoint,
+      blurFocalRange: blur.focalRange,
+      blurBokehShape: blur.bokehShape.index,
+      blurBokehBoost: blur.bokehBoost,
+      blurBackgroundBlur: blur.blurBackgroundBlur,
+      blurSampleCount: blur.blurSampleCount,
+      quality: quality,
+      maxDim: maxDim ?? 0,
+      bandRows: bandRows ?? 0,
+      cancelToken: BigInt.from(cancelToken),
+      colorSpace: colorSpace,
+      ultraHdr: ultraHdr,
+      hdrHeadroom: hdrHeadroom,
+      lutAtlas: lutAtlas ?? Uint8List(0),
+      lutSize: lutSize,
+    );
+
+    final mappedLayers = _mapLayers(layers, maskGroups);
+    final mappedPatches = _mapRetouchPatches(retouchPatches);
+    final colorP = _colorParams(spec);
+    final curveP = _curveParams(spec);
+
+    try {
+      final result = await rust_export.exportFullFromHandle(
+        handle: BigInt.from(handle),
+        spec: exportSpec,
+        layers: mappedLayers,
+        params: colorP,
+        curves: curveP,
+        hsl: spec.hsl,
+        exif: exif,
+        branding: branding ??
+            const ExportBrandingSettings().toRustBrandingSpec(),
+        c2Pa: c2pa ??
+            rust_export.C2paExportSpec(
+              enableC2Pa: false,
+              devicePrivateKey: Uint8List(0),
+              recipeJson: '',
+              exifSummary: '',
+            ),
+        retouchPatches: mappedPatches,
+      );
+      return result.cancelled ? null : result.jpeg;
+    } catch (e) {
+      axLog(LogDomain.export, 'exportJpegFullFromHandle failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
+
+  /// Runs streaming/tiled export directly from resident memory for [handle] (F2).
+  ///
+  /// Splits processing into [bandRows] (defaults to 128 rows for >50MP images to prevent mobile OOM),
+  /// keeping working buffers tightly bounded instead of loading full multi-megapixel graded frames.
+  static Future<Uint8List?> exportJpegTiledFromHandle({
+    required int handle,
+    required GradeSpec spec,
+    SpatialSpec spatial = const SpatialSpec(),
+    OpticsSpec optics = const OpticsSpec(),
+    GeometrySpec geometry = const GeometrySpec(),
+    LensBlurSpec blur = const LensBlurSpec(),
+    List<AdjustmentLayer> layers = const <AdjustmentLayer>[],
+    List<MaskGroup> maskGroups = const <MaskGroup>[],
+    List<RetouchPatch> retouchPatches = const <RetouchPatch>[],
+    List<int> exif = const <int>[],
+    rust_export.ExportBrandingSpec? branding,
+    rust_export.C2paExportSpec? c2pa,
+    Uint8List? lutAtlas,
+    int lutSize = 0,
+    int quality = 90,
+    int? maxDim,
+    int cancelToken = 0,
+    int colorSpace = 0,
+    bool ultraHdr = false,
+    double hdrHeadroom = 2.0,
+    int? outputSharpenMedia,
+    double? outputSharpen,
+    int bandRows = 128,
+  }) =>
+      exportJpegFullFromHandle(
+        handle: handle,
+        spec: spec,
+        spatial: spatial,
+        optics: optics,
+        geometry: geometry,
+        blur: blur,
+        layers: layers,
+        maskGroups: maskGroups,
+        retouchPatches: retouchPatches,
+        exif: exif,
+        branding: branding,
+        c2pa: c2pa,
+        lutAtlas: lutAtlas,
+        lutSize: lutSize,
+        quality: quality,
+        maxDim: maxDim,
+        cancelToken: cancelToken,
+        colorSpace: colorSpace,
+        ultraHdr: ultraHdr,
+        hdrHeadroom: hdrHeadroom,
+        outputSharpenMedia: outputSharpenMedia,
+        outputSharpen: outputSharpen,
+        bandRows: bandRows,
+      );
 
   /// Non-cancellable [exportJpegFull] for callers (and the reference tests)
   /// that just want the bytes. Routes through the same single-call pipeline, so
@@ -1352,8 +1770,11 @@ class AxEngine {
       ultraHdr: ultraHdr,
       hdrHeadroom: hdrHeadroom,
     );
-    // Token 0 never cancels, so this is always non-null.
-    return jpeg!;
+    // Token 0 never cancels, so this is expected to be non-null.
+    if (jpeg == null) {
+      throw StateError('Export pipeline returned null JPEG buffer unexpectedly');
+    }
+    return jpeg;
   }
 
   /// Exports raw camera CFA samples into a lossless DNG format with injected
@@ -1377,6 +1798,20 @@ class AxEngine {
   }) =>
       rust_export.exportTiff16(
         rgba: rgba,
+        width: width,
+        height: height,
+        xmp: xmp,
+      );
+
+  /// Exports scene-linear float RGB(A) pixels directly into a 16-bit TIFF without 8-bit quantization.
+  static Future<Uint8List> exportTiff16Linear({
+    required Float32List linear,
+    required int width,
+    required int height,
+    required String xmp,
+  }) =>
+      rust_export.exportTiff16Linear(
+        linear: linear,
         width: width,
         height: height,
         xmp: xmp,
@@ -1458,8 +1893,15 @@ class AxEngine {
 
   /// Creates an opaque cancel token for [exportJpegFull]. Call
   /// [exportCancelSet] to abort a running export, then [exportCancelDrop].
-  static Future<int> exportCancelNew() async =>
-      (await rust_export.exportCancelNew()).toInt();
+  static Future<int> exportCancelNew() async {
+    try {
+      final token = await rust_export.exportCancelNew();
+      return _safeBigIntHandle(token, 'exportCancelNew');
+    } catch (e) {
+      axLog(LogDomain.engine, 'exportCancelNew failed: $e', level: LogLevel.error);
+      rethrow;
+    }
+  }
 
   /// Signals the export running with [token] to stop at its next band boundary.
   static Future<void> exportCancelSet(int token) =>
@@ -1479,4 +1921,70 @@ class AxEngine {
   /// suitable for `LinearProgressIndicator.value` and `ExportProgressPoller`.
   static Future<double> exportProgressFraction(int token) async =>
       (await exportProgressGet(token)) / 1000.0;
+
+  /// Expands canvas margins using [mode] (0: Smart, 1: White, 2: Black, 3: Reflect).
+  static Future<Uint8List> expandCanvas({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    required int padLeft,
+    required int padTop,
+    required int padRight,
+    required int padBottom,
+    int mode = 0,
+  }) =>
+      rust_expand.expandCanvas(
+        rgba: rgba,
+        width: width,
+        height: height,
+        padLeft: padLeft,
+        padTop: padTop,
+        padRight: padRight,
+        padBottom: padBottom,
+        modeIndex: mode,
+      );
+
+  /// Estimates 3D head orientation (yaw, pitch, roll) from facial landmarks.
+  static Future<rust_head_pose.ApiHeadPoseEstimate> estimateHeadPose({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+  }) =>
+      rust_head_pose.estimateHeadPose(
+        rgba: rgba,
+        width: width,
+        height: height,
+      );
+
+  /// Adjusts facial pose parameters and facial expressions.
+  static Future<Uint8List> adjustHeadPose({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+    double deltaYaw = 0.0,
+    double deltaPitch = 0.0,
+    double deltaRoll = 0.0,
+    double smile = 0.0,
+    double pupilDistance = 0.0,
+  }) =>
+      rust_head_pose.adjustHeadPose(
+        rgba: rgba,
+        width: width,
+        height: height,
+        deltaYaw: deltaYaw,
+        deltaPitch: deltaPitch,
+        deltaRoll: deltaRoll,
+        smile: smile,
+        pupilDistance: pupilDistance,
+      );
+
+  /// Stitches 2 or more overlapping photos into a seamless panorama.
+  static Future<rust_panorama.ApiPanoramaResult> stitchPanorama({
+    required List<rust_panorama.ApiPanoramaInput> images,
+    int projectionIndex = 0,
+  }) =>
+      rust_panorama.stitchPanorama(
+        images: images,
+        projectionIndex: projectionIndex,
+      );
 }

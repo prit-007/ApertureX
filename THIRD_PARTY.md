@@ -31,10 +31,12 @@ in the app (`flutter_licenses` / `LicenseRegistry`) once code exists.
 | [`sqlite3`](https://pub.dev/packages/sqlite3) | ^3.5.2 | BSD-3-Clause | Dart FFI bindings to SQLite for drift; since 3.5.2 its native-assets build hook bundles `libsqlite3` on every platform, replacing `sqlite3_flutter_libs` (#104; pinned via `dependency_overrides`, F-Droid vendoring tracked in #69) | ✅ |
 | [`qr_flutter`](https://pub.dev/packages/qr_flutter) | ^4.1.0 | BSD-3-Clause | QR code generation and rendering for Look/QR open standard sharing | ✅ |
 | [`zxing2`](https://pub.dev/packages/zxing2) | ^0.2.4 | Apache-2.0 | Pure-Dart port of ZXing for offline QR code detection and decoding from image buffers | ✅ |
+| [`universal_io`](https://pub.dev/packages/universal_io) | ^2.2.2 | Apache-2.0 | Cross-platform drop-in abstraction for dart:io, enabling clean web compilation | ✅ |
 | [`miniz_oxide`](https://crates.io/crates/miniz_oxide) | ^0.8.9 | MIT OR Zlib OR Apache-2.0 | Pure-Rust DEFLATE decompression for watermark PNG decoding & C2PA payload decompression | ✅ |
 | [`ort`](https://crates.io/crates/ort) | =2.0.0-rc.15 | MIT OR Apache-2.0 | Safe Rust bindings for ONNX Runtime Mobile (`ai` feature; not in the default build) | ✅ |
 | [`ort-sys`](https://crates.io/crates/ort-sys) | =2.0.0-rc.15 | MIT OR Apache-2.0 | Low-level ONNX Runtime bindings and native runtime (`ai` feature; not in the default build) | ✅ |
 | [`zune-jpeg`](https://crates.io/crates/zune-jpeg) | ^0.5.15 | MIT OR Apache-2.0 OR Zlib | Rust JPEG decode for the ROI/proxy path | ✅ |
+| [`Pat David Film Curves`](https://pixls.us) | PIXLS.US / G'MIC | CC-BY-SA-4.0 | Analog film curve reference models and color transfer profiles | ✅ |
 
 Apache-2.0 and GPL-3.0 are mutually compatible (both are modern, patent-granting
 licenses); the Apache NOTICE must be carried through, which we do here.
@@ -48,6 +50,13 @@ preserving rawler's notice.
 (Independent JPEG Group) JPEG reference implementation, whose permissive license
 permits use in free and proprietary software provided the IJG notice is carried.
 The IJG notice must be included in the app's license bundle.
+
+`Pat David Film Curves` are mathematical spline control points and color response
+datasets derived from analog film response curves published on PIXLS.US (licensed
+under CC-BY-SA-4.0 / CC0 public domain derivations). These curves are embedded as
+numerical LUT / parameter data in presets; appropriate attribution notices and look
+origins are carried in `about_screen.dart` and `preset_catalog.dart` without asserting
+false universal inbound GPL copyleft compatibility.
 
 ### Optional ONNX Runtime Mobile — release builds
 

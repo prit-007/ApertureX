@@ -305,4 +305,28 @@ void main() {
       expect(isSectionModified(r, RecipeSection.lab), isTrue);
     });
   });
+
+  group('withValue boolean mapping', () {
+    test('withValue enables booleans at partial preset amount v >= 0.5 and disables below', () {
+      const r = EditRecipe.neutral;
+
+      expect(withValue(r, Parameter.blurEnabled, 0.5).blurEnabled, isTrue);
+      expect(withValue(r, Parameter.blurEnabled, 0.49).blurEnabled, isFalse);
+
+      expect(withValue(r, Parameter.removeChromaticAberration, 0.5).removeChromaticAberration, isTrue);
+      expect(withValue(r, Parameter.removeChromaticAberration, 0.49).removeChromaticAberration, isFalse);
+
+      expect(withValue(r, Parameter.profileCorrections, 0.5).profileCorrections, isTrue);
+      expect(withValue(r, Parameter.profileCorrections, 0.49).profileCorrections, isFalse);
+
+      expect(withValue(r, Parameter.blurBackgroundBlur, 0.5).blurBackgroundBlur, isTrue);
+      expect(withValue(r, Parameter.blurBackgroundBlur, 0.49).blurBackgroundBlur, isFalse);
+
+      expect(withValue(r, Parameter.flipH, 0.5).flipH, isTrue);
+      expect(withValue(r, Parameter.flipH, 0.49).flipH, isFalse);
+
+      expect(withValue(r, Parameter.flipV, 0.5).flipV, isTrue);
+      expect(withValue(r, Parameter.flipV, 0.49).flipV, isFalse);
+    });
+  });
 }

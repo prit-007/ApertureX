@@ -183,7 +183,9 @@ class SnapseedScrubHud extends StatelessWidget {
     } else if (param == Parameter.exposure) {
       readout = '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}';
     } else {
-      readout = '${value >= 0 ? '+' : ''}${(value * 100).round()}';
+      final scaled = value * 100;
+      final isFractional = (scaled - scaled.roundToDouble()).abs() >= 0.05 && scaled.abs() < 20.0;
+      readout = '${value >= 0 ? '+' : ''}${isFractional ? scaled.toStringAsFixed(1) : scaled.round().toString()}';
     }
 
     return AnimatedOpacity(

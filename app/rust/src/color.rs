@@ -405,6 +405,187 @@ pub fn apply_hsl(c: [f32; 3], hsl: &[f32; 24]) -> [f32; 3] {
     hsl_to_rgb([nh, ns, nl])
 }
 
+/// A point color adjustment targeting a specific hue/sat/lum window with smooth falloff.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PointColor {
+    pub target_h: f32, // 0..1
+    pub target_s: f32, // 0..1
+    pub target_l: f32, // 0..1
+    pub range_h: f32,  // 0..1
+    pub range_s: f32,  // 0..1
+    pub range_l: f32,  // 0..1
+    pub falloff: f32,  // 0..1
+    pub shift_h: f32,  // -1..1
+    pub shift_s: f32,  // -1..1
+    pub shift_l: f32,  // -1..1
+}
+
+impl Default for PointColor {
+    fn default() -> Self {
+        Self {
+            target_h: 0.0,
+            target_s: 0.5,
+            target_l: 0.5,
+            range_h: 0.1,
+            range_s: 0.3,
+            range_l: 0.3,
+            falloff: 0.5,
+            shift_h: 0.0,
+            shift_s: 0.0,
+            shift_l: 0.0,
+        }
+    }
+}
+
+/// Applies a single Point Color adjustment to an RGB pixel.
+pub fn apply_point_color(c: [f32; 3], p: &PointColor) -> [f32; 3] {
+    if p.shift_h == 0.0 && p.shift_s == 0.0 && p.shift_l == 0.0 {
+        return c;
+    }
+    let [h, s, l] = rgb_to_hsl(c);
+
+    let raw_diff = (h - p.target_h).abs();
+    let dist_h = if raw_diff > 0.5 {
+        1.0 - raw_diff
+    } else {
+        raw_diff
+    };
+    let dist_s = (s - p.target_s).abs();
+    let dist_l = (l - p.target_l).abs();
+
+    let rh = p.range_h.max(1e-4);
+    let rs = p.range_s.max(1e-4);
+    let rl = p.range_l.max(1e-4);
+
+    if dist_h > rh || dist_s > rs || dist_l > rl {
+        return c;
+    }
+
+    let inner_h = rh * (1.0 - p.falloff).clamp(0.0, 1.0);
+    let wh = if dist_h <= inner_h {
+        1.0
+    } else {
+        1.0 - (dist_h - inner_h) / (rh - inner_h + 1e-5)
+    };
+
+    let inner_s = rs * (1.0 - p.falloff).clamp(0.0, 1.0);
+    let ws = if dist_s <= inner_s {
+        1.0
+    } else {
+        1.0 - (dist_s - inner_s) / (rs - inner_s + 1e-5)
+    };
+
+    let inner_l = rl * (1.0 - p.falloff).clamp(0.0, 1.0);
+    let wl = if dist_l <= inner_l {
+        1.0
+    } else {
+        1.0 - (dist_l - inner_l) / (rl - inner_l + 1e-5)
+    };
+
+    let weight = (wh * ws * wl).clamp(0.0, 1.0);
+    if weight <= 0.0 {
+        return c;
+    }
+
+    let new_h = (h + p.shift_h * weight).rem_euclid(1.0);
+    let new_s = (s + p.shift_s * weight).clamp(0.0, 1.0);
+    let new_l = (l + p.shift_l * weight).clamp(0.0, 1.0);
+
+    let shifted = hsl_to_rgb([new_h, new_s, new_l]);
+    [
+        c[0] * (1.0 - weight) + shifted[0] * weight,
+        c[1] * (1.0 - weight) + shifted[1] * weight,
+        c[2] * (1.0 - weight) + shifted[2] * weight,
+    ]
+}
+
+/// Applies a list of Point Color adjustments.
+pub fn apply_point_colors(mut c: [f32; 3], points: &[PointColor]) -> [f32; 3] {
+    for p in points {
+        c = apply_point_color(c, p);
+    }
+    c
+}
+
+/// Camera calibration parameters (Adobe Lightroom aligned).
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct CalibrationParams {
+    pub shadow_tint: f32, // -100..100
+    pub red_hue: f32,     // -100..100
+    pub red_sat: f32,     // -100..100
+    pub green_hue: f32,   // -100..100
+    pub green_sat: f32,   // -100..100
+    pub blue_hue: f32,    // -100..100
+    pub blue_sat: f32,    // -100..100
+}
+
+/// Applies primary and shadow tint calibration.
+pub fn apply_calibration(c: [f32; 3], calib: &CalibrationParams) -> [f32; 3] {
+    if calib.shadow_tint == 0.0
+        && calib.red_hue == 0.0
+        && calib.red_sat == 0.0
+        && calib.green_hue == 0.0
+        && calib.green_sat == 0.0
+        && calib.blue_hue == 0.0
+        && calib.blue_sat == 0.0
+    {
+        return c;
+    }
+
+    let mut r = c[0];
+    let mut g = c[1];
+    let mut b = c[2];
+
+    if calib.shadow_tint != 0.0 {
+        let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        let shadow_weight = (1.0 - luma.clamp(0.0, 1.0)).powi(2);
+        let tint = (calib.shadow_tint / 100.0) * 0.1 * shadow_weight;
+        r += tint;
+        g -= tint;
+        b += tint;
+    }
+
+    if calib.red_hue != 0.0 || calib.red_sat != 0.0 {
+        let r_weight = (r - g.max(b)).max(0.0) / (r + 1e-5);
+        if r_weight > 0.0 {
+            let hue_shift = (calib.red_hue / 100.0) * 0.2 * r_weight;
+            g += hue_shift * r;
+            let sat_mult = 1.0 + (calib.red_sat / 100.0) * r_weight;
+            r = (r * sat_mult).max(0.0);
+        }
+    }
+
+    if calib.green_hue != 0.0 || calib.green_sat != 0.0 {
+        let g_weight = (g - r.max(b)).max(0.0) / (g + 1e-5);
+        if g_weight > 0.0 {
+            let hue_shift = (calib.green_hue / 100.0) * 0.2 * g_weight;
+            if hue_shift > 0.0 {
+                b += hue_shift * g;
+            } else {
+                r -= hue_shift * g;
+            }
+            let sat_mult = 1.0 + (calib.green_sat / 100.0) * g_weight;
+            g = (g * sat_mult).max(0.0);
+        }
+    }
+
+    if calib.blue_hue != 0.0 || calib.blue_sat != 0.0 {
+        let b_weight = (b - r.max(g)).max(0.0) / (b + 1e-5);
+        if b_weight > 0.0 {
+            let hue_shift = (calib.blue_hue / 100.0) * 0.2 * b_weight;
+            if hue_shift > 0.0 {
+                r += hue_shift * b;
+            } else {
+                g -= hue_shift * b;
+            }
+            let sat_mult = 1.0 + (calib.blue_sat / 100.0) * b_weight;
+            b = (b * sat_mult).max(0.0);
+        }
+    }
+
+    [r.max(0.0), g.max(0.0), b.max(0.0)]
+}
+
 /// sRGB-encoded `[0,1]` → Oklab (Ottosson 2020), a perceptually uniform space.
 fn srgb_to_oklab(r: f32, g: f32, b: f32) -> [f32; 3] {
     let (r, g, b) = (srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b));
@@ -692,6 +873,43 @@ pub fn grade_pixel_u8(
     ]
 }
 
+/// High-precision scene-linear float pixel grading.
+///
+/// Accepts scene-linear float `[r_lin, g_lin, b_lin]` (0.0..1.0+) and returns
+/// the graded display-referred sRGB float triple [0.0..1.0].
+#[inline(always)]
+pub fn grade_pixel_f32(
+    r_lin: f32,
+    g_lin: f32,
+    b_lin: f32,
+    p: GradeParams,
+    curves: Option<&CurveSet>,
+    hsl: &[f32; 24],
+) -> [f32; 3] {
+    grade_from_linear([r_lin, g_lin, b_lin], p, curves, hsl)
+}
+
+/// High-precision scene-linear float pixel grading returning scene-linear float values.
+///
+/// Applies the color pipeline to scene-linear inputs and converts the output back into
+/// scene-linear space, preserving highlight headroom and preventing clipping.
+#[inline(always)]
+pub fn grade_pixel_linear(
+    r_lin: f32,
+    g_lin: f32,
+    b_lin: f32,
+    p: GradeParams,
+    curves: Option<&CurveSet>,
+    hsl: &[f32; 24],
+) -> [f32; 3] {
+    let srgb = grade_from_linear([r_lin, g_lin, b_lin], p, curves, hsl);
+    [
+        srgb_to_linear(srgb[0]),
+        srgb_to_linear(srgb[1]),
+        srgb_to_linear(srgb[2]),
+    ]
+}
+
 /// Applies the point-wise colour pipeline with no curves/HSL — used by local
 /// adjustments (masks).
 pub fn grade_pointwise(c: [f32; 3], p: GradeParams) -> [f32; 3] {
@@ -930,6 +1148,47 @@ mod tests {
     fn atlas_dimensions_are_packed_as_documented() {
         let rgba = bake_lut3d(8, GradeParams::default());
         assert_eq!(rgba.len(), (8 * 8 * 8 * 4) as usize);
+    }
+
+    #[test]
+    fn point_color_targets_matching_range() {
+        let red = [0.9, 0.1, 0.1];
+        let p = PointColor {
+            target_h: 0.0,
+            target_s: 0.8,
+            target_l: 0.5,
+            range_h: 0.1,
+            range_s: 0.4,
+            range_l: 0.4,
+            falloff: 0.2,
+            shift_h: 0.33, // shift toward green
+            shift_s: 0.0,
+            shift_l: 0.0,
+        };
+        let shifted = apply_point_color(red, &p);
+        assert!(shifted[1] > red[1], "green channel should increase");
+
+        let blue = [0.1, 0.1, 0.9];
+        let untouched = apply_point_color(blue, &p);
+        assert_eq!(untouched, blue, "blue should not be touched by red target");
+    }
+
+    #[test]
+    fn camera_calibration_adjusts_primaries() {
+        let neutral = [0.5, 0.5, 0.5];
+        let calib_zero = CalibrationParams::default();
+        assert_eq!(apply_calibration(neutral, &calib_zero), neutral);
+
+        let calib_shadow = CalibrationParams {
+            shadow_tint: 50.0,
+            ..Default::default()
+        };
+        let shadow_px = [0.1, 0.1, 0.1];
+        let tinted = apply_calibration(shadow_px, &calib_shadow);
+        assert!(
+            tinted[0] > tinted[1],
+            "magenta tint increases red over green"
+        );
     }
 
     #[test]

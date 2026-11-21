@@ -235,12 +235,12 @@ pub fn export_dng(raw_bytes: &[u8], xmp: &str) -> Result<Vec<u8>, String> {
     Ok(buf.into_inner())
 }
 
-/// Exports RGBA8 pixels as an uncompressed 16-bit-per-channel TIFF.
+/// Exports RGBA8 pixels as an uncompressed 16-bit-per-channel TIFF with optional XMP metadata (#79).
 ///
 /// Each 8-bit channel is promoted to 16-bit by left-shifting (v << 8),
 /// preserving the full 16-bit container for downstream tools that expect
 /// 16-bit TIFF even when the source pipeline is 8-bit.
-pub fn export_tiff16(rgba: &[u8], width: u32, height: u32, _xmp: &str) -> Result<Vec<u8>, String> {
+pub fn export_tiff16(rgba: &[u8], width: u32, height: u32, xmp: &str) -> Result<Vec<u8>, String> {
     if width == 0 || height == 0 {
         return Err("TIFF export requires non-zero dimensions".into());
     }
@@ -253,9 +253,10 @@ pub fn export_tiff16(rgba: &[u8], width: u32, height: u32, _xmp: &str) -> Result
     let row_bytes = w * 3 * 2; // 3 channels * 2 bytes (16-bit)
     let image_bytes = row_bytes * h;
 
+    let has_xmp = !xmp.trim().is_empty();
+    let num_entries = if has_xmp { 13u16 } else { 12u16 };
     let header_size = 8u32;
     let ifd0_offset = header_size;
-    let num_entries = 12u16;
     let ifd_entry_size = 12u16;
     let next_ifd_offset = 0u32;
     let ifd0_size = 2 + num_entries as usize * ifd_entry_size as usize + 4;
@@ -266,7 +267,13 @@ pub fn export_tiff16(rgba: &[u8], width: u32, height: u32, _xmp: &str) -> Result
     let bps_offset = data_offset;
     let x_res_offset = bps_offset + bits_per_sample_data.len() as u32 * 2;
     let y_res_offset = x_res_offset + 8;
-    let strip_offset = y_res_offset + 8;
+    let xmp_bytes = xmp.as_bytes();
+    let xmp_offset = y_res_offset + 8;
+    let strip_offset = if has_xmp {
+        xmp_offset + xmp_bytes.len() as u32
+    } else {
+        xmp_offset
+    };
 
     // Build IFD0 entries
     let mut ifd = Vec::with_capacity(num_entries as usize * ifd_entry_size as usize);
@@ -304,6 +311,10 @@ pub fn export_tiff16(rgba: &[u8], width: u32, height: u32, _xmp: &str) -> Result
     ifd_entry!(283, 5, 1, y_res_offset);
     // 296 ResolutionUnit (SHORT, 1) = 2 (inches)
     ifd_entry!(296, 3, 1, 2u32);
+    if has_xmp {
+        // 700 XMP Metadata (BYTE, count) -> offset
+        ifd_entry!(700, 1, xmp_bytes.len(), xmp_offset);
+    }
 
     if ifd.len() != num_entries as usize * ifd_entry_size as usize {
         return Err("IFD entry count mismatch".into());
@@ -331,6 +342,9 @@ pub fn export_tiff16(rgba: &[u8], width: u32, height: u32, _xmp: &str) -> Result
     // YResolution (72/1)
     buf.extend_from_slice(&72u32.to_le_bytes());
     buf.extend_from_slice(&1u32.to_le_bytes());
+    if has_xmp {
+        buf.extend_from_slice(xmp_bytes);
+    }
 
     // Image data: convert RGBA8 -> 16-bit RGB (drop alpha, v << 8)
     for y in 0..h {
@@ -342,6 +356,107 @@ pub fn export_tiff16(rgba: &[u8], width: u32, height: u32, _xmp: &str) -> Result
             buf.extend_from_slice(&(r << 8).to_le_bytes());
             buf.extend_from_slice(&(g << 8).to_le_bytes());
             buf.extend_from_slice(&(b << 8).to_le_bytes());
+        }
+    }
+
+    Ok(buf)
+}
+
+/// Exports scene-linear floating-point samples directly to genuine 16-bit TIFF
+/// without 8-bit quantization or clipping, preserving full sensor dynamic range.
+pub fn export_tiff16_linear(
+    linear_rgb: &[f32],
+    width: u32,
+    height: u32,
+    xmp: &str,
+) -> Result<Vec<u8>, String> {
+    if width == 0 || height == 0 {
+        return Err("TIFF export requires non-zero dimensions".into());
+    }
+    let w = width as usize;
+    let h = height as usize;
+    if linear_rgb.len() < w * h * 3 {
+        return Err("Linear RGB buffer too small for dimensions".into());
+    }
+
+    let has_xmp = !xmp.trim().is_empty();
+    let num_entries = if has_xmp { 13u16 } else { 12u16 };
+    let ifd_entry_size = 12u16;
+    let row_bytes = w * 3 * 2;
+    let image_bytes = row_bytes * h;
+
+    let header_size = 8u32;
+    let ifd0_offset = header_size;
+    let next_ifd_offset = 0u32;
+    let ifd0_size = 2 + num_entries as usize * ifd_entry_size as usize + 4;
+    let data_offset = ifd0_offset + ifd0_size as u32;
+
+    let bits_per_sample_data = [16u16, 16u16, 16u16];
+    let bps_offset = data_offset;
+    let x_res_offset = bps_offset + bits_per_sample_data.len() as u32 * 2;
+    let y_res_offset = x_res_offset + 8;
+    let xmp_bytes = xmp.as_bytes();
+    let xmp_offset = y_res_offset + 8;
+    let strip_offset = if has_xmp {
+        xmp_offset + xmp_bytes.len() as u32
+    } else {
+        xmp_offset
+    };
+
+    let mut ifd = Vec::with_capacity(num_entries as usize * ifd_entry_size as usize);
+    macro_rules! ifd_entry {
+        ($tag:expr, $type:expr, $count:expr, $val_or_offset:expr) => {
+            ifd.extend_from_slice(&($tag as u16).to_le_bytes());
+            ifd.extend_from_slice(&($type as u16).to_le_bytes());
+            ifd.extend_from_slice(&($count as u32).to_le_bytes());
+            ifd.extend_from_slice(&($val_or_offset as u32).to_le_bytes());
+        };
+    }
+
+    ifd_entry!(256, 3, 1, width);
+    ifd_entry!(257, 3, 1, height);
+    ifd_entry!(258, 3, 3, bps_offset);
+    ifd_entry!(259, 3, 1, 1u32);
+    ifd_entry!(262, 3, 1, 2u32);
+    ifd_entry!(273, 4, 1, strip_offset);
+    ifd_entry!(277, 3, 1, 3u32);
+    ifd_entry!(278, 4, 1, h as u32);
+    ifd_entry!(279, 4, 1, image_bytes as u32);
+    ifd_entry!(282, 5, 1, x_res_offset);
+    ifd_entry!(283, 5, 1, y_res_offset);
+    ifd_entry!(296, 3, 1, 2u32);
+    if has_xmp {
+        ifd_entry!(700, 1, xmp_bytes.len(), xmp_offset);
+    }
+
+    let mut buf = Vec::with_capacity(strip_offset as usize + image_bytes);
+    buf.extend_from_slice(b"II\x2a\x00");
+    buf.extend_from_slice(&ifd0_offset.to_le_bytes());
+    buf.extend_from_slice(&num_entries.to_le_bytes());
+    buf.extend_from_slice(&ifd);
+    buf.extend_from_slice(&next_ifd_offset.to_le_bytes());
+
+    for &v in &bits_per_sample_data {
+        buf.extend_from_slice(&v.to_le_bytes());
+    }
+    buf.extend_from_slice(&72u32.to_le_bytes());
+    buf.extend_from_slice(&1u32.to_le_bytes());
+    buf.extend_from_slice(&72u32.to_le_bytes());
+    buf.extend_from_slice(&1u32.to_le_bytes());
+    if has_xmp {
+        buf.extend_from_slice(xmp_bytes);
+    }
+
+    // Direct floating-point to 16-bit mapping: [0.0, 1.0] -> [0, 65535]
+    for y in 0..h {
+        for x in 0..w {
+            let idx = (y * w + x) * 3;
+            let r = (linear_rgb[idx].clamp(0.0, 1.0) * 65535.0).round() as u16;
+            let g = (linear_rgb[idx + 1].clamp(0.0, 1.0) * 65535.0).round() as u16;
+            let b = (linear_rgb[idx + 2].clamp(0.0, 1.0) * 65535.0).round() as u16;
+            buf.extend_from_slice(&r.to_le_bytes());
+            buf.extend_from_slice(&g.to_le_bytes());
+            buf.extend_from_slice(&b.to_le_bytes());
         }
     }
 
@@ -2354,5 +2469,39 @@ pub(crate) mod tests {
         // Verify total length: header(8) + num_entries(2) + entries(144) + next_ifd(4) + bps(6) + xres(8) + yres(8) + image(96)
         let expected_len = 8 + 2 + 12 * 12 + 4 + 6 + 8 + 8 + 4 * 4 * 3 * 2;
         assert_eq!(tiff.len(), expected_len, "TIFF length mismatch");
+    }
+
+    #[test]
+    fn export_tiff16_with_xmp_embeds_tag_700() {
+        let rgba = vec![128u8; 2 * 2 * 4];
+        let xmp_payload = "<x:xmpmeta>TestXMP</x:xmpmeta>";
+        let tiff =
+            export_tiff16(&rgba, 2, 2, xmp_payload).expect("export_tiff16 with xmp should succeed");
+
+        let num_entries = u16::from_le_bytes([tiff[8], tiff[9]]);
+        assert_eq!(num_entries, 13, "TIFF with XMP must have 13 IFD entries");
+
+        let found_xmp = tiff
+            .windows(xmp_payload.len())
+            .any(|w| w == xmp_payload.as_bytes());
+        assert!(found_xmp, "Exported TIFF must contain embedded XMP payload");
+    }
+
+    #[test]
+    fn export_tiff16_linear_preserves_full_16bit_range() {
+        // Linear RGB samples with high dynamic range values
+        let linear = vec![0.0f32, 0.5f32, 1.0f32, 0.25f32, 0.75f32, 0.125f32];
+        let tiff =
+            export_tiff16_linear(&linear, 2, 1, "").expect("export_tiff16_linear should succeed");
+        assert_eq!(&tiff[0..4], b"II\x2a\x00");
+
+        // The first pixel is (0.0, 0.5, 1.0) -> (0, 32768, 65535)
+        let pixel0_start = 8 + 2 + 12 * 12 + 4 + 6 + 8 + 8;
+        let r0 = u16::from_le_bytes([tiff[pixel0_start], tiff[pixel0_start + 1]]);
+        let g0 = u16::from_le_bytes([tiff[pixel0_start + 2], tiff[pixel0_start + 3]]);
+        let b0 = u16::from_le_bytes([tiff[pixel0_start + 4], tiff[pixel0_start + 5]]);
+        assert_eq!(r0, 0);
+        assert_eq!(g0, 32768);
+        assert_eq!(b0, 65535);
     }
 }

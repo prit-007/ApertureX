@@ -768,98 +768,94 @@ double valueOf(EditRecipe recipe, Parameter p) => switch (p) {
   Parameter.shaderParam3 => recipe.shaderParam3,
 };
 
+/// Consolidated extension on [EditRecipe] to apply a single [Parameter] value
+/// without repetitive individual copyWith calls.
+extension EditRecipeParamExtension on EditRecipe {
+  EditRecipe copyWithParam(Parameter p, double v) {
+    final b = v >= 0.5;
+    final r = v.round();
+    return copyWith(
+      exposure: p == Parameter.exposure ? v : null,
+      contrast: p == Parameter.contrast ? v : null,
+      highlights: p == Parameter.highlights ? v : null,
+      shadows: p == Parameter.shadows ? v : null,
+      whites: p == Parameter.whites ? v : null,
+      blacks: p == Parameter.blacks ? v : null,
+      clarity: p == Parameter.clarity ? v : null,
+      texture: p == Parameter.texture ? v : null,
+      dehaze: p == Parameter.dehaze ? v : null,
+      vignette: p == Parameter.vignette ? v : null,
+      vignetteMidpoint: p == Parameter.vignetteMidpoint ? v : null,
+      vignetteFeather: p == Parameter.vignetteFeather ? v : null,
+      vignetteRoundness: p == Parameter.vignetteRoundness ? v : null,
+      vignetteHighlights: p == Parameter.vignetteHighlights ? v : null,
+      grain: p == Parameter.grain ? v : null,
+      grainSize: p == Parameter.grainSize ? v : null,
+      grainRoughness: p == Parameter.grainRoughness ? v : null,
+      sharpen: p == Parameter.sharpen ? v : null,
+      sharpenRadius: p == Parameter.sharpenRadius ? v : null,
+      sharpenDetail: p == Parameter.sharpenDetail ? v : null,
+      sharpenMasking: p == Parameter.sharpenMasking ? v : null,
+      outputSharpen: p == Parameter.outputSharpen ? v : null,
+      outputSharpenMedia: p == Parameter.outputSharpenMedia ? r : null,
+      denoiseLuma: p == Parameter.denoiseLuma ? v : null,
+      denoiseChroma: p == Parameter.denoiseChroma ? v : null,
+      aiDenoise: p == Parameter.aiDenoise ? v : null,
+      temperature: p == Parameter.temperature ? v : null,
+      tint: p == Parameter.tint ? v : null,
+      vibrance: p == Parameter.vibrance ? v : null,
+      saturation: p == Parameter.saturation ? v : null,
+      gradeShadowHue: p == Parameter.gradeShadowHue ? v : null,
+      gradeShadowSat: p == Parameter.gradeShadowSat ? v : null,
+      gradeShadowLum: p == Parameter.gradeShadowLum ? v : null,
+      gradeMidHue: p == Parameter.gradeMidHue ? v : null,
+      gradeMidSat: p == Parameter.gradeMidSat ? v : null,
+      gradeMidLum: p == Parameter.gradeMidLum ? v : null,
+      gradeHighlightHue: p == Parameter.gradeHighlightHue ? v : null,
+      gradeHighlightSat: p == Parameter.gradeHighlightSat ? v : null,
+      gradeHighlightLum: p == Parameter.gradeHighlightLum ? v : null,
+      gradeBlending: p == Parameter.gradeBlending ? v : null,
+      gradeBalance: p == Parameter.gradeBalance ? v : null,
+      removeChromaticAberration: p == Parameter.removeChromaticAberration ? b : null,
+      profileCorrections: p == Parameter.profileCorrections ? b : null,
+      defringePurpleAmount: p == Parameter.defringePurpleAmount ? v : null,
+      defringeGreenAmount: p == Parameter.defringeGreenAmount ? v : null,
+      profileDistortion: p == Parameter.profileDistortion ? v : null,
+      profileVignetting: p == Parameter.profileVignetting ? v : null,
+      blurEnabled: p == Parameter.blurEnabled ? b : null,
+      blurAmount: p == Parameter.blurAmount ? v : null,
+      blurFocalPoint: p == Parameter.blurFocalPoint ? v : null,
+      blurFocalRange: p == Parameter.blurFocalRange ? v : null,
+      blurBokehBoost: p == Parameter.blurBokehBoost ? v : null,
+      blurBokehShape: p == Parameter.blurBokehShape ? r : null,
+      blurBackgroundBlur: p == Parameter.blurBackgroundBlur ? b : null,
+      rotation: p == Parameter.rotation ? ((r % 4 + 4) % 4) : null,
+      flipH: p == Parameter.flipH ? b : null,
+      flipV: p == Parameter.flipV ? b : null,
+      straighten: p == Parameter.straighten ? v : null,
+      perspectiveX: p == Parameter.perspectiveX ? v : null,
+      perspectiveY: p == Parameter.perspectiveY ? v : null,
+      skewX: p == Parameter.skewX ? v : null,
+      skewY: p == Parameter.skewY ? v : null,
+      filmHalation: p == Parameter.filmHalation ? v : null,
+      filmHalationRadius: p == Parameter.filmHalationRadius ? v : null,
+      filmHalationThreshold: p == Parameter.filmHalationThreshold ? v : null,
+      filmBloom: p == Parameter.filmBloom ? v : null,
+      filmBloomRadius: p == Parameter.filmBloomRadius ? v : null,
+      filmBloomThreshold: p == Parameter.filmBloomThreshold ? v : null,
+      filmDust: p == Parameter.filmDust ? v : null,
+      filmScratches: p == Parameter.filmScratches ? v : null,
+      shaderParam1: p == Parameter.shaderParam1 ? v : null,
+      shaderParam2: p == Parameter.shaderParam2 ? v : null,
+      shaderParam3: p == Parameter.shaderParam3 ? v : null,
+    );
+  }
+}
+
 /// A copy of [recipe] with [p] set to [value] (clamped). Pure.
 EditRecipe withValue(EditRecipe recipe, Parameter p, double value) {
   final v = clampParameter(p, value);
-  return switch (p) {
-    Parameter.exposure => recipe.copyWith(exposure: v),
-    Parameter.contrast => recipe.copyWith(contrast: v),
-    Parameter.highlights => recipe.copyWith(highlights: v),
-    Parameter.shadows => recipe.copyWith(shadows: v),
-    Parameter.whites => recipe.copyWith(whites: v),
-    Parameter.blacks => recipe.copyWith(blacks: v),
-    Parameter.clarity => recipe.copyWith(clarity: v),
-    Parameter.texture => recipe.copyWith(texture: v),
-    Parameter.dehaze => recipe.copyWith(dehaze: v),
-    Parameter.vignette => recipe.copyWith(vignette: v),
-    Parameter.vignetteMidpoint => recipe.copyWith(vignetteMidpoint: v),
-    Parameter.vignetteFeather => recipe.copyWith(vignetteFeather: v),
-    Parameter.vignetteRoundness => recipe.copyWith(vignetteRoundness: v),
-    Parameter.vignetteHighlights => recipe.copyWith(vignetteHighlights: v),
-    Parameter.grain => recipe.copyWith(grain: v),
-    Parameter.grainSize => recipe.copyWith(grainSize: v),
-    Parameter.grainRoughness => recipe.copyWith(grainRoughness: v),
-    Parameter.sharpen => recipe.copyWith(sharpen: v),
-    Parameter.sharpenRadius => recipe.copyWith(sharpenRadius: v),
-    Parameter.sharpenDetail => recipe.copyWith(sharpenDetail: v),
-    Parameter.sharpenMasking => recipe.copyWith(sharpenMasking: v),
-    Parameter.outputSharpen => recipe.copyWith(outputSharpen: v),
-    Parameter.outputSharpenMedia => recipe.copyWith(outputSharpenMedia: v.round()),
-    Parameter.denoiseLuma => recipe.copyWith(denoiseLuma: v),
-    Parameter.denoiseChroma => recipe.copyWith(denoiseChroma: v),
-    Parameter.aiDenoise => recipe.copyWith(aiDenoise: v),
-    Parameter.temperature => recipe.copyWith(temperature: v),
-    Parameter.tint => recipe.copyWith(tint: v),
-    Parameter.vibrance => recipe.copyWith(vibrance: v),
-    Parameter.saturation => recipe.copyWith(saturation: v),
-    Parameter.gradeShadowHue => recipe.copyWith(gradeShadowHue: v),
-    Parameter.gradeShadowSat => recipe.copyWith(gradeShadowSat: v),
-    Parameter.gradeShadowLum => recipe.copyWith(gradeShadowLum: v),
-    Parameter.gradeMidHue => recipe.copyWith(gradeMidHue: v),
-    Parameter.gradeMidSat => recipe.copyWith(gradeMidSat: v),
-    Parameter.gradeMidLum => recipe.copyWith(gradeMidLum: v),
-    Parameter.gradeHighlightHue => recipe.copyWith(gradeHighlightHue: v),
-    Parameter.gradeHighlightSat => recipe.copyWith(gradeHighlightSat: v),
-    Parameter.gradeHighlightLum => recipe.copyWith(gradeHighlightLum: v),
-    Parameter.gradeBlending => recipe.copyWith(gradeBlending: v),
-    Parameter.gradeBalance => recipe.copyWith(gradeBalance: v),
-    Parameter.removeChromaticAberration =>
-      recipe.copyWith(removeChromaticAberration: v > 0.5),
-    Parameter.profileCorrections =>
-      recipe.copyWith(profileCorrections: v > 0.5),
-    Parameter.defringePurpleAmount =>
-      recipe.copyWith(defringePurpleAmount: v),
-    Parameter.defringeGreenAmount => recipe.copyWith(defringeGreenAmount: v),
-    Parameter.profileDistortion => recipe.copyWith(profileDistortion: v),
-    Parameter.profileVignetting => recipe.copyWith(profileVignetting: v),
-    Parameter.blurEnabled =>
-      recipe.copyWith(blurEnabled: v > 0.5),
-    Parameter.blurAmount => recipe.copyWith(blurAmount: v),
-    Parameter.blurFocalPoint => recipe.copyWith(blurFocalPoint: v),
-    Parameter.blurFocalRange => recipe.copyWith(blurFocalRange: v),
-    Parameter.blurBokehBoost => recipe.copyWith(blurBokehBoost: v),
-    Parameter.blurBokehShape =>
-      recipe.copyWith(blurBokehShape: v.round()),
-    Parameter.blurBackgroundBlur =>
-      recipe.copyWith(blurBackgroundBlur: v > 0.5),
-    Parameter.rotation =>
-      recipe.copyWith(rotation: (v.round() % 4 + 4) % 4),
-    Parameter.flipH =>
-      recipe.copyWith(flipH: v > 0.5),
-    Parameter.flipV =>
-      recipe.copyWith(flipV: v > 0.5),
-    Parameter.straighten =>
-      recipe.copyWith(straighten: v),
-    Parameter.perspectiveX =>
-      recipe.copyWith(perspectiveX: v),
-    Parameter.perspectiveY =>
-      recipe.copyWith(perspectiveY: v),
-    Parameter.skewX =>
-      recipe.copyWith(skewX: v),
-    Parameter.skewY =>
-      recipe.copyWith(skewY: v),
-    Parameter.filmHalation => recipe.copyWith(filmHalation: v),
-    Parameter.filmHalationRadius => recipe.copyWith(filmHalationRadius: v),
-    Parameter.filmHalationThreshold => recipe.copyWith(filmHalationThreshold: v),
-    Parameter.filmBloom => recipe.copyWith(filmBloom: v),
-    Parameter.filmBloomRadius => recipe.copyWith(filmBloomRadius: v),
-    Parameter.filmBloomThreshold => recipe.copyWith(filmBloomThreshold: v),
-    Parameter.filmDust => recipe.copyWith(filmDust: v),
-    Parameter.filmScratches => recipe.copyWith(filmScratches: v),
-    Parameter.shaderParam1 => recipe.copyWith(shaderParam1: v),
-    Parameter.shaderParam2 => recipe.copyWith(shaderParam2: v),
-    Parameter.shaderParam3 => recipe.copyWith(shaderParam3: v),
-  };
+  return recipe.copyWithParam(p, v);
 }
 /// A preview copy of [recipe] with every parameter in [muted] neutralised —
 /// the "tap-to-mute" bypass (issue #31). Pure; the receiver is never touched

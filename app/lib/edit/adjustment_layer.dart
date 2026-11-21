@@ -5,7 +5,23 @@ import 'dart:ui' show Offset;
 import 'package:flutter/foundation.dart' show listEquals;
 
 /// Mask kinds (must match the Rust `MASK_*` constants).
-enum MaskKind { linear, radial, luminance, brush, subject, sky, bitmap, colorRange, autoBrush, depthRange }
+enum MaskKind {
+  linear,
+  radial,
+  luminance,
+  brush,
+  subject,
+  sky,
+  bitmap,
+  colorRange,
+  autoBrush,
+  depthRange,
+  background,
+  personFace,
+  personSkin,
+  personHair,
+  object,
+}
 
 /// Mask boolean operations (ADR 0013, matches Rust `JOIN_*` constants).
 enum MaskJoinOp { add, subtract, intersect }

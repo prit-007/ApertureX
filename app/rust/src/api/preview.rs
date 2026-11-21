@@ -217,6 +217,17 @@ pub fn preview_set_depth_map(handle: u64, depth_map: Vec<f32>) -> Result<(), Str
     crate::preview::set_depth_map(handle, depth_map)
 }
 
+/// Estimates depth from the resident image source (without passing
+/// raw pixels across FFI) and caches the result for instant lens blur preview.
+pub fn preview_estimate_depth(handle: u64) -> Result<Vec<f32>, String> {
+    crate::preview::estimate_resident_depth(handle)
+}
+
+/// Returns the precomputed depth map if already resident and cached, without blocking.
+pub fn preview_get_cached_depth(handle: u64) -> Option<Vec<f32>> {
+    crate::preview::get_cached_depth(handle)
+}
+
 /// Stores an embedded JPEG GDepth plane for [handle]. Values are normalized so
 /// 255 is nearest; the engine inverts them into the preview's lower-is-closer
 /// convention and resizes to the source proxy.
@@ -288,6 +299,7 @@ pub fn preview_render(
     hsl: Vec<f32>,
     base_changed: bool,
 ) -> Result<RenderedSize, String> {
+    let _fast_guard = crate::spatial::ScopedFastAccumulator::new();
     let patches = to_engine_patches(&retouch_patches);
     let (width, height) = crate::preview::render(
         handle,
@@ -428,6 +440,7 @@ mod tests {
             feather: 0.5,
             opacity: 1.0,
             is_clone: false,
+            mode_index: 0,
         }];
 
         let geo = geometry_apply(
@@ -611,6 +624,25 @@ mod tests {
         assert_eq!(unchanged.rgba, src);
     }
 
+    #[test]
+    fn test_preview_estimate_depth_computes_and_caches_on_handle() {
+        let (w, h) = (32, 32);
+        let src = vec![128u8; w * h * 4];
+        let handle = preview_open(src, w as u32, h as u32).expect("preview_open must succeed");
+        let depth = preview_estimate_depth(handle).expect("preview_estimate_depth must succeed");
+        assert_eq!(depth.len(), w * h);
+        for &d in &depth {
+            assert!((0.0..=1.0).contains(&d));
+        }
+
+        // Verify non-blocking cached retrieval
+        let cached = preview_get_cached_depth(handle);
+        assert!(cached.is_some());
+        assert_eq!(cached.unwrap().len(), w * h);
+
+        preview_close(handle);
+    }
+
     /// The retouch patches must reach the baked base: a clone patch carries
     /// the source strip's colour onto its target while the rest stays put.
     #[test]
@@ -640,6 +672,7 @@ mod tests {
             feather: 0.0,
             opacity: 1.0,
             is_clone: true,
+            mode_index: 1,
         };
 
         let handle =

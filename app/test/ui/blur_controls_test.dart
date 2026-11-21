@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:aperturex/color/blur_spec.dart';
 import 'package:aperturex/edit/active_image.dart';
+import 'package:aperturex/edit/lens_blur_controller.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
 import 'package:aperturex/settings/ai_consent.dart';
 import 'package:aperturex/src/rust/api/mask.dart' as rust_mask;
@@ -180,6 +181,50 @@ void main() {
       );
       expect(chip.visualDensity, VisualDensity.compact);
     }
+  });
+
+  testWidgets('low-confidence depth banner renders when confidence < 0.35 and switches to gradient', (
+    tester,
+  ) async {
+    container.read(recipeControllerProvider.notifier).setBlurEnabled(true);
+    // Simulate low depth confidence < 0.35
+    container.read(lensBlurControllerProvider.notifier).state =
+        container.read(lensBlurControllerProvider).copyWith(depthConfidence: 0.20);
+
+    await pumpBlurControls(tester);
+
+    expect(find.byKey(const Key('low-confidence-banner')), findsOneWidget);
+    expect(find.text('Switch to Gradient'), findsOneWidget);
+
+    // Tap Switch to Gradient
+    await tester.tap(find.text('Switch to Gradient'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(recipeControllerProvider).recipe.blurEnabled, isFalse);
+  });
+
+  testWidgets('FocusRingWidget pan gesture modulates blurFocalRange', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: FocusRingWidget(size: 200.0),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(FocusRingWidget), findsOneWidget);
+    await tester.drag(find.byType(FocusRingWidget), const Offset(40, 0));
+    await tester.pumpAndSettle();
+
+    final range = container.read(recipeControllerProvider).recipe.blurFocalRange;
+    expect(range, greaterThan(0.0));
   });
 }
 

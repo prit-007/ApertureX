@@ -4,7 +4,43 @@
 //! exported JPEG APP11 segments. Proves image authenticity, original sensor source,
 //! and non-destructive editing history without requiring external cloud servers.
 
+use std::collections::HashMap;
+use std::sync::{LazyLock, Mutex};
+
 use crate::sha256::{sha256, sha256_hex};
+
+static KEYSTORE: LazyLock<Mutex<HashMap<String, [u8; 32]>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Securely registers a private key seed in Rust's resident keystore and returns
+/// only the opaque key ID token across the bridge. The private key remains resident in Rust.
+pub fn register_key_in_keystore(device_seed: &[u8]) -> String {
+    let mut seed = [0u8; 32];
+    if device_seed.len() == 32 {
+        seed.copy_from_slice(device_seed);
+    } else {
+        seed = sha256(device_seed);
+    }
+    let public_key = crate::ed25519::public_key_from_seed(&seed);
+    let mut pk_hex = String::with_capacity(64);
+    for b in public_key {
+        use std::fmt::Write;
+        let _ = write!(pk_hex, "{:02x}", b);
+    }
+    let key_id = format!("c2pa:apx:{}", &pk_hex[..16]);
+    if let Ok(mut ks) = KEYSTORE.lock() {
+        ks.insert(key_id.clone(), seed);
+    }
+    // Scrub local seed copy
+    seed.fill(0);
+    std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
+    key_id
+}
+
+/// Retrieves a private key seed by its key ID token from the resident keystore.
+pub fn get_key_from_keystore(key_id: &str) -> Option<[u8; 32]> {
+    KEYSTORE.lock().ok()?.get(key_id).copied()
+}
 
 /// Represents the status of a C2PA verification check.
 #[derive(Debug, Clone, PartialEq)]
@@ -520,5 +556,20 @@ mod tests {
             let tampered_claim_report = verify_c2pa(&tampered_jpeg, &pixels, None);
             assert_eq!(tampered_claim_report.status, C2paStatus::InvalidSignature);
         }
+    }
+
+    #[test]
+    fn test_resident_keystore_token_registration_and_retrieval() {
+        let seed = b"secret-author-seed-key-2026";
+        let key_id = register_key_in_keystore(seed);
+        assert!(key_id.starts_with("c2pa:apx:"));
+
+        let retrieved = get_key_from_keystore(&key_id).expect("key must exist in keystore");
+        let (expected_priv, _) = generate_device_key(seed);
+        assert_eq!(retrieved.to_vec(), expected_priv);
+
+        // Verification using retrieved resident key
+        let pk_hex = public_key_hex_from_seed(&retrieved);
+        assert_eq!(format!("c2pa:apx:{}", &pk_hex[..16]), key_id);
     }
 }

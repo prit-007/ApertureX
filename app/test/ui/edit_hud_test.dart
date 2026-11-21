@@ -83,5 +83,20 @@ void main() {
 
     // Overflow chip visible
     expect(find.textContaining('+2 more'), findsOneWidget);
+
+    // Tapping overflow chip expands and displays all changed parameters (Flaw 14)
+    await tester.tap(find.byKey(const Key('hud-overflow-expand-chip')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('WHI'), findsOneWidget);
+    expect(find.textContaining('BLA'), findsOneWidget);
+    expect(find.textContaining('Less'), findsOneWidget);
+
+    // Tapping collapse chip restores 4-item view
+    await tester.tap(find.byKey(const Key('hud-overflow-collapse-chip')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('WHI'), findsNothing);
+    expect(find.textContaining('+2 more'), findsOneWidget);
   });
 }

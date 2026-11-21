@@ -44,7 +44,7 @@ void main() {
         entryId: 'vc:123-1',
         sourceAssetId: 'photo1',
         kind: CatalogEntryKind.virtualCopy,
-        recipe: EditRecipe.neutral.copyWith(temperature: 5500),
+        recipe: EditRecipe.neutral.copyWith(temperature: 0.55),
         label: 'Warm look',
         rating: 5,
         flag: false,
@@ -74,7 +74,7 @@ void main() {
       expect(loadedVc.entryId, vc.entryId);
       expect(loadedVc.sourceAssetId, vc.sourceAssetId);
       expect(loadedVc.kind, CatalogEntryKind.virtualCopy);
-      expect(loadedVc.recipe.temperature, 5500);
+      expect(loadedVc.recipe.temperature, 0.55);
       expect(loadedVc.label, 'Warm look');
       expect(loadedVc.rating, 5);
       expect(loadedVc.flag, isFalse);

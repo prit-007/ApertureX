@@ -79,7 +79,9 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final recipe = ref.watch(recipeControllerProvider).recipe;
+    final patches = ref.watch(
+      recipeControllerProvider.select((s) => s.recipe.retouchPatches),
+    );
     final selectedIndex = ref.watch(selectedRetouchPatchIndexProvider);
     final brush = ref.watch(retouchBrushProvider);
     final notifier = ref.read(recipeControllerProvider.notifier);
@@ -349,7 +351,7 @@ class _RetouchCanvasOverlayState extends ConsumerState<RetouchCanvasOverlay> {
           child: CustomPaint(
             size: Size(w, h),
             painter: _RetouchPainter(
-              patches: recipe.retouchPatches,
+              patches: patches,
               selectedIndex: selectedIndex,
               themeScheme: Theme.of(context).colorScheme,
               transform: transform,
@@ -410,10 +412,15 @@ class _RetouchPainter extends CustomPainter {
           ? t.radiusOf(patch.radius)
           : patch.radius * minDim;
 
-      // Color coding: Heal = Teal/Cyan (#00E5FF), Clone = Amber (#FFB300)
-      final Color modeColor = patch.mode == RetouchMode.heal
-          ? const Color(0xFF00E5FF)
-          : const Color(0xFFFFB300);
+      // Color coding: Heal = Teal/Cyan (#00E5FF), Clone = Amber (#FFB300),
+      // SkinSmooth = Pink (#FF80AB), EyeBrighten = Green (#00E676), TeethWhiten = Silver (#E0E0E0)
+      final Color modeColor = switch (patch.mode) {
+        RetouchMode.heal => const Color(0xFF00E5FF),
+        RetouchMode.clone => const Color(0xFFFFB300),
+        RetouchMode.skinSmooth => const Color(0xFFFF80AB),
+        RetouchMode.eyeBrighten => const Color(0xFF00E676),
+        RetouchMode.teethWhiten => const Color(0xFFE0E0E0),
+      };
       final Color targetColor = isSelected ? modeColor : Colors.white70;
       const Color sourceColor = Color(0xFF69F0AE); // Emerald green for source
 

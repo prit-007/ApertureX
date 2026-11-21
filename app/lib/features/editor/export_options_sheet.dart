@@ -5,6 +5,8 @@ import '../../core/theme/design_tokens.dart';
 import '../../settings/export_branding_settings.dart';
 import '../../settings/export_settings.dart';
 import '../../ui/common/app_sheet.dart';
+import '../../core/log/activity_log.dart';
+import '../../core/log/log_providers.dart';
 
 enum ExportAction {
   openExportStudio,
@@ -42,7 +44,8 @@ class ExportOptionsSheet extends StatelessWidget {
     bool hasLocalizations = true;
     try {
       MaterialLocalizations.of(context);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.export, 'Material localizations unavailable', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       hasLocalizations = false;
     }
     if (!hasLocalizations) {
@@ -59,7 +62,8 @@ class ExportOptionsSheet extends StatelessWidget {
     bool hasScope = true;
     try {
       ProviderScope.containerOf(context);
-    } catch (_) {
+    } catch (e, st) {
+      axLog(LogDomain.export, 'ProviderScope unavailable', level: LogLevel.warning, error: e.toString(), stack: st.toString());
       hasScope = false;
     }
 
@@ -227,8 +231,10 @@ class _ExportOptionsSheetContentState
                 ListTile(
                   leading: const Icon(Icons.image_outlined),
                   title: const Text('Export TIFF 16-bit', overflow: TextOverflow.ellipsis),
-                  subtitle: const Text(
-                    'Uncompressed 16-bit-per-channel TIFF with full edit bake-in',
+                  subtitle: Text(
+                    widget.isRaw
+                        ? 'Scene-linear 16-bit TIFF preserving maximum sensor dynamic range and XMP'
+                        : 'Uncompressed 16-bit-per-channel TIFF with full edit bake-in',
                   ),
                   trailing: _formatBadge('16-BIT', theme),
                   onTap: () =>

@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../edit/recipe.dart';
 import '../../edit/recipe_controller.dart';
 
 /// 3-Way Color Grading editor with premium interactive color wheels for
@@ -15,38 +14,114 @@ class ColorGradingEditor extends ConsumerStatefulWidget {
   ConsumerState<ColorGradingEditor> createState() => _ColorGradingEditorState();
 }
 
+class _GradingParams {
+  const _GradingParams({
+    required this.shadowHue,
+    required this.shadowSat,
+    required this.shadowLum,
+    required this.midHue,
+    required this.midSat,
+    required this.midLum,
+    required this.highlightHue,
+    required this.highlightSat,
+    required this.highlightLum,
+    required this.blending,
+    required this.balance,
+  });
+
+  final double shadowHue;
+  final double shadowSat;
+  final double shadowLum;
+  final double midHue;
+  final double midSat;
+  final double midLum;
+  final double highlightHue;
+  final double highlightSat;
+  final double highlightLum;
+  final double blending;
+  final double balance;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _GradingParams &&
+          runtimeType == other.runtimeType &&
+          shadowHue == other.shadowHue &&
+          shadowSat == other.shadowSat &&
+          shadowLum == other.shadowLum &&
+          midHue == other.midHue &&
+          midSat == other.midSat &&
+          midLum == other.midLum &&
+          highlightHue == other.highlightHue &&
+          highlightSat == other.highlightSat &&
+          highlightLum == other.highlightLum &&
+          blending == other.blending &&
+          balance == other.balance;
+
+  @override
+  int get hashCode => Object.hash(
+        shadowHue,
+        shadowSat,
+        shadowLum,
+        midHue,
+        midSat,
+        midLum,
+        highlightHue,
+        highlightSat,
+        highlightLum,
+        blending,
+        balance,
+      );
+}
+
 class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
   bool _threeWayMode = false;
   GradeWheelZone _zone = GradeWheelZone.shadows;
 
   (double hue, double sat, double lum) _extractZoneValues(
-    EditRecipe recipe,
+    _GradingParams grade,
     GradeWheelZone zone,
   ) =>
       switch (zone) {
         GradeWheelZone.shadows => (
-          recipe.gradeShadowHue,
-          recipe.gradeShadowSat,
-          recipe.gradeShadowLum,
+          grade.shadowHue,
+          grade.shadowSat,
+          grade.shadowLum,
         ),
         GradeWheelZone.midtones => (
-          recipe.gradeMidHue,
-          recipe.gradeMidSat,
-          recipe.gradeMidLum,
+          grade.midHue,
+          grade.midSat,
+          grade.midLum,
         ),
         GradeWheelZone.highlights => (
-          recipe.gradeHighlightHue,
-          recipe.gradeHighlightSat,
-          recipe.gradeHighlightLum,
+          grade.highlightHue,
+          grade.highlightSat,
+          grade.highlightLum,
         ),
       };
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final recipe = ref.watch(recipeControllerProvider).recipe;
+    final grade = ref.watch(
+      recipeControllerProvider.select(
+        (s) => _GradingParams(
+          shadowHue: s.recipe.gradeShadowHue,
+          shadowSat: s.recipe.gradeShadowSat,
+          shadowLum: s.recipe.gradeShadowLum,
+          midHue: s.recipe.gradeMidHue,
+          midSat: s.recipe.gradeMidSat,
+          midLum: s.recipe.gradeMidLum,
+          highlightHue: s.recipe.gradeHighlightHue,
+          highlightSat: s.recipe.gradeHighlightSat,
+          highlightLum: s.recipe.gradeHighlightLum,
+          blending: s.recipe.gradeBlending,
+          balance: s.recipe.gradeBalance,
+        ),
+      ),
+    );
     final notifier = ref.read(recipeControllerProvider.notifier);
-    final (rawHue, sat, lum) = _extractZoneValues(recipe, _zone);
+    final (rawHue, sat, lum) = _extractZoneValues(grade, _zone);
     final hue = (rawHue <= 1.0 && rawHue > 0) ? rawHue * 360.0 : rawHue;
 
     Widget zoneChip({
@@ -126,7 +201,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                   child: Text(
                     label,
                     style: TextStyle(
-                      fontSize: compact ? 10.5 : 11.5,
+                      fontSize: 12.0,
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.2,
@@ -136,7 +211,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                 Text(
                   formatted,
                   style: TextStyle(
-                    fontSize: compact ? 10 : 11,
+                    fontSize: 12.0,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.bold,
                     color: scheme.primary,
@@ -172,7 +247,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
       required double wheelSize,
       bool showHeader = true,
     }) {
-      final (rawH, zSat, zLum) = _extractZoneValues(recipe, targetZone);
+      final (rawH, zSat, zLum) = _extractZoneValues(grade, targetZone);
       final zHue = (rawH <= 1.0 && rawH > 0) ? rawH * 360.0 : rawH;
       final zoneName = switch (targetZone) {
         GradeWheelZone.shadows => 'Shadows',
@@ -221,7 +296,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                     Text(
                       '${zHue.toStringAsFixed(0)}° · ${(zSat * 100).toStringAsFixed(0)}%',
                       style: TextStyle(
-                        fontSize: 9.5,
+                        fontSize: 12.0,
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.w600,
                         color: scheme.onSurfaceVariant,
@@ -426,7 +501,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
                 child: Text(
                   'Hue: ${hue.toStringAsFixed(0)}°   Sat: ${(sat * 100).toStringAsFixed(0)}%   Lum: ${(lum * 100).toStringAsFixed(0)}%',
                   style: TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 12.0,
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                     fontFamily: 'monospace',
@@ -498,7 +573,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
 
           sliderRow(
             label: 'Blending',
-            value: recipe.gradeBlending,
+            value: grade.blending,
             min: 0.0,
             max: 1.0,
             showPlus: false,
@@ -508,7 +583,7 @@ class _ColorGradingEditorState extends ConsumerState<ColorGradingEditor> {
           ),
           sliderRow(
             label: 'Balance',
-            value: recipe.gradeBalance,
+            value: grade.balance,
             min: -1.0,
             max: 1.0,
             onChanged: (v) => notifier.setGradeGlobal(balance: v),

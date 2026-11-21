@@ -1,8 +1,11 @@
-import 'dart:io';
+import 'dart:async';
+import 'package:universal_io/io.dart';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/log/activity_log.dart';
+import '../core/log/log_providers.dart';
 import '../color/blur_spec.dart';
 import '../color/grade_spec.dart';
 import '../color/optics_spec.dart';
@@ -175,6 +178,27 @@ ExportSpecs specsFor(EditRecipe recipe) => ExportSpecs(
   maskGroups: recipe.maskGroups,
 );
 
+/// Global lock to ensure at most 1 large RAW decode runs in memory at a time.
+class _RawDecodeLock {
+  Future<void>? _current;
+
+  Future<T> run<T>(Future<T> Function() action) async {
+    while (_current != null) {
+      await _current;
+    }
+    final completer = Completer<void>();
+    _current = completer.future;
+    try {
+      return await action();
+    } finally {
+      _current = null;
+      completer.complete();
+    }
+  }
+}
+
+final _RawDecodeLock _rawLock = _RawDecodeLock();
+
 /// Exports gallery assets to the device Photos/DCIM (batch or single), applying
 /// each asset's recipe. Grading reuses the exact preview path, and the source
 /// EXIF is preserved (#12/#13).
@@ -246,7 +270,7 @@ class GalleryExporter {
     final int height;
     var exif = Uint8List(0);
     if (isRawImage(src)) {
-      final decoded = await AxEngine.decodeRawRgba(src);
+      final decoded = await _rawLock.run(() => AxEngine.decodeRawRgba(src));
       rgba = decoded.rgba;
       width = decoded.width;
       height = decoded.height;
@@ -372,7 +396,8 @@ class GalleryExporter {
         var ok = false;
         try {
           ok = await run(id, recipeFor(id));
-        } catch (_) {
+        } catch (e, st) {
+          axLog(LogDomain.export, 'Batch export single photo error on $id: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
           ok = false;
         }
         if (ok) {

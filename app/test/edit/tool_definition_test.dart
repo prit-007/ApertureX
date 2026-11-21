@@ -47,6 +47,35 @@ void main() {
     }
   });
 
+  test('all built-in presets supply complete 3-way color wheels, 8-band HSL, and depth parameters', () {
+    const requiredKeys = [
+      'gradeShadowHue', 'gradeShadowSat', 'gradeShadowLum',
+      'gradeMidHue', 'gradeMidSat', 'gradeMidLum',
+      'gradeHighlightHue', 'gradeHighlightSat', 'gradeHighlightLum',
+      'gradeBlending', 'gradeBalance',
+      'blurFocalPoint', 'blurFocalRange', 'blurBokehShape', 'blurAmount',
+    ];
+    for (final tool in ToolLibrary.builtins) {
+      for (final key in requiredKeys) {
+        expect(
+          tool.params.containsKey(key),
+          isTrue,
+          reason: '${tool.name} is missing parameter $key',
+        );
+      }
+      expect(
+        tool.hsl,
+        isNotNull,
+        reason: '${tool.name} must supply 8-band HSL mix',
+      );
+      expect(
+        tool.hsl!.length,
+        24,
+        reason: '${tool.name} HSL must contain exactly 24 elements',
+      );
+    }
+  });
+
   group('Preset strength amount semantics (Issue #169)', () {
     const tool = ToolDefinition(
       name: 'Moody Warmth',
@@ -94,5 +123,30 @@ void main() {
       expect(recipe.hsl[1], closeTo(0.8, 1e-4));
       expect(recipe.hsl[2], closeTo(-1.0, 1e-4)); // Clamped to -1.0
     });
+  });
+
+  test('lens blur presets apply with no unknown parameters', () {
+    final blurTools = ToolLibrary.lensBlurLookTools();
+    expect(blurTools.length, 5);
+    for (final tool in blurTools) {
+      expect(tool.unknownParams(), isEmpty, reason: tool.name);
+      final recipe = tool.applyTo(EditRecipe.neutral);
+      expect(recipe.blurEnabled, isTrue);
+      expect(recipe.blurAmount, greaterThan(0.0));
+    }
+  });
+
+  test('lens blur presets preserve bokeh shape and enabled state when scaled with amount < 1.0', () {
+    final anamorphic = ToolLibrary.lensBlurLookTools().firstWhere((t) => t.name == 'Anamorphic 50');
+    // At 40% strength, blur should still be enabled and bokehShape must remain 4 (catsEye)
+    final recipe40 = anamorphic.applyTo(EditRecipe.neutral, amount: 0.4);
+    expect(recipe40.blurEnabled, isTrue);
+    expect(recipe40.blurBokehShape, 4);
+    expect(recipe40.blurAmount, closeTo(0.75 * 0.4, 1e-4));
+
+    // At 0% strength, amount is zero
+    final recipe0 = anamorphic.applyTo(EditRecipe.neutral, amount: 0.0);
+    expect(recipe0.blurEnabled, isFalse);
+    expect(recipe0.blurAmount, 0.0);
   });
 }

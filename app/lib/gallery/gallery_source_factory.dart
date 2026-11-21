@@ -1,4 +1,6 @@
-import 'dart:io';
+import 'package:universal_io/io.dart';
+
+import 'package:flutter/foundation.dart';
 
 import 'folder_gallery_source.dart';
 import 'gallery_source.dart';
@@ -10,6 +12,6 @@ import 'photo_gallery_source.dart';
 /// macOS and mobile keep photo_manager. Tests inject `isDesktop` instead of
 /// mocking platform channels.
 GallerySource defaultGallerySource({bool? isDesktop}) {
-  final desktop = isDesktop ?? (Platform.isLinux || Platform.isWindows);
+  final desktop = isDesktop ?? (!kIsWeb && (Platform.isLinux || Platform.isWindows));
   return desktop ? FolderGallerySource() : PhotoGallerySource();
 }

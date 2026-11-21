@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:universal_io/io.dart';
 
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/services.dart' show SystemChrome, SystemUiMode;
@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide GlobalMaterialLocalizations;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/error/boundaries.dart';
 import 'core/error/crash_marker.dart';
@@ -26,6 +27,7 @@ import 'gallery/gallery_screen.dart';
 import 'gallery/gallery_source_factory.dart';
 import 'l10n/app_strings.dart';
 import 'settings/app_settings.dart';
+import 'settings/shared_preferences_provider.dart';
 import 'ui/desktop/desktop_menu_bar.dart';
 import 'ui/precision_gear.dart';
 import 'viewport/shader_warmup.dart';
@@ -49,10 +51,17 @@ void main() {
       // Degrade, don't die: every later engine call re-hits the boundary.
       reporter.report(error, stack, fatal: true);
     }
+    SharedPreferences? prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (e, st) {
+      axLog(LogDomain.app, 'Main SharedPreferences startup fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
+    }
     runApp(
       bootstrapApp(
         overrides: [
           gallerySourceProvider.overrideWithValue(defaultGallerySource()),
+          if (prefs != null) sharedPreferencesProvider.overrideWithValue(prefs),
         ],
         child: const PrecisionListener(child: ApertureXApp()),
       ),
@@ -75,7 +84,8 @@ Future<void> _initActivityLog(ErrorReporter reporter) async {
     // One-time next-launch offer when the last session left a marker from
     // either layer (ADR 0012 §3); the dialog lands on the log page.
     await showCrashReport(marker: reporter.marker, bridge: NativeLogBridge());
-  } catch (_) {
+  } catch (e, st) {
+    axLog(LogDomain.app, 'Startup activity log init error: $e', level: LogLevel.warning, error: e.toString(), stack: st.toString());
     // Logging must never block startup.
   }
   axLog(LogDomain.app, 'ApertureX started');

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
 import '../core/theme/design_tokens.dart';
 import '../core/updater/update_dialog.dart';
@@ -13,7 +14,8 @@ import '../features/onboarding/onboarding_screen.dart';
 import '../l10n/app_strings.dart';
 import '../ui/common/app_primitives.dart';
 import '../ui/common/editor_guide_sheet.dart';
-import '../ui/common/settings_sheet.dart' show kOfflineClaim;
+import '../ui/settings/settings_about_sheet.dart' show kOfflineClaim;
+import '../ui/settings/settings_hub.dart';
 import 'about_screen.dart';
 import 'ai_consent.dart';
 import 'app_settings.dart';
@@ -27,7 +29,8 @@ final appVersionProvider = FutureProvider<String>((ref) async {
     final build = info.buildNumber.isNotEmpty ? '+${info.buildNumber}' : '';
     final ver = '${info.version}$build';
     return ver.isNotEmpty ? ver : '0.3.9+9';
-  } catch (_) {
+  } catch (e, st) {
+    axLog(LogDomain.app, 'PackageInfo load fallback: $e', level: LogLevel.debug, error: e.toString(), stack: st.toString());
     return '0.3.9+9';
   }
 });
@@ -86,6 +89,19 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.only(top: Insets.xs, bottom: Insets.xxl),
         children: [
+          _cardSection(
+            context: context,
+            children: [
+              ListTile(
+                leading: Icon(Icons.tune, color: theme.colorScheme.primary),
+                title: Text(strings.settingsHub, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(strings.workspaceAndShellDesc, style: const TextStyle(fontSize: 12)),
+                trailing: const Icon(Icons.open_in_new, size: 20),
+                onTap: () => SettingsHub.show(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: Insets.xs),
           // ─── 1. Appearance & Theme ──────────────────────────────────
           const SectionHeader('Appearance'),
           _cardSection(
@@ -298,7 +314,7 @@ class SettingsScreen extends ConsumerWidget {
                 key: const Key('settings-screen-ai-consent'),
                 title: const Text('On-device AI Processing'),
                 subtitle: const Text(
-                  'Enables intelligent masking: Select Subject, Sky, and Depth-based Lens Blur. 100% offline, zero network access.',
+                  'Enables intelligent masking: Select Subject, Sky, and Depth-based Lens Blur. 100% on-device processing, zero telemetry.',
                 ),
                 value: aiConsent == AiConsentStatus.granted,
                 onChanged: (val) {

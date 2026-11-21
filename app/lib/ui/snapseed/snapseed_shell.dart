@@ -9,7 +9,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../color/tat.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../edit/active_image.dart' show activeImageBytesProvider;
 import '../../edit/node_editor.dart';
 import '../../edit/parameter.dart';
 import '../../edit/recipe_controller.dart';
@@ -22,30 +21,18 @@ import '../common/history_tree_sheet.dart';
 import '../common/mask_controls.dart';
 import '../common/precision_rotation_dial.dart';
 import '../common/preset_preview_thumbnail.dart';
-import '../../features/crop/crop_screen.dart';
 import 'edit_hud.dart';
 import 'snapseed_gesture_hud.dart';
 import 'snapseed_tools_sheet.dart';
 import '../../l10n/app_strings.dart';
 import '../../core/theme/window_size_class.dart';
+import 'snapseed_dock_sidebar.dart';
+import 'snapseed_hud_hosts.dart';
+import 'snapseed_radial_menu.dart';
 
-/// Index of the radial-menu item nearest [pointer], for a menu centred at
-/// [center] with [count] items at [radius]. Item 0 sits at the top (−90°),
-/// going clockwise. Pure — unit-tested.
-int nearestRadialItem(Offset center, Offset pointer, int count, double radius) {
-  var best = 0;
-  var bestD = double.infinity;
-  for (var i = 0; i < count; i++) {
-    final angle = -math.pi / 2 + i * 2 * math.pi / count;
-    final c = center + Offset(math.cos(angle) * radius, math.sin(angle) * radius);
-    final d = (c - pointer).distanceSquared;
-    if (d < bestD) {
-      bestD = d;
-      best = i;
-    }
-  }
-  return best;
-}
+export 'snapseed_dock_sidebar.dart';
+export 'snapseed_hud_hosts.dart';
+export 'snapseed_radial_menu.dart';
 
 /// The Snapseed shell is a pure **HUD**: it owns no gestures and no edit state.
 /// The shared [ImageCanvas] owns the touch model (1-finger edit, 2-finger
@@ -154,11 +141,27 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
     GradeTool.highlightsGrade => Icons.wb_sunny,
   };
 
+  BoxConstraints _sheetConstraints(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final widthClass = windowSizeClassFor(size.width);
+    final maxW = switch (widthClass) {
+      WindowSizeClass.compact => double.infinity,
+      WindowSizeClass.medium => 600.0,
+      WindowSizeClass.expanded || WindowSizeClass.large || WindowSizeClass.extraLarge =>
+        math.min(size.width * 0.70, 840.0),
+    };
+    return BoxConstraints(maxWidth: maxW);
+  }
+
+  double _sheetHeight(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final isCompact = windowSizeClassFor(size.width) == WindowSizeClass.compact;
+    return isCompact ? size.height * 0.70 : math.min(size.height * 0.75, 620.0);
+  }
+
   void _openToolsSheet(BuildContext context) {
     HapticFeedback.lightImpact();
-    final size = MediaQuery.sizeOf(context);
-    final isWide = size.width >= 600;
-    final sheetH = isWide ? math.min(size.height * 0.75, 620.0) : size.height * 0.70;
+    final sheetH = _sheetHeight(context);
 
     showModalBottomSheet<void>(
       context: context,
@@ -166,13 +169,14 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 580),
+          constraints: _sheetConstraints(context),
           child: SizedBox(
             height: sheetH,
             child: SnapseedToolsSheet(
               onSelectCategoryAndTool: (cat, tool) {
-                if (widget.onSelectCategoryAndTool != null) {
-                  widget.onSelectCategoryAndTool!(cat, tool);
+                final onSelect = widget.onSelectCategoryAndTool;
+                if (onSelect != null) {
+                  onSelect(cat, tool);
                 } else {
                   widget.onPickTool(tool);
                 }
@@ -181,14 +185,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                 setState(() => _straightenOpen = true);
               },
               onOpenCrop: () {
-                final bytes = ref.read(activeImageBytesProvider);
-                if (bytes != null) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => CropScreen(imageBytes: bytes),
-                    ),
-                  );
-                }
+                setState(() => _straightenOpen = true);
               },
             ),
           ),
@@ -199,9 +196,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
   void _openMasksSheet(BuildContext context) {
     HapticFeedback.lightImpact();
-    final size = MediaQuery.sizeOf(context);
-    final isWide = size.width >= 600;
-    final sheetH = isWide ? math.min(size.height * 0.75, 620.0) : size.height * 0.70;
+    final sheetH = _sheetHeight(context);
 
     showModalBottomSheet<void>(
       context: context,
@@ -209,7 +204,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 580),
+          constraints: _sheetConstraints(context),
           child: Material(
             color: Theme.of(context).colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.lg)),
@@ -259,9 +254,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
   void _openLensBlurSheet(BuildContext context) {
     HapticFeedback.lightImpact();
-    final size = MediaQuery.sizeOf(context);
-    final isWide = size.width >= 600;
-    final sheetH = isWide ? math.min(size.height * 0.75, 620.0) : size.height * 0.70;
+    final sheetH = _sheetHeight(context);
 
     showModalBottomSheet<void>(
       context: context,
@@ -269,7 +262,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 580),
+          constraints: _sheetConstraints(context),
           child: Material(
             color: Theme.of(context).colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.lg)),
@@ -319,26 +312,9 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
 
   @override
   Widget build(BuildContext context) {
-    final recipe = ref.watch(recipeControllerProvider).recipe;
-    final parameter = snapseedToolParameters[widget.tool]!.first;
+    final parameter = primaryParameterForTool(widget.tool);
     final spec = specOf(parameter);
     final zoneMask = ref.watch(zoneMaskProvider);
-    final lockedLayer = (zoneMask.lockedLayerIndex != null &&
-            zoneMask.lockedLayerIndex! < recipe.layers.length)
-        ? recipe.layers[zoneMask.lockedLayerIndex!]
-        : null;
-    final value = lockedLayer != null
-        ? switch (parameter) {
-            Parameter.exposure => lockedLayer.exposure,
-            Parameter.contrast => lockedLayer.contrast,
-            Parameter.highlights => lockedLayer.highlights,
-            Parameter.shadows => lockedLayer.shadows,
-            Parameter.saturation => lockedLayer.saturation,
-            Parameter.temperature => lockedLayer.temperature,
-            Parameter.tint => lockedLayer.tint,
-            _ => valueOf(recipe, parameter),
-          }
-        : valueOf(recipe, parameter);
     final scheme = Theme.of(context).colorScheme;
     // Node mode swaps the bottom chrome for the node adjust bar, so the
     // tool pill (and its Selective entry) steps aside until Done.
@@ -348,6 +324,12 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
       builder: (context, constraints) {
         final widthClass = windowSizeClassFor(constraints.maxWidth);
         final isWide = widthClass != WindowSizeClass.compact;
+        final isLargeScreen = widthClass == WindowSizeClass.large ||
+            widthClass == WindowSizeClass.extraLarge;
+        final dockButtonConstraints = isLargeScreen
+            ? const BoxConstraints(minWidth: 52, minHeight: 52)
+            : const BoxConstraints(minWidth: 48, minHeight: 48);
+        final dockIconSize = isLargeScreen ? 19.0 : 17.0;
 
         return Stack(
           children: [
@@ -355,7 +337,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
         // so it never collides with the histogram or status bar.
         Positioned(
           top: widget.histogramOpen ? 140 : 56,
-          right: 0,
+          right: isLargeScreen ? 280 : 0,
           child: const SafeArea(left: false, bottom: false, child: EditHud()),
         ),
 
@@ -402,9 +384,9 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
         // Ansel Adams Haptic Zone Masking locked pill
         if (zoneMask.lockedLayerIndex != null && !nodeMode)
           Positioned(
-            bottom: 64,
+            bottom: isLargeScreen ? 16 : 64,
             left: 0,
-            right: 0,
+            right: isLargeScreen ? 280 : 0,
             child: Center(
               child: Container(
                 padding: const EdgeInsets.only(left: 12, right: 4, top: 4, bottom: 4),
@@ -458,69 +440,140 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           top: MediaQuery.paddingOf(context).top + 16,
           left: 16,
           right: 16,
-          child: AnimatedOpacity(
-            opacity: ((widget.gesturePhase == GesturePhase.scrubbing ||
-                        _scrubVisible) &&
-                    !nodeMode)
-                ? 1.0
-                : 0.0,
-            duration: AppMotion.responsive(context, AppMotion.shortDuration),
-            curve: AppMotion.scrubCurve,
-              child: IgnorePointer(
-                child: SnapseedScrubHud(
-                  key: const Key('snapseed-scrub-hud-root'),
-                  tool: widget.tool,
-                value: value,
-                hue: widget.tool.is2D
-                    ? switch (widget.tool) {
-                        GradeTool.shadowsGrade => recipe.gradeShadowHue,
-                        GradeTool.midtonesGrade => recipe.gradeMidHue,
-                        GradeTool.highlightsGrade => recipe.gradeHighlightHue,
-                        _ => null,
-                      }
-                    : null,
-                sat: widget.tool.is2D
-                    ? switch (widget.tool) {
-                        GradeTool.shadowsGrade => recipe.gradeShadowSat,
-                        GradeTool.midtonesGrade => recipe.gradeMidSat,
-                        GradeTool.highlightsGrade => recipe.gradeHighlightSat,
-                        _ => null,
-                      }
-                    : null,
-                visible: true,
+          child: SnapseedScrubHudHost(
+            tool: widget.tool,
+            gesturePhase: widget.gesturePhase,
+            scrubVisible: _scrubVisible,
+            nodeMode: nodeMode,
+          ),
+        ),
+
+        // Persistent gesture discovery affordance when idle
+        if (widget.gesturePhase == GesturePhase.idle && !_scrubVisible && !nodeMode)
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 16,
+            left: 16,
+            right: 16,
+            child: Center(
+              child: GestureDetector(
+                key: const Key('snapseed-gesture-hint-pill'),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  setState(() => _radialOpen = true);
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(gradeToolIcon(widget.tool), size: 14, color: scheme.primary),
+                            const SizedBox(width: 5),
+                            Text(
+                              gradeToolLabel(widget.tool),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: scheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '↕ Tool  ↔ Adjust',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: scheme.onSurfaceVariant.withValues(alpha: 0.8),
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-        ),
 
         // Live Snapseed-style vertical parameter selection carousel
         if (widget.gesturePhase == GesturePhase.cycling && !nodeMode)
           Positioned.fill(
             child: IgnorePointer(
-              child: SnapseedParameterCarousel(
+              child: SnapseedCarouselHost(
                 category: widget.category,
                 tools: widget.tools,
                 activeTool: widget.tool,
-                values: {
-                  for (final t in widget.tools)
-                    if (!t.is2D && snapseedToolParameters[t] != null)
-                      t: valueOf(recipe, snapseedToolParameters[t]!.first),
-                },
                 visible: true,
               ),
             ),
           ),
 
         // Unified Material 3 bottom dock (zero-overlap, integrated actions, responsive wide alignment).
+        // On large/extraLarge screens (tablets), render a dedicated right sidebar with full-width tool buttons (Flaw 15).
         if (!nodeMode)
-          Align(
-            alignment: isWide ? Alignment.bottomRight : Alignment.bottomCenter,
-            child: SafeArea(
-              top: false,
-              right: true,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(Insets.sm, 0, isWide ? Insets.xl : Insets.sm, Insets.sm),
-                child: ClipRRect(
+          isLargeScreen
+              ? Align(
+                  alignment: Alignment.bottomRight,
+                  child: SafeArea(
+                    top: false,
+                    right: true,
+                    child: SnapseedDockSidebar(
+                      key: const Key('snapseed-dock-sidebar'),
+                      tool: widget.tool,
+                      category: widget.category,
+                      onCycleCategory: widget.onCycleCategory,
+                      onOpenToolsSheet: () => _openToolsSheet(context),
+                      onOpenStacks: () {
+                        HapticFeedback.lightImpact();
+                        HistoryTreeSheet.show(context);
+                      },
+                      onToggleLooks: () {
+                        HapticFeedback.lightImpact();
+                        setState(() => _looksOpen = !_looksOpen);
+                      },
+                      looksOpen: _looksOpen,
+                      onOpenMasks: () => _openMasksSheet(context),
+                      onOpenLensBlur: () => _openLensBlurSheet(context),
+                      onToggleStraighten: () {
+                        HapticFeedback.lightImpact();
+                        setState(() => _straightenOpen = !_straightenOpen);
+                      },
+                      straightenOpen: _straightenOpen,
+                      onOpenRadial: () {
+                        HapticFeedback.lightImpact();
+                        setState(() => _radialOpen = true);
+                      },
+                      onEnableSelective: () {
+                        HapticFeedback.lightImpact();
+                        ref.read(nodeEditorProvider.notifier).enable();
+                      },
+                      hasHistogram: widget.hasHistogram,
+                      histogramOpen: widget.histogramOpen,
+                      onToggleHistogram: widget.onToggleHistogram,
+                    ),
+                  ),
+                )
+              : Align(
+                  alignment: isWide ? Alignment.bottomRight : Alignment.bottomCenter,
+                  child: SafeArea(
+                    top: false,
+                    right: true,
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(Insets.sm, 0, isWide ? Insets.xl : Insets.sm, Insets.sm),
+                      child: ClipRRect(
                   borderRadius: BorderRadius.circular(28),
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
@@ -539,11 +592,15 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                           ),
                         ],
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {},
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
@@ -551,78 +608,78 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                 tooltip: 'All Tools',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 onPressed: () => _openToolsSheet(context),
-                                icon: const Icon(Icons.grid_view, size: 17),
+                                icon: Icon(Icons.grid_view, size: dockIconSize),
                               ),
                               IconButton(
                                 key: const Key('snapseed-stacks-toggle'),
                                 tooltip: 'View Edits (Stacks)',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   HistoryTreeSheet.show(context);
                                 },
-                                icon: const Icon(Icons.layers, size: 17),
+                                icon: Icon(Icons.layers, size: dockIconSize),
                               ),
                               IconButton(
                                 key: const Key('snapseed-looks-toggle'),
                                 tooltip: 'Looks & Presets',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 isSelected: _looksOpen,
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   setState(() => _looksOpen = !_looksOpen);
                                 },
-                                icon: const Icon(Icons.style_outlined, size: 17),
-                                selectedIcon: Icon(Icons.style, size: 17, color: scheme.primary),
+                                icon: Icon(Icons.style_outlined, size: dockIconSize),
+                                selectedIcon: Icon(Icons.style, size: dockIconSize, color: scheme.primary),
                               ),
                               IconButton(
                                 key: const Key('snapseed-mask-toggle'),
                                 tooltip: 'Masks & Layers',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 onPressed: () => _openMasksSheet(context),
-                                icon: const Icon(Icons.layers_outlined, size: 17),
+                                icon: Icon(Icons.layers_outlined, size: dockIconSize),
                               ),
                               IconButton(
                                 key: const Key('snapseed-lens-blur-toggle'),
                                 tooltip: 'Lens Blur & Bokeh',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 onPressed: () => _openLensBlurSheet(context),
-                                icon: const Icon(Icons.blur_on, size: 17),
+                                icon: Icon(Icons.blur_on, size: dockIconSize),
                               ),
                               IconButton(
                                 key: const Key('snapseed-straighten-toggle'),
                                 tooltip: 'Straighten & Rotate',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 isSelected: _straightenOpen,
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   setState(() => _straightenOpen = !_straightenOpen);
                                 },
-                                icon: const Icon(Icons.crop_rotate, size: 17),
-                                selectedIcon: Icon(Icons.crop_rotate, size: 17, color: scheme.primary),
+                                icon: Icon(Icons.crop_rotate, size: dockIconSize),
+                                selectedIcon: Icon(Icons.crop_rotate, size: dockIconSize, color: scheme.primary),
                               ),
                               IconButton(
                                 tooltip: 'Tools',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   setState(() => _radialOpen = true);
                                 },
-                                icon: const Icon(Icons.radio_button_checked, size: 17),
+                                icon: Icon(Icons.radio_button_checked, size: dockIconSize),
                               ),
                               Container(
                                 width: 1,
@@ -667,46 +724,10 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              if (widget.tool.is2D) ...[
-                                Builder(builder: (_) {
-                                  final (h, s) = switch (widget.tool) {
-                                    GradeTool.shadowsGrade => (recipe.gradeShadowHue, recipe.gradeShadowSat),
-                                    GradeTool.midtonesGrade => (recipe.gradeMidHue, recipe.gradeMidSat),
-                                    GradeTool.highlightsGrade => (recipe.gradeHighlightHue, recipe.gradeHighlightSat),
-                                    _ => (0.0, 0.0),
-                                  };
-                                  final swatch = HSVColor.fromAHSV(1.0, h, s, 0.85).toColor();
-                                  return Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: s > 0.01 ? swatch : scheme.outline,
-                                          border: Border.all(color: scheme.onSurfaceVariant.withValues(alpha: 0.5), width: 0.5),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'H:${h.round()}° S:${(s * 100).round()}%',
-                                        style: themeStyle(context, FontWeight.w700).copyWith(
-                                          color: scheme.primary,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                }),
-                              ] else
-                                Text(
-                                  '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}',
-                                  style: themeStyle(context, FontWeight.w700).copyWith(
-                                    color: scheme.primary,
-                                    fontSize: 11,
-                                  ),
-                                ),
+                              if (widget.tool.is2D)
+                                Snapseed2DColorIndicator(tool: widget.tool)
+                              else
+                                Snapseed1DValueIndicator(tool: widget.tool),
                               Container(
                                 width: 1,
                                 height: 18,
@@ -718,26 +739,26 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                     'drag to adjust it',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 isSelected: ref.watch(tatModeProvider),
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   ref.read(tatModeProvider.notifier).toggle();
                                 },
-                                icon: const Icon(Icons.colorize, size: 17),
-                                selectedIcon: Icon(Icons.colorize, size: 17, color: scheme.primary),
+                                icon: Icon(Icons.colorize, size: dockIconSize),
+                                selectedIcon: Icon(Icons.colorize, size: dockIconSize, color: scheme.primary),
                               ),
                               IconButton(
                                 key: const Key('selective-toggle'),
                                 tooltip: 'Selective',
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                constraints: dockButtonConstraints,
                                 onPressed: () {
                                   HapticFeedback.lightImpact();
                                   ref.read(nodeEditorProvider.notifier).enable();
                                 },
-                                icon: const Icon(Icons.add_location_alt, size: 17),
+                                icon: Icon(Icons.add_location_alt, size: dockIconSize),
                               ),
                               if (widget.hasHistogram)
                                 IconButton(
@@ -745,18 +766,19 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                   tooltip: widget.histogramOpen ? 'Hide histogram' : 'Show histogram',
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                  constraints: dockButtonConstraints,
                                   isSelected: widget.histogramOpen,
                                   onPressed: () {
                                     HapticFeedback.selectionClick();
                                     widget.onToggleHistogram?.call();
                                   },
-                                  icon: const Icon(Icons.bar_chart, size: 17),
-                                  selectedIcon: Icon(Icons.bar_chart, size: 17, color: scheme.primary),
+                                  icon: Icon(Icons.bar_chart, size: dockIconSize),
+                                  selectedIcon: Icon(Icons.bar_chart, size: dockIconSize, color: scheme.primary),
                                 ),
                             ],
-            ),
-          ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -773,7 +795,11 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
               top: false,
               right: true,
               child: Padding(
-                padding: EdgeInsets.only(bottom: 74, left: 16, right: isWide ? Insets.xl : 16),
+                padding: EdgeInsets.only(
+                  bottom: isLargeScreen ? 16 : 74,
+                  left: 16,
+                  right: isLargeScreen ? 300 : (isWide ? Insets.xl : 16),
+                ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: BackdropFilter(
@@ -831,7 +857,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                               ],
                             ),
                           ),
-                          if (_activePresetTool != null)
+                          if (_activePresetTool case final activePreset?)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 4),
                               child: Container(
@@ -843,7 +869,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                 child: Row(
                                   children: [
                                     Text(
-                                      '${_activePresetTool!.name} · ${(_activePresetAmount * 100).round()}%',
+                                      '${activePreset.name} · ${(_activePresetAmount * 100).round()}%',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
@@ -866,7 +892,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
                                           divisions: 40,
                                           onChanged: (val) {
                                             setState(() => _activePresetAmount = val);
-                                            ref.read(recipeControllerProvider.notifier).applyTool(_activePresetTool!, amount: val);
+                                            ref.read(recipeControllerProvider.notifier).applyTool(activePreset, amount: val);
                                           },
                                         ),
                                       ),
@@ -946,7 +972,10 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
               top: false,
               right: true,
               child: Padding(
-                padding: EdgeInsets.only(bottom: 74, right: isWide ? Insets.xl : 0),
+                padding: EdgeInsets.only(
+                  bottom: isLargeScreen ? 16 : 74,
+                  right: isLargeScreen ? 300 : (isWide ? Insets.xl : 0),
+                ),
                 child: DecoratedBox(
                   key: const Key('snapseed-straighten-panel'),
                   decoration: BoxDecoration(
@@ -995,7 +1024,7 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
         // Radial tool menu.
         if (_radialOpen)
           Positioned.fill(
-            child: _RadialMenu(
+            child: SnapseedRadialMenu(
               active: widget.tool,
               tools: widget.tools,
               iconOf: _icon,
@@ -1009,146 +1038,6 @@ class _SnapseedShellState extends ConsumerState<SnapseedShell> {
           ],
         );
       },
-    );
-  }
-}
-
-TextStyle themeStyle(BuildContext context, FontWeight weight) =>
-    Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: weight);
-
-/// A tap-to-pick radial menu of every gesture tool.
-class _RadialMenu extends StatelessWidget {
-  const _RadialMenu({
-    required this.active,
-    required this.tools,
-    required this.iconOf,
-    required this.onDismiss,
-    required this.onPick,
-  });
-
-  final GradeTool active;
-  final List<GradeTool> tools;
-  final IconData Function(GradeTool) iconOf;
-  final VoidCallback onDismiss;
-  final ValueChanged<GradeTool> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final shortest = MediaQuery.sizeOf(context).shortestSide;
-    final radius = shortest >= 600 ? 128.0 : 96.0;
-    // Fixed hit-box (issue #46): each item paints a 56px circle + label but
-    // gets a symmetric target around its ring point. The box is larger than
-    // the painted circle so taps just outside the ring still hit the item
-    // instead of the dismiss backdrop; Containers don't clip, so the label
-    // painting past the box is fine.
-    const hitW = 88.0;
-    const hitH = 100.0;
-    final half = radius + hitW / 2;
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              onDismiss();
-            },
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: ColoredBox(color: scheme.surface.withValues(alpha: 0.5)),
-            ),
-          ),
-        ),
-        // Recenter the ring inside the safe area so side cutouts (issue #47)
-        // don't clip the outermost items; the dismiss backdrop stays full-bleed.
-        SafeArea(
-          child: Center(
-            child: SizedBox(
-              width: half * 2,
-              height: half * 2,
-              child: Stack(
-                children: [
-                  for (var i = 0; i < tools.length; i++)
-                    Positioned(
-                      left: half +
-                          math.cos(-math.pi / 2 + i * 2 * math.pi / tools.length) *
-                              radius -
-                          hitW / 2,
-                      top: half +
-                          math.sin(-math.pi / 2 + i * 2 * math.pi / tools.length) *
-                              radius -
-                          hitH / 2,
-                      child: Semantics(
-                        button: true,
-                        label: tools[i].name,
-                        child: GestureDetector(
-                          key: Key('radial-${tools[i].name}'),
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            onPick(tools[i]);
-                          },
-                          child: Container(
-                          width: hitW,
-                          height: hitH,
-                          color: Colors.transparent,
-                          alignment: Alignment.topCenter,
-                          child: _RadialItem(
-                            icon: iconOf(tools[i]),
-                            label: tools[i].name,
-                            selected: tools[i] == active,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RadialItem extends StatelessWidget {
-  const _RadialItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: selected ? scheme.primary : scheme.surfaceContainerHighest,
-          ),
-          child: Icon(
-            icon,
-            color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-      ],
     );
   }
 }

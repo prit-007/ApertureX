@@ -784,7 +784,7 @@ class _SplitWiperPlayer extends StatelessWidget {
                       Text(
                         'EDITED',
                         style: theme.textTheme.labelSmall?.copyWith(
-                          fontSize: 9,
+                          fontSize: 12.0,
                           fontWeight: FontWeight.w700,
                           color: scheme.onSurface,
                         ),
@@ -827,7 +827,7 @@ class _SplitWiperPlayer extends StatelessWidget {
                         Text(
                           'ORIGINAL',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            fontSize: 9,
+                            fontSize: 12.0,
                             fontWeight: FontWeight.w700,
                             color: scheme.onSurfaceVariant,
                           ),

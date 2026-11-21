@@ -122,5 +122,35 @@ void main() {
       expect(reset.saturation, -0.3);
       expect(edited.contrast, 0.4); // original untouched
     });
+
+    test('clears hue, sat, and luminance for 3-way color grade wheels', () {
+      final edited = const EditRecipe().copyWith(
+        gradeShadowHue: 0.5,
+        gradeShadowSat: 0.8,
+        gradeShadowLum: -0.4,
+        gradeMidHue: 0.2,
+        gradeMidSat: 0.6,
+        gradeMidLum: 0.3,
+        gradeHighlightHue: 0.9,
+        gradeHighlightSat: 0.7,
+        gradeHighlightLum: 0.5,
+      );
+
+      final resetShadows = resetTool(edited, GradeTool.shadowsGrade);
+      expect(resetShadows.gradeShadowHue, 0);
+      expect(resetShadows.gradeShadowSat, 0);
+      expect(resetShadows.gradeShadowLum, 0);
+      expect(resetShadows.gradeMidLum, 0.3);
+
+      final resetMid = resetTool(edited, GradeTool.midtonesGrade);
+      expect(resetMid.gradeMidHue, 0);
+      expect(resetMid.gradeMidSat, 0);
+      expect(resetMid.gradeMidLum, 0);
+
+      final resetHighlight = resetTool(edited, GradeTool.highlightsGrade);
+      expect(resetHighlight.gradeHighlightHue, 0);
+      expect(resetHighlight.gradeHighlightSat, 0);
+      expect(resetHighlight.gradeHighlightLum, 0);
+    });
   });
 }

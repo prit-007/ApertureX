@@ -2,8 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/log/activity_log.dart';
 import '../core/log/log_providers.dart';
-import '../features/ai_plugins/ai_plugin_store.dart';
 import 'adjustment_layer.dart';
+import 'depth_sidecar.dart';
 import 'history_tree.dart';
 import 'parameter.dart';
 import 'recipe.dart';
@@ -44,14 +44,8 @@ class RecipeController extends Notifier<RecipeState> {
 
   /// Sets [parameter] to an absolute [value] (clamped to its range).
   void update(Parameter parameter, double value) {
-    // AI denoise is gated behind an installed neural denoise model.
-    // No model → value is forced to neutral (0).
-    final effectiveValue = parameter == Parameter.aiDenoise
-        && !ref.read(aiPluginProvider).isDenoiseModelAvailable
-        ? 0.0
-        : value;
     state = state.copyWith(
-      recipe: withValue(state.recipe, parameter, effectiveValue),
+      recipe: withValue(state.recipe, parameter, value),
       activeParameter: parameter,
     );
   }
@@ -229,6 +223,16 @@ class RecipeController extends Notifier<RecipeState> {
     commit(label: 'Bokeh Shape');
   }
 
+  void setDepthField(DepthSidecarData? data, {String? sidecarPath}) {
+    state = state.copyWith(
+      recipe: state.recipe.copyWith(
+        depthField: data,
+        depthSidecar: sidecarPath ?? state.recipe.depthSidecar,
+        depthSidecarPath: sidecarPath ?? state.recipe.depthSidecarPath,
+      ),
+    );
+  }
+
   void setShaderLabPreset(int preset) {
     state = state.copyWith(
       recipe: state.recipe.copyWith(shaderLabPreset: preset),
@@ -358,7 +362,15 @@ class RecipeController extends Notifier<RecipeState> {
         retouchPatches: [...state.recipe.retouchPatches, patch],
       ),
     );
-    commit(label: patch.mode == RetouchMode.heal ? 'Heal' : 'Clone');
+    commit(
+      label: switch (patch.mode) {
+        RetouchMode.heal => 'Heal',
+        RetouchMode.clone => 'Clone',
+        RetouchMode.skinSmooth => 'Skin Smooth',
+        RetouchMode.eyeBrighten => 'Eye Brighten',
+        RetouchMode.teethWhiten => 'Teeth Whiten',
+      },
+    );
   }
 
   /// Replaces the retouch patch at [index].
@@ -551,5 +563,11 @@ class RecipeController extends Notifier<RecipeState> {
     final updatedTree = currentTree.deleteBranch(branchName);
     state = state.copyWith(historyTree: updatedTree);
     axLog(LogDomain.editor, 'Deleted branch: $branchName');
+  }
+
+  /// Automatically matches exposure level across photos to equalize visual brightness.
+  void autoMatchExposure({required double targetExposure}) {
+    update(Parameter.exposure, targetExposure.clamp(-5.0, 5.0));
+    commit(label: 'Match Exposure');
   }
 }

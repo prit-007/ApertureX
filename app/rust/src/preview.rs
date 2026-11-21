@@ -39,12 +39,12 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::sync::{Arc, LazyLock, Mutex, PoisonError};
-use zune_jpeg::JpegDecoder;
 
 use crate::api::color::{to_hsl24, ColorParams, CurveParams};
 use crate::api::decode::RgbaImage;
 use crate::api::mask::MaskLayer;
 use crate::api::preview::PreviewBaseSpec;
+use crate::blur::LensBlurParams;
 use crate::color;
 use crate::geometry;
 use crate::histogram;
@@ -69,6 +69,32 @@ pub(crate) struct DepthMap {
     pub(crate) height: usize,
 }
 
+/// Key capturing all input stages preceding the blur stage (geometry, optics, retouch, blur, depth)
+#[derive(Clone, PartialEq, Debug)]
+pub struct BlurStageKey {
+    pub turns: u32,
+    pub flip_h: bool,
+    pub flip_v: bool,
+    pub crop_l: f32,
+    pub crop_t: f32,
+    pub crop_r: f32,
+    pub crop_b: f32,
+    pub optics: OpticsParams,
+    pub blur: LensBlurParams,
+    pub patches: Vec<RetouchPatch>,
+    pub depth_len: usize,
+}
+
+/// Cached intermediate buffer after geometry, optics, retouch, and lens blur
+#[derive(Clone)]
+pub struct BlurStageCache {
+    pub key: BlurStageKey,
+    pub buf: Arc<Vec<u8>>,
+    pub width: u32,
+    pub height: u32,
+    pub focus_mask: Option<Arc<Vec<f32>>>,
+}
+
 struct Resident {
     /// Shared so [`run_base`] can borrow the pixels after dropping the
     /// store lock (cloning the `Arc` is a pointer copy, not an 8 MB memcpy).
@@ -78,11 +104,15 @@ struct Resident {
     /// Last `run_base` output — the histogram bins from this, never from
     /// the raw source, so the drawer reflects geometry + spatial + masks.
     base: Option<Arc<RgbaImage>>,
+    base_has_spatial_shadows: bool,
+    base_has_spatial_highlights: bool,
     /// Cached depth map for lens blur subject protection. Values are in
     /// `[0.0, 1.0]` and lower = closer. Set via
     /// [`crate::api::preview::preview_set_depth_map`] or lazily estimated
     /// from the source by [`ensure_depth_map`].
     depth_map: Option<Arc<DepthMap>>,
+    pub(crate) depth_field: Option<Arc<crate::depth::DepthField>>,
+    pub(crate) blur_cache: Option<BlurStageCache>,
     /// Spike B: platform window backing a Flutter `Texture` (an
     /// `ANativeWindow*` on Android, as `usize`). 0 = unbound; unbound
     /// handles use the return-frame path instead.
@@ -90,6 +120,8 @@ struct Resident {
 }
 
 static STORE: LazyLock<Mutex<Store>> = LazyLock::new(|| Mutex::new(Store::default()));
+static DEPTH_COMPUTE_LOCKS: LazyLock<Mutex<HashMap<u64, Arc<Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 fn lock_store() -> std::sync::MutexGuard<'static, Store> {
     // A panic inside one call must not brick every later call.
@@ -110,10 +142,25 @@ pub fn open(rgba: Vec<u8>, width: u32, height: u32) -> u64 {
             width,
             height,
             base: None,
+            base_has_spatial_shadows: false,
+            base_has_spatial_highlights: false,
             depth_map: None,
+            depth_field: None,
+            blur_cache: None,
             window: 0,
         },
     );
+    drop(store);
+
+    // Async resident depth pre-warming: kick off depth estimation on a background worker thread
+    // so that by the time the user toggles Lens Blur or drags a slider, the resident depth map
+    // is already resident in memory and the first scrub never stalls.
+    let _ = std::thread::Builder::new()
+        .name(format!("depth-prewarm-{id}"))
+        .spawn(move || {
+            let _ = ensure_depth_map(id);
+        });
+
     id
 }
 
@@ -131,44 +178,76 @@ pub fn get_source_rgba(handle: u64) -> Result<RgbaImage, String> {
     })
 }
 
+pub type ResidentSource = (Arc<[u8]>, u32, u32, Option<Vec<f32>>);
+
+/// Retrieves a clone of the resident source Arc, dimensions, and cached depth map for [handle].
+pub fn get_source_shared(handle: u64) -> Result<ResidentSource, String> {
+    let store = lock_store();
+    let resident = store
+        .images
+        .get(&handle)
+        .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+    let depth = resident.depth_map.as_ref().map(|d| d.data.to_vec());
+    Ok((
+        Arc::clone(&resident.source),
+        resident.width,
+        resident.height,
+        depth,
+    ))
+}
+
+/// Retrieves or estimates the cached depth map for [handle] and maps it through the export geometry
+/// to [out_w] x [out_h], avoiding redundant ML inference during export (P4).
+pub fn get_transformed_depth_map_for_export(
+    handle: u64,
+    spec: &crate::api::export::ExportSpec,
+    out_w: usize,
+    out_h: usize,
+) -> Option<Vec<f32>> {
+    let depth_arc = ensure_depth_map(handle).ok()?;
+    let preview_spec = PreviewBaseSpec {
+        flip_h: spec.flip_h,
+        flip_v: spec.flip_v,
+        turns: spec.turns,
+        crop_l: spec.crop_l,
+        crop_t: spec.crop_t,
+        crop_r: spec.crop_r,
+        crop_b: spec.crop_b,
+        ..Default::default()
+    };
+    let store = lock_store();
+    let resident = store.images.get(&handle)?;
+    let src_w = resident.width as usize;
+    let src_h = resident.height as usize;
+    Some(transform_depth_map(
+        &depth_arc,
+        &preview_spec,
+        src_w,
+        src_h,
+        out_w,
+        out_h,
+    ))
+}
+
 /// Decodes a JPEG (or camera RAW format) into a resident proxy.
 pub fn open_jpeg(jpeg_bytes: Vec<u8>, max_dim: u32) -> Result<u64, String> {
-    let mut decoder = JpegDecoder::new(std::io::Cursor::new(&jpeg_bytes));
-    if decoder.decode_headers().is_ok() {
-        if let Some((width, height)) = decoder.dimensions() {
-            if let Ok(rgba) = decoder.decode() {
-                let scale = (max_dim as f32 / width.max(height) as f32).min(1.0);
-                let target_w = (width as f32 * scale) as u32;
-                let target_h = (height as f32 * scale) as u32;
-
-                let mut rgba_buffer = Vec::with_capacity(target_w as usize * target_h as usize * 4);
-
-                for y in 0..target_h {
-                    let src_y = (y as f32 / scale) as usize;
-                    if src_y >= height {
-                        break;
-                    }
-                    for x in 0..target_w {
-                        let src_x = (x as f32 / scale) as usize;
-                        if src_x >= width {
-                            continue;
-                        }
-
-                        let idx = (src_y * width + src_x) * 3;
-                        if idx + 2 >= rgba.len() {
-                            continue;
-                        }
-
-                        rgba_buffer.push(rgba[idx]); // R
-                        rgba_buffer.push(rgba[idx + 1]); // G
-                        rgba_buffer.push(rgba[idx + 2]); // B
-                        rgba_buffer.push(255); // A
-                    }
-                }
-
-                return Ok(open(rgba_buffer, target_w, target_h));
-            }
+    if let Ok(decoded) = crate::decode::decode_rgba(&jpeg_bytes) {
+        let (rgba, w, h) = if max_dim > 0 && decoded.width.max(decoded.height) > max_dim as usize {
+            let (downscaled, nw, nh) = crate::geometry::downscale(
+                &decoded.rgba,
+                decoded.width,
+                decoded.height,
+                max_dim as usize,
+            );
+            (downscaled, nw as u32, nh as u32)
+        } else {
+            (decoded.rgba, decoded.width as u32, decoded.height as u32)
+        };
+        let handle = open(rgba, w, h);
+        if let Some((depth_u8, dw, dh)) = crate::exif::extract_embedded_depth(&jpeg_bytes) {
+            let _ = set_embedded_depth(handle, depth_u8, dw as u32, dh as u32);
         }
+        return Ok(handle);
     }
 
     // Fallback 1: check for high-res embedded JPEG in RAW files (CR2, NEF, ARW, DNG)
@@ -180,34 +259,18 @@ pub fn open_jpeg(jpeg_bytes: Vec<u8>, max_dim: u32) -> Result<u64, String> {
 
     // Fallback 2: decode as camera RAW (DNG, CR2, NEF, ARW, etc.)
     if let Ok(decoded) = crate::api::raw::decode_raw_rgba(jpeg_bytes) {
-        let width = decoded.width;
-        let height = decoded.height;
-        let rgba = decoded.rgba;
-        let scale = (max_dim as f32 / width.max(height) as f32).min(1.0);
-        let target_w = (width as f32 * scale) as u32;
-        let target_h = (height as f32 * scale) as u32;
-
-        let mut downscaled = Vec::with_capacity(target_w as usize * target_h as usize * 4);
-        for y in 0..target_h {
-            let src_y = (y as f32 / scale) as usize;
-            if src_y >= height as usize {
-                break;
-            }
-            for x in 0..target_w {
-                let src_x = (x as f32 / scale) as usize;
-                if src_x >= width as usize {
-                    continue;
-                }
-                let idx = (src_y * width as usize + src_x) * 4;
-                if idx + 3 < rgba.len() {
-                    downscaled.push(rgba[idx]);
-                    downscaled.push(rgba[idx + 1]);
-                    downscaled.push(rgba[idx + 2]);
-                    downscaled.push(rgba[idx + 3]);
-                }
-            }
-        }
-        return Ok(open(downscaled, target_w, target_h));
+        let (rgba, w, h) = if max_dim > 0 && decoded.width.max(decoded.height) > max_dim {
+            let (downscaled, nw, nh) = crate::geometry::downscale(
+                &decoded.rgba,
+                decoded.width as usize,
+                decoded.height as usize,
+                max_dim as usize,
+            );
+            (downscaled, nw as u32, nh as u32)
+        } else {
+            (decoded.rgba, decoded.width, decoded.height)
+        };
+        return Ok(open(rgba, w, h));
     }
 
     Err("Failed to decode image as JPEG or RAW".to_string())
@@ -220,6 +283,12 @@ pub fn close(handle: u64) {
         let mut store = lock_store();
         store.images.remove(&handle).map(|r| r.window)
     };
+    {
+        let mut locks = DEPTH_COMPUTE_LOCKS
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        locks.remove(&handle);
+    }
     // Release outside the lock — ANativeWindow_release may block on the compositor.
     if let Some(w) = window.filter(|w| *w != 0) {
         anative_window::release(w);
@@ -255,16 +324,52 @@ pub fn set_depth_map(handle: u64, depth_map: Vec<f32>) -> Result<(), String> {
         .get_mut(&handle)
         .ok_or_else(|| format!("unknown preview handle {handle}"))?;
     resident.depth_map = Some(Arc::new(DepthMap {
-        data: depth_map.into(),
+        data: depth_map.clone().into(),
         width,
         height,
     }));
+    resident.depth_field = Some(Arc::new(crate::depth::DepthField::new(
+        depth_map,
+        width as u32,
+        height as u32,
+        1.0,
+        crate::depth::DepthSource::Approximate,
+        None,
+        0,
+    )));
     Ok(())
 }
 
 /// Returns the stored depth map, lazily computing the in-tree heuristic depth
 /// from the resident source when no model-supplied map has been set.
 pub(crate) fn ensure_depth_map(handle: u64) -> Result<Arc<DepthMap>, String> {
+    // 1. Fast path: depth already computed in resident store
+    {
+        let store = lock_store();
+        let resident = store
+            .images
+            .get(&handle)
+            .ok_or_else(|| format!("unknown preview handle {handle}"))?;
+        if let Some(depth) = &resident.depth_map {
+            return Ok(Arc::clone(depth));
+        }
+    }
+
+    // 2. Synchronize per-handle so concurrent callers (e.g. background prewarm and live scrub)
+    // do not duplicate depth estimation or stall the engine.
+    let compute_lock = {
+        let mut locks = DEPTH_COMPUTE_LOCKS
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        locks
+            .entry(handle)
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    };
+
+    let _guard = compute_lock.lock().unwrap_or_else(PoisonError::into_inner);
+
+    // 3. Double-checked locking: check if another thread finished while we waited for the lock
     {
         let store = lock_store();
         let resident = store
@@ -290,7 +395,48 @@ pub(crate) fn ensure_depth_map(handle: u64) -> Result<Arc<DepthMap>, String> {
     };
 
     let (target_w, target_h) = depth_target_dims(width, height);
+
+    // Priority 1: Check embedded container depth metadata (JPEG GDepth, Apple disparity)
+    // before running compute-heavy neural inference.
+    if let Some((depth_u8, dw, dh)) = crate::exif::extract_embedded_depth(&source) {
+        let f32_depth: Vec<f32> = depth_u8.iter().map(|&b| 1.0 - (b as f32 / 255.0)).collect();
+        let resized = crate::ml::resize_mask(&f32_depth, dw, dh, target_w, target_h);
+        let field = Arc::new(crate::depth::DepthField::new(
+            resized.clone(),
+            target_w as u32,
+            target_h as u32,
+            0.95,
+            crate::depth::DepthSource::EmbeddedGDepth,
+            None,
+            0,
+        ));
+        let computed = Arc::new(DepthMap {
+            data: resized.into(),
+            width: target_w,
+            height: target_h,
+        });
+
+        let mut store = lock_store();
+        if let Some(resident) = store.images.get_mut(&handle) {
+            resident.depth_map = Some(Arc::clone(&computed));
+            resident.depth_field = Some(field);
+        }
+        return Ok(computed);
+    }
+
     let data = crate::ml::estimate_depth_map(&source, width, height, target_w, target_h)?;
+    let confidence =
+        crate::api::blur::depth_confidence(source.to_vec(), width as u32, height as u32)
+            .unwrap_or(0.85);
+    let field = Arc::new(crate::depth::DepthField::new(
+        data.clone(),
+        target_w as u32,
+        target_h as u32,
+        confidence,
+        crate::depth::DepthSource::Neural,
+        None,
+        0,
+    ));
     let computed = Arc::new(DepthMap {
         data: data.into(),
         width: target_w,
@@ -306,7 +452,41 @@ pub(crate) fn ensure_depth_map(handle: u64) -> Result<Arc<DepthMap>, String> {
         return Ok(Arc::clone(existing));
     }
     resident.depth_map = Some(Arc::clone(&computed));
+    resident.depth_field = Some(field);
     Ok(computed)
+}
+
+/// Retrieves the resident canonical [`DepthField`] for [handle] if available.
+pub fn get_resident_depth_field(handle: u64) -> Option<Arc<crate::depth::DepthField>> {
+    let store = lock_store();
+    store
+        .images
+        .get(&handle)
+        .and_then(|r| r.depth_field.clone())
+}
+
+/// Returns the precomputed depth map if already cached, without blocking.
+pub fn get_cached_depth(handle: u64) -> Option<Vec<f32>> {
+    let store = lock_store();
+    store
+        .images
+        .get(&handle)
+        .and_then(|r| r.depth_map.as_ref().map(|d| d.data.to_vec()))
+}
+
+/// Asynchronously kicks off depth precomputation in the background for [handle].
+pub fn precompute_depth_async(handle: u64) {
+    let _ = std::thread::Builder::new()
+        .name(format!("depth-prewarm-{handle}"))
+        .spawn(move || {
+            let _ = ensure_depth_map(handle);
+        });
+}
+
+/// Computes or retrieves the cached depth map for [handle] from the resident source.
+pub fn estimate_resident_depth(handle: u64) -> Result<Vec<f32>, String> {
+    let depth_map = ensure_depth_map(handle)?;
+    Ok(depth_map.data.to_vec())
 }
 
 fn depth_target_dims(width: usize, height: usize) -> (usize, usize) {
@@ -322,64 +502,8 @@ fn depth_target_dims(width: usize, height: usize) -> (usize, usize) {
     )
 }
 
-fn flip_h_depth(src: &[f32], w: usize, h: usize) -> Vec<f32> {
-    let mut out = vec![0.0; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            out[y * w + x] = src[y * w + (w - 1 - x)];
-        }
-    }
-    out
-}
-
-fn flip_v_depth(src: &[f32], w: usize, h: usize) -> Vec<f32> {
-    let mut out = vec![0.0; w * h];
-    for y in 0..h {
-        let src_row = (h - 1 - y) * w;
-        out[y * w..(y + 1) * w].copy_from_slice(&src[src_row..src_row + w]);
-    }
-    out
-}
-
-fn rotate_depth_quarter(src: &[f32], w: usize, h: usize, turns: u32) -> (Vec<f32>, usize, usize) {
-    let mut data = src.to_vec();
-    let (mut w, mut h) = (w, h);
-    for _ in 0..(turns % 4) {
-        let (nw, nh) = (h, w);
-        let mut out = vec![0.0; nw * nh];
-        for y in 0..h {
-            for x in 0..w {
-                let nx = h - 1 - y;
-                let ny = x;
-                out[ny * nw + nx] = data[y * w + x];
-            }
-        }
-        data = out;
-        w = nw;
-        h = nh;
-    }
-    (data, w, h)
-}
-
-fn crop_depth(
-    src: &[f32],
-    w: usize,
-    _h: usize,
-    x: usize,
-    y: usize,
-    cw: usize,
-    ch: usize,
-) -> Vec<f32> {
-    let mut out = Vec::with_capacity(cw * ch);
-    for row in 0..ch {
-        let start = (y + row) * w + x;
-        out.extend_from_slice(&src[start..start + cw]);
-    }
-    out
-}
-
-/// Maps a source-frame depth map through the same flip → rotate → crop chain
-/// as [`bake_base`], resampling to the baked frame size.
+/// Maps a source-frame depth map through the shared geometry pipeline
+/// (flip, rotate, crop, resize) to match the baked preview frame.
 fn transform_depth_map(
     depth: &DepthMap,
     spec: &PreviewBaseSpec,
@@ -388,28 +512,29 @@ fn transform_depth_map(
     out_w: usize,
     out_h: usize,
 ) -> Vec<f32> {
-    let mut data = crate::ml::resize_mask(&depth.data, depth.width, depth.height, src_w, src_h);
-    let (mut w, mut h) = (src_w, src_h);
-    if spec.flip_h {
-        data = flip_h_depth(&data, w, h);
-    }
-    if spec.flip_v {
-        data = flip_v_depth(&data, w, h);
-    }
-    if !spec.turns.is_multiple_of(4) {
-        (data, w, h) = rotate_depth_quarter(&data, w, h, spec.turns);
-    }
-    if let Some((x, y, cw, ch)) =
-        geometry::crop_rect(w, h, spec.crop_l, spec.crop_t, spec.crop_r, spec.crop_b)
-    {
-        data = crop_depth(&data, w, h, x, y, cw, ch);
-        w = cw;
-        h = ch;
-    }
-    if w != out_w || h != out_h {
-        data = crate::ml::resize_mask(&data, w, h, out_w, out_h);
-    }
-    data
+    let resized_source_depth = if depth.width != src_w || depth.height != src_h {
+        crate::ml::resize_mask(&depth.data, depth.width, depth.height, src_w, src_h)
+    } else {
+        depth.data.to_vec()
+    };
+    let geom_spec = geometry::GeometrySpec {
+        flip_h: spec.flip_h,
+        flip_v: spec.flip_v,
+        turns: spec.turns,
+        crop_l: spec.crop_l,
+        crop_t: spec.crop_t,
+        crop_r: spec.crop_r,
+        crop_b: spec.crop_b,
+        ..Default::default()
+    };
+    geometry::transform_plane(
+        &resized_source_depth,
+        src_w,
+        src_h,
+        &geom_spec,
+        out_w,
+        out_h,
+    )
 }
 
 /// Converts a JPEG GDepth plane (near = 255) into the preview depth convention
@@ -460,10 +585,19 @@ pub fn set_embedded_depth(
         resident.height as usize,
     )?;
     resident.depth_map = Some(Arc::new(DepthMap {
-        data: data.into(),
+        data: data.clone().into(),
         width: resident.width as usize,
         height: resident.height as usize,
     }));
+    resident.depth_field = Some(Arc::new(crate::depth::DepthField::new(
+        data,
+        resident.width,
+        resident.height,
+        1.0,
+        crate::depth::DepthSource::EmbeddedGDepth,
+        None,
+        0,
+    )));
     Ok(())
 }
 
@@ -552,7 +686,7 @@ pub fn render(
         Some(base) => (*base).clone(),
         None => {
             let fb = bake_base(handle, &source, src_w, src_h, spec, layers, patches);
-            cache_base(handle, &fb);
+            cache_base(handle, &fb, spec.shadows, spec.highlights);
             fb
         }
     };
@@ -629,7 +763,7 @@ pub fn run_base(
     let frame = bake_base(handle, &source, src_w, src_h, spec, layers, patches);
 
     // 3. Re-lock only to cache an Arc of the result for the histogram.
-    cache_base(handle, &frame);
+    cache_base(handle, &frame, spec.shadows, spec.highlights);
 
     Ok(frame)
 }
@@ -648,32 +782,6 @@ fn bake_base(
     patches: &[RetouchPatch],
 ) -> RgbaImage {
     let (mut buf, mut w, mut h): (Cow<'_, [u8]>, u32, u32) = (Cow::Borrowed(source), src_w, src_h);
-
-    if spec.flip_h {
-        buf = Cow::Owned(geometry::flip_h(&buf, w as usize, h as usize));
-    }
-    if spec.flip_v {
-        buf = Cow::Owned(geometry::flip_v(&buf, w as usize, h as usize));
-    }
-    if !spec.turns.is_multiple_of(4) {
-        let (b, nw, nh) = geometry::rotate_quarter(&buf, w as usize, h as usize, spec.turns);
-        buf = Cow::Owned(b);
-        w = nw as u32;
-        h = nh as u32;
-    }
-    if let Some((b, cw, ch)) = crop_opt(
-        &buf,
-        w,
-        h,
-        spec.crop_l,
-        spec.crop_t,
-        spec.crop_r,
-        spec.crop_b,
-    ) {
-        buf = Cow::Owned(b);
-        w = cw;
-        h = ch;
-    }
 
     let spatial_params = SpatialParams {
         shadows: spec.shadows,
@@ -723,59 +831,191 @@ fn bake_base(
         profile_distortion: spec.profile_distortion,
         profile_vignetting: spec.profile_vignetting,
     };
-    if !optics_params.is_neutral() {
-        buf = Cow::Owned(optics::apply_optics(
-            &buf,
-            w as usize,
-            h as usize,
-            optics_params,
-        ));
-    }
-    if !patches.is_empty() {
-        let buf = buf.to_mut();
-        for patch in patches {
-            crate::retouch::apply_patch(buf, w as usize, h as usize, patch);
-        }
-    }
-    // Depth-aware lens blur sits at the same stage as the export pipeline
-    // (geometry → optics → blur → spatial → masks) so preview == export.
     let blur_params = spec.blur_params();
+    let mut focus_mask_out: Option<Arc<Vec<f32>>> = None;
+
     if !blur_params.is_neutral() {
-        // Use the model-supplied depth if present, otherwise estimate it from
-        // the resident source. The map is transformed through the same
-        // flip/rotate/crop chain as the pixels, so it stays aligned.
-        let depth_map = match ensure_depth_map(handle) {
-            Ok(depth) => Some(transform_depth_map(
-                &depth,
-                spec,
-                src_w as usize,
-                src_h as usize,
+        let depth_len = {
+            let store = lock_store();
+            store
+                .images
+                .get(&handle)
+                .and_then(|r| r.depth_map.as_ref().map(|d| d.data.len()))
+                .unwrap_or(0)
+        };
+        let blur_key = BlurStageKey {
+            turns: spec.turns,
+            flip_h: spec.flip_h,
+            flip_v: spec.flip_v,
+            crop_l: spec.crop_l,
+            crop_t: spec.crop_t,
+            crop_r: spec.crop_r,
+            crop_b: spec.crop_b,
+            optics: optics_params,
+            blur: blur_params,
+            patches: patches.to_vec(),
+            depth_len,
+        };
+
+        let cached_stage = {
+            let store = lock_store();
+            store.images.get(&handle).and_then(|r| {
+                if let Some(c) = &r.blur_cache {
+                    if c.key == blur_key {
+                        Some((Arc::clone(&c.buf), c.width, c.height, c.focus_mask.clone()))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+        };
+
+        if let Some((cached_buf, cw, ch, cached_fm)) = cached_stage {
+            buf = Cow::Owned((*cached_buf).clone());
+            w = cw;
+            h = ch;
+            focus_mask_out = cached_fm;
+        } else {
+            if spec.flip_h {
+                buf = Cow::Owned(geometry::flip_h(&buf, w as usize, h as usize));
+            }
+            if spec.flip_v {
+                buf = Cow::Owned(geometry::flip_v(&buf, w as usize, h as usize));
+            }
+            if !spec.turns.is_multiple_of(4) {
+                let (b, nw, nh) =
+                    geometry::rotate_quarter(&buf, w as usize, h as usize, spec.turns);
+                buf = Cow::Owned(b);
+                w = nw as u32;
+                h = nh as u32;
+            }
+            if let Some((b, cw, ch)) = crop_opt(
+                &buf,
+                w,
+                h,
+                spec.crop_l,
+                spec.crop_t,
+                spec.crop_r,
+                spec.crop_b,
+            ) {
+                buf = Cow::Owned(b);
+                w = cw;
+                h = ch;
+            }
+            if !optics_params.is_neutral() {
+                buf = Cow::Owned(optics::apply_optics(
+                    &buf,
+                    w as usize,
+                    h as usize,
+                    optics_params,
+                ));
+            }
+            if !patches.is_empty() {
+                let buf = buf.to_mut();
+                for patch in patches {
+                    crate::retouch::apply_patch(buf, w as usize, h as usize, patch);
+                }
+            }
+
+            let depth_map = match ensure_depth_map(handle) {
+                Ok(depth) => Some(transform_depth_map(
+                    &depth,
+                    spec,
+                    src_w as usize,
+                    src_h as usize,
+                    w as usize,
+                    h as usize,
+                )),
+                Err(err) => {
+                    crate::api::logging::record_engine_error(
+                        "Depth estimation failed; using synthetic depth",
+                        &err,
+                    );
+                    None
+                }
+            };
+
+            let focus_mask = depth_map.as_deref().map(|dm| {
+                Arc::new(crate::blur::compute_focus_mask(
+                    dm,
+                    blur_params.focal_point,
+                    blur_params.focal_range,
+                    blur_params.amount,
+                ))
+            });
+            focus_mask_out = focus_mask.clone();
+
+            buf = Cow::Owned(crate::blur::apply_lens_blur(
+                &buf,
                 w as usize,
                 h as usize,
-            )),
-            Err(err) => {
-                crate::api::logging::record_engine_error(
-                    "Depth estimation failed; using synthetic depth",
-                    &err,
-                );
-                None
+                blur_params,
+                depth_map.as_deref(),
+            ));
+
+            let mut store = lock_store();
+            if let Some(r) = store.images.get_mut(&handle) {
+                r.blur_cache = Some(BlurStageCache {
+                    key: blur_key,
+                    buf: Arc::new(buf.clone().into_owned()),
+                    width: w,
+                    height: h,
+                    focus_mask,
+                });
             }
-        };
-        buf = Cow::Owned(crate::blur::apply_lens_blur(
+        }
+    } else {
+        if spec.flip_h {
+            buf = Cow::Owned(geometry::flip_h(&buf, w as usize, h as usize));
+        }
+        if spec.flip_v {
+            buf = Cow::Owned(geometry::flip_v(&buf, w as usize, h as usize));
+        }
+        if !spec.turns.is_multiple_of(4) {
+            let (b, nw, nh) = geometry::rotate_quarter(&buf, w as usize, h as usize, spec.turns);
+            buf = Cow::Owned(b);
+            w = nw as u32;
+            h = nh as u32;
+        }
+        if let Some((b, cw, ch)) = crop_opt(
             &buf,
-            w as usize,
-            h as usize,
-            blur_params,
-            depth_map.as_deref(),
-        ));
+            w,
+            h,
+            spec.crop_l,
+            spec.crop_t,
+            spec.crop_r,
+            spec.crop_b,
+        ) {
+            buf = Cow::Owned(b);
+            w = cw;
+            h = ch;
+        }
+        if !optics_params.is_neutral() {
+            buf = Cow::Owned(optics::apply_optics(
+                &buf,
+                w as usize,
+                h as usize,
+                optics_params,
+            ));
+        }
+        if !patches.is_empty() {
+            let buf = buf.to_mut();
+            for patch in patches {
+                crate::retouch::apply_patch(buf, w as usize, h as usize, patch);
+            }
+        }
     }
+
     // apply_spatial clones on the neutral path — skip it entirely.
     if !spatial_params.is_neutral() {
-        buf = Cow::Owned(spatial::apply_spatial(
+        buf = Cow::Owned(spatial::apply_spatial_with_focus_mask(
             &buf,
             w as usize,
             h as usize,
             spatial_params,
+            focus_mask_out.as_deref().map(|v| v.as_slice()),
         ));
     }
 
@@ -808,7 +1048,7 @@ fn bake_base(
 
 /// Stores an Arc of [frame] as the histogram source for [handle]. A missing
 /// handle (closed mid-bake) is fine — the result is simply dropped.
-fn cache_base(handle: u64, frame: &RgbaImage) {
+fn cache_base(handle: u64, frame: &RgbaImage, shadows: f32, highlights: f32) {
     let mut store = lock_store();
     if let Some(resident) = store.images.get_mut(&handle) {
         resident.base = Some(Arc::new(RgbaImage {
@@ -816,6 +1056,8 @@ fn cache_base(handle: u64, frame: &RgbaImage) {
             height: frame.height,
             rgba: frame.rgba.clone(),
         }));
+        resident.base_has_spatial_shadows = shadows != 0.0;
+        resident.base_has_spatial_highlights = highlights != 0.0;
     }
 }
 
@@ -831,7 +1073,7 @@ pub fn histogram_from_base(
     curves: &crate::api::color::CurveParams,
     hsl: &[f32],
 ) -> Result<histogram::Histogram, String> {
-    let base = {
+    let (base, has_shadows, has_highlights) = {
         let store = lock_store();
         let resident = store
             .images
@@ -840,14 +1082,22 @@ pub fn histogram_from_base(
         let base = resident.base.as_ref().ok_or_else(|| {
             format!("preview handle {handle} has no base; call preview_base first")
         })?;
-        Arc::clone(base)
+        (
+            Arc::clone(base),
+            resident.base_has_spatial_shadows,
+            resident.base_has_spatial_highlights,
+        )
     };
 
     let set = curves.to_set();
     let mut core_p = params.to_core();
-    // #160: Base image already contains spatial shadows/highlights; zero them in the pointwise grade.
-    core_p.shadows = 0.0;
-    core_p.highlights = 0.0;
+    // #160: When base image already contains spatial shadows/highlights, zero them in the pointwise grade.
+    if has_shadows {
+        core_p.shadows = 0.0;
+    }
+    if has_highlights {
+        core_p.highlights = 0.0;
+    }
     Ok(histogram::histogram_graded(
         &base.rgba,
         base.width,

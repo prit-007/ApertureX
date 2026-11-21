@@ -277,7 +277,7 @@ class _RulerPainter extends CustomPainter {
       ..strokeWidth = 2.0;
 
     final textStyle = TextStyle(
-      fontSize: 9,
+      fontSize: 12.0,
       color: onSurface.withValues(alpha: 0.75),
       fontFamily: 'monospace',
     );

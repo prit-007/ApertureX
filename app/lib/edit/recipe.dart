@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show listEquals;
 
 import 'adjustment_layer.dart';
+import 'depth_sidecar.dart';
 import 'retouch_patch.dart';
 import 'tone_curve.dart';
 
@@ -112,6 +113,9 @@ class EditRecipe {
     this.blurBokehBoost = 0,
     this.blurBackgroundBlur = false,
     this.blurSampleCount = 12,
+    this.depthSidecar,
+    this.depthSidecarPath,
+    this.depthField,
     // Film emulation physics.
     this.filmHalation = 0,
     this.filmHalationRadius = 0.5,
@@ -126,6 +130,18 @@ class EditRecipe {
     this.shaderParam1 = 0,
     this.shaderParam2 = 0,
     this.shaderParam3 = 0,
+    // Camera Calibration.
+    this.calibrationShadowTint = 0,
+    this.calibrationRedHue = 0,
+    this.calibrationRedSat = 0,
+    this.calibrationGreenHue = 0,
+    this.calibrationGreenSat = 0,
+    this.calibrationBlueHue = 0,
+    this.calibrationBlueSat = 0,
+    // Point Color.
+    this.pointColors = const <PointColorDef>[],
+    // Double Exposure.
+    this.doubleExposure,
   });
 
   /// Deserialises from [json], tolerating missing keys (default to neutral) and
@@ -197,9 +213,16 @@ class EditRecipe {
       redCurve: ToneCurve.fromJson(json['redCurve']),
       greenCurve: ToneCurve.fromJson(json['greenCurve']),
       blueCurve: ToneCurve.fromJson(json['blueCurve']),
-      hsl:
-          (json['hsl'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
-          neutralHsl,
+      hsl: () {
+        final parsed = (json['hsl'] as List?)?.map((e) => (e as num).toDouble()).toList();
+        if (parsed == null) return neutralHsl;
+        if (parsed.length != 24) {
+          throw FormatException(
+            'Invalid recipe: hsl must contain 24 values, got ${parsed.length}',
+          );
+        }
+        return parsed;
+      }(),
       rotation: (json['rotation'] as num?)?.toInt() ?? 0,
       flipH: json['flipH'] as bool? ?? false,
       flipV: json['flipV'] as bool? ?? false,
@@ -240,6 +263,23 @@ class EditRecipe {
       blurBokehBoost: asDouble('blurBokehBoost'),
       blurBackgroundBlur: json['blurBackgroundBlur'] as bool? ?? false,
       blurSampleCount: (json['blurSampleCount'] as num?)?.toInt() ?? 12,
+      depthSidecar: (json['depthSidecar'] ??
+              json['depth_sidecar'] ??
+              json['depthSidecarPath'] ??
+              json['depth_field_path']) as String?,
+      depthSidecarPath: (json['depthSidecarPath'] ??
+              json['depth_sidecar'] ??
+              json['depthSidecar'] ??
+              json['depth_field_path']) as String?,
+      depthField: json['depth_field'] is Map
+          ? DepthSidecarData.fromJson(
+              (json['depth_field'] as Map).cast<String, Object?>(),
+            )
+          : (json['depthField'] is Map
+              ? DepthSidecarData.fromJson(
+                  (json['depthField'] as Map).cast<String, Object?>(),
+                )
+              : null),
       filmHalation: asDouble('filmHalation'),
       filmHalationRadius:
           (json['filmHalationRadius'] as num?)?.toDouble() ?? 0.5,
@@ -255,7 +295,23 @@ class EditRecipe {
       shaderParam1: asDouble('shaderParam1'),
       shaderParam2: asDouble('shaderParam2'),
       shaderParam3: asDouble('shaderParam3'),
-    );
+      calibrationShadowTint: asDouble('calibrationShadowTint'),
+      calibrationRedHue: asDouble('calibrationRedHue'),
+      calibrationRedSat: asDouble('calibrationRedSat'),
+      calibrationGreenHue: asDouble('calibrationGreenHue'),
+      calibrationGreenSat: asDouble('calibrationGreenSat'),
+      calibrationBlueHue: asDouble('calibrationBlueHue'),
+      calibrationBlueSat: asDouble('calibrationBlueSat'),
+      pointColors: (json['pointColors'] as List?)
+              ?.map((e) => PointColorDef.fromJson((e as Map).cast<String, Object?>()))
+              .toList() ??
+          const <PointColorDef>[],
+      doubleExposure: json['doubleExposure'] is Map
+          ? DoubleExposureLayer.fromJson(
+              (json['doubleExposure'] as Map).cast<String, Object?>(),
+            )
+          : null,
+    ).clamped();
   }
 
   /// Bumped only on a breaking schema change (ARCHITECTURE §16).
@@ -375,6 +431,9 @@ class EditRecipe {
   final double blurBokehBoost;
   final bool blurBackgroundBlur;
   final int blurSampleCount;
+  final String? depthSidecar;
+  final String? depthSidecarPath;
+  final DepthSidecarData? depthField;
   // Film emulation physics.
   final double filmHalation;
   final double filmHalationRadius;
@@ -396,6 +455,21 @@ class EditRecipe {
   final double perspectiveY; // vertical perspective, neutral 0, range ~[-1,1]
   final double skewX; // horizontal skew, neutral 0, range ~[-1,1]
   final double skewY; // vertical skew, neutral 0, range ~[-1,1]
+
+  // Camera Calibration.
+  final double calibrationShadowTint;
+  final double calibrationRedHue;
+  final double calibrationRedSat;
+  final double calibrationGreenHue;
+  final double calibrationGreenSat;
+  final double calibrationBlueHue;
+  final double calibrationBlueSat;
+
+  // Point Color.
+  final List<PointColorDef> pointColors;
+
+  // Double Exposure.
+  final DoubleExposureLayer? doubleExposure;
 
   /// Returns a copy with the given fields replaced. Fields left `null` keep
   /// their current value; the receiver is never mutated.
@@ -477,6 +551,9 @@ class EditRecipe {
     double? blurBokehBoost,
     bool? blurBackgroundBlur,
     int? blurSampleCount,
+    String? depthSidecar,
+    String? depthSidecarPath,
+    DepthSidecarData? depthField,
     double? filmHalation,
     double? filmHalationRadius,
     double? filmHalationThreshold,
@@ -489,6 +566,15 @@ class EditRecipe {
     double? shaderParam1,
     double? shaderParam2,
     double? shaderParam3,
+    double? calibrationShadowTint,
+    double? calibrationRedHue,
+    double? calibrationRedSat,
+    double? calibrationGreenHue,
+    double? calibrationGreenSat,
+    double? calibrationBlueHue,
+    double? calibrationBlueSat,
+    List<PointColorDef>? pointColors,
+    DoubleExposureLayer? doubleExposure,
   }) {
     return EditRecipe(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -569,6 +655,9 @@ class EditRecipe {
       blurBokehBoost: blurBokehBoost ?? this.blurBokehBoost,
       blurBackgroundBlur: blurBackgroundBlur ?? this.blurBackgroundBlur,
       blurSampleCount: blurSampleCount ?? this.blurSampleCount,
+      depthSidecar: depthSidecar ?? this.depthSidecar,
+      depthSidecarPath: depthSidecarPath ?? this.depthSidecarPath,
+      depthField: depthField ?? this.depthField,
       filmHalation: filmHalation ?? this.filmHalation,
       filmHalationRadius: filmHalationRadius ?? this.filmHalationRadius,
       filmHalationThreshold: filmHalationThreshold ?? this.filmHalationThreshold,
@@ -581,6 +670,107 @@ class EditRecipe {
       shaderParam1: shaderParam1 ?? this.shaderParam1,
       shaderParam2: shaderParam2 ?? this.shaderParam2,
       shaderParam3: shaderParam3 ?? this.shaderParam3,
+      calibrationShadowTint:
+          calibrationShadowTint ?? this.calibrationShadowTint,
+      calibrationRedHue: calibrationRedHue ?? this.calibrationRedHue,
+      calibrationRedSat: calibrationRedSat ?? this.calibrationRedSat,
+      calibrationGreenHue: calibrationGreenHue ?? this.calibrationGreenHue,
+      calibrationGreenSat: calibrationGreenSat ?? this.calibrationGreenSat,
+      calibrationBlueHue: calibrationBlueHue ?? this.calibrationBlueHue,
+      calibrationBlueSat: calibrationBlueSat ?? this.calibrationBlueSat,
+      pointColors: pointColors ?? this.pointColors,
+      doubleExposure: doubleExposure ?? this.doubleExposure,
+    );
+  }
+
+  /// Returns a copy of this recipe with all numeric parameters clamped to their
+  /// valid ranges.
+  EditRecipe clamped() {
+    return copyWith(
+      exposure: exposure.clamp(-4.0, 4.0),
+      contrast: contrast.clamp(-1.0, 1.0),
+      highlights: highlights.clamp(-1.0, 1.0),
+      shadows: shadows.clamp(-1.0, 1.0),
+      whites: whites.clamp(-1.0, 1.0),
+      blacks: blacks.clamp(-1.0, 1.0),
+      clarity: clarity.clamp(-1.0, 1.0),
+      texture: texture.clamp(-1.0, 1.0),
+      dehaze: dehaze.clamp(-1.0, 1.0),
+      vignette: vignette.clamp(-1.0, 1.0),
+      vignetteMidpoint: vignetteMidpoint.clamp(0.0, 1.0),
+      vignetteFeather: vignetteFeather.clamp(0.0, 1.0),
+      vignetteRoundness: vignetteRoundness.clamp(-1.0, 1.0),
+      vignetteHighlights: vignetteHighlights.clamp(0.0, 1.0),
+      grain: grain.clamp(0.0, 1.0),
+      grainSize: grainSize.clamp(0.1, 1.0),
+      grainRoughness: grainRoughness.clamp(0.0, 1.0),
+      sharpen: sharpen.clamp(0.0, 1.0),
+      sharpenRadius: sharpenRadius.clamp(0.5, 3.0),
+      sharpenDetail: sharpenDetail.clamp(0.0, 1.0),
+      sharpenMasking: sharpenMasking.clamp(0.0, 1.0),
+      outputSharpenMedia: outputSharpenMedia.clamp(0, 3),
+      outputSharpen: outputSharpen.clamp(0.0, 1.0),
+      denoiseLuma: denoiseLuma.clamp(0.0, 1.0),
+      denoiseChroma: denoiseChroma.clamp(0.0, 1.0),
+      aiDenoise: aiDenoise.clamp(0.0, 1.0),
+      temperature: temperature.clamp(-1.0, 1.0),
+      tint: tint.clamp(-1.0, 1.0),
+      vibrance: vibrance.clamp(-1.0, 1.0),
+      saturation: saturation.clamp(-1.0, 1.0),
+      gradeShadowHue: gradeShadowHue.clamp(0.0, 360.0),
+      gradeShadowSat: gradeShadowSat.clamp(0.0, 1.0),
+      gradeShadowLum: gradeShadowLum.clamp(-1.0, 1.0),
+      gradeMidHue: gradeMidHue.clamp(0.0, 360.0),
+      gradeMidSat: gradeMidSat.clamp(0.0, 1.0),
+      gradeMidLum: gradeMidLum.clamp(-1.0, 1.0),
+      gradeHighlightHue: gradeHighlightHue.clamp(0.0, 360.0),
+      gradeHighlightSat: gradeHighlightSat.clamp(0.0, 1.0),
+      gradeHighlightLum: gradeHighlightLum.clamp(-1.0, 1.0),
+      gradeBlending: gradeBlending.clamp(0.0, 1.0),
+      gradeBalance: gradeBalance.clamp(-1.0, 1.0),
+      hsl: hsl.map((e) => e.clamp(-1.0, 1.0)).toList(),
+      rotation: (rotation % 4 + 4) % 4,
+      straighten: straighten.clamp(-45.0, 45.0),
+      crop: crop.length == 4
+          ? crop.map((e) => e.clamp(0.0, 1.0)).toList()
+          : fullCrop,
+      perspectiveX: perspectiveX.clamp(-1.0, 1.0),
+      perspectiveY: perspectiveY.clamp(-1.0, 1.0),
+      skewX: skewX.clamp(-1.0, 1.0),
+      skewY: skewY.clamp(-1.0, 1.0),
+      defringePurpleAmount: defringePurpleAmount.clamp(0.0, 1.0),
+      defringePurpleHueMin: defringePurpleHueMin.clamp(0.0, 1.0),
+      defringePurpleHueMax: defringePurpleHueMax.clamp(0.0, 1.0),
+      defringeGreenAmount: defringeGreenAmount.clamp(0.0, 1.0),
+      defringeGreenHueMin: defringeGreenHueMin.clamp(0.0, 1.0),
+      defringeGreenHueMax: defringeGreenHueMax.clamp(0.0, 1.0),
+      profileDistortion: profileDistortion.clamp(0.0, 2.0),
+      profileVignetting: profileVignetting.clamp(0.0, 2.0),
+      blurAmount: blurAmount.clamp(0.0, 1.0),
+      blurFocalPoint: blurFocalPoint.clamp(0.0, 1.0),
+      blurFocalRange: blurFocalRange.clamp(0.01, 1.0),
+      blurBokehShape: blurBokehShape.clamp(0, 6),
+      blurBokehBoost: blurBokehBoost.clamp(0.0, 1.0),
+      blurSampleCount: blurSampleCount.clamp(1, 64),
+      filmHalation: filmHalation.clamp(0.0, 1.0),
+      filmHalationRadius: filmHalationRadius.clamp(0.1, 1.0),
+      filmHalationThreshold: filmHalationThreshold.clamp(0.1, 1.0),
+      filmBloom: filmBloom.clamp(0.0, 1.0),
+      filmBloomRadius: filmBloomRadius.clamp(0.1, 1.0),
+      filmBloomThreshold: filmBloomThreshold.clamp(0.1, 1.0),
+      filmDust: filmDust.clamp(0.0, 1.0),
+      filmScratches: filmScratches.clamp(0.0, 1.0),
+      shaderLabPreset: shaderLabPreset.clamp(0, 10),
+      shaderParam1: shaderParam1.clamp(0.0, 1.0),
+      shaderParam2: shaderParam2.clamp(0.0, 1.0),
+      shaderParam3: shaderParam3.clamp(0.0, 1.0),
+      calibrationShadowTint: calibrationShadowTint.clamp(-100.0, 100.0),
+      calibrationRedHue: calibrationRedHue.clamp(-100.0, 100.0),
+      calibrationRedSat: calibrationRedSat.clamp(-100.0, 100.0),
+      calibrationGreenHue: calibrationGreenHue.clamp(-100.0, 100.0),
+      calibrationGreenSat: calibrationGreenSat.clamp(-100.0, 100.0),
+      calibrationBlueHue: calibrationBlueHue.clamp(-100.0, 100.0),
+      calibrationBlueSat: calibrationBlueSat.clamp(-100.0, 100.0),
     );
   }
 
@@ -663,6 +853,11 @@ class EditRecipe {
     'blurBokehBoost': blurBokehBoost,
     'blurBackgroundBlur': blurBackgroundBlur,
     'blurSampleCount': blurSampleCount,
+    if (depthSidecar != null) 'depthSidecar': depthSidecar,
+    if (depthSidecarPath != null) 'depthSidecarPath': depthSidecarPath,
+    if (depthSidecar != null || depthSidecarPath != null)
+      'depth_sidecar': depthSidecar ?? depthSidecarPath,
+    if (depthField != null) 'depth_field': depthField!.toJson(),
     'filmHalation': filmHalation,
     'filmHalationRadius': filmHalationRadius,
     'filmHalationThreshold': filmHalationThreshold,
@@ -675,6 +870,17 @@ class EditRecipe {
     'shaderParam1': shaderParam1,
     'shaderParam2': shaderParam2,
     'shaderParam3': shaderParam3,
+    if (calibrationShadowTint != 0)
+      'calibrationShadowTint': calibrationShadowTint,
+    if (calibrationRedHue != 0) 'calibrationRedHue': calibrationRedHue,
+    if (calibrationRedSat != 0) 'calibrationRedSat': calibrationRedSat,
+    if (calibrationGreenHue != 0) 'calibrationGreenHue': calibrationGreenHue,
+    if (calibrationGreenSat != 0) 'calibrationGreenSat': calibrationGreenSat,
+    if (calibrationBlueHue != 0) 'calibrationBlueHue': calibrationBlueHue,
+    if (calibrationBlueSat != 0) 'calibrationBlueSat': calibrationBlueSat,
+    if (pointColors.isNotEmpty)
+      'pointColors': [for (final p in pointColors) p.toJson()],
+    if (doubleExposure != null) 'doubleExposure': doubleExposure!.toJson(),
   };
 
   @override
@@ -757,6 +963,9 @@ class EditRecipe {
       other.blurBokehBoost == blurBokehBoost &&
       other.blurBackgroundBlur == blurBackgroundBlur &&
       other.blurSampleCount == blurSampleCount &&
+      other.depthSidecar == depthSidecar &&
+      other.depthSidecarPath == depthSidecarPath &&
+      other.depthField == depthField &&
       other.filmHalation == filmHalation &&
       other.filmHalationRadius == filmHalationRadius &&
       other.filmHalationThreshold == filmHalationThreshold &&
@@ -768,7 +977,16 @@ class EditRecipe {
       other.shaderLabPreset == shaderLabPreset &&
       other.shaderParam1 == shaderParam1 &&
       other.shaderParam2 == shaderParam2 &&
-      other.shaderParam3 == shaderParam3;
+      other.shaderParam3 == shaderParam3 &&
+      other.calibrationShadowTint == calibrationShadowTint &&
+      other.calibrationRedHue == calibrationRedHue &&
+      other.calibrationRedSat == calibrationRedSat &&
+      other.calibrationGreenHue == calibrationGreenHue &&
+      other.calibrationGreenSat == calibrationGreenSat &&
+      other.calibrationBlueHue == calibrationBlueHue &&
+      other.calibrationBlueSat == calibrationBlueSat &&
+      listEquals(other.pointColors, pointColors) &&
+      other.doubleExposure == doubleExposure;
 
   @override
   int get hashCode => Object.hash(
@@ -847,6 +1065,9 @@ class EditRecipe {
       blurBokehBoost,
       blurBackgroundBlur,
       blurSampleCount,
+      depthSidecar,
+      depthSidecarPath,
+      depthField,
     ),
     Object.hash(
       filmHalation,
@@ -861,6 +1082,17 @@ class EditRecipe {
       shaderParam1,
       shaderParam2,
       shaderParam3,
+      Object.hash(
+        calibrationShadowTint,
+        calibrationRedHue,
+        calibrationRedSat,
+        calibrationGreenHue,
+        calibrationGreenSat,
+        calibrationBlueHue,
+        calibrationBlueSat,
+        Object.hashAll(pointColors),
+        doubleExposure,
+      ),
     ),
   );
 
@@ -868,4 +1100,198 @@ class EditRecipe {
   String toString() =>
       'EditRecipe(v$schemaVersion, exposure: $exposure, contrast: $contrast, '
       'saturation: $saturation)';
+}
+
+/// Point Color adjustment definition targeting a specific hue, saturation, and
+/// luminance range with customizable falloff and shifts.
+class PointColorDef {
+  const PointColorDef({
+    this.targetHue = 0.0,
+    this.targetSat = 0.5,
+    this.targetLum = 0.5,
+    this.rangeHue = 0.1,
+    this.rangeSat = 0.3,
+    this.rangeLum = 0.3,
+    this.falloff = 0.5,
+    this.hueShift = 0.0,
+    this.satShift = 0.0,
+    this.lumShift = 0.0,
+  });
+
+  factory PointColorDef.fromJson(Map<String, Object?> json) {
+    double d(String k, double fallback) => (json[k] as num?)?.toDouble() ?? fallback;
+    return PointColorDef(
+      targetHue: d('targetHue', 0.0),
+      targetSat: d('targetSat', 0.5),
+      targetLum: d('targetLum', 0.5),
+      rangeHue: d('rangeHue', 0.1),
+      rangeSat: d('rangeSat', 0.3),
+      rangeLum: d('rangeLum', 0.3),
+      falloff: d('falloff', 0.5),
+      hueShift: d('hueShift', 0.0),
+      satShift: d('satShift', 0.0),
+      lumShift: d('lumShift', 0.0),
+    );
+  }
+
+  final double targetHue;
+  final double targetSat;
+  final double targetLum;
+  final double rangeHue;
+  final double rangeSat;
+  final double rangeLum;
+  final double falloff;
+  final double hueShift;
+  final double satShift;
+  final double lumShift;
+
+  Map<String, Object?> toJson() => {
+    'targetHue': targetHue,
+    'targetSat': targetSat,
+    'targetLum': targetLum,
+    'rangeHue': rangeHue,
+    'rangeSat': rangeSat,
+    'rangeLum': rangeLum,
+    'falloff': falloff,
+    'hueShift': hueShift,
+    'satShift': satShift,
+    'lumShift': lumShift,
+  };
+
+  PointColorDef copyWith({
+    double? targetHue,
+    double? targetSat,
+    double? targetLum,
+    double? rangeHue,
+    double? rangeSat,
+    double? rangeLum,
+    double? falloff,
+    double? hueShift,
+    double? satShift,
+    double? lumShift,
+  }) => PointColorDef(
+    targetHue: targetHue ?? this.targetHue,
+    targetSat: targetSat ?? this.targetSat,
+    targetLum: targetLum ?? this.targetLum,
+    rangeHue: rangeHue ?? this.rangeHue,
+    rangeSat: rangeSat ?? this.rangeSat,
+    rangeLum: rangeLum ?? this.rangeLum,
+    falloff: falloff ?? this.falloff,
+    hueShift: hueShift ?? this.hueShift,
+    satShift: satShift ?? this.satShift,
+    lumShift: lumShift ?? this.lumShift,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PointColorDef &&
+          other.targetHue == targetHue &&
+          other.targetSat == targetSat &&
+          other.targetLum == targetLum &&
+          other.rangeHue == rangeHue &&
+          other.rangeSat == rangeSat &&
+          other.rangeLum == rangeLum &&
+          other.falloff == falloff &&
+          other.hueShift == hueShift &&
+          other.satShift == satShift &&
+          other.lumShift == lumShift;
+
+  @override
+  int get hashCode => Object.hash(
+    targetHue,
+    targetSat,
+    targetLum,
+    rangeHue,
+    rangeSat,
+    rangeLum,
+    falloff,
+    hueShift,
+    satShift,
+    lumShift,
+  );
+}
+
+/// A double exposure layer composited over the image.
+class DoubleExposureLayer {
+  const DoubleExposureLayer({
+    this.assetId,
+    this.imagePath,
+    this.blendModeIndex = 1,
+    this.opacity = 0.5,
+    this.scale = 1.0,
+    this.offsetX = 0.0,
+    this.offsetY = 0.0,
+  });
+
+  factory DoubleExposureLayer.fromJson(Map<String, Object?> json) {
+    return DoubleExposureLayer(
+      assetId: json['assetId'] as String?,
+      imagePath: json['imagePath'] as String?,
+      blendModeIndex: (json['blendModeIndex'] as num?)?.toInt() ?? 1,
+      opacity: (json['opacity'] as num?)?.toDouble() ?? 0.5,
+      scale: (json['scale'] as num?)?.toDouble() ?? 1.0,
+      offsetX: (json['offsetX'] as num?)?.toDouble() ?? 0.0,
+      offsetY: (json['offsetY'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  final String? assetId;
+  final String? imagePath;
+  final int blendModeIndex;
+  final double opacity;
+  final double scale;
+  final double offsetX;
+  final double offsetY;
+
+  Map<String, Object?> toJson() => {
+    'assetId': assetId,
+    'imagePath': imagePath,
+    'blendModeIndex': blendModeIndex,
+    'opacity': opacity,
+    'scale': scale,
+    'offsetX': offsetX,
+    'offsetY': offsetY,
+  };
+
+  DoubleExposureLayer copyWith({
+    String? assetId,
+    String? imagePath,
+    int? blendModeIndex,
+    double? opacity,
+    double? scale,
+    double? offsetX,
+    double? offsetY,
+  }) => DoubleExposureLayer(
+    assetId: assetId ?? this.assetId,
+    imagePath: imagePath ?? this.imagePath,
+    blendModeIndex: blendModeIndex ?? this.blendModeIndex,
+    opacity: opacity ?? this.opacity,
+    scale: scale ?? this.scale,
+    offsetX: offsetX ?? this.offsetX,
+    offsetY: offsetY ?? this.offsetY,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DoubleExposureLayer &&
+          other.assetId == assetId &&
+          other.imagePath == imagePath &&
+          other.blendModeIndex == blendModeIndex &&
+          other.opacity == opacity &&
+          other.scale == scale &&
+          other.offsetX == offsetX &&
+          other.offsetY == offsetY;
+
+  @override
+  int get hashCode => Object.hash(
+    assetId,
+    imagePath,
+    blendModeIndex,
+    opacity,
+    scale,
+    offsetX,
+    offsetY,
+  );
 }

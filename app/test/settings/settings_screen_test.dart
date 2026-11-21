@@ -1,7 +1,7 @@
 import 'package:aperturex/settings/ai_consent.dart';
 import 'package:aperturex/settings/app_settings.dart';
 import 'package:aperturex/settings/settings_screen.dart';
-import 'package:aperturex/ui/common/settings_sheet.dart' show kOfflineClaim;
+import 'package:aperturex/ui/settings/settings_about_sheet.dart' show kOfflineClaim;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -29,7 +29,19 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('APPEARANCE'), findsOneWidget);
     expect(find.text('INTERFACE SHELL'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('STYLUS & INPUT'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('STYLUS & INPUT'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('ENGINE & PERFORMANCE'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('ENGINE & PERFORMANCE'), findsOneWidget);
 
     await tester.scrollUntilVisible(

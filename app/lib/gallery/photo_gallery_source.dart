@@ -12,7 +12,16 @@ class PhotoGallerySource implements GallerySource {
   @override
   final ThumbnailMemoryCache thumbnailCache = ThumbnailMemoryCache();
 
+  static const int _maxEntityCacheSize = 1000;
   final Map<String, AssetEntity> _entityCache = {};
+
+  void _cacheEntity(String id, AssetEntity entity) {
+    _entityCache.remove(id);
+    if (_entityCache.length >= _maxEntityCacheSize) {
+      _entityCache.remove(_entityCache.keys.first);
+    }
+    _entityCache[id] = entity;
+  }
 
   /// Requests photo access. Re-calling after a denial re-prompts on Android
   /// (where the OS allows it); when it is permanently denied the app should
@@ -62,7 +71,7 @@ class PhotoGallerySource implements GallerySource {
     if (path == null) return const [];
     final entities = await path.getAssetListPaged(page: 0, size: limit);
     for (final e in entities) {
-      _entityCache[e.id] = e;
+      _cacheEntity(e.id, e);
     }
     return [
       for (final e in entities)
@@ -107,11 +116,14 @@ class PhotoGallerySource implements GallerySource {
   }
 
   Future<AssetEntity?> _resolveEntity(String id) async {
-    final cached = _entityCache[id];
-    if (cached != null) return cached;
+    final cached = _entityCache.remove(id);
+    if (cached != null) {
+      _entityCache[id] = cached;
+      return cached;
+    }
     final fetched = await AssetEntity.fromId(id);
     if (fetched != null) {
-      _entityCache[id] = fetched;
+      _cacheEntity(id, fetched);
     }
     return fetched;
   }
