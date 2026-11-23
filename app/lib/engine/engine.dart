@@ -1175,10 +1175,13 @@ class AxEngine {
 
   /// Stores a computed depth map (width*height f32, lower = closer) for
   /// [handle]. Lens blur uses it instead of the built-in heuristic.
-  static Future<void> previewSetDepthMap(int handle, Float32List depthMap) =>
+  /// [confidence] is the depth reliability score in [0,1].
+  static Future<void> previewSetDepthMap(
+      int handle, Float32List depthMap, double confidence) =>
       rust_preview.previewSetDepthMap(
         handle: BigInt.from(handle),
         depthMap: depthMap,
+        confidence: confidence,
       );
 
   /// Computes or retrieves the cached depth map for [handle] from the resident source.

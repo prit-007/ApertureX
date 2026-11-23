@@ -213,8 +213,12 @@ pub fn preview_close(handle: u64) {
 /// Stores a computed depth map (width*height f32 plane in [0.0, 1.0],
 /// lower = closer) for [handle], used by the lens blur stage to protect
 /// subjects from being blurred.
-pub fn preview_set_depth_map(handle: u64, depth_map: Vec<f32>) -> Result<(), String> {
-    crate::preview::set_depth_map(handle, depth_map)
+pub fn preview_set_depth_map(
+    handle: u64,
+    depth_map: Vec<f32>,
+    confidence: f32,
+) -> Result<(), String> {
+    crate::preview::set_depth_map(handle, depth_map, confidence)
 }
 
 /// Estimates depth from the resident image source (without passing
@@ -601,7 +605,7 @@ mod tests {
                 depth[y * w + x] = 0.5;
             }
         }
-        preview_set_depth_map(h_handle, depth).unwrap();
+        preview_set_depth_map(h_handle, depth, 0.95).unwrap();
         let frame = preview_base(h_handle, spec, Vec::new(), Vec::new()).unwrap();
         preview_close(h_handle);
 

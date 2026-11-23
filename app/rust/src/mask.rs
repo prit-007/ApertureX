@@ -1350,6 +1350,7 @@ fn apply_local_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::mask::refine_mask;
 
     fn grey(w: usize, h: usize, v: u8) -> Vec<u8> {
         let mut b = Vec::with_capacity(w * h * 4);
@@ -2430,6 +2431,62 @@ mod tests {
         let invalid_mask = vec![0.5f32; 10]; // length 10 instead of 256
         let result = refine_mask_guided(&rgba, w, h, &invalid_mask, &[], 0.1, 2, 0.01);
         assert_eq!(result, invalid_mask);
+    }
+
+    #[test]
+    fn test_refine_mask_bitmap_uses_depth_plane_as_initial_mask() {
+        let (w, h) = (16, 16);
+        // Image with dark left half (x < 8) and bright right half (x >= 8)
+        let mut rgba = vec![0u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                let val = if x < 8 { 30 } else { 230 };
+                rgba[idx] = val;
+                rgba[idx + 1] = val;
+                rgba[idx + 2] = val;
+                rgba[idx + 3] = 255;
+            }
+        }
+
+        // Initial depth plane: a step at x=8 (0.0 left, 1.0 right) — matches image edge
+        let initial_mask: Vec<f32> = (0..w * h)
+            .map(|i| if (i % w) < 8 { 0.0 } else { 1.0 })
+            .collect();
+
+        // Params for MASK_BITMAP: [w, h, ...initial_mask]
+        let mut params = vec![w as f32, h as f32];
+        params.extend_from_slice(&initial_mask);
+
+        let refined = refine_mask(
+            rgba,
+            w as u32,
+            h as u32,
+            MASK_BITMAP,
+            params,
+            Vec::new(), // stroke_points
+            0.05,       // brush_radius
+            4,          // filter_radius
+            0.005,      // eps
+        );
+
+        assert_eq!(refined.len(), w * h);
+
+        // On the dark side (x < 8), refined alpha stays near 0 (background)
+        let dark_idx = 8 * w + 4;
+        assert!(
+            refined[dark_idx] < 0.3,
+            "dark side refined alpha ({}) should be < 0.3",
+            refined[dark_idx]
+        );
+
+        // On the bright side (x >= 8), refined alpha stays near 1 (foreground)
+        let bright_idx = 8 * w + 12;
+        assert!(
+            refined[bright_idx] > 0.7,
+            "bright side refined alpha ({}) should be > 0.7",
+            refined[bright_idx]
+        );
     }
 
     #[test]

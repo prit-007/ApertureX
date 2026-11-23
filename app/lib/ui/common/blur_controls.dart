@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -287,10 +288,10 @@ Future<void> _applySubjectFocus(BuildContext context, WidgetRef ref) async {
   ref.read(aiMaskStatusMessageProvider.notifier).setMessage(
       strings.blurFindingSubject);
 
-  try {
+    try {
     final detector = ref.read(subjectDetectorProvider);
     final subject = await detector(bytes);
-    unawaited(ref.read(lensBlurControllerProvider.notifier).analyzeDepth(bytes));
+    await ref.read(lensBlurControllerProvider.notifier).analyzeDepth(bytes);
     final focalPoint = subject != null
         ? (0.25 + 0.40 * subject.cy).clamp(0.20, 0.80)
         : 0.40;
@@ -409,10 +410,15 @@ class FocusRingWidget extends ConsumerWidget {
       slider: true,
       child: GestureDetector(
         onPanUpdate: (details) {
-          final r = (details.localPosition - center).distance;
+          final offset = details.localPosition - center;
+          final r = offset.distance;
           final newRange = (r / maxRadius).clamp(0.05, 0.75);
+          // Angle around the ring determines the focal depth plane (near↔far).
+          final angle = offset.direction; // [-pi, pi]
+          final newPoint = (angle / (2 * math.pi) + 0.5) % 1.0;
+          notifier.update(Parameter.blurFocalPoint, newPoint);
           notifier.update(Parameter.blurFocalRange, newRange);
-          notifier.commit(label: 'Focus Range');
+          notifier.commit(label: 'Focus Ring');
         },
         child: CustomPaint(
           size: Size(size, size),

@@ -3769,11 +3769,12 @@ fn wire__crate__api__preview__preview_set_depth_map_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_handle = <u64>::sse_decode(&mut deserializer);
             let api_depth_map = <Vec<f32>>::sse_decode(&mut deserializer);
+            let api_confidence = <f64>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
                     let output_ok =
-                        crate::api::preview::preview_set_depth_map(api_handle, api_depth_map)?;
+                        crate::api::preview::preview_set_depth_map(api_handle, api_depth_map, api_confidence as f32)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }

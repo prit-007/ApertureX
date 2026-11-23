@@ -52,13 +52,15 @@ Future<void> previewClose({required BigInt handle}) =>
 
 /// Stores a computed depth map (width*height f32 plane in [0.0, 1.0],
 /// lower = closer) for [handle], used by the lens blur stage to protect
-/// subjects from being blurred.
+/// subjects from being blurred. [confidence] is the depth reliability [0,1].
 Future<void> previewSetDepthMap({
   required BigInt handle,
   required List<double> depthMap,
+  required double confidence,
 }) => RustLib.instance.api.crateApiPreviewPreviewSetDepthMap(
   handle: handle,
   depthMap: depthMap,
+  confidence: confidence,
 );
 
 /// Estimates depth from the resident image source (without passing

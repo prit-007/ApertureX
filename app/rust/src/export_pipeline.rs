@@ -80,6 +80,46 @@ impl ExportOutcome {
     }
 }
 
+/// Resolves the depth slice for lens blur from the export recipe, matching
+/// the post-geometry dimensions `(gw, gh)`. Returns owned data so the caller
+/// can borrow a slice without lifetime issues. Used by both
+/// [`run_export_single`] and [`run_export_tiled`] to guarantee preview/export
+/// depth parity.
+fn resolve_export_depth_slice(
+    recipe: &ExportRecipe,
+    src_w: usize,
+    src_h: usize,
+    gw: usize,
+    gh: usize,
+    frame: &[u8],
+) -> Option<Vec<f32>> {
+    if let Some(df) = &recipe.depth_field {
+        if df.width as usize == gw && df.height as usize == gh {
+            return Some(df.plane.to_vec());
+        } else if df.width as usize == src_w && df.height as usize == src_h {
+            return Some(geometry::transform_plane(
+                &df.plane, src_w, src_h, &recipe.geometry, gw, gh,
+            ));
+        } else {
+            let resized = crate::ml::resize_mask(
+                &df.plane, df.width as usize, df.height as usize, src_w, src_h,
+            );
+            return Some(geometry::transform_plane(
+                &resized, src_w, src_h, &recipe.geometry, gw, gh,
+            ));
+        }
+    }
+    match &recipe.precomputed_depth_map {
+        Some(dm) if dm.len() == gw * gh => Some(dm.clone()),
+        Some(dm) if dm.len() == src_w * src_h => {
+            Some(geometry::transform_plane(
+                dm, src_w, src_h, &recipe.geometry, gw, gh,
+            ))
+        }
+        _ => estimate_fallback_depth(frame, gw, gh),
+    }
+}
+
 /// Full-frame export — the parity oracle and the small-image path. Runs
 /// geometry → spatial → masks → grade over the whole buffer, no banding.
 pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) -> ExportFrame {
@@ -98,36 +138,8 @@ pub fn run_export_single(recipe: &ExportRecipe, src: &[u8], w: usize, h: usize) 
         if blur_params.sample_count < 64 {
             blur_params.sample_count = 64;
         }
-        let transformed_depth;
-        let fallback_depth;
-        let depth_slice = if let Some(df) = &recipe.depth_field {
-            if df.width as usize == gw && df.height as usize == gh {
-                Some(&df.plane[..])
-            } else if df.width as usize == w && df.height as usize == h {
-                transformed_depth =
-                    geometry::transform_plane(&df.plane, w, h, &recipe.geometry, gw, gh);
-                Some(transformed_depth.as_slice())
-            } else {
-                let resized =
-                    crate::ml::resize_mask(&df.plane, df.width as usize, df.height as usize, w, h);
-                transformed_depth =
-                    geometry::transform_plane(&resized, w, h, &recipe.geometry, gw, gh);
-                Some(transformed_depth.as_slice())
-            }
-        } else {
-            match &recipe.precomputed_depth_map {
-                Some(dm) if dm.len() == gw * gh => Some(dm.as_slice()),
-                Some(dm) if dm.len() == w * h => {
-                    transformed_depth =
-                        geometry::transform_plane(dm, w, h, &recipe.geometry, gw, gh);
-                    Some(transformed_depth.as_slice())
-                }
-                _ => {
-                    fallback_depth = estimate_fallback_depth(&buf, gw, gh);
-                    fallback_depth.as_deref()
-                }
-            }
-        };
+        let depth_owned = resolve_export_depth_slice(recipe, w, h, gw, gh, &buf);
+        let depth_slice = depth_owned.as_deref();
         buf = blur::apply_lens_blur(&buf, gw, gh, blur_params, depth_slice);
     }
     if !recipe.spatial.is_neutral() {
@@ -190,36 +202,8 @@ pub fn run_export_tiled(
         if blur_params.sample_count < 64 {
             blur_params.sample_count = 64;
         }
-        let transformed_depth;
-        let fallback_depth;
-        let depth_slice = if let Some(df) = &recipe.depth_field {
-            if df.width as usize == gw && df.height as usize == gh {
-                Some(&df.plane[..])
-            } else if df.width as usize == w && df.height as usize == h {
-                transformed_depth =
-                    geometry::transform_plane(&df.plane, w, h, &recipe.geometry, gw, gh);
-                Some(transformed_depth.as_slice())
-            } else {
-                let resized =
-                    crate::ml::resize_mask(&df.plane, df.width as usize, df.height as usize, w, h);
-                transformed_depth =
-                    geometry::transform_plane(&resized, w, h, &recipe.geometry, gw, gh);
-                Some(transformed_depth.as_slice())
-            }
-        } else {
-            match &recipe.precomputed_depth_map {
-                Some(dm) if dm.len() == gw * gh => Some(dm.as_slice()),
-                Some(dm) if dm.len() == w * h => {
-                    transformed_depth =
-                        geometry::transform_plane(dm, w, h, &recipe.geometry, gw, gh);
-                    Some(transformed_depth.as_slice())
-                }
-                _ => {
-                    fallback_depth = estimate_fallback_depth(&frame, gw, gh);
-                    fallback_depth.as_deref()
-                }
-            }
-        };
+        let depth_owned = resolve_export_depth_slice(recipe, w, h, gw, gh, &frame);
+        let depth_slice = depth_owned.as_deref();
         if cancel.is_some_and(|c| c.load(Ordering::Acquire)) {
             return Ok(ExportOutcome::Cancelled);
         }

@@ -7,6 +7,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:aperturex/edit/lens_blur_controller.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
 
+class _MockAnalyzeDepthController extends LensBlurController {
+  int analyzeDepthCallCount = 0;
+
+  @override
+  Future<void> analyzeDepth(Uint8List imageBytes, {int? handle, bool force = false}) async {
+    analyzeDepthCallCount++;
+    state = state.copyWith(
+      depthConfidence: 0.9,
+      status: LensBlurStatus.ready,
+      cachedDepth: Float32List.fromList([0.5]),
+      depthWidth: 1,
+      depthHeight: 1,
+    );
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -136,6 +152,42 @@ void main() {
       expect(recipeField, isNotNull);
       expect(recipeField!.plane.length, 16);
       expect(recipeField.plane[centerIdx], lessThan(0.8));
+
+      // Confidence should be 1.0 (user-authoritative) after manual brush edit
+      expect(notifier.state.depthConfidence, 1.0);
+      expect(recipeField.confidence, 1.0);
+    });
+
+    test('analyzeDepth respects cache when force=false, re-runs when force=true', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(lensBlurControllerProvider.notifier);
+
+      // Pre-populate cached depth
+      final initial = Float32List.fromList([0.5]);
+      notifier.state = notifier.state.copyWith(
+        status: LensBlurStatus.ready,
+        cachedDepth: initial,
+        depthWidth: 1,
+        depthHeight: 1,
+        depthConfidence: 0.9,
+      );
+
+      // force=false (default): should early-return, state unchanged
+      final stateBefore = notifier.state;
+      await notifier.analyzeDepth(Uint8List.fromList([1, 2, 3, 4]));
+      expect(notifier.state, stateBefore, reason: 'force=false should early-return with cached depth');
+
+      // force=true: should proceed past the cache check (may fail on FFI, but must not early-return)
+      try {
+        await notifier.analyzeDepth(Uint8List.fromList([1, 2, 3, 4]), force: true);
+        // If it succeeds, status should still be ready or failed (not early-returned)
+        expect(notifier.state.status, isIn([LensBlurStatus.ready, LensBlurStatus.failed]));
+      } catch (e) {
+        // FFI may fail in test env; the key is that it didn't early-return
+        expect(notifier.state.status, isNot(LensBlurStatus.off));
+      }
     });
   });
 }

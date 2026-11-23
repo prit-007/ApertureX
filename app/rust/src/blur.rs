@@ -553,13 +553,15 @@ fn apply_lens_blur_inner(
     // Confidence gating: when no pre-computed depth map is provided and the scene lacks
     // texture variance/gradients (< 0.005 confidence, e.g. uniform blank frame), monocular
     // and optical depth cues cannot reliably differentiate scene planes.
-    let confidence = compute_depth_confidence(rgba, w, h);
-    if depth_map.is_none() && confidence < 0.005 {
-        crate::api::logging::record_engine_error(
-            "Lens blur depth confidence too low",
-            &format!("confidence {confidence:.4} < 0.005; gating blur on textureless scene"),
-        );
-        return rgba.to_vec();
+    if depth_map.is_none() {
+        let confidence = compute_depth_confidence(rgba, w, h);
+        if confidence < 0.005 {
+            crate::api::logging::record_engine_error(
+                "Lens blur depth confidence too low",
+                &format!("confidence {confidence:.4} < 0.005; gating blur on textureless scene"),
+            );
+            return rgba.to_vec();
+        }
     }
 
     let diag = ((w * w + full_h * full_h) as f32).sqrt();
@@ -1853,5 +1855,79 @@ mod tests {
             "Banded blur matches full frame within halo margin (got max_diff={})",
             max_diff
         );
+    }
+
+    #[test]
+    fn test_confidence_gating_textureless_no_depth_map_returns_input() {
+        // Uniform gray frame: zero texture variance → confidence ~ 0
+        let (w, h) = (32, 32);
+        let src = vec![128u8; w * h * 4];
+        let params = LensBlurParams {
+            enabled: true,
+            amount: 0.8,
+            focal_point: 0.5,
+            focal_range: 0.2,
+            bokeh_shape: BokehShape::Circle,
+            bokeh_boost: 0.0,
+            background_blur: false,
+            sample_count: 36,
+        };
+        let out = apply_lens_blur(&src, w, h, params, None);
+        assert_eq!(out, src, "textureless scene without depth map must be gated");
+    }
+
+    #[test]
+    fn test_confidence_gating_textureless_with_depth_map_applies_blur() {
+        // Uniform gray frame but with a provided depth map → blur should still apply
+        let (w, h) = (32, 32);
+        let src = vec![128u8; w * h * 4];
+        // Depth map: left half near (0.0), right half far (1.0)
+        let mut depth_map = vec![0.0f32; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                depth_map[y * w + x] = if x < w / 2 { 0.0 } else { 1.0 };
+            }
+        }
+        let params = LensBlurParams {
+            enabled: true,
+            amount: 0.8,
+            focal_point: 0.5,
+            focal_range: 0.2,
+            bokeh_shape: BokehShape::Circle,
+            bokeh_boost: 0.0,
+            background_blur: false,
+            sample_count: 36,
+        };
+        let out = apply_lens_blur(&src, w, h, params, Some(&depth_map));
+        assert_ne!(out, src, "depth map provided: blur must apply even on textureless scene");
+    }
+
+    #[test]
+    fn test_confidence_gating_textured_no_depth_map_applies_blur() {
+        // High-frequency checkerboard: high texture → confidence > 0.005
+        let (w, h) = (32, 32);
+        let mut src = vec![0u8; w * h * 4];
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) * 4;
+                let v = if (x + y) % 2 == 0 { 255 } else { 0 };
+                src[idx] = v;
+                src[idx + 1] = v;
+                src[idx + 2] = v;
+                src[idx + 3] = 255;
+            }
+        }
+        let params = LensBlurParams {
+            enabled: true,
+            amount: 0.8,
+            focal_point: 0.5,
+            focal_range: 0.2,
+            bokeh_shape: BokehShape::Circle,
+            bokeh_boost: 0.0,
+            background_blur: false,
+            sample_count: 36,
+        };
+        let out = apply_lens_blur(&src, w, h, params, None);
+        assert_ne!(out, src, "textured scene without depth map must apply blur");
     }
 }

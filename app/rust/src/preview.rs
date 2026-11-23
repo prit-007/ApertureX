@@ -58,6 +58,9 @@ use crate::spatial::{self, SpatialParams};
 struct Store {
     next: u64,
     images: HashMap<u64, Resident>,
+    /// Join handles for background depth-prewarm threads, joined on close
+    /// so no thread touches a resident after it is removed from the store.
+    prewarm_handles: HashMap<u64, std::thread::JoinHandle<()>>,
 }
 
 /// A depth plane stored alongside a resident preview. Values are `[0,1]`
@@ -155,11 +158,15 @@ pub fn open(rgba: Vec<u8>, width: u32, height: u32) -> u64 {
     // Async resident depth pre-warming: kick off depth estimation on a background worker thread
     // so that by the time the user toggles Lens Blur or drags a slider, the resident depth map
     // is already resident in memory and the first scrub never stalls.
-    let _ = std::thread::Builder::new()
+    let handle_join = std::thread::Builder::new()
         .name(format!("depth-prewarm-{id}"))
         .spawn(move || {
             let _ = ensure_depth_map(id);
         });
+    if let Ok(join) = handle_join {
+        let mut store = lock_store();
+        store.prewarm_handles.insert(id, join);
+    }
 
     id
 }
@@ -283,6 +290,16 @@ pub fn close(handle: u64) {
         let mut store = lock_store();
         store.images.remove(&handle).map(|r| r.window)
     };
+    // Join the background depth-prewarm thread so it cannot touch the
+    // resident after it has been removed from the store.
+    // Drop the store lock before joining — ensure_depth_map needs it.
+    let join_handle = {
+        let mut store = lock_store();
+        store.prewarm_handles.remove(&handle)
+    };
+    if let Some(join) = join_handle {
+        let _ = join.join();
+    }
     {
         let mut locks = DEPTH_COMPUTE_LOCKS
             .lock()
@@ -297,8 +314,12 @@ pub fn close(handle: u64) {
 
 /// Stores a depth map for [handle]. The map must contain one `f32` per
 /// source pixel (width * height) in `[0.0, 1.0]` where lower = closer.
-/// Used by the lens blur stage to protect subjects.
-pub fn set_depth_map(handle: u64, depth_map: Vec<f32>) -> Result<(), String> {
+/// [confidence] is the depth-map reliability score in `[0.0, 1.0]`.
+pub fn set_depth_map(
+    handle: u64,
+    depth_map: Vec<f32>,
+    confidence: f32,
+) -> Result<(), String> {
     let (width, height) = {
         let store = lock_store();
         let resident = store
@@ -332,7 +353,7 @@ pub fn set_depth_map(handle: u64, depth_map: Vec<f32>) -> Result<(), String> {
         depth_map,
         width as u32,
         height as u32,
-        1.0,
+        confidence.clamp(0.0, 1.0),
         crate::depth::DepthSource::Approximate,
         None,
         0,
@@ -1508,7 +1529,7 @@ mod depth_tests {
         let (w, h) = (16, 16);
         let src = checkerboard(w, h);
         let handle = open(src.clone(), w as u32, h as u32);
-        set_depth_map(handle, vec![0.5; w * h]).expect("valid depth map");
+        set_depth_map(handle, vec![0.5; w * h], 0.95).expect("valid depth map");
 
         let spec = PreviewBaseSpec {
             blur_enabled: true,
@@ -1549,8 +1570,33 @@ mod depth_tests {
     #[test]
     fn set_depth_map_rejects_wrong_size() {
         let handle = open(vec![128u8; 8 * 8 * 4], 8, 8);
-        let err = set_depth_map(handle, vec![0.5; 63]).unwrap_err();
+        let err = set_depth_map(handle, vec![0.5; 63], 0.5).unwrap_err();
         assert!(err.contains("expected 64"), "unexpected error: {err}");
         close(handle);
+    }
+
+    #[test]
+    fn close_joins_prewarm_thread_no_use_after_close() {
+        // open() spawns a background depth-prewarm thread. close() must join it
+        // so no thread touches the resident after it is removed from the store.
+        let handle = open(vec![128u8; 8 * 8 * 4], 8, 8);
+
+        // Close while the prewarm thread may still be running.
+        close(handle);
+
+        // The handle must no longer be resolvable.
+        match get_source_rgba(handle) {
+            Err(err) => assert!(
+                err.contains("unknown preview handle"),
+                "unexpected error: {err}"
+            ),
+            Ok(_) => panic!("expected error for closed handle"),
+        }
+
+        // Reopening the same logical image must work (fresh handle, no leak).
+        let handle2 = open(vec![200u8; 8 * 8 * 4], 8, 8);
+        let src = get_source_rgba(handle2).expect("reopened handle must work");
+        assert_eq!(src.rgba[0], 200);
+        close(handle2);
     }
 }
