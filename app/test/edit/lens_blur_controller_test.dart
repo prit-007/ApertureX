@@ -152,7 +152,6 @@ void main() {
       expect(recipeField, isNotNull);
       expect(recipeField!.plane.length, 16);
       expect(recipeField.plane[centerIdx], lessThan(0.8));
-
       // Confidence should be 1.0 (user-authoritative) after manual brush edit
       expect(notifier.state.depthConfidence, 1.0);
       expect(recipeField.confidence, 1.0);

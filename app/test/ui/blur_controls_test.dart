@@ -277,7 +277,6 @@ void main() {
     final range = container.read(recipeControllerProvider).recipe.blurFocalRange;
     expect(range, greaterThan(0.0));
   });
-
   testWidgets('FocusRingWidget pan gesture modulates both blurFocalPoint and blurFocalRange', (
     tester,
   ) async {
