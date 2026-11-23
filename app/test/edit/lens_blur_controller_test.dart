@@ -7,22 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:aperturex/edit/lens_blur_controller.dart';
 import 'package:aperturex/edit/recipe_controller.dart';
 
-class _MockAnalyzeDepthController extends LensBlurController {
-  int analyzeDepthCallCount = 0;
-
-  @override
-  Future<void> analyzeDepth(Uint8List imageBytes, {int? handle, bool force = false}) async {
-    analyzeDepthCallCount++;
-    state = state.copyWith(
-      depthConfidence: 0.9,
-      status: LensBlurStatus.ready,
-      cachedDepth: Float32List.fromList([0.5]),
-      depthWidth: 1,
-      depthHeight: 1,
-    );
-  }
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
