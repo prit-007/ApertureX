@@ -315,11 +315,7 @@ pub fn close(handle: u64) {
 /// Stores a depth map for [handle]. The map must contain one `f32` per
 /// source pixel (width * height) in `[0.0, 1.0]` where lower = closer.
 /// [confidence] is the depth-map reliability score in `[0.0, 1.0]`.
-pub fn set_depth_map(
-    handle: u64,
-    depth_map: Vec<f32>,
-    confidence: f32,
-) -> Result<(), String> {
+pub fn set_depth_map(handle: u64, depth_map: Vec<f32>, confidence: f32) -> Result<(), String> {
     let (width, height) = {
         let store = lock_store();
         let resident = store

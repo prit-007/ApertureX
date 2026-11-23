@@ -500,8 +500,7 @@ fn sample_f32(plane: &[f32], w: usize, h: usize, fx: f32, fy: f32) -> f32 {
     let c10 = plane[y0 * w + x1];
     let c01 = plane[y1 * w + x0];
     let c11 = plane[y1 * w + x1];
-    (c00 + (c10 - c00) * tx + (c01 - c00) * ty + (c00 - c10 - c01 + c11) * tx * ty)
-        .clamp(0.0, 1.0)
+    (c00 + (c10 - c00) * tx + (c01 - c00) * ty + (c00 - c10 - c01 + c11) * tx * ty).clamp(0.0, 1.0)
 }
 
 /// Rotates an f32 depth plane by `angle_deg` around its centre using bilinear
@@ -536,11 +535,7 @@ fn perspective_warp_f32(
     skew_x: f32,
     skew_y: f32,
 ) -> Vec<f32> {
-    if perspective_x == 0.0
-        && perspective_y == 0.0
-        && skew_x == 0.0
-        && skew_y == 0.0
-    {
+    if perspective_x == 0.0 && perspective_y == 0.0 && skew_x == 0.0 && skew_y == 0.0 {
         return plane.to_vec();
     }
     let tl = [
@@ -660,9 +655,13 @@ pub fn transform_plane(
         || spec.skew_y != 0.0
     {
         data = perspective_warp_f32(
-            &data, w, h,
-            spec.perspective_x, spec.perspective_y,
-            spec.skew_x, spec.skew_y,
+            &data,
+            w,
+            h,
+            spec.perspective_x,
+            spec.perspective_y,
+            spec.skew_x,
+            spec.skew_y,
         );
     }
     if w != out_w || h != out_h {
@@ -1138,7 +1137,10 @@ mod tests {
         let transformed = transform_plane(&plane, w, h, &spec, w, h);
         assert_eq!(transformed.len(), w * h);
         // Perspective warp must not leave the plane unchanged when params are non-zero.
-        assert_ne!(transformed, plane, "perspective warp must transform the depth plane");
+        assert_ne!(
+            transformed, plane,
+            "perspective warp must transform the depth plane"
+        );
     }
 
     #[test]

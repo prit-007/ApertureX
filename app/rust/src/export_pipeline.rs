@@ -98,24 +98,41 @@ fn resolve_export_depth_slice(
             return Some(df.plane.to_vec());
         } else if df.width as usize == src_w && df.height as usize == src_h {
             return Some(geometry::transform_plane(
-                &df.plane, src_w, src_h, &recipe.geometry, gw, gh,
+                &df.plane,
+                src_w,
+                src_h,
+                &recipe.geometry,
+                gw,
+                gh,
             ));
         } else {
             let resized = crate::ml::resize_mask(
-                &df.plane, df.width as usize, df.height as usize, src_w, src_h,
+                &df.plane,
+                df.width as usize,
+                df.height as usize,
+                src_w,
+                src_h,
             );
             return Some(geometry::transform_plane(
-                &resized, src_w, src_h, &recipe.geometry, gw, gh,
+                &resized,
+                src_w,
+                src_h,
+                &recipe.geometry,
+                gw,
+                gh,
             ));
         }
     }
     match &recipe.precomputed_depth_map {
         Some(dm) if dm.len() == gw * gh => Some(dm.clone()),
-        Some(dm) if dm.len() == src_w * src_h => {
-            Some(geometry::transform_plane(
-                dm, src_w, src_h, &recipe.geometry, gw, gh,
-            ))
-        }
+        Some(dm) if dm.len() == src_w * src_h => Some(geometry::transform_plane(
+            dm,
+            src_w,
+            src_h,
+            &recipe.geometry,
+            gw,
+            gh,
+        )),
         _ => estimate_fallback_depth(frame, gw, gh),
     }
 }

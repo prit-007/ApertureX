@@ -3773,8 +3773,11 @@ fn wire__crate__api__preview__preview_set_depth_map_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok =
-                        crate::api::preview::preview_set_depth_map(api_handle, api_depth_map, api_confidence as f32)?;
+                    let output_ok = crate::api::preview::preview_set_depth_map(
+                        api_handle,
+                        api_depth_map,
+                        api_confidence as f32,
+                    )?;
                     std::result::Result::Ok(output_ok)
                 })())
             }

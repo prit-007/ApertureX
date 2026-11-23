@@ -1873,7 +1873,10 @@ mod tests {
             sample_count: 36,
         };
         let out = apply_lens_blur(&src, w, h, params, None);
-        assert_eq!(out, src, "textureless scene without depth map must be gated");
+        assert_eq!(
+            out, src,
+            "textureless scene without depth map must be gated"
+        );
     }
 
     #[test]
@@ -1899,7 +1902,10 @@ mod tests {
             sample_count: 36,
         };
         let out = apply_lens_blur(&src, w, h, params, Some(&depth_map));
-        assert_ne!(out, src, "depth map provided: blur must apply even on textureless scene");
+        assert_ne!(
+            out, src,
+            "depth map provided: blur must apply even on textureless scene"
+        );
     }
 
     #[test]
