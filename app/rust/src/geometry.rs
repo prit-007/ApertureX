@@ -486,6 +486,95 @@ pub fn apply_spec(rgba: &[u8], w: usize, h: usize, spec: &GeometrySpec) -> (Vec<
 
 /// Transforms a single-channel float plane (e.g. depth map or segmentation mask)
 /// through the geometry pipeline (flip, rotate, crop, resize to target).
+/// Bilinear sample of a single-channel f32 plane with clamped edges.
+fn sample_f32(plane: &[f32], w: usize, h: usize, fx: f32, fy: f32) -> f32 {
+    let x = fx.clamp(0.0, (w - 1) as f32);
+    let y = fy.clamp(0.0, (h - 1) as f32);
+    let x0 = x.floor() as usize;
+    let y0 = y.floor() as usize;
+    let x1 = (x0 + 1).min(w - 1);
+    let y1 = (y0 + 1).min(h - 1);
+    let tx = x - x0 as f32;
+    let ty = y - y0 as f32;
+    let c00 = plane[y0 * w + x0];
+    let c10 = plane[y0 * w + x1];
+    let c01 = plane[y1 * w + x0];
+    let c11 = plane[y1 * w + x1];
+    (c00 + (c10 - c00) * tx + (c01 - c00) * ty + (c00 - c10 - c01 + c11) * tx * ty).clamp(0.0, 1.0)
+}
+
+/// Rotates an f32 depth plane by `angle_deg` around its centre using bilinear
+/// interpolation, same output size (corners may read edge-clamped values).
+fn straighten_f32(plane: &[f32], w: usize, h: usize, angle_deg: f32) -> Vec<f32> {
+    if angle_deg == 0.0 {
+        return plane.to_vec();
+    }
+    let a = angle_deg.to_radians();
+    let (ca, sa) = (a.cos(), a.sin());
+    let (cx, cy) = ((w - 1) as f32 / 2.0, (h - 1) as f32 / 2.0);
+    let mut out = vec![0.0f32; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            let dx = x as f32 - cx;
+            let dy = y as f32 - cy;
+            let sx = cx + dx * ca + dy * sa;
+            let sy = cy - dx * sa + dy * ca;
+            out[y * w + x] = sample_f32(plane, w, h, sx, sy);
+        }
+    }
+    out
+}
+
+/// Warps an f32 depth plane by a perspective/skew quad, output stays w×h.
+fn perspective_warp_f32(
+    plane: &[f32],
+    w: usize,
+    h: usize,
+    perspective_x: f32,
+    perspective_y: f32,
+    skew_x: f32,
+    skew_y: f32,
+) -> Vec<f32> {
+    if perspective_x == 0.0 && perspective_y == 0.0 && skew_x == 0.0 && skew_y == 0.0 {
+        return plane.to_vec();
+    }
+    let tl = [
+        0.5 - 0.5 * (1.0 - perspective_x) * (1.0 - skew_x),
+        0.5 - 0.5 * (1.0 - perspective_y) * (1.0 - skew_y),
+    ];
+    let tr = [
+        0.5 + 0.5 * (1.0 - perspective_x) * (1.0 + skew_x),
+        0.5 - 0.5 * (1.0 - perspective_y) * (1.0 + skew_y),
+    ];
+    let bl = [
+        0.5 - 0.5 * (1.0 + perspective_x) * (1.0 - skew_x),
+        0.5 + 0.5 * (1.0 + perspective_y) * (1.0 - skew_y),
+    ];
+    let br = [
+        0.5 + 0.5 * (1.0 + perspective_x) * (1.0 + skew_x),
+        0.5 + 0.5 * (1.0 + perspective_y) * (1.0 + skew_y),
+    ];
+    let mut out = vec![0.0f32; w * h];
+    let max_w = (w.max(1) - 1) as f32;
+    let max_h = (h.max(1) - 1) as f32;
+    for y in 0..h {
+        let v = y as f32 / max_h;
+        for x in 0..w {
+            let u = x as f32 / max_w;
+            let sx = tl[0] * (1.0 - u) * (1.0 - v)
+                + tr[0] * u * (1.0 - v)
+                + bl[0] * (1.0 - u) * v
+                + br[0] * u * v;
+            let sy = tl[1] * (1.0 - u) * (1.0 - v)
+                + tr[1] * u * (1.0 - v)
+                + bl[1] * (1.0 - u) * v
+                + br[1] * u * v;
+            out[y * w + x] = sample_f32(plane, w, h, sx * max_w, sy * max_h);
+        }
+    }
+    out
+}
+
 pub fn transform_plane(
     plane: &[f32],
     src_w: usize,
@@ -533,6 +622,20 @@ pub fn transform_plane(
             h = nh;
         }
     }
+    // Straighten (arbitrary-angle rotation) + inscribed-rect crop, matching the
+    // pixel path in apply_spec so depth stays aligned after rotation.
+    if spec.angle != 0.0 {
+        data = straighten_f32(&data, w, h, spec.angle);
+        let [x, y, cw, ch] = inscribed_rect(w, h, spec.angle);
+        let mut cropped = Vec::with_capacity(cw * ch);
+        for row in 0..ch {
+            let start = (y + row) * w + x;
+            cropped.extend_from_slice(&data[start..start + cw]);
+        }
+        data = cropped;
+        w = cw;
+        h = ch;
+    }
     if let Some((x, y, cw, ch)) =
         crop_rect(w, h, spec.crop_l, spec.crop_t, spec.crop_r, spec.crop_b)
     {
@@ -544,6 +647,22 @@ pub fn transform_plane(
         data = out;
         w = cw;
         h = ch;
+    }
+    // Perspective/skew warp, matching the pixel path in apply_spec.
+    if spec.perspective_x != 0.0
+        || spec.perspective_y != 0.0
+        || spec.skew_x != 0.0
+        || spec.skew_y != 0.0
+    {
+        data = perspective_warp_f32(
+            &data,
+            w,
+            h,
+            spec.perspective_x,
+            spec.perspective_y,
+            spec.skew_x,
+            spec.skew_y,
+        );
     }
     if w != out_w || h != out_h {
         data = crate::ml::resize_mask(&data, w, h, out_w, out_h);
@@ -977,6 +1096,51 @@ mod tests {
         };
         let transformed = transform_plane(&plane, w, h, &spec, 2, 2);
         assert_eq!(transformed.len(), 4);
+    }
+
+    #[test]
+    fn test_transform_plane_applies_straighten_angle() {
+        // A depth plane where each pixel equals its normalized y-coordinate (vertical gradient, [0,1]).
+        // Straightening rotates the plane; depth must rotate with it so blur stays aligned.
+        let (w, h) = (4, 4);
+        let plane: Vec<f32> = (0..w * h).map(|i| (i / w) as f32 / 3.0).collect();
+        let spec = GeometrySpec {
+            angle: 90.0,
+            ..Default::default()
+        };
+        let transformed = transform_plane(&plane, w, h, &spec, w, h);
+        assert_eq!(transformed.len(), w * h);
+        // After rotation, output top-left (0,0) samples input bottom-left (row 3, col 0) = 1.0.
+        assert!(
+            (transformed[0] - 1.0).abs() < 1e-4,
+            "top-left after rotation = 1.0, got {}",
+            transformed[0]
+        );
+        // Output bottom-right (3,3) samples input top-right (row 0, col 3) = 0.0.
+        assert!(
+            (transformed[15] - 0.0).abs() < 1e-4,
+            "bottom-right after rotation = 0.0, got {}",
+            transformed[15]
+        );
+        // The transform must not be identity (depth values must have moved).
+        assert_ne!(transformed, plane, "straighten must rotate the depth plane");
+    }
+
+    #[test]
+    fn test_transform_plane_applies_perspective_warp() {
+        let (w, h) = (4, 4);
+        let plane: Vec<f32> = (0..w * h).map(|i| i as f32).collect();
+        let spec = GeometrySpec {
+            perspective_x: 0.2,
+            ..Default::default()
+        };
+        let transformed = transform_plane(&plane, w, h, &spec, w, h);
+        assert_eq!(transformed.len(), w * h);
+        // Perspective warp must not leave the plane unchanged when params are non-zero.
+        assert_ne!(
+            transformed, plane,
+            "perspective warp must transform the depth plane"
+        );
     }
 
     #[test]

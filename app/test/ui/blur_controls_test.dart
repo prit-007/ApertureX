@@ -156,6 +156,57 @@ void main() {
     expect(find.textContaining('Subject focus placed'), findsOneWidget);
   });
 
+  testWidgets('analyzeDepth completes before focal point is committed (no fire-and-forget race)', (
+    tester,
+  ) async {
+    const fakeSubject = rust_mask.DetectedSubject(
+      cx: 0.5,
+      cy: 0.4,
+      rx: 0.2,
+      ry: 0.3,
+      feather: 0.1,
+    );
+    final customContainer = ProviderContainer(
+      overrides: [
+        aiConsentProvider.overrideWith(_AlwaysGrantedConsentNotifier.new),
+        subjectDetectorProvider.overrideWithValue((bytes) async => fakeSubject),
+        lensBlurControllerProvider.overrideWith(() => _MockLensBlurController()),
+      ],
+    );
+    addTearDown(customContainer.dispose);
+    customContainer.read(recipeControllerProvider.notifier).setBlurEnabled(true);
+    customContainer.read(activeImageBytesProvider.notifier).setBytes(Uint8List.fromList([1, 2, 3, 4]));
+
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: customContainer,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: BlurControls(),
+          ),
+        ),
+      ),
+    );
+
+    final aiDepthChip = find.byKey(const Key('blur-subject-focus'));
+    expect(aiDepthChip, findsOneWidget);
+
+    await tester.tap(aiDepthChip);
+    await tester.pumpAndSettle();
+
+    // Depth confidence must be set by analyzeDepth (not 0.0 from synthetic fallback)
+    final notifier = customContainer.read(lensBlurControllerProvider.notifier) as _MockLensBlurController;
+    expect(notifier.analyzeDepthCompleted, isTrue);
+    final state = customContainer.read(lensBlurControllerProvider);
+    expect(state.depthConfidence, closeTo(0.95, 1e-4));
+    expect(state.status, LensBlurStatus.ready);
+    expect(state.cachedDepth, isNotNull);
+  });
+
   testWidgets('BlurControls bokeh chips use VisualDensity.compact', (
     tester,
   ) async {
@@ -226,6 +277,66 @@ void main() {
     final range = container.read(recipeControllerProvider).recipe.blurFocalRange;
     expect(range, greaterThan(0.0));
   });
+  testWidgets('FocusRingWidget pan gesture modulates both blurFocalPoint and blurFocalRange', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: FocusRingWidget(size: 200.0),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(FocusRingWidget), findsOneWidget);
+
+    // Initial focal point is neutral (0.5)
+    final initialPoint =
+        container.read(recipeControllerProvider).recipe.blurFocalPoint;
+    expect(initialPoint, closeTo(0.5, 1e-4));
+
+    // Drag to top of ring (angle -pi/2): should change focalPoint from neutral
+    await tester.drag(
+      find.byType(FocusRingWidget),
+      const Offset(0, -60),
+    );
+    await tester.pumpAndSettle();
+
+    final point =
+        container.read(recipeControllerProvider).recipe.blurFocalPoint;
+    final range =
+        container.read(recipeControllerProvider).recipe.blurFocalRange;
+    // Both focal point and focal range should have changed from neutral
+    expect(point, isNot(closeTo(0.5, 0.01)),
+        reason: 'dragging at an angle should change focalPoint from neutral');
+    expect(range, greaterThan(0.0));
+  });
+}
+
+class _MockLensBlurController extends LensBlurController {
+  bool analyzeDepthCompleted = false;
+
+  @override
+  Future<void> analyzeDepth(
+    Uint8List imageBytes, {
+    int? handle,
+    bool force = false,
+  }) async {
+    await Future.delayed(Duration.zero);
+    state = state.copyWith(
+      depthConfidence: 0.95,
+      status: LensBlurStatus.ready,
+      cachedDepth: Float32List.fromList([0.5]),
+      depthWidth: 1,
+      depthHeight: 1,
+    );
+    analyzeDepthCompleted = true;
+  }
 }
 
 class _AlwaysGrantedConsentNotifier extends AiConsentNotifier {

@@ -696,6 +696,7 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiPreviewPreviewSetDepthMap({
     required BigInt handle,
     required List<double> depthMap,
+    required double confidence,
   });
 
   Future<void> crateApiPreviewPreviewSetEmbeddedDepth({
@@ -4659,6 +4660,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Future<void> crateApiPreviewPreviewSetDepthMap({
     required BigInt handle,
     required List<double> depthMap,
+    required double confidence,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -4666,6 +4668,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_u_64(handle, serializer);
           sse_encode_list_prim_f_32_loose(depthMap, serializer);
+          sse_encode_f_64(confidence, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -4678,7 +4681,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_String,
         ),
         constMeta: kCrateApiPreviewPreviewSetDepthMapConstMeta,
-        argValues: [handle, depthMap],
+        argValues: [handle, depthMap, confidence],
         apiImpl: this,
       ),
     );
@@ -4687,7 +4690,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiPreviewPreviewSetDepthMapConstMeta =>
       const TaskConstMeta(
         debugName: "preview_set_depth_map",
-        argNames: ["handle", "depthMap"],
+        argNames: ["handle", "depthMap", "confidence"],
       );
 
   @override

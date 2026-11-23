@@ -119,8 +119,8 @@ class LensBlurController extends Notifier<LensBlurState> {
   }
 
   /// Estimates depth map and confidence from active image proxy or cached sources.
-  Future<void> analyzeDepth(Uint8List imageBytes, {int? handle}) async {
-    if (state.cachedDepth != null && state.depthWidth > 0 && state.depthHeight > 0) {
+  Future<void> analyzeDepth(Uint8List imageBytes, {int? handle, bool force = false}) async {
+    if (!force && state.cachedDepth != null && state.depthWidth > 0 && state.depthHeight > 0) {
       return;
     }
 
@@ -353,14 +353,14 @@ class LensBlurController extends Notifier<LensBlurState> {
     final data = DepthSidecarData(
       width: w,
       height: h,
-      confidence: state.depthConfidence,
+      confidence: 1.0, // user-authoritative depth after manual brush edit
       source: DepthSourceType.neural,
       contentHash: 0,
       plane: updated,
     );
     ref.read(recipeControllerProvider.notifier).setDepthField(data);
 
-    state = state.copyWith(cachedDepth: updated);
+    state = state.copyWith(cachedDepth: updated, depthConfidence: 1.0);
   }
 
   /// Snaps depth map edges to photographic boundaries using the color image as guide (Item 4.6).
@@ -376,7 +376,7 @@ class LensBlurController extends Notifier<LensBlurState> {
         rgba: decoded.rgba,
         width: decoded.width,
         height: decoded.height,
-        maskKind: 0,
+        maskKind: 6, // MASK_BITMAP: params = [w, h, ...depthPlane] as initial alpha mask
         maskParams: [w.toDouble(), h.toDouble(), ...depth],
       );
       if (refined.length == w * h) {
